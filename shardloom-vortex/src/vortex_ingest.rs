@@ -10370,6 +10370,10 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         lanes.admit_conversion_memory(
             prefetch_memory_bytes,
             u64::try_from(first_batch.get_array_memory_size()).unwrap_or(u64::MAX),
+            native_memory
+                .as_ref()
+                .map(|_| arrow_ownership::batch_copy_allocation_bytes(&first_batch))
+                .transpose()?,
         );
     }
     let first_array_convert_start = Instant::now();
@@ -11423,7 +11427,14 @@ impl StreamingColumnarVortexArrayWorker {
         batch: &RecordBatch,
         lease: &mut MemoryLease,
     ) -> Result<PrefetchedVortexArray> {
-        let input_bytes = u64::try_from(batch.get_array_memory_size()).unwrap_or(u64::MAX);
+        // The owned route copies visible regions into its admitted allocator.
+        // Arrow's backing capacities may count a shared IPC body repeatedly;
+        // they do not size these copies or the excluded original reader owners.
+        let input_bytes = if self.native_memory.is_some() {
+            arrow_ownership::batch_copy_allocation_bytes(batch)?
+        } else {
+            u64::try_from(batch.get_array_memory_size()).unwrap_or(u64::MAX)
+        };
         // Reserve conversion headroom before invoking the native provider. This
         // bounds admitted batches, not allocations hidden inside a source reader.
         if input_bytes > lease.bytes() / 2 {
