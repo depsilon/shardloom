@@ -42,6 +42,27 @@ DISTINCT spill work, including workers and merge boundaries. Neither token
 cancels the other owner. Running provider work drains before return, and cancelled
 worker attempts do not cancel the parent.
 
+## Python Batch Input and Results
+
+Accepted local source adds `shardloom.from_batches` / `ShardLoomContext.from_batches`
+and `LazyFrame.iter_batches` / `SqlWorkflow.iter_batches`. Hosted integration
+and released-package availability are separate. The
+[batch API contract and example](../architecture/native-bounded-adapters-2026-10-06.md)
+define exact types, resource bounds and failure behavior.
+
+Input batches contain up to 2,048 row mappings with an explicit schema of up to
+128 nullable Int64, finite Float64, Boolean or UTF8 fields. An iterable is used
+once; a factory supplies fresh input on repeated execution. Each frame is at
+most 8 MiB, with at most 4,096 batches per source. Total native input must fit
+the shared resident grant; batching does not admit input spill.
+
+`iter_batches(batch_rows=2048, memory_gb=..., max_parallelism=..., spill=...)`
+delivers admitted typed/nested results with acknowledged backpressure. Consume
+inside a `with` block, especially when stopping early. Each batch is provisional
+until the iterator is exhausted and its final `report` is present after source
+validation. Retaining Python objects is outside the native grant. Prepare
+compatibility file inputs explicitly to Vortex before using this transaction.
+
 ## Stream Computed Results
 
 With `vortex-local-primitives`, `PreparedVortexAggregate::for_each_batch(&cancellation,

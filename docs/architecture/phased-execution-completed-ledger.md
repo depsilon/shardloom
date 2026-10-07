@@ -17,6 +17,30 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-PROVIDER-RESOURCES` and `HARDWARE-INFORMED-EXECUTION` — finite
+  engine implementation and local acceptance complete; hosted integration remains
+  in the phase plan. This entry does not claim a merge or publication.
+  - Local commits `ae4e3398`, `3ec56331` and `99e0a4b3` retain reviewed
+    FSST/Zstd allocation ownership, public bounded batch intake/incremental
+    results, admitted ingest lookahead and pure Int64 predicate blocks.
+  - All five hardware decisions are closed: retain lookahead and predicate
+    blocks; drop reservation, grouped-directory and locality prototypes. The
+    separately tested COUNT-reuse prototypes are dropped after grouped-control
+    regressions. Paused format/text performance work remains separate.
+  - The [acceptance report](../benchmarks/native-engine-acceptance-2026-10-06.md)
+    records 935 frozen runtime source assets, all 13 source-check commands,
+    27,373 public checks / 15,820,181 rows, 202 direct checks / 131,734 rows,
+    48 batch checks, 19 format checks, 145 semantic stages, nine golden stages
+    and all 129 Full43 calls. Three immutable packets pass independent inspection.
+  - The final Full43 observation totals 63.616547 seconds across query minima
+    and 194.006782 seconds across all calls. It excludes fresh ingest and is
+    not a paired whole-engine speed claim. Retained target-cohort gains and
+    accepted finite lookahead memory costs remain separately scoped.
+  - Contracts, Python/reference docs, resource boundaries and local Field Guide
+    distinguish current branch availability from published v0.4.0. Broader
+    reader/codec scratch, operator spill/recovery, other-platform runtime parity,
+    production support and CG-1 through CG-23 retain their obligations.
+
 - [x] `NATIVE-NESTED-PIVOT-STATE` — extend the existing sparse pivot owner to
   admitted static List, FixedSizeList and Struct keys and selected cells under
   PERF-02/03/06/07/10/11/12 and CG-3/5/19/20/21.

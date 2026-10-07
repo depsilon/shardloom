@@ -1,0 +1,205 @@
+{
+  "schema_version": "shardloom.native_documentation_acceptance.v1",
+  "status": "passed_local_documentation_acceptance",
+  "runtime_commit": "99e0a4b304c506a2b24f605eb5156859b356486a",
+  "source_identity_sha256": "7dab7afd05c9009de717896ddef43d9df947ca1e96577b95c8cfdb50bcf0f584",
+  "runtime_source_assets_verified": 935,
+  "initial_documentation_gates": 7,
+  "final_selected_gates": 5,
+  "executed_examples": 3,
+  "final_changed_example_repeated": true,
+  "browser": {
+    "status": "passed",
+    "measurements": [
+      {
+        "page": "python",
+        "viewport": "desktop",
+        "bodyWidth": 1280,
+        "documentWidth": 1280,
+        "heading": "Consume results in batches",
+        "title": "Python | ShardLoom",
+        "viewportWidth": 1280
+      },
+      {
+        "page": "python",
+        "viewport": "mobile",
+        "bodyWidth": 390,
+        "documentWidth": 390,
+        "heading": "Consume results in batches",
+        "title": "Python | ShardLoom",
+        "viewportWidth": 390
+      },
+      {
+        "page": "runtime",
+        "viewport": "mobile",
+        "bodyWidth": 390,
+        "completedPriorIntegration": true,
+        "documentWidth": 390,
+        "resourceHeading": "Resources And Recovery",
+        "title": "Runtime and I/O | ShardLoom",
+        "viewportWidth": 390
+      },
+      {
+        "page": "limitations",
+        "viewport": "mobile",
+        "bodyWidth": 390,
+        "documentWidth": 390,
+        "scopeLabel": true,
+        "title": "Support and limitations | ShardLoom",
+        "viewportWidth": 390
+      },
+      {
+        "page": "limitations",
+        "viewport": "desktop",
+        "bodyWidth": 1280,
+        "documentWidth": 1280,
+        "title": "Support and limitations | ShardLoom",
+        "viewportWidth": 1280
+      }
+    ],
+    "search": {
+      "query": "from_batches",
+      "resultCount": 1,
+      "target": "http://127.0.0.1:51493/field-guide/python-surface/#consume-results-in-batches",
+      "headingPresent": true
+    },
+    "warningAndErrorLogs": [],
+    "captures": [
+      "documentation-desktop-final-2.jpg",
+      "documentation-mobile-final-2.jpg",
+      "documentation-resources-final-2.jpg",
+      "documentation-limitations-settled-2.jpg",
+      "documentation-search-final-2.jpg"
+    ],
+    "supersededResizeCapture": "documentation-limitations-final-2.jpg",
+    "priorChecks": "The first preview additionally checked mobile menu and light theme. The final preview rechecked rebuilt dark desktop/mobile pages, resource navigation, support scope, and generated search."
+  },
+  "archive": {
+    "path": "docs/benchmarks/evidence/native-documentation-acceptance-2026-10-06.tar.xz",
+    "bytes": 1448652,
+    "sha256": "d6dbbaf1fd6c654b839aa5bc0678f131acbc09d94fa05ecad47de25b9a71f3b9",
+    "members": 85,
+    "manifest_sha256": "2e9faa7b3a41e8c3c505ba58b8bfb123e8c1486248df07b8e2ec91cbe9fefb7a",
+    "all_members_reopened_and_hash_checked": true
+  },
+  "source_files": {
+    "docs/architecture/native-bounded-adapters-2026-10-06.md": {
+      "bytes": 5502,
+      "sha256": "35fb64a4acee74ac2bbb2975d88e4304bd26e94f294f8024a6299f1fb81e016e"
+    },
+    "docs/architecture/native-provider-resources-2026-10-06.md": {
+      "bytes": 4476,
+      "sha256": "3cd556481ba8db075c906acd44ed0500bd661feb1b281aba82a9d87681220247"
+    },
+    "docs/architecture/phased-execution-completed-ledger.md": {
+      "bytes": 3876506,
+      "sha256": "41e17ba028d1f0ecca03aae9848a9a9ec4da988a9bf04532ed9e60806fefc18f"
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "bytes": 227311,
+      "sha256": "9fbcead8acb79e8e36c2647d72f35e9bdeafb880f375f28e840d2dfa5df2a06e"
+    },
+    "docs/architecture/universal-workflow-completion-2026-10-01.md": {
+      "bytes": 22791,
+      "sha256": "b435416bc4184cac7f33bd25edbf8790539c0bbb23b553336d5d5e5ba4d045d6"
+    },
+    "docs/architecture/v1-local-resource-safety.md": {
+      "bytes": 7176,
+      "sha256": "1606112fb5398f367fa8d289ff0c0f012092272cee766a5164e2847ebb67bb09"
+    },
+    "docs/benchmarks/native-engine-acceptance-2026-10-06.md": {
+      "bytes": 12087,
+      "sha256": "e418d2d9b28f8ab3affc99209ae53b74bf5ae2a58d622b1de7d3f8c3b0d88f5a"
+    },
+    "docs/dependencies/vortex-upstream-review.md": {
+      "bytes": 21825,
+      "sha256": "346f56b61acc25fd91bc0361ef569d07666386d280e680f665438cfd7a4c1792"
+    },
+    "docs/reference/resident-native-results.md": {
+      "bytes": 36380,
+      "sha256": "17681e9d8a4fa8c5628a4d4023259c04fd6aeafe18ed61f6450dcf027a8c7071"
+    },
+    "docs/reference/shardloom-user-surface-index.json": {
+      "bytes": 30291,
+      "sha256": "52d4409aa82ae65a6954eb15680c427da873bc400f8e0e59721443d28932163b"
+    },
+    "docs/reference/shardloom-user-surface-index.md": {
+      "bytes": 33273,
+      "sha256": "285d1d36f9ba494b4d3ed2f0bc77e7f2aa6ea1b928eb11f54b9bbe24988fab91"
+    },
+    "docs/release/public-status-matrix.md": {
+      "bytes": 15092,
+      "sha256": "3cdf13310967359cbe0653d89953a15cf0ce819a02aace03f1cff2723292854f"
+    },
+    "python/README.md": {
+      "bytes": 82363,
+      "sha256": "e780ff908169fc9129e15d317bb3f7e4a81e1c7721d3a677e8067577d90aa3de"
+    },
+    "website-src/scripts/sync-content.mjs": {
+      "bytes": 59118,
+      "sha256": "b87f7416c35cd1e811722e103c925fcbe105430276e0399f469a95674488daf9"
+    },
+    "website-src/src/content/docs/field-guide/limitations.mdx": {
+      "bytes": 11543,
+      "sha256": "23cd495724d17ede6eb9397f9e21405cd29de79b88ec63970a0a1cec86f4d67e"
+    },
+    "website-src/src/content/docs/field-guide/python-surface.mdx": {
+      "bytes": 3690,
+      "sha256": "73381adffd2e3926d8bed0fddc4dfe11f26e907ab5baad7fb04a2e1813cc1d4c"
+    },
+    "website-src/src/content/docs/field-guide/runtime-and-io.mdx": {
+      "bytes": 16365,
+      "sha256": "1e1f8f55f664823b3705b3a6c4a5327ab104342a64419c910327a0983e8bcaab"
+    },
+    "website/field-guide/limitations/index.html": {
+      "bytes": 42009,
+      "sha256": "ee3d7a144b3c5bc03f534ede3ad0c658c80bd91a6cdd0a9207531051f67fac76"
+    },
+    "website/field-guide/python-surface/index.html": {
+      "bytes": 43261,
+      "sha256": "79c8aa2980890690480ad88fd996f630de26055a688e2330a116a7c37419c4d4"
+    },
+    "website/field-guide/runtime-and-io/index.html": {
+      "bytes": 49089,
+      "sha256": "b2e8052b1aa08f6da388fd2f3a233f47d170d84b4237f454160fb95fcf1d8625"
+    },
+    "website/pagefind/fragment/en_1af1edc.pf_fragment": {
+      "bytes": 1746,
+      "sha256": "351e55d1d5f083a64c0fd51c1d34f841b4c194b678cda16db8c128745b9eb33b"
+    },
+    "website/pagefind/fragment/en_81d1ec2.pf_fragment": {
+      "bytes": 4311,
+      "sha256": "f6cf0933469207394134cb361ee29687f6312f422b762410cd9ec92073d73c44"
+    },
+    "website/pagefind/fragment/en_f86ec80.pf_fragment": {
+      "bytes": 5474,
+      "sha256": "f501d2b86754233245b0324a565e9af9c25592a220d959b7733f2a822dd21f2e"
+    },
+    "website/pagefind/index/en_79aac9d.pf_index": {
+      "bytes": 21976,
+      "sha256": "590054b0b40f27ca797dbe27fd6dc0de2882a599beb192a2008493c0d9770665"
+    },
+    "website/pagefind/pagefind-entry.json": {
+      "bytes": 171,
+      "sha256": "bcb5ffc88228958115a0035f94c254018d1ab39a6a5023b3d6ad651ecadb9c02"
+    },
+    "website/pagefind/pagefind.en_5e3d4a9ee6.pf_meta": {
+      "bytes": 167,
+      "sha256": "e3f8ece3986e2730d54f896fdaeffcbd37d8a533a1d8941ddf57c28c24925aa8"
+    }
+  },
+  "preserved_failed_attempts": [
+    {
+      "attempt": "documentation-checks-1",
+      "cause": "Verifier used report.status instead of report.envelope.status after all seven gates passed."
+    },
+    {
+      "attempt": "documentation-refresh-checks-2",
+      "cause": "Verifier omitted the import declared earlier on the guide page after all five gates passed."
+    }
+  ],
+  "claim_boundary": "Documentation and browser acceptance for these exact source/page bytes. This does not rerun or expand the accepted engine's runtime scope. Hosted integration and package publication are separate.",
+  "temporary_servers_drained": true,
+  "temporary_browser_closed_and_viewport_restored": true,
+  "driver_sha256": "6f660dd192241eab1f2afe64fe474464ef1883ba26c7851d3960d0fb96998f41"
+}

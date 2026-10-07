@@ -93,6 +93,15 @@ ownership, source-change behavior, and examples. This is a bounded native Rust a
 CLI-backed transport surface; it does not add a native Python binding or establish
 performance claims.
 
+Accepted local source also exposes `shardloom.from_batches` and
+`ShardLoomContext.from_batches` for explicitly typed resident input, plus
+`LazyFrame.iter_batches` and `SqlWorkflow.iter_batches` for acknowledged
+incremental results. Hosted integration and released-package availability are
+separate. The [batch API contract](../architecture/native-bounded-adapters-2026-10-06.md)
+records row/frame/schema limits, one-shot versus factory inputs, final-report
+completion and early-close cleanup. Input must fit the shared native grant;
+batch-shaped output does not make all operator state spillable.
+
 Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
 with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:
 `write` and cancellable `write_controlled`. Computed aggregate and ordered file
@@ -105,7 +114,8 @@ filter/group/measure/HAVING/order/limit stages plus declared source schemas and
 resources. Explicit `NULLS FIRST` and `NULLS LAST` apply independently of sort
 direction; Python `sort(..., nulls="first")` and `sort(..., nulls="last")` carry that policy
 through. Small JSONL collection returns the complete result only within 65,536
-rows and 8 MiB; larger results use the existing streaming writers. See the
+rows and 8 MiB; larger results use streaming writers or, in the accepted local
+source branch, the incremental Python consumer above. See the
 [computed-result streaming contract](../architecture/native-workflow-streaming-2026-10-01.md).
 
 Single-file sorting can use explicitly admitted temporary Vortex runs, including

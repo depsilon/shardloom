@@ -169,7 +169,13 @@ complete local acceptance: 27,373 public checks / 15,820,181 complete rows,
 [report](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md) records
 the frozen source, native schema and resource proofs. Hosted integration completed
 in PR #1525 after all 39 checks passed, with the accepted tree preserved in main.
-Adapters and remaining resource/spill transitions retain their owners.
+The subsequent local [provider resource unit](native-provider-resources-2026-10-06.md)
+accounts for reviewed FSST/Zstd buffers through retained native owners. The
+[batch adapter unit](native-bounded-adapters-2026-10-06.md) adds public
+`from_batches` and `iter_batches`, with demand-driven resident intake and
+acknowledged result delivery. Both have complete local acceptance at combined
+commit `99e0a4b3`; hosted integration is pending. Remaining adapters and
+resource/spill transitions retain their owners.
 
 | Area | Existing foundation | Completion requirement | Owner |
 | --- | --- | --- | --- |
@@ -204,9 +210,12 @@ published in v0.4.0. The [scalar-value unit](native-scalar-subqueries-2026-10-05
 has complete local and hosted acceptance in source builds after that release,
 with PR #1524 merged after all 39 checks passed. The
 [nested pivot state unit](native-nested-pivot-state-2026-10-06.md) also has complete
-documentation and hosted integration in PR #1525. Continue the remaining shared
-resource, spill, failure and adapter work, starting with native provider memory
-admission under step 2 below.
+documentation and hosted integration in PR #1525. The finite provider memory
+and batch-adapter continuations have complete local implementation and acceptance;
+their [report](../benchmarks/native-engine-acceptance-2026-10-06.md) records the
+remaining hosted integration boundary. Continue step 2 with the unaccounted
+reader/codec scratch and broader operator spill/recovery obligations, rather
+than repeating the accepted finite provider work.
 Broader adapter and resource families continue under their ownership contracts.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
 require operational acceptance of a declared support envelope; package availability is complete,

@@ -483,6 +483,38 @@ shared native result and sink contracts. Feature gates, supported types, and res
 See [runtime and I/O](/field-guide/runtime-and-io) and the
 [user-surface index](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md).
 
+## Consume results in batches
+
+The accepted local source branch adds \`iter_batches()\` for admitted results
+and \`from_batches()\` for explicitly typed resident input. Hosted integration
+is pending; published v0.4.0 packages predate these additions.
+
+\`\`\`python
+def orders():
+    yield [{"order_id": 1, "amount": 12.5}]
+    yield [{"order_id": 2, "amount": None}]
+
+frame = sl.from_batches(
+    orders, schema={"order_id": "int64", "amount": "float64"},
+)
+with frame.iter_batches(batch_rows=1024) as batches:
+    for batch in batches:
+        print(batch.result_rows)
+    assert batches.report is not None
+\`\`\`
+
+Input admits nullable Int64, finite Float64, booleans and UTF8 strings with an
+explicit schema. Each input batch contains at most 2,048 row mappings and an
+8 MiB frame, with up to 128 fields and 4,096 batches per source. Total native
+input must fit the query memory grant. A factory, as above, supplies fresh
+input for repeated calls; an iterable can be consumed once.
+
+Requesting the next result batch acknowledges the preceding one. Use the
+context manager when stopping early, and treat delivered batches as provisional
+until the final report is present after full exhaustion. Prepare compatibility
+file inputs explicitly to Vortex before batch consumption. See
+[resource boundaries](/field-guide/runtime-and-io#resources-and-recovery).
+
 ## Next steps
 
 See [the examples](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md)
@@ -543,8 +575,8 @@ margins require a UTF8 index. Nested cells accept absent or NULL fill only.
 Representable nested results use Vortex, Parquet,
 Arrow IPC, Avro, JSON and JSONL; CSV translates nested values to quoted JSON
 text, and ORC rejects nested output. Existing 128-field, collection and memory
-limits apply. Focused native and public checks pass; full regression and hosted
-acceptance remain pending. Published v0.4.0 packages predate this source support.
+limits apply. Complete local workflow/regression acceptance and all 39 hosted
+checks passed before PR #1525 merged. Published v0.4.0 packages predate this source support.
 See the [nested pivot state contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-pivot-state-2026-10-06.md).
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
 microsecond timestamps can travel as payloads, including nested leaves. Their
@@ -667,6 +699,15 @@ row or serialized-byte limit fails without returning a successful prefix.
 
 ## Resources And Recovery
 
+The accepted local source branch accounts for reviewed FSST/Zstd payload,
+view and validity buffers through the shared native memory owner. Retained
+clones and slices keep their allocation credits. It also adds
+[Python batch input and results](/field-guide/python-surface#consume-results-in-batches).
+These additions have complete local acceptance and await hosted integration;
+published v0.4.0 predates them. C decoder contexts, dictionary preparation
+scratch and other unreviewed allocations remain outside this finite accounting
+scope. A query grant still does not bound total process RSS.
+
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
 explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.
@@ -782,6 +823,13 @@ for the detailed evidence behind this scope.
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
 | Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
+
+The accepted local source branch adds reviewed FSST/Zstd buffer accounting and
+[Python batch input/incremental results](/field-guide/python-surface#consume-results-in-batches).
+Hosted integration is pending and published v0.4.0 predates these additions.
+Input batches remain resident under the query grant. Output backpressure does
+not enable general operator spill, account for all codec scratch, or bound
+consumer-retained Python objects and total process RSS.
 
 The **65,536-row / 128-top-level-field / 8-MiB** bound applies to small computed-result collection.
 Current source builds deliver complete admitted flat results through bounded native batches to

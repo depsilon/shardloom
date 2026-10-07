@@ -25,6 +25,13 @@ for the detailed evidence behind this scope.
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
 | Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
 
+The accepted local source branch adds reviewed FSST/Zstd buffer accounting and
+[Python batch input/incremental results](/field-guide/python-surface#consume-results-in-batches).
+Hosted integration is pending and published v0.4.0 predates these additions.
+Input batches remain resident under the query grant. Output backpressure does
+not enable general operator spill, account for all codec scratch, or bound
+consumer-retained Python objects and total process RSS.
+
 The **65,536-row / 128-top-level-field / 8-MiB** bound applies to small computed-result collection.
 Current source builds deliver complete admitted flat results through bounded native batches to
 all eight local writers, including admitted ordering spill, above the collection row and byte

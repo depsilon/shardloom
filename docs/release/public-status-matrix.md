@@ -49,6 +49,13 @@ failed consumers, source-generation checks and owned cleanup have executable evi
 scope is recorded in the [resource contract](../architecture/native-relational-resources-2026-10-02.md)
 and [current release acceptance](../benchmarks/release-candidate-fresh-uat-2026-10-05.md).
 
+The accepted local source branch adds reviewed FSST/Zstd buffer ownership,
+public resident batch intake and incremental results, plus two retained native
+CPU optimizations. Its [acceptance report](../benchmarks/native-engine-acceptance-2026-10-06.md)
+records the complete source/public/Full43 checks and the three dropped hardware
+prototypes. Hosted integration remains pending, and published v0.4.0 predates
+these additions. Target-cohort gains are not a broad engine performance claim.
+
 The remaining maturity requirements are an explicit supported local workload/platform envelope,
 accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide
 pressure, cancellation, fault and recovery evidence. A query memory grant is not a process-RSS

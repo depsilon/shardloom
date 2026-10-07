@@ -1,0 +1,93 @@
+{
+  "schema_version": "shardloom.composed_count_decisions.v1",
+  "status": "dropped_after_confirmed_control_regression",
+  "raw_comparison_queries_verified": 2700,
+  "cohorts": [
+    {
+      "run": 1,
+      "sha256": "8cca090e80c9a2847e06938124511280d1d08c0078a98429e6f831cc8c886cb4",
+      "verified_raw_results": 540,
+      "crossings": [],
+      "source": "30a08c42ed0009ec68857f5b66c3059fe43494cec9261b99e481bc1f0b25c694",
+      "reverse_pairs": false
+    },
+    {
+      "run": 2,
+      "sha256": "05fd34f2a21662daac35fef67e80905c639829a7622a482f2b28693a427f7606",
+      "verified_raw_results": 540,
+      "crossings": [
+        {
+          "rows": 1048576,
+          "name": "group_count_64-renamed",
+          "candidate_over_baseline": 1.2102701745894815
+        }
+      ],
+      "source": "30a08c42ed0009ec68857f5b66c3059fe43494cec9261b99e481bc1f0b25c694",
+      "reverse_pairs": true
+    },
+    {
+      "run": 3,
+      "sha256": "2143e6421f74515b9581ae317f492597326d887ae254c0ccc55161671fc42cd9",
+      "verified_raw_results": 540,
+      "crossings": [
+        {
+          "rows": 1048576,
+          "name": "group_count_64-renamed",
+          "candidate_over_baseline": 1.2274857609372865
+        }
+      ],
+      "source": "30a08c42ed0009ec68857f5b66c3059fe43494cec9261b99e481bc1f0b25c694",
+      "reverse_pairs": false
+    },
+    {
+      "run": 4,
+      "sha256": "d510603626b30f93c59baa60e6ccb75fbe30314f7a2e67a29e4a8ae30ba52f4e",
+      "verified_raw_results": 540,
+      "crossings": [
+        {
+          "rows": 1048576,
+          "name": "group_count_64-renamed",
+          "candidate_over_baseline": 1.2546555812155935
+        }
+      ],
+      "source": "a1fdbff90813dddc5752e9c6afe245af9ea2960b3e28e91325697d924e7cad5a",
+      "reverse_pairs": false
+    },
+    {
+      "run": 5,
+      "sha256": "1910377c89e02c9b9429c0a933c14d718b9daa5a9faca26b702c0bc78eb339c3",
+      "verified_raw_results": 540,
+      "crossings": [
+        {
+          "rows": 1048576,
+          "name": "group_count_64-renamed",
+          "candidate_over_baseline": 1.2710888618410803
+        }
+      ],
+      "source": "a1fdbff90813dddc5752e9c6afe245af9ea2960b3e28e91325697d924e7cad5a",
+      "reverse_pairs": true
+    }
+  ],
+  "baseline_commit": "ae4e3398e07d58c059780d218c17b7eea7fa31ef",
+  "baseline_source_identity_sha256": "076e3c0486f7e8738e16f0e8ba43bcfae3ff73215820c760723a28700837b577",
+  "baseline_commit_source_assets_verified": 927,
+  "baseline_binary_sha256": "4f1b0cd9744759c7fdf017b91a60f06995111c2d4da95fe2b8e243035f96682a",
+  "baseline_commit_link": "Every frozen precommit source asset hashes identically in the accepted commit.",
+  "path_map": "Original paths below /Users/dylan/LocalData/shardloom map to the path entries; identical contents share a files/<sha256> member.",
+  "executables_included": false,
+  "rebuild_boundary": "Use accepted baseline commit plus the archived candidate source overlays and exact recorded build commands; binaries remain identified by hash. Do not treat a rebuild as the originally measured executable.",
+  "unrun_checks": "Candidate-2 DataFrame acceptance driver was drafted but not executed because retention failed; full candidate-2 workspace/public/Full43 checks were not run. No acceptance claim is based on these unrun checks.",
+  "cause_limit": "The physical-node revision did not remove the regression. Profiles do not establish a source-level root cause; code-layout or allocation-layout explanations remain hypotheses.",
+  "additional_static_review_gap": "The generic binder accepts a nonempty whitespace-only output alias, while SimpleAggregateStates rejects it. This was not included in the frozen candidate admission and would need an explicit non-application test before any future retention. No runtime claim is made for this gap.",
+  "performance_claim_allowed": false,
+  "driver_sha256": "d87f95a17e2e027761c390d988a9e494f7eb463d30dc203f71ffbc8bbcf27580",
+  "archive": "docs/benchmarks/evidence/native-composed-count-decisions-2026-10-06.tar.xz",
+  "archive_bytes": 17842300,
+  "archive_sha256": "f8236f3cdd59dc3f669b99b22434dbf545c3fe897f2ec97919da73e422f2e49d",
+  "manifest_sha256": "8b5b93976a695744e053c017291788a7aec4e0f61be5b207f02f9637675c4681",
+  "source_path_count": 3322,
+  "unique_payload_count": 1418,
+  "original_path_bytes": 504212690,
+  "unique_payload_bytes": 193704851,
+  "archive_reopen": "all_members_sha256_verified_without_extraction"
+}

@@ -249,31 +249,33 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-PROVIDER-RESOURCES` — continue shared resource admission after
-  nested-pivot hosted integration, under PERF-03/06/07/11/12 and CG-3/5/19/20/21.
-  Address native reader/decoder allocations that currently bypass the shared
-  memory allocator before extending larger-state guarantees.
+- [ ] `NATIVE-PROVIDER-RESOURCES` — hosted integration remains for the accepted
+  local resource and batch-adapter unit under PERF-03/06/07/11/12 and
+  CG-3/5/19/20/21. Engine implementation, testing and documentation are complete.
   - V1 scope classification: `required_for_v1` for a declared local resource
     envelope; full process-RSS control remains a separate claim.
   - ShardLoom technique review: reuse one PulseWeave grant, native buffer owners,
     bounded capillary delivery, source generations and deterministic denial.
     Check pinned Vortex provider surfaces before adding interception or wrappers.
     Keep metadata-only and encoded paths available without unnecessary decode.
-  - Contract intake: [universal workflow step 2](universal-workflow-completion-2026-10-01.md#cohesive-implementation-sequence),
-    [existing resource ownership](native-relational-resources-2026-10-02.md) and
-    [local resource boundaries](v1-local-resource-safety.md). Freeze the finite
-    allocation/lifetime inventory and implementation contract before runtime edits.
+  - Accepted contracts: [provider resources](native-provider-resources-2026-10-06.md),
+    [batch adapters](native-bounded-adapters-2026-10-06.md) and
+    [complete evidence](../benchmarks/native-engine-acceptance-2026-10-06.md).
+    Local commits `ae4e3398` and `3ec56331` are regression-accepted together with
+    the retained hardware changes at `99e0a4b3`.
   - Execution checklist:
-    - [ ] Trace provider allocation sizes, scratch overlap and escaping ownership;
+    - [x] Trace provider allocation sizes, scratch overlap and escaping ownership;
       define checked pre-allocation admission and the remaining unsupported scope.
-    - [ ] Extend shared native provider/resource owners without per-frontend
+    - [x] Extend shared native provider/resource owners without per-frontend
       execution or hidden full materialization.
-    - [ ] Prove constrained-grant denial, retained-credit lifetime, cancellation,
+    - [x] Prove constrained-grant denial, retained-credit lifetime, cancellation,
       source changes and failed-consumer/writer cleanup against independent values.
-    - [ ] Complete required source/native/public workflow and Full43 regression
+    - [x] Complete required source/native/public workflow and Full43 regression
       acceptance with frozen source/binary identities and preserved failed attempts.
-    - [ ] Align resource evidence, support labels and Field Guide; finish hosted
-      integration and move the accepted finite unit to the ledger.
+    - [x] Complete bounded Python batch intake and incremental result delivery;
+      align resource evidence, user references and the local Field Guide.
+    - [ ] Finish hosted integration under the standing PR/CI/merge delegation. The ledger records local
+      acceptance without claiming a merge, deployment or package release.
   - Follow-on: remaining adapters, operator spill and recovery transitions keep
     their existing owners. Existing sort-spill permission does not admit aggregate,
     join, window or pivot spill. Apply the
@@ -281,41 +283,46 @@ the ledger.
     when accepting a stable local support envelope; do not wait for unrelated
     cloud or complete-SQL parity, or infer readiness from package publication.
 
-- [ ] `HARDWARE-INFORMED-EXECUTION` — after core universal workflow completion,
-  evaluate the October 4 maintainer's hardware-design transfer proposals under
-  existing PERF-02/03/06/07/10/11/12 owners and CG-5/6/19. This is accepted future
-  experiment intake, not a measured performance result or a new execution layer.
+- [ ] `HARDWARE-INFORMED-EXECUTION` — all five experiment decisions are complete
+  under PERF-02/03/06/07/10/11/12 and CG-5/6/19. Local commit `99e0a4b3` retains
+  ingest lookahead and pure predicate blocks; reservation, grouped-directory
+  and locality prototypes are dropped. Only hosted integration remains.
   - V1 scope classification: `v1_candidate_pending_feasibility`.
-  - Dependency: finish the active core operator/type/adapter/resource work first;
-    preserve all paused workstreams. Reconcile the proposal's `61d318db` baseline
-    against then-current main, development branches and prior experiment evidence.
+  - The original `61d318db` intake was reconciled against current native owners
+    and prior experiments. The [acceptance report](../benchmarks/native-engine-acceptance-2026-10-06.md)
+    records frozen source, complete-operation cohorts, held-out confirmation,
+    combined regression checks and independently inspected raw evidence.
   - ShardLoom technique review: reuse the native memory pool, packed key directory,
     PulseWeave grant, capillary work units, shared executor and timing/evidence
     owners. Prefer upstream Vortex capabilities where equivalent; no per-frontend
     kernels, second planner, second executor or permanent thread per partition.
   - Execution checklist:
-    - [ ] Inventory existing providers, prior owner-versus-dynamic prototype results,
+    - [x] Inventory existing providers, prior owner-versus-dynamic prototype results,
       reservation transitions and the current 16-bit-tag/48-bit-ordinal directory;
       classify each candidate as already addressed, admitted, merged or dropped.
-    - [ ] Measure zero-work reservations/releases, equal-size resizing and ownership
+    - [x] Measure zero-work reservations/releases, equal-size resizing and ownership
       transfer before testing elimination of redundant shared updates; preserve
       synchronization, reservation-before-allocation, replacement peaks and leases.
-    - [ ] Compare grouped metadata rejection with the current packed directory on
+    - [x] Compare grouped metadata rejection with the current packed directory on
       the actual CPU target, including growth, misses, duplicates, near-unique keys
       and forced collisions; preserve full hash and exact-key verification.
-    - [ ] Test locality-aware state scheduling through the existing executor over
+    - [x] Test locality-aware state scheduling through the existing executor over
       complete operations, accounting for routing, skew, queues and retained bytes.
-    - [ ] Trace service, readiness, queue, credit and ordered-emission waits in the
+    - [x] Trace service, readiness, queue, credit and ordered-emission waits in the
       existing ingest pipeline; test useful bytes per completion interval under the
       unchanged CPU/storage grants and complete artifact-identity checks.
-    - [ ] Merge the circuit-style expression-graph prototype into the existing
+    - [x] Integrate the circuit-style expression-graph prototype into the existing
       proof-guided kernel/specialization owner only after proving Vortex leaves
       repeated pure predicates or avoidable intermediates; preserve nullable truth
       tables, lazy errors, cancellation and ownership, with no unproved arithmetic
       reordering or software simulation of hardware gates.
-    - [ ] Freeze hardware/tool provenance and held-out materiality/timing/RSS gates,
-      separate instrumentation from final paired timing, and publish complete
+    - [x] Freeze hardware/tool provenance and held-out materiality/timing/RSS gates,
+      separate instrumentation from final paired timing, and record complete
       ship/drop evidence with failed and discarded observations retained.
+    - [ ] Finish hosted integration; no untested candidate remains
+      in this five-track campaign. Separate COUNT-reuse prototypes were also
+      dropped after confirmed control regressions. Paused format/text experiments
+      remain additional performance work, outside this completed campaign.
   - Acceptance: complete-operation gains determine retention; component counters
     alone do not. Each candidate preserves exact outputs, native Vortex fidelity,
     resource policy, serial local guards and explicit no-fallback evidence.
@@ -335,7 +342,9 @@ and keys, scoped typed expressions, typed unary state and nested keys/state are
 merged, as are typed reductions and analytic frames. The typed-unary report retains
 Q9's inconclusive performance observation. Scalar-value subqueries have complete
 local and hosted acceptance in source builds after v0.4.0 through PR #1524.
-Nested pivot state has complete local acceptance and awaits hosted integration.
+Nested pivot state merged in PR #1525 after complete local and hosted acceptance.
+Provider resources, batch APIs and the hardware campaign have complete local
+acceptance and await hosted integration.
 Broader aggregate/window semantics, adapters and resource obligations remain open
 under their existing owners.
 
@@ -2763,11 +2772,23 @@ record `NATIVE-NESTED-COMPOSITION`, `NATIVE-DYNAMIC-PIVOT-COMPOSITION`,
 `NATIVE-NESTED-PIVOT-STATE` as completed finite units.
 The v0.4.0 publication train is also complete and predates scalar-value support.
 `NATIVE-NESTED-PIVOT-STATE` merged in PR #1525 after complete local acceptance and
-all 39 hosted checks. Continue the universal workflow queue with
-`NATIVE-PROVIDER-RESOURCES`; define its finite allocation/lifetime contract before
-runtime edits, then complete resource, spill, failure and adapter obligations.
+all 39 hosted checks. `NATIVE-PROVIDER-RESOURCES`, public bounded batch adapters
+and all five `HARDWARE-INFORMED-EXECUTION` decisions now have complete local
+acceptance and documentation at `99e0a4b3`. Hosted integration is the remaining
+step for this finite packet; broader resource, spill, failure and adapter
+obligations retain their owners. Do not restart the completed experiments.
 The other large format/text experiments
 remain paused, and whole PERF/CG owners remain open.
+
+October 6 sequencing direction: the maintainer delegates ordering of remaining
+breadth/performance work and timing of the next version bump, with the explicit
+requirement that releases mark substantial milestones because the release train
+is costly. Finish this accepted packet's integration, then prioritize remaining
+reader/codec resource admission and coherent operator spill/recovery families
+under PERF-03/06 before reopening broad format/text performance experiments.
+Batch smaller capabilities and optimization wins into a substantial, validated
+expansion of supported workflows. Do not start a bump merely because one finite
+experiment campaign closes; preserve the normal release and publication gates.
 
 The October 1 product clarification makes
 [universal workflow completion](universal-workflow-completion-2026-10-01.md)
@@ -2780,9 +2801,10 @@ and format-pulse performance tests. The experimental procedure below applies whe
 a separate performance candidate is admitted; it does not displace workflow
 completion with another automatic optimization sweep.
 
-The October 4 hardware-informed campaign is queued after that core completion.
-Its intake above must be refreshed against the current Vortex-native owners and
-prior ship/drop results before any experiment starts.
+The October 4 hardware-informed campaign retained two changes and dropped three,
+with complete combined acceptance. Its target-cohort gains are separate
+comparisons, not a combined whole-engine speedup. The separately paused format
+and large CSV/JSON/JSONL performance experiments are not exhausted by that result.
 
 The September 29 resumption supersedes the earlier release/format stop for the
 finite September 26 intake. All 29 decisions and the final profiling refresh
