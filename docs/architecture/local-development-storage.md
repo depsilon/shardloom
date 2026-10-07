@@ -164,6 +164,18 @@ retains the failed preflight, continuation proof and compaction manifest;
 finalization reopened all 516 members. The continuation reused semantic and
 golden checks only after verifying the executable and all 910 frozen source assets.
 
+Before the October 7 Zstd workspace Full43 acceptance, the unchanged 252-MiB
+log-admission threshold again stopped preflight before queries. Two completed
+historical Full43 cohorts' 1,032 per-call files were compacted into
+`completed-call-logs-codec-workspaces-20261007.tar.xz` archives beside their
+unchanged summaries. Original identities, closed-handle checks and every member's
+bytes/hash were verified before redundant originals were removed. This recovered
+4,517,888 accounted log bytes. Failed/incomplete evidence, resident inputs and
+storage ceilings remain unchanged. The
+[codec acceptance packet](../benchmarks/native-codec-workspaces-2026-10-07.md)
+retains the refusal, compaction manifests and independent reopening of all
+1,032 members before accepting the fresh Full43 continuation.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and

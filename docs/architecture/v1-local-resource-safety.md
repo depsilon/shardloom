@@ -36,6 +36,13 @@ native plan. Input remains resident; output batching does not make general state
 spillable. Both units merged in PR #1526 after complete local acceptance and
 all 39 hosted checks. Published v0.4.0 predates these additions.
 
+The subsequent locally accepted [Zstd workspace unit](native-zstd-workspaces-2026-10-07.md)
+also admits the actual one-shot C decoder and by-reference prepared-dictionary
+workspaces through that same allocator. Temporary credits release before
+returning retained output, including denial and corruption paths. Its
+[acceptance report](../benchmarks/native-codec-workspaces-2026-10-07.md) keeps
+the local source proof distinct from hosted integration and publication.
+
 General aggregate/join/window spill, complete reader/codec/upstream scratch accounting and
 whole-process RSS bounds remain open. Other operators must retain their own resource admission
 and deterministic denials. A supported reader, large input or successful ingest does not by
@@ -125,7 +132,8 @@ The following need separate implementation or acceptance before broader support 
 
 - general aggregate/join/window and other unadmitted operator spill transitions.
 - reader/codec/upstream scratch accounting beyond the finite accepted provider
-  buffers, including Zstd C decoder contexts and dictionary preparation scratch.
+  buffers and Zstd decoder/prepared-dictionary workspaces, including compression
+  contexts, dictionary training and other unreviewed builders.
 - larger-than-resident-state guarantees beyond the admitted spill families.
 - workload-wide pressure, interruption and recovery acceptance for a declared production envelope.
 - object-store recovery.

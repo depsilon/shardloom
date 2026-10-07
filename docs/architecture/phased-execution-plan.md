@@ -253,7 +253,9 @@ the ledger.
   prepared-dictionary workspaces through existing Vortex memory owners under
   PERF-03/06 and CG-5/19/20/21. Follow the
   [contract](native-zstd-workspaces-2026-10-07.md) and RFC 0044's scoped provider
-  safety decision before adding binding code.
+  safety decision. Local implementation is accepted at `ab96cd7e`; the
+  [report](../benchmarks/native-codec-workspaces-2026-10-07.md) binds the source,
+  measured executables, original failures and complete regression evidence.
   - V1 scope classification: `required_for_v1` for the declared local resource
     envelope. Preserve upstream concrete encoding and native persistence.
   - Reuse review: `use_vortex_native_provider`; one PulseWeave grant and the
@@ -263,11 +265,11 @@ the ledger.
   - Execution checklist:
     - [x] Audit pinned one-shot/static-context/dictionary APIs and allocation
       paths; define lifetime, alignment, version and legacy-format boundaries.
-    - [ ] Reproduce unaccounted context storage, then implement actual reserved
+    - [x] Reproduce unaccounted context storage, then implement actual reserved
       workspaces with typed denial and unconditional owner cleanup.
-    - [ ] Prove dictionary/overlap pressure, malformed/legacy input, exact values,
+    - [x] Prove dictionary/overlap pressure, malformed/legacy input, exact values,
       native identity and all direct entrypoints; inspect every unsafe call.
-    - [ ] Complete the frozen native cost screen and required source/public/
+    - [x] Complete the frozen native cost screen and required source/public/
       Full43 acceptance with failed attempts and excluded allocations preserved.
     - [ ] Integrate the accepted finite result and evidence through hosted checks.
   - Compression/training state, other codecs, general aggregate/join/window/pivot

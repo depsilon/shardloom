@@ -124,6 +124,9 @@ for the detailed evidence behind this scope.</p>
 <a href="/field-guide/python-surface#consume-results-in-batches">Python batch input/incremental results</a>.
 PR #1526 merged after complete local and hosted checks. Published v0.4.0
 predates these additions.
+The subsequent <a href="/field-guide/runtime-and-io#resources-and-recovery">Zstd workspace unit</a>
+also admits the actual decoder and by-reference prepared dictionary. Its
+resource proof remains limited to the reviewed allocations.
 Input batches remain resident under the query grant. Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.</p>

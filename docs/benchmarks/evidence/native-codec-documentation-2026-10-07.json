@@ -1,0 +1,330 @@
+{
+  "schema_version": "shardloom.native_codec_documentation_acceptance.v1",
+  "status": "passed_local_documentation_acceptance",
+  "runtime_commit": "ab96cd7e5d0698d90c33ea2835896a68cb5f3543",
+  "source_identity_sha256": "50762def78574a0dab48f61e38a6400f5177123fd925df3c1f682a1e62404f47",
+  "runtime_source_assets_verified": 938,
+  "documentation_checks": [
+    {
+      "name": "user-surface-index",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_user_surface_reference.py"
+      ],
+      "cwd": "<repo>",
+      "returncode": 0,
+      "seconds": 0.023867625001003034,
+      "log": "<codec-uat>/codec-documentation-checks-2/user-surface-index.log",
+      "log_sha256": "ede6c855e3a0afe431cbb7e52a1d81394321a74317b12787e509ee4c245fa90e"
+    },
+    {
+      "name": "public-status",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_public_status_docs.py",
+        "--output",
+        "<codec-uat>/codec-documentation-checks-2/public-status-report.json"
+      ],
+      "cwd": "<repo>",
+      "returncode": 0,
+      "seconds": 0.2562053330002527,
+      "log": "<codec-uat>/codec-documentation-checks-2/public-status.log",
+      "log_sha256": "7bf5cb15053c3d35520ba21ab3fc323ce2da9fe31fbf80db3941b7cc22b6c882"
+    },
+    {
+      "name": "use-case-backlinks",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_use_case_backlinks.py"
+      ],
+      "cwd": "<repo>",
+      "returncode": 0,
+      "seconds": 0.13735725000151433,
+      "log": "<codec-uat>/codec-documentation-checks-2/use-case-backlinks.log",
+      "log_sha256": "a50d9d2259f01abfa511d86b4f36a42d25d7798ba209b5b76e5fa1ea15a71a66"
+    },
+    {
+      "name": "website-check",
+      "command": [
+        "npm",
+        "run",
+        "check"
+      ],
+      "cwd": "<repo>/website-src",
+      "returncode": 0,
+      "seconds": 48.44676541700028,
+      "log": "<codec-uat>/codec-documentation-checks-2/website-check.log",
+      "log_sha256": "158c85cb72abfb169c8405a0ba2701945fd7eba429a6d88d155f0c46746abce1"
+    },
+    {
+      "name": "website-build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "<repo>/website-src",
+      "returncode": 0,
+      "seconds": 46.43343370900038,
+      "log": "<codec-uat>/codec-documentation-checks-2/website-build.log",
+      "log_sha256": "11cf46bb6056124ea2db3c8321ebe5e50541d74c86ee01c89f637a057f7dcc2c"
+    },
+    {
+      "name": "website-readiness",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_website_readiness.py",
+        "--output",
+        "<codec-uat>/codec-documentation-checks-2/website-readiness-report.json"
+      ],
+      "cwd": "<repo>",
+      "returncode": 0,
+      "seconds": 0.26672162499744445,
+      "log": "<codec-uat>/codec-documentation-checks-2/website-readiness.log",
+      "log_sha256": "c42ba9d4e0141683786e39d62810fbefb8afa67ffa79dc8942ad6575b56931bf"
+    },
+    {
+      "name": "diff-whitespace",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "<repo>",
+      "returncode": 0,
+      "seconds": 0.046923666002840037,
+      "log": "<codec-uat>/codec-documentation-checks-2/diff-whitespace.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "browser": {
+    "status": "passed_manual_browser_review",
+    "pages": [
+      "field-guide/runtime-and-io/",
+      "field-guide/limitations/"
+    ],
+    "desktop": {
+      "capture": "codec-docs-desktop-1.png",
+      "width": 1280,
+      "height": 720,
+      "theme": "dark",
+      "resource_text_readable": true
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "runtime_body_width": 390,
+      "limitations_body_width": 390,
+      "runtime_light_and_dark_captures": true,
+      "table_client_width": 358,
+      "table_scroll_width": 474,
+      "table_overflow_x": "auto",
+      "table_parent_scroll_width": 358
+    },
+    "search": {
+      "query": "workspaces",
+      "result_count": 2,
+      "result_targets": [
+        "field-guide/runtime-and-io/#resources-and-recovery",
+        "field-guide/limitations/#runtime-limits"
+      ],
+      "limitations_result_clicked_and_verified": true,
+      "capture": "codec-docs-search-1.png"
+    },
+    "warning_and_error_logs": [],
+    "temporary_tab_closed_and_viewport_reset": true,
+    "scope": "Recorded primary browser observations and captured pixels; not an automated browser test."
+  },
+  "examples_changed": false,
+  "runtime_rerun_required": false,
+  "archive": {
+    "path": "docs/benchmarks/evidence/native-codec-documentation-2026-10-07.tar.xz",
+    "bytes": 492280,
+    "sha256": "d100652ea75a90deaff16ca342f73127c7ec2ace869c6a53dfc7c9afd836192f",
+    "file_members": 60,
+    "total_members": 62,
+    "manifest_sha256": "51d36d7bc27fbb4d5fc966093fc738b3e230936307372c33f293303bf3d6edb5",
+    "all_members_reopened_and_hash_checked": true
+  },
+  "source_files": {
+    "docs/architecture/local-development-storage.md": {
+      "bytes": 19554,
+      "sha256": "55ac7d1c673b470c9816ba1f909a0156c246c6d078c71cd2a11b5c0d507302dc"
+    },
+    "docs/architecture/native-provider-resources-2026-10-06.md": {
+      "bytes": 4774,
+      "sha256": "9a6e6aba9305998266fe5adc5005f1a505b1140bdce93f2fc2ec2b9ee8cffe53"
+    },
+    "docs/architecture/native-zstd-workspaces-2026-10-07.md": {
+      "bytes": 8723,
+      "sha256": "2dc15f3dc08d394fc394bf3086d0495e839da77915b60314045676ec10b46b67"
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "bytes": 224068,
+      "sha256": "576299a0a442fdc869151414c5dab147ebdb18c9b7c0b2c6f5a236a65feb2ed6"
+    },
+    "docs/architecture/v1-local-resource-safety.md": {
+      "bytes": 7765,
+      "sha256": "4b44dc1a6df60da022d248e1e9704787fdf01afd89f5fc33234d75bcb97dbdad"
+    },
+    "docs/benchmarks/native-codec-workspaces-2026-10-07.md": {
+      "bytes": 10241,
+      "sha256": "d80ff4bfc485879964d15270dbd7dcc9842272370c89529d096b2f398d8faf50"
+    },
+    "docs/dependencies/vortex-upstream-review.md": {
+      "bytes": 23078,
+      "sha256": "9bc1d78a4d8d6f9e195cc9cedf216d4f07395108c4e098dc7110b8c2424d0f10"
+    },
+    "docs/release/public-status-matrix.md": {
+      "bytes": 15554,
+      "sha256": "02327350693469dd72da096169fa1844a8eebda1d4c66e4a5f3c53782f66b236"
+    },
+    "docs/release/v1-inclusion-scope-matrix.md": {
+      "bytes": 54560,
+      "sha256": "36c0db9a66891a1ae8672d2bd056b3527055fd8bf864c9e112a83ee7935ff8ae"
+    },
+    "website-src/scripts/sync-content.mjs": {
+      "bytes": 59694,
+      "sha256": "8318ce161bfa535ab11c721d87e45bb15e0748832c8573d5707c42148ed2112d"
+    },
+    "website-src/src/content/docs/field-guide/limitations.mdx": {
+      "bytes": 11775,
+      "sha256": "6e1e8dab9164c9bba3b5cb3a4787c129341bec74d48594c112341ecaefbb5220"
+    },
+    "website-src/src/content/docs/field-guide/runtime-and-io.mdx": {
+      "bytes": 16688,
+      "sha256": "1a86e277c2c2a446b2c34d8517e807b646fe5cfc394707d4b16e251289eb5f0f"
+    },
+    "website/field-guide/limitations/index.html": {
+      "bytes": 42252,
+      "sha256": "7ee7b06f3cea895e7bbbdc00faf1208d400038da047e960a9f2bbf4137f867a4"
+    },
+    "website/field-guide/runtime-and-io/index.html": {
+      "bytes": 49423,
+      "sha256": "b313485704d5a0a29a8bf741d7ea4bfd2a05ba3324f93800e586adfd1a3cf949"
+    },
+    "website/pagefind/fragment/en_62ddea9.pf_fragment": {
+      "bytes": 4371,
+      "sha256": "4572cbd1133aaffb1853a7507de82ad258b927931957bd66e1af579c593f1b27"
+    },
+    "website/pagefind/fragment/en_6c6bb09.pf_fragment": {
+      "bytes": 5534,
+      "sha256": "ae0412a82472961a32eacd8f499d87185c6e7c21935ef0c4fe90fccd47d8badb"
+    },
+    "website/pagefind/index/en_a7c2f65.pf_index": {
+      "bytes": 22186,
+      "sha256": "1a61b92d3ae8de56b7d992f9217ef9cb77ba35e4ed6d7b627c9694ad6e0e47f4"
+    },
+    "website/pagefind/pagefind-entry.json": {
+      "bytes": 171,
+      "sha256": "fcd30811d34b66b2a05bda291abe7413f844ba6fa37e173ab6c820da26515128"
+    },
+    "website/pagefind/pagefind.en_a6f182ebf9.pf_meta": {
+      "bytes": 167,
+      "sha256": "951d7c06aa9fae8c28fdbe363d49840774a6c579db67f2bb65e98deb19ffa05d"
+    }
+  },
+  "preserved_failed_attempt": {
+    "receipt_sha256": "50c36328fa67b673220a22ec9a034e435198138ceeda6b168c8f1c0b62e7e274",
+    "public_status_report_sha256": "af42f88b308673ab19a541d424a56f79e895648cf2889a29fbc56df2ae9e4162",
+    "reason": "Missing new phase-item classification row, followed by a verifier receipt/report filename collision. The report was preserved by exclusive creation; both issues were corrected without changing runtime source."
+  },
+  "temporary_server_drained": true,
+  "hosted_integration": "pending",
+  "claim_boundary": "Documentation acceptance for the exact recorded pages and source. No new engine, performance, RSS or package claim.",
+  "driver_sha256": "5d9ee5122e6e014d82441d5ac1cee2a5d23887ebf1b1bf2e1a5cd3caf3c301b5",
+  "final_selected_checks": [
+    {
+      "name": "public-status",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_public_status_docs.py",
+        "--output",
+        "<codec-uat>/codec-documentation-final-1/public-status.json"
+      ],
+      "returncode": 0,
+      "seconds": 0.2686098750018573,
+      "log_sha256": "93d1b31af651ba0ad9e7e007e393d9cc3bae0c66843b7b8e05627b80b283d405",
+      "log_text": "<codec-uat>/codec-documentation-final-1/public-status.json\n"
+    },
+    {
+      "name": "website-readiness",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_website_readiness.py",
+        "--output",
+        "<codec-uat>/codec-documentation-final-1/website-readiness.json"
+      ],
+      "returncode": 0,
+      "seconds": 0.24823316699985298,
+      "log_sha256": "ada0c931e5bd74e555f493d889dcce51a99ba50040887fcd74f26855b4c83c59",
+      "log_text": "website readiness passed: <codec-uat>/codec-documentation-final-1/website-readiness.json\n"
+    },
+    {
+      "name": "diff-whitespace",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0,
+      "seconds": 0.023717667001619702,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_text": ""
+    }
+  ],
+  "documentation_archive_guard": {
+    "status": "passed",
+    "command": [
+      "python3.13",
+      "-B",
+      "<codec-uat>/archive_codec_documentation.py"
+    ],
+    "cwd": "<repo>",
+    "head": "ab96cd7e5d0698d90c33ea2835896a68cb5f3543",
+    "working_tree": " M docs/architecture/local-development-storage.md\n M docs/architecture/native-provider-resources-2026-10-06.md\n M docs/architecture/native-zstd-workspaces-2026-10-07.md\n M docs/architecture/phased-execution-plan.md\n M docs/architecture/v1-local-resource-safety.md\n M docs/dependencies/vortex-upstream-review.md\n M docs/release/public-status-matrix.md\n M docs/release/v1-inclusion-scope-matrix.md\n M website-src/scripts/sync-content.mjs\n M website-src/src/content/docs/field-guide/limitations.mdx\n M website-src/src/content/docs/field-guide/runtime-and-io.mdx\n M website/field-guide/limitations/index.html\n M website/field-guide/runtime-and-io/index.html\n D website/pagefind/fragment/en_4bc48e4.pf_fragment\n D website/pagefind/fragment/en_c0aac66.pf_fragment\n D website/pagefind/index/en_fd5faf1.pf_index\n M website/pagefind/pagefind-entry.json\n D website/pagefind/pagefind.en_a063276512.pf_meta\n?? docs/benchmarks/evidence/native-codec-workspaces-2026-10-07-inspection.json\n?? docs/benchmarks/evidence/native-codec-workspaces-2026-10-07.json\n?? docs/benchmarks/evidence/native-codec-workspaces-2026-10-07.json.xz\n?? docs/benchmarks/native-codec-workspaces-2026-10-07.md\n?? website/pagefind/fragment/en_62ddea9.pf_fragment\n?? website/pagefind/fragment/en_6c6bb09.pf_fragment\n?? website/pagefind/index/en_a7c2f65.pf_index\n?? website/pagefind/pagefind.en_a6f182ebf9.pf_meta\n",
+    "environment": {
+      "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0"
+    },
+    "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+    "storage_last_observation": {
+      "output": {
+        "workspace_bytes": 2181509120,
+        "log_bytes": 0,
+        "free_bytes": 49017540608,
+        "reserved_candidate_bytes": 134217728
+      },
+      "cargo": {
+        "workspace_bytes": 42851471360,
+        "log_bytes": 0,
+        "free_bytes": 49017540608,
+        "reserved_candidate_bytes": 134217728
+      }
+    },
+    "timeout_seconds": 180.0,
+    "cleanup_grace_seconds_per_signal": 3.0,
+    "output_limit_bytes": 8388608,
+    "timed_out": false,
+    "interrupted_signal": null,
+    "process_group_drained": true,
+    "direct_child_reaped": true,
+    "pid": 69042,
+    "output_bytes": 131,
+    "group_absence_unproved_at_cleanup": false,
+    "returncode": 0,
+    "seconds": 0.32627545799914515,
+    "log_sha256": "39c51781915cdb336c460c587b851a4a0d597e680ee990872a837d7ce1131219"
+  },
+  "finalization_driver": {
+    "sha256": "5e04802baf9c80e3f866e1aaeaf3df51a7e38519fd014d8ffda7ef2f1108bb23",
+    "text": "\"\"\"Verify final documentation references and bind the accepted documentation packet.\"\"\"\nimport json\nfrom pathlib import Path\nimport subprocess\nimport time\n\nimport codec_common as c\n\n\ndef portable(value):\n    text = json.dumps(value, indent=2, allow_nan=False)\n    for path, replacement in ((c.ROOT, '<repo>'), (c.OUT, '<codec-uat>'), (Path.home(), '<home>')):\n        text = text.replace(str(path), replacement)\n    return text + '\\n'\n\n\ndef main():\n    source = c.read(c.OUT / 'accepted-source-1.json')\n    assert c.source_hashes() == source['source_hashes']\n    evidence = c.ROOT / 'docs/benchmarks/evidence'\n    receipt_path = evidence / 'native-codec-documentation-2026-10-07.json'\n    receipt = c.read(receipt_path)\n    assert receipt['status'] == 'passed_local_documentation_acceptance'\n    assert 'final_selected_checks' not in receipt\n    for name, expected in receipt['source_files'].items():\n        path = c.ROOT / name\n        assert path.stat().st_size == expected['bytes'] and c.sha(path) == expected['sha256'], name\n    archive = c.ROOT / receipt['archive']['path']\n    assert c.sha(archive) == receipt['archive']['sha256']\n    guard_path = c.OUT / 'codec-docarchive-1.json'\n    guard = c.read(guard_path)\n    assert guard['status'] == 'passed' and guard['process_group_drained']\n    assert guard['log_sha256'] == c.sha(guard_path.with_suffix('.log'))\n    out = c.OUT / 'codec-documentation-final-1'\n    out.mkdir(exist_ok=False)\n    checks = []\n    for name, command in (\n        ('public-status', [c.PYTHON, '-B', 'scripts/check_public_status_docs.py', '--output', str(out / 'public-status.json')]),\n        ('website-readiness', [c.PYTHON, '-B', 'scripts/check_website_readiness.py', '--output', str(out / 'website-readiness.json')]),\n        ('diff-whitespace', ['git', 'diff', '--check'])):\n        path = out / f'{name}.log'\n        start = time.monotonic()\n        with path.open('xb') as stream:\n            result = subprocess.run(command, cwd=c.ROOT, stdout=stream,\n                                    stderr=subprocess.STDOUT, timeout=60, check=False)\n        row = {'name': name, 'command': command, 'returncode': result.returncode,\n               'seconds': time.monotonic() - start, 'log_sha256': c.sha(path),\n               'log_text': path.read_text()}\n        checks.append(row)\n        assert result.returncode == 0, row\n    assert c.source_hashes() == source['source_hashes']\n    receipt.update(final_selected_checks=checks, documentation_archive_guard=guard,\n                   finalization_driver={'sha256': c.sha(__file__), 'text': Path(__file__).read_text()})\n    receipt_path.write_text(portable(receipt))\n    index_path = evidence / 'native-codec-workspaces-2026-10-07.json'\n    index = c.read(index_path)\n    assert index['documentation_updates_complete'] is False\n    assert index['runtime_commit'] == c.git('rev-parse', 'HEAD')\n    assert c.sha(c.ROOT / index['acceptance']['packet']) == index['acceptance']['packet_sha256']\n    index.update(documentation_updates_complete=True,\n                 documentation_acceptance=str(receipt_path.relative_to(c.ROOT)),\n                 documentation_acceptance_sha256=c.sha(receipt_path))\n    index_path.write_text(portable(index))\n    result = {'status': 'passed', 'selected_checks': len(checks),\n              'documentation_acceptance_sha256': c.sha(receipt_path),\n              'index_sha256': c.sha(index_path), 'source_assets_verified': len(source['source_hashes'])}\n    c.write(out / 'summary.json', result)\n    print(json.dumps(result), flush=True)\n\n\nif __name__ == '__main__':\n    main()\n"
+  }
+}

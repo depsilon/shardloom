@@ -2,10 +2,12 @@
 
 # Native Zstd Decoder Workspaces — October 7, 2026
 
-Status: implementation contract for `NATIVE-CODEC-WORKSPACES`, under PERF-03/06
-and CG-5/19/20/21. This extends [RFC 0044](../rfcs/0044-resident-runtime-resource-ownership.md#pinned-zstd-decoder-workspace-decision).
-Runtime acceptance and hosted integration remain to be proved. Published v0.4.0
-is unchanged.
+Status: locally accepted at `ab96cd7e5d0698d90c33ea2835896a68cb5f3543` for
+`NATIVE-CODEC-WORKSPACES`, under PERF-03/06 and CG-5/19/20/21. This extends
+[RFC 0044](../rfcs/0044-resident-runtime-resource-ownership.md#pinned-zstd-decoder-workspace-decision).
+The [acceptance report](../benchmarks/native-codec-workspaces-2026-10-07.md)
+records the finite resource and regression proof. Hosted integration remains
+separate; published v0.4.0 is unchanged.
 
 ## Decision and provider check
 
@@ -80,8 +82,8 @@ the provider's generic allocation error as proof of query-budget denial.
 Inputs retain the existing known-content-size metadata contract. Valid modern
 concatenations and skippable members remain accepted within that contract.
 Legacy input is explicitly unsupported instead of using the previous dynamic
-decoder. A linked version mismatch also fails deterministically. No fallback or
-unaccounted retry is available for either case.
+decoder. A linked version mismatch fails deterministically before initializing
+decoder state. No fallback or unaccounted retry is available for either case.
 
 ## Alternatives and boundaries
 
@@ -93,8 +95,8 @@ this one-shot path. Replacing the Vortex encoding would risk native persistence
 and direct-entrypoint coverage, so the existing concrete provider is retained.
 
 This unit does not cover compression contexts, dictionary training, the inactive
-experimental `ZstdBuffers` encoding, C call stacks, metadata container headers, other codecs or
-allocations bypassing the Vortex hook. A memory grant still does not bound total
+experimental `ZstdBuffers` encoding, C call stacks, metadata container headers,
+other codecs or allocations bypassing the Vortex hook. A memory grant still does not bound total
 process RSS or prevent operating-system allocation failure. Operator spill,
 resumable recovery, platform-wide support and package publication remain separate.
 
@@ -121,3 +123,18 @@ resumable recovery, platform-wide support and package publication remain separat
 The acceptance report must record source and binary identities, linked provider
 version, the final allocation scope, any failed attempts and proof gaps. No
 support label or broader PERF/CG gate closes solely from this design document.
+
+## Accepted result
+
+All 24 native Zstd ownership tests pass, including the regression that fails on
+the previous dynamic-context path. The 17 source gates, 27,373 public cases,
+202 direct cases, 48 batch checks, 19 format checks and all 129 retained-input
+Full43 calls pass on the frozen source. The cost screen preserves all 21,600
+complete native calls across baseline and candidate; no Zstd cell exceeds its
+predeclared 10% repeat trigger. It makes no speedup claim.
+
+The report and immutable packet retain the pinned C source audit, the exact
+formatting-only bridge from the measured test executable to the final source,
+failed development attempts, original storage refusal and lossless log
+compaction. Manual FFI review is supplemented by runtime tests; sanitizer,
+Miri and other-platform runtime proof are not claimed by this local packet.

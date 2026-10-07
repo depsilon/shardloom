@@ -30,9 +30,12 @@ The finite inventory includes:
 | Retained results and consumers | Buffers, clones and slices retain reservations across session/consumer handoffs; denial and failure release owned allocations |
 
 The shared pool governs these allocations; it does not impose a process RSS
-ceiling. Zstd C decoder contexts and dictionary preparation scratch, other
-unreviewed codecs/builders, metadata headers and allocator bookkeeping remain
-outside this finite accounting scope. Existing aggregate/join/window/pivot
+ceiling. This October 6 unit excludes Zstd C decoder contexts and dictionary
+preparation scratch, other unreviewed codecs/builders, metadata headers and
+allocator bookkeeping. The subsequent
+[October 7 workspace unit](native-zstd-workspaces-2026-10-07.md) admits the
+one-shot decoder and by-reference prepared dictionary; its separate acceptance
+does not alter this historical packet. Existing aggregate/join/window/pivot
 state limits and admitted spill families are unchanged.
 
 ## Pinned provider and provenance

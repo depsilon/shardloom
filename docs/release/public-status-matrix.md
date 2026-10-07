@@ -56,6 +56,13 @@ records the complete source/public/Full43 checks and the three dropped hardware
 prototypes. PR #1526 merged after all 39 hosted checks passed. Published v0.4.0
 predates these additions. Target-cohort gains are not a broad engine performance claim.
 
+The subsequent [Zstd workspace acceptance](../benchmarks/native-codec-workspaces-2026-10-07.md)
+adds actual decoder and by-reference prepared-dictionary admission to the same
+native memory owner. Local ownership and complete regression checks pass;
+hosted integration is tracked separately. Compression/training state and other
+unreviewed allocations remain outside that finite resource proof. This does
+not change the published version or public support label.
+
 The remaining maturity requirements are an explicit supported local workload/platform envelope,
 accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide
 pressure, cancellation, fault and recovery evidence. A query memory grant is not a process-RSS

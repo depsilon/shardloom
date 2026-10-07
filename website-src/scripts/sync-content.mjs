@@ -705,8 +705,12 @@ view and validity buffers through the shared native memory owner. Retained
 clones and slices keep their allocation credits. It also adds
 [Python batch input and results](/field-guide/python-surface#consume-results-in-batches).
 These additions merged in PR #1526 after complete local and hosted checks;
-published v0.4.0 predates them. C decoder contexts, dictionary preparation
-scratch and other unreviewed allocations remain outside this finite accounting
+published v0.4.0 predates them. Source implementation also admits the actual
+one-shot Zstd decoder and by-reference prepared-dictionary workspaces before
+allocation, releasing them after each decode. See the
+[workspace acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-codec-workspaces-2026-10-07.md)
+for its separate local and hosted evidence. Compression contexts, dictionary
+training and other unreviewed allocations remain outside this finite accounting
 scope. A query grant still does not bound total process RSS.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
@@ -829,6 +833,9 @@ Current source builds add reviewed FSST/Zstd buffer accounting and
 [Python batch input/incremental results](/field-guide/python-surface#consume-results-in-batches).
 PR #1526 merged after complete local and hosted checks. Published v0.4.0
 predates these additions.
+The subsequent [Zstd workspace unit](/field-guide/runtime-and-io#resources-and-recovery)
+also admits the actual decoder and by-reference prepared dictionary. Its
+resource proof remains limited to the reviewed allocations.
 Input batches remain resident under the query grant. Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.
