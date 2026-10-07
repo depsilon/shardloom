@@ -1,0 +1,351 @@
+{
+  "schema_version": "shardloom.native_builder_documentation_acceptance.v1",
+  "status": "passed_local_documentation_acceptance",
+  "runtime_commit": "53cd1582a5975ac4e206a21e45415c919c5b6b4f",
+  "source_identity_sha256": "a7308b726410569306bae14bf60ddd07f57bead73d44d423f5274b5b17c10c5f",
+  "runtime_source_assets_verified": 941,
+  "documentation_checks": [
+    {
+      "name": "user-surface-index",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_user_surface_reference.py"
+      ],
+      "cwd": "<repo>",
+      "returncode": 0,
+      "seconds": 0.047829792005359195,
+      "log": "<builder-uat>/builder-documentation-checks-2/user-surface-index.log",
+      "log_sha256": "ede6c855e3a0afe431cbb7e52a1d81394321a74317b12787e509ee4c245fa90e"
+    },
+    {
+      "name": "public-status",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_public_status_docs.py",
+        "--output",
+        "<builder-uat>/builder-documentation-checks-2/public-status-report.json"
+      ],
+      "cwd": "<repo>",
+      "returncode": 0,
+      "seconds": 0.26549979200353846,
+      "log": "<builder-uat>/builder-documentation-checks-2/public-status.log",
+      "log_sha256": "8c9aa3f2a339125a566f4210f2eb1b3dcbbf4e1af7db48378ca494422a106858"
+    },
+    {
+      "name": "use-case-backlinks",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_use_case_backlinks.py"
+      ],
+      "cwd": "<repo>",
+      "returncode": 0,
+      "seconds": 0.08900358300161315,
+      "log": "<builder-uat>/builder-documentation-checks-2/use-case-backlinks.log",
+      "log_sha256": "a50d9d2259f01abfa511d86b4f36a42d25d7798ba209b5b76e5fa1ea15a71a66"
+    },
+    {
+      "name": "website-check",
+      "command": [
+        "npm",
+        "run",
+        "check"
+      ],
+      "cwd": "<repo>/website-src",
+      "returncode": 0,
+      "seconds": 47.764876082997944,
+      "log": "<builder-uat>/builder-documentation-checks-2/website-check.log",
+      "log_sha256": "e1dbe7a67a00973f684c07cf457699292dc1f60c566bb32abfed05cf52d10057"
+    },
+    {
+      "name": "website-build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "<repo>/website-src",
+      "returncode": 0,
+      "seconds": 46.42135154100106,
+      "log": "<builder-uat>/builder-documentation-checks-2/website-build.log",
+      "log_sha256": "d07e52fdb46735651d4245bec5a66c3fede890159fecde96faf36801f4c27f9c"
+    },
+    {
+      "name": "website-readiness",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_website_readiness.py",
+        "--output",
+        "<builder-uat>/builder-documentation-checks-2/website-readiness-report.json"
+      ],
+      "cwd": "<repo>",
+      "returncode": 0,
+      "seconds": 0.2658024159973138,
+      "log": "<builder-uat>/builder-documentation-checks-2/website-readiness.log",
+      "log_sha256": "83fe4e7c661adec0541170cb02a7abb75d8b371e3d6bae6cd10801a46bff601a"
+    },
+    {
+      "name": "diff-whitespace",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "<repo>",
+      "returncode": 0,
+      "seconds": 0.020975542000087444,
+      "log": "<builder-uat>/builder-documentation-checks-2/diff-whitespace.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "browser": {
+    "status": "passed_manual_browser_review",
+    "pages": [
+      "field-guide/runtime-and-io/",
+      "field-guide/limitations/"
+    ],
+    "final_documentation_checks": "builder-documentation-checks-2",
+    "desktop": {
+      "capture": "builder-docs-desktop-3.png",
+      "width": 1280,
+      "height": 720,
+      "body_width": 1265,
+      "theme": "dark",
+      "resource_text_readable": true,
+      "review_date": "October 7, 2026"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "runtime_body_width": 375,
+      "limitations_body_width": 375,
+      "resource_dark_capture": "builder-docs-mobile-dark-1.jpg",
+      "resource_light_capture": "builder-docs-mobile-light-1.jpg",
+      "final_limitations_capture": "builder-docs-limitations-mobile-3.png",
+      "table_client_width": 343,
+      "table_scroll_width": 474,
+      "table_overflow_x": "auto",
+      "table_parent_scroll_width": 343
+    },
+    "search": {
+      "query": "builder",
+      "result_count": 2,
+      "result_targets": [
+        "field-guide/runtime-and-io/#resources-and-recovery",
+        "field-guide/limitations/#runtime-limits"
+      ],
+      "runtime_result_clicked_and_verified": true,
+      "capture": "builder-docs-search-2.jpg"
+    },
+    "warning_and_error_logs": [],
+    "temporary_tab_closed_and_viewport_reset": true,
+    "preserved_preliminary_observations": "The initial review found an omitted builder paragraph on limitations and a stale date. Both were corrected before checks-2 and final captures. Earlier captures remain as historical observations. The blank limitations-mobile-2 capture preceded scroll settling and is not acceptance proof; desktop-2 captured the lower resource section before returning to its heading.",
+    "scope": "Primary browser observations and captured pixels, not an automated browser test. The resource paragraph and CSS were unchanged between its mobile theme captures and the final desktop capture; final limitations content and both search destinations were inspected after regeneration."
+  },
+  "examples_changed": false,
+  "runtime_rerun_required": false,
+  "archive": {
+    "path": "docs/benchmarks/evidence/native-builder-documentation-2026-10-07.tar.xz",
+    "bytes": 606856,
+    "sha256": "863d38ecfc69ba52fb4709917bdd192db2cf3b94998ff73face04c83cedea7e4",
+    "file_members": 79,
+    "total_members": 81,
+    "manifest_sha256": "d2f4707e303dbedcbcb0412575e6bdbdbb0f72934f5b4dfd2d1d4bf4e3d1d93d",
+    "all_members_reopened_and_hash_checked": true
+  },
+  "source_files": {
+    "docs/architecture/local-development-storage.md": {
+      "bytes": 20309,
+      "sha256": "043f1cfe62a6fc3e36bb66fc9370b15ad79e3ec94b109d02a7844e5f991b8500"
+    },
+    "docs/architecture/native-builder-resources-2026-10-07.md": {
+      "bytes": 8035,
+      "sha256": "e9bc3112038cbbb49633303036260d7b8ee13048127e815fcf981a802d01ea4c"
+    },
+    "docs/architecture/native-conditional-work-campaign-2026-10-07.md": {
+      "bytes": 12097,
+      "sha256": "33f346517b2e58891f09e513fc84df109550e2be4936fd68698c47a290686114"
+    },
+    "docs/architecture/native-state-structure-campaign-2026-10-07.md": {
+      "bytes": 18354,
+      "sha256": "51782be22909ba0f2ad5fe40f004189b019278b71c32eda1cb60b8baba9cc529"
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "bytes": 228971,
+      "sha256": "44e3b9a94abd716898209bb90c0a75bd1e250735a4154751e2a10ef877978ef2"
+    },
+    "docs/architecture/universal-workflow-completion-2026-10-01.md": {
+      "bytes": 23729,
+      "sha256": "269b563a3a053798878a38d09a808aad6ffdc00335395b412fb655411d33f1db"
+    },
+    "docs/architecture/v1-local-resource-safety.md": {
+      "bytes": 8600,
+      "sha256": "3e1ce124d02127bf5dd6f75a00fe00380a82699673156c0e7e78ef1c7f3242b0"
+    },
+    "docs/benchmarks/native-builder-resources-2026-10-07.md": {
+      "bytes": 11123,
+      "sha256": "67f4378c2d736ce7baf44d4bb43659bc7e4cd701c53258cd1ad3dccd9ceeb5b8"
+    },
+    "docs/dependencies/vortex-upstream-review.md": {
+      "bytes": 24294,
+      "sha256": "93bb748dcbee1060dd3915d7212cf5a39a8055f905aeff0084ba2ad8033088f5"
+    },
+    "docs/release/public-status-matrix.md": {
+      "bytes": 16118,
+      "sha256": "8f1a1a98729f1be86b5bb94b4b78c355076c7e006d943feaa6cfb9e93040b4c5"
+    },
+    "docs/release/v1-inclusion-scope-matrix.md": {
+      "bytes": 56139,
+      "sha256": "841f7961a0b7c9dcbf5efc663f160f8787af0dd553385599410262727b0ea747"
+    },
+    "website-src/scripts/sync-content.mjs": {
+      "bytes": 60438,
+      "sha256": "cb1ecea36042c658d48c5787665499ec515a5789fdbac8e9ba6a4d612418dc0c"
+    },
+    "website-src/src/content/docs/field-guide/limitations.mdx": {
+      "bytes": 12088,
+      "sha256": "9a34c0ce5b746e1af6d7f3174a06da833dd0e7e8b21e67a712a1c2825d93a3b2"
+    },
+    "website-src/src/content/docs/field-guide/runtime-and-io.mdx": {
+      "bytes": 17119,
+      "sha256": "a0583a146362d847152496708393be76a1257ecbb67b5820e61be6ac871a7fe5"
+    },
+    "website/field-guide/limitations/index.html": {
+      "bytes": 42576,
+      "sha256": "b588eeb204a76c552349f89f5c49e477308b037ed0a8755dc3b784e6bdbd5305"
+    },
+    "website/field-guide/runtime-and-io/index.html": {
+      "bytes": 49865,
+      "sha256": "fb615dd41eb020474847143c3293c7a21185ea7f08c67958cecdd40f4ce8ae8c"
+    },
+    "website/pagefind/fragment/en_5d71f5e.pf_fragment": {
+      "bytes": 5658,
+      "sha256": "9a0e3925a1fbee7e2733470d4dc4da2b07fcdf784e35729f8f431b48ed5ce2ae"
+    },
+    "website/pagefind/fragment/en_ff5fe1f.pf_fragment": {
+      "bytes": 4454,
+      "sha256": "575c9e25881a1db8f2ad98a16b536f2e1c302298dc3b8ebe2d69c9a454c6ac24"
+    },
+    "website/pagefind/index/en_1bd7b2e.pf_index": {
+      "bytes": 22430,
+      "sha256": "b4c825becc5a2a76fdd13f3a92a46c71717ecf016077abb83da8c6fbf56e3e72"
+    },
+    "website/pagefind/pagefind-entry.json": {
+      "bytes": 171,
+      "sha256": "6c64f2772a87a9c04f38505c9381442437684325c91fcba29be21b63ae073fca"
+    },
+    "website/pagefind/pagefind.en_d1d7355395.pf_meta": {
+      "bytes": 166,
+      "sha256": "b2282907cbd150cecc9919cfb7abdd0f66afc2315dfa0ef0aa2d54a5700c0905"
+    }
+  },
+  "temporary_server_drained": true,
+  "hosted_integration": "pending",
+  "claim_boundary": "Documentation acceptance for the exact recorded pages and source. No new engine, performance, RSS or package claim.",
+  "driver_sha256": "d317b1e2955ff2b3d0dab5608f495a9216cf23364a63e14589b43c34b8ad07b1",
+  "final_selected_checks": [
+    {
+      "name": "use-case-backlinks",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_use_case_backlinks.py"
+      ],
+      "returncode": 0,
+      "seconds": 0.08961683300003642,
+      "log_sha256": "a50d9d2259f01abfa511d86b4f36a42d25d7798ba209b5b76e5fa1ea15a71a66",
+      "log_text": "use-case backlinks ok\n"
+    },
+    {
+      "name": "public-status",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_public_status_docs.py",
+        "--output",
+        "<builder-uat>/builder-documentation-final-1/public-status-report.json"
+      ],
+      "returncode": 0,
+      "seconds": 0.2614824159973068,
+      "log_sha256": "84b9def263b5d474104e278e2bd418991c7cb8acf6cd8713dcb85590450377a5",
+      "log_text": "<builder-uat>/builder-documentation-final-1/public-status-report.json\n"
+    },
+    {
+      "name": "website-readiness",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_website_readiness.py",
+        "--output",
+        "<builder-uat>/builder-documentation-final-1/website-readiness-report.json"
+      ],
+      "returncode": 0,
+      "seconds": 0.3017736670008162,
+      "log_sha256": "39237dc0e84aa65027fdde58cda3bf21d8e52c4deaf0c8622b9363ba2e72925c",
+      "log_text": "website readiness passed: <builder-uat>/builder-documentation-final-1/website-readiness-report.json\n"
+    },
+    {
+      "name": "diff-whitespace",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0,
+      "seconds": 0.023682375001953915,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "log_text": ""
+    }
+  ],
+  "documentation_archive_guard": {
+    "status": "passed",
+    "command": [
+      "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+      "-B",
+      "<builder-uat>/archive_builder_documentation.py"
+    ],
+    "cwd": "<repo>",
+    "head": "53cd1582a5975ac4e206a21e45415c919c5b6b4f",
+    "working_tree": " M docs/architecture/local-development-storage.md\n M docs/architecture/native-builder-resources-2026-10-07.md\n M docs/architecture/phased-execution-plan.md\n M docs/architecture/universal-workflow-completion-2026-10-01.md\n M docs/architecture/v1-local-resource-safety.md\n M docs/dependencies/vortex-upstream-review.md\n M docs/release/public-status-matrix.md\n M docs/release/v1-inclusion-scope-matrix.md\n M website-src/scripts/sync-content.mjs\n M website-src/src/content/docs/field-guide/limitations.mdx\n M website-src/src/content/docs/field-guide/runtime-and-io.mdx\n M website/field-guide/limitations/index.html\n M website/field-guide/runtime-and-io/index.html\n D website/pagefind/fragment/en_62ddea9.pf_fragment\n D website/pagefind/fragment/en_6c6bb09.pf_fragment\n D website/pagefind/index/en_a7c2f65.pf_index\n M website/pagefind/pagefind-entry.json\n D website/pagefind/pagefind.en_a6f182ebf9.pf_meta\n?? docs/architecture/native-conditional-work-campaign-2026-10-07.md\n?? docs/architecture/native-state-structure-campaign-2026-10-07.md\n?? docs/benchmarks/evidence/native-builder-resources-2026-10-07-inspection.json\n?? docs/benchmarks/evidence/native-builder-resources-2026-10-07.json\n?? docs/benchmarks/evidence/native-builder-resources-2026-10-07.json.xz\n?? docs/benchmarks/native-builder-resources-2026-10-07.md\n?? website/pagefind/fragment/en_5d71f5e.pf_fragment\n?? website/pagefind/fragment/en_ff5fe1f.pf_fragment\n?? website/pagefind/index/en_1bd7b2e.pf_index\n?? website/pagefind/pagefind.en_d1d7355395.pf_meta\n",
+    "environment": {
+      "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0"
+    },
+    "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+    "storage_last_observation": {
+      "output": {
+        "workspace_bytes": 2121240576,
+        "log_bytes": 0,
+        "free_bytes": 41902010368,
+        "reserved_candidate_bytes": 134217728
+      },
+      "cargo": {
+        "workspace_bytes": 43923496960,
+        "log_bytes": 0,
+        "free_bytes": 41901957120,
+        "reserved_candidate_bytes": 134217728
+      }
+    },
+    "timeout_seconds": 300.0,
+    "cleanup_grace_seconds_per_signal": 3.0,
+    "output_limit_bytes": 8388608,
+    "timed_out": false,
+    "interrupted_signal": null,
+    "process_group_drained": true,
+    "direct_child_reaped": true,
+    "pid": 85302,
+    "output_bytes": 131,
+    "group_absence_unproved_at_cleanup": false,
+    "returncode": 0,
+    "seconds": 0.36754508299782174,
+    "log_sha256": "ed2e1357e8a40c7aab6cb094adcee23cdc1256fc0b577f5952eecafc864303c5"
+  },
+  "finalization_driver": {
+    "sha256": "4f141f17281bab65e9d9e9354ab7b73224bb1814f1024480a472e64d31901eb7",
+    "text": "\"\"\"Verify final builder documentation references and bind the archive to its index.\"\"\"\nimport json\nfrom pathlib import Path\nimport subprocess\nimport time\n\nimport builder_common as c\n\n\nRUNTIME_COMMIT = '53cd1582a5975ac4e206a21e45415c919c5b6b4f'\n\n\ndef portable(value):\n    text = json.dumps(value, indent=2, allow_nan=False)\n    for path, replacement in ((c.ROOT, '<repo>'), (c.OUT, '<builder-uat>'),\n                              (Path.home(), '<home>')):\n        text = text.replace(str(path), replacement)\n    return text + '\\n'\n\n\ndef main():\n    source = c.read(c.OUT / 'builder-source-1.json')\n    assert c.source_hashes() == source['source_hashes']\n    assert c.git('rev-parse', 'HEAD') == RUNTIME_COMMIT\n    evidence = c.ROOT / 'docs/benchmarks/evidence'\n    receipt_path = evidence / 'native-builder-documentation-2026-10-07.json'\n    receipt = c.read(receipt_path)\n    assert receipt['status'] == 'passed_local_documentation_acceptance'\n    assert 'final_selected_checks' not in receipt\n    for name, expected in receipt['source_files'].items():\n        path = c.ROOT / name\n        assert path.stat().st_size == expected['bytes'] and c.sha(path) == expected['sha256'], name\n    archive = c.ROOT / receipt['archive']['path']\n    assert c.sha(archive) == receipt['archive']['sha256']\n    guard_path = c.OUT / 'builder-docarchive-1.json'\n    guard = c.read(guard_path)\n    assert guard['status'] == 'passed' and guard['process_group_drained']\n    assert guard['log_sha256'] == c.sha(guard_path.with_suffix('.log'))\n\n    out = c.OUT / 'builder-documentation-final-1'\n    out.mkdir(exist_ok=False)\n    checks = []\n    for name, command in (\n        ('use-case-backlinks', [c.PYTHON, '-B', 'scripts/check_use_case_backlinks.py']),\n        ('public-status', [c.PYTHON, '-B', 'scripts/check_public_status_docs.py',\n                           '--output', str(out / 'public-status-report.json')]),\n        ('website-readiness', [c.PYTHON, '-B', 'scripts/check_website_readiness.py',\n                               '--output', str(out / 'website-readiness-report.json')]),\n        ('diff-whitespace', ['git', 'diff', '--check']),\n    ):\n        assert c.source_hashes() == source['source_hashes'], f'source changed before {name}'\n        path = out / f'{name}.log'\n        start = time.monotonic()\n        with path.open('xb') as stream:\n            result = subprocess.run(command, cwd=c.ROOT, stdout=stream,\n                                    stderr=subprocess.STDOUT, timeout=60, check=False)\n        row = {'name': name, 'command': command, 'returncode': result.returncode,\n               'seconds': time.monotonic() - start, 'log_sha256': c.sha(path),\n               'log_text': path.read_text()}\n        checks.append(row)\n        assert c.source_hashes() == source['source_hashes'], f'source changed after {name}'\n        assert result.returncode == 0, row\n\n    assert c.source_hashes() == source['source_hashes']\n    receipt.update(final_selected_checks=checks, documentation_archive_guard=guard,\n                   finalization_driver={'sha256': c.sha(__file__),\n                                        'text': Path(__file__).read_text()})\n    receipt_path.write_text(portable(receipt))\n    index_path = evidence / 'native-builder-resources-2026-10-07.json'\n    index = c.read(index_path)\n    assert index['documentation_updates_complete'] is False\n    assert index['runtime_commit'] == RUNTIME_COMMIT\n    assert c.sha(c.ROOT / index['acceptance']['packet']) == index['acceptance']['packet_sha256']\n    index.update(documentation_updates_complete=True,\n                 documentation_acceptance=str(receipt_path.relative_to(c.ROOT)),\n                 documentation_acceptance_sha256=c.sha(receipt_path))\n    index_path.write_text(portable(index))\n    result = {'status': 'passed', 'selected_checks': len(checks),\n              'documentation_acceptance_sha256': c.sha(receipt_path),\n              'index_sha256': c.sha(index_path),\n              'source_assets_verified': len(source['source_hashes'])}\n    c.write(out / 'summary.json', result)\n    print(json.dumps(result), flush=True)\n\n\nif __name__ == '__main__':\n    main()\n"
+  }
+}

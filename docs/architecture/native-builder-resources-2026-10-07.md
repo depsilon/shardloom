@@ -1,8 +1,11 @@
 # Native Builder Resource Ownership
 
-Status: implementation contract for `NATIVE-BUILDER-RESOURCES`, under
-PERF-03/06/07 and CG-5/19/20/21. Acceptance is pending. Published v0.4.0 is
-unchanged. This finite unit does not complete those broader owners.
+Status: local implementation and acceptance complete at `53cd1582`, with
+independent packet inspection passed; hosted integration is pending. This is
+`NATIVE-BUILDER-RESOURCES`, under PERF-03/06/07 and CG-5/19/20/21. The
+[acceptance report](../benchmarks/native-builder-resources-2026-10-07.md) records
+the measured overhead, failures and complete regression proof. Published v0.4.0
+is unchanged. This finite unit does not complete those broader owners.
 
 ## Decision and reuse
 
@@ -91,6 +94,14 @@ storage, whole-process RSS, general operator spill
 and resumable recovery remain outside this finite contract.
 
 ## Acceptance
+
+The following contract was fixed before timing. Local acceptance now passes
+14 new ownership tests, all 17 source gates, 27,373 public cases, 202 direct
+cases, 48 batch checks, 19 format checks and all 129 Full43 calls. The
+840,960-call lifecycle screen passes its predefined revision rule while retaining
+five repeated relative UTF-8 regressions, including a confirmation only 0.0703
+microseconds below the five-microsecond threshold. See the report for exact
+scope and all samples; this is a resource correction, not a speedup.
 
 Before implementation, reproduce denied-grant bypass for fixed-width builders
 and the uncharged string finalization overlap. Prove all primitive widths, Bool

@@ -64,6 +64,14 @@ source unchanged. Compression/training state and other
 unreviewed allocations remain outside that finite resource proof. This does
 not change the published version or public support label.
 
+The [builder acceptance](../benchmarks/native-builder-resources-2026-10-07.md)
+further covers native primitive/Boolean/decimal Chunked output and builder
+finalization buffers, preserving independent value/validity ownership. Complete
+local source/public/Full43 checks and packet inspection pass; hosted integration
+is pending. Child decoder scratch, structural metadata and general operator
+spill remain separate. Its measured cost screen is a resource-correction check,
+not a speedup or process-RSS guarantee.
+
 The remaining maturity requirements are an explicit supported local workload/platform envelope,
 accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide
 pressure, cancellation, fault and recovery evidence. A query memory grant is not a process-RSS

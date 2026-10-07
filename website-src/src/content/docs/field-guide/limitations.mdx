@@ -10,7 +10,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 6, 2026**. See the
+Current capabilities, reviewed **October 7, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -32,6 +32,10 @@ predates these additions.
 The subsequent [Zstd workspace unit](/field-guide/runtime-and-io#resources-and-recovery)
 also admits the actual decoder and by-reference prepared dictionary. Its
 resource proof remains limited to the reviewed allocations.
+The [builder resource unit](/field-guide/runtime-and-io#resources-and-recovery)
+covers primitive/Boolean/decimal Chunked output, nullable bitmaps and
+numeric/string finalization buffers, with local acceptance complete and hosted
+integration pending. Child decoder scratch and structural metadata remain separate.
 Input batches remain resident under the query grant. Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.

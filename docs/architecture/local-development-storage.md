@@ -176,6 +176,17 @@ storage ceilings remain unchanged. The
 retains the refusal, compaction manifests and independent reopening of all
 1,032 members before accepting the fresh Full43 continuation.
 
+Before native builder Full43 acceptance, the same 252-MiB admission threshold
+stopped preflight before queries. Three completed historical cohorts were
+repacked from gzip-wrapper archives into verified archives of original JSON and
+companion bytes. Original manifests and summaries remain intact; all 1,548
+members were reopened and hash-checked before acceptance. This recovered
+3,452,928 accounted bytes. The first two-cohort attempt still failed storage
+admission, and both that failure and the final successful continuation are
+preserved in the [builder packet](../benchmarks/native-builder-resources-2026-10-07.md).
+Only redundant completed containers were removed. Failed/incomplete evidence,
+resident inputs and storage ceilings remain unchanged.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and

@@ -175,6 +175,12 @@ accounts for reviewed FSST/Zstd buffers through retained native owners. The
 `from_batches` and `iter_batches`, with demand-driven resident intake and
 acknowledged result delivery. Both have complete local acceptance at combined
 commit `99e0a4b3` and merged in PR #1526 after all 39 hosted checks passed.
+Actual Zstd decoder/dictionary workspaces subsequently merged in PR #1528.
+The [native builder unit](native-builder-resources-2026-10-07.md) now has complete
+local source/public/Full43 and packet acceptance at `53cd1582`, with hosted
+integration pending. It owns finite Chunked value/validity/finalization buffers;
+the [report](../benchmarks/native-builder-resources-2026-10-07.md) retains all
+measured costs and remaining allocation boundaries.
 Remaining adapters and resource/spill transitions retain their owners.
 
 | Area | Existing foundation | Completion requirement | Owner |
@@ -211,11 +217,17 @@ has complete local and hosted acceptance in source builds after that release,
 with PR #1524 merged after all 39 checks passed. The
 [nested pivot state unit](native-nested-pivot-state-2026-10-06.md) also has complete
 documentation and hosted integration in PR #1525. The finite provider memory
-and batch-adapter continuations have complete local implementation and acceptance;
-their [report](../benchmarks/native-engine-acceptance-2026-10-06.md) records the
-remaining hosted integration boundary. Continue step 2 with the unaccounted
-reader/codec scratch and broader operator spill/recovery obligations, rather
-than repeating the accepted finite provider work.
+and batch-adapter continuations merged in PR #1526, followed by actual Zstd
+workspace admission in PR #1528. Builder output/finalization ownership has
+complete local acceptance and awaits hosted integration. Continue step 2 with
+the remaining reader/codec scratch and operator spill/recovery obligations.
+The October 7 [state and structure campaign](native-state-structure-campaign-2026-10-07.md)
+prioritizes completion-aware single-use input through the shared native
+filter/project/write path, plus a measured retained-intermediate target for
+selective regeneration. Existing input batches remain resident until that
+capability's implementation and acceptance complete. Distinct multiway-join,
+nested-identity and stable spill-merge experiments retain their own gates;
+completed hardware and composed-COUNT drops are not reopened.
 Broader adapter and resource families continue under their ownership contracts.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
 require operational acceptance of a declared support envelope; package availability is complete,

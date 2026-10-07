@@ -1,5 +1,24 @@
 # Vortex Upstream Dependency Review
 
+## October 7, 2026 native builder review
+
+`NATIVE-BUILDER-RESOURCES` retains Vortex 0.85.0 and extends the existing session
+provider around primitive, Boolean and decimal Chunked output builders. It keeps
+upstream append strategies and native buffer ownership; the allocator argument
+alone is insufficient because this pinned builder factory ignores it. The
+existing Apache-2.0 `vortex-zstd` patch also routes primitive append through its
+already-admitted native decoder, then native primitive append. The
+[provenance manifest](../../vendor/vortex-zstd/upstream-provenance.json) records
+that additional method-level change. No dependency, feature, codec implementation
+or unsafe code is added.
+
+The [contract](../architecture/native-builder-resources-2026-10-07.md) and
+[acceptance](../benchmarks/native-builder-resources-2026-10-07.md) record the
+capacity/lifetime boundary, 13 pinned upstream source checks, 14 new ownership
+tests, the complete cost screen and source/public/Full43 regression proof.
+Local packet inspection passes; hosted integration is pending. Child decoder
+scratch and structural metadata remain outside the new byte-buffer claim.
+
 ## October 7, 2026 pinned decoder workspace review
 
 The merged `NATIVE-CODEC-WORKSPACES` unit retains Vortex 0.85.0 and the same
