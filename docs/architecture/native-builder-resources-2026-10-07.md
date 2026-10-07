@@ -1,7 +1,8 @@
 # Native Builder Resource Ownership
 
-Status: local implementation and acceptance complete at `53cd1582`, with
-independent packet inspection passed; hosted integration is pending. This is
+Status: implementation and local/hosted acceptance complete at `53cd1582`, with
+independent packet inspection passed. PR #1529 merged at `0f7609da` after all
+39 hosted checks passed, preserving all 941 accepted runtime assets. This is
 `NATIVE-BUILDER-RESOURCES`, under PERF-03/06/07 and CG-5/19/20/21. The
 [acceptance report](../benchmarks/native-builder-resources-2026-10-07.md) records
 the measured overhead, failures and complete regression proof. Published v0.4.0

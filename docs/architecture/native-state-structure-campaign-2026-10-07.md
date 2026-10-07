@@ -2,8 +2,8 @@
 
 Status: source-grounded implementation and experiment queue for the maintainer's
 October 7 direction. No strategy in this campaign has been implemented or timed.
-Builder resource acceptance and packet inspection have passed; finish its hosted
-integration before changing runtime source for the next unit. This campaign
+Builder resource acceptance, packet inspection and hosted integration have passed
+in PR #1529, preserving all 941 accepted runtime source assets. This campaign
 follows the completed five hardware decisions and composed-COUNT decisions;
 their drops stay dropped. Published v0.4.0 and broader PERF/CG status are unchanged.
 

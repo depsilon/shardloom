@@ -189,7 +189,8 @@ for its separate local and hosted evidence. The
 [builder resource acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-builder-resources-2026-10-07.md)
 also covers native primitive/Boolean/decimal Chunked output, nullable bitmaps and
 numeric/string builder finalization buffers. Local source and complete workflow
-checks pass; hosted integration is pending. Child decoder scratch, structural
+checks pass; PR #1529 merged after all 39 hosted checks passed, with the accepted
+runtime unchanged. Child decoder scratch, structural
 metadata, compression contexts, dictionary training and other unreviewed
 allocations remain outside this finite scope. These resource corrections make
 no speedup claim, and a query grant still does not bound total process RSS.

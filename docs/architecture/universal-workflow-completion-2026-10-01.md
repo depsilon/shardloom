@@ -177,8 +177,9 @@ acknowledged result delivery. Both have complete local acceptance at combined
 commit `99e0a4b3` and merged in PR #1526 after all 39 hosted checks passed.
 Actual Zstd decoder/dictionary workspaces subsequently merged in PR #1528.
 The [native builder unit](native-builder-resources-2026-10-07.md) now has complete
-local source/public/Full43 and packet acceptance at `53cd1582`, with hosted
-integration pending. It owns finite Chunked value/validity/finalization buffers;
+local source/public/Full43 and packet acceptance at `53cd1582`. PR #1529 merged
+after all 39 hosted checks passed with the accepted runtime unchanged. It owns
+finite Chunked value/validity/finalization buffers;
 the [report](../benchmarks/native-builder-resources-2026-10-07.md) retains all
 measured costs and remaining allocation boundaries.
 Remaining adapters and resource/spill transitions retain their owners.
@@ -219,7 +220,7 @@ with PR #1524 merged after all 39 checks passed. The
 documentation and hosted integration in PR #1525. The finite provider memory
 and batch-adapter continuations merged in PR #1526, followed by actual Zstd
 workspace admission in PR #1528. Builder output/finalization ownership has
-complete local acceptance and awaits hosted integration. Continue step 2 with
+complete local and hosted acceptance in PR #1529. Continue step 2 with
 the remaining reader/codec scratch and operator spill/recovery obligations.
 The October 7 [state and structure campaign](native-state-structure-campaign-2026-10-07.md)
 prioritizes completion-aware single-use input through the shared native

@@ -16,7 +16,8 @@ not predictions of ShardLoom performance.
 
 ## Order and ownership
 
-Finish builder evidence and hosted integration before changing runtime source.
+Builder evidence and hosted integration are complete in PR #1529, with the
+accepted runtime unchanged. Subsequent source changes use a separate snapshot.
 The first new performance screen is adaptive exact decimal accumulation under
 PERF-04/10/12, followed by conservative membership filtering under
 PERF-02/03/10/12 and CG-14's conservative-proof obligation. Source/design work for

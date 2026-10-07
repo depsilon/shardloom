@@ -3,10 +3,20 @@
 # Native Builder Resource Acceptance
 
 Status: local engine acceptance and independent packet inspection passed for
-runtime `53cd1582a5975ac4e206a21e45415c919c5b6b4f`. Local documentation and browser
-checks pass; hosted integration remains pending. This is the finite `NATIVE-BUILDER-RESOURCES`
+runtime `53cd1582a5975ac4e206a21e45415c919c5b6b4f`. Documentation, browser and
+hosted integration checks pass; PR #1529 is merged. This is the finite `NATIVE-BUILDER-RESOURCES`
 unit under PERF-03/06/07 and CG-5/19/20/21. Published v0.4.0 and the broader gate
 status are unchanged.
+
+All 39 hosted checks passed on `3ec085ae9d47b081d676b4cc29c1d152cc571042`.
+The [PR #1529](https://github.com/depsilon/shardloom/pull/1529) merge
+`0f7609daf7c4d062a0b939870803636d0c9b4ef8` preserves that tree and all 941
+accepted runtime source assets. Hosted automated review completed without posted
+findings; no submitted approval is claimed. Production deployment and browser
+checks verify the complete resource page against its accepted preview and the
+linked merged report. The [hosted receipt](evidence/native-builder-hosted-2026-10-07.json)
+preserves those observations, including their historical pending labels. The
+immutable engine and documentation packets below are unchanged.
 
 ## Accepted behavior
 

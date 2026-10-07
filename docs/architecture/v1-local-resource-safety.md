@@ -51,7 +51,8 @@ replacement buffer used during numeric and string builder finalization. Credits
 survive independent value/validity references, clones and slices. Native child
 append strategies remain intact, including the repaired primitive Zstd append.
 Its [local acceptance](../benchmarks/native-builder-resources-2026-10-07.md)
-passes complete ownership and regression checks; hosted integration is pending.
+passes complete ownership and regression checks. PR #1529 merged after all 39
+hosted checks passed with the accepted runtime unchanged; production checks pass.
 The cost screen retains measured UTF-8 overhead and makes no speedup claim.
 
 General aggregate/join/window spill, complete reader/codec/upstream scratch accounting and

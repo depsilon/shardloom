@@ -67,8 +67,9 @@ not change the published version or public support label.
 The [builder acceptance](../benchmarks/native-builder-resources-2026-10-07.md)
 further covers native primitive/Boolean/decimal Chunked output and builder
 finalization buffers, preserving independent value/validity ownership. Complete
-local source/public/Full43 checks and packet inspection pass; hosted integration
-is pending. Child decoder scratch, structural metadata and general operator
+local source/public/Full43 checks and packet inspection pass. PR #1529 merged
+after all 39 hosted checks passed with the accepted runtime unchanged; production
+verification passes. Child decoder scratch, structural metadata and general operator
 spill remain separate. Its measured cost screen is a resource-correction check,
 not a speedup or process-RSS guarantee.
 
