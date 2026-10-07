@@ -72,6 +72,8 @@ pub(crate) enum MemoryInput {
     Batches {
         #[serde(deserialize_with = "bounded_vec::<_, _, 128>")]
         schema: Vec<(String, MemoryValueType)>,
+        #[serde(default)]
+        streaming: bool,
     },
     Range {
         start: i64,
@@ -89,7 +91,7 @@ impl MemoryInput {
             #[cfg(any(test, all(feature = "vortex-local-primitives", unix)))]
             Self::Unit => Ok(()),
             Self::Rows { schema, rows } => validate_rows(schema, rows),
-            Self::Batches { schema } => validate_batch_rows(schema, &[]),
+            Self::Batches { schema, .. } => validate_batch_rows(schema, &[]),
             Self::Range {
                 start,
                 end,
@@ -224,6 +226,29 @@ fn failed(reason: &str) -> ShardLoomError {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn batch_streaming_mode_is_explicit_and_defaults_to_resident() {
+        for streaming in [None, Some(false), Some(true)] {
+            let mut declaration = json!({"kind":"batches","schema":[["n","int64"]]});
+            if let Some(streaming) = streaming {
+                declaration["streaming"] = json!(streaming);
+            }
+            let input: MemoryInput = serde_json::from_value(declaration).unwrap();
+            input.validate().unwrap();
+            assert!(
+                matches!(input, MemoryInput::Batches { streaming: actual, .. } if actual == streaming.unwrap_or(false))
+            );
+        }
+        for value in [json!(null), json!(1), json!("true")] {
+            assert!(
+                serde_json::from_value::<MemoryInput>(json!({
+                    "kind":"batches","schema":[["n","int64"]],"streaming":value,
+                }))
+                .is_err()
+            );
+        }
+    }
 
     #[test]
     fn row_declarations_bound_shape_during_deserialization() {

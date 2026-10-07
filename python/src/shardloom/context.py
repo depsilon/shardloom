@@ -11323,9 +11323,11 @@ class ShardLoomContext:
 
         return from_rows(rows, schema=schema, client=self.client)
 
-    def from_batches(self, batches: object, *, schema: Mapping[str, object]) -> LazyFrame:
-        """Declare bounded resident input batches without consuming the iterable."""
-        return from_batches(batches, schema=schema, client=self.client)
+    def from_batches(
+        self, batches: object, *, schema: Mapping[str, object], streaming: bool = False,
+    ) -> LazyFrame:
+        """Declare resident or explicit streaming input without consuming it."""
+        return from_batches(batches, schema=schema, streaming=streaming, client=self.client)
 
     def literal_table(
         self, rows: Sequence[Mapping[str, object]], *, schema: Mapping[str, object] | None = None,

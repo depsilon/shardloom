@@ -36,6 +36,7 @@ impl PreparedVortexRelational {
         overwrite: bool,
         cancellation: &CancellationToken,
     ) -> Result<Vec<WrittenVortexRelational>> {
+        self.validate_batch_provider(false)?;
         let mut written = super::super::output_fanout::write(
             targets,
             overwrite,
@@ -85,6 +86,18 @@ impl PreparedVortexRelational {
         overwrite: bool,
         cancellation: &CancellationToken,
     ) -> Result<WrittenVortexRelational> {
+        self.write_with_input(path, format, overwrite, cancellation, None)
+    }
+
+    pub(super) fn write_with_input(
+        &self,
+        path: &std::path::Path,
+        format: VortexLocalPrimitiveRowExportFormat,
+        overwrite: bool,
+        cancellation: &CancellationToken,
+        mut input: Option<&mut super::batch_input::Provider<'_>>,
+    ) -> Result<WrittenVortexRelational> {
+        self.validate_batch_provider(input.is_some())?;
         let mut written =
             self.session
                 .with_sources_execution(&self.sources, cancellation, |context| {
@@ -95,6 +108,7 @@ impl PreparedVortexRelational {
                             self.memory_sources
                                 .first()
                                 .map(|(uri, _)| uri.clone())
+                                .or_else(|| self.batch_source.as_ref().map(|(uri, _)| uri.clone()))
                                 .ok_or_else(|| failed("relational source is absent"))?
                         };
                         // This request describes only the terminal adapter's projection of the
@@ -138,6 +152,7 @@ impl PreparedVortexRelational {
                             context,
                             metrics,
                             batch_rows.min(BATCH_ROWS),
+                            input.take(),
                             &mut |array| {
                                 submitted = submitted
                                     .checked_add(array.len() as u64)

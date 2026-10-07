@@ -254,6 +254,9 @@ the ledger.
   - V1 scope classification: `required_for_v1` for the declared local streaming
     workflow; do not infer general operator spill or unrestricted input sizes.
   - Follow the October 7 [state and structure campaign](native-state-structure-campaign-2026-10-07.md).
+    The [concrete input design](native-input-completion-2026-10-07.md) adds
+    explicit streaming mode, a private native batch owner, complete-plan admission
+    and detached output before proving release and demanding the next batch.
     Bind declared schema and classify the whole plan before consuming a one-shot
     producer. Reuse native arrays, shared filter/project execution and local sinks.
   - Start with a single-use pure row-local filter/project/write chain, releasing

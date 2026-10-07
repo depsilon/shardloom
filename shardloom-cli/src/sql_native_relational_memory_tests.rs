@@ -1,5 +1,68 @@
 use super::*;
 
+#[test]
+fn native_relational_sql_streaming_input_preserves_synthetic_limit_origin_and_end() {
+    use shardloom_vortex::{
+        resident_memory_source::{MemoryColumn, MemoryColumnValues, ResidentMemorySource},
+        resident_session::ResidentVortexSession,
+    };
+    let uri = DatasetUri::new("memory://stream").unwrap();
+    let source = |session: &ResidentVortexSession, values: &[Option<i64>]| {
+        ResidentMemorySource::from_batch_columns(
+            session,
+            &[MemoryColumn {
+                name: "n",
+                values: MemoryColumnValues::Int64(values),
+            }],
+        )
+    };
+    for statement in [
+        "SELECT n FROM 'memory://stream' WHERE n > 0",
+        "SELECT n FROM (SELECT n FROM 'memory://stream' WHERE n > 0) AS s",
+        "WITH s AS (SELECT n FROM 'memory://stream' WHERE n > 0) SELECT n FROM s",
+    ] {
+        let prepared = prepare_with_inputs(
+            statement,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            |schemas| schemas.register_batch_source(uri.clone(), |session| source(session, &[])),
+            |_| Ok(vec![uri.clone()]),
+        )
+        .unwrap_or_else(|error| panic!("{statement}: {error}"));
+        let mut calls = 0;
+        let mut input = |session: &ResidentVortexSession| {
+            calls += 1;
+            match calls {
+                1 => source(session, &[Some(1), None]).map(Some),
+                2 => source(session, &[Some(-1), Some(2)]).map(Some),
+                3 => Ok(None),
+                _ => panic!("source replayed"),
+            }
+        };
+        let result = prepared
+            .with_batch_input(&mut input)
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(calls, 3);
+        assert_eq!(result.result_jsonl.value(), "{\"n\":1}\n{\"n\":2}\n");
+        let report = result.execution.input.unwrap();
+        assert_eq!(report.rows, 4);
+        assert!(report.end_of_input_observed);
+    }
+    for limit in ["0".to_owned(), "1".to_owned(), usize::MAX.to_string()] {
+        let statement = format!("SELECT n FROM 'memory://stream' LIMIT {limit}");
+        let error = prepare_with_inputs(
+            &statement,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            |schemas| schemas.register_batch_source(uri.clone(), |session| source(session, &[])),
+            |_| Ok(vec![uri.clone()]),
+        )
+        .err()
+        .expect("explicit limit is not a completion contract");
+        assert!(error.to_string().contains("does not admit limit/offset"));
+    }
+}
+
 pub(super) fn verify_memory(statement: &str, expected: &Value) {
     let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
     policy.resource_envelope.memory_budget_bytes = 32 << 20;

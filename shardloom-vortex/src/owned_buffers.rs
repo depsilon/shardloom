@@ -148,10 +148,17 @@ pub(crate) fn with_credit(
     allocator: vortex::array::memory::HostAllocatorRef,
     lease: MemoryLease,
 ) -> vortex::array::memory::HostAllocatorRef {
-    std::sync::Arc::new(CreditAllocator {
-        allocator,
-        lease: std::sync::Arc::new(lease),
-    })
+    with_shared_credit(allocator, std::sync::Arc::new(lease))
+}
+
+/// Share one metadata owner with the source handle and every allocated buffer.
+/// A weak reference to this owner can prove that all input aliases were released.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) fn with_shared_credit(
+    allocator: vortex::array::memory::HostAllocatorRef,
+    lease: std::sync::Arc<MemoryLease>,
+) -> vortex::array::memory::HostAllocatorRef {
+    std::sync::Arc::new(CreditAllocator { allocator, lease })
 }
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]

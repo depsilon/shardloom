@@ -116,11 +116,37 @@ fn register_memory_inputs(
         ShardLoomError,
     >,
 ) -> Result<(), ShardLoomError> {
+    if request.source_bindings.values().any(|binding| {
+        matches!(
+            binding.memory_input,
+            Some(crate::native_memory_input::MemoryInput::Batches {
+                streaming: true,
+                ..
+            })
+        )
+    }) && request.source_bindings.len() != 1
+    {
+        return Err(failed(
+            "SL-NATIVE-BATCH: streaming input requires one declared source; choose explicit resident mode",
+        ));
+    }
     for (uri, binding) in &request.source_bindings {
         if let Some(input) = &binding.memory_input {
-            schemas.register_memory_source(DatasetUri::new(uri)?, |session| {
-                build(uri, input, session)
-            })?;
+            if matches!(
+                input,
+                crate::native_memory_input::MemoryInput::Batches {
+                    streaming: true,
+                    ..
+                }
+            ) {
+                schemas.register_batch_source(DatasetUri::new(uri)?, |session| {
+                    build(uri, input, session)
+                })?;
+            } else {
+                schemas.register_memory_source(DatasetUri::new(uri)?, |session| {
+                    build(uri, input, session)
+                })?;
+            }
         }
     }
     Ok(())

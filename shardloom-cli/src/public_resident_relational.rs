@@ -231,11 +231,21 @@ fn execute(
 fn execute_collect(
     format: OutputFormat,
     operation: &PreparedVortexRelational,
-    mut fields: Vec<(String, String)>,
+    fields: Vec<(String, String)>,
     reused: bool,
     cancellation: &CancellationToken,
 ) -> Result<(), ShardLoomError> {
     let collected = operation.collect_jsonl(cancellation)?;
+    emit_collected(format, collected, fields, reused);
+    Ok(())
+}
+
+fn emit_collected(
+    format: OutputFormat,
+    collected: shardloom_vortex::local_primitives::prepared_relational::CollectedVortexRelational,
+    mut fields: Vec<(String, String)>,
+    reused: bool,
+) {
     append_execution(&mut fields, &collected.execution, reused);
     let (jsonl, _ownership) = collected.result_jsonl.into_parts();
     let (schema, _schema_ownership) = collected.result_schema_json.into_parts();
@@ -258,7 +268,6 @@ fn execute_collect(
         vec![],
         fields,
     );
-    Ok(())
 }
 
 #[cfg(feature = "vortex-write")]
@@ -284,7 +293,7 @@ fn execute_write_controlled(
     request: &PublicWorkflowRouteRequest,
     format: OutputFormat,
     operation: &PreparedVortexRelational,
-    mut fields: Vec<(String, String)>,
+    fields: Vec<(String, String)>,
     reused: bool,
     cancellation: &CancellationToken,
 ) -> Result<(), ShardLoomError> {
@@ -295,7 +304,7 @@ fn execute_write_controlled(
                 blocked.blocker_reason, blocked.diagnostics
             ))
         })?;
-    let mut written = if targets.len() == 1 {
+    let written = if targets.len() == 1 {
         let target = &targets[0];
         vec![operation.write_controlled(
             &target.path,
@@ -313,6 +322,20 @@ fn execute_write_controlled(
             cancellation,
         )?
     };
+    emit_written(format, &targets, written, fields, reused);
+    Ok(())
+}
+
+#[cfg(feature = "vortex-write")]
+fn emit_written(
+    format: OutputFormat,
+    targets: &[super::NativeVortexPrimitiveRowExportTarget],
+    mut written: Vec<
+        shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelational,
+    >,
+    mut fields: Vec<(String, String)>,
+    reused: bool,
+) {
     let final_write = written.pop().expect("at least one target");
     let reports = written
         .into_iter()
@@ -321,7 +344,7 @@ fn execute_write_controlled(
         .collect::<Vec<_>>();
     let primary = &reports[0];
     append_native_vortex_primitive_row_export_fields(&mut fields, primary);
-    append_native_vortex_primitive_row_export_target_fields(&mut fields, &targets, &reports);
+    append_native_vortex_primitive_row_export_target_fields(&mut fields, targets, &reports);
     append_execution(&mut fields, &final_write.execution, reused);
     emit(
         "run",
@@ -335,7 +358,6 @@ fn execute_write_controlled(
         primary.diagnostics.clone(),
         fields,
     );
-    Ok(())
 }
 
 fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {
@@ -500,6 +522,34 @@ fn append_execution(
     {
         fields.retain(|(existing, _)| existing != &key);
         fields.push((key, value));
+    }
+    append_batch_input(fields, result);
+}
+
+fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {
+    let Some(input) = &result.input else {
+        return;
+    };
+    // These values come from the completed native operation, after explicit end
+    // and owner release, rather than a transport snapshot taken during binding.
+    let completed = [
+        ("native_input_batches", input.payload_batches.to_string()),
+        ("native_input_batch_sources", "1".into()),
+        ("native_input_batch_rows", input.rows.to_string()),
+        ("native_input_logical_bytes", input.input_logical_bytes.to_string()),
+        ("native_input_payload_bytes_copied", input.intake_payload_bytes_copied.to_string()),
+        ("native_input_max_batch_rows", input.max_batch_rows.to_string()),
+        ("native_input_max_retained_batches", input.max_retained_input_batches.to_string()),
+        ("native_input_max_retained_logical_bytes", input.max_retained_input_logical_bytes.to_string()),
+        ("native_input_end_observed", input.end_of_input_observed.to_string()),
+        ("native_input_output_ownership_detached", input.output_ownership_detached.to_string()),
+        ("native_batch_input_storage", "single_current_native_batch;released_before_next_demand;no_input_spill".into()),
+        ("native_input_byte_accounting", "logical_values_offsets_validity_and_names;not_allocated_capacity_or_rss".into()),
+        ("resident_source_generation_validation", "declared_schema_checked_each_batch;explicit_source_end;all_input_owners_released;final_consumer_completed".into()),
+    ];
+    for (key, value) in completed {
+        fields.retain(|(existing, _)| existing != key);
+        fields.push((key.into(), value));
     }
 }
 

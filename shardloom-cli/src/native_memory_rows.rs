@@ -38,6 +38,24 @@ pub(crate) fn append_batch(
     rows: &[MemoryRow<128>],
     builder: &mut MemoryBatchSourceBuilder,
 ) -> Result<(), ShardLoomError> {
+    with_batch_columns(schema, rows, |columns| builder.push_columns(columns))
+}
+
+pub(crate) fn build_batch(
+    schema: &[(String, MemoryValueType)],
+    rows: &[MemoryRow<128>],
+    session: &ResidentVortexSession,
+) -> Result<ResidentMemorySource, ShardLoomError> {
+    with_batch_columns(schema, rows, |columns| {
+        ResidentMemorySource::from_batch_columns(session, columns)
+    })
+}
+
+fn with_batch_columns<T>(
+    schema: &[(String, MemoryValueType)],
+    rows: &[MemoryRow<128>],
+    consume: impl FnOnce(&[MemoryColumn<'_>]) -> Result<T, ShardLoomError>,
+) -> Result<T, ShardLoomError> {
     validate_batch_rows(schema, rows)?;
     let typed = schema
         .iter()
@@ -52,7 +70,7 @@ pub(crate) fn append_batch(
             values: values.borrowed(),
         })
         .collect::<Vec<_>>();
-    builder.push_columns(&columns)
+    consume(&columns)
 }
 
 enum TypedColumn<'a> {

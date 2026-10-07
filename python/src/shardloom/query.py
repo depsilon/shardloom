@@ -8341,18 +8341,25 @@ def read_orc(
 
 def from_batches(
     batches: object, *, schema: Mapping[str, object],
-    client: ShardLoomClient | None = None, **client_config: object,
+    streaming: bool = False, client: ShardLoomClient | None = None, **client_config: object,
 ) -> LazyFrame:
-    """Declare resident input in batches of up to 2,048 rows and 128 fields.
+    """Declare native input in batches of up to 2,048 rows and 128 fields.
 
     Each batch is a sequence of row mappings. Schema is explicit and admits
     nullable int64, finite float64, bool and utf8. Input is pulled at execution;
     pass a factory for repeated calls, or an iterable for one execution. Total
-    native input must fit the query memory grant and at most 4,096 batches.
+    input is limited to 4,096 batches. The default resident mode retains all
+    native input under the query memory grant. ``streaming=True`` instead
+    admits one source used once through pure filters/projections, incremental
+    results, a bounded small collection or one native Vortex output. Other
+    operators require explicit resident mode. Results remain provisional until
+    the producer ends and final validation succeeds.
     """
     from ._batches import BatchInput
     from uuid import uuid4
 
+    if not isinstance(streaming, bool):
+        raise TypeError("streaming must be a bool")
     declared = _normalize_schema(schema)
     aliases = {"int": "int64", "integer": "int64", "float": "float64", "double": "float64",
                "boolean": "bool", "str": "utf8", "string": "utf8"}
@@ -8366,7 +8373,7 @@ def from_batches(
     source = BatchInput(batches, declared)
     return LazyFrame(
         source=WorkflowSource("memory", "memory://batches/" + uuid4().hex, declared,
-                              (("kind", "batches"), ("schema", declared)), source),
+                              (("kind", "batches"), ("schema", declared), ("streaming", streaming)), source),
         client=_client_from_config(client, client_config),
     )
 

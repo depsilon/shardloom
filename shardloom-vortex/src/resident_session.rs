@@ -113,6 +113,20 @@ impl ResidentVortexSession {
         &self.0.memory
     }
 
+    /// Reserve temporary input framing/conversion storage under this session's
+    /// grant before demanding or allocating it. The adapter must retain the
+    /// returned lease until its temporary storage is released. This does not
+    /// execute a query, admit another operation or account for caller memory.
+    /// # Errors
+    /// Rejects a reservation that exceeds the remaining shared grant.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub fn reserve_input_scratch(
+        &self,
+        bytes: u64,
+    ) -> Result<shardloom_exec::live_memory::MemoryLease> {
+        self.0.memory.reserve(bytes)
+    }
+
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn parallelism(&self) -> usize {
         self.0.parallelism

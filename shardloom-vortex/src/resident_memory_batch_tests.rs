@@ -160,3 +160,58 @@ fn native_batch_source_denials_drop_every_owned_buffer() {
     assert!(MemoryBatchSourceBuilder::new(&tiny, CancellationToken::default()).is_err());
     assert_eq!(tiny.snapshot().memory.reserved_bytes, 0);
 }
+
+#[test]
+fn completion_input_metadata_witness_follows_every_child_buffer_and_slice() {
+    fn buffers(array: &ArrayRef, output: &mut Vec<vortex::buffer::ByteBuffer>) {
+        output.extend(array.buffers().iter().cloned());
+        for child in array.slots().iter().flatten() {
+            buffers(child, output);
+        }
+    }
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let columns = [
+        MemoryColumn {
+            name: "n",
+            values: MemoryColumnValues::Int64(&[Some(i64::MIN), None, Some(i64::MAX)]),
+        },
+        MemoryColumn {
+            name: "f",
+            values: MemoryColumnValues::Float64(&[Some(-0.0), None, Some(1.25)]),
+        },
+        MemoryColumn {
+            name: "b",
+            values: MemoryColumnValues::Bool(&[Some(true), None, Some(false)]),
+        },
+        MemoryColumn {
+            name: "s",
+            values: MemoryColumnValues::Utf8(&[Some("λ"), None, Some("")]),
+        },
+    ];
+    let mut index = 0;
+    loop {
+        let source = ResidentMemorySource::from_batch_columns(&session, &columns).unwrap();
+        let released = source.batch_release_witness().unwrap();
+        let mut children = Vec::new();
+        buffers(&source.0.array, &mut children);
+        assert!(children.len() >= 9);
+        if index == children.len() {
+            break;
+        }
+        let held = children.swap_remove(index);
+        drop(children);
+        drop(source);
+        assert!(released.strong_count() > 0);
+        let slice = held.slice(0..1);
+        let clone = slice.clone();
+        drop(held);
+        drop(slice);
+        assert!(released.strong_count() > 0);
+        assert!(session.snapshot().memory.reserved_bytes > 0);
+        drop(clone);
+        assert_eq!(released.strong_count(), 0);
+        assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        index += 1;
+    }
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
