@@ -154,7 +154,8 @@ def run(harness):
     for name, operation in [
         ("deny-self-join", lambda q: q.join(q, on="n").collect(check=True, **policy)),
         ("deny-union", lambda q: q.union_all(q).collect(check=True, **policy)),
-        ("deny-window", lambda q: q.window("ROW_NUMBER() OVER (ORDER BY n) AS rn").collect(check=True, **policy)),
+        ("deny-repeated-window", lambda q: q.window("ROW_NUMBER() OVER (ORDER BY n) AS rn")
+         .union_all(q.window("ROW_NUMBER() OVER (ORDER BY n) AS rn")).collect(check=True, **policy)),
         ("deny-unary", lambda q: q.drop_duplicates(["n"]).collect(check=True, **policy)),
         ("deny-dynamic", lambda q: q.select("n AS entity", "'a' AS category", "n AS amount")
          .pivot(index="entity", columns="category", values="amount").collect(check=True, **policy)),

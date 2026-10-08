@@ -9,7 +9,7 @@ Python, SQL, DataFrame-style calls, and the CLI lower admitted work into the sam
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 7, 2026.
+Current capabilities, reviewed October 8, 2026.
 
 ## Native Execution
 
@@ -96,8 +96,12 @@ Python conversions consume its typed results only at the requested output bounda
 Analytic aggregates and FIRST_VALUE/LAST_VALUE/NTH_VALUE admit explicit ROWS,
 GROUPS and RANGE frames and exclusions through the same native window state.
 Bounded RANGE requires one compatible ordering key; named windows, variable
-offsets, calendar-month intervals, IGNORE NULLS and general window-state spill
+offsets, calendar-month intervals and IGNORE NULLS
 remain outside the [frame contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-analytic-frames-2026-10-05.md).
+The [window pressure contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-window-pressure-2026-10-08.md)
+adds explicit native spill for the existing analytic functions and frames, plus
+one finite single-use batch source. Complete local acceptance passes; hosted
+window integration remains pending.
 The [analytic-frame acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md)
 records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
 executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md)
@@ -197,20 +201,27 @@ no speedup claim, and a query grant still does not bound total process RSS.
 
 Opt-in `from_batches(..., streaming=True)` retains at most one native input
 batch and admits one finite batch source used once through scan/filter/project,
-sorting, aggregation, joins and draining limits, alongside ordinary file/resident
+sorting, aggregation, joins, analytic windows and draining limits, alongside ordinary file/resident
 sources. The
 [local resource and correctness acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
 proves constrained native ordering and general aggregate spill with complete
 output. The [join acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-join-pressure-2026-10-08.md)
 adds all seven admitted join kinds, one-shot input on either side and owned
 cleanup/restart. Complete local pressure/workflow/regression checks and independent
-packet inspection pass; hosted join integration remains pending. All operator
+packet inspection pass; join integration completed in PR #1532 after all 39
+hosted checks and actual preview/production verification. The
+[window acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-window-pressure-2026-10-08.md)
+adds existing analytic functions/frames with exact DISTINCT and extrema under
+native spill. File-backed and streamed 24,013-row controls both complete at
+16 MiB with exact values, safe resident denial and owned cleanup/restart.
+Complete public and regression acceptance passes; hosted window integration
+remains pending. All operator
 stages share one memory grant and spill quota. Output
 compaction prevents retained results from pinning input; native sink metadata
 and retained output still consume credits. Limits drain the complete source,
 and late failure prevents completion and incomplete file publication.
 The runtime also rejects malformed FSST row lengths before decoder allocation.
-Window and pivot pressure, repeated batch-source spooling, broader streaming
+Pivot pressure, repeated batch-source spooling, broader streaming
 destinations and remaining allocation coverage stay open; published v0.4.0 is unchanged.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
@@ -237,8 +248,8 @@ The buffer is a flush threshold; it is not a second memory grant or a whole-proc
 Verified cleanup must finish before an execution or writer reports success.
 
 COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies.
-General relational aggregation and all seven admitted join kinds have their own
-strategies under the common explicit spill policy. Window, pivot and set state
+General relational aggregation, all seven admitted join kinds and existing analytic
+windows have their own strategies under the common explicit spill policy. Pivot and set state
 retain separate pressure contracts;
 unadmitted key types and broader resource accounting remain separate work. See
 [COUNT/DISTINCT contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),

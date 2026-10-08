@@ -106,7 +106,7 @@ fields, repeated flags, and simultaneous common and embedded spill declarations
 are rejected. The selected specialized numeric sort or aggregate provider retains
 its existing contract: the common `buffer_bytes` maps to that provider's
 `memory_bytes`, including the aggregate's 2 MiB minimum. For composed relational
-ordering, general aggregation and joins it is a retained-input flush threshold,
+ordering, general aggregation, joins and analytic windows it is a retained-input flush threshold,
 at least 1 MiB and no larger
 than the query grant. Run metadata, readers, native keys and output allocations
 also consume the same grant; a threshold is not a second budget or a guarantee
@@ -122,7 +122,7 @@ does not establish zero-decode execution or a total RSS ceiling.
 `VortexRelationalSpillPolicy::cleanup_abandoned` recovers one explicitly selected
 owned directory through the same namespace/identity rules. It refuses active,
 unknown, replaced or symlinked entries. This permits cleanup and restart, not
-resuming an interrupted operator. Set, window and pivot state retain
+resuming an interrupted operator. Set and pivot state retain
 separate pressure contracts. Relational fanout remains separate work. See the
 [ordering contract and acceptance](../architecture/native-relational-resources-2026-10-02.md).
 
@@ -136,7 +136,7 @@ semantics. All stages share the query grant and disk quota. Without an explicit
 policy, resident aggregation retains its deterministic memory denial.
 
 One finite `streaming=True` batch source can compose filters, projections, sorting,
-aggregation, joins and limits alongside ordinary file/resident sources. Limits
+aggregation, joins, analytic windows and limits alongside ordinary file/resident sources. Limits
 and offsets apply globally and drain all input,
 including zero limits. A late producer or value error prevents completion and
 file publication. Incremental results, bounded collection and one new native
@@ -249,4 +249,80 @@ cannot publish a successful result. Dead-owner recovery permits safe cleanup and
 restart, not resuming an interrupted join. See the
 [join contract](../architecture/native-join-pressure-2026-10-08.md) and
 [complete local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
-for the exact implementation and evidence. Hosted integration remains pending.
+for the exact implementation and evidence. Hosted integration completed in
+[PR #1532](https://github.com/depsilon/shardloom/pull/1532), including all 39
+checks and actual preview/production verification.
+
+## Analytic windows and finite streamed input
+
+Current source builds admit the same explicit spill policy for the existing
+ranking, navigation and distribution functions, framed COUNT, COUNT DISTINCT,
+SUM, AVG, MIN/MAX and FIRST_VALUE/LAST_VALUE/NTH_VALUE. Admitted ROWS, GROUPS,
+RANGE, exclusion, type, null and ordering semantics remain those of the
+[analytic-frame contract](../architecture/native-analytic-frames-2026-10-05.md).
+Resident execution stays the default. An explicit policy selects native stores
+for input, peers, frame bounds and results, with bounded exact DISTINCT and
+extrema state. All stages share the query grant and disk quota.
+
+One finite single-use batch source can compose these windows with admitted
+filters, projections, joins, aggregation, ordering and draining limits. Windows
+complete and validate their input before evaluating results. Delivery preserves
+the input row order; window ORDER BY defines analytic positions, not final output
+sorting. Use a separate sort when the delivered order should change.
+
+```python
+import tempfile
+import shardloom as sl
+
+def incoming_measurements():
+    yield [{"sequence": 1, "team": "red", "amount": 3},
+           {"sequence": 2, "team": "blue", "amount": 1}]
+    yield [{"sequence": 3, "team": "red", "amount": 4},
+           {"sequence": 4, "team": "red", "amount": 3}]
+
+workflow = sl.from_batches(
+    incoming_measurements,
+    schema={"sequence": "int64", "team": "utf8", "amount": "int64"},
+    streaming=True,
+).window(
+    "SUM(amount) OVER (PARTITION BY team ORDER BY sequence "
+    "ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS previous_two_total",
+    "COUNT(DISTINCT amount) OVER (PARTITION BY team ORDER BY sequence "
+    "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS distinct_amounts",
+).select("sequence", "team", "previous_two_total", "distinct_amounts")
+
+with tempfile.TemporaryDirectory(prefix="shardloom-query-") as workspace:
+    with workflow.iter_batches(
+        memory_gb=1, max_parallelism=1,
+        spill={"workspace": workspace, "quota_bytes": 64 << 20, "buffer_bytes": 1 << 20},
+    ) as batches:
+        for batch in batches:
+            print(batch.result_rows)
+        assert batches.report is not None
+```
+
+For sequences 1, 2, 3 and 4, `(previous_two_total, distinct_amounts)` is
+`(3.0, 1)`, `(1.0, 1)`, `(7.0, 2)` and `(7.0, 2)`. Partition state spans input
+batches. This small example selects the bounded strategy but need not write a
+disk run. The [window acceptance](../benchmarks/native-window-pressure-2026-10-08.md)
+separately proves actual file-backed and streamed spill at 16 MiB, complete
+values, resident denial, ample controls and owned cleanup/restart.
+
+File/resident windows retain all eight scalar writers and the seven admitted
+typed/nested writers under their format contracts. Streamed input permits
+incremental results, bounded collection or one new Vortex file. Shared
+`relational_spill_*` fields report actual run, reader, quota and cleanup work;
+`relational_ordered_window_*` reports stages, input rows, groups, partitions,
+peer/frame records, distinct intervals/events, extrema summaries and lookup
+blocks. `native_input_window_*_detached` counts input ownership released at each
+window boundary, including ordinary sources inside a streamed plan.
+
+Source validation, complete function/result evaluation, sink completion and
+owned cleanup precede success and publication. Corrupt/replaced runs, exhausted
+grants/quotas, cancellation and source/consumer failures remain errors. Recovery
+cleans a named abandoned directory and permits a fresh restart; it does not
+resume execution. Large individual values or overlapping metadata/readers may
+still exceed the grant. The policy does not bound total RSS, admit pivot/set
+spill, repeat a one-shot source, widen input types or enable compatibility
+streaming destinations. See the [window design](../architecture/native-window-pressure-2026-10-08.md)
+for the precise ownership and observation-order contract.

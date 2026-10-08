@@ -53,8 +53,8 @@ Current source builds add `iter_batches()` for admitted results and
 `from_batches()` for explicitly typed resident input. These additions merged
 in PR #1526 after complete local and hosted checks; published v0.4.0 packages
 predate them. Source builds also admit opt-in `streaming=True` for one finite
-source used once through scan/filter/project, global sorting, aggregation and
-limits. See the [scope and local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md).
+source used once through scan/filter/project, global sorting, aggregation, joins,
+analytic windows and draining limits. See the [contracts and spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
 
 ```python
 def orders():
@@ -81,17 +81,20 @@ can be consumed once.
 Streaming retains at most one native input batch, so cumulative input may exceed
 the query grant within those finite limits. It supports incremental results,
 bounded small collection or one native Vortex destination. Retained operator
-state shares the grant; ordering, general aggregation and joins support an explicit
-native spill policy. A single-use batch source can occur on either join side,
+state shares the grant; ordering, general aggregation, joins and analytic windows
+support an explicit native spill policy. A single-use batch source can occur on either join side,
 alongside ordinary file/resident sources. Limits and offsets drain and validate
 the complete source, including zero limits. Repeated batch use, multiple batch
-producers, sets, windows and dynamic schemas reject before producer consumption.
+producers, sets and dynamic schemas reject before producer consumption.
+Analytic window partitions and frames span input batches and complete their input
+before evaluating results. Windows preserve the input row order in delivered
+results; use a separate sort to change it.
 The producer must reach its explicit end
 event before results are final. Typed intake and output compaction are charged
 copies; output and sink reservations remain separate. No repeated-source spool
 or process-RSS ceiling is added. See the
 [streamed ordering contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-streamed-ordering-2026-10-07.md)
-and [aggregate and join spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
+and [aggregate, join and window spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
 
 Requesting the next result batch acknowledges the preceding one. Use the
 context manager when stopping early, and treat delivered batches as provisional

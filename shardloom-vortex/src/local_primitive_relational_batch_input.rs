@@ -33,6 +33,11 @@ pub struct ExecutedVortexBatchInput {
     pub join_build_batches_detached: u64,
     /// Rows copied at those build boundaries, not distinct source rows or bytes.
     pub join_build_rows_detached: u64,
+    /// Nonempty batches compacted at window retention boundaries in a streamed
+    /// plan, including ordinary sources and repeated composed window stages.
+    pub window_batches_detached: u64,
+    /// Rows copied at those boundaries, not distinct source rows or bytes.
+    pub window_rows_detached: u64,
 }
 
 impl Default for ExecutedVortexBatchInput {
@@ -51,6 +56,8 @@ impl Default for ExecutedVortexBatchInput {
             ordering_rows_detached: 0,
             join_build_batches_detached: 0,
             join_build_rows_detached: 0,
+            window_batches_detached: 0,
+            window_rows_detached: 0,
         }
     }
 }
@@ -310,13 +317,15 @@ fn count_sources(
         VortexRelationalPlan::Aggregate(aggregate) => {
             return count_sources(&aggregate.input, uri, depth + 1, nodes);
         }
+        VortexRelationalPlan::Window(window) => {
+            return count_sources(&window.input, uri, depth + 1, nodes);
+        }
         VortexRelationalPlan::Join(join) => {
             let left = count_sources(&join.left, uri, depth + 1, nodes)?;
             let right = count_sources(&join.right, uri, depth + 1, nodes)?;
             return Ok(left + right);
         }
         VortexRelationalPlan::Set(_) => "set operation/repeated source",
-        VortexRelationalPlan::Window(_) => "window",
         VortexRelationalPlan::Subquery(_) | VortexRelationalPlan::CorrelatedSubquery(_) => {
             "subquery"
         }

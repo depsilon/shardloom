@@ -62,7 +62,7 @@ retaining at most one native input batch. That mode permits one source used once
 through pure Scan/Filter/Project, with incremental results, bounded small
 collection or one native Vortex destination. Cumulative input may exceed the
 grant. That initial acceptance does not authorize input or general state spill.
-Later [ordering, aggregation and join contracts](../reference/native-query-spill.md)
+Later [ordering, aggregation, join and analytic-window contracts](../reference/native-query-spill.md)
 extend operator composition and explicit state spill, while preserving these
 intake limits and the absence of a process-RSS bound.
 Resident mode stays the default, and published v0.4.0 is unchanged.

@@ -17,6 +17,36 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-JOIN-PRESSURE` — all seven native join kinds under the shared
+  explicit spill policy, with one single-use batch source on either side beside
+  ordinary file/resident sources, under PERF-02/03/06/10/12 and CG-20/21.
+  The [design](native-join-pressure-2026-10-08.md) reuses bounded native ordering,
+  exact candidate comparison, existing ON/output semantics and one run-store
+  quota. Right/Full matching and original-order restoration also spill.
+  - Runtime `92ab9f20` passes 15 source gates, 213 public streaming cases,
+    27,373 unchanged public cases, 202 direct cases, 131 direct formats, batch
+    and format adapter checks, and all 129 Full43 results. Complete constrained
+    native spill, resident denial and ample controls cover typed/nested keys,
+    all join kinds, hot duplicates, ON/error order, root validity and outer
+    restoration. Faults, cancellation, quota/consumer failure, source changes,
+    destination protection and owned cleanup/restart are recorded in the
+    [report and independently inspected packet](../benchmarks/native-join-pressure-2026-10-08.md).
+    Native pressure grants and the public 1-GiB minimum remain distinct.
+  - Support checks, five native examples and local browser/search QA pass.
+    [PR #1532](https://github.com/depsilon/shardloom/pull/1532) merged at
+    `25906290b002d32225eed2957a26fa5c39fb561c` after all 39 hosted checks on
+    `ee1e34e1f4759704f02f3fce48962b3c6eb660c6` passed. Accepted/merged trees
+    match; all 981 runtime assets and the accepted binary are unchanged.
+    Automated review completed without posted findings; no submitted approval
+    is inferred. The [hosted receipt](../benchmarks/evidence/native-join-hosted-2026-10-08.json)
+    preserves actual preview/production search, identical rendered guide/resource
+    text, production deployment and the merged acceptance-report link. Original
+    local evidence retains its historical hosted-pending status.
+  - Window/pivot pressure, repeated-source spool, compatibility streaming writers
+    and fanout, broader intake/allocation coverage, execution resume and the
+    supported local platform/release envelope remain open. No total-process RSS
+    bound, speedup claim, whole PERF/CG completion or version bump follows.
+
 - [x] `NATIVE-GENERAL-AGGREGATE-PRESSURE` and `NATIVE-STREAMED-ORDERING` — general
   grouping/exact COUNT DISTINCT with explicit native spill, and global ordering
   plus draining Limit/Offset over complete single-use input, under

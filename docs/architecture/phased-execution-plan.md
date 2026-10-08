@@ -249,49 +249,63 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-JOIN-PRESSURE` — complete oversized joins under the shared native
-  spill policy and admit one finite batch source on either side.
-  - Source: [design and reuse map](native-join-pressure-2026-10-08.md), RFC 0044
+- [ ] `NATIVE-WINDOW-PRESSURE` — complete large analytic partitions under the
+  shared native spill policy and admit one finite single-use batch source.
+  - Source: [design and reuse map](native-window-pressure-2026-10-08.md), RFC 0044
     and the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
     Existing owners are PERF-02/03/06/10/12 and CG-20/21; broader owners stay open.
   - V1 scope classification: `required_for_v1` for this declared local family.
-  - Current state: complete frozen local acceptance and independent packet
-    inspection pass in the [join report](../benchmarks/native-join-pressure-2026-10-08.md);
-    hosted integration remains pending. The resident default
-    retains the build side/index/match bitmap; explicit spill uses bounded native
-    ordered records and match/restoration runs. One single-use batch source can
-    coexist with ordinary file/resident sources on either side. General aggregate
-    spill and streamed ordering are accepted dependencies below.
-  - ShardLoom technique review: PulseWeave admits overlapping build, run, probe,
-    condition, outer-match and output owners in one grant. Bounded batch demand
-    and compact candidates constrain retention. Exact hash-range lookup avoids
-    unrelated payload work; complete source drain and certificate evidence remain
-    mandatory. Keep preparation, first output, spill and full-workflow costs distinct.
+  - Current state: runtime `80057ba6` has complete local acceptance and independent
+    packet inspection: all 15 source gates, 442 streaming cases, 28,871 public
+    checks including 1,498 new spill-frame cases, direct/adapter checks and all
+    129 Full43 results pass. File-backed and streamed native windows complete
+    24,013 wide rows at 16 MiB, with resident denial and ample controls. The
+    [report](../benchmarks/native-window-pressure-2026-10-08.md) preserves the
+    public/native grant distinction. Support checks, six executable examples
+    and desktop/mobile/search review pass with all 1,001 accepted runtime assets
+    unchanged. Hosted integration remains pending; the resident strategy stays
+    the default.
+  - ShardLoom technique review: PulseWeave admits overlapping input, frame,
+    run, lookup and result owners in one grant. Compact private records and late
+    selected-value gathering constrain retention. Exact interval unions and
+    native range summaries avoid whole-frame rescans. Keep input completion,
+    preparation, first output, spill and full-workflow costs distinct.
   - Execution checklist:
-    - [x] Extend completed Ordering/run readers with bounded owned lookup;
-      preserve resident completion, source validation, quota and reader accounting.
-    - [x] Add the explicit native Join strategy with exact collision checks,
-      shared ON/output semantics and spilled Right/Full match/restoration state.
-    - [x] Admit exactly one finite batch occurrence alongside ordinary sources;
-      release build/probe input owners and preserve full drain, including zero limits.
-    - [x] Prove all kinds, typed/nested/null/duplicate/error/order semantics and
-      complete composition through current result/writer owners.
+    - [x] Share frame endpoint, exclusion, fixed-state and ranking semantics
+      between resident positions and bounded native stored positions.
+    - [x] Add native input/group/peer/result stores, exact interval-union DISTINCT
+      and range-summary extrema; restore original output order under one quota.
+    - [x] Admit one finite batch occurrence, detach input owners before the next
+      demand and preserve complete drain and pre-demand unsupported admission.
+    - [x] Prove every existing function/frame/exclusion/type/null/order/error
+      contract and complete composition through current result/writer owners.
     - [x] Prove larger-than-grant completion against resident denial and ample
-      controls, plus reservation/quota/cancellation/corruption/consumer/source
-      failures, destination protection and owned cleanup/restart.
+      controls, plus resource/cancellation/corruption/consumer/source failures,
+      destination protection and owned cleanup/restart.
     - [x] Freeze source/binary/oracles and complete focused, workspace, public,
       direct/adapter and Full43 acceptance with independent packet inspection.
-    - [ ] Complete adversarial source review, affected support alignment,
-      hosted integration and exact ledger closeout.
+    - [x] Complete adversarial source review and affected support alignment,
+      including executable examples and rendered search/mobile verification.
+    - [ ] Complete hosted integration and exact ledger closeout.
   - Acceptance/verification: the design's complete-output and failure matrix,
     exact focused native/Python/CLI tests and required fmt/clippy/workspace gates,
     under existing serial storage/process guards. No engine fallback is permitted.
   - User surface: the existing SQL/Python/CLI relational plan, explicit spill
     policy, result consumers, native file and ordinary compatibility writers.
     No alternate query route, dependency or release is introduced.
-  - Non-goals/claim boundary: no window/pivot spill, repeated batch-source spool,
+  - Non-goals/claim boundary: no new frame semantics, pivot spill, repeated batch-source spool,
     execution resume, compatibility streaming writer/fanout, wider batch types,
     transport-limit increase, process-RSS ceiling or unmeasured speed claim.
+
+`NATIVE-JOIN-PRESSURE` is complete in
+[PR #1532](https://github.com/depsilon/shardloom/pull/1532), merged at `25906290`
+after all 39 hosted checks passed. The
+[hosted receipt](../benchmarks/evidence/native-join-hosted-2026-10-08.json)
+records identical accepted/merged trees, all 981 accepted runtime assets
+unchanged and actual preview/production search, guide and report-link checks.
+The [completed ledger](phased-execution-completed-ledger.md) preserves its finite
+pressure, streaming and cleanup/restart scope. Window hosted integration, pivot
+pressure and the broader six-area/eight-investigation completion contract remain open.
 
 `NATIVE-GENERAL-AGGREGATE-PRESSURE` and `NATIVE-STREAMED-ORDERING` are complete in
 [PR #1531](https://github.com/depsilon/shardloom/pull/1531), merged at `9529bd78`
@@ -300,16 +314,16 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, preserved executable behavior, actual
 preview/production search, matching guide content and the merged acceptance link.
 The [completed ledger](phased-execution-completed-ledger.md) retains the finite
-scope and evidence. Join/window/pivot pressure and the broader local completion
+scope and evidence. Window hosted integration, pivot pressure and the broader local completion
 contract remain open; published v0.4.0 is unchanged.
 
 The maintainer reaffirmed the full remaining body of work on October 7. The
 [remaining-scope contract](native-local-completion-scope-2026-10-07.md) maps all
 six areas and eight conditional investigations to existing owners without
-duplicating the queue. Stateful aggregation/join pressure, remaining allocation
-coverage, broader streaming/adapters, and a defined local support/release promise
-remain required work. The finite ordering/general aggregate proof does not close
-join, window or pivot pressure or broader recovery. Keep each family visible
+duplicating the queue. General aggregation/join pressure has finite acceptance;
+window/pivot pressure, remaining allocation coverage, broader streaming/adapters,
+and a defined local support/release promise remain required work. The completed
+families do not close window/pivot pressure or broader recovery. Keep each family visible
 until it has complete-workflow acceptance or an explicit supported resident-only
 bound with deterministic denial.
 
@@ -1044,7 +1058,7 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     general grouped/scalar aggregation have complete local and hosted acceptance
     in PR #1531. The [join pressure unit](../benchmarks/native-join-pressure-2026-10-08.md)
     has complete constrained native/public/regression acceptance and independent
-    packet inspection; its hosted integration remains pending. Window/pivot
+    packet inspection and hosted integration in PR #1532. Window/pivot
     pressure, broader worker transfer and production resource/recovery acceptance
     retain their separate obligations.
   - Execution checklist:
@@ -2875,6 +2889,9 @@ the whole optimization/breadth task: prioritize coherent stateful pressure and
 recovery, particularly general aggregation/join work, then broader streaming
 adapters and operational acceptance of the supported local envelope. The existing
 ordering connection is a bounded enabling unit, not the whole stateful milestone.
+General aggregation and joins now have complete local and hosted acceptance in
+PRs #1531 and #1532. Continue with `NATIVE-WINDOW-PRESSURE` as the next coherent
+family; the six areas and all eight investigations retain their separate owners.
 Prepare constraint-guided joins independently; gate nested identities on
 repetition and merge scheduling on real spill-run evidence.
 Preserve whole-dependency reconstruction cost, exact bag/null/order semantics,

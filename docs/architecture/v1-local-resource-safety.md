@@ -15,8 +15,9 @@ Current native ordering spill and its failure/cleanup evidence are defined by th
 Public SQL, Python/DataFrame and CLI workflows carry the same declared memory and parallelism
 through native execution and local output. Admitted native batches retain their ownership and
 reservation credits through the consumer. Explicit native spill is available for selected
-COUNT/DISTINCT/numeric-sort providers and nullable multi-key relational ordering. Relational
-ordering shares the query memory pool and disk quota across nested ordering stages and merges;
+COUNT/DISTINCT/numeric-sort providers, nullable multi-key relational ordering,
+general aggregation, joins and analytic windows. These relational stages share
+the query memory pool and disk quota across nested stages and merges;
 spill permission is disabled by default.
 
 The relational resource acceptance covers complete output through all eight local writers,
@@ -58,7 +59,7 @@ The cost screen retains measured UTF-8 overhead and makes no speedup claim.
 The subsequent [completion-aware input unit](native-input-completion-2026-10-07.md)
 adds explicit streaming for one finite source used once through pure
 Scan/Filter/Project. Its [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
-and independent packet inspection pass; final integration is tracked in
+and independent packet inspection pass; hosted integration completed in
 [PR #1530](https://github.com/depsilon/shardloom/pull/1530).
 It completes 4.5 GiB of UTF8 payload under a 1 GiB native grant with at most one
 retained native input batch. Separately credited output compaction prevents
@@ -73,8 +74,19 @@ payload. Malformed lengths and unpopulated symbols fail explicitly; the focused
 and complete native suites verify released reservations. It adds no decoder,
 upstream dependency or broader allocation-accounting claim.
 
-General aggregate/join/window spill, complete reader/codec/upstream scratch accounting and
-whole-process RSS bounds remain open. Other operators must retain their own resource admission
+General aggregation and all seven join kinds have complete local and hosted
+acceptance in PRs #1531 and #1532, including one finite single-use batch source,
+constrained spill and owned cleanup/restart. The
+[window continuation](native-window-pressure-2026-10-08.md) has complete local
+acceptance for existing analytic functions/frames and the same single-use
+input. File-backed and streamed controls each complete 24,013 wide rows under
+16 MiB; resident controls at that grant deny and ample controls pass. Its
+[acceptance report](../benchmarks/native-window-pressure-2026-10-08.md) separates
+those native pressure grants from the public 1-GiB minimum and records pending
+hosted integration.
+
+Pivot and other unadmitted state spill, complete reader/codec/upstream scratch
+accounting and whole-process RSS bounds remain open. Other operators retain their own resource admission
 and deterministic denials. A supported reader, large input or successful ingest does not by
 itself establish that every query can complete under the same resource limit.
 
@@ -160,7 +172,8 @@ The v1 boundary uses ShardLoom-native resource controls where they are already m
 
 The following need separate implementation or acceptance before broader support is promised:
 
-- general aggregate/join/window and other unadmitted operator spill transitions.
+- pivot and other unadmitted operator spill transitions; the aggregate, join and
+  analytic-window contracts above retain their finite workload and type scope.
 - reader/codec/upstream scratch accounting beyond the finite accepted provider
   buffers, Zstd decoder/prepared-dictionary workspaces and Chunked value/validity/
   finalization buffers, including child decoder scratch, structural metadata,

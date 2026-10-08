@@ -222,14 +222,14 @@ ordered.write_parquet("ordered.parquet", memory_gb=1, max_parallelism=2, spill=s
 ```
 
 Create the workspace before execution. `route()` validates the declaration without
-probing or creating it. Composed relational ordering, general aggregation and joins use
+probing or creating it. Composed relational ordering, general aggregation, joins and analytic windows use
 `buffer_bytes` as a retained-input flush threshold within one query memory grant; specialized numeric sort and
 aggregate providers use their existing operator-memory admission. Native sort spill
 also applies to the flat typed keys scoped by the [typed key contract](../docs/architecture/native-typed-keys-2026-10-03.md).
 Supported keys,
-minimum buffers and spill families remain provider-specific. The general aggregate
-and join strategies use the same explicit policy. A spill request does not enable
-window, pivot or set state spill or fanout, relax collection limits, or
+minimum buffers and spill families remain provider-specific. The general aggregate,
+join and analytic-window strategies use the same explicit policy. A spill request does not enable
+pivot or set state spill or fanout, relax collection limits, or
 establish an RSS bound. Successful writes require verified spill cleanup before
 publication. See `docs/reference/native-query-spill.md` for exact contracts.
 
@@ -502,8 +502,9 @@ with frame.iter_batches() as batches:
 
 The complete output is `[{"id": 1, "label": "kept"}]`. Streaming admits
 incremental results, bounded small collection, or one native Vortex destination.
-All seven join kinds admit the batch source on either side. Reusing the same
-batch source, declaring multiple batch producers, sets, windows, unsupported
+All seven join kinds admit the batch source on either side, and admitted analytic
+windows preserve frame state across input batches. Reusing the same
+batch source, declaring multiple batch producers, sets, unsupported
 stateful/correlated operators and data-dependent schemas reject before producer
 consumption. Limits and offsets
 apply to the complete relation and drain the producer, including `LIMIT 0`.
@@ -517,6 +518,7 @@ and native sink metadata remain separate. This adds no repeated-source spool or
 process-RSS ceiling. See the [streamed ordering contract](../docs/architecture/native-streamed-ordering-2026-10-07.md),
 [general aggregate contract](../docs/architecture/native-aggregate-pressure-2026-10-07.md),
 [join contract](../docs/architecture/native-join-pressure-2026-10-08.md),
+[window contract and example](../docs/reference/native-query-spill.md#analytic-windows-and-finite-streamed-input),
 [spill example](../docs/reference/native-query-spill.md#general-aggregation-and-completion-aware-input)
 and [local acceptance evidence](../docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md).
 Published v0.4.0 predates both batch modes.

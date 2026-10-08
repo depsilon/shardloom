@@ -77,6 +77,7 @@ impl Binder<'_> {
             validate_key(field(&input.fields, key.column.as_str())?)?;
         }
         let spec = native_relational_sort::Spec {
+            copy_policy: crate::local_primitives::native_payload::CopyPolicy::ValidateValues,
             fields: input.fields.clone(),
             keys: sort.keys.clone(),
             names: sort

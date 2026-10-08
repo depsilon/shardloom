@@ -1,5 +1,9 @@
 //! Analytic windows over retained native payload and shared reserved ordinals.
 
+#[cfg(feature = "vortex-write")]
+#[path = "native_relational_window_spill.rs"]
+pub(in crate::local_primitives) mod spill;
+
 use super::{
     SimpleAggregateFunction,
     native_capacity::ReservedVec,
@@ -248,12 +252,13 @@ impl<'a> Window<'a> {
                     values[function].set(
                         &self.spec.functions[function],
                         PeerRow {
-                            rows,
+                            rows: rows.len(),
                             position,
                             peer_start,
                             peer_end,
                             dense_rank,
                         },
+                        rows,
                     )?;
                 }
             }
@@ -286,6 +291,11 @@ impl<'a> Window<'a> {
     ) -> Result<()> {
         let mut cursor = frame::Cursor::default();
         let mut state = frame::State::new(spec, context.memory())?;
+        let mut input = frame::Resident {
+            rows,
+            table: &self.table,
+        };
+        let mut peer_edge = |index| Ok(peers.get(index).copied().unwrap_or(rows.len()));
         let mut peer = 0;
         for position in 0..rows.len() {
             if position.is_multiple_of(1024) {
@@ -295,16 +305,23 @@ impl<'a> Window<'a> {
                 peer += 1;
             }
             let at = frame::Position {
-                rows,
-                peers,
+                rows: rows.len(),
+                peer_start: peers[peer],
+                peer_end: peers[peer + 1],
                 peer,
                 row: position,
             };
-            let range = cursor.advance(&spec.frame, &at, &self.table, context)?;
+            let range = cursor.advance(&spec.frame, &at, &mut input, &mut peer_edge, context)?;
             let ranges = frame::intervals(range, &at, spec.frame.exclusion);
             values.set_frame(
                 rows[position],
-                state.advance(ranges, spec, rows, &self.table, context)?,
+                state
+                    .advance(ranges, spec, rows.len(), &mut input, context)?
+                    .map_source(|position| {
+                        rows.get(position)
+                            .copied()
+                            .ok_or_else(|| failed("selected window position exceeds its partition"))
+                    })?,
             )?;
         }
         Ok(())
@@ -423,12 +440,12 @@ enum Values {
 }
 
 #[derive(Clone, Copy)]
-struct PeerRow<'a> {
-    rows: &'a [usize],
-    position: usize,
-    peer_start: usize,
-    peer_end: usize,
-    dense_rank: u64,
+pub(super) struct PeerRow {
+    pub(super) rows: usize,
+    pub(super) position: usize,
+    pub(super) peer_start: usize,
+    pub(super) peer_end: usize,
+    pub(super) dense_rank: u64,
 }
 
 impl Values {
@@ -466,7 +483,11 @@ impl Values {
 
     fn set_frame(&mut self, row: usize, value: frame::Value) -> Result<()> {
         match (self, value) {
-            (Self::Count(values), frame::Value::Count(value)) => values.values[row] = value,
+            (Self::Integer(values), frame::Value::Integer(value))
+            | (Self::Count(values), frame::Value::Count(value)) => values.values[row] = value,
+            (Self::Fraction(values), frame::Value::Float(Some(value))) => {
+                values.values[row] = value;
+            }
             (Self::NullableFraction(values), frame::Value::Float(value)) => {
                 values.values[row] = value;
             }
@@ -481,48 +502,43 @@ impl Values {
         Ok(())
     }
 
-    #[allow(clippy::cast_precision_loss)] // SQL distribution output is an explicit F64 ratio.
-    fn set(&mut self, function: &Function, at: PeerRow<'_>) -> Result<()> {
-        let row = at.rows[at.position];
-        match (self, function) {
-            (Self::Integer(values), function) => {
-                values.values[row] = match function {
-                    Function::RowNumber => u64::try_from(at.position + 1).map_err(vortex_error)?,
-                    Function::Rank => u64::try_from(at.peer_start + 1).map_err(vortex_error)?,
-                    Function::DenseRank => at.dense_rank,
-                    Function::Ntile { buckets } => {
-                        u64::try_from(ntile(at.position, at.rows.len(), *buckets)?)
-                            .map_err(vortex_error)?
-                    }
-                    _ => return Err(failed("noninteger window function used integer storage")),
-                };
-            }
-            (Self::Fraction(values), Function::PercentRank) => {
-                values.values[row] = if at.rows.len() == 1 {
-                    0.0
-                } else {
-                    at.peer_start as f64 / (at.rows.len() - 1) as f64
-                };
-            }
-            (Self::Fraction(values), Function::CumeDist) => {
-                values.values[row] = at.peer_end as f64 / at.rows.len() as f64;
-            }
-            (Self::Source(values), Function::Lag { offset, .. }) => {
-                values.values[row] = at
-                    .position
-                    .checked_sub(*offset)
-                    .map(|position| at.rows[position]);
-            }
-            (Self::Source(values), Function::Lead { offset, .. }) => {
-                values.values[row] = at
-                    .position
-                    .checked_add(*offset)
-                    .and_then(|position| at.rows.get(position).copied());
-            }
-            _ => return Err(failed("window function storage mismatch")),
-        }
-        Ok(())
+    fn set(&mut self, function: &Function, at: PeerRow, rows: &[usize]) -> Result<()> {
+        let value = ranking_value(function, at)?.map_source(|position| {
+            rows.get(position)
+                .copied()
+                .ok_or_else(|| failed("selected window position exceeds its partition"))
+        })?;
+        self.set_frame(rows[at.position], value)
     }
+}
+
+#[allow(clippy::cast_precision_loss)] // SQL distribution output is an explicit F64 ratio.
+pub(super) fn ranking_value(function: &Function, at: PeerRow) -> Result<frame::Value> {
+    Ok(match function {
+        Function::RowNumber => {
+            frame::Value::Integer(u64::try_from(at.position + 1).map_err(vortex_error)?)
+        }
+        Function::Rank => {
+            frame::Value::Integer(u64::try_from(at.peer_start + 1).map_err(vortex_error)?)
+        }
+        Function::DenseRank => frame::Value::Integer(at.dense_rank),
+        Function::Ntile { buckets } => frame::Value::Integer(
+            u64::try_from(ntile(at.position, at.rows, *buckets)?).map_err(vortex_error)?,
+        ),
+        Function::PercentRank => frame::Value::Float(Some(if at.rows == 1 {
+            0.0
+        } else {
+            at.peer_start as f64 / (at.rows - 1) as f64
+        })),
+        Function::CumeDist => frame::Value::Float(Some(at.peer_end as f64 / at.rows as f64)),
+        Function::Lag { offset, .. } => frame::Value::Source(at.position.checked_sub(*offset)),
+        Function::Lead { offset, .. } => frame::Value::Source(
+            at.position
+                .checked_add(*offset)
+                .filter(|&position| position < at.rows),
+        ),
+        Function::Framed(_) => return Err(failed("framed function used ranking semantics")),
+    })
 }
 
 fn filled<T: Clone>(rows: usize, value: T, memory: &LiveMemoryPool) -> Result<ReservedVec<T>> {

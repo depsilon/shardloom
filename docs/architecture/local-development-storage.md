@@ -209,6 +209,17 @@ log bytes. Failed/incomplete evidence and all ceilings remain unchanged. The
 retains the refusal and compaction manifest and independently reopens all 516
 members before accepting the fresh Full43 run.
 
+Before the October 8 native window Full43 acceptance, the same 252-MiB
+log-admission threshold stopped preflight before queries. The completed join
+cohort's 516 original JSON/companion files were compacted into
+`completed-call-logs-window-20261008.tar.xz` beside its unchanged summary.
+Original identities, closed handles and every archived byte were verified
+before redundant originals were removed, recovering 3,362,816 accounted log
+bytes. Failed/incomplete evidence and all ceilings remain unchanged. The
+[window acceptance packet](../benchmarks/native-window-pressure-2026-10-08.md)
+retains the refusal and manifest and independently reopens all 516 members
+before accepting the fresh Full43 run.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and

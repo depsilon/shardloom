@@ -51,6 +51,8 @@ mod typed_tests;
 mod unary_tests;
 #[path = "local_primitive_relational_window_frame_tests.rs"]
 mod window_frame_tests;
+#[path = "local_primitive_relational_window_spill_tests.rs"]
+mod window_spill_tests;
 #[path = "local_primitive_relational_window_tests.rs"]
 mod window_tests;
 #[cfg(feature = "universal-format-io")]
