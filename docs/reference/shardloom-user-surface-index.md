@@ -119,7 +119,9 @@ use an explicit native spill policy. Ordering/aggregate
 and hosted integration pass in [PR #1531](https://github.com/depsilon/shardloom/pull/1531).
 The [join local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
 also passes complete pressure, workflow and regression checks plus independent
-packet inspection; hosted integration remains pending. Resident input remains
+packet inspection. Hosted integration completed in
+[PR #1532](https://github.com/depsilon/shardloom/pull/1532), with all 39 checks
+passing and the accepted runtime unchanged. Resident input remains
 the default. Repeated batch-source spool, multiple batch producers, compatibility streaming
 writes and a process-RSS bound remain outside this contract.
 

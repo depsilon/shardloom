@@ -1,7 +1,10 @@
 # Native joins under an explicit shared spill policy
 
-Status: complete local runtime acceptance under PERF-02/03/06/10/12 and CG-20/21;
-hosted integration remains pending. The
+Status: complete local and hosted acceptance under PERF-02/03/06/10/12 and CG-20/21.
+[PR #1532](https://github.com/depsilon/shardloom/pull/1532) merged at `25906290`
+after all 39 checks passed; the
+[hosted receipt](../benchmarks/evidence/native-join-hosted-2026-10-08.json)
+records unchanged runtime assets and actual production verification. The
 [acceptance report](../benchmarks/native-join-pressure-2026-10-08.md) binds runtime
 `92ab9f20`, complete constrained workloads, public regressions and independent
 packet inspection. The [phase plan](phased-execution-plan.md) owns progress.
