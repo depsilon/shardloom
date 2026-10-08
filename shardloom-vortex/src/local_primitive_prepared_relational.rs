@@ -82,6 +82,12 @@ pub struct ExecutedVortexRelational {
     /// Data-dependent declarations are lowered afresh inside this execution.
     pub schema_binding_deferred: bool,
     pub dynamic_schema_stages: u64,
+    /// General aggregate nodes executed through the explicit native spill strategy.
+    pub ordered_aggregate_stages: u64,
+    /// Rows consumed by those aggregate nodes, summed across composed stages.
+    pub ordered_aggregate_input_rows: u64,
+    /// Additional nonnull distinct records, with duplicate measure aliases shared.
+    pub ordered_aggregate_distinct_rows: u64,
     pub output_columns: Vec<String>,
     /// Physical decoder work inside upstream providers is not measured here.
     pub bytes_decoded: Option<u64>,
@@ -328,7 +334,9 @@ impl VortexRelationalPreparation<'_> {
 
     /// Declare a single streaming source without opening its producer. Build a
     /// typed empty owner with `ResidentMemorySource::from_batch_columns`.
-    /// The complete lowered plan must contain only Scan/Filter/Project.
+    /// The complete lowered plan admits Scan/Filter/Project/Sort/Aggregate and
+    /// draining Limit/Offset. Stateful operators share the query grant; native
+    /// ordering and general aggregation support an explicit spill policy.
     /// # Errors
     /// Rejects duplicate/extra sources, nonempty schemas and foreign ownership.
     pub fn register_batch_source(
@@ -470,7 +478,7 @@ pub fn prepare_relational_in_session(
 }
 
 #[derive(Default)]
-struct Metrics {
+struct Metrics<'a> {
     #[cfg(feature = "vortex-write")]
     spill: Option<super::native_relational_spill::State>,
     scan_rows: Cell<u64>,
@@ -483,10 +491,15 @@ struct Metrics {
     unary_state_items: Cell<u64>,
     unary_population_retention: Cell<u64>,
     schema_discovery_stages: Cell<u64>,
-    current_input: RefCell<Option<ResidentMemorySource>>,
+    ordered_aggregate_stages: Cell<u64>,
+    ordered_aggregate_input_rows: Cell<u64>,
+    ordered_aggregate_distinct_rows: Cell<u64>,
+    input: Option<&'a dyn batch_input::Input>,
+    ordering_batches_detached: Cell<u64>,
+    ordering_rows_detached: Cell<u64>,
 }
 
-impl Metrics {
+impl Metrics<'_> {
     fn record_unary(&self, state_items: usize, all_input_retained: bool) -> Result<()> {
         add(&self.unary_stages, 1)?;
         add(&self.unary_state_items, state_items as u64)?;
@@ -495,6 +508,25 @@ impl Metrics {
             u64::from(all_input_retained),
         )
     }
+
+    fn detach_ordering_input(
+        &self,
+        array: ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        if self.input.is_none() {
+            return Ok(array);
+        }
+        let detached = detach_batch(&array, context)?;
+        add(&self.ordering_batches_detached, 1)?;
+        add(&self.ordering_rows_detached, array.len() as u64)?;
+        Ok(detached)
+    }
+}
+
+fn detach_batch(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
+    let indices = index_array(array.len(), false, context, |row| Ok(Some(row)))?;
+    super::native_payload::take(array, &indices, array.dtype(), context)
 }
 
 fn add(counter: &Cell<u64>, value: u64) -> Result<()> {
@@ -508,7 +540,7 @@ fn add(counter: &Cell<u64>, value: u64) -> Result<()> {
 }
 
 impl PreparedVortexRelational {
-    /// Permit relational ordering runs inside this plan's existing resource grant.
+    /// Permit native ordering and general aggregate runs within the existing grant.
     /// This validates configuration only; execution validates the workspace.
     /// # Errors
     /// Rejects invalid configuration and a buffer threshold beyond the query grant.
@@ -694,19 +726,18 @@ impl PreparedVortexRelational {
         input: Option<&mut batch_input::Provider<'_>>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
-        self.with_bound_root(context, |root, metrics| {
-            self.consume_bound(root, context, metrics, batch_rows, input, consume)
+        self.with_bound_root(context, input, |root, metrics| {
+            self.consume_bound(root, context, metrics, batch_rows, consume)
         })
     }
 
-    #[allow(clippy::too_many_arguments)] // Input and consumers share one completed native operation.
+    #[allow(clippy::too_many_lines)] // Execution, final validation, cleanup and certificate share one source lifetime.
     fn consume_bound(
         &self,
         root: &Node,
         context: &NativeExecutionContext<'_>,
-        metrics: &Metrics,
+        metrics: &Metrics<'_>,
         batch_rows: usize,
-        input: Option<&mut batch_input::Provider<'_>>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -738,8 +769,7 @@ impl PreparedVortexRelational {
                 return Err(failed("producer changed its bound schema or batch size"));
             }
             let array = if nested || self.batch_source.is_some() {
-                let indices = index_array(array.len(), false, context, |row| Ok(Some(row)))?;
-                super::native_payload::take(&array, &indices, &dtype, context)?
+                detach_batch(&array, context)?
             } else {
                 array
             };
@@ -757,7 +787,15 @@ impl PreparedVortexRelational {
             consume(array)?;
             context.check_cancelled()
         };
-        let input = self.run_with_input(root, context, metrics, batch_rows, input, &mut emit)?;
+        self.run(root, context, metrics, batch_rows, None, &mut emit)?;
+        let mut input = metrics
+            .input
+            .map(batch_input::Input::completed)
+            .transpose()?;
+        if let Some(input) = &mut input {
+            input.ordering_batches_detached = metrics.ordering_batches_detached.get();
+            input.ordering_rows_detached = metrics.ordering_rows_detached.get();
+        }
         // No input schema sampling, and no missing-schema sentinel for empty output.
         if !emitted.get() {
             let array = super::native_payload::defaults(&dtype, 0, context)?;
@@ -794,6 +832,9 @@ impl PreparedVortexRelational {
                 + usize::from(input.is_some()),
             schema_binding_deferred: matches!(self.root, PreparedRoot::Dynamic(_)),
             dynamic_schema_stages: metrics.schema_discovery_stages.get(),
+            ordered_aggregate_stages: metrics.ordered_aggregate_stages.get(),
+            ordered_aggregate_input_rows: metrics.ordered_aggregate_input_rows.get(),
+            ordered_aggregate_distinct_rows: metrics.ordered_aggregate_distinct_rows.get(),
             output_columns: root.fields.iter().map(|(name, _)| name.clone()).collect(),
             bytes_decoded: None,
             native_io_certificate: certificate,
@@ -809,7 +850,7 @@ impl PreparedVortexRelational {
         &self,
         node: &Node,
         context: &NativeExecutionContext<'_>,
-        metrics: &Metrics,
+        metrics: &Metrics<'_>,
         batch_rows: usize,
         parameter: Option<&ArrayRef>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
@@ -846,6 +887,25 @@ impl PreparedVortexRelational {
                 consume(array.clone())
             }
             NodeKind::Aggregate { input, spec } => {
+                #[cfg(feature = "vortex-write")]
+                if let Some(spill) = &metrics.spill {
+                    let report = super::native_relational_aggregate_spill::run(
+                        spec,
+                        &input.fields,
+                        spill,
+                        context,
+                        batch_rows,
+                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                        consume,
+                    )?;
+                    add(&metrics.ordered_aggregate_stages, 1)?;
+                    add(&metrics.ordered_aggregate_input_rows, report.input_rows)?;
+                    add(
+                        &metrics.ordered_aggregate_distinct_rows,
+                        report.distinct_rows,
+                    )?;
+                    return Ok(());
+                }
                 let mut aggregate =
                     native_relational_aggregate::Aggregate::new(spec, context.memory())?;
                 self.run(
@@ -929,7 +989,7 @@ impl PreparedVortexRelational {
         &self,
         node: &Node,
         context: &NativeExecutionContext<'_>,
-        metrics: &Metrics,
+        metrics: &Metrics<'_>,
         batch_rows: usize,
         parameter: Option<&ArrayRef>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,

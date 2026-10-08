@@ -95,13 +95,13 @@ impl PreparedVortexRelational {
         format: VortexLocalPrimitiveRowExportFormat,
         overwrite: bool,
         cancellation: &CancellationToken,
-        mut input: Option<&mut super::batch_input::Provider<'_>>,
+        input: Option<&mut super::batch_input::Provider<'_>>,
     ) -> Result<WrittenVortexRelational> {
         self.validate_batch_provider(input.is_some())?;
         let mut written =
             self.session
                 .with_sources_execution(&self.sources, cancellation, |context| {
-                    self.with_bound_root(context, |root, metrics| {
+                    self.with_bound_root(context, input, |root, metrics| {
                         let source = if let Some(path) = self.source_paths.first() {
                             DatasetUri::new(path.display().to_string())?
                         } else {
@@ -152,7 +152,6 @@ impl PreparedVortexRelational {
                             context,
                             metrics,
                             batch_rows.min(BATCH_ROWS),
-                            input.take(),
                             &mut |array| {
                                 submitted = submitted
                                     .checked_add(array.len() as u64)

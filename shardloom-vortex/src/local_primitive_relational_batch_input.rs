@@ -2,9 +2,10 @@
 
 use super::{
     ArrayRef, BATCH_ROWS, CancellationToken, CollectedVortexRelational, ExecutedVortexRelational,
-    Metrics, NativeExecutionContext, Node, PreparedVortexRelational, ResidentMemorySource,
-    ResidentVortexSession, Result, VortexRelationalPlan,
+    NativeExecutionContext, PreparedVortexRelational, ResidentMemorySource, ResidentVortexSession,
+    Result, VortexRelationalPlan,
 };
+use std::cell::{Cell, RefCell};
 
 pub(super) type Provider<'a> =
     dyn FnMut(&ResidentVortexSession) -> Result<Option<ResidentMemorySource>> + 'a;
@@ -23,6 +24,10 @@ pub struct ExecutedVortexBatchInput {
     pub end_of_input_observed: bool,
     /// Every delivered native batch owns compact output independently of input.
     pub output_ownership_detached: bool,
+    /// Compact copies at ordering retention boundaries, including nested sorts.
+    pub ordering_batches_detached: u64,
+    /// Counts rows at each ordering boundary, not distinct source rows or bytes.
+    pub ordering_rows_detached: u64,
 }
 
 impl Default for ExecutedVortexBatchInput {
@@ -37,6 +42,8 @@ impl Default for ExecutedVortexBatchInput {
             max_retained_input_logical_bytes: 0,
             end_of_input_observed: false,
             output_ownership_detached: true,
+            ordering_batches_detached: 0,
+            ordering_rows_detached: 0,
         }
     }
 }
@@ -49,7 +56,7 @@ pub struct VortexRelationalBatchInput<'p, 'i> {
 }
 
 impl PreparedVortexRelational {
-    /// Attach one source to an already bound, admitted row-local plan. Each call
+    /// Attach one source to an already bound, admitted single-source plan. Each call
     /// must transfer a private `from_batch_columns` source from the supplied
     /// session; `None` proves end-of-input. The callback must not reenter query
     /// admission. Its errors prevent a successful final report/publication.
@@ -76,39 +83,74 @@ impl PreparedVortexRelational {
         }
         Ok(())
     }
+}
 
-    #[allow(clippy::too_many_arguments)] // One loop reuses the already admitted operator tree.
-    pub(super) fn run_with_input(
+/// A borrowed execution-scoped source, erased only to keep provider lifetimes
+/// out of schema binding. It carries no alternate array representation.
+pub(super) trait Input {
+    fn run(
         &self,
-        root: &Node,
         context: &NativeExecutionContext<'_>,
-        metrics: &Metrics,
-        batch_rows: usize,
-        input: Option<&mut Provider<'_>>,
-        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
-    ) -> Result<Option<ExecutedVortexBatchInput>> {
-        self.validate_batch_provider(input.is_some())?;
-        let Some(input) = input else {
-            self.run(root, context, metrics, batch_rows, None, consume)?;
-            return Ok(None);
-        };
+        consume: &mut dyn FnMut(&ResidentMemorySource) -> Result<()>,
+    ) -> Result<()>;
+
+    fn completed(&self) -> Result<ExecutedVortexBatchInput>;
+}
+
+pub(super) struct Execution<'p, 'i, 'v> {
+    prepared: &'p PreparedVortexRelational,
+    provider: RefCell<&'i mut Provider<'v>>,
+    started: Cell<bool>,
+    report: RefCell<ExecutedVortexBatchInput>,
+}
+
+impl<'p, 'i, 'v> Execution<'p, 'i, 'v> {
+    pub(super) fn new(
+        prepared: &'p PreparedVortexRelational,
+        provider: &'i mut Provider<'v>,
+    ) -> Self {
+        Self {
+            prepared,
+            provider: RefCell::new(provider),
+            started: Cell::new(false),
+            report: RefCell::new(ExecutedVortexBatchInput::default()),
+        }
+    }
+}
+
+impl Input for Execution<'_, '_, '_> {
+    fn run(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        consume: &mut dyn FnMut(&ResidentMemorySource) -> Result<()>,
+    ) -> Result<()> {
+        if self.started.replace(true) {
+            return Err(failed(
+                "streaming input cannot be consumed or replayed twice",
+            ));
+        }
         let (_, schema) = self
+            .prepared
             .batch_source
             .as_ref()
-            .expect("validated input declaration");
-        let mut report = ExecutedVortexBatchInput::default();
+            .ok_or_else(|| failed("streaming input declaration is absent"))?;
+        let mut input = self
+            .provider
+            .try_borrow_mut()
+            .map_err(|_| failed("streaming input provider is already active"))?;
+        let mut report = self.report.borrow_mut();
         loop {
             context.check_cancelled()?;
-            let next = input(&self.session)?;
+            let next = input(&self.prepared.session)?;
             context.check_cancelled()?;
             let Some(source) = next else {
                 report.end_of_input_observed = true;
-                return Ok(Some(report));
+                return Ok(());
             };
             if report.payload_batches == crate::resident_memory_source::MAX_BATCHES as u64 {
                 return Err(failed("streaming source exceeds 4,096 payload batches"));
             }
-            if !source.belongs_to_session(&self.session)
+            if !source.belongs_to_session(&self.prepared.session)
                 || source.dtype() != schema.dtype()
                 || source.row_count() > crate::resident_memory_source::MAX_BATCH_ROWS
                 || source.input_logical_bytes() > 32 * 1024 * 1024
@@ -131,9 +173,8 @@ impl PreparedVortexRelational {
             report.max_retained_input_batches = 1;
             report.max_retained_input_logical_bytes =
                 report.max_retained_input_logical_bytes.max(bytes);
-            *metrics.current_input.borrow_mut() = Some(source);
-            let result = self.run(root, context, metrics, batch_rows, None, consume);
-            drop(metrics.current_input.borrow_mut().take());
+            let result = consume(&source);
+            drop(source);
             result?;
             if released.strong_count() != 0 {
                 return Err(failed(
@@ -141,6 +182,16 @@ impl PreparedVortexRelational {
                 ));
             }
         }
+    }
+
+    fn completed(&self) -> Result<ExecutedVortexBatchInput> {
+        let report = self.report.borrow();
+        if !self.started.get() || !report.end_of_input_observed {
+            return Err(failed(
+                "streaming input did not reach explicit end-of-input",
+            ));
+        }
+        Ok(report.clone())
     }
 }
 
@@ -221,6 +272,11 @@ pub(super) fn classify(
         VortexRelationalPlan::Scan(scan) if &scan.source_uri == uri => return Ok(()),
         VortexRelationalPlan::Project(project) => return classify(&project.input, uri, depth + 1),
         VortexRelationalPlan::Filter(filter) => return classify(&filter.input, uri, depth + 1),
+        VortexRelationalPlan::Sort(sort) => return classify(&sort.input, uri, depth + 1),
+        VortexRelationalPlan::Limit(limit) => return classify(&limit.input, uri, depth + 1),
+        VortexRelationalPlan::Aggregate(aggregate) => {
+            return classify(&aggregate.input, uri, depth + 1);
+        }
         VortexRelationalPlan::Scan(_) => "another source",
         VortexRelationalPlan::Join(_) => "join/repeated source",
         VortexRelationalPlan::Set(_) => "set operation/repeated source",
@@ -229,9 +285,6 @@ pub(super) fn classify(
             "subquery"
         }
         VortexRelationalPlan::Outer => "correlated source",
-        VortexRelationalPlan::Sort(_) => "sort",
-        VortexRelationalPlan::Limit(_) => "limit/offset",
-        VortexRelationalPlan::Aggregate(_) => "aggregate",
         VortexRelationalPlan::Unary(_) => "unary stateful operator",
         VortexRelationalPlan::ExecutionResult(_) | VortexRelationalPlan::DeferredSubquery(_) => {
             "dynamic schema"

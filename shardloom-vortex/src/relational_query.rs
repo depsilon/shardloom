@@ -12,7 +12,7 @@ pub use window_frame::{
     VortexRelationalFrameOffset, VortexRelationalFrameUnit, VortexRelationalWindowFrame,
 };
 
-/// Explicit permission for query-local relational ordering runs. The buffer
+/// Explicit permission for native ordering and general aggregate ordering runs. The buffer
 /// threshold controls flushing; the resident query pool remains the memory grant.
 /// Construction validates configuration without inspecting the filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -473,6 +473,18 @@ fn append_execution(
             result.scan_rows_delivered.to_string(),
         ),
         (
+            "relational_ordered_aggregate_stages".into(),
+            result.ordered_aggregate_stages.to_string(),
+        ),
+        (
+            "relational_ordered_aggregate_input_rows".into(),
+            result.ordered_aggregate_input_rows.to_string(),
+        ),
+        (
+            "relational_ordered_aggregate_distinct_rows".into(),
+            result.ordered_aggregate_distinct_rows.to_string(),
+        ),
+        (
             "resident_source_opens".into(),
             result.runtime.prepared_source_opens.to_string(),
         ),
@@ -543,6 +555,8 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_max_retained_logical_bytes", input.max_retained_input_logical_bytes.to_string()),
         ("native_input_end_observed", input.end_of_input_observed.to_string()),
         ("native_input_output_ownership_detached", input.output_ownership_detached.to_string()),
+        ("native_input_ordering_batches_detached", input.ordering_batches_detached.to_string()),
+        ("native_input_ordering_rows_detached", input.ordering_rows_detached.to_string()),
         ("native_batch_input_storage", "single_current_native_batch;released_before_next_demand;no_input_spill".into()),
         ("native_input_byte_accounting", "logical_values_offsets_validity_and_names;not_allocated_capacity_or_rss".into()),
         ("resident_source_generation_validation", "declared_schema_checked_each_batch;explicit_source_end;all_input_owners_released;final_consumer_completed".into()),

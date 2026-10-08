@@ -66,6 +66,23 @@ pub(super) struct Aggregate<'a> {
 
 impl<'a> Aggregate<'a> {
     pub(super) fn new(spec: &'a Spec, memory: &LiveMemoryPool) -> Result<Self> {
+        Self::with_distinct_sets(spec, memory, true)
+    }
+
+    /// The ordered executor supplies exact distinct counts and one scalar group.
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn new_ordered(spec: &'a Spec, memory: &LiveMemoryPool) -> Result<Self> {
+        if !spec.group_names.is_empty() || !spec.groups.is_empty() {
+            return Err(failed("ordered reducer requires one scalar group"));
+        }
+        Self::with_distinct_sets(spec, memory, false)
+    }
+
+    fn with_distinct_sets(
+        spec: &'a Spec,
+        memory: &LiveMemoryPool,
+        track_distinct: bool,
+    ) -> Result<Self> {
         let mut states = ReservedVec::new(memory)?;
         let groups = if spec.group_names.is_empty() {
             states.reserve(spec.measures.len())?;
@@ -79,9 +96,8 @@ impl<'a> Aggregate<'a> {
         let mut distinct = ReservedVec::new(memory)?;
         distinct.reserve(spec.measures.len())?;
         for measure in &spec.measures {
-            distinct
-                .values
-                .push(if measure.function == Function::CountDistinct {
+            distinct.values.push(
+                if track_distinct && measure.function == Function::CountDistinct {
                     Some(RowSet::new(
                         &measure.distinct_fields,
                         &measure.distinct_names,
@@ -89,7 +105,8 @@ impl<'a> Aggregate<'a> {
                     )?)
                 } else {
                     None
-                });
+                },
+            );
         }
         let nested_extrema = if spec
             .measures
@@ -167,6 +184,52 @@ impl<'a> Aggregate<'a> {
         context: &NativeExecutionContext<'_>,
         batch_rows: usize,
     ) -> Result<()> {
+        self.consume_inner(array, context, batch_rows, true)
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn consume_ordered_base(
+        &mut self,
+        array: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+    ) -> Result<()> {
+        self.consume_inner(array, context, batch_rows, false)
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn add_ordered_distinct(&mut self, measure: usize, count: u64) -> Result<()> {
+        if self.groups.is_some()
+            || self.spec.measures.get(measure).map(|value| value.function)
+                != Some(Function::CountDistinct)
+            || self
+                .distinct
+                .values
+                .get(measure)
+                .is_none_or(Option::is_some)
+        {
+            return Err(failed("ordered distinct counter has incompatible state"));
+        }
+        let state = self
+            .states
+            .values
+            .get_mut(measure)
+            .ok_or_else(|| failed("ordered distinct accumulator is absent"))?;
+        state.count = state
+            .count
+            .checked_add(count)
+            .ok_or_else(|| failed("distinct count overflow"))?;
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_lines)] // Keep the shared typed measure update loop and its ordering contract together.
+    fn consume_inner(
+        &mut self,
+        array: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        accumulate_distinct_values: bool,
+    ) -> Result<()> {
         context.check_cancelled()?;
         let mut ordinals = ReservedVec::new(context.memory())?;
         if let Some(groups) = &mut self.groups {
@@ -179,6 +242,9 @@ impl<'a> Aggregate<'a> {
         let mut decimal_index = 0;
         for (measure_index, measure) in self.spec.measures.iter().enumerate() {
             context.check_cancelled()?;
+            if !accumulate_distinct_values && measure.function == Function::CountDistinct {
+                continue;
+            }
             let column = measure
                 .column
                 .as_ref()

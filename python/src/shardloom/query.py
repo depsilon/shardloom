@@ -8350,10 +8350,13 @@ def from_batches(
     pass a factory for repeated calls, or an iterable for one execution. Total
     input is limited to 4,096 batches. The default resident mode retains all
     native input under the query memory grant. ``streaming=True`` instead
-    admits one source used once through pure filters/projections, incremental
-    results, a bounded small collection or one native Vortex output. Other
-    operators require explicit resident mode. Results remain provisional until
-    the producer ends and final validation succeeds.
+    admits one source used once through filters/projections, sorting,
+    aggregation and limits, with incremental results, bounded small collection
+    or one native Vortex output. Limits drain and validate the complete source.
+    Stateful work shares the query grant; ordering and aggregation can use an
+    explicit spill policy. Other operator families reject before consumption.
+    Results remain provisional until the producer ends and final validation
+    succeeds.
     """
     from ._batches import BatchInput
     from uuid import uuid4

@@ -187,6 +187,17 @@ preserved in the [builder packet](../benchmarks/native-builder-resources-2026-10
 Only redundant completed containers were removed. Failed/incomplete evidence,
 resident inputs and storage ceilings remain unchanged.
 
+Before the October 8 stateful aggregation/ordering Full43 acceptance, the
+unchanged 252-MiB log-admission threshold stopped preflight before queries.
+The completed October 7 FSST cohort's 516 original JSON/companion call files
+were compacted into `completed-call-logs-stateful-20261008.tar.xz` beside its
+unchanged summary. Original identities, closed handles and every archived byte
+were verified before redundant originals were removed, recovering 3,362,816
+accounted log bytes. Failed/incomplete evidence and all ceilings remain unchanged.
+The [stateful acceptance packet](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
+retains the refusal and compaction manifest and independently reopens all 516
+members before accepting the fresh Full43 run.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and

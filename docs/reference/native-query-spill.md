@@ -106,7 +106,7 @@ fields, repeated flags, and simultaneous common and embedded spill declarations
 are rejected. The selected specialized numeric sort or aggregate provider retains
 its existing contract: the common `buffer_bytes` maps to that provider's
 `memory_bytes`, including the aggregate's 2 MiB minimum. For composed relational
-ordering it is a retained-input flush threshold, at least 1 MiB and no larger
+ordering and general aggregation it is a retained-input flush threshold, at least 1 MiB and no larger
 than the query grant. Run metadata, readers, native keys and output allocations
 also consume the same grant; a threshold is not a second budget or a guarantee
 that every physical source layout fits.
@@ -120,6 +120,58 @@ does not establish zero-decode execution or a total RSS ceiling.
 
 `VortexRelationalSpillPolicy::cleanup_abandoned` recovers one explicitly selected
 owned directory through the same namespace/identity rules. It refuses active,
-unknown, replaced or symlinked entries. Aggregate, join, set and window state do
-not gain spill support from ordering permission. Relational fanout remains
-separate work. See the [contract and acceptance](../architecture/native-relational-resources-2026-10-02.md).
+unknown, replaced or symlinked entries. This permits cleanup and restart, not
+resuming an interrupted operator. Join, set, window and pivot state retain
+separate pressure contracts. Relational fanout remains separate work. See the
+[ordering contract and acceptance](../architecture/native-relational-resources-2026-10-02.md).
+
+## General aggregation and completion-aware input
+
+Current source builds use the same explicit spill policy for general relational
+GROUP BY and COUNT DISTINCT, alongside COUNT, SUM, AVG/MEAN and MIN/MAX.
+Native ordering and runs bound group and distinct membership state, preserving
+first-seen group order and the existing typed, null and floating reduction
+semantics. All stages share the query grant and disk quota. Without an explicit
+policy, resident aggregation retains its deterministic memory denial.
+
+One finite `streaming=True` source can compose filters, projections, sorting,
+aggregation and limits. Limits and offsets apply globally and drain all input,
+including zero limits. A late producer or value error prevents completion and
+file publication. Incremental results, bounded collection and one new native
+Vortex destination are admitted; compatibility streaming writes, repeated
+sources and other stateful families require their separate contracts.
+
+```python
+import tempfile
+import shardloom as sl
+
+def aggregate_input():
+    yield [{"team": "red", "amount": 3}, {"team": "blue", "amount": 1}]
+    yield [{"team": "red", "amount": 4}]
+
+workflow = (
+    sl.from_batches(
+        aggregate_input, schema={"team": "utf8", "amount": "int64"},
+        streaming=True,
+    )
+    .group_by("team").agg(total="sum(amount)")
+    .sort("total", descending=True).limit(1)
+)
+with tempfile.TemporaryDirectory(prefix="shardloom-query-") as workspace:
+    with workflow.iter_batches(
+        memory_gb=1, max_parallelism=1,
+        spill={"workspace": workspace, "quota_bytes": 64 << 20, "buffer_bytes": 1 << 20},
+    ) as batches:
+        for batch in batches:
+            print(batch.result_rows)
+        assert batches.report is not None
+```
+
+The complete result is `[{"team": "red", "total": 7}]`. This small example selects
+the native spill strategy but need not create a disk run. The
+[aggregate design](../architecture/native-aggregate-pressure-2026-10-07.md) and
+[acceptance report](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
+record actual constrained spill, complete output and failure/cleanup proof.
+File-backed aggregate workflows also retain all eight admitted writers under
+their individual dtype contracts. This does not extend the streaming-input
+writer contract or establish a whole-process memory bound.

@@ -18,7 +18,7 @@ pub(super) fn run(
     residual: Option<&MaterializedPredicateEvaluator>,
     fields: &[(String, DType)],
     context: &NativeExecutionContext<'_>,
-    metrics: &Metrics,
+    metrics: &Metrics<'_>,
     batch_rows: usize,
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
@@ -69,15 +69,16 @@ pub(super) fn run(
             Ok(())
         }
         ScanSource::Batch(projection) => {
-            let current = metrics.current_input.borrow();
-            let source = current.as_ref().ok_or_else(|| {
-                super::batch_input::failed("streaming scan has no current input batch")
+            let input = metrics.input.ok_or_else(|| {
+                super::batch_input::failed("streaming scan has no input provider")
             })?;
-            add(&metrics.scans_started, 1)?;
-            if source.row_count() > 0 {
-                add(&metrics.data_scans, 1)?;
-            }
-            accept(projection.execute_batch(source, context)?)
+            input.run(context, &mut |source| {
+                add(&metrics.scans_started, 1)?;
+                if source.row_count() > 0 {
+                    add(&metrics.data_scans, 1)?;
+                }
+                accept(projection.execute_batch(source, context)?)
+            })
         }
     }
 }
@@ -86,7 +87,7 @@ fn run_file(
     source: &PreparedVortexSource,
     plan: &LocalVortexScanPlan,
     context: &NativeExecutionContext<'_>,
-    metrics: &Metrics,
+    metrics: &Metrics<'_>,
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
     source.with_admitted_native_execution(context, |file, context| {

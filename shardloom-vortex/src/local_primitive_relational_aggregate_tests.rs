@@ -11,6 +11,9 @@ use vortex::array::arrays::VarBinViewArray;
 #[path = "local_primitive_relational_decimal_reduction_tests.rs"]
 mod decimal_reduction_tests;
 
+#[path = "local_primitive_relational_aggregate_spill_tests.rs"]
+mod spill_tests;
+
 fn measure(function: &str, column: Option<&str>, alias: &str) -> Measure {
     Measure::new(
         function,

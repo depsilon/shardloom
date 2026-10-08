@@ -1,21 +1,25 @@
 use super::*;
+use shardloom_vortex::{
+    resident_memory_source::{MemoryColumn, MemoryColumnValues, ResidentMemorySource},
+    resident_session::ResidentVortexSession,
+};
+
+fn batch_source(
+    session: &ResidentVortexSession,
+    values: &[Option<i64>],
+) -> NativeResult<ResidentMemorySource> {
+    ResidentMemorySource::from_batch_columns(
+        session,
+        &[MemoryColumn {
+            name: "n",
+            values: MemoryColumnValues::Int64(values),
+        }],
+    )
+}
 
 #[test]
 fn native_relational_sql_streaming_input_preserves_synthetic_limit_origin_and_end() {
-    use shardloom_vortex::{
-        resident_memory_source::{MemoryColumn, MemoryColumnValues, ResidentMemorySource},
-        resident_session::ResidentVortexSession,
-    };
     let uri = DatasetUri::new("memory://stream").unwrap();
-    let source = |session: &ResidentVortexSession, values: &[Option<i64>]| {
-        ResidentMemorySource::from_batch_columns(
-            session,
-            &[MemoryColumn {
-                name: "n",
-                values: MemoryColumnValues::Int64(values),
-            }],
-        )
-    };
     for statement in [
         "SELECT n FROM 'memory://stream' WHERE n > 0",
         "SELECT n FROM (SELECT n FROM 'memory://stream' WHERE n > 0) AS s",
@@ -24,7 +28,9 @@ fn native_relational_sql_streaming_input_preserves_synthetic_limit_origin_and_en
         let prepared = prepare_with_inputs(
             statement,
             VortexLocalPrimitiveExecutionPolicy::single_threaded(),
-            |schemas| schemas.register_batch_source(uri.clone(), |session| source(session, &[])),
+            |schemas| {
+                schemas.register_batch_source(uri.clone(), |session| batch_source(session, &[]))
+            },
             |_| Ok(vec![uri.clone()]),
         )
         .unwrap_or_else(|error| panic!("{statement}: {error}"));
@@ -32,8 +38,8 @@ fn native_relational_sql_streaming_input_preserves_synthetic_limit_origin_and_en
         let mut input = |session: &ResidentVortexSession| {
             calls += 1;
             match calls {
-                1 => source(session, &[Some(1), None]).map(Some),
-                2 => source(session, &[Some(-1), Some(2)]).map(Some),
+                1 => batch_source(session, &[Some(1), None]).map(Some),
+                2 => batch_source(session, &[Some(-1), Some(2)]).map(Some),
                 3 => Ok(None),
                 _ => panic!("source replayed"),
             }
@@ -49,17 +55,76 @@ fn native_relational_sql_streaming_input_preserves_synthetic_limit_origin_and_en
         assert_eq!(report.rows, 4);
         assert!(report.end_of_input_observed);
     }
-    for limit in ["0".to_owned(), "1".to_owned(), usize::MAX.to_string()] {
+}
+
+#[test]
+fn native_relational_sql_streaming_explicit_limits_drain_and_preserve_late_failures() {
+    let uri = DatasetUri::new("memory://stream").unwrap();
+    for (limit, expected) in [
+        (0, ""),
+        (1, "{\"n\":1}\n"),
+        (
+            usize::MAX,
+            "{\"n\":1}\n{\"n\":null}\n{\"n\":-1}\n{\"n\":2}\n",
+        ),
+    ] {
         let statement = format!("SELECT n FROM 'memory://stream' LIMIT {limit}");
-        let error = prepare_with_inputs(
+        let prepared = prepare_with_inputs(
             &statement,
             VortexLocalPrimitiveExecutionPolicy::single_threaded(),
-            |schemas| schemas.register_batch_source(uri.clone(), |session| source(session, &[])),
+            |schemas| {
+                schemas.register_batch_source(uri.clone(), |session| batch_source(session, &[]))
+            },
             |_| Ok(vec![uri.clone()]),
         )
-        .err()
-        .expect("explicit limit is not a completion contract");
-        assert!(error.to_string().contains("does not admit limit/offset"));
+        .unwrap();
+        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let mut calls = 0;
+        let mut input = |session: &ResidentVortexSession| {
+            calls += 1;
+            match calls {
+                1 => batch_source(session, &[Some(1), None]).map(Some),
+                2 => batch_source(session, &[Some(-1), Some(2)]).map(Some),
+                3 => Ok(None),
+                _ => panic!("source replayed"),
+            }
+        };
+        let result = prepared
+            .with_batch_input(&mut input)
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(result.result_jsonl.value(), expected);
+        assert_eq!(calls, 3, "even LIMIT 0 must drain through end-of-input");
+        let report = result.execution.input.as_ref().unwrap();
+        assert_eq!(report.rows, 4);
+        assert!(report.end_of_input_observed);
+        drop(result);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+
+        let mut calls = 0;
+        let mut input = |session: &ResidentVortexSession| {
+            calls += 1;
+            if calls == 1 {
+                batch_source(session, &[Some(1)]).map(Some)
+            } else {
+                Err(unsupported_sql_error("late streaming limit producer"))
+            }
+        };
+        let result = prepared
+            .with_batch_input(&mut input)
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default());
+        assert!(
+            result
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("late streaming limit producer")
+        );
+        assert_eq!(calls, 2);
+        assert_eq!(prepared.snapshot().completed_executions, 1);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     }
 }
 

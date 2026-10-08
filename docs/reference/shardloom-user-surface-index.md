@@ -102,17 +102,20 @@ records row/frame/schema limits, one-shot versus factory inputs, final-report
 completion and early-close cleanup. Default resident input must fit the shared native grant;
 batch-shaped output does not make all operator state spillable.
 
-The separate [completion-aware input contract](../architecture/native-input-completion-2026-10-07.md)
-admits `streaming=True` for one finite source used once through pure
-Scan/Filter/Project, with incremental results, bounded small collection or one
-native Vortex destination. It retains at most one native input batch, permitting
+The [completion-aware ordering](../architecture/native-streamed-ordering-2026-10-07.md)
+and [general aggregate](../architecture/native-aggregate-pressure-2026-10-07.md)
+contracts admit `streaming=True` for one finite source used once through
+Scan/Filter/Project/Sort/Limit/Aggregate, with incremental results, bounded small
+collection or one native Vortex destination. It retains at most one native input batch, permitting
 cumulative input above the shared grant within the existing finite intake limits.
 Typed intake and output compaction remain charged; result and sink reservations
 remain separate. Unsupported plans reject before producer consumption, and success
-requires observed end-of-input. [Corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
-and independent packet inspection pass. Final integration is tracked in
-[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
-Resident input remains the default; no input spill or process-RSS bound is added.
+requires observed end-of-input. Limits, including zero, drain and validate the
+complete input. Ordering and general aggregation share the grant and can use an
+explicit native spill policy. [Local acceptance](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
+and independent packet inspection pass; hosted integration remains pending.
+Resident input remains the default. Repeated-source spool, compatibility streaming
+writes and a process-RSS bound remain outside this contract.
 
 Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
 with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:
@@ -133,8 +136,9 @@ source branch, the incremental Python consumer above. See the
 Single-file sorting can use explicitly admitted temporary Vortex runs, including
 the flat typed keys scoped by the [typed key contract](../architecture/native-typed-keys-2026-10-03.md).
 See [Native Query Sort Spill](native-query-spill.md) for supported keys, bounded
-output, workspace quotas, cancellation, and recovery. The policy is opt-in and
-does not enable group, join or window state spill.
+output, workspace quotas, cancellation, and recovery. The same opt-in policy now
+also admits the documented general relational aggregate strategy. Join, window,
+pivot and set state retain their separate pressure contracts.
 
 ## Python Reads
 
@@ -467,7 +471,8 @@ admit [scalar-value subqueries](../architecture/native-scalar-subqueries-2026-10
 with one static output column and explicit correlation; published v0.4.0 packages
 predate that addition. Unadmitted operator/type combinations, lateral relations,
 dynamic-pivot-dependent scalar schemas, named windows, variable frame offsets,
-other relational state spill and relational fanout remain explicit boundaries.
+join/window/pivot/set state spill and relational fanout remain explicit boundaries.
+General aggregation has its own admitted [spill strategy](native-query-spill.md#general-aggregation-and-completion-aware-input).
 
 Not claimed by the technical preview: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary
 subqueries, broad optimizer parity, SQL UDFs, catalog-backed SQL, object-store/table SQL, JDBC/ODBC,
