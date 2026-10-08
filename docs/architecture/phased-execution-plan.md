@@ -255,12 +255,16 @@ the ledger.
     and the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
     Existing owners are PERF-02/03/06/10/12 and CG-20/21; broader owners stay open.
   - V1 scope classification: `required_for_v1` for this declared local family.
-  - Current state: the explicit bounded strategy and single-use streamed input
-    are implemented. Focused native pressure/failure/recovery tests, 229 streamed
-    public checks and 1,498 public spill-frame checks pass in development.
-    Frozen complete regression acceptance and hosted integration remain pending;
-    the resident strategy remains the default. Accepted aggregate/join pressure
-    and stored native ordering supply shared prerequisites.
+  - Current state: runtime `80057ba6` has complete local acceptance and independent
+    packet inspection: all 15 source gates, 442 streaming cases, 28,871 public
+    checks including 1,498 new spill-frame cases, direct/adapter checks and all
+    129 Full43 results pass. File-backed and streamed native windows complete
+    24,013 wide rows at 16 MiB, with resident denial and ample controls. The
+    [report](../benchmarks/native-window-pressure-2026-10-08.md) preserves the
+    public/native grant distinction. Support checks, six executable examples
+    and desktop/mobile/search review pass with all 1,001 accepted runtime assets
+    unchanged. Hosted integration remains pending; the resident strategy stays
+    the default.
   - ShardLoom technique review: PulseWeave admits overlapping input, frame,
     run, lookup and result owners in one grant. Compact private records and late
     selected-value gathering constrain retention. Exact interval unions and
@@ -273,15 +277,16 @@ the ledger.
       and range-summary extrema; restore original output order under one quota.
     - [x] Admit one finite batch occurrence, detach input owners before the next
       demand and preserve complete drain and pre-demand unsupported admission.
-    - [ ] Prove every existing function/frame/exclusion/type/null/order/error
+    - [x] Prove every existing function/frame/exclusion/type/null/order/error
       contract and complete composition through current result/writer owners.
-    - [ ] Prove larger-than-grant completion against resident denial and ample
+    - [x] Prove larger-than-grant completion against resident denial and ample
       controls, plus resource/cancellation/corruption/consumer/source failures,
       destination protection and owned cleanup/restart.
-    - [ ] Freeze source/binary/oracles and complete focused, workspace, public,
+    - [x] Freeze source/binary/oracles and complete focused, workspace, public,
       direct/adapter and Full43 acceptance with independent packet inspection.
-    - [ ] Complete adversarial source review, affected support alignment,
-      hosted integration and exact ledger closeout.
+    - [x] Complete adversarial source review and affected support alignment,
+      including executable examples and rendered search/mobile verification.
+    - [ ] Complete hosted integration and exact ledger closeout.
   - Acceptance/verification: the design's complete-output and failure matrix,
     exact focused native/Python/CLI tests and required fmt/clippy/workspace gates,
     under existing serial storage/process guards. No engine fallback is permitted.
@@ -299,8 +304,8 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, all 981 accepted runtime assets
 unchanged and actual preview/production search, guide and report-link checks.
 The [completed ledger](phased-execution-completed-ledger.md) preserves its finite
-pressure, streaming and cleanup/restart scope. Window/pivot pressure and the
-broader six-area/eight-investigation completion contract remain open.
+pressure, streaming and cleanup/restart scope. Window hosted integration, pivot
+pressure and the broader six-area/eight-investigation completion contract remain open.
 
 `NATIVE-GENERAL-AGGREGATE-PRESSURE` and `NATIVE-STREAMED-ORDERING` are complete in
 [PR #1531](https://github.com/depsilon/shardloom/pull/1531), merged at `9529bd78`
@@ -309,7 +314,7 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, preserved executable behavior, actual
 preview/production search, matching guide content and the merged acceptance link.
 The [completed ledger](phased-execution-completed-ledger.md) retains the finite
-scope and evidence. Window/pivot pressure and the broader local completion
+scope and evidence. Window hosted integration, pivot pressure and the broader local completion
 contract remain open; published v0.4.0 is unchanged.
 
 The maintainer reaffirmed the full remaining body of work on October 7. The

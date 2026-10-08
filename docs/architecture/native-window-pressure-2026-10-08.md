@@ -1,9 +1,13 @@
 # Native analytic windows under an explicit shared spill policy
 
-Status: implemented with focused native and public acceptance under
-PERF-02/03/06/10/12 and CG-20/21, following
-[join acceptance](native-join-pressure-2026-10-08.md). Frozen complete regression
-acceptance and hosted integration remain open in the
+Status: complete local runtime acceptance and independent packet inspection
+under PERF-02/03/06/10/12 and CG-20/21, following
+[join acceptance](native-join-pressure-2026-10-08.md). Runtime `80057ba6` passes
+the frozen public, direct, adapter, source and Full43 gates. The
+[acceptance report](../benchmarks/native-window-pressure-2026-10-08.md) binds
+complete values and constrained native resource/failure proof. Support alignment,
+six executable examples and desktop/mobile/search checks pass with all 1,001
+accepted runtime assets unchanged. Hosted integration remains open in the
 [phase plan](phased-execution-plan.md).
 The expert comparator is an external-memory analytic operator preserving exact
 frame semantics, observation order and complete output under one query grant.
@@ -129,7 +133,8 @@ values never included in any frame must not acquire new validation errors merely
 because a summary was built. The inverse-interval coverage gives a way to mask
 unobserved leaves. Prove this with nonfinite/invalid unobserved values as well as
 ordinary nullable and nested values. Error order across functions and partitions
-must remain explicit. This is a design risk to resolve in implementation.
+must remain explicit. The implementation uses the shared observation pass and
+private storage-preserving movement described below, with direct error-order tests.
 
 ## Early mathematical screen
 
@@ -184,9 +189,9 @@ Preserve the observation boundary before building DISTINCT/extrema summaries:
 walk newly included observations in the existing frame/interval order, validate
 only admitted values, then build interval unions or range summaries from that
 coverage. COUNT merely checks nullness. Positional selection may return a NULL
-value. Unobserved nonfinite values do not become new errors. Add direct error-order
-and parent-null tests; the current tests cover wholly excluded invalid measures
-but do not establish every multiple-function or multiple-partition error case.
+value. Unobserved nonfinite values do not become new errors. Direct tests cover
+parent NULLs, wholly excluded invalid measures and error order across multiple
+functions, partitions, ordering groups and final selected-value validation.
 
 Private source/group movement preserves floating storage bits and decimal storage
 without applying result-value validation to unobserved measures. The existing
@@ -229,8 +234,16 @@ and restart evidence, not resumption. Development public acceptance passes
 file/value-backed spill-frame checks covering 1,061,210 complete row comparisons
 through Python/SQL and representable writers. Native tests also reopen typed
 empty outputs and preserve protected destinations across arithmetic failures.
-These checks precede the frozen release executable; the broad regression,
-Full43, evidence-inspection and integration gates remain required.
+The later frozen acceptance at `80057ba6` passes all 15 source gates, 442 streamed
+checks including these 229 additions, 28,871 public checks including the 1,498
+spill-frame cases, 202 direct cases, 48 batch checks, 19 format checks, 145
+admitted-semantic stages, nine golden stages and all 129 Full43 results.
+Independent readback reconstructs complete window expectations and reopens every
+saved envelope and 517,499 streaming-pressure rows. A separate packet inspector
+passes its 165-case contract and full decompression/coverage checks. File-backed
+and streamed native tests each complete 24,013 wide rows under 16 MiB, while
+resident controls at that grant deny and ample controls pass. The public grant
+is separately 1 GiB. Hosted integration remains required.
 
 The rejected alternatives are retaining the full partition behind a disk-backed
 input, rescanning each complete frame for every output, maintaining a new mutable

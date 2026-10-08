@@ -250,9 +250,15 @@ composition. Hosted integration passes in
 [complete local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
 for all seven kinds, one-shot input on either side, typed/nested writers,
 real constrained spill and owned cleanup/restart. Frozen broad regressions and
-independent packet inspection pass; hosted integration remains pending.
-Window/pivot pressure, remaining
-allocations and broader adapters keep their existing obligations.
+independent packet inspection pass; hosted integration completed in
+[PR #1532](https://github.com/depsilon/shardloom/pull/1532). The subsequent
+[window pressure unit](native-window-pressure-2026-10-08.md) has complete local
+acceptance for existing analytic functions/frames under explicit native spill
+and one finite single-use batch source. Its
+[report](../benchmarks/native-window-pressure-2026-10-08.md) binds 16-MiB native
+pressure controls, 442 streaming checks, 28,871 public regressions and all 129
+Full43 results; hosted window integration remains pending. Pivot pressure,
+remaining allocations and broader adapters keep their existing obligations.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
 require operational acceptance of a declared support envelope; package availability is complete,
 and cloud/complete-SQL parity is not a blanket prerequisite for that local promise.
