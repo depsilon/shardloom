@@ -2,7 +2,9 @@
 
 Status: [complete local engine acceptance and independent packet inspection](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
 pass for runtime `8a207745`. Affected support checks, four native examples and
-local browser QA pass; hosted integration remains pending. This is a bounded
+local browser QA pass. [Hosted integration](../benchmarks/evidence/native-stateful-hosted-2026-10-08.json)
+is complete in PR #1531 at `9529bd78`, with all 39 checks passing and the
+accepted executable behavior preserved. This is a bounded
 dependency for the broader stateful pressure and recovery milestone in the
 [remaining-scope contract](native-local-completion-scope-2026-10-07.md), under
 PERF-03/06/07/11/12 and CG-5/19/20/21. General aggregation has a separate

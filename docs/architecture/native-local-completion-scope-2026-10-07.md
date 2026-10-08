@@ -22,6 +22,13 @@ link, and exact preservation of all 947 accepted runtime assets. The first
 completion-aware input implementation and its FSST correction are completed
 work, not a request to implement them again. Published v0.4.0 is unchanged.
 
+[PR #1531](https://github.com/depsilon/shardloom/pull/1531) subsequently completes
+general aggregate spill and streamed global ordering/draining limits at
+`9529bd78`. The [hosted receipt](../benchmarks/evidence/native-stateful-hosted-2026-10-08.json)
+records all 39 checks, preserved runtime behavior and preview/production checks.
+Those finite families move to the completed ledger; the remaining obligations
+in the coverage map below continue to belong to the broader owners.
+
 Reviewed FSST/Zstd payload buffers, actual Zstd decoder/prepared-dictionary
 workspaces, and primitive/Boolean/decimal builder output and finalization overlap
 also remain completed under their finite acceptance records. Broader ownership

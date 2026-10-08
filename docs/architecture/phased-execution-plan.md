@@ -249,88 +249,15 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-GENERAL-AGGREGATE-PRESSURE` — complete general grouping and exact
-  COUNT DISTINCT under an explicit shared native spill policy.
-  - Source: [design](native-aggregate-pressure-2026-10-07.md), RFC 0044 and the
-    maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
-  - Existing owners: PERF-03/06/10/12 and CG-20/21. This is the next aggregation
-    family in the stateful milestone; it does not close those broader owners.
-  - V1 scope classification: `required_for_v1` for the declared local aggregate
-    workflow. Join/window/pivot pressure retain their separate obligations.
-  - Current state: runtime `8a207745` reuses stable relational Ordering, the
-    query run store, exact scalar reducers and credited native payload builders.
-    [Complete local acceptance and packet inspection](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
-    pass, including constrained native pressure, 109 public streaming cases,
-    27,373 existing public cases and all 129 Full43 results. Affected support
-    alignment, four native examples and local browser QA pass. Hosted integration
-    remains pending.
-  - ShardLoom technique review: PulseWeave keeps projected records, scalar state,
-    overlapping runs and output inside one admitted grant. Bounded native batches
-    shape demand and output; complete input is still required for final groups.
-    Keep source, internal distinct expansion, disk and output evidence separate.
-    Stable merge scheduling remains a separately measured optimization candidate.
-  - Execution checklist:
-    - [x] Preserve grouped/scalar/null/typed/decimal/floating semantics and
-      first-seen order while bounding group and DISTINCT membership state.
-    - [x] Connect the same aggregate to complete single-use input, nested
-      aggregation, result batches, native streaming output and file writers.
-    - [x] Prove constrained resident denial, ample control and exact native
-      spill completion for large groups and one group with many distinct values.
-    - [x] Verify metadata/buffer lifetime, real-run cancellation/corruption,
-      quota and consumer failures, source change, publication and dead-owner
-      cleanup/restart; preserve unknown files.
-    - [x] Complete frozen public/workspace/Full43 acceptance, independent packet
-      inspection and primary source review with no fallback execution.
-    - [x] Complete affected support alignment, executable native examples and
-      local browser/search verification.
-    - [ ] Complete hosted integration and ledger closeout with the accepted
-      runtime preserved.
-  - Resource/claim boundary: distinguish the 16 MiB native streamed pressure
-    grant, file-backed reader/writer grants and the public 1 GiB minimum. A flush
-    threshold or a native reservation is not a whole-process memory ceiling.
-    Spill selection is explicit before execution, never an error-triggered retry.
-  - Non-goals: no join/window/pivot spill, repeated-source replay/spool, execution
-    resume, new intake types or transport-limit increase. No speedup or standalone
-    version bump is implied by this finite capability.
-
-- [ ] `NATIVE-STREAMED-ORDERING` — connect completion-aware input to global
-  native ordering and draining limits as a dependency for the stateful milestone.
-  - Source: [design](native-streamed-ordering-2026-10-07.md), RFC 0044 and the
-    maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
-  - V1 scope classification: `required_for_v1` for this declared finite workflow.
-    General aggregation is the companion item above; join pressure remains open.
-  - Current state: runtime `8a207745` runs the tree once over the incremental
-    scan and admits Sort/Limit alongside the companion Aggregate contract.
-    Complete local release acceptance and independent packet inspection pass;
-    affected support alignment, four native examples and local browser QA pass.
-    Hosted integration remains pending.
-  - Execution checklist:
-    - [x] Move single-use input demand into the existing native scan and run the
-      bound tree once, with exact schema, cancellation and owner-release checks.
-    - [x] Admit global Sort and draining Limit/Offset; detach retained ordering
-      input, report copies and preserve the existing native run store and quota.
-    - [x] Prove exact cross-batch/stable/null ordering, full drain including zero
-      limits, constrained spill completion, native write/reopen and all failures.
-    - [x] Complete public and broad regression evidence, independent packet
-      inspection and primary source review.
-    - [x] Complete affected support/docs alignment, executable native examples
-      and local browser/search verification.
-    - [ ] Complete hosted integration; move exact scope to the ledger.
-  - Reuse/user surface: Python/SQL/CLI lower into the same relational scan,
-    filter/project/order/limit and result/writer components. No new query route.
-  - ShardLoom technique review: PulseWeave keeps input/state/merge/output credits;
-    bounded capillary-style batch demand prevents speculative input retention.
-    Missing global input statistics cannot justify pruning completion. Separate
-    first-output, full workflow and spill clocks; keep certificates/no-fallback
-    evidence. Merge scheduling remains its own measured candidate.
-  - Acceptance/verification: use the design's frozen complete-output, larger-than-
-    grant and failure matrix plus required workspace/public/Full43 checks under
-    existing serial storage/process guards. `fallback_attempted=false` and
-    `external_engine_invoked=false` remain mandatory.
-  - Non-goals/claim boundary: general aggregation uses its companion contract;
-    this item does not admit join/window/pivot spill,
-    repeated-source spool, execution resume, compatibility streaming writer/fanout,
-    new types, transport-limit increase, process-RSS claim or standalone version bump.
+`NATIVE-GENERAL-AGGREGATE-PRESSURE` and `NATIVE-STREAMED-ORDERING` are complete in
+[PR #1531](https://github.com/depsilon/shardloom/pull/1531), merged at `9529bd78`
+after all 39 hosted checks passed. The
+[hosted receipt](../benchmarks/evidence/native-stateful-hosted-2026-10-08.json)
+records identical accepted/merged trees, preserved executable behavior, actual
+preview/production search, matching guide content and the merged acceptance link.
+The [completed ledger](phased-execution-completed-ledger.md) retains the finite
+scope and evidence. Join/window/pivot pressure and the broader local completion
+contract remain open; published v0.4.0 is unchanged.
 
 The maintainer reaffirmed the full remaining body of work on October 7. The
 [remaining-scope contract](native-local-completion-scope-2026-10-07.md) maps all
