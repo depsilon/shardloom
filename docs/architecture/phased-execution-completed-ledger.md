@@ -17,6 +17,39 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-WINDOW-PRESSURE` — existing analytic functions, frames and
+  exclusions under the shared explicit spill policy, plus one finite single-use
+  batch source, under PERF-02/03/06/10/12 and CG-20/21. The
+  [design](native-window-pressure-2026-10-08.md) reuses shared frame policy,
+  native ordering/storage, exact interval-union DISTINCT, native range summaries
+  and late positional payload gathering. Results preserve original input order.
+  - Runtime `80057ba6` passes all 15 source gates, 442 streaming cases, 28,871
+    public cases including 1,498 additional spill-frame checks, 202 direct cases,
+    batch/format adapters and all 129 Full43 results. File-backed and streamed
+    24,013-row native controls complete at 16 MiB with exact full values,
+    constrained resident denial and ample controls. Fault/cancellation/quota,
+    cached generation, source/consumer failure, protected destinations and
+    dead-owner cleanup/restart are retained in the
+    [report and independently inspected packet](../benchmarks/native-window-pressure-2026-10-08.md).
+    Native pressure evidence remains distinct from the public 1-GiB minimum.
+  - Support checks, six native examples and local desktop/mobile/search checks
+    pass. [PR #1533](https://github.com/depsilon/shardloom/pull/1533) merged at
+    `a88ec5c997e3da1633b9647a9e0e439681c8b467` after all 39 hosted checks on
+    `8abc6dbcda5f1dcc87fe61ea7917b36aff24887f` passed. Accepted/merged trees match;
+    all 1,001 accepted runtime assets and the executable are unchanged.
+    Primary source review found no blocking findings. Hosted automated review
+    could not run because account review quota was exhausted; no automated pass,
+    independent source review or submitted approval is inferred. The
+    [hosted receipt](../benchmarks/evidence/native-window-hosted-2026-10-08.json)
+    preserves that limitation, all checks, actual preview/production search,
+    identical guide/resource text, deployment and the merged acceptance link.
+    Original local records retain their historical hosted-pending status.
+  - Pivot pressure, dynamic/repeated batch sources, compatibility streaming
+    writers/fanout, broader intake/allocation coverage, execution resume and the
+    supported platform/release envelope remain open. The six-area scope and all
+    eight conditional investigations retain their owners. No total-process RSS
+    guarantee, speedup, whole PERF/CG closure, publication or version bump follows.
+
 - [x] `NATIVE-JOIN-PRESSURE` — all seven native join kinds under the shared
   explicit spill policy, with one single-use batch source on either side beside
   ordinary file/resident sources, under PERF-02/03/06/10/12 and CG-20/21.
