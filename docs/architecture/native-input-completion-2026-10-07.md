@@ -20,6 +20,14 @@ removes a finite resident-input barrier; it is not a speedup or process-RSS clai
 The [original report](../benchmarks/native-input-completion-2026-10-07.md) remains
 historical evidence for `f14460ef`; its packet is not rewritten by the correction.
 
+This document preserves the first admitted input contract. The subsequent
+[streamed ordering](native-streamed-ordering-2026-10-07.md) and
+[general aggregation](native-aggregate-pressure-2026-10-07.md) contracts extend
+the same source lifecycle to global sort, draining limits and aggregates, with
+[complete local acceptance](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md).
+Their explicit state-spill policy does not admit repeated-source replay or other
+stateful families.
+
 ## Decision
 
 Explicit streaming input uses the existing native relational execution and

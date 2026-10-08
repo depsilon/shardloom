@@ -222,13 +222,14 @@ ordered.write_parquet("ordered.parquet", memory_gb=1, max_parallelism=2, spill=s
 ```
 
 Create the workspace before execution. `route()` validates the declaration without
-probing or creating it. Composed relational order uses `buffer_bytes` as a retained
-input flush threshold within one query memory grant; specialized numeric sort and
+probing or creating it. Composed relational ordering and general aggregation use
+`buffer_bytes` as a retained-input flush threshold within one query memory grant; specialized numeric sort and
 aggregate providers use their existing operator-memory admission. Native sort spill
 also applies to the flat typed keys scoped by the [typed key contract](../docs/architecture/native-typed-keys-2026-10-03.md).
 Supported keys,
-minimum buffers and spill families remain provider-specific. A spill request does
-not enable other relational state spill or fanout, relax collection limits, or
+minimum buffers and spill families remain provider-specific. The general aggregate
+strategy uses the same explicit policy. A spill request does not enable join,
+window, pivot or set state spill or fanout, relax collection limits, or
 establish an RSS bound. Successful writes require verified spill cleanup before
 publication. See `docs/reference/native-query-spill.md` for exact contracts.
 
@@ -478,8 +479,10 @@ See the [complete batch contract and example](../docs/architecture/native-bounde
 for backpressure, conversions, timeout scope and final-validation semantics.
 
 Current source builds also accept `streaming=True` for one finite source used
-once through pure scan/filter/project operations. This can process cumulative
-input larger than the native grant by retaining at most one native input batch.
+once through scan/filter/project, global sorting, aggregation and limits.
+This can process cumulative input larger than the native grant by retaining at
+most one native input batch. Retained operator state shares that grant; ordering
+and general aggregation support an explicit native spill policy.
 For example:
 
 ```python
@@ -498,17 +501,20 @@ with frame.iter_batches() as batches:
 
 The complete output is `[{"id": 1, "label": "kept"}]`. Streaming admits
 incremental results, bounded small collection, or one native Vortex destination.
-Joins, repeated sources, sets, sorting, explicit limits/offsets, aggregates,
-windows, stateful/correlated operators and data-dependent schemas reject before
-producer consumption. The producer must reach its explicit end event before
-results are final; earlier batches remain provisional.
+Joins, repeated sources, sets, windows, other stateful/correlated operators and
+data-dependent schemas reject before producer consumption. Limits and offsets
+apply to the complete relation and drain the producer, including `LIMIT 0`.
+The producer must reach its explicit end event before results are final; earlier
+batches remain provisional and late failures remain failures.
 
 The finite schema, row, frame and batch-count limits above still apply, with a
 separate 16 MiB wire-frame ceiling and 32 MiB native logical-intake limit per
 batch. Typed intake and output compaction are charged copies; output reservations
-and native sink metadata remain separate. This adds no input spill or process-RSS
-ceiling. See the [streaming contract](../docs/architecture/native-input-completion-2026-10-07.md)
-and [corrected acceptance evidence](../docs/benchmarks/native-fsst-admission-2026-10-07.md).
+and native sink metadata remain separate. This adds no repeated-source spool or
+process-RSS ceiling. See the [streamed ordering contract](../docs/architecture/native-streamed-ordering-2026-10-07.md),
+[general aggregate contract](../docs/architecture/native-aggregate-pressure-2026-10-07.md),
+[spill example](../docs/reference/native-query-spill.md#general-aggregation-and-completion-aware-input)
+and [local acceptance evidence](../docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md).
 Published v0.4.0 predates both batch modes.
 
 Current source builds compose flat-scalar DISTINCT, `drop_duplicates`, `duplicated`,

@@ -279,16 +279,17 @@ runtime unchanged. Child decoder scratch, structural
 metadata, compression contexts, dictionary training and other unreviewed
 allocations remain outside this finite scope. These resource corrections make
 no speedup claim, and a query grant still does not bound total process RSS.</p>
-<p>Opt-in <code dir="auto">from_batches(..., streaming=True)</code> now has separate
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-fsst-admission-2026-10-07.md">local resource and correctness acceptance</a>,
-including complete 4.5-GiB UTF8 input under a 1-GiB native grant. It retains at
-most one native input batch and admits only one finite source through pure
-scan/filter/project operations. Output compaction prevents retained results from
-pinning input; native sink metadata and retained output still consume credits.
-Late failure prevents successful completion and incomplete file publication.
-The accepted runtime also rejects malformed FSST row lengths before native
-decoder allocation. Final integration is tracked in
-<a href="https://github.com/depsilon/shardloom/pull/1530">PR #1530</a>; published v0.4.0 is unchanged.</p>
+<p>Opt-in <code dir="auto">from_batches(..., streaming=True)</code> retains at most one native input
+batch and admits one finite source through scan/filter/project, sorting,
+aggregation and limits. The
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md">local resource and correctness acceptance</a>
+proves constrained native ordering and general aggregate spill with complete
+output. All operator stages share one memory grant and spill quota. Output
+compaction prevents retained results from pinning input; native sink metadata
+and retained output still consume credits. Limits drain the complete source,
+and late failure prevents completion and incomplete file publication.
+The runtime also rejects malformed FSST row lengths before decoder allocation.
+Join, window and pivot spill remain separate work; published v0.4.0 is unchanged.</p>
 <p>Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
 explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.
@@ -309,9 +310,10 @@ Vortex runs and merge them under the same query grant and disk quota, including 
 This includes flat typed keys in the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md">typed key contract</a>.
 The buffer is a flush threshold; it is not a second memory grant or a whole-process RSS ceiling.
 Verified cleanup must finish before an execution or writer reports success.</p>
-<p>COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies. Aggregate,
-join, and window state do not gain spill from relational ordering permission. Other key types and
-broader resource accounting remain separate work. See
+<p>COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies.
+General relational aggregation has its own admitted strategy under the common explicit
+spill policy. Join, window, pivot and set state retain separate pressure contracts;
+unadmitted key types and broader resource accounting remain separate work. See
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md">COUNT/DISTINCT contracts</a>,
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md">native spill contracts</a>,
 and <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/concurrent-native-serving-2026-09-20.md">serving evidence</a>.</p>

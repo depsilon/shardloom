@@ -1,6 +1,8 @@
 # Completion-aware input through native ordering
 
-Status: implementation design, not accepted runtime support. This is a bounded
+Status: [complete local engine acceptance and independent packet inspection](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
+pass for runtime `8a207745`. Affected support checks, four native examples and
+local browser QA pass; hosted integration remains pending. This is a bounded
 dependency for the broader stateful pressure and recovery milestone in the
 [remaining-scope contract](native-local-completion-scope-2026-10-07.md), under
 PERF-03/06/07/11/12 and CG-5/19/20/21. General aggregation has a separate
@@ -18,9 +20,9 @@ input batch: that would sort each batch independently and reset limit offsets.
 
 | Existing component/callers | Missing contract | Shared extension |
 | --- | --- | --- |
-| Prepared relational execution, file/resident scans, Python/SQL/CLI batch adapter | Current streaming loop invokes the whole tree per input batch. | Move demand and input-owner release into the batch scan. Execute the bound tree exactly once; retain no provider in the prepared plan. |
+| Prepared relational execution, file/resident scans, Python/SQL/CLI batch adapter | The previous streaming loop invoked the whole tree per input batch. | Move demand and input-owner release into the batch scan. Execute the bound tree exactly once; retain no provider in the prepared plan. |
 | Native filter/project and selected payload | Lazy native views can retain the private input batch. | Preserve final-output detachment and add an explicit compact native copy before ordering retains a batch. The input release witness must expire before the next demand. |
-| Native resident sort and relational ordering spill | Whole-source ordering cannot currently consume the streaming declaration. | Admit Sort in the finite single-source chain; keep the same keys, null ordering, stable ties, native runs, merge schedule and quota. Without explicit spill, retained state remains grant-limited and may deny. |
+| Native resident sort and relational ordering spill | Whole-source ordering previously rejected the streaming declaration. | Admit Sort in the finite single-source chain; keep the same keys, null ordering, stable ties, native runs, merge schedule and quota. Without explicit spill, retained state remains grant-limited and may deny. |
 | Relational Limit | Per-batch reset and count-zero early return violate complete input validation. | Admit global offset/count with mandatory upstream drain. Count zero still executes/validates upstream for a streaming source. No source-termination protocol is introduced. |
 | Native result consumers and Vortex writer | Stateful output needs the same final completion and publication proof. | Incremental results, bounded collect and one native Vortex destination reuse the existing producer/consumer/commit lifecycle. Compatibility output and fanout remain separately gated. |
 

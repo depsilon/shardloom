@@ -257,23 +257,34 @@ the ledger.
     family in the stateful milestone; it does not close those broader owners.
   - V1 scope classification: `required_for_v1` for the declared local aggregate
     workflow. Join/window/pivot pressure retain their separate obligations.
-  - Current state: a local candidate reuses stable relational Ordering, the
+  - Current state: runtime `8a207745` reuses stable relational Ordering, the
     query run store, exact scalar reducers and credited native payload builders.
-    Focused native tests and 109 public streaming cases pass on the recorded
-    development build. Full regression, frozen release acceptance and integration
-    are pending.
+    [Complete local acceptance and packet inspection](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
+    pass, including constrained native pressure, 109 public streaming cases,
+    27,373 existing public cases and all 129 Full43 results. Affected support
+    alignment, four native examples and local browser QA pass. Hosted integration
+    remains pending.
+  - ShardLoom technique review: PulseWeave keeps projected records, scalar state,
+    overlapping runs and output inside one admitted grant. Bounded native batches
+    shape demand and output; complete input is still required for final groups.
+    Keep source, internal distinct expansion, disk and output evidence separate.
+    Stable merge scheduling remains a separately measured optimization candidate.
   - Execution checklist:
-    - [ ] Preserve grouped/scalar/null/typed/decimal/floating semantics and
+    - [x] Preserve grouped/scalar/null/typed/decimal/floating semantics and
       first-seen order while bounding group and DISTINCT membership state.
-    - [ ] Connect the same aggregate to complete single-use input, nested
+    - [x] Connect the same aggregate to complete single-use input, nested
       aggregation, result batches, native streaming output and file writers.
-    - [ ] Prove constrained resident denial, ample control and exact native
+    - [x] Prove constrained resident denial, ample control and exact native
       spill completion for large groups and one group with many distinct values.
-    - [ ] Verify metadata/buffer lifetime, real-run cancellation/corruption,
+    - [x] Verify metadata/buffer lifetime, real-run cancellation/corruption,
       quota and consumer failures, source change, publication and dead-owner
       cleanup/restart; preserve unknown files.
-    - [ ] Complete frozen public/workspace/Full43 acceptance, adversarial review,
-      support alignment and hosted integration with no fallback execution.
+    - [x] Complete frozen public/workspace/Full43 acceptance, independent packet
+      inspection and primary source review with no fallback execution.
+    - [x] Complete affected support alignment, executable native examples and
+      local browser/search verification.
+    - [ ] Complete hosted integration and ledger closeout with the accepted
+      runtime preserved.
   - Resource/claim boundary: distinguish the 16 MiB native streamed pressure
     grant, file-backed reader/writer grants and the public 1 GiB minimum. A flush
     threshold or a native reservation is not a whole-process memory ceiling.
@@ -288,18 +299,23 @@ the ledger.
     maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
   - V1 scope classification: `required_for_v1` for this declared finite workflow.
     General aggregation is the companion item above; join pressure remains open.
-  - Current state: the local candidate runs the tree once over the incremental
-    scan and admits Sort/Limit. Focused native and public development tests pass;
-    full frozen release acceptance and hosted integration remain pending.
+  - Current state: runtime `8a207745` runs the tree once over the incremental
+    scan and admits Sort/Limit alongside the companion Aggregate contract.
+    Complete local release acceptance and independent packet inspection pass;
+    affected support alignment, four native examples and local browser QA pass.
+    Hosted integration remains pending.
   - Execution checklist:
-    - [ ] Move single-use input demand into the existing native scan and run the
+    - [x] Move single-use input demand into the existing native scan and run the
       bound tree once, with exact schema, cancellation and owner-release checks.
-    - [ ] Admit global Sort and draining Limit/Offset; detach retained ordering
+    - [x] Admit global Sort and draining Limit/Offset; detach retained ordering
       input, report copies and preserve the existing native run store and quota.
-    - [ ] Prove exact cross-batch/stable/null ordering, full drain including zero
+    - [x] Prove exact cross-batch/stable/null ordering, full drain including zero
       limits, constrained spill completion, native write/reopen and all failures.
-    - [ ] Complete public and broad regression evidence, adversarial review,
-      support/docs alignment and hosted integration; move exact scope to the ledger.
+    - [x] Complete public and broad regression evidence, independent packet
+      inspection and primary source review.
+    - [x] Complete affected support/docs alignment, executable native examples
+      and local browser/search verification.
+    - [ ] Complete hosted integration; move exact scope to the ledger.
   - Reuse/user surface: Python/SQL/CLI lower into the same relational scan,
     filter/project/order/limit and result/writer components. No new query route.
   - ShardLoom technique review: PulseWeave keeps input/state/merge/output credits;
@@ -311,7 +327,8 @@ the ledger.
     grant and failure matrix plus required workspace/public/Full43 checks under
     existing serial storage/process guards. `fallback_attempted=false` and
     `external_engine_invoked=false` remain mandatory.
-  - Non-goals/claim boundary: no general aggregate/join/window/pivot spill,
+  - Non-goals/claim boundary: general aggregation uses its companion contract;
+    this item does not admit join/window/pivot spill,
     repeated-source spool, execution resume, compatibility streaming writer/fanout,
     new types, transport-limit increase, process-RSS claim or standalone version bump.
 
@@ -320,8 +337,8 @@ The maintainer reaffirmed the full remaining body of work on October 7. The
 six areas and eight conditional investigations to existing owners without
 duplicating the queue. Stateful aggregation/join pressure, remaining allocation
 coverage, broader streaming/adapters, and a defined local support/release promise
-remain required work. A finite streamed ordering connection does not close
-general aggregate, join, window or pivot spill/recovery. Keep each family visible
+remain required work. The finite ordering/general aggregate proof does not close
+join, window or pivot pressure or broader recovery. Keep each family visible
 until it has complete-workflow acceptance or an explicit supported resident-only
 bound with deterministic denial.
 

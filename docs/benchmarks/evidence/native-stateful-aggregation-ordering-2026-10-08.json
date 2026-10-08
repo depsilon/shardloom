@@ -1,0 +1,345 @@
+{
+  "schema_version": "shardloom.native_stateful_local_acceptance.v1",
+  "status": "accepted_source_committed_locally_hosted_pending",
+  "units": [
+    "NATIVE-GENERAL-AGGREGATE-PRESSURE",
+    "NATIVE-STREAMED-ORDERING"
+  ],
+  "runtime_commit": "8a207745a55fb5678cd2b56866effb6fb0eb9352",
+  "source_identity_sha256": "68a8dd2de06778c1f0b4b5e99f96b9373a1e7e49b44901fdd37f1875fb03348d",
+  "runtime_source_assets_verified_against_commit": 964,
+  "acceptance": {
+    "status": "passed_local_engine",
+    "source_identity_sha256": "68a8dd2de06778c1f0b4b5e99f96b9373a1e7e49b44901fdd37f1875fb03348d",
+    "binary_sha256": "3d061ee4fe8cf3aea8c8ce9bc35a800a0ec0d440cd5a4798c2a09700b8bbfe26",
+    "source_assets": 964,
+    "public_checks": 27373,
+    "public_rows": 15820181,
+    "direct_checks": 202,
+    "direct_rows": 131734,
+    "full43_runs": 129,
+    "raw_public_envelopes": 54733,
+    "raw_direct_envelopes": 367,
+    "source_checks": 14,
+    "batch_checks": 48,
+    "format_checks": 19,
+    "streaming_public_checks": 109,
+    "streaming_raw_envelopes": 94,
+    "streaming_small_value_files": 61,
+    "streaming_complete_pressure_rows_reopened": 248846,
+    "malformed_protocol_traces": 10,
+    "native_aggregate_pressure_cases": 2,
+    "native_ordering_pressure_cases": 1,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9,
+    "compacted_archive_members_reopened": 516,
+    "source_tree_clean": true,
+    "broader_documentation_updates_deferred": true,
+    "packet": "docs/benchmarks/evidence/native-stateful-aggregation-ordering-2026-10-08.json.xz",
+    "packet_sha256": "2b367aea82d7b31a76b2e026d039f929c4c547deccbb47a174f22642ff5d88ef",
+    "packet_compressed_bytes": 44394172,
+    "packet_uncompressed_bytes": 3504653974,
+    "packet_uncompressed_sha256": "b2dae7d108a22b5eba684d1eb76a3cb2ec2c6f7c09e0dd8777e3d8a139fc6a50"
+  },
+  "original_acceptance_sha256": "e06ca6c9b9b5e893a09fd81f4ed82aed1a62d01089ab1572ac7949e8ecd7b74f",
+  "portable_inspection": "docs/benchmarks/evidence/native-stateful-aggregation-ordering-2026-10-08-inspection.json",
+  "original_inspection_sha256": "1760198dbc8519f0f618eaf7ade7d07e33f4ce80ba451979dcf7abf770942d1b",
+  "inspector_contract_tests": {
+    "status": "passed",
+    "cases": 165,
+    "inspector_sha256": "4c2a44033ae6d34f86fe213f4910f9fecdff3a9d8cd244f134c28772c6c02f27",
+    "verifier_sha256": "fb9cd3a49f41bc1e481482890c472f61c49cfcfbaec639e41db8ca360b6ccf5e"
+  },
+  "archive_guards": {
+    "stateful-inspector-contract-1": {
+      "receipt_sha256": "f825e9ebe9727dd5117f99c7c11808a2e98e011852ce8ee905325be67738fdff",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "python3.13",
+          "-B",
+          "<stateful-uat>/verify_stateful_packet.py",
+          "--attempt",
+          "1",
+          "--self-test"
+        ],
+        "cwd": "<repo>",
+        "head": "8a207745a55fb5678cd2b56866effb6fb0eb9352",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2102251520,
+            "log_bytes": 0,
+            "free_bytes": 30673350656,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44120993792,
+            "log_bytes": 0,
+            "free_bytes": 30672293888,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 180.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 47666,
+        "output_bytes": 210,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 0.6618827500060434,
+        "log_sha256": "cf488339ff48e2c241b80da86bbe974395ff88c4163f15898cf5393c31a2391a"
+      }
+    },
+    "stateful-freeze-evidence-1": {
+      "receipt_sha256": "d60d589d505c0fdfe4cbeb86729a90d973b1b403c415670c23f50c0cb0abd1d0",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "python3.13",
+          "-B",
+          "<stateful-uat>/freeze_stateful_evidence.py",
+          "--attempt",
+          "1",
+          "--full43-attempt",
+          "2"
+        ],
+        "cwd": "<repo>",
+        "head": "8a207745a55fb5678cd2b56866effb6fb0eb9352",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2102263808,
+            "log_bytes": 0,
+            "free_bytes": 30670925824,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44120993792,
+            "log_bytes": 0,
+            "free_bytes": 30670925824,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 120.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 47845,
+        "output_bytes": 60,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 0.3175919170025736,
+        "log_sha256": "31cdce1db4520c686a1c94fb7036756597ce4a39f6292a49a3f51673908b5e8d"
+      }
+    },
+    "stateful-finalize-1": {
+      "receipt_sha256": "a5a32d187f6fdc5c45fbc3baf00814ee5b160b2656bc938f997a7a802f2ae990",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<stateful-uat>/finalize_stateful_acceptance.py",
+          "--attempt",
+          "1",
+          "--supervisor",
+          "stateful-finalize-1"
+        ],
+        "cwd": "<repo>",
+        "head": "8a207745a55fb5678cd2b56866effb6fb0eb9352",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2147561472,
+            "log_bytes": 0,
+            "free_bytes": 30609301504,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44120993792,
+            "log_bytes": 0,
+            "free_bytes": 30609301504,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1800.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 47862,
+        "output_bytes": 1590,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 420.06010550000065,
+        "log_sha256": "376b019117e1e7fe0867d34676a15ca8de4cc130106421582c22c7f920d0e6f2"
+      }
+    },
+    "stateful-packet-inspect-1": {
+      "receipt_sha256": "db8062e3f952036f6113658c83ae4d22442b1b39dc507f9a5895b861115850d5",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "python3.13",
+          "-B",
+          "<stateful-uat>/verify_stateful_packet.py",
+          "--attempt",
+          "1"
+        ],
+        "cwd": "<repo>",
+        "head": "8a207745a55fb5678cd2b56866effb6fb0eb9352",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2147586048,
+            "log_bytes": 0,
+            "free_bytes": 31660400640,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44120993792,
+            "log_bytes": 0,
+            "free_bytes": 31660400640,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1800.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 48124,
+        "output_bytes": 1502,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 826.0927477079968,
+        "log_sha256": "ce8a6e15099cc0808ee177e99808579e99f5d872870a6e4eba448c753b2a8a0c"
+      }
+    }
+  },
+  "native_aggregate_pressure": {
+    "one_group_high_cardinality_distinct": {
+      "ample_peak_reserved_bytes": 88152008,
+      "complete_output_rows": 1,
+      "family": "one_group_high_cardinality_distinct",
+      "grant": 16777216,
+      "input_logical_bytes": 70330932,
+      "input_rows": 133137,
+      "merge_passes": 129,
+      "owned_cleanup_completed": true,
+      "peak_disk_bytes": 158249316,
+      "runs_written": 259,
+      "spilled_peak_reserved_bytes": 9257041
+    },
+    "high_cardinality_groups": {
+      "ample_peak_reserved_bytes": 189407376,
+      "complete_output_rows": 133137,
+      "family": "high_cardinality_groups",
+      "grant": 16777216,
+      "input_logical_bytes": 70330932,
+      "input_rows": 133137,
+      "merge_passes": 337,
+      "owned_cleanup_completed": true,
+      "peak_disk_bytes": 289792624,
+      "runs_written": 676,
+      "spilled_peak_reserved_bytes": 9090433
+    }
+  },
+  "pressure_boundary": "Native streamed aggregate tests use a 16 MiB grant; streamed ordering uses 8 MiB. Original input exceeds four times the respective grant, resident controls deny and ample controls pass. Identical pressure-test sources pass the final full native suite. File-backed eight-writer aggregate proof uses 64 MiB. Public streaming cases separately use 1 GiB and do not establish a larger-than-grant result.",
+  "public_complete_workflows": {
+    "streaming_cases": 109,
+    "pressure_rows_reopened": 248846,
+    "small_value_files": 61,
+    "malformed_protocol_traces": 10,
+    "ordinary_regression_cases": 27373,
+    "ordinary_complete_rows": 15820181,
+    "direct_cases": 202,
+    "direct_complete_rows": 131734,
+    "resident_batch_cases": 48,
+    "format_fidelity_cases": 19,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9
+  },
+  "full43_observation": {
+    "summary_sha256": "ff8b4a02101848438707ffa225de8df5febaf09b764cb9be082acbb7d6ed9b91",
+    "source_bytes": 15682956489,
+    "memory_policy_gb": 24,
+    "maximum_parallelism": 12,
+    "sum_query_minima_seconds": 70.11367162200622,
+    "sum_query_medians_seconds": 71.38193366589257,
+    "sum_all_calls_seconds": 216.1470379158127,
+    "maximum_native_process_rss_bytes": 5614665728,
+    "boundary": "129 complete native processes with retained Vortex input and preexisting native correctness references. No fresh ingest, comparative speedup or enforced RSS claim; ordinary host activity and file cache are uncontrolled."
+  },
+  "original_observations": {
+    "full43_storage_preflight_failure_retained": true,
+    "historical_completed_call_members_compacted_and_reopened": 516,
+    "public_regression_host_observation_gap_retained": true,
+    "original_native_cli_test_failure_and_test_only_correction_retained": true,
+    "development_failures_retained": true
+  },
+  "documentation_updates_complete": true,
+  "hosted_acceptance_complete": false,
+  "package_publication_performed": false,
+  "performance_claim_allowed": false,
+  "broader_resource_spill_recovery_complete": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "staging_driver_sha256": "ad0536946593f155748b8a25f563c6cb5e9c3da5c6982a86306d39845c98e945",
+  "portable_inspection_sha256": "1760198dbc8519f0f618eaf7ade7d07e33f4ce80ba451979dcf7abf770942d1b",
+  "documentation_acceptance": "docs/benchmarks/evidence/native-stateful-support-2026-10-08.json",
+  "documentation_acceptance_sha256": "cc9972019fbc307b90db6e5cc96264e752f3906bedc7664316f9a3d4b08ca72f",
+  "support_alignment_runtime_provenance": {
+    "accepted_runtime_commit": "8a207745a55fb5678cd2b56866effb6fb0eb9352",
+    "accepted_source_identity_sha256": "68a8dd2de06778c1f0b4b5e99f96b9373a1e7e49b44901fdd37f1875fb03348d",
+    "assets_byte_identical": 963,
+    "asset_count_unchanged": 964,
+    "docstring_only_asset": "python/src/shardloom/query.py",
+    "accepted_file_sha256": "d7d673d0dfefd92a206e06c45109e8082dd2b0034a18f5a9cd1902a58029ed69",
+    "current_file_sha256": "3550ea5f2fab91a6a26a4f5a4d7594e5887d81984d6f16618512c1799c36fc1f",
+    "function": "from_batches",
+    "prior_docstring": "Declare native input in batches of up to 2,048 rows and 128 fields.\n\n    Each batch is a sequence of row mappings. Schema is explicit and admits\n    nullable int64, finite float64, bool and utf8. Input is pulled at execution;\n    pass a factory for repeated calls, or an iterable for one execution. Total\n    input is limited to 4,096 batches. The default resident mode retains all\n    native input under the query memory grant. ``streaming=True`` instead\n    admits one source used once through pure filters/projections, incremental\n    results, a bounded small collection or one native Vortex output. Other\n    operators require explicit resident mode. Results remain provisional until\n    the producer ends and final validation succeeds.\n    ",
+    "current_docstring": "Declare native input in batches of up to 2,048 rows and 128 fields.\n\n    Each batch is a sequence of row mappings. Schema is explicit and admits\n    nullable int64, finite float64, bool and utf8. Input is pulled at execution;\n    pass a factory for repeated calls, or an iterable for one execution. Total\n    input is limited to 4,096 batches. The default resident mode retains all\n    native input under the query memory grant. ``streaming=True`` instead\n    admits one source used once through filters/projections, sorting,\n    aggregation and limits, with incremental results, bounded small collection\n    or one native Vortex output. Limits drain and validate the complete source.\n    Stateful work shares the query grant; ordering and aggregation can use an\n    explicit spill policy. Other operator families reject before consumption.\n    Results remain provisional until the producer ends and final validation\n    succeeds.\n    ",
+    "entire_module_ast_identical_after_replacing_only_named_docstring": true,
+    "executable_behavior_changed": false,
+    "binary_sha256": "3d061ee4fe8cf3aea8c8ce9bc35a800a0ec0d440cd5a4798c2a09700b8bbfe26"
+  }
+}

@@ -74,21 +74,24 @@ spill remain separate. Its measured cost screen is a resource-correction check,
 not a speedup or process-RSS guarantee.
 
 The [completion-aware input unit](../architecture/native-input-completion-2026-10-07.md)
-adds opt-in `from_batches(..., streaming=True)` for one finite source used once
-through pure Scan/Filter/Project, with incremental results, bounded small
-collection or one native Vortex destination. Its
+adds opt-in `from_batches(..., streaming=True)` for one finite source used once,
+with incremental results, bounded small collection or one native Vortex destination. Its
 [corrected local acceptance and packet inspection](../benchmarks/native-fsst-admission-2026-10-07.md)
 pass, including complete input above the native grant and late-failure safety;
-final integration is tracked in [PR #1530](https://github.com/depsilon/shardloom/pull/1530).
+[PR #1530](https://github.com/depsilon/shardloom/pull/1530) completed hosted integration.
 The corrected runtime also rejects malformed FSST row lengths before native
 decoder allocation. At most one native input batch is retained.
-Resident input remains the default; no general spill, RSS bound, public support
-label or published v0.4.0 contents change follows from this finite addition.
+The subsequent [ordering and general aggregate unit](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
+has complete local acceptance and packet inspection for Scan/Filter/Project/Sort/Limit/Aggregate.
+Limits drain all input; native ordering and general aggregation can share an
+explicit spill policy. Its hosted integration remains pending. Resident input
+remains the default; no RSS bound, public maturity label or published v0.4.0
+contents change follows from this finite addition.
 
 The remaining maturity requirements are an explicit supported local workload/platform envelope,
 accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide
 pressure, cancellation, fault and recovery evidence. A query memory grant is not a process-RSS
-ceiling; general aggregate/join/window spill remains incomplete. The
+ceiling; join/window/pivot pressure and broader recovery remain incomplete. The
 [local-engine exit criteria](production-certification-gate.md#local-engine-preview-exit-criteria)
 define the required evidence and approval. Missing cloud integrations or complete SQL parity do
 not, by themselves, block a stable release for a narrower declared local scope.

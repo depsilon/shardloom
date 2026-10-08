@@ -1,6 +1,8 @@
 # Native general aggregation under an explicit spill policy
 
-Status: implementation design; acceptance is pending. This extends PERF-03/06
+Status: [complete local engine acceptance and independent packet inspection](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
+pass for runtime `8a207745`. Affected support checks, four native examples and
+local browser QA pass; hosted integration remains pending. This extends PERF-03/06
 and the general aggregation obligation in the
 [remaining local scope](native-local-completion-scope-2026-10-07.md). It builds
 on [completion-aware streamed ordering](native-streamed-ordering-2026-10-07.md)

@@ -240,8 +240,12 @@ completed hardware and composed-COUNT drops are not reopened.
 Broader adapter and resource families continue under their ownership contracts.
 The October 7 [remaining-scope contract](native-local-completion-scope-2026-10-07.md)
 preserves all six work areas and eight investigations, prioritizing coherent
-aggregation/join pressure work and broader streaming adapters. An ordering-only
-connection or owner screen does not close the whole stateful obligation.
+aggregation/join pressure work and broader streaming adapters. The
+[ordering and general aggregate unit](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
+now has complete local acceptance and packet inspection, including explicit
+aggregate spill and complete single-use streamed sort/aggregate/draining-limit
+composition. Hosted integration remains pending. Join, window and pivot pressure,
+remaining allocations and broader adapters keep their existing obligations.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
 require operational acceptance of a declared support envelope; package availability is complete,
 and cloud/complete-SQL parity is not a blanket prerequisite for that local promise.

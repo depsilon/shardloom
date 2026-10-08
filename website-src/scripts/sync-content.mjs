@@ -488,11 +488,9 @@ See [runtime and I/O](/field-guide/runtime-and-io) and the
 Current source builds add \`iter_batches()\` for admitted results and
 \`from_batches()\` for explicitly typed resident input. These additions merged
 in PR #1526 after complete local and hosted checks; published v0.4.0 packages
-predate them. Source builds now also admit opt-in \`streaming=True\` for one
-finite source used once through pure scan/filter/project operations, as below.
-Its [corrected local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-fsst-admission-2026-10-07.md)
-and independent packet inspection pass. Final integration is tracked in
-[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
+predate them. Source builds also admit opt-in \`streaming=True\` for one finite
+source used once through scan/filter/project, global sorting, aggregation and
+limits. See the [scope and local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md).
 
 \`\`\`python
 def orders():
@@ -518,14 +516,16 @@ can be consumed once.
 
 Streaming retains at most one native input batch, so cumulative input may exceed
 the query grant within those finite limits. It supports incremental results,
-bounded small collection or one native Vortex destination. Joins, repeated
-sources, sets, sorting, explicit limits/offsets, aggregates, windows and dynamic
-schemas reject before producer consumption. The producer must reach its explicit
-end event before results are final. Typed intake and output compaction are
-charged copies; output and sink reservations remain separate. No input spill or
-process-RSS ceiling is added. See the
-[complete streaming contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-completion-2026-10-07.md)
-for native intake, wire-frame, ownership and failure bounds.
+bounded small collection or one native Vortex destination. Retained operator
+state shares the grant; ordering and general aggregation support an explicit
+native spill policy. Limits and offsets drain and validate the complete source,
+including zero limits. Joins, repeated sources, sets, windows and dynamic schemas
+reject before producer consumption. The producer must reach its explicit end
+event before results are final. Typed intake and output compaction are charged
+copies; output and sink reservations remain separate. No repeated-source spool
+or process-RSS ceiling is added. See the
+[streamed ordering contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-streamed-ordering-2026-10-07.md)
+and [aggregate spill example](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#general-aggregation-and-completion-aware-input).
 
 Requesting the next result batch acknowledges the preceding one. Use the
 context manager when stopping early, and treat delivered batches as provisional
@@ -736,16 +736,17 @@ metadata, compression contexts, dictionary training and other unreviewed
 allocations remain outside this finite scope. These resource corrections make
 no speedup claim, and a query grant still does not bound total process RSS.
 
-Opt-in \`from_batches(..., streaming=True)\` now has separate
-[local resource and correctness acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-fsst-admission-2026-10-07.md),
-including complete 4.5-GiB UTF8 input under a 1-GiB native grant. It retains at
-most one native input batch and admits only one finite source through pure
-scan/filter/project operations. Output compaction prevents retained results from
-pinning input; native sink metadata and retained output still consume credits.
-Late failure prevents successful completion and incomplete file publication.
-The accepted runtime also rejects malformed FSST row lengths before native
-decoder allocation. Final integration is tracked in
-[PR #1530](https://github.com/depsilon/shardloom/pull/1530); published v0.4.0 is unchanged.
+Opt-in \`from_batches(..., streaming=True)\` retains at most one native input
+batch and admits one finite source through scan/filter/project, sorting,
+aggregation and limits. The
+[local resource and correctness acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
+proves constrained native ordering and general aggregate spill with complete
+output. All operator stages share one memory grant and spill quota. Output
+compaction prevents retained results from pinning input; native sink metadata
+and retained output still consume credits. Limits drain the complete source,
+and late failure prevents completion and incomplete file publication.
+The runtime also rejects malformed FSST row lengths before decoder allocation.
+Join, window and pivot spill remain separate work; published v0.4.0 is unchanged.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
@@ -770,9 +771,10 @@ This includes flat typed keys in the [typed key contract](https://github.com/dep
 The buffer is a flush threshold; it is not a second memory grant or a whole-process RSS ceiling.
 Verified cleanup must finish before an execution or writer reports success.
 
-COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies. Aggregate,
-join, and window state do not gain spill from relational ordering permission. Other key types and
-broader resource accounting remain separate work. See
+COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies.
+General relational aggregation has its own admitted strategy under the common explicit
+spill policy. Join, window, pivot and set state retain separate pressure contracts;
+unadmitted key types and broader resource accounting remain separate work. See
 [COUNT/DISTINCT contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
 [native spill contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md),
 and [serving evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/concurrent-native-serving-2026-09-20.md).
@@ -848,7 +850,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 7, 2026**. See the
+Current capabilities, reviewed **October 8, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -860,7 +862,7 @@ for the detailed evidence behind this scope.
 | Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and accepted analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 admit [scalar-value subqueries](/field-guide/runtime-and-io#scalar-subqueries) with local and hosted acceptance. They also admit static List/FixedSizeList/Struct pivot index, domain and selected-value roles with complete [workflow, resource and regression acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md) and hosted integration. | Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested SUM/MEAN, non-NULL nested fill, nested-index margins, unsupported nested leaves and pivot-state spill remain outside the admitted contracts; nested MIN/MAX margins require a UTF8 index. Broader adapters and scalar pivot's 128-field, type and memory boundaries remain. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
-| Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, and nullable multi-key relational ordering spill in current source builds. | Spill remains operator-specific; aggregate/join/window state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
+| Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, nullable multi-key relational ordering spill, and explicit general aggregation spill in current source builds. | Spill remains operator-specific; join/window/pivot state, broader reader/codec accounting, and whole-process RSS bounds remain separate work. |
 | Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
 
 Current source builds add reviewed FSST/Zstd buffer accounting and
@@ -876,11 +878,12 @@ numeric/string finalization buffers, with local and hosted acceptance complete
 in PR #1529. Child decoder scratch and structural metadata remain separate.
 Default input remains resident under the query grant. Opt-in
 [streaming input](/field-guide/python-surface#consume-results-in-batches) admits
-one finite source used once through pure scan/filter/project, with one retained
-native input batch and observed end-of-input required for success. Its local
-acceptance and packet inspection pass; final integration is tracked in
-[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
-Blocking/repeated-source plans and streamed compatibility writes remain denied.
+one finite source used once through scan/filter/project, sorting, aggregation
+and draining limits, with one retained native input batch and observed end-of-input
+required for success. Ordering and general aggregation can use an explicit
+shared native spill policy; see the
+[scope and acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md).
+Other stateful families, repeated-source plans and streamed compatibility writes remain denied.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.
@@ -975,8 +978,8 @@ The remaining local-engine exit criteria are concrete:
 - Bind correctness, operating measurements, API compatibility and support/upgrade instructions
   to the approved release source and binary.
 
-Ordering spill already has quota, corruption, cancellation and consumer-failure coverage.
-General aggregate/join/window spill and broader reader/codec accounting remain open. A stable
+Ordering and general aggregation spill have quota, corruption, cancellation and consumer-failure
+coverage. Join/window/pivot spill and broader reader/codec accounting remain open. A stable
 local release need not wait for cloud integrations or every SQL feature; unsupported work must
 have an explicit boundary. The repository owns the
 [full acceptance checklist](https://github.com/depsilon/shardloom/blob/main/docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).
