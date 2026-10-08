@@ -31,7 +31,7 @@ fn distance(value: u64) -> Offset {
     Offset::Number(ScalarValue::UInt64(value))
 }
 
-fn fixture(chunk: usize) -> Fixture {
+pub(super) fn fixture(chunk: usize) -> Fixture {
     let groups = DictArray::try_new(
         PrimitiveArray::from_iter(DATA.iter().map(|row| row.0)).into_array(),
         VarBinViewArray::from_iter_nullable_str([Some("東京"), None]).into_array(),
@@ -76,7 +76,7 @@ fn functions() -> Vec<(&'static str, Function)> {
     ]
 }
 
-fn plan(
+pub(super) fn plan(
     input: VortexRelationalPlan,
     unit: Unit,
     exclusion: Exclusion,
@@ -109,7 +109,12 @@ fn plan(
 }
 
 #[allow(clippy::cast_precision_loss)] // Reference integers are small exact F64 values.
-fn reference(unit: Unit, exclusion: Exclusion, descending: bool, nulls: NullOrder) -> Vec<Value> {
+pub(super) fn reference(
+    unit: Unit,
+    exclusion: Exclusion,
+    descending: bool,
+    nulls: NullOrder,
+) -> Vec<Value> {
     DATA.iter().enumerate().map(|(id, current)| {
         let mut ordered = DATA.iter().enumerate().filter(|(_, row)| row.0 == current.0)
             .map(|(id, _)| id).collect::<Vec<_>>();
@@ -207,7 +212,7 @@ fn native_window_frames_match_independent_membership_with_peers_exclusions_and_c
     }
 }
 
-fn one(
+pub(super) fn one(
     fixture: &Fixture,
     function: VortexRelationalWindowFunction,
     frame: Option<Frame>,

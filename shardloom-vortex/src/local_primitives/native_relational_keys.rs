@@ -122,7 +122,13 @@ impl KeyColumn {
                 Self::Variable(VariableColumn::new(array, context, memory, cancellation)?)
             }
             DType::Decimal(dtype, _) if crate::native_payload_schema::admitted_decimal(*dtype) => {
-                Self::Decimal(DecimalColumn::new(array, *dtype, context)?)
+                Self::Decimal(DecimalColumn::new(
+                    array,
+                    *dtype,
+                    context,
+                    memory,
+                    cancellation,
+                )?)
             }
             DType::Extension(_) => {
                 let ptype = crate::native_payload_schema::temporal_storage(array.dtype())
@@ -510,11 +516,14 @@ fn temporal_value(values: &NativeNumericOwner, row: usize) -> Result<Option<i64>
 }
 
 impl DecimalColumn {
-    fn new(array: &ArrayRef, dtype: DecimalDType, context: &mut ExecutionCtx) -> Result<Self> {
-        let values = array
-            .clone()
-            .execute::<DecimalArray>(context)
-            .map_err(vortex_error)?;
+    fn new(
+        array: &ArrayRef,
+        dtype: DecimalDType,
+        context: &mut ExecutionCtx,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+    ) -> Result<Self> {
+        let values = super::native_payload::decimal_key(array, context, memory, cancellation)?;
         if values.dtype() != array.dtype() || values.len() != array.len() {
             return Err(failed("decimal execution changed dtype or row count"));
         }

@@ -1,11 +1,8 @@
 //! Monotone frame endpoints and exact RANGE comparisons in native key domains.
 
-use super::{Bound, Frame, Offset, RangeOffset};
+use super::{Bound, Frame, Input, Offset, RangeOffset};
 use crate::{
-    local_primitives::{
-        native_relational_batch::{Table, failed},
-        native_relational_keys::Cell,
-    },
+    local_primitives::{native_relational_batch::failed, native_relational_keys::Cell},
     relational_query::{
         VortexRelationalFrameExclusion as Exclusion, VortexRelationalFrameUnit as Unit,
         VortexRelationalNullOrder as NullOrder,
@@ -22,10 +19,10 @@ pub(in super::super) struct Cursor {
     end: usize,
 }
 
-pub(in super::super) struct Position<'a> {
-    pub(in super::super) rows: &'a [usize],
-    /// Every peer start, followed by the partition length.
-    pub(in super::super) peers: &'a [usize],
+pub(in super::super) struct Position {
+    pub(in super::super) rows: usize,
+    pub(in super::super) peer_start: usize,
+    pub(in super::super) peer_end: usize,
     pub(in super::super) peer: usize,
     pub(in super::super) row: usize,
 }
@@ -34,12 +31,24 @@ impl Cursor {
     pub(in super::super) fn advance(
         &mut self,
         frame: &Frame,
-        at: &Position<'_>,
-        table: &Table,
+        at: &Position,
+        input: &mut impl Input,
+        peer_edge: &mut impl FnMut(usize) -> Result<usize>,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Range<usize>> {
-        let start = endpoint(frame, frame.start, false, self.start, at, table, context)?;
-        let end = endpoint(frame, frame.end, true, self.end, at, table, context)?;
+        let start = endpoint(
+            frame,
+            frame.start,
+            false,
+            self.start,
+            at,
+            input,
+            peer_edge,
+            context,
+        )?;
+        let end = endpoint(
+            frame, frame.end, true, self.end, at, input, peer_edge, context,
+        )?;
         if start < self.start || end < self.end {
             return Err(failed("window frame endpoints moved backwards"));
         }
@@ -49,19 +58,21 @@ impl Cursor {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Both endpoints share one positional input and peer index.
 fn endpoint(
     frame: &Frame,
     bound: Bound,
     end: bool,
     cursor: usize,
-    at: &Position<'_>,
-    table: &Table,
+    at: &Position,
+    input: &mut impl Input,
+    peer_at: &mut impl FnMut(usize) -> Result<usize>,
     context: &NativeExecutionContext<'_>,
 ) -> Result<usize> {
-    let peer_edge = || at.peers[at.peer + usize::from(end)];
+    let peer_edge = || if end { at.peer_end } else { at.peer_start };
     Ok(match bound {
         Bound::UnboundedPreceding => 0,
-        Bound::UnboundedFollowing => at.rows.len(),
+        Bound::UnboundedFollowing => at.rows,
         Bound::CurrentRow => {
             if frame.unit == Unit::Rows {
                 at.row + usize::from(end)
@@ -85,9 +96,9 @@ fn endpoint(
                 Some(position) => {
                     let edge = position.saturating_add(usize::from(end));
                     if frame.unit == Unit::Rows {
-                        edge.min(at.rows.len())
+                        edge.min(at.rows)
                     } else {
-                        at.peers.get(edge).copied().unwrap_or(at.rows.len())
+                        peer_at(edge)?
                     }
                 }
             }
@@ -97,24 +108,24 @@ fn endpoint(
                 .order
                 .as_ref()
                 .ok_or_else(|| failed("RANGE frame has no ordering key"))?;
-            if table.key_is_null(at.rows[at.row], order.key)? {
+            if input.key_is_null(at.row, order.key, context)? {
                 return Ok(peer_edge());
             }
-            let current = table.raw_cell(at.rows[at.row], order.key)?;
+            let current = input.raw_cell(at.row, order.key, context)?;
             let subtract = matches!(bound, Bound::Preceding(_)) ^ order.descending;
             let mut cursor = cursor;
-            while cursor < at.rows.len() {
+            while cursor < at.rows {
                 if cursor.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
-                let comparison = if table.key_is_null(at.rows[cursor], order.key)? {
+                let comparison = if input.key_is_null(cursor, order.key, context)? {
                     if order.nulls == Some(NullOrder::First) {
                         Ordering::Less
                     } else {
                         Ordering::Greater
                     }
                 } else {
-                    let candidate = table.raw_cell(at.rows[cursor], order.key)?;
+                    let candidate = input.raw_cell(cursor, order.key, context)?;
                     // Compare candidate to the shifted current-row boundary.
                     let value = compare_shifted(&current, &candidate, offset, subtract)?.reverse();
                     if order.descending {
@@ -133,9 +144,24 @@ fn endpoint(
     })
 }
 
+pub(in super::super) fn validate_intervals(
+    previous: &[Range<usize>; 3],
+    next: &[Range<usize>; 3],
+    rows: usize,
+) -> Result<()> {
+    for (prior, next) in previous.iter().zip(next) {
+        if prior.start > next.start || prior.end > next.end || next.end > rows {
+            return Err(failed(
+                "window exclusion interval moved backwards or exceeded its partition",
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub(in super::super) fn intervals(
     range: Range<usize>,
-    at: &Position<'_>,
+    at: &Position,
     exclusion: Exclusion,
 ) -> [Range<usize>; 3] {
     let clamp = |position: usize| position.clamp(range.start, range.end);
@@ -147,13 +173,13 @@ pub(in super::super) fn intervals(
             range.end..range.end,
         ],
         Exclusion::Group | Exclusion::Ties => [
-            range.start..clamp(at.peers[at.peer]),
+            range.start..clamp(at.peer_start),
             clamp(at.row)..if exclusion == Exclusion::Ties {
                 clamp(at.row + 1)
             } else {
                 clamp(at.row)
             },
-            clamp(at.peers[at.peer + 1])..range.end,
+            clamp(at.peer_end)..range.end,
         ],
     }
 }

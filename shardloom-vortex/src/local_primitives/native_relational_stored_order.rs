@@ -39,11 +39,11 @@ impl StoredBlock {
     }
 }
 
-impl<'a> Ordering<'a> {
+impl<'s> Ordering<'_, 's> {
     pub(in crate::local_primitives) fn retain(
         mut self,
         context: &NativeExecutionContext<'_>,
-    ) -> Result<StoredOrder<'a>> {
+    ) -> Result<StoredOrder<'s>> {
         context.check_cancelled()?;
         let (source, rows) = if self.runs.values.is_empty() {
             // This result is bounded by the admitted resident sort threshold.
@@ -76,6 +76,14 @@ impl<'a> Ordering<'a> {
 }
 
 impl StoredOrder<'_> {
+    #[cfg(test)]
+    pub(in crate::local_primitives) fn run_path(&self) -> Option<&std::path::Path> {
+        match &self.source {
+            Source::Resident { .. } => None,
+            Source::Run { native, .. } => Some(&native.path),
+        }
+    }
+
     pub(in crate::local_primitives) fn rows(&self) -> u64 {
         self.rows
     }

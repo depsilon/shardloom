@@ -15,6 +15,9 @@ mod aggregate_tests;
 #[path = "local_primitive_relational_batch_join_tests.rs"]
 mod join_tests;
 
+#[path = "local_primitive_relational_batch_window_tests.rs"]
+mod window_tests;
+
 fn scan() -> VortexRelationalPlan {
     VortexRelationalPlan::Scan(VortexRelationalScan {
         source_uri: DatasetUri::new("memory://stream").unwrap(),

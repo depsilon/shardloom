@@ -1,15 +1,11 @@
 //! Moving arithmetic, exact distinct membership and native extrema ordinals.
 
-use super::{Function, Spec};
+use super::{Function, Input, Spec};
 use crate::{
     local_primitives::{
-        SimpleAggregateFunction as Aggregate,
-        native_capacity::ReservedVec,
-        native_decimal_reduce, native_float_total,
-        native_relational_aggregate::number,
-        native_relational_batch::{Table, failed},
-        native_relational_index::RowIndex,
-        native_relational_keys::Cell,
+        SimpleAggregateFunction as Aggregate, native_capacity::ReservedVec, native_decimal_reduce,
+        native_float_total, native_relational_aggregate::number, native_relational_batch::failed,
+        native_relational_index::RowIndex, native_relational_keys::Cell,
     },
     resident_session::NativeExecutionContext,
 };
@@ -18,10 +14,23 @@ use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use std::{cmp::Ordering, ops::Range};
 
 pub(in super::super) enum Value {
+    Integer(u64),
     Count(u64),
     Float(Option<f64>),
     Decimal(Option<i128>),
     Source(Option<usize>),
+}
+
+impl Value {
+    pub(in super::super) fn map_source(
+        self,
+        map: impl FnOnce(usize) -> Result<usize>,
+    ) -> Result<Self> {
+        match self {
+            Self::Source(Some(position)) => Ok(Self::Source(Some(map(position)?))),
+            value => Ok(value),
+        }
+    }
 }
 
 pub(in super::super) struct State {
@@ -74,21 +83,15 @@ impl State {
         &mut self,
         next: [Range<usize>; 3],
         spec: &Spec,
-        rows: &[usize],
-        table: &Table,
+        rows: usize,
+        input: &mut impl Input,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Value> {
-        for (prior, next) in self.ranges.iter().zip(&next) {
-            if prior.start > next.start || prior.end > next.end || next.end > rows.len() {
-                return Err(failed(
-                    "window exclusion interval moved backwards or exceeded its partition",
-                ));
-            }
-        }
+        super::validate_intervals(&self.ranges, &next, rows)?;
         if !matches!(spec.function, Function::Aggregate(_)) {
             let selected = select(&next, spec.function)?;
             self.ranges = next;
-            return Ok(Value::Source(selected.map(|position| rows[position])));
+            return Ok(Value::Source(selected));
         }
         if spec.function == Function::Aggregate(Aggregate::Count) && spec.key.is_none() {
             let count = next.iter().try_fold(0u64, |count, range| {
@@ -108,17 +111,10 @@ impl State {
             let maximum = spec.function == Function::Aggregate(Aggregate::Max);
             let mut selected = None;
             for (index, candidates) in extrema.iter_mut().enumerate() {
-                candidates.advance(
-                    &self.ranges[index],
-                    &next[index],
-                    spec,
-                    rows,
-                    table,
-                    context,
-                )?;
+                candidates.advance(&self.ranges[index], &next[index], spec, input, context)?;
                 if let Some(candidate) = candidates.first() {
                     let better = if let Some(old) = selected {
-                        let order = table.compare_key(rows[candidate], rows[old], key)?;
+                        let order = input.compare_key(candidate, old, key, context)?;
                         order
                             == if maximum {
                                 Ordering::Greater
@@ -134,26 +130,26 @@ impl State {
                 }
             }
             self.ranges = next;
-            return Ok(Value::Source(selected.map(|position| rows[position])));
+            return Ok(Value::Source(selected));
         }
         // Remove all departed observations before admitting arrivals. Each
         // interval advances monotonically even when an exclusion splits a frame.
         for (index, range) in next.iter().enumerate() {
             let departed = self.ranges[index].start..range.start.min(self.ranges[index].end);
-            for (position, &row) in rows[departed].iter().enumerate() {
-                if position.is_multiple_of(1024) {
+            for (offset, position) in departed.enumerate() {
+                if offset.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
-                self.observe(index, row, false, spec, table, context)?;
+                self.observe(index, position, false, spec, input, context)?;
             }
         }
         for (index, range) in next.iter().enumerate() {
             let arrived = self.ranges[index].end.max(range.start)..range.end;
-            for (position, &row) in rows[arrived].iter().enumerate() {
-                if position.is_multiple_of(1024) {
+            for (offset, position) in arrived.enumerate() {
+                if offset.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
-                self.observe(index, row, true, spec, table, context)?;
+                self.observe(index, position, true, spec, input, context)?;
             }
         }
         self.ranges = next;
@@ -200,13 +196,13 @@ impl State {
         row: usize,
         add: bool,
         spec: &Spec,
-        table: &Table,
+        input: &mut impl Input,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         let key = spec
             .key
             .ok_or_else(|| failed("window observation has no bound key"))?;
-        if table.key_is_null(row, key)? {
+        if input.key_is_null(row, key, context)? {
             return Ok(());
         }
         match spec.function {
@@ -222,10 +218,10 @@ impl State {
                 self.distinct
                     .as_mut()
                     .ok_or_else(|| failed("window distinct state is absent"))?
-                    .observe(row, key, add, table, context)?;
+                    .observe(row, key, add, input, context)?;
             }
             Function::Aggregate(Aggregate::Sum | Aggregate::Avg) => {
-                let value = table.raw_cell(row, key)?;
+                let value = input.raw_cell(row, key, context)?;
                 if let Some(dtype) = spec.decimal {
                     let Cell::Decimal(value, actual) = value else {
                         return Err(failed("window decimal observation changed type"));
@@ -293,29 +289,30 @@ impl Distinct {
         row: usize,
         key: usize,
         add: bool,
-        table: &Table,
+        input: &mut impl Input,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
-        let hash = table
-            .hash_key(row, key)?
+        let hash = input
+            .hash_key(row, key, context)?
             .ok_or_else(|| failed("nonnull distinct key has no hash"))?;
-        let equal = |other| Ok(table.compare_key(row, other, key)? == Ordering::Equal);
-        let index = if let Some(index) = self.index.find(hash, context.cancellation(), equal)? {
-            index
-        } else {
-            if !add {
-                return Err(failed("departed distinct value was never admitted"));
-            }
-            self.counts.reserve_one()?;
-            let index = self
-                .index
-                .insert(hash, row, context.cancellation(), equal)?;
-            if index != self.counts.values.len() {
-                return Err(failed("window distinct identity lost insertion order"));
-            }
-            self.counts.values.push(0);
-            index
-        };
+        let mut equal = |other| Ok(input.compare_key(row, other, key, context)? == Ordering::Equal);
+        let index =
+            if let Some(index) = self.index.find(hash, context.cancellation(), &mut equal)? {
+                index
+            } else {
+                if !add {
+                    return Err(failed("departed distinct value was never admitted"));
+                }
+                self.counts.reserve_one()?;
+                let index = self
+                    .index
+                    .insert(hash, row, context.cancellation(), &mut equal)?;
+                if index != self.counts.values.len() {
+                    return Err(failed("window distinct identity lost insertion order"));
+                }
+                self.counts.values.push(0);
+                index
+            };
         let count = self.counts.values[index];
         let next = if add {
             count.checked_add(1)
@@ -362,8 +359,7 @@ impl Candidates {
         prior: &Range<usize>,
         next: &Range<usize>,
         spec: &Spec,
-        rows: &[usize],
-        table: &Table,
+        input: &mut impl Input,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         let key = spec
@@ -386,7 +382,7 @@ impl Candidates {
                 context.check_cancelled()?;
             }
             // This also validates singleton/non-comparing finite key domains.
-            if table.hash_key(rows[position], key)?.is_none() {
+            if input.hash_key(position, key, context)?.is_none() {
                 continue;
             }
             let mut compared = 0usize;
@@ -399,7 +395,7 @@ impl Candidates {
                     .values
                     .last()
                     .expect("nonempty candidate queue");
-                let order = table.compare_key(rows[previous], rows[position], key)?;
+                let order = input.compare_key(previous, position, key, context)?;
                 if order
                     != if maximum {
                         Ordering::Less

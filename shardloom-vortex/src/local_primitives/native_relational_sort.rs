@@ -2,6 +2,7 @@
 
 use super::{
     native_capacity::ReservedVec,
+    native_payload::CopyPolicy,
     native_relational_batch::{Batch, Table, failed},
     native_relational_order, vortex_error,
 };
@@ -23,6 +24,7 @@ pub(super) struct Spec {
     pub(super) fields: Vec<(String, DType)>,
     pub(super) keys: Vec<VortexRelationalOrderKey>,
     pub(super) names: Vec<String>,
+    pub(super) copy_policy: CopyPolicy,
 }
 
 pub(super) struct Sort<'a> {
@@ -122,7 +124,13 @@ impl<'a> Sort<'a> {
         let mut selected = ReservedVec::new(context.memory())?;
         selected.reserve(rows.len())?;
         selected.values.extend(rows.iter().map(|row| Some(*row)));
-        gather(&self.table, &selected.values, &self.spec.fields, context)
+        gather(
+            &self.table,
+            &selected.values,
+            &self.spec.fields,
+            self.spec.copy_policy,
+            context,
+        )
     }
 
     pub(super) fn finish(
@@ -142,6 +150,7 @@ impl<'a> Sort<'a> {
                 &self.table,
                 &rows.values,
                 &self.spec.fields,
+                self.spec.copy_policy,
                 context,
             )?)?;
             context.check_cancelled()?;
@@ -171,13 +180,16 @@ pub(super) fn gather(
     table: &Table,
     rows: &[Option<usize>],
     fields: &[(String, DType)],
+    policy: CopyPolicy,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
     let gather = table.gather(rows, false, context)?;
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(fields.len())?;
     for (name, dtype) in fields {
-        columns.values.push(gather.column(name, dtype, context)?);
+        columns
+            .values
+            .push(gather.column_with_policy(name, dtype, policy, context)?);
     }
     let (columns, _ownership) = columns.into_parts();
     let array = StructArray::try_new(

@@ -2,6 +2,8 @@
 
 #[path = "native_relational_window_frame_bounds.rs"]
 mod bounds;
+#[path = "native_relational_window_frame_input.rs"]
+mod input;
 #[path = "native_relational_window_frame_state.rs"]
 mod state;
 
@@ -9,7 +11,8 @@ use super::{SimpleAggregateFunction, native_relational_window::OrderKey};
 use crate::relational_query::{VortexRelationalFrameExclusion, VortexRelationalFrameUnit};
 use vortex::array::dtype::DecimalDType;
 
-pub(super) use bounds::{Cursor, Position, intervals};
+pub(super) use bounds::{Cursor, Position, intervals, validate_intervals};
+pub(super) use input::{Input, Resident};
 pub(super) use state::{State, Value};
 
 #[derive(Clone, Copy, PartialEq, Eq)]

@@ -15,7 +15,7 @@ use crate::local_primitives::{
 use vortex::array::ArrayRef;
 
 pub(super) struct Matches<'a> {
-    order: Ordering<'a>,
+    order: Ordering<'a, 'a>,
     layout: &'a Layout,
     rows: ReservedVec<u64>,
     limit: usize,

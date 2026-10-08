@@ -509,6 +509,46 @@ fn append_execution(
             result.ordered_join_lookup_blocks.to_string(),
         ),
         (
+            "relational_ordered_window_stages".into(),
+            result.ordered_window_stages.to_string(),
+        ),
+        (
+            "relational_ordered_window_input_rows".into(),
+            result.ordered_window_input_rows.to_string(),
+        ),
+        (
+            "relational_ordered_window_groups".into(),
+            result.ordered_window_groups.to_string(),
+        ),
+        (
+            "relational_ordered_window_partitions".into(),
+            result.ordered_window_partitions.to_string(),
+        ),
+        (
+            "relational_ordered_window_peer_records".into(),
+            result.ordered_window_peer_records.to_string(),
+        ),
+        (
+            "relational_ordered_window_bounds_rows".into(),
+            result.ordered_window_bounds_rows.to_string(),
+        ),
+        (
+            "relational_ordered_window_distinct_intervals".into(),
+            result.ordered_window_distinct_intervals.to_string(),
+        ),
+        (
+            "relational_ordered_window_distinct_events".into(),
+            result.ordered_window_distinct_events.to_string(),
+        ),
+        (
+            "relational_ordered_window_extrema_summary_rows".into(),
+            result.ordered_window_extrema_summary_rows.to_string(),
+        ),
+        (
+            "relational_ordered_window_lookup_blocks".into(),
+            result.ordered_window_lookup_blocks.to_string(),
+        ),
+        (
             "resident_source_opens".into(),
             result.runtime.prepared_source_opens.to_string(),
         ),
@@ -583,7 +623,9 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_ordering_rows_detached", input.ordering_rows_detached.to_string()),
         ("native_input_join_build_batches_detached", input.join_build_batches_detached.to_string()),
         ("native_input_join_build_rows_detached", input.join_build_rows_detached.to_string()),
-        ("native_batch_input_storage", "single_current_native_batch;released_before_next_demand;no_input_spill".into()),
+        ("native_input_window_batches_detached", input.window_batches_detached.to_string()),
+        ("native_input_window_rows_detached", input.window_rows_detached.to_string()),
+        ("native_batch_input_storage", "single_current_native_batch;released_before_next_demand;operator_state_spill_reported_separately".into()),
         ("native_input_byte_accounting", "logical_values_offsets_validity_and_names;not_allocated_capacity_or_rss".into()),
         ("resident_source_generation_validation", "declared_schema_checked_each_batch;explicit_source_end;all_input_owners_released;bound_file_generations_checked_before_and_after_final_consumer;final_consumer_completed".into()),
     ];

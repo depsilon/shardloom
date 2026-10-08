@@ -2,7 +2,7 @@
 
 use super::{
     native_capacity::ReservedVec,
-    native_relational_batch::{Batch, Table, failed, take_batch},
+    native_relational_batch::{Batch, Table, failed, take_batch_with_policy},
     native_relational_sort::{self, Sort, Spec},
     query_run_store::{
         self, NativeQueryRun, QueryRunBlock, QueryRunReader, QueryRunSpec, QueryRunStore,
@@ -188,20 +188,20 @@ struct Run {
     level: u32,
 }
 
-pub(super) struct Ordering<'a> {
-    spec: &'a Spec,
-    state: &'a State,
-    sort: Sort<'a>,
+pub(super) struct Ordering<'p, 's> {
+    spec: &'p Spec,
+    state: &'s State,
+    sort: Sort<'p>,
     runs: ReservedVec<Run>,
     block_rows: usize,
     work: Option<Arc<MemoryLease>>,
     retained_bytes: u64,
 }
 
-impl<'a> Ordering<'a> {
+impl<'p, 's> Ordering<'p, 's> {
     pub(super) fn new(
-        spec: &'a Spec,
-        state: &'a State,
+        spec: &'p Spec,
+        state: &'s State,
         batch_rows: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
@@ -237,7 +237,13 @@ impl<'a> Ordering<'a> {
                     context.check_cancelled()?;
                     rows.values.clear();
                     rows.values.extend(start..end);
-                    let compact = take_batch(&array, &self.spec.fields, &rows.values, context)?;
+                    let compact = take_batch_with_policy(
+                        &array,
+                        &self.spec.fields,
+                        &rows.values,
+                        self.spec.copy_policy,
+                        context,
+                    )?;
                     let bytes = self.sort.incoming_bytes(&compact)?;
                     if bytes <= self.state.policy.buffer_bytes {
                         self.build_admitted(compact, bytes, context)?;
@@ -404,10 +410,11 @@ impl<'a> Ordering<'a> {
             rows.values.extend(0..block.array().len());
             // Do not detach the store's borrowed array from its work/path credits.
             // Compact into the shared allocator before a downstream node retains it.
-            consume(take_batch(
+            consume(take_batch_with_policy(
                 block.array(),
                 &self.spec.fields,
                 &rows.values,
+                self.spec.copy_policy,
                 context,
             )?)?;
             context.check_cancelled()?;
@@ -592,8 +599,13 @@ impl<'a> Merge<'a> {
             self.validate()?;
             return Ok(None);
         }
-        let output =
-            native_relational_sort::gather(&table, &rows.values, &self.spec.fields, context)?;
+        let output = native_relational_sort::gather(
+            &table,
+            &rows.values,
+            &self.spec.fields,
+            self.spec.copy_policy,
+            context,
+        )?;
         self.validate()?;
         #[cfg(test)]
         if let Some(hook) = AFTER_MERGE_BLOCK.with(|hook| hook.borrow_mut().take()) {

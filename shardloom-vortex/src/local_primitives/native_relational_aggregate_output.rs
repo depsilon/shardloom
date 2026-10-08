@@ -21,7 +21,7 @@ const PENDING_BYTES: u64 = 256 * 1024;
 const PENDING_ROWS: usize = 128;
 
 pub(super) struct Results<'a> {
-    order: Ordering<'a>,
+    order: Ordering<'a, 'a>,
     dtype: DType,
     pending: ReservedVec<ArrayRef>,
     pending_bytes: u64,

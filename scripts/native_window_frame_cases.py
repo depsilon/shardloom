@@ -41,11 +41,17 @@ def declarations():
 
 
 def run(context, output, guard, accepted, complete, sources, identity, *,
-        materializations=("python",), nested_fixture_generator):
+        materializations=("python",), nested_fixture_generator, spill_strategy=False):
     from shardloom.query import SqlWorkflow
 
     output.mkdir(parents=True)
     resources = {"memory_gb": 1, "max_parallelism": 2}
+    prefix = "frames-pressure" if spill_strategy else "frames"
+    workspace = output / "window-spill"
+    if spill_strategy:
+        workspace.mkdir()
+        resources["spill"] = {"workspace": str(workspace), "quota_bytes": 256 << 20,
+                              "buffer_bytes": 1 << 20}
     matrix = list(declarations())
     source_rows = fixture_rows()
     source = context.from_rows(source_rows, schema=SCHEMA)
@@ -186,7 +192,9 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
         },
         "format_matrix_case": matrix[0][0],
         "input_formats": list(LOCAL_FORMATS), "output_formats": list(LOCAL_FORMATS),
-        "materializations": list(materializations),
+        "materializations": [] if spill_strategy else list(materializations),
+        "execution": resources,
+        "spill_strategy": spill_strategy,
     }, indent=2, ensure_ascii=False) + "\n")
     sources.append((oracle, file_sha256(oracle), identity(oracle)))
 
@@ -194,12 +202,17 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
     nested_input.mkdir()
     subprocess.run([str(nested_fixture_generator), str(nested_input)], check=True, timeout=30)
     sources.append((nested_raw, file_sha256(nested_raw), identity(nested_raw)))
-    accepted("frames-nested-prepare", context.read_arrow_ipc(nested_raw).prepare(nested_native, check=False))
+    accepted(f"{prefix}-nested-prepare", context.read_arrow_ipc(nested_raw).prepare(nested_native, check=False))
     sources.append((nested_native, file_sha256(nested_native), identity(nested_native)))
 
     def verified(name, report):
         envelope = accepted(name, report)
         require_native_resource_admission(name, envelope)
+        if spill_strategy:
+            if envelope.field_int("relational_ordered_window_stages") < 1:
+                raise ValueError(f"{name}: window did not use the requested strategy")
+            if not envelope.field_bool("relational_spill_owned_cleanup_completed") or list(workspace.iterdir()):
+                raise ValueError(f"{name}: window spill state was not cleaned")
         return envelope
 
     def denied(name, report, destination=None, reason=None):
@@ -212,6 +225,8 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
                 or (destination is not None and destination.exists())
                 or (reason is not None and not has_diagnostic_detail(envelope, reason))):
             raise ValueError(f"{name}: denied frame published output or lost its diagnostic")
+        if spill_strategy and list(workspace.iterdir()):
+            raise ValueError(f"{name}: denied window retained spill state")
         complete(name, [], [])
 
     def exercise(name, workflow, expected, columns, opens=0, typed_columns=(), conversions=True, nested=False):
@@ -219,7 +234,7 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
             ("dataframe", workflow), ("sql", SqlWorkflow(workflow._relation_statement(), context.client,
                                                         source_bindings=workflow._declared_sources()))]
         for surface, declared in variants:
-            label = f"frames-{name}-{surface}"
+            label = f"{prefix}-{name}-{surface}"
             for run in (1, 2):
                 guard()
                 collect_name = f"{label}-collect-{run}"
@@ -253,7 +268,10 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
                                 {"orc": "ORC does not admit decimal or temporal"} if typed_columns else None),
                 denied=denied,
             )
-            if conversions:
+            # Conversion convenience methods use their own resident policy. Their
+            # existing acceptance remains in the resident cohort; do not label it
+            # as spill execution merely because adjacent collect/write calls spill.
+            if conversions and not spill_strategy:
                 materialized = expected
                 if typed_columns:
                     def decimal(value):
@@ -275,7 +293,7 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
 
     # Each input format is verified before the same framed transformation runs.
     # Explicit schemas retain NULL and integer domains through text boundaries.
-    inputs = write_outputs(context, output, source, source_rows, list(SCHEMA), name="frames-input",
+    inputs = write_outputs(context, output, source, source_rows, list(SCHEMA), name=f"{prefix}-input",
                            guard=guard, accepted=accepted, complete=complete, execution=resources)
     for extension in LOCAL_FORMATS:
         path = inputs[extension]
@@ -287,10 +305,10 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
 
     for name, workflow, reason in invalid:
         guard()
-        denied(f"frames-invalid-{name}", workflow.collect(check=False, **resources), reason=reason)
+        denied(f"{prefix}-invalid-{name}", workflow.collect(check=False, **resources), reason=reason)
         for extension in LOCAL_FORMATS:
             guard()
-            label = f"frames-invalid-{name}-{extension}"
+            label = f"{prefix}-invalid-{name}-{extension}"
             destination = output / f"{label}.{extension}"
             denied(label, getattr(workflow, f"write_{extension}")(destination, check=False, **resources),
                    destination, reason)

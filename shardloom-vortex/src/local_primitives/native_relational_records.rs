@@ -49,6 +49,7 @@ pub(super) fn order(
         fields,
         keys,
         names,
+        copy_policy: native_payload::CopyPolicy::ValidateValues,
     })
 }
 

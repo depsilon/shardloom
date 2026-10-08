@@ -125,6 +125,26 @@ impl Batch {
     }
 
     #[cfg(feature = "vortex-write")]
+    pub(super) fn raw_cell(&self, row: usize, key: usize) -> Result<Cell> {
+        self.keys
+            .values
+            .get(key)
+            .ok_or_else(|| failed("bound scalar key is absent"))?
+            .raw_cell(row)
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn hash_key(&self, row: usize, key: usize) -> Result<Option<u64>> {
+        let column = self
+            .keys
+            .values
+            .get(key)
+            .ok_or_else(|| failed("bound scalar key is absent"))?;
+        let mut hash = rustc_hash::FxHasher::default();
+        Ok(column.hash_into(row, &mut hash)?.then(|| hash.finish()))
+    }
+
+    #[cfg(feature = "vortex-write")]
     pub(super) fn compare_key(
         &self,
         row: usize,
@@ -406,6 +426,21 @@ impl Gather<'_> {
         dtype: &DType,
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
+        self.column_with_policy(
+            name,
+            dtype,
+            native_payload::CopyPolicy::ValidateValues,
+            context,
+        )
+    }
+
+    pub(super) fn column_with_policy(
+        &self,
+        name: &str,
+        dtype: &DType,
+        policy: native_payload::CopyPolicy,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
         if self.segments.values.is_empty() {
             if native_payload::is_nested(dtype) {
                 return native_payload::defaults(dtype, self.indices.len(), context);
@@ -430,7 +465,7 @@ impl Gather<'_> {
         let array = ChunkedArray::try_new(chunks, source_dtype)
             .map_err(vortex_error)?
             .into_array();
-        take_column(&array, &self.indices, dtype, context)
+        take_column_with_policy(&array, &self.indices, dtype, policy, context)
     }
 }
 
@@ -462,9 +497,31 @@ pub(super) fn take_column(
     dtype: &DType,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
+    take_column_with_policy(
+        array,
+        indices,
+        dtype,
+        native_payload::CopyPolicy::ValidateValues,
+        context,
+    )
+}
+
+fn take_column_with_policy(
+    array: &ArrayRef,
+    indices: &ArrayRef,
+    dtype: &DType,
+    policy: native_payload::CopyPolicy,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
     context.check_cancelled()?;
+    if matches!(dtype, DType::Decimal(..))
+        || (policy == native_payload::CopyPolicy::PreserveUnobserved
+            && matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _)))
+    {
+        return native_payload::take_with_policy(array, indices, dtype, policy, context);
+    }
     if native_payload::is_nested(dtype) {
-        return native_payload::take(array, indices, dtype, context);
+        return native_payload::take_with_policy(array, indices, dtype, policy, context);
     }
     let mut execution = context.native_session().create_execution_ctx();
     let selected = array
@@ -506,14 +563,31 @@ pub(super) fn take_batch(
     rows: &[usize],
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
+    take_batch_with_policy(
+        array,
+        fields,
+        rows,
+        native_payload::CopyPolicy::ValidateValues,
+        context,
+    )
+}
+
+pub(super) fn take_batch_with_policy(
+    array: &ArrayRef,
+    fields: &[(String, DType)],
+    rows: &[usize],
+    policy: native_payload::CopyPolicy,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
     let indices = index_array(rows.len(), false, context, |row| Ok(Some(rows[row])))?;
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(fields.len())?;
     for (name, dtype) in fields {
-        columns.values.push(take_column(
+        columns.values.push(take_column_with_policy(
             &logical_field_from_native_array(array, name)?,
             &indices,
             dtype,
+            policy,
             context,
         )?);
     }

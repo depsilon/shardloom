@@ -99,6 +99,20 @@ pub struct ExecutedVortexRelational {
     pub ordered_join_match_records: u64,
     /// Bounded lookup blocks loaded, including resident and native-run blocks.
     pub ordered_join_lookup_blocks: u64,
+    /// Analytic window nodes using the explicit bounded native spill strategy.
+    pub ordered_window_stages: u64,
+    pub ordered_window_input_rows: u64,
+    pub ordered_window_groups: u64,
+    pub ordered_window_partitions: u64,
+    /// Peer starts and partition-end sentinels written to native ordinal records.
+    pub ordered_window_peer_records: u64,
+    /// Frame bounds recorded for exact DISTINCT and extrema evaluation.
+    pub ordered_window_bounds_rows: u64,
+    pub ordered_window_distinct_intervals: u64,
+    pub ordered_window_distinct_events: u64,
+    pub ordered_window_extrema_summary_rows: u64,
+    /// Bounded key, summary and result blocks loaded by native window lookups.
+    pub ordered_window_lookup_blocks: u64,
     pub output_columns: Vec<String>,
     /// Physical decoder work inside upstream providers is not measured here.
     pub bytes_decoded: Option<u64>,
@@ -511,14 +525,44 @@ struct Metrics<'a> {
     ordered_join_candidate_rows: Cell<u64>,
     ordered_join_match_records: Cell<u64>,
     ordered_join_lookup_blocks: Cell<u64>,
+    ordered_window_stages: Cell<u64>,
+    ordered_window_input_rows: Cell<u64>,
+    ordered_window_groups: Cell<u64>,
+    ordered_window_partitions: Cell<u64>,
+    ordered_window_peer_records: Cell<u64>,
+    ordered_window_bounds_rows: Cell<u64>,
+    ordered_window_distinct_intervals: Cell<u64>,
+    ordered_window_distinct_events: Cell<u64>,
+    ordered_window_extrema_summary_rows: Cell<u64>,
+    ordered_window_lookup_blocks: Cell<u64>,
     input: Option<&'a dyn batch_input::Input>,
     ordering_batches_detached: Cell<u64>,
     ordering_rows_detached: Cell<u64>,
     join_build_batches_detached: Cell<u64>,
     join_build_rows_detached: Cell<u64>,
+    window_batches_detached: Cell<u64>,
+    window_rows_detached: Cell<u64>,
 }
 
 impl Metrics<'_> {
+    fn detach_window_input(
+        &self,
+        array: ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        if self.input.is_none() || array.is_empty() {
+            return Ok(array);
+        }
+        let detached = super::native_payload::detach_with_policy(
+            &array,
+            super::native_payload::CopyPolicy::PreserveUnobserved,
+            context,
+        )?;
+        add(&self.window_batches_detached, 1)?;
+        add(&self.window_rows_detached, array.len() as u64)?;
+        Ok(detached)
+    }
+
     fn record_unary(&self, state_items: usize, all_input_retained: bool) -> Result<()> {
         add(&self.unary_stages, 1)?;
         add(&self.unary_state_items, state_items as u64)?;
@@ -568,7 +612,7 @@ fn add(counter: &Cell<u64>, value: u64) -> Result<()> {
 }
 
 impl PreparedVortexRelational {
-    /// Permit native ordering, general aggregate and join runs in the existing grant.
+    /// Permit native ordering, aggregate, join and analytic window runs in the existing grant.
     /// This validates configuration only; execution validates the workspace.
     /// # Errors
     /// Rejects invalid configuration and a buffer threshold beyond the query grant.
@@ -825,6 +869,8 @@ impl PreparedVortexRelational {
             input.ordering_rows_detached = metrics.ordering_rows_detached.get();
             input.join_build_batches_detached = metrics.join_build_batches_detached.get();
             input.join_build_rows_detached = metrics.join_build_rows_detached.get();
+            input.window_batches_detached = metrics.window_batches_detached.get();
+            input.window_rows_detached = metrics.window_rows_detached.get();
         }
         // No input schema sampling, and no missing-schema sentinel for empty output.
         if !emitted.get() {
@@ -871,6 +917,16 @@ impl PreparedVortexRelational {
             ordered_join_candidate_rows: metrics.ordered_join_candidate_rows.get(),
             ordered_join_match_records: metrics.ordered_join_match_records.get(),
             ordered_join_lookup_blocks: metrics.ordered_join_lookup_blocks.get(),
+            ordered_window_stages: metrics.ordered_window_stages.get(),
+            ordered_window_input_rows: metrics.ordered_window_input_rows.get(),
+            ordered_window_groups: metrics.ordered_window_groups.get(),
+            ordered_window_partitions: metrics.ordered_window_partitions.get(),
+            ordered_window_peer_records: metrics.ordered_window_peer_records.get(),
+            ordered_window_bounds_rows: metrics.ordered_window_bounds_rows.get(),
+            ordered_window_distinct_intervals: metrics.ordered_window_distinct_intervals.get(),
+            ordered_window_distinct_events: metrics.ordered_window_distinct_events.get(),
+            ordered_window_extrema_summary_rows: metrics.ordered_window_extrema_summary_rows.get(),
+            ordered_window_lookup_blocks: metrics.ordered_window_lookup_blocks.get(),
             output_columns: root.fields.iter().map(|(name, _)| name.clone()).collect(),
             bytes_decoded: None,
             native_io_certificate: certificate,
@@ -981,6 +1037,45 @@ impl PreparedVortexRelational {
                 self.run_subquery(node, context, metrics, batch_rows, parameter, consume)
             }
             NodeKind::Window { input, spec } => {
+                #[cfg(feature = "vortex-write")]
+                if let Some(spill) = &metrics.spill {
+                    let report = native_relational_window::spill::run(
+                        spec,
+                        &input.fields,
+                        spill,
+                        context,
+                        batch_rows,
+                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                        consume,
+                    )?;
+                    add(&metrics.ordered_window_stages, 1)?;
+                    add(&metrics.ordered_window_input_rows, report.input_rows)?;
+                    add(&metrics.ordered_window_groups, report.groups)?;
+                    add(&metrics.ordered_window_partitions, report.partitions)?;
+                    add(&metrics.ordered_window_peer_records, report.peer_records)?;
+                    add(&metrics.ordered_window_bounds_rows, report.bounds_rows)?;
+                    add(
+                        &metrics.ordered_window_distinct_intervals,
+                        report.distinct_intervals,
+                    )?;
+                    add(
+                        &metrics.ordered_window_distinct_events,
+                        report.distinct_events,
+                    )?;
+                    add(
+                        &metrics.ordered_window_extrema_summary_rows,
+                        report.extrema_summary_rows,
+                    )?;
+                    add(&metrics.ordered_window_lookup_blocks, report.lookup_blocks)?;
+                    if metrics.input.is_some() {
+                        add(
+                            &metrics.window_batches_detached,
+                            report.input_batches_detached,
+                        )?;
+                        add(&metrics.window_rows_detached, report.input_rows)?;
+                    }
+                    return Ok(());
+                }
                 let mut window = native_relational_window::Window::new(spec, context.memory())?;
                 self.run(
                     input,
@@ -988,7 +1083,9 @@ impl PreparedVortexRelational {
                     metrics,
                     batch_rows,
                     parameter,
-                    &mut |array| window.build(array, context),
+                    &mut |array| {
+                        window.build(metrics.detach_window_input(array, context)?, context)
+                    },
                 )?;
                 window.finish(context, batch_rows, consume)
             }

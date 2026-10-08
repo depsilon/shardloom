@@ -255,21 +255,23 @@ the ledger.
     and the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
     Existing owners are PERF-02/03/06/10/12 and CG-20/21; broader owners stay open.
   - V1 scope classification: `required_for_v1` for this declared local family.
-  - Current state: implementation design recorded; no window spill acceptance
-    is claimed. Existing windows retain input, sorted ordinals, peer boundaries,
-    DISTINCT/extrema state and full result vectors. Accepted aggregate/join
-    pressure and stored native ordering supply shared prerequisites.
+  - Current state: the explicit bounded strategy and single-use streamed input
+    are implemented. Focused native pressure/failure/recovery tests, 229 streamed
+    public checks and 1,498 public spill-frame checks pass in development.
+    Frozen complete regression acceptance and hosted integration remain pending;
+    the resident strategy remains the default. Accepted aggregate/join pressure
+    and stored native ordering supply shared prerequisites.
   - ShardLoom technique review: PulseWeave admits overlapping input, frame,
     run, lookup and result owners in one grant. Compact private records and late
     selected-value gathering constrain retention. Exact interval unions and
     native range summaries avoid whole-frame rescans. Keep input completion,
     preparation, first output, spill and full-workflow costs distinct.
   - Execution checklist:
-    - [ ] Share frame endpoint, exclusion, fixed-state and ranking semantics
+    - [x] Share frame endpoint, exclusion, fixed-state and ranking semantics
       between resident positions and bounded native stored positions.
-    - [ ] Add native input/group/peer/result stores, exact interval-union DISTINCT
+    - [x] Add native input/group/peer/result stores, exact interval-union DISTINCT
       and range-summary extrema; restore original output order under one quota.
-    - [ ] Admit one finite batch occurrence, detach input owners before the next
+    - [x] Admit one finite batch occurrence, detach input owners before the next
       demand and preserve complete drain and pre-demand unsupported admission.
     - [ ] Prove every existing function/frame/exclusion/type/null/order/error
       contract and complete composition through current result/writer owners.

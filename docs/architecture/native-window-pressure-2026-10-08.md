@@ -1,13 +1,15 @@
 # Native analytic windows under an explicit shared spill policy
 
-Status: accepted implementation design under PERF-02/03/06/10/12 and CG-20/21,
-following [join acceptance](native-join-pressure-2026-10-08.md). Runtime work and
-complete acceptance remain open in the [phase plan](phased-execution-plan.md).
+Status: implemented with focused native and public acceptance under
+PERF-02/03/06/10/12 and CG-20/21, following
+[join acceptance](native-join-pressure-2026-10-08.md). Frozen complete regression
+acceptance and hosted integration remain open in the
+[phase plan](phased-execution-plan.md).
 The expert comparator is an external-memory analytic operator preserving exact
 frame semantics, observation order and complete output under one query grant.
 The resident strategy remains the default.
 
-The intended cohesive unit covers the existing ranking/navigation functions and
+The cohesive unit covers the existing ranking/navigation functions and
 framed COUNT, COUNT DISTINCT, SUM, AVG, MIN, MAX, FIRST, LAST and NTH over admitted
 ROWS/GROUPS/RANGE frames and exclusions. It also connects one finite single-use
 batch source to that same native window strategy. It does not add new SQL frame
@@ -78,8 +80,9 @@ Factor shared ranking and frame policy away from full Values storage; resident
 vectors and bounded native result records should consume the same values.
 
 Each partition may retain a bounded ranking-result store and a store for each
-framed result until its group record is assembled. Selected-value functions can
-store nullable original source ordinals, delaying payload gathering. Retire these
+framed result until its group record is assembled. Selected-value functions store
+nullable partition positions; assembly maps them to original source ordinals,
+delaying payload gathering. Retire these
 temporary stores after assembling the partition. Order each completed group's
 results by original ordinal. Finally zip complete group stores with the source
 store, gather selected columns, and emit bounded credited native output in input
@@ -184,6 +187,50 @@ coverage. COUNT merely checks nullness. Positional selection may return a NULL
 value. Unobserved nonfinite values do not become new errors. Add direct error-order
 and parent-null tests; the current tests cover wholly excluded invalid measures
 but do not establish every multiple-function or multiple-partition error case.
+
+Private source/group movement preserves floating storage bits and decimal storage
+without applying result-value validation to unobserved measures. The existing
+Vortex take/canonical providers select rows first; fresh allocator-owned buffers
+then detach the selected storage, including parent validity. This policy flows
+through resident gather, oversized input compaction, run writing and merge gather.
+Ordering keys still use the existing key validation. Public result builders keep
+their finite-float and decimal-precision checks. No F32-to-F64 round trip may
+change a retained NaN's bits. Decimal selections resolve existing native chunk,
+dictionary, validity and slice wrappers before copying typed storage into
+credited 128/256-bit buffers. The provider's generic chunked gather otherwise
+narrows to a precision-sized builder, and scalar construction validates precision,
+before the operation observes a value. Exact values and declared decimal metadata
+remain intact. These are private movement rules, not newly admitted nonfinite or
+invalid-decimal result values.
+
+The same decimal storage resolver now protects observed result copies from the
+provider's precision-sized chunk builder. Public copies validate selected values
+with the fallible native scalar constructor before allocating final decimal
+storage. Invalid precision remains an error, including across chunk/dictionary
+wrappers; it does not become a narrowing panic. Window lookup compaction preserves
+unobserved storage until its final gather restores output selection and field
+order, then applies public validation.
+
+Relational decimal key owners also use that storage resolver before preparing
+comparisons. The pinned provider's canonical chunk builder otherwise narrows an
+invalid declared-precision value before a frame observes it. Direct canonical
+decimal owners remain shared; wrapped owners receive credited storage copies.
+Comparison and reduction retain their existing precision checks at observation.
+Stored SUM/AVG result records use the bound result dtype, including widened
+precision and AVG scale, rather than the input decimal dtype.
+
+Focused native tests now cover file-backed and single-use streamed pressure,
+complete native output reopening, exact types and error order, cancellation in
+frame bounds, distinct intervals/events and extrema summaries/results, credit and
+quota denial, cached-run corruption/replacement, protected destinations, and
+process-death cleanup followed by a fresh complete execution. This is cleanup
+and restart evidence, not resumption. Development public acceptance passes
+221 streamed window checks, eight streamed pressure/failure checks and 1,498
+file/value-backed spill-frame checks covering 1,061,210 complete row comparisons
+through Python/SQL and representable writers. Native tests also reopen typed
+empty outputs and preserve protected destinations across arithmetic failures.
+These checks precede the frozen release executable; the broad regression,
+Full43, evidence-inspection and integration gates remain required.
 
 The rejected alternatives are retaining the full partition behind a disk-backed
 input, rescanning each complete frame for every output, maintaining a new mutable

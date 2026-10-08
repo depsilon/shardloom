@@ -24,12 +24,15 @@ from native_streaming_aggregate_cases import run as aggregate_cases
 from native_streaming_aggregate_pressure_cases import run as aggregate_pressure_cases
 from native_streaming_join_cases import run as join_cases
 from native_streaming_join_pressure_cases import run as join_pressure_cases
+from native_streaming_window_cases import run as window_cases
+from native_streaming_window_pressure_cases import run as window_pressure_cases
 from native_streaming_protocol_cases import run as protocol_cases
 import shardloom as sl
 
 FAMILIES = {"input": public_cases, "ordering": ordering_cases, "ordering-pressure": ordering_pressure_cases,
             "aggregate": aggregate_cases, "aggregate-pressure": aggregate_pressure_cases,
-            "join": join_cases, "join-pressure": join_pressure_cases, "protocol": protocol_cases}
+            "join": join_cases, "join-pressure": join_pressure_cases,
+            "window": window_cases, "window-pressure": window_pressure_cases, "protocol": protocol_cases}
 
 
 def sha(path):
@@ -130,6 +133,9 @@ def main():
               Path(__file__).with_name("native_streaming_aggregate_pressure_cases.py"),
               Path(__file__).with_name("native_streaming_join_cases.py"),
               Path(__file__).with_name("native_streaming_join_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_window_cases.py"),
+              Path(__file__).with_name("native_streaming_window_pressure_cases.py"),
+              Path(__file__).with_name("native_window_frame_reference.py"),
               Path(__file__).with_name("native_streaming_protocol_cases.py")]
     sources = {str(path): sha(path) for path in inputs}
     for path in inputs[1:]:
