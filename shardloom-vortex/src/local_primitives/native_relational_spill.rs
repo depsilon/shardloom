@@ -33,8 +33,11 @@ const READER_WORK_BYTES: u64 = 2 * 64 * 1024;
 #[cfg(test)]
 type BeforeRunOpen = Box<dyn FnOnce(&Path)>;
 #[cfg(test)]
+type AfterMergeBlock = Box<dyn FnOnce(usize)>;
+#[cfg(test)]
 thread_local! {
     pub(crate) static BEFORE_RUN_OPEN: RefCell<Option<BeforeRunOpen>> = const { RefCell::new(None) };
+    pub(crate) static AFTER_MERGE_BLOCK: RefCell<Option<AfterMergeBlock>> = const { RefCell::new(None) };
 }
 
 /// One execution owns one quota/store even when several order nodes overlap.
@@ -585,6 +588,10 @@ impl<'a> Merge<'a> {
         let output =
             native_relational_sort::gather(&table, &rows.values, &self.spec.fields, context)?;
         self.validate()?;
+        #[cfg(test)]
+        if let Some(hook) = AFTER_MERGE_BLOCK.with(|hook| hook.borrow_mut().take()) {
+            hook(output.len());
+        }
         context.check_cancelled()?;
         Ok(Some(output))
     }

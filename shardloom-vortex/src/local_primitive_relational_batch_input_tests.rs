@@ -1,10 +1,16 @@
 use super::*;
 use crate::{
-    relational_query::{VortexRelationalFilter, VortexRelationalLimit, VortexRelationalProject},
+    relational_query::{VortexRelationalFilter, VortexRelationalProject},
     resident_memory_source::{MemoryColumn, MemoryColumnValues, MemorySourceBounds},
 };
 use shardloom_core::{ExprId, Expression, ExpressionKind};
 use std::sync::Weak;
+
+#[path = "local_primitive_relational_batch_order_tests.rs"]
+mod order_tests;
+
+#[path = "local_primitive_relational_batch_aggregate_tests.rs"]
+mod aggregate_tests;
 
 fn scan() -> VortexRelationalPlan {
     VortexRelationalPlan::Scan(VortexRelationalScan {
@@ -323,10 +329,10 @@ fn completion_input_foreign_shared_and_untracked_owners_are_denied() {
 
 #[test]
 fn completion_input_plan_and_provider_admission_precede_payload() {
-    let limit = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
-        input: scan(),
-        offset: 0,
-        count: 0,
+    let union = VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
+        left: scan(),
+        right: scan(),
+        kind: crate::relational_query::VortexRelationalSetKind::UnionAll,
     }));
     let joined = VortexRelationalPlan::Join(Box::new(VortexRelationalJoin {
         left: scan(),
@@ -336,7 +342,10 @@ fn completion_input_plan_and_provider_admission_precede_payload() {
         condition: None,
         columns: vec![],
     }));
-    for (plan, expected) in [(limit, "limit/offset"), (joined, "join/repeated source")] {
+    for (plan, expected) in [
+        (union, "set operation/repeated source"),
+        (joined, "join/repeated source"),
+    ] {
         let error = prepare(&plan, 2 << 20).err().unwrap().to_string();
         assert!(error.contains("SL-NATIVE-BATCH") && error.contains(expected));
     }

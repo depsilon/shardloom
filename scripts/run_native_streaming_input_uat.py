@@ -18,6 +18,10 @@ import time
 
 from local_uat_storage import GIB, MIB, check_budgets, require_local_path
 from native_streaming_input_cases import run as public_cases
+from native_streaming_order_cases import run as ordering_cases
+from native_streaming_order_pressure_cases import run as ordering_pressure_cases
+from native_streaming_aggregate_cases import run as aggregate_cases
+from native_streaming_aggregate_pressure_cases import run as aggregate_pressure_cases
 from native_streaming_protocol_cases import run as protocol_cases
 import shardloom as sl
 
@@ -28,11 +32,11 @@ def sha(path):
 
 
 class Harness:
-    def __init__(self, binary, root):
+    def __init__(self, binary, root, operation_timeout):
         self.binary, self.root = binary, root
         self.logs, self.output = root / "logs", root / "outputs"
         self.results = []
-        self.client = sl.ShardLoomClient(binary=binary, timeout=30)
+        self.client = sl.ShardLoomClient(binary=binary, timeout=operation_timeout)
         self.context = sl.ShardLoomContext(self.client)
 
     def guard(self):
@@ -101,16 +105,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--uat-root", type=Path, required=True)
+    parser.add_argument("--operation-timeout", type=float, default=120)
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
     root = require_local_path(args.uat_root, Path.home(), sys.platform)
     assert not root.exists(), "use a fresh output directory; prior evidence is immutable"
-    harness = Harness(binary, root)
+    assert args.operation_timeout > 0
+    harness = Harness(binary, root, args.operation_timeout)
     harness.guard()
     harness.logs.mkdir(parents=True)
     harness.output.mkdir()
     inputs = [binary, Path(__file__).resolve(),
               Path(__file__).with_name("native_streaming_input_cases.py"),
+              Path(__file__).with_name("native_streaming_order_cases.py"),
+              Path(__file__).with_name("native_streaming_order_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_aggregate_cases.py"),
+              Path(__file__).with_name("native_streaming_aggregate_pressure_cases.py"),
               Path(__file__).with_name("native_streaming_protocol_cases.py")]
     sources = {str(path): sha(path) for path in inputs}
     for path in inputs[1:]:
@@ -119,13 +129,18 @@ def main():
     status = "failed"
     try:
         public_cases(harness)
+        ordering_cases(harness)
+        ordering_pressure_cases(harness)
+        aggregate_cases(harness)
+        aggregate_pressure_cases(harness)
         protocol_cases(harness)
         assert all(sha(Path(path)) == digest for path, digest in sources.items())
         status = "passed"
     finally:
         harness.client.close()
         harness.json(root / "summary.json", {"status": status, "sources": sources,
-                     "cases": harness.results, "performance_claim": False,
+                     "cases": harness.results, "operation_timeout_seconds": args.operation_timeout,
+                     "performance_claim": False,
                      "whole_process_memory_ceiling": False})
     return 0
 

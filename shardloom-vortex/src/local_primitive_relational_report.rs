@@ -9,7 +9,7 @@ use shardloom_core::{
 
 #[allow(clippy::too_many_lines)] // One declarative certificate covers the same execution.
 pub(super) fn certificate(
-    metrics: &Metrics,
+    metrics: &Metrics<'_>,
     rows: u64,
     batch_rows: usize,
     sources: usize,
@@ -61,7 +61,7 @@ pub(super) fn certificate(
                 "bound_types_and_generation_checked_before_and_after_final_consumer".into()
             },
             proof_basis: format!(
-                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={}",
+                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={}",
                 metrics.scans_started.get(),
                 metrics.scans_pruned.get(),
                 metrics.scan_batches.get(),
@@ -69,7 +69,12 @@ pub(super) fn certificate(
                 metrics.unary_stages.get(),
                 metrics.unary_state_items.get(),
                 metrics.unary_population_retention.get(),
-                metrics.schema_discovery_stages.get()
+                metrics.schema_discovery_stages.get(),
+                metrics.ordering_batches_detached.get(),
+                metrics.ordering_rows_detached.get(),
+                metrics.ordered_aggregate_stages.get(),
+                metrics.ordered_aggregate_input_rows.get(),
+                metrics.ordered_aggregate_distinct_rows.get()
             ),
             residual_expression: (metrics.residual_batches.get() > 0).then(|| {
                 format!(
@@ -122,7 +127,8 @@ pub(super) fn certificate(
                 to_state: RepresentationState::DecodedColumnar,
                 required_by: "typed_keys_and_bounded_native_result_consumption".into(),
                 reason: format!(
-                    "native key execution and native take followed by explicit compact output copies; unary scalar access and retained row state use the shared operation kernels and native output builder; unary stages retaining the complete population={}; native ordering run materialization performed={spilled}; physical decoder bytes are unobserved, so the legacy numeric bytes field is not a zero-decode claim; final output buffer bytes are reported separately; reservations exclude upstream provider scratch and are not an RSS bound",
+                    "native key execution and native take followed by explicit compact output copies; streaming ordering input is separately compacted before retention; ordered aggregate stages={} compact typed base/distinct records, retained group keys and completed results through the same query owner; unary scalar access and retained row state use the shared operation kernels and native output builder; unary stages retaining the complete population={}; native ordering run materialization performed={spilled}; physical decoder bytes are unobserved, so the legacy numeric bytes field is not a zero-decode claim; final output buffer bytes are reported separately; reservations exclude upstream provider scratch and are not an RSS bound",
+                    metrics.ordered_aggregate_stages.get(),
                     metrics.unary_population_retention.get()
                 ),
                 bytes_decoded: 0,

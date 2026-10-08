@@ -12,7 +12,7 @@ impl PreparedVortexRelational {
         &self,
         node: &Node,
         context: &NativeExecutionContext<'_>,
-        metrics: &Metrics,
+        metrics: &Metrics<'_>,
         batch_rows: usize,
         parameter: Option<&ArrayRef>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
@@ -79,7 +79,9 @@ impl PreparedVortexRelational {
                 offset,
                 count,
             } => {
-                if *count == 0 {
+                // A finite streaming source still owes complete validation,
+                // including late errors, even when no rows are requested.
+                if *count == 0 && metrics.input.is_none() {
                     return Ok(());
                 }
                 let mut skip = *offset;
@@ -110,7 +112,7 @@ impl PreparedVortexRelational {
         &self,
         node: &Node,
         context: &NativeExecutionContext<'_>,
-        metrics: &Metrics,
+        metrics: &Metrics<'_>,
         batch_rows: usize,
         parameter: Option<&ArrayRef>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
@@ -129,7 +131,7 @@ impl PreparedVortexRelational {
                 metrics,
                 batch_rows,
                 parameter,
-                &mut |array| sort.build(array, context),
+                &mut |array| sort.build(metrics.detach_ordering_input(array, context)?, context),
             )?;
             return sort.finish(context, batch_rows, consume);
         }
@@ -140,7 +142,7 @@ impl PreparedVortexRelational {
             metrics,
             batch_rows,
             parameter,
-            &mut |array| sort.build(array, context),
+            &mut |array| sort.build(metrics.detach_ordering_input(array, context)?, context),
         )?;
         sort.finish(context, batch_rows, consume)
     }

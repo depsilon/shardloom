@@ -10,7 +10,7 @@ use crate::relational_query::{VortexRelationalDeferredRef, VortexRelationalExecu
 pub(super) struct ExecutionBinding<'a> {
     owner: &'a PreparedVortexRelational,
     context: &'a NativeExecutionContext<'a>,
-    metrics: &'a Metrics,
+    metrics: &'a Metrics<'a>,
     parameter: Option<&'a ArrayRef>,
 }
 
@@ -18,7 +18,7 @@ impl<'a> Binder<'a> {
     pub(in crate::local_primitives::prepared_relational) fn for_execution(
         owner: &'a PreparedVortexRelational,
         context: &'a NativeExecutionContext<'a>,
-        metrics: &'a Metrics,
+        metrics: &'a Metrics<'a>,
         parameter: Option<&'a ArrayRef>,
     ) -> Result<Self> {
         let mut binder = Self::new(&owner.session)?;

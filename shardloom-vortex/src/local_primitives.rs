@@ -121,6 +121,9 @@ mod native_payload;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_aggregate.rs"]
 mod native_relational_aggregate;
+#[cfg(feature = "vortex-write")]
+#[path = "local_primitives/native_relational_aggregate_spill.rs"]
+mod native_relational_aggregate_spill;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_batch.rs"]
 mod native_relational_batch;

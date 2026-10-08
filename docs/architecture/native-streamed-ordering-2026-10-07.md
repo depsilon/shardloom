@@ -3,9 +3,11 @@
 Status: implementation design, not accepted runtime support. This is a bounded
 dependency for the broader stateful pressure and recovery milestone in the
 [remaining-scope contract](native-local-completion-scope-2026-10-07.md), under
-PERF-03/06/07/11/12 and CG-5/19/20/21. General aggregation/join pressure remains
-the next substantial family obligation; windows, pivots and general execution
-resume do not become supported through this ordering connection.
+PERF-03/06/07/11/12 and CG-5/19/20/21. General aggregation has a separate
+[pressure strategy and acceptance contract](native-aggregate-pressure-2026-10-07.md)
+in the same cohesive runtime change. Join pressure remains a separate family
+obligation; windows, pivots and general execution resume do not become supported
+through this ordering connection.
 
 ## Decision and reuse map
 
@@ -43,9 +45,10 @@ version, materialization, actual spill and `fallback_attempted=false`.
 
 The complete lowered plan is classified before any producer demand or dynamic
 binding: exactly one matching batch scan, through Project, Filter, Sort and
-Limit. Repeated sources, joins, aggregates, windows, sets, other stateful unary
-operators and dynamic schema binding remain rejected before consumption in
-this dependency unit. Subsequent families require their own contracts.
+Limit. The companion general-aggregation contract also admits Aggregate.
+Repeated sources, joins, windows, sets, other stateful unary operators and
+dynamic schema binding remain rejected before consumption. Subsequent families
+require their own contracts.
 
 An execution owns a borrowed provider and an input report. The scan may start it
 only once. For each payload it checks cancellation, exact declared dtype, session,
@@ -130,5 +133,5 @@ Additional compact copies cost CPU and peak overlap; measure the whole workflow
 and retain explicit counters. Multiple sort stages may copy again because each
 must own its admitted input independently. The current merge schedule is unchanged;
 actual run-size observation may inform the separate cost-aware scheduling screen.
-Neither that experiment nor general aggregate/join/window/pivot spill is silently
-included in this dependency's support claim.
+That experiment and join/window/pivot spill remain outside this dependency's
+support claim. General aggregation is covered by its separate design and tests.

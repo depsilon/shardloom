@@ -152,9 +152,6 @@ def run(harness):
         assert not list(harness.output.glob(name + "*")), "denial left output artifacts"
 
     for name, operation in [
-        ("deny-limit", lambda q: q.limit(1).collect(check=True, **policy)),
-        ("deny-sort", lambda q: q.sort("n").collect(check=True, **policy)),
-        ("deny-aggregate", lambda q: q.count(check=True, **policy)),
         ("deny-self-join", lambda q: q.join(q, on="n").collect(check=True, **policy)),
         ("deny-union", lambda q: q.union_all(q).collect(check=True, **policy)),
         ("deny-window", lambda q: q.window("ROW_NUMBER() OVER (ORDER BY n) AS rn").collect(check=True, **policy)),

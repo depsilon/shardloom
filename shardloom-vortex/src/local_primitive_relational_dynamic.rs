@@ -125,12 +125,18 @@ impl PreparedVortexRelational {
     pub(super) fn with_bound_root<T>(
         &self,
         context: &NativeExecutionContext<'_>,
-        consume: impl FnOnce(&Node, &Metrics) -> Result<T>,
+        input: Option<&mut super::batch_input::Provider<'_>>,
+        consume: impl FnOnce(&Node, &Metrics<'_>) -> Result<T>,
     ) -> Result<T> {
+        self.validate_batch_provider(input.is_some())?;
         context.check_cancelled()?;
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.validate_preparation_sources()?;
+        let input = input.map(|input| super::batch_input::Execution::new(self, input));
         let metrics = Metrics {
+            input: input
+                .as_ref()
+                .map(|input| input as &dyn super::batch_input::Input),
             #[cfg(feature = "vortex-write")]
             spill: self
                 .spill
