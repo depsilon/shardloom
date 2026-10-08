@@ -12,6 +12,9 @@ mod order_tests;
 #[path = "local_primitive_relational_batch_aggregate_tests.rs"]
 mod aggregate_tests;
 
+#[path = "local_primitive_relational_batch_join_tests.rs"]
+mod join_tests;
+
 fn scan() -> VortexRelationalPlan {
     VortexRelationalPlan::Scan(VortexRelationalScan {
         source_uri: DatasetUri::new("memory://stream").unwrap(),
@@ -56,6 +59,16 @@ fn prepare(plan: &VortexRelationalPlan, bytes: u64) -> Result<PreparedVortexRela
         })?;
         Ok(plan.clone())
     })
+}
+
+fn values(
+    array: &ArrayRef,
+    context: &NativeExecutionContext<'_>,
+) -> Result<Vec<serde_json::Value>> {
+    let mut sink =
+        crate::local_primitives::collect::JsonRows::new(context.memory(), 8 << 20, false)?;
+    sink.append_native(array, context)?;
+    Ok(serde_json::from_str(sink.finish()?.value()).unwrap())
 }
 
 #[test]
@@ -344,7 +357,7 @@ fn completion_input_plan_and_provider_admission_precede_payload() {
     }));
     for (plan, expected) in [
         (union, "set operation/repeated source"),
-        (joined, "join/repeated source"),
+        (joined, "repeated batch source"),
     ] {
         let error = prepare(&plan, 2 << 20).err().unwrap().to_string();
         assert!(error.contains("SL-NATIVE-BATCH") && error.contains(expected));

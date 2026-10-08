@@ -17,6 +17,39 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-GENERAL-AGGREGATE-PRESSURE` and `NATIVE-STREAMED-ORDERING` — general
+  grouping/exact COUNT DISTINCT with explicit native spill, and global ordering
+  plus draining Limit/Offset over complete single-use input, under
+  PERF-03/06/10/12 and CG-20/21. The [aggregate design](native-aggregate-pressure-2026-10-07.md)
+  and [ordering design](native-streamed-ordering-2026-10-07.md) reuse relational
+  Ordering, the native query run store, exact reducers, credited builders and
+  existing result/writer owners. No error-triggered retry or fallback is added.
+  - Runtime `8a207745` passes 14 acceptance gates, 109 public streaming cases,
+    27,373 existing public cases, 202 direct cases, 48 batch checks, 19 format
+    checks and all 129 Full43 results. Constrained resident denial, ample
+    controls and native spill completion cover growing groups and exact DISTINCT.
+    Cancellation, corruption, quota/consumer failure, source change, publication
+    and dead-owner cleanup/restart retain their complete failure evidence.
+    The [report and independently inspected packet](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
+    distinguish the 16-MiB native streamed pressure grant, file-backed grants and
+    public 1-GiB minimum; none is a total-process RSS guarantee.
+  - Affected support checks, four actual native examples and local browser/search
+    QA pass. [PR #1531](https://github.com/depsilon/shardloom/pull/1531) merged at
+    `9529bd780904d1d337e6f8cf3c23594c1a42b7b5` after all 39 hosted checks on
+    `a1f7268c726d80d154e5d4e310a291c3f65e209e` passed. Accepted/merged trees match;
+    963 of 964 runtime assets are byte-identical to the accepted runtime, and
+    the remaining Python module differs only in its named `from_batches`
+    docstring, verified by whole-module AST comparison. The binary is unchanged.
+    Automated review completed without posted findings; no submitted approval
+    is inferred. The [hosted receipt](../benchmarks/evidence/native-stateful-hosted-2026-10-08.json)
+    preserves exact checks and actual preview/production search, identical guide
+    text and the merged report link. Original local records retain their
+    historical hosted-pending status.
+  - This closes those two finite families, not join/window/pivot pressure,
+    repeated-source spool, execution resume, compatibility streaming writers or
+    fanout, broader intake types/limits, allocation coverage, or whole PERF/CG
+    owners. No speedup claim, package publication or version bump follows.
+
 - [x] `NATIVE-INPUT-COMPLETION` — finite completion-aware input under
   PERF-03/07/11/12 and CG-5/19/20/21. One private native batch flows through pure
   scan/filter/project into incremental results, bounded collect or one native

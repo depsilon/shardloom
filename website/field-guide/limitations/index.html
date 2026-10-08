@@ -110,8 +110,8 @@ for the detailed evidence behind this scope.</p>
 </tr>
 <tr>
 <td>Memory and recovery</td>
-<td>Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, nullable multi-key relational ordering spill, and explicit general aggregation spill in current source builds.</td>
-<td>Spill remains operator-specific; join/window/pivot state, broader reader/codec accounting, and whole-process RSS bounds remain separate work.</td>
+<td>Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, nullable multi-key relational ordering spill, and explicit general aggregation and join spill in current source builds.</td>
+<td>Spill remains operator-specific; window/pivot pressure, broader reader/codec accounting, and whole-process RSS bounds remain separate work. Recovery is owned cleanup and restart, not resuming unfinished execution.</td>
 </tr>
 <tr>
 <td>Physical layout</td>
@@ -133,12 +133,16 @@ numeric/string finalization buffers, with local and hosted acceptance complete
 in PR #1529. Child decoder scratch and structural metadata remain separate.
 Default input remains resident under the query grant. Opt-in
 <a href="/field-guide/python-surface#consume-results-in-batches">streaming input</a> admits
-one finite source used once through scan/filter/project, sorting, aggregation
-and draining limits, with one retained native input batch and observed end-of-input
-required for success. Ordering and general aggregation can use an explicit
+one finite batch source used once through scan/filter/project, sorting, aggregation,
+joins and draining limits, alongside ordinary file/resident sources, with one
+retained native input batch and observed end-of-input required for success.
+Ordering, general aggregation and joins can use an explicit
 shared native spill policy; see the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md">scope and acceptance</a>.
-Other stateful families, repeated-source plans and streamed compatibility writes remain denied.
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md">ordering/aggregate acceptance</a>
+and <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-join-pressure-2026-10-08.md">join acceptance</a>.
+Join local acceptance passes; hosted integration remains pending. Other stateful
+families, repeated batch-source use, multiple batch producers and streamed
+compatibility writes remain denied.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.</p>
@@ -222,8 +226,9 @@ failures, including output integrity, owned cleanup and documented recovery beha
 <li>Bind correctness, operating measurements, API compatibility and support/upgrade instructions
 to the approved release source and binary.</li>
 </ul>
-<p>Ordering and general aggregation spill have quota, corruption, cancellation and consumer-failure
-coverage. Join/window/pivot spill and broader reader/codec accounting remain open. A stable
+<p>Ordering, general aggregation and join spill have quota, corruption, cancellation and
+consumer-failure coverage. Window/pivot pressure and broader reader/codec accounting
+remain open. A stable
 local release need not wait for cloud integrations or every SQL feature; unsupported work must
 have an explicit boundary. The repository owns the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/release/production-certification-gate.md#local-engine-preview-exit-criteria">full acceptance checklist</a>.</p>

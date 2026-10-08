@@ -28,6 +28,11 @@ pub struct ExecutedVortexBatchInput {
     pub ordering_batches_detached: u64,
     /// Counts rows at each ordering boundary, not distinct source rows or bytes.
     pub ordering_rows_detached: u64,
+    /// Build batches compacted by joins in a streamed execution. Counts each
+    /// retention boundary, including ordinary sources in the same plan.
+    pub join_build_batches_detached: u64,
+    /// Rows copied at those build boundaries, not distinct source rows or bytes.
+    pub join_build_rows_detached: u64,
 }
 
 impl Default for ExecutedVortexBatchInput {
@@ -44,6 +49,8 @@ impl Default for ExecutedVortexBatchInput {
             output_ownership_detached: true,
             ordering_batches_detached: 0,
             ordering_rows_detached: 0,
+            join_build_batches_detached: 0,
+            join_build_rows_detached: 0,
         }
     }
 }
@@ -56,7 +63,7 @@ pub struct VortexRelationalBatchInput<'p, 'i> {
 }
 
 impl PreparedVortexRelational {
-    /// Attach one source to an already bound, admitted single-source plan. Each call
+    /// Attach one source to an already bound plan with one single-use batch URI. Each call
     /// must transfer a private `from_batch_columns` source from the supplied
     /// session; `None` proves end-of-input. The callback must not reenter query
     /// admission. Its errors prevent a successful final report/publication.
@@ -263,22 +270,51 @@ impl VortexRelationalBatchInput<'_, '_> {
 pub(super) fn classify(
     plan: &VortexRelationalPlan,
     uri: &shardloom_core::DatasetUri,
-    depth: usize,
 ) -> Result<()> {
-    if depth > 24 {
-        return Err(failed("streaming plan exceeds 24 operator levels"));
+    let mut nodes = 0;
+    match count_sources(plan, uri, 0, &mut nodes)? {
+        1 => Ok(()),
+        0 => Err(failed(
+            "streaming plan does not use its declared batch source",
+        )),
+        _ => Err(failed(
+            "streaming input does not admit repeated batch source use; choose explicit resident mode",
+        )),
+    }
+}
+
+fn count_sources(
+    plan: &VortexRelationalPlan,
+    uri: &shardloom_core::DatasetUri,
+    depth: usize,
+    nodes: &mut usize,
+) -> Result<usize> {
+    *nodes += 1;
+    if depth > 24 || *nodes > 128 {
+        return Err(failed("streaming plan exceeds 24 levels or 128 operators"));
     }
     let operator = match plan {
-        VortexRelationalPlan::Scan(scan) if &scan.source_uri == uri => return Ok(()),
-        VortexRelationalPlan::Project(project) => return classify(&project.input, uri, depth + 1),
-        VortexRelationalPlan::Filter(filter) => return classify(&filter.input, uri, depth + 1),
-        VortexRelationalPlan::Sort(sort) => return classify(&sort.input, uri, depth + 1),
-        VortexRelationalPlan::Limit(limit) => return classify(&limit.input, uri, depth + 1),
-        VortexRelationalPlan::Aggregate(aggregate) => {
-            return classify(&aggregate.input, uri, depth + 1);
+        VortexRelationalPlan::Scan(scan) => return Ok(usize::from(&scan.source_uri == uri)),
+        VortexRelationalPlan::Project(project) => {
+            return count_sources(&project.input, uri, depth + 1, nodes);
         }
-        VortexRelationalPlan::Scan(_) => "another source",
-        VortexRelationalPlan::Join(_) => "join/repeated source",
+        VortexRelationalPlan::Filter(filter) => {
+            return count_sources(&filter.input, uri, depth + 1, nodes);
+        }
+        VortexRelationalPlan::Sort(sort) => {
+            return count_sources(&sort.input, uri, depth + 1, nodes);
+        }
+        VortexRelationalPlan::Limit(limit) => {
+            return count_sources(&limit.input, uri, depth + 1, nodes);
+        }
+        VortexRelationalPlan::Aggregate(aggregate) => {
+            return count_sources(&aggregate.input, uri, depth + 1, nodes);
+        }
+        VortexRelationalPlan::Join(join) => {
+            let left = count_sources(&join.left, uri, depth + 1, nodes)?;
+            let right = count_sources(&join.right, uri, depth + 1, nodes)?;
+            return Ok(left + right);
+        }
         VortexRelationalPlan::Set(_) => "set operation/repeated source",
         VortexRelationalPlan::Window(_) => "window",
         VortexRelationalPlan::Subquery(_) | VortexRelationalPlan::CorrelatedSubquery(_) => {

@@ -485,6 +485,30 @@ fn append_execution(
             result.ordered_aggregate_distinct_rows.to_string(),
         ),
         (
+            "relational_ordered_join_stages".into(),
+            result.ordered_join_stages.to_string(),
+        ),
+        (
+            "relational_ordered_join_build_rows".into(),
+            result.ordered_join_build_rows.to_string(),
+        ),
+        (
+            "relational_ordered_join_probe_rows".into(),
+            result.ordered_join_probe_rows.to_string(),
+        ),
+        (
+            "relational_ordered_join_candidate_rows".into(),
+            result.ordered_join_candidate_rows.to_string(),
+        ),
+        (
+            "relational_ordered_join_match_records".into(),
+            result.ordered_join_match_records.to_string(),
+        ),
+        (
+            "relational_ordered_join_lookup_blocks".into(),
+            result.ordered_join_lookup_blocks.to_string(),
+        ),
+        (
             "resident_source_opens".into(),
             result.runtime.prepared_source_opens.to_string(),
         ),
@@ -557,9 +581,11 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_output_ownership_detached", input.output_ownership_detached.to_string()),
         ("native_input_ordering_batches_detached", input.ordering_batches_detached.to_string()),
         ("native_input_ordering_rows_detached", input.ordering_rows_detached.to_string()),
+        ("native_input_join_build_batches_detached", input.join_build_batches_detached.to_string()),
+        ("native_input_join_build_rows_detached", input.join_build_rows_detached.to_string()),
         ("native_batch_input_storage", "single_current_native_batch;released_before_next_demand;no_input_spill".into()),
         ("native_input_byte_accounting", "logical_values_offsets_validity_and_names;not_allocated_capacity_or_rss".into()),
-        ("resident_source_generation_validation", "declared_schema_checked_each_batch;explicit_source_end;all_input_owners_released;final_consumer_completed".into()),
+        ("resident_source_generation_validation", "declared_schema_checked_each_batch;explicit_source_end;all_input_owners_released;bound_file_generations_checked_before_and_after_final_consumer;final_consumer_completed".into()),
     ];
     for (key, value) in completed {
         fields.retain(|(existing, _)| existing != key);

@@ -103,6 +103,7 @@ fn native_relational_on_precedes_null_extension_for_every_join_kind() {
                 baseline
             );
         }
+        super::join_spill_tests::assert_ordered(&left, &plan, expected.as_array().unwrap());
     }
 }
 
@@ -168,6 +169,7 @@ fn native_relational_constant_on_and_empty_relations_preserve_outer_semantics() 
             )),
             expected
         );
+        super::join_spill_tests::assert_ordered(&left, &plan, expected.as_array().unwrap());
         for (left, right, expected) in [
             (
                 &left,
@@ -191,6 +193,7 @@ fn native_relational_constant_on_and_empty_relations_preserve_outer_semantics() 
                 )),
                 expected
             );
+            super::join_spill_tests::assert_ordered(left, &plan, expected.as_array().unwrap());
         }
     }
 }

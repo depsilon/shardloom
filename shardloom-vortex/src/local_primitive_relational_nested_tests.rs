@@ -396,16 +396,15 @@ fn native_nested_full_join_null_extends_both_payload_sides() {
         })
         .collect(),
     }));
-    assert_eq!(
-        collect(&plan),
-        vec![
-            serde_json::json!({"left_id":1,"right_id":null,"left_items":[9,null],"right_items":null}),
-            serde_json::json!({"left_id":2,"right_id":null,"left_items":[],"right_items":null}),
-            serde_json::json!({"left_id":3,"right_id":3,"left_items":null,"right_items":[30]}),
-            serde_json::json!({"left_id":4,"right_id":null,"left_items":[-4],"right_items":null}),
-            serde_json::json!({"left_id":null,"right_id":5,"left_items":null,"right_items":[50]}),
-        ]
-    );
+    let expected = vec![
+        serde_json::json!({"left_id":1,"right_id":null,"left_items":[9,null],"right_items":null}),
+        serde_json::json!({"left_id":2,"right_id":null,"left_items":[],"right_items":null}),
+        serde_json::json!({"left_id":3,"right_id":3,"left_items":null,"right_items":[30]}),
+        serde_json::json!({"left_id":4,"right_id":null,"left_items":[-4],"right_items":null}),
+        serde_json::json!({"left_id":null,"right_id":5,"left_items":null,"right_items":[50]}),
+    ];
+    assert_eq!(collect(&plan), expected);
+    super::join_spill_tests::assert_ordered(&left, &plan, &expected);
 }
 
 #[test]

@@ -84,14 +84,23 @@ decoder allocation. At most one native input batch is retained.
 The subsequent [ordering and general aggregate unit](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
 has complete local acceptance and packet inspection for Scan/Filter/Project/Sort/Limit/Aggregate.
 Limits drain all input; native ordering and general aggregation can share an
-explicit spill policy. Its hosted integration remains pending. Resident input
-remains the default; no RSS bound, public maturity label or published v0.4.0
-contents change follows from this finite addition.
+explicit spill policy. Hosted integration completed in
+[PR #1531](https://github.com/depsilon/shardloom/pull/1531), with all 39 checks
+passing and the accepted runtime unchanged. The current
+[join pressure unit](../architecture/native-join-pressure-2026-10-08.md) adds an
+explicit native strategy for all seven join kinds and one single-use batch source
+on either side, alongside ordinary file/resident sources. Its
+[complete local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
+passes constrained native spill, all 213 streaming cases, unchanged public/direct
+regressions, 129 Full43 results and independent packet inspection. Hosted
+integration remains pending.
+Resident input remains the default; no RSS bound, public maturity label or
+published v0.4.0 contents change follows from these additions.
 
 The remaining maturity requirements are an explicit supported local workload/platform envelope,
 accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide
 pressure, cancellation, fault and recovery evidence. A query memory grant is not a process-RSS
-ceiling; join/window/pivot pressure and broader recovery remain incomplete. The
+ceiling; join integration, window/pivot pressure and broader recovery remain incomplete. The
 [local-engine exit criteria](production-certification-gate.md#local-engine-preview-exit-criteria)
 define the required evidence and approval. Missing cloud integrations or complete SQL parity do
 not, by themselves, block a stable release for a narrower declared local scope.

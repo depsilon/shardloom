@@ -33,6 +33,8 @@ mod dynamic_tests;
 mod expression_tests;
 #[path = "local_primitive_relational_join_condition_tests.rs"]
 mod join_condition_tests;
+#[path = "local_primitive_relational_join_spill_tests.rs"]
+mod join_spill_tests;
 #[path = "local_primitive_relational_memory_tests.rs"]
 mod memory_tests;
 #[path = "local_primitive_relational_nested_tests.rs"]

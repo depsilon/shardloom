@@ -111,7 +111,10 @@ impl<'a> Binder<'a> {
         build: impl FnOnce(&ResidentVortexSession) -> Result<ResidentMemorySource>,
     ) -> Result<()> {
         if self.execution.is_some()
-            || self.batch_source.is_some()
+            || self
+                .batch_source
+                .as_ref()
+                .is_some_and(|(prior, _)| *prior == uri)
             || !uri.as_str().starts_with("memory://")
             || uri.as_str().len() <= "memory://".len()
             || uri.as_str().len() > 16_384
@@ -120,7 +123,7 @@ impl<'a> Binder<'a> {
                 .values
                 .iter()
                 .any(|(prior, _)| *prior == uri)
-            || self.sources.values.len() + self.memory_sources.values.len() >= 128
+            || self.source_count() >= 128
         {
             return Err(failed(
                 "memory source requires a unique bounded memory URI before execution",
@@ -143,14 +146,18 @@ impl<'a> Binder<'a> {
     ) -> Result<()> {
         if self.execution.is_some()
             || self.batch_source.is_some()
-            || !self.sources.values.is_empty()
-            || !self.memory_sources.values.is_empty()
+            || self
+                .memory_sources
+                .values
+                .iter()
+                .any(|(prior, _)| *prior == uri)
+            || self.source_count() >= 128
             || !uri.as_str().starts_with("memory://")
             || uri.as_str().len() <= "memory://".len()
             || uri.as_str().len() > 16_384
         {
             return Err(super::batch_input::failed(
-                "streaming input requires exactly one declared memory source before execution",
+                "streaming input requires one unique declared batch source before execution",
             ));
         }
         self.charge(uri.as_str().len() * 8 + 4096)?;
@@ -169,9 +176,15 @@ impl<'a> Binder<'a> {
 
     pub(super) fn validate_batch_plan(&self, plan: &VortexRelationalPlan) -> Result<()> {
         if let Some((uri, _)) = &self.batch_source {
-            super::batch_input::classify(plan, uri, 0)?;
+            super::batch_input::classify(plan, uri)?;
         }
         Ok(())
+    }
+
+    fn source_count(&self) -> usize {
+        self.sources.values.len()
+            + self.memory_sources.values.len()
+            + usize::from(self.batch_source.is_some())
     }
 
     pub(super) fn reject_dynamic_batch_input(&self) -> Result<()> {
@@ -184,14 +197,12 @@ impl<'a> Binder<'a> {
     }
 
     fn input(&mut self, uri: &shardloom_core::DatasetUri) -> Result<SourceIndex> {
-        if let Some((declared, _)) = &self.batch_source {
-            return if declared == uri {
-                Ok(SourceIndex::Batch)
-            } else {
-                Err(super::batch_input::failed(
-                    "streaming input cannot share an execution with another source; choose explicit resident mode",
-                ))
-            };
+        if self
+            .batch_source
+            .as_ref()
+            .is_some_and(|(declared, _)| declared == uri)
+        {
+            return Ok(SourceIndex::Batch);
         }
         if let Some(index) = self
             .memory_sources
@@ -322,11 +333,6 @@ impl<'a> Binder<'a> {
     }
 
     pub(super) fn source(&mut self, uri: &shardloom_core::DatasetUri) -> Result<usize> {
-        if self.batch_source.is_some() {
-            return Err(super::batch_input::failed(
-                "streaming input cannot add another file source",
-            ));
-        }
         if uri.as_str().len() > 16_384 {
             return Err(failed("source URI exceeds 16384 bytes"));
         }
@@ -343,7 +349,7 @@ impl<'a> Binder<'a> {
                     "execution-time binding cannot add an undeclared source",
                 ));
             }
-            if self.sources.values.len() + self.memory_sources.values.len() >= 128 {
+            if self.source_count() >= 128 {
                 return Err(failed("relational preparation exceeds 128 sources"));
             }
             self.paths.reserve_one()?;

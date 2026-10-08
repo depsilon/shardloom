@@ -38,7 +38,7 @@ pub(super) fn certificate(
             },
             statistics_availability: if batch_sources > 0 {
                 format!(
-                    "completion_aware_native_batch_sources={batch_sources};global_input_statistics_unavailable"
+                    "completion_aware_native_batch_sources={batch_sources};batch_global_statistics_unavailable;held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}"
                 )
             } else {
                 format!(
@@ -56,12 +56,12 @@ pub(super) fn certificate(
             accepted_operations: vec!["native_bound_scan".into()],
             rejected_operations: vec![],
             guarantee: if input.is_some() {
-                "declared_types_checked_each_batch;single_use_source_end_observed;all_input_buffer_owners_released_before_next_demand;output_ownership_detached".into()
+                "declared_types_checked_each_batch;single_use_source_end_observed;all_input_buffer_owners_released_before_next_demand;output_ownership_detached;bound_file_generations_checked_before_and_after_final_consumer".into()
             } else {
                 "bound_types_and_generation_checked_before_and_after_final_consumer".into()
             },
             proof_basis: format!(
-                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={}",
+                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={}",
                 metrics.scans_started.get(),
                 metrics.scans_pruned.get(),
                 metrics.scan_batches.get(),
@@ -72,9 +72,17 @@ pub(super) fn certificate(
                 metrics.schema_discovery_stages.get(),
                 metrics.ordering_batches_detached.get(),
                 metrics.ordering_rows_detached.get(),
+                metrics.join_build_batches_detached.get(),
+                metrics.join_build_rows_detached.get(),
                 metrics.ordered_aggregate_stages.get(),
                 metrics.ordered_aggregate_input_rows.get(),
-                metrics.ordered_aggregate_distinct_rows.get()
+                metrics.ordered_aggregate_distinct_rows.get(),
+                metrics.ordered_join_stages.get(),
+                metrics.ordered_join_build_rows.get(),
+                metrics.ordered_join_probe_rows.get(),
+                metrics.ordered_join_candidate_rows.get(),
+                metrics.ordered_join_match_records.get(),
+                metrics.ordered_join_lookup_blocks.get()
             ),
             residual_expression: (metrics.residual_batches.get() > 0).then(|| {
                 format!(
@@ -127,8 +135,9 @@ pub(super) fn certificate(
                 to_state: RepresentationState::DecodedColumnar,
                 required_by: "typed_keys_and_bounded_native_result_consumption".into(),
                 reason: format!(
-                    "native key execution and native take followed by explicit compact output copies; streaming ordering input is separately compacted before retention; ordered aggregate stages={} compact typed base/distinct records, retained group keys and completed results through the same query owner; unary scalar access and retained row state use the shared operation kernels and native output builder; unary stages retaining the complete population={}; native ordering run materialization performed={spilled}; physical decoder bytes are unobserved, so the legacy numeric bytes field is not a zero-decode claim; final output buffer bytes are reported separately; reservations exclude upstream provider scratch and are not an RSS bound",
+                    "native key execution and native take followed by explicit compact output copies; streaming ordering input is separately compacted before retention; ordered aggregate stages={} compact typed base/distinct records, retained group keys and completed results through the same query owner; ordered join stages={} compact build/candidate/output records with exact key and ON evaluation; unary scalar access and retained row state use the shared operation kernels and native output builder; unary stages retaining the complete population={}; native ordering run materialization performed={spilled}; physical decoder bytes are unobserved, so the legacy numeric bytes field is not a zero-decode claim; final output buffer bytes are reported separately; reservations exclude upstream provider scratch and are not an RSS bound",
                     metrics.ordered_aggregate_stages.get(),
+                    metrics.ordered_join_stages.get(),
                     metrics.unary_population_retention.get()
                 ),
                 bytes_decoded: 0,

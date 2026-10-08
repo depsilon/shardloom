@@ -1,4 +1,4 @@
-# Native query sort spill
+# Native query spill
 
 The local numeric sort operator can use explicitly admitted temporary Vortex runs.
 This is separate from synthetic spill tests and from durable ingestion, which still
@@ -106,7 +106,8 @@ fields, repeated flags, and simultaneous common and embedded spill declarations
 are rejected. The selected specialized numeric sort or aggregate provider retains
 its existing contract: the common `buffer_bytes` maps to that provider's
 `memory_bytes`, including the aggregate's 2 MiB minimum. For composed relational
-ordering and general aggregation it is a retained-input flush threshold, at least 1 MiB and no larger
+ordering, general aggregation and joins it is a retained-input flush threshold,
+at least 1 MiB and no larger
 than the query grant. Run metadata, readers, native keys and output allocations
 also consume the same grant; a threshold is not a second budget or a guarantee
 that every physical source layout fits.
@@ -121,7 +122,7 @@ does not establish zero-decode execution or a total RSS ceiling.
 `VortexRelationalSpillPolicy::cleanup_abandoned` recovers one explicitly selected
 owned directory through the same namespace/identity rules. It refuses active,
 unknown, replaced or symlinked entries. This permits cleanup and restart, not
-resuming an interrupted operator. Join, set, window and pivot state retain
+resuming an interrupted operator. Set, window and pivot state retain
 separate pressure contracts. Relational fanout remains separate work. See the
 [ordering contract and acceptance](../architecture/native-relational-resources-2026-10-02.md).
 
@@ -134,8 +135,9 @@ first-seen group order and the existing typed, null and floating reduction
 semantics. All stages share the query grant and disk quota. Without an explicit
 policy, resident aggregation retains its deterministic memory denial.
 
-One finite `streaming=True` source can compose filters, projections, sorting,
-aggregation and limits. Limits and offsets apply globally and drain all input,
+One finite `streaming=True` batch source can compose filters, projections, sorting,
+aggregation, joins and limits alongside ordinary file/resident sources. Limits
+and offsets apply globally and drain all input,
 including zero limits. A late producer or value error prevents completion and
 file publication. Incremental results, bounded collection and one new native
 Vortex destination are admitted; compatibility streaming writes, repeated
@@ -175,3 +177,76 @@ record actual constrained spill, complete output and failure/cleanup proof.
 File-backed aggregate workflows also retain all eight admitted writers under
 their individual dtype contracts. This does not extend the streaming-input
 writer contract or establish a whole-process memory bound.
+
+## Joins and one-shot input
+
+Current source builds admit the same explicit spill policy for Inner, Left,
+Right, Full, Semi, Anti and Cross joins. The default resident strategy still
+requires its build state to fit the query grant. An explicit spill policy selects
+native ordered build records, bounded exact candidate lookup and, for Right/Full
+joins, spilled match tracking and restoration of unmatched rows to their original
+order. Hash collisions still require exact key equality. Nullable, typed and
+static nested keys retain their existing semantics, including null nonmatches.
+ON conditions keep the existing candidate order and whole-batch error behavior.
+
+```python
+import tempfile
+import shardloom as sl
+
+def incoming_orders():
+    yield [{"customer_id": 1, "amount": 3}, {"customer_id": 2, "amount": 5}]
+    yield [{"customer_id": 1, "amount": 4}]
+
+ctx = sl.ShardLoomContext()
+customers = ctx.from_rows(
+    [{"customer_id": 1, "customer": "Ada"}],
+    schema={"customer_id": "int64", "customer": "utf8"},
+)
+orders = ctx.from_batches(
+    incoming_orders, schema={"customer_id": "int64", "amount": "int64"},
+    streaming=True,
+)
+workflow = orders.join(customers, on="customer_id", how="left").select(
+    "f.amount AS amount", "d.customer AS customer",
+)
+with tempfile.TemporaryDirectory(prefix="shardloom-query-") as workspace:
+    with workflow.iter_batches(
+        memory_gb=1, max_parallelism=1,
+        spill={"workspace": workspace, "quota_bytes": 64 << 20, "buffer_bytes": 1 << 20},
+    ) as batches:
+        for batch in batches:
+            print(batch.result_rows)
+        assert batches.report is not None
+```
+
+The complete result has `(amount, customer)` values `(3, "Ada")`, `(5, None)`
+and `(4, "Ada")`, in that order. This small example need not write a disk run.
+One finite batch source can occur on either join side and compose with nested
+joins, aggregation, ordering and draining limits. Its URI must occur exactly
+once; multiple batch producers and repeated use of a batch source are rejected
+before consumption. Ordinary file/resident sources may occur more than once.
+Batch input types, row/frame/count limits and destination admission stay as
+defined in the [batch contract](../architecture/native-bounded-adapters-2026-10-06.md).
+
+Build records, lookup blocks, candidate copies, ON work, match/restoration state,
+readers and delivered arrays share one query grant. All temporary runs share one
+disk quota. A hot key or Cross join can still require quadratic work; spill does
+not promise faster execution. A single large value, schema/footer, exhausted
+grant or disk quota can still produce a deterministic denial. Public reports
+expose `relational_ordered_join_*` counts for stages, build/probe/candidate rows,
+match records and lookup blocks, alongside the shared
+`relational_spill_*` disk/reader/cleanup counters. Streaming reports separately
+count detached join build rows and batches in `native_input_join_build_*` fields.
+Those detachment counts cover each build boundary, including ordinary sources
+in a streamed plan; they are not counts of distinct input rows or copied bytes.
+
+File/resident joins retain the eight scalar writers and the seven admitted
+typed/nested writers under each format's representability contract. Streamed
+input permits incremental results, bounded collection or one new native Vortex
+file. Final success requires complete input and source validation, sink completion
+and owned cleanup. Errors, cancellation, replaced/corrupt runs or failed cleanup
+cannot publish a successful result. Dead-owner recovery permits safe cleanup and
+restart, not resuming an interrupted join. See the
+[join contract](../architecture/native-join-pressure-2026-10-08.md) and
+[complete local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
+for the exact implementation and evidence. Hosted integration remains pending.

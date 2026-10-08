@@ -6,6 +6,7 @@ use super::{
     LocalVortexScanPlan, MaterializedPredicateEvaluator, VortexLocalPrimitiveExecutionPolicy,
     VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest,
     native_capacity::ReservedVec,
+    native_payload::detach as detach_batch,
     native_relational_aggregate,
     native_relational_batch::{failed, index_array, take_column},
     native_relational_expression, native_relational_join,
@@ -88,6 +89,16 @@ pub struct ExecutedVortexRelational {
     pub ordered_aggregate_input_rows: u64,
     /// Additional nonnull distinct records, with duplicate measure aliases shared.
     pub ordered_aggregate_distinct_rows: u64,
+    /// Join nodes executed through the explicit ordered native spill strategy.
+    pub ordered_join_stages: u64,
+    pub ordered_join_build_rows: u64,
+    pub ordered_join_probe_rows: u64,
+    /// Exact-key candidates before ON, including evaluated semi/anti batches.
+    pub ordered_join_candidate_rows: u64,
+    /// Right/Full matched positions recorded before adjacent deduplication.
+    pub ordered_join_match_records: u64,
+    /// Bounded lookup blocks loaded, including resident and native-run blocks.
+    pub ordered_join_lookup_blocks: u64,
     pub output_columns: Vec<String>,
     /// Physical decoder work inside upstream providers is not measured here.
     pub bytes_decoded: Option<u64>,
@@ -494,9 +505,17 @@ struct Metrics<'a> {
     ordered_aggregate_stages: Cell<u64>,
     ordered_aggregate_input_rows: Cell<u64>,
     ordered_aggregate_distinct_rows: Cell<u64>,
+    ordered_join_stages: Cell<u64>,
+    ordered_join_build_rows: Cell<u64>,
+    ordered_join_probe_rows: Cell<u64>,
+    ordered_join_candidate_rows: Cell<u64>,
+    ordered_join_match_records: Cell<u64>,
+    ordered_join_lookup_blocks: Cell<u64>,
     input: Option<&'a dyn batch_input::Input>,
     ordering_batches_detached: Cell<u64>,
     ordering_rows_detached: Cell<u64>,
+    join_build_batches_detached: Cell<u64>,
+    join_build_rows_detached: Cell<u64>,
 }
 
 impl Metrics<'_> {
@@ -522,11 +541,20 @@ impl Metrics<'_> {
         add(&self.ordering_rows_detached, array.len() as u64)?;
         Ok(detached)
     }
-}
 
-fn detach_batch(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
-    let indices = index_array(array.len(), false, context, |row| Ok(Some(row)))?;
-    super::native_payload::take(array, &indices, array.dtype(), context)
+    fn detach_join_build(
+        &self,
+        array: ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        if self.input.is_none() {
+            return Ok(array);
+        }
+        let detached = detach_batch(&array, context)?;
+        add(&self.join_build_batches_detached, 1)?;
+        add(&self.join_build_rows_detached, array.len() as u64)?;
+        Ok(detached)
+    }
 }
 
 fn add(counter: &Cell<u64>, value: u64) -> Result<()> {
@@ -540,7 +568,7 @@ fn add(counter: &Cell<u64>, value: u64) -> Result<()> {
 }
 
 impl PreparedVortexRelational {
-    /// Permit native ordering and general aggregate runs within the existing grant.
+    /// Permit native ordering, general aggregate and join runs in the existing grant.
     /// This validates configuration only; execution validates the workspace.
     /// # Errors
     /// Rejects invalid configuration and a buffer threshold beyond the query grant.
@@ -795,6 +823,8 @@ impl PreparedVortexRelational {
         if let Some(input) = &mut input {
             input.ordering_batches_detached = metrics.ordering_batches_detached.get();
             input.ordering_rows_detached = metrics.ordering_rows_detached.get();
+            input.join_build_batches_detached = metrics.join_build_batches_detached.get();
+            input.join_build_rows_detached = metrics.join_build_rows_detached.get();
         }
         // No input schema sampling, and no missing-schema sentinel for empty output.
         if !emitted.get() {
@@ -835,6 +865,12 @@ impl PreparedVortexRelational {
             ordered_aggregate_stages: metrics.ordered_aggregate_stages.get(),
             ordered_aggregate_input_rows: metrics.ordered_aggregate_input_rows.get(),
             ordered_aggregate_distinct_rows: metrics.ordered_aggregate_distinct_rows.get(),
+            ordered_join_stages: metrics.ordered_join_stages.get(),
+            ordered_join_build_rows: metrics.ordered_join_build_rows.get(),
+            ordered_join_probe_rows: metrics.ordered_join_probe_rows.get(),
+            ordered_join_candidate_rows: metrics.ordered_join_candidate_rows.get(),
+            ordered_join_match_records: metrics.ordered_join_match_records.get(),
+            ordered_join_lookup_blocks: metrics.ordered_join_lookup_blocks.get(),
             output_columns: root.fields.iter().map(|(name, _)| name.clone()).collect(),
             bytes_decoded: None,
             native_io_certificate: certificate,
@@ -957,6 +993,33 @@ impl PreparedVortexRelational {
                 window.finish(context, batch_rows, consume)
             }
             NodeKind::Join { left, right, spec } => {
+                #[cfg(feature = "vortex-write")]
+                if let Some(spill) = &metrics.spill {
+                    let report = native_relational_join::spill::run(
+                        spec,
+                        &right.fields,
+                        spill,
+                        context,
+                        batch_rows,
+                        |accept| self.run(right, context, metrics, batch_rows, parameter, accept),
+                        |accept| self.run(left, context, metrics, batch_rows, parameter, accept),
+                        consume,
+                    )?;
+                    add(&metrics.ordered_join_stages, 1)?;
+                    add(&metrics.ordered_join_build_rows, report.build_rows)?;
+                    add(&metrics.ordered_join_probe_rows, report.probe_rows)?;
+                    add(&metrics.ordered_join_candidate_rows, report.candidate_rows)?;
+                    add(&metrics.ordered_join_match_records, report.match_records)?;
+                    add(&metrics.ordered_join_lookup_blocks, report.lookup_blocks)?;
+                    if metrics.input.is_some() {
+                        add(
+                            &metrics.join_build_batches_detached,
+                            report.build_batches_detached,
+                        )?;
+                        add(&metrics.join_build_rows_detached, report.build_rows)?;
+                    }
+                    return Ok(());
+                }
                 let mut join = native_relational_join::Join::new(spec, context.memory())?;
                 self.run(
                     right,
@@ -964,7 +1027,7 @@ impl PreparedVortexRelational {
                     metrics,
                     batch_rows,
                     parameter,
-                    &mut |array| join.build(array, context),
+                    &mut |array| join.build(metrics.detach_join_build(array, context)?, context),
                 )?;
                 self.run(
                     left,
