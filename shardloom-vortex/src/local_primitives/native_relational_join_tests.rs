@@ -276,3 +276,86 @@ fn native_relational_join_null_root_hides_keys_and_payload_before_matching() {
     );
     assert_eq!(session.memory().snapshot().reserved_bytes, 0);
 }
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn ordered_join_direct_null_roots_preserve_outer_rows_and_retained_child_credits() {
+    let workspace = std::env::temp_dir().join(format!(
+        "shardloom-join-root-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+    std::fs::create_dir(&workspace).unwrap();
+    let policy =
+        crate::relational_query::VortexRelationalSpillPolicy::new(&workspace, 32 << 20, 1 << 20)
+            .unwrap();
+    let array = |ids: [u32; 3]| {
+        StructArray::new(
+            FieldNames::from(["key", "id"]),
+            vec![
+                PrimitiveArray::from_iter([1u64, 1, 2]).into_array(),
+                PrimitiveArray::from_iter(ids).into_array(),
+            ],
+            3,
+            Validity::from_iter([true, false, true]),
+        )
+        .into_array()
+    };
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let mut held = Vec::new();
+    let expected = [
+        (Some(10), Some(20)),
+        (None, None),
+        (Some(12), Some(22)),
+        (None, None),
+    ];
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let state =
+                crate::local_primitives::native_relational_spill::State::new(&policy, context)?;
+            let report = spill::run(
+                &spec(Kind::Full),
+                &[
+                    (
+                        "key".into(),
+                        DType::Primitive(PType::U64, Nullability::NonNullable),
+                    ),
+                    (
+                        "id".into(),
+                        DType::Primitive(PType::U32, Nullability::NonNullable),
+                    ),
+                ],
+                &state,
+                context,
+                2,
+                |consume| consume(array([20, 21, 22])),
+                |consume| consume(array([10, 11, 12])),
+                &mut |batch| {
+                    held.push(batch);
+                    Ok(())
+                },
+            )?;
+            assert_eq!(report.output_rows, 4);
+            assert!(state.finish()?.owned_cleanup_completed);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(held.iter().flat_map(pairs).collect::<Vec<_>>(), expected);
+    let child = logical_field_from_native_array(&held[0], "right_id").unwrap();
+    let sliced = child.slice(0..1).unwrap();
+    drop((held, child, session));
+    assert!(memory.snapshot().reserved_bytes > 0);
+    let mut execution = vortex::array::legacy_session().create_execution_ctx();
+    assert!(matches!(
+        result_batch::scalar_value(&sliced, 0, &mut execution).unwrap(),
+        result_batch::Value::UInt(20)
+    ));
+    drop(sliced);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    assert_eq!(std::fs::read_dir(&workspace).unwrap().count(), 0);
+    std::fs::remove_dir(workspace).unwrap();
+}

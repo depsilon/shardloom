@@ -39,6 +39,9 @@ pub(super) struct Condition {
 
 #[path = "native_relational_join_condition.rs"]
 mod condition;
+#[cfg(feature = "vortex-write")]
+#[path = "native_relational_join_spill.rs"]
+pub(super) mod spill;
 
 pub(super) struct Join<'a> {
     spec: &'a Spec,
@@ -244,6 +247,34 @@ impl<'a> Join<'a> {
         context: &NativeExecutionContext<'_>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
+        self.spec
+            .flush(&self.right, left, pairs, written, context, consume)
+    }
+}
+
+impl Spec {
+    fn keep_unpaired_left(&self, matched: bool) -> bool {
+        match self.kind {
+            Kind::LeftSemi => matched,
+            Kind::LeftAnti | Kind::Left | Kind::Full => !matched,
+            _ => false,
+        }
+    }
+
+    fn short_circuit(&self) -> bool {
+        matches!(self.kind, Kind::LeftSemi | Kind::LeftAnti)
+    }
+
+    #[allow(clippy::too_many_arguments)] // Both join strategies share the exact payload builder.
+    fn flush(
+        &self,
+        right_table: &Table,
+        left: Option<&ArrayRef>,
+        pairs: &mut Pairs,
+        written: &mut u64,
+        context: &NativeExecutionContext<'_>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
         let rows = pairs.left.values.len();
         if rows == 0 {
             return Ok(());
@@ -253,14 +284,13 @@ impl<'a> Join<'a> {
             .checked_add(rows as u64)
             .ok_or_else(|| failed("join cardinality overflow"))?;
         let right = self
-            .spec
             .columns
             .iter()
             .any(|(side, _)| *side == Side::Right)
             .then(|| {
-                self.right.gather(
+                right_table.gather(
                     &pairs.right.values,
-                    matches!(self.spec.kind, Kind::Left | Kind::Full),
+                    matches!(self.kind, Kind::Left | Kind::Full),
                     context,
                 )
             })
@@ -269,15 +299,15 @@ impl<'a> Join<'a> {
             .map(|_| {
                 index_array(
                     rows,
-                    matches!(self.spec.kind, Kind::Right | Kind::Full),
+                    matches!(self.kind, Kind::Right | Kind::Full),
                     context,
                     |row| Ok(pairs.left.values[row]),
                 )
             })
             .transpose()?;
         let mut columns = ReservedVec::new(context.memory())?;
-        columns.reserve(self.spec.fields.len())?;
-        for ((side, name), (_, dtype)) in self.spec.columns.iter().zip(&self.spec.fields) {
+        columns.reserve(self.fields.len())?;
+        for ((side, name), (_, dtype)) in self.columns.iter().zip(&self.fields) {
             let array = match side {
                 Side::Left => match (left, &left_indices) {
                     (Some(left), Some(indices)) => take_column(
@@ -305,8 +335,7 @@ impl<'a> Join<'a> {
         }
         let (columns, _ownership) = columns.into_parts();
         let array = StructArray::try_new(
-            self.spec
-                .fields
+            self.fields
                 .iter()
                 .map(|(name, _)| name.as_str())
                 .collect::<FieldNames>(),

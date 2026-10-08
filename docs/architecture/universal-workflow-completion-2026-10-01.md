@@ -244,8 +244,13 @@ aggregation/join pressure work and broader streaming adapters. The
 [ordering and general aggregate unit](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
 now has complete local acceptance and packet inspection, including explicit
 aggregate spill and complete single-use streamed sort/aggregate/draining-limit
-composition. Hosted integration remains pending. Join, window and pivot pressure,
-remaining allocations and broader adapters keep their existing obligations.
+composition. Hosted integration passes in
+[PR #1531](https://github.com/depsilon/shardloom/pull/1531). The subsequent
+[join pressure unit](native-join-pressure-2026-10-08.md) has focused native/public
+proof for all seven kinds, one-shot input on either side, typed/nested writers,
+real constrained spill and owned cleanup/restart. Its frozen broad acceptance
+and hosted integration remain pending. Window/pivot pressure, remaining
+allocations and broader adapters keep their existing obligations.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
 require operational acceptance of a declared support envelope; package availability is complete,
 and cloud/complete-SQL parity is not a blanket prerequisite for that local promise.

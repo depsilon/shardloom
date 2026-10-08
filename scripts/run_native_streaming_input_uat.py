@@ -22,8 +22,14 @@ from native_streaming_order_cases import run as ordering_cases
 from native_streaming_order_pressure_cases import run as ordering_pressure_cases
 from native_streaming_aggregate_cases import run as aggregate_cases
 from native_streaming_aggregate_pressure_cases import run as aggregate_pressure_cases
+from native_streaming_join_cases import run as join_cases
+from native_streaming_join_pressure_cases import run as join_pressure_cases
 from native_streaming_protocol_cases import run as protocol_cases
 import shardloom as sl
+
+FAMILIES = {"input": public_cases, "ordering": ordering_cases, "ordering-pressure": ordering_pressure_cases,
+            "aggregate": aggregate_cases, "aggregate-pressure": aggregate_pressure_cases,
+            "join": join_cases, "join-pressure": join_pressure_cases, "protocol": protocol_cases}
 
 
 def sha(path):
@@ -106,6 +112,7 @@ def main():
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--uat-root", type=Path, required=True)
     parser.add_argument("--operation-timeout", type=float, default=120)
+    parser.add_argument("--families", nargs="+", choices=tuple(FAMILIES), default=list(FAMILIES))
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
     root = require_local_path(args.uat_root, Path.home(), sys.platform)
@@ -121,6 +128,8 @@ def main():
               Path(__file__).with_name("native_streaming_order_pressure_cases.py"),
               Path(__file__).with_name("native_streaming_aggregate_cases.py"),
               Path(__file__).with_name("native_streaming_aggregate_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_join_cases.py"),
+              Path(__file__).with_name("native_streaming_join_pressure_cases.py"),
               Path(__file__).with_name("native_streaming_protocol_cases.py")]
     sources = {str(path): sha(path) for path in inputs}
     for path in inputs[1:]:
@@ -128,18 +137,14 @@ def main():
             snapshot.write(path.read_bytes())
     status = "failed"
     try:
-        public_cases(harness)
-        ordering_cases(harness)
-        ordering_pressure_cases(harness)
-        aggregate_cases(harness)
-        aggregate_pressure_cases(harness)
-        protocol_cases(harness)
+        for family in args.families:
+            FAMILIES[family](harness)
         assert all(sha(Path(path)) == digest for path, digest in sources.items())
         status = "passed"
     finally:
         harness.client.close()
         harness.json(root / "summary.json", {"status": status, "sources": sources,
-                     "cases": harness.results, "operation_timeout_seconds": args.operation_timeout,
+                     "cases": harness.results, "families": args.families, "operation_timeout_seconds": args.operation_timeout,
                      "performance_claim": False,
                      "whole_process_memory_ceiling": False})
     return 0

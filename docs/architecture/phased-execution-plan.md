@@ -249,6 +249,49 @@ the ledger.
 
 ## Planned
 
+- [ ] `NATIVE-JOIN-PRESSURE` — complete oversized joins under the shared native
+  spill policy and admit one finite batch source on either side.
+  - Source: [design and reuse map](native-join-pressure-2026-10-08.md), RFC 0044
+    and the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
+    Existing owners are PERF-02/03/06/10/12 and CG-20/21; broader owners stay open.
+  - V1 scope classification: `required_for_v1` for this declared local family.
+  - Current state: implemented with focused native/public checks passing; frozen
+    broad acceptance and hosted integration remain pending. The resident default
+    retains the build side/index/match bitmap; explicit spill uses bounded native
+    ordered records and match/restoration runs. One single-use batch source can
+    coexist with ordinary file/resident sources on either side. General aggregate
+    spill and streamed ordering are accepted dependencies below.
+  - ShardLoom technique review: PulseWeave admits overlapping build, run, probe,
+    condition, outer-match and output owners in one grant. Bounded batch demand
+    and compact candidates constrain retention. Exact hash-range lookup avoids
+    unrelated payload work; complete source drain and certificate evidence remain
+    mandatory. Keep preparation, first output, spill and full-workflow costs distinct.
+  - Execution checklist:
+    - [x] Extend completed Ordering/run readers with bounded owned lookup;
+      preserve resident completion, source validation, quota and reader accounting.
+    - [x] Add the explicit native Join strategy with exact collision checks,
+      shared ON/output semantics and spilled Right/Full match/restoration state.
+    - [x] Admit exactly one finite batch occurrence alongside ordinary sources;
+      release build/probe input owners and preserve full drain, including zero limits.
+    - [x] Prove all kinds, typed/nested/null/duplicate/error/order semantics and
+      complete composition through current result/writer owners.
+    - [x] Prove larger-than-grant completion against resident denial and ample
+      controls, plus reservation/quota/cancellation/corruption/consumer/source
+      failures, destination protection and owned cleanup/restart.
+    - [ ] Freeze source/binary/oracles and complete focused, workspace, public,
+      direct/adapter and Full43 acceptance with independent packet inspection.
+    - [ ] Complete adversarial source review, affected support alignment,
+      hosted integration and exact ledger closeout.
+  - Acceptance/verification: the design's complete-output and failure matrix,
+    exact focused native/Python/CLI tests and required fmt/clippy/workspace gates,
+    under existing serial storage/process guards. No engine fallback is permitted.
+  - User surface: the existing SQL/Python/CLI relational plan, explicit spill
+    policy, result consumers, native file and ordinary compatibility writers.
+    No alternate query route, dependency or release is introduced.
+  - Non-goals/claim boundary: no window/pivot spill, repeated batch-source spool,
+    execution resume, compatibility streaming writer/fanout, wider batch types,
+    transport-limit increase, process-RSS ceiling or unmeasured speed claim.
+
 `NATIVE-GENERAL-AGGREGATE-PRESSURE` and `NATIVE-STREAMED-ORDERING` are complete in
 [PR #1531](https://github.com/depsilon/shardloom/pull/1531), merged at `9529bd78`
 after all 39 hosted checks passed. The

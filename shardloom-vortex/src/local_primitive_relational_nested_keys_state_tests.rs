@@ -368,13 +368,12 @@ fn native_nested_keys_joins_and_sets_keep_parent_null_policies() {
                 },
             ],
         }));
-        assert_eq!(
-            collect(&plan),
-            pairs
-                .into_iter()
-                .map(|(left, right)| json!({"left":left,"right":right}))
-                .collect::<Vec<_>>()
-        );
+        let expected = pairs
+            .into_iter()
+            .map(|(left, right)| json!({"left":left,"right":right}))
+            .collect::<Vec<_>>();
+        assert_eq!(collect(&plan), expected);
+        super::super::join_spill_tests::assert_ordered(&fixture, &plan, &expected);
     }
     let left = project(twice(&fixture), vec![("items", col("items"))]);
     let right =

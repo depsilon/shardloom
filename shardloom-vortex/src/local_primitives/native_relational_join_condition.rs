@@ -1,15 +1,15 @@
 //! Native ON evaluation over bounded candidate pairs before outer null extension.
 
 use super::super::{
-    native_relational_batch::{Table, failed},
+    native_relational_batch::Table,
     native_relational_expression::keys,
     native_relational_index::Rows,
     native_relational_keys::{Cell, KeyColumn},
 };
 use super::{
-    ArrayRef, Batch, Condition, FieldNames, Join, Kind, NativeExecutionContext, Pairs, ReservedVec,
-    Result, Side, StructArray, Validity, index_array, logical_field_from_native_array, take_column,
-    vortex_error,
+    ArrayRef, Batch, Condition, FieldNames, Join, NativeExecutionContext, Pairs, ReservedVec,
+    Result, Side, Spec, StructArray, Validity, index_array, logical_field_from_native_array,
+    take_column, vortex_error,
 };
 use vortex::array::IntoArray as _;
 
@@ -37,11 +37,6 @@ impl Join<'_> {
         batch_rows: usize,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<u64> {
-        let condition = self
-            .spec
-            .condition
-            .as_ref()
-            .ok_or_else(|| failed("ON predicate binding is absent"))?;
         let mut pairs = Pairs::new(batch_rows, context.memory())?;
         let mut rights = ReservedVec::new(context.memory())?;
         rights.reserve(batch_rows.min(self.right.rows()))?;
@@ -73,17 +68,16 @@ impl Join<'_> {
                 if rights.values.is_empty() {
                     break;
                 }
-                let selected =
-                    condition.evaluate(&left.array, &self.right, row, &rights.values, context)?;
-                for (position, &right) in rights.values.iter().enumerate() {
-                    if position.is_multiple_of(1024) {
-                        context.check_cancelled()?;
-                    }
-                    if selected.cell(position)? != Cell::Boolean(true) {
-                        continue;
-                    }
+                let selected = self.spec.select_candidates(
+                    &left.array,
+                    &self.right,
+                    row,
+                    &rights.values,
+                    context,
+                )?;
+                for &right in &selected.values {
                     matched = true;
-                    if matches!(self.spec.kind, Kind::LeftSemi | Kind::LeftAnti) {
+                    if self.spec.short_circuit() {
                         break;
                     }
                     if !self.matched.values.is_empty() {
@@ -99,16 +93,11 @@ impl Join<'_> {
                         consume,
                     )?;
                 }
-                if matched && matches!(self.spec.kind, Kind::LeftSemi | Kind::LeftAnti) {
+                if matched && self.spec.short_circuit() {
                     break;
                 }
             }
-            let keep_left = match self.spec.kind {
-                Kind::LeftSemi => matched,
-                Kind::LeftAnti | Kind::Left | Kind::Full => !matched,
-                _ => false,
-            };
-            if keep_left {
+            if self.spec.keep_unpaired_left(matched) {
                 self.push_pair(
                     Some(&left.array),
                     Some(row),
@@ -129,6 +118,46 @@ impl Join<'_> {
         )?;
         context.check_cancelled()?;
         Ok(written)
+    }
+}
+
+impl Spec {
+    /// Evaluate the complete bounded candidate batch before semi/anti
+    /// short-circuiting. Both resident and ordered joins use this boundary.
+    pub(super) fn select_candidates(
+        &self,
+        left: &ArrayRef,
+        right: &Table,
+        row: usize,
+        rows: &[usize],
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ReservedVec<usize>> {
+        let selected = self
+            .condition
+            .as_ref()
+            .map(|condition| condition.evaluate(left, right, row, rows, context))
+            .transpose()?;
+        let mut output = ReservedVec::new(context.memory())?;
+        output.reserve(if self.short_circuit() {
+            rows.len().min(1)
+        } else {
+            rows.len()
+        })?;
+        for (position, &right) in rows.iter().enumerate() {
+            if position.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            if let Some(selected) = &selected
+                && selected.cell(position)? != Cell::Boolean(true)
+            {
+                continue;
+            }
+            output.values.push(right);
+            if self.short_circuit() {
+                break;
+            }
+        }
+        Ok(output)
     }
 }
 

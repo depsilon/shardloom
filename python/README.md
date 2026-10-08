@@ -222,13 +222,13 @@ ordered.write_parquet("ordered.parquet", memory_gb=1, max_parallelism=2, spill=s
 ```
 
 Create the workspace before execution. `route()` validates the declaration without
-probing or creating it. Composed relational ordering and general aggregation use
+probing or creating it. Composed relational ordering, general aggregation and joins use
 `buffer_bytes` as a retained-input flush threshold within one query memory grant; specialized numeric sort and
 aggregate providers use their existing operator-memory admission. Native sort spill
 also applies to the flat typed keys scoped by the [typed key contract](../docs/architecture/native-typed-keys-2026-10-03.md).
 Supported keys,
 minimum buffers and spill families remain provider-specific. The general aggregate
-strategy uses the same explicit policy. A spill request does not enable join,
+and join strategies use the same explicit policy. A spill request does not enable
 window, pivot or set state spill or fanout, relax collection limits, or
 establish an RSS bound. Successful writes require verified spill cleanup before
 publication. See `docs/reference/native-query-spill.md` for exact contracts.
@@ -478,11 +478,12 @@ Prepare compatibility file input explicitly to Vortex before batch consumption.
 See the [complete batch contract and example](../docs/architecture/native-bounded-adapters-2026-10-06.md)
 for backpressure, conversions, timeout scope and final-validation semantics.
 
-Current source builds also accept `streaming=True` for one finite source used
-once through scan/filter/project, global sorting, aggregation and limits.
+Current source builds also accept `streaming=True` for one finite batch source used
+once through scan/filter/project, global sorting, aggregation, joins and limits,
+alongside ordinary native file or resident sources.
 This can process cumulative input larger than the native grant by retaining at
-most one native input batch. Retained operator state shares that grant; ordering
-and general aggregation support an explicit native spill policy.
+most one native input batch. Retained operator state shares that grant; ordering,
+general aggregation and joins support an explicit native spill policy.
 For example:
 
 ```python
@@ -501,8 +502,10 @@ with frame.iter_batches() as batches:
 
 The complete output is `[{"id": 1, "label": "kept"}]`. Streaming admits
 incremental results, bounded small collection, or one native Vortex destination.
-Joins, repeated sources, sets, windows, other stateful/correlated operators and
-data-dependent schemas reject before producer consumption. Limits and offsets
+All seven join kinds admit the batch source on either side. Reusing the same
+batch source, declaring multiple batch producers, sets, windows, unsupported
+stateful/correlated operators and data-dependent schemas reject before producer
+consumption. Limits and offsets
 apply to the complete relation and drain the producer, including `LIMIT 0`.
 The producer must reach its explicit end event before results are final; earlier
 batches remain provisional and late failures remain failures.
@@ -513,6 +516,7 @@ batch. Typed intake and output compaction are charged copies; output reservation
 and native sink metadata remain separate. This adds no repeated-source spool or
 process-RSS ceiling. See the [streamed ordering contract](../docs/architecture/native-streamed-ordering-2026-10-07.md),
 [general aggregate contract](../docs/architecture/native-aggregate-pressure-2026-10-07.md),
+[join contract](../docs/architecture/native-join-pressure-2026-10-08.md),
 [spill example](../docs/reference/native-query-spill.md#general-aggregation-and-completion-aware-input)
 and [local acceptance evidence](../docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md).
 Published v0.4.0 predates both batch modes.

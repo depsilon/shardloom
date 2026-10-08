@@ -836,8 +836,39 @@ impl QueryRunReader {
         &mut self,
         runtime: &impl BlockingRuntime,
     ) -> Result<Option<QueryRunBlock>> {
-        self.validate()?;
         let start = self.next_block_offset;
+        let block = self.read_block_inner(start, runtime)?;
+        if let Some(block) = &block {
+            self.next_block_offset = start + block.array.len() as u64;
+        }
+        Ok(block)
+    }
+
+    /// Read one aligned block without moving the sequential cursor. The held
+    /// generation and the returned block's resource owners are unchanged.
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn read_block_at(
+        &self,
+        start: u64,
+        runtime: &impl BlockingRuntime,
+    ) -> Result<Option<QueryRunBlock>> {
+        self.read_block_inner(start, runtime)
+            .map_err(|error| self.namespace.context(error))
+    }
+
+    fn read_block_inner(
+        &self,
+        start: u64,
+        runtime: &impl BlockingRuntime,
+    ) -> Result<Option<QueryRunBlock>> {
+        self.validate()?;
+        if start > self.file.row_count()
+            || (start != self.file.row_count() && !start.is_multiple_of(self.block_rows as u64))
+        {
+            return Err(spill_error(
+                "native query run positional read requires an aligned in-range block",
+            ));
+        }
         if start == self.file.row_count() {
             return Ok(None);
         }
@@ -872,7 +903,6 @@ impl QueryRunReader {
             ));
         }
         self.validate()?;
-        self.next_block_offset = end;
         Ok(Some(QueryRunBlock {
             array,
             _metadata: Arc::clone(&self.metadata),

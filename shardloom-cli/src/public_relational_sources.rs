@@ -116,7 +116,7 @@ fn register_memory_inputs(
         ShardLoomError,
     >,
 ) -> Result<(), ShardLoomError> {
-    if request.source_bindings.values().any(|binding| {
+    let streaming = request.source_bindings.values().any(|binding| {
         matches!(
             binding.memory_input,
             Some(crate::native_memory_input::MemoryInput::Batches {
@@ -124,10 +124,22 @@ fn register_memory_inputs(
                 ..
             })
         )
-    }) && request.source_bindings.len() != 1
+    });
+    if streaming
+        && request
+            .source_bindings
+            .values()
+            .filter(|binding| {
+                matches!(
+                    binding.memory_input,
+                    Some(crate::native_memory_input::MemoryInput::Batches { .. })
+                )
+            })
+            .count()
+            != 1
     {
         return Err(failed(
-            "SL-NATIVE-BATCH: streaming input requires one declared source; choose explicit resident mode",
+            "SL-NATIVE-BATCH: streaming input requires one declared batch producer; choose explicit resident mode",
         ));
     }
     for (uri, binding) in &request.source_bindings {
@@ -385,6 +397,121 @@ fn failed(message: &str) -> ShardLoomError {
 mod tests {
     use super::super::super::PublicSourceBinding;
     use super::*;
+
+    #[test]
+    fn native_streaming_join_source_admission_allows_resident_on_either_side() {
+        use crate::native_memory_input::{MemoryInput, MemoryRow};
+        use shardloom_exec::compute_pool::CancellationToken;
+        let streaming =
+            serde_json::json!({"kind":"batches","schema":[["n","int64"]],"streaming":true});
+        for stream_right in [false, true] {
+            let mut request = PublicWorkflowRouteRequest::new("sql".into());
+            request.input_uri = Some("memory://stream".into());
+            request.input_format = Some("memory".into());
+            request.bounded = true;
+            request.source_bindings = super::super::super::parse_public_source_bindings(&serde_json::json!({
+                "memory://stream":{"input_format":"memory","memory_input":streaming},
+                "memory://ordinary":{"input_format":"memory","memory_input":{"kind":"range","start":1,"end":4,"step":1,"column":"n"}},
+            }).to_string()).unwrap();
+            let (left, right) = if stream_right {
+                ("memory://ordinary", "memory://stream")
+            } else {
+                ("memory://stream", "memory://ordinary")
+            };
+            let sql = format!(
+                "SELECT a.n AS left_n, b.n AS right_n FROM '{left}' AS a FULL JOIN '{right}' AS b ON a.n = b.n"
+            );
+            request.sql_statement = Some(sql.clone());
+            let (operation, normalized) = prepare_with_input_adapter(
+                &sql,
+                &request,
+                None,
+                PublicSourcePreparations::default(),
+                |_, input, session| {
+                    if let MemoryInput::Batches { schema, .. } = input {
+                        crate::native_memory_rows::build_batch(schema, &[], session)
+                    } else {
+                        input.build(session)
+                    }
+                },
+            )
+            .unwrap();
+            assert_eq!(normalized, 2);
+            let MemoryInput::Batches { schema, .. } = request.source_bindings["memory://stream"]
+                .memory_input
+                .as_ref()
+                .unwrap()
+            else {
+                unreachable!()
+            };
+            let mut calls = 0;
+            let mut producer =
+                |session: &shardloom_vortex::resident_session::ResidentVortexSession| {
+                    calls += 1;
+                    if calls == 1 {
+                        crate::native_memory_rows::build_batch(
+                            schema,
+                            &[MemoryRow(vec![Some("2".into())]), MemoryRow(vec![None])],
+                            session,
+                        )
+                        .map(Some)
+                    } else {
+                        assert_eq!(calls, 2);
+                        Ok(None)
+                    }
+                };
+            let result = operation
+                .with_batch_input(&mut producer)
+                .unwrap()
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            let expected = if stream_right {
+                "{\"left_n\":1,\"right_n\":null}\n{\"left_n\":2,\"right_n\":2}\n{\"left_n\":3,\"right_n\":null}\n{\"left_n\":null,\"right_n\":null}\n"
+            } else {
+                "{\"left_n\":2,\"right_n\":2}\n{\"left_n\":null,\"right_n\":null}\n{\"left_n\":null,\"right_n\":1}\n{\"left_n\":null,\"right_n\":3}\n"
+            };
+            assert_eq!(result.result_jsonl.value(), expected);
+            assert_eq!(calls, 2);
+            assert_eq!(result.execution.input.as_ref().unwrap().rows, 2);
+            assert_eq!(result.execution.prepared_sources, 2);
+        }
+    }
+
+    #[test]
+    fn native_streaming_join_source_admission_rejects_multiple_producers_before_demand() {
+        let streaming =
+            serde_json::json!({"kind":"batches","schema":[["n","int64"]],"streaming":true});
+        for second_streams in [false, true] {
+            let mut request = PublicWorkflowRouteRequest::new("sql".into());
+            request.input_uri = Some("memory://stream".into());
+            request.input_format = Some("memory".into());
+            request.bounded = true;
+            request.source_bindings = super::super::super::parse_public_source_bindings(&serde_json::json!({
+                "memory://stream":{"input_format":"memory","memory_input":streaming},
+                "memory://other":{"input_format":"memory","memory_input":{"kind":"batches","schema":[["n","int64"]],"streaming":second_streams}},
+            }).to_string()).unwrap();
+            let sql = "SELECT a.n FROM 'memory://stream' AS a CROSS JOIN 'memory://other' AS b";
+            request.sql_statement = Some(sql.into());
+            let mut calls = 0;
+            let error = prepare_with_input_adapter(
+                sql,
+                &request,
+                None,
+                PublicSourcePreparations::default(),
+                |_, _, _| {
+                    calls += 1;
+                    Err(failed("unexpected producer demand"))
+                },
+            )
+            .err()
+            .unwrap();
+            assert!(
+                error.to_string().contains("one declared batch producer"),
+                "{error}"
+            );
+            assert_eq!(calls, 0);
+        }
+    }
 
     #[test]
     fn native_memory_input_declarations_use_complete_shared_sql() {

@@ -5,6 +5,7 @@ use crate::{
     local_primitives::logical_field_from_native_array, resident_session::ResidentVortexSession,
 };
 use shardloom_exec::compute_pool::CancellationToken;
+use vortex::array::arrays::Primitive;
 
 fn columns(context: &NativeExecutionContext<'_>) -> Result<ReservedVec<ArrayRef>> {
     let mut columns = ReservedVec::new(context.memory())?;

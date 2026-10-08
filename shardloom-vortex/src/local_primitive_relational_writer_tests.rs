@@ -5,7 +5,7 @@ use std::sync::Arc;
 #[path = "resident_source_provenance_tests.rs"]
 mod source_provenance_tests;
 
-const FORMATS: [Format; 8] = [
+pub(super) const FORMATS: [Format; 8] = [
     Format::Vortex,
     Format::Parquet,
     Format::ArrowIpc,

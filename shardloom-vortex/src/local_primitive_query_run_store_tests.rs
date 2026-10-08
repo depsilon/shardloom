@@ -118,6 +118,91 @@ fn native_array_runs_roundtrip_non_sort_schema_and_empty_without_row_serializati
 }
 
 #[test]
+fn positional_native_blocks_preserve_sequential_cursor_bounds_and_retained_owners() {
+    let workspace = Workspace::new();
+    let memory = LiveMemoryPool::new(4 << 20).unwrap();
+    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let work = Arc::new(memory.reserve(1 << 20).unwrap());
+    let mut store = store(&workspace, &memory);
+    let expected = [11, 22, 33, 44, 55];
+    let run = store
+        .write_arrays(&spec(5), arrays(&expected), &runtime, &session, &work)
+        .unwrap();
+    let mut reader = store
+        .open(&run, &spec(0).dtype, &runtime, &session, Arc::clone(&work))
+        .unwrap();
+    let mut execution = session.create_execution_ctx();
+    for start in [4, 0, 2, 4] {
+        let block = reader.read_block_at(start, &runtime).unwrap().unwrap();
+        for row in 0..block.array().len() {
+            assert_eq!(
+                block.array().execute_scalar(row, &mut execution).unwrap(),
+                Scalar::from(expected[usize::try_from(start).unwrap() + row])
+            );
+        }
+        assert_eq!(reader.next_block_offset(), 0);
+    }
+    for start in [1, 3, 6, u64::MAX] {
+        assert!(reader.read_block_at(start, &runtime).is_err());
+        assert_eq!(reader.next_block_offset(), 0);
+    }
+    assert!(reader.read_block_at(5, &runtime).unwrap().is_none());
+    let first = reader.next_block(&runtime).unwrap().unwrap();
+    assert_eq!(reader.next_block_offset(), 2);
+    drop(first);
+    let held = reader.read_block_at(4, &runtime).unwrap().unwrap();
+    assert_eq!(reader.next_block_offset(), 2);
+    let second = reader.next_block(&runtime).unwrap().unwrap();
+    assert_eq!(
+        second.array().execute_scalar(0, &mut execution).unwrap(),
+        Scalar::from(33_i32)
+    );
+    drop(second);
+    let retained = run.metadata.bytes() + reader.path_credit.bytes() + work.bytes();
+    drop((run, reader, work));
+    store.cleanup().unwrap();
+    drop(store);
+    assert_eq!(memory.snapshot().reserved_bytes, retained);
+    assert_eq!(
+        held.array().execute_scalar(0, &mut execution).unwrap(),
+        Scalar::from(55_i32)
+    );
+    drop(held);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    workspace.assert_empty();
+}
+
+#[test]
+fn positional_native_reads_revalidate_an_already_open_run_even_at_eof() {
+    let workspace = Workspace::new();
+    let memory = LiveMemoryPool::new(4 << 20).unwrap();
+    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let work = Arc::new(memory.reserve(1 << 20).unwrap());
+    let mut store = store(&workspace, &memory);
+    let run = store
+        .write_arrays(&spec(4), arrays(&[1, 2, 3, 4]), &runtime, &session, &work)
+        .unwrap();
+    let reader = store
+        .open(&run, &spec(0).dtype, &runtime, &session, Arc::clone(&work))
+        .unwrap();
+    drop(reader.read_block_at(0, &runtime).unwrap());
+    OpenOptions::new()
+        .write(true)
+        .open(&run.path)
+        .unwrap()
+        .set_len(run.bytes - 1)
+        .unwrap();
+    for start in [0, 2, 4] {
+        assert!(reader.read_block_at(start, &runtime).is_err());
+    }
+    drop((reader, run, work, store));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    workspace.assert_empty();
+}
+
+#[test]
 fn native_block_retains_metadata_work_and_path_credits_after_store_and_reader_drop() {
     let workspace = Workspace::new();
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
@@ -418,6 +503,16 @@ fn cancellation_stops_reader_and_mid_write_then_owned_cleanup_releases_every_cre
                 .unwrap();
             let first = reader.next_block(&runtime).unwrap().unwrap();
             cancellation.cancel();
+            for start in [0, 2, 4] {
+                assert!(
+                    reader
+                        .read_block_at(start, &runtime)
+                        .err()
+                        .unwrap()
+                        .to_string()
+                        .contains("cancelled")
+                );
+            }
             assert!(
                 reader
                     .next_block(&runtime)

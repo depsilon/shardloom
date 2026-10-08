@@ -226,6 +226,7 @@ fn native_typed_keys_join_does_not_match_nulls_and_retains_logical_types() {
         }).collect::<Vec<_>>();
         rows.push(json!({"id":null,"matched":3,name:null}));
         assert_eq!(collect(&plan), rows);
+        super::super::join_spill_tests::assert_ordered(&fixture, &plan, &rows);
         let prepared = prepare_relational(&plan, policy()).unwrap();
         let dtype = prepared.output_dtype().unwrap();
         let source = prepare_relational(&fixture.scan(), policy())

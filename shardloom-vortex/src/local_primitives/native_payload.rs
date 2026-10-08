@@ -27,6 +27,15 @@ pub(super) fn is_nested(dtype: &DType) -> bool {
     )
 }
 
+/// Copy one bounded native payload, retaining schema credits on every child.
+pub(super) fn detach(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
+    let indices =
+        super::native_relational_batch::index_array(array.len(), false, context, |row| {
+            Ok(Some(row))
+        })?;
+    take(array, &indices, array.dtype(), context)
+}
+
 pub(super) fn take(
     source: &ArrayRef,
     indices: &ArrayRef,

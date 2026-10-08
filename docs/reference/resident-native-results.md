@@ -56,16 +56,20 @@ once; a factory supplies fresh input on repeated execution. Each frame is at
 most 8 MiB, with at most 4,096 batches per source. In the default resident mode
 (`streaming=False`), total native input must fit the shared grant.
 
-Opt-in `streaming=True` has separate [corrected local acceptance](../benchmarks/native-fsst-admission-2026-10-07.md)
-under the [completion-aware input contract](../architecture/native-input-completion-2026-10-07.md).
-One finite source is consumed once through pure Scan/Filter/Project, retaining
-at most one native input batch. It supports incremental results, bounded small
-collection or one native Vortex destination. Cumulative input may exceed the
-query grant within the finite batch/frame limits; typed intake, output compaction
-and result/sink reservations remain charged. Unsupported plans reject before
-producer consumption. Observed end-of-input is required for success. Neither
-mode adds input spill or an RSS bound. Final integration is tracked in
-[PR #1530](https://github.com/depsilon/shardloom/pull/1530).
+Opt-in `streaming=True` consumes one finite batch source once, retaining at most
+one native input batch. Current source composes Scan/Filter/Project, Sort, Limit,
+Aggregate and Join alongside ordinary file/resident sources. Repeated batch use
+and multiple batch producers reject before consumption. Incremental results,
+bounded small collection and one native Vortex destination are admitted.
+Cumulative input may exceed the query grant within the finite batch/frame limits;
+typed intake, retained operator state, output compaction and result/sink owners
+remain charged. Ordering, aggregation and joins admit explicit native spill.
+Limits, including zero, drain and validate input; observed end-of-input is required
+for success. Neither mode adds input spill or an RSS bound. Ordering/aggregate
+acceptance merged in [PR #1531](https://github.com/depsilon/shardloom/pull/1531).
+The [join contract](../architecture/native-join-pressure-2026-10-08.md) records
+its separate acceptance gates; the [spill guide](native-query-spill.md) gives
+current examples and recovery boundaries.
 
 `iter_batches(batch_rows=2048, memory_gb=..., max_parallelism=..., spill=...)`
 delivers admitted typed/nested results with acknowledged backpressure. Consume
@@ -150,8 +154,9 @@ admits flat binary, exact Decimal128 with matching precision/scale, Date32 and
 timezone-free timestamp-microsecond equality, hashing and ordering through
 relational joins, sets, groups, windows and subqueries, plus COUNT/COUNT
 DISTINCT/MIN/MAX and the scoped expressions it lists. Its existing explicit
-ORDER BY spill policy applies to these flat keys. It adds no group, join or
-window state spill. The subsequent [nested key and retained-state contract](../architecture/native-nested-keys-state-2026-10-04.md)
+ORDER BY spill policy applies to these flat keys. General aggregation and joins
+use their separately admitted [spill strategies](native-query-spill.md);
+window state spill remains unsupported. The subsequent [nested key and retained-state contract](../architecture/native-nested-keys-state-2026-10-04.md)
 admits static List/FixedSizeList/Struct equality, hashing and ordering through
 existing relational kernels, plus selected nested values for DISTINCT/duplicate
 selection and masks, tail, sampling, parent forward fill, lossless same-shape

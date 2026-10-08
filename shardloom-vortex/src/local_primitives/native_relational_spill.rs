@@ -30,6 +30,10 @@ use vortex::array::{
 const BLOCK_ROWS: usize = 1024;
 const READER_WORK_BYTES: u64 = 2 * 64 * 1024;
 
+#[path = "native_relational_stored_order.rs"]
+mod stored;
+pub(super) use stored::{StoredBlock, StoredOrder};
+
 #[cfg(test)]
 type BeforeRunOpen = Box<dyn FnOnce(&Path)>;
 #[cfg(test)]
@@ -389,17 +393,9 @@ impl<'a> Ordering<'a> {
         if self.runs.values.is_empty() {
             return self.sort.finish(context, batch_rows, consume);
         }
-        self.flush(context)?;
-        while self.runs.values.len() > 1 {
-            self.merge_last(context)?;
-        }
+        let run = self.complete_run(context)?;
         let work = self.work(context)?;
-        let run = self
-            .runs
-            .values
-            .pop()
-            .ok_or_else(|| failed("completed sort run is absent"))?;
-        let mut reader = self.state.open(&run.native, self.spec, context, &work)?;
+        let mut reader = self.state.open(&run, self.spec, context, &work)?;
         let mut rows = ReservedVec::new(context.memory())?;
         rows.reserve(self.block_rows)?;
         while let Some(block) = reader.next_block(context.runtime())? {
@@ -418,8 +414,19 @@ impl<'a> Ordering<'a> {
         }
         reader.validate()?;
         drop(reader);
-        self.state
-            .with_store(context, |store| store.remove(&run.native))
+        self.state.with_store(context, |store| store.remove(&run))
+    }
+
+    fn complete_run(&mut self, context: &NativeExecutionContext<'_>) -> Result<NativeQueryRun> {
+        self.flush(context)?;
+        while self.runs.values.len() > 1 {
+            self.merge_last(context)?;
+        }
+        self.runs
+            .values
+            .pop()
+            .map(|run| run.native)
+            .ok_or_else(|| failed("completed sort run is absent"))
     }
 }
 

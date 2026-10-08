@@ -121,7 +121,7 @@ mod native_payload;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_aggregate.rs"]
 mod native_relational_aggregate;
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitives/native_relational_aggregate_spill.rs"]
 mod native_relational_aggregate_spill;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -142,6 +142,9 @@ mod native_relational_keys;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_order.rs"]
 mod native_relational_order;
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+#[path = "local_primitives/native_relational_records.rs"]
+mod native_relational_records;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_set.rs"]
 mod native_relational_set;

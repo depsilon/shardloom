@@ -12,7 +12,7 @@ pub use window_frame::{
     VortexRelationalFrameOffset, VortexRelationalFrameUnit, VortexRelationalWindowFrame,
 };
 
-/// Explicit permission for native ordering and general aggregate ordering runs. The buffer
+/// Explicit permission for native ordering, aggregate and join runs. The buffer
 /// threshold controls flushing; the resident query pool remains the memory grant.
 /// Construction validates configuration without inspecting the filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,7 +54,7 @@ impl VortexRelationalSpillPolicy {
     }
 }
 
-/// Actual query-local relational ordering spill and verified cleanup evidence.
+/// Actual query-local native relational run spill and verified cleanup evidence.
 /// The buffer threshold and shared reservation peak are not process RSS bounds.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexRelationalSpillReport {

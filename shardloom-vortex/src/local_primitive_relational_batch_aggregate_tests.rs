@@ -61,16 +61,6 @@ fn prepared(
     }
 }
 
-fn values(
-    array: &ArrayRef,
-    context: &NativeExecutionContext<'_>,
-) -> Result<Vec<serde_json::Value>> {
-    let mut sink =
-        crate::local_primitives::collect::JsonRows::new(context.memory(), 8 << 20, false)?;
-    sink.append_native(array, context)?;
-    Ok(serde_json::from_str(sink.finish()?.value()).unwrap())
-}
-
 #[test]
 fn ordered_aggregate_streaming_releases_input_and_retained_results_keep_credits() {
     for spill in [false, true] {
