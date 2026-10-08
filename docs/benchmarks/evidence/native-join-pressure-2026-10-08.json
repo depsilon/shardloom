@@ -1,0 +1,323 @@
+{
+  "schema_version": "shardloom.native_join_local_acceptance.v1",
+  "status": "accepted_source_committed_locally_hosted_pending",
+  "units": [
+    "NATIVE-JOIN-PRESSURE"
+  ],
+  "runtime_commit": "92ab9f203160d4add9b6cfc33396aee5d3349c6a",
+  "source_identity_sha256": "aff4e5bc78535360bd388262004a0c32593c0fd4038b7ab97f4fb4283cb4149a",
+  "runtime_source_assets_verified_against_commit": 981,
+  "acceptance": {
+    "status": "passed_local_engine",
+    "source_identity_sha256": "aff4e5bc78535360bd388262004a0c32593c0fd4038b7ab97f4fb4283cb4149a",
+    "binary_sha256": "75928d82313aa656957a5b4f918ceb9e32e5c66509f47ae13da69d7a0ee489e3",
+    "source_assets": 981,
+    "public_checks": 27373,
+    "public_rows": 15820181,
+    "direct_checks": 202,
+    "direct_rows": 131734,
+    "full43_runs": 129,
+    "raw_public_envelopes": 54733,
+    "raw_direct_envelopes": 367,
+    "source_checks": 15,
+    "batch_checks": 48,
+    "format_checks": 19,
+    "streaming_public_checks": 213,
+    "streaming_raw_envelopes": 199,
+    "streaming_small_value_files": 153,
+    "streaming_complete_pressure_rows_reopened": 445460,
+    "malformed_protocol_traces": 10,
+    "native_join_pressure_cases": 1,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9,
+    "compacted_archive_members_reopened": 516,
+    "source_tree_clean": true,
+    "broader_documentation_updates_deferred": true,
+    "packet": "docs/benchmarks/evidence/native-join-pressure-2026-10-08.json.xz",
+    "packet_sha256": "2e939bf93341ed72fec15ccb8b04ccfae119b76c794bf0b43b1da161483634f9",
+    "packet_compressed_bytes": 44936164,
+    "packet_uncompressed_bytes": 3645903016,
+    "packet_uncompressed_sha256": "a67766a72592b7cb7c95c32430b0876e88cb9f55249f134418d9fb12b97113d6"
+  },
+  "original_acceptance_sha256": "703551401712f0bc39a784cc66b2ecd81304cf224ae0a1763504f6e13ddd2a44",
+  "portable_inspection": "docs/benchmarks/evidence/native-join-pressure-2026-10-08-inspection.json",
+  "original_inspection_sha256": "7d1bb85bf803204409e94c8162556995993e4fdef663b43826098607afe13efb",
+  "inspector_contract_tests": {
+    "status": "passed",
+    "cases": 165,
+    "inspector_sha256": "ea049d349ce2d142b090b51db5f6bbd2fe177071793212205934542ae27f87e2",
+    "verifier_sha256": "88c6a44386c25c890b35e77b542f4a6e297e144805a481bcaf9b254329d68b86"
+  },
+  "archive_guards": {
+    "join-inspector-contract-1": {
+      "receipt_sha256": "1dc9b5eb754231a0161e9f713edf68b05883f242b2e5b952c1466530fd298139",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "<join-uat>/verify_join_packet.py",
+          "--attempt",
+          "1",
+          "--self-test"
+        ],
+        "cwd": "<repo>",
+        "head": "92ab9f203160d4add9b6cfc33396aee5d3349c6a",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2095087616,
+            "log_bytes": 0,
+            "free_bytes": 28301033472,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44193005568,
+            "log_bytes": 0,
+            "free_bytes": 28301090816,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 120.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 64128,
+        "output_bytes": 210,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 0.6685187910043169,
+        "log_sha256": "4f7107de2d991814bd3653df583a91b57fd2d3aabec121c7583a35d8324e002d"
+      }
+    },
+    "join-freeze-evidence-2": {
+      "receipt_sha256": "5ca47b003ed51c1037ffdd97c128bcc1d820ac2dd10139bfae921eb6c1867998",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "<join-uat>/freeze_join_evidence.py",
+          "--attempt",
+          "2",
+          "--full43-attempt",
+          "2"
+        ],
+        "cwd": "<repo>",
+        "head": "92ab9f203160d4add9b6cfc33396aee5d3349c6a",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2095685632,
+            "log_bytes": 0,
+            "free_bytes": 28296695808,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44193005568,
+            "log_bytes": 0,
+            "free_bytes": 28296695808,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 120.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 64936,
+        "output_bytes": 60,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 0.4187288749963045,
+        "log_sha256": "31cdce1db4520c686a1c94fb7036756597ce4a39f6292a49a3f51673908b5e8d"
+      }
+    },
+    "join-finalize-2": {
+      "receipt_sha256": "962d72cb13e85957f04292e02527688ea0e6ce983861f5c6fdee4f517b50f729",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<join-uat>/finalize_join_acceptance.py",
+          "--attempt",
+          "2",
+          "--supervisor",
+          "join-finalize-2"
+        ],
+        "cwd": "<repo>",
+        "head": "92ab9f203160d4add9b6cfc33396aee5d3349c6a",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2140815360,
+            "log_bytes": 0,
+            "free_bytes": 28258164736,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44193005568,
+            "log_bytes": 0,
+            "free_bytes": 28258164736,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1200.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 64955,
+        "output_bytes": 1526,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 424.14846320801007,
+        "log_sha256": "ac9e506cdb0ec6dd41e7cc0db0f970f5d1e5e4ab674324cd0516f2a184d90b7f"
+      }
+    },
+    "join-packet-inspect-2": {
+      "receipt_sha256": "51fac65056dc7f7502d7f0f6b682cbbbe93cddf5583a8dcd89db73195b63c740",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "<join-uat>/verify_join_packet.py",
+          "--attempt",
+          "2"
+        ],
+        "cwd": "<repo>",
+        "head": "92ab9f203160d4add9b6cfc33396aee5d3349c6a",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2140831744,
+            "log_bytes": 0,
+            "free_bytes": 28247199744,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 44193005568,
+            "log_bytes": 0,
+            "free_bytes": 28247199744,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1200.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 65290,
+        "output_bytes": 1478,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 773.6800547500025,
+        "log_sha256": "531ee391b4e4ac2c93c881ed0269f6024cdb67ad75289fbec6ad10331a914aa4"
+      }
+    }
+  },
+  "native_join_pressure": {
+    "ample_peak_reserved_bytes": 44482332,
+    "complete_output_rows": 65538,
+    "family": "streamed_full_join_build_and_outer_restore",
+    "grant": 16777216,
+    "input_logical_bytes": 34620572,
+    "input_rows": 65537,
+    "lookup_blocks": 28,
+    "merge_passes": 126,
+    "owned_cleanup_completed": true,
+    "peak_disk_bytes": 71504016,
+    "runs_written": 254,
+    "spilled_peak_reserved_bytes": 6542711
+  },
+  "pressure_boundary": "The native Full join test completes 65,538 exact output rows from 65,537 wide build rows under 16 MiB; input logical bytes exceed twice that grant. Resident execution at 16 MiB denies and an ample 128 MiB control passes. All controls check complete values, private input release and reservation cleanup. Public pressure separately uses 1 GiB and does not establish a larger-than-grant result. Native reservations do not bound process RSS; recovery means owned cleanup and restart.",
+  "public_complete_workflows": {
+    "streaming_cases": 213,
+    "pressure_rows_reopened": 445460,
+    "small_value_files": 153,
+    "new_join_cases": 104,
+    "malformed_protocol_traces": 10,
+    "ordinary_regression_cases": 27373,
+    "ordinary_complete_rows": 15820181,
+    "direct_cases": 202,
+    "direct_complete_rows": 131734,
+    "resident_batch_cases": 48,
+    "format_fidelity_cases": 19,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9
+  },
+  "full43_observation": {
+    "summary_sha256": "ed5814de49372f2aa7709cb2d92520d502d346625a8f87d0b5560210ca0e7148",
+    "source_bytes": 15682956489,
+    "memory_policy_gb": 24,
+    "maximum_parallelism": 12,
+    "sum_query_minima_seconds": 64.31046862599032,
+    "sum_query_medians_seconds": 65.41525879196706,
+    "sum_all_calls_seconds": 197.13557237296482,
+    "maximum_native_process_rss_bytes": 5590269952,
+    "boundary": "129 complete native processes with retained Vortex input and preexisting native correctness references. No fresh ingest, comparative speedup or enforced RSS claim; ordinary host activity and file cache are uncontrolled."
+  },
+  "original_observations": {
+    "historical_completed_call_members_compacted_and_reopened": 516,
+    "original_native_gate_failures_and_exact_source_delta_proofs_retained": true,
+    "public_preliminary_development_cases": 104,
+    "oracle_scope_helper_first_failure_retained": true,
+    "development_failures_retained": true
+  },
+  "documentation_updates_complete": true,
+  "hosted_acceptance_complete": false,
+  "package_publication_performed": false,
+  "performance_claim_allowed": false,
+  "broader_resource_spill_recovery_complete": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "staging_driver_sha256": "ef97fb84ca3d49aa93f5820ca37378ebacbd3f46b94061ee9e6f268b97c21c1f",
+  "portable_inspection_sha256": "7d1bb85bf803204409e94c8162556995993e4fdef663b43826098607afe13efb",
+  "documentation_acceptance": "docs/benchmarks/evidence/native-join-support-2026-10-08.json",
+  "documentation_acceptance_sha256": "6e662733c6fd7b338cc916a2b9e430080659a8f44136ea7ef0d9dc0e2c1ef48f",
+  "support_alignment_runtime_provenance": {
+    "accepted_runtime_commit": "92ab9f203160d4add9b6cfc33396aee5d3349c6a",
+    "accepted_source_identity_sha256": "aff4e5bc78535360bd388262004a0c32593c0fd4038b7ab97f4fb4283cb4149a",
+    "assets_byte_identical": 981,
+    "asset_count_unchanged": 981,
+    "executable_behavior_changed": false,
+    "binary_sha256": "75928d82313aa656957a5b4f918ceb9e32e5c66509f47ae13da69d7a0ee489e3"
+  }
+}

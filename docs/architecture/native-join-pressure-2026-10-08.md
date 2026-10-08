@@ -1,10 +1,14 @@
 # Native joins under an explicit shared spill policy
 
-Status: implementation contract under PERF-02/03/06/10/12 and CG-20/21.
-The [phase plan](phased-execution-plan.md) owns progress. This continues the
-maintainer's [remaining local scope](native-local-completion-scope-2026-10-07.md)
-after accepted general aggregation and streamed ordering. No new support or
-performance claim follows from this design.
+Status: complete local runtime acceptance under PERF-02/03/06/10/12 and CG-20/21;
+hosted integration remains pending. The
+[acceptance report](../benchmarks/native-join-pressure-2026-10-08.md) binds runtime
+`92ab9f20`, complete constrained workloads, public regressions and independent
+packet inspection. The [phase plan](phased-execution-plan.md) owns progress.
+This continues the maintainer's
+[remaining local scope](native-local-completion-scope-2026-10-07.md) after
+accepted general aggregation and streamed ordering. It does not close the
+broader support envelope or establish a performance claim.
 
 ## Decision and reuse
 

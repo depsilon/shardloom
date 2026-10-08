@@ -117,7 +117,9 @@ complete input. Ordering, general aggregation and joins share the grant and can
 use an explicit native spill policy. Ordering/aggregate
 [local acceptance](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
 and hosted integration pass in [PR #1531](https://github.com/depsilon/shardloom/pull/1531).
-Join acceptance remains tracked in its design checklist. Resident input remains
+The [join local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
+also passes complete pressure, workflow and regression checks plus independent
+packet inspection; hosted integration remains pending. Resident input remains
 the default. Repeated batch-source spool, multiple batch producers, compatibility streaming
 writes and a process-RSS bound remain outside this contract.
 

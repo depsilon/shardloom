@@ -247,5 +247,6 @@ file. Final success requires complete input and source validation, sink completi
 and owned cleanup. Errors, cancellation, replaced/corrupt runs or failed cleanup
 cannot publish a successful result. Dead-owner recovery permits safe cleanup and
 restart, not resuming an interrupted join. See the
-[join design and acceptance checklist](../architecture/native-join-pressure-2026-10-08.md)
-for the exact implementation and outstanding integration gates.
+[join contract](../architecture/native-join-pressure-2026-10-08.md) and
+[complete local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
+for the exact implementation and evidence. Hosted integration remains pending.

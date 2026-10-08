@@ -196,16 +196,22 @@ allocations remain outside this finite scope. These resource corrections make
 no speedup claim, and a query grant still does not bound total process RSS.
 
 Opt-in `from_batches(..., streaming=True)` retains at most one native input
-batch and admits one finite source through scan/filter/project, sorting,
-aggregation and limits. The
+batch and admits one finite batch source used once through scan/filter/project,
+sorting, aggregation, joins and draining limits, alongside ordinary file/resident
+sources. The
 [local resource and correctness acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
 proves constrained native ordering and general aggregate spill with complete
-output. All operator stages share one memory grant and spill quota. Output
+output. The [join acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-join-pressure-2026-10-08.md)
+adds all seven admitted join kinds, one-shot input on either side and owned
+cleanup/restart. Complete local pressure/workflow/regression checks and independent
+packet inspection pass; hosted join integration remains pending. All operator
+stages share one memory grant and spill quota. Output
 compaction prevents retained results from pinning input; native sink metadata
 and retained output still consume credits. Limits drain the complete source,
 and late failure prevents completion and incomplete file publication.
 The runtime also rejects malformed FSST row lengths before decoder allocation.
-Join, window and pivot spill remain separate work; published v0.4.0 is unchanged.
+Window and pivot pressure, repeated batch-source spooling, broader streaming
+destinations and remaining allocation coverage stay open; published v0.4.0 is unchanged.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
@@ -231,8 +237,9 @@ The buffer is a flush threshold; it is not a second memory grant or a whole-proc
 Verified cleanup must finish before an execution or writer reports success.
 
 COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies.
-General relational aggregation has its own admitted strategy under the common explicit
-spill policy. Join, window, pivot and set state retain separate pressure contracts;
+General relational aggregation and all seven admitted join kinds have their own
+strategies under the common explicit spill policy. Window, pivot and set state
+retain separate pressure contracts;
 unadmitted key types and broader resource accounting remain separate work. See
 [COUNT/DISTINCT contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
 [native spill contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md),

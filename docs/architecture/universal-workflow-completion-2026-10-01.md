@@ -246,10 +246,12 @@ now has complete local acceptance and packet inspection, including explicit
 aggregate spill and complete single-use streamed sort/aggregate/draining-limit
 composition. Hosted integration passes in
 [PR #1531](https://github.com/depsilon/shardloom/pull/1531). The subsequent
-[join pressure unit](native-join-pressure-2026-10-08.md) has focused native/public
-proof for all seven kinds, one-shot input on either side, typed/nested writers,
-real constrained spill and owned cleanup/restart. Its frozen broad acceptance
-and hosted integration remain pending. Window/pivot pressure, remaining
+[join pressure unit](native-join-pressure-2026-10-08.md) has
+[complete local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
+for all seven kinds, one-shot input on either side, typed/nested writers,
+real constrained spill and owned cleanup/restart. Frozen broad regressions and
+independent packet inspection pass; hosted integration remains pending.
+Window/pivot pressure, remaining
 allocations and broader adapters keep their existing obligations.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
 require operational acceptance of a declared support envelope; package availability is complete,

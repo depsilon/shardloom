@@ -198,6 +198,17 @@ The [stateful acceptance packet](../benchmarks/native-stateful-aggregation-order
 retains the refusal and compaction manifest and independently reopens all 516
 members before accepting the fresh Full43 run.
 
+Before the October 8 native join Full43 acceptance, the unchanged 252-MiB
+log-admission threshold again stopped preflight before queries. The completed
+stateful aggregation/ordering cohort's 516 original JSON/companion files were
+compacted into `completed-call-logs-join-20261008.tar.xz` beside its unchanged
+summary. Original identities, closed handles and every member's bytes were
+verified before redundant originals were removed, recovering 3,362,816 accounted
+log bytes. Failed/incomplete evidence and all ceilings remain unchanged. The
+[join acceptance packet](../benchmarks/native-join-pressure-2026-10-08.md)
+retains the refusal and compaction manifest and independently reopens all 516
+members before accepting the fresh Full43 run.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and

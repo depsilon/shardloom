@@ -67,9 +67,11 @@ remain charged. Ordering, aggregation and joins admit explicit native spill.
 Limits, including zero, drain and validate input; observed end-of-input is required
 for success. Neither mode adds input spill or an RSS bound. Ordering/aggregate
 acceptance merged in [PR #1531](https://github.com/depsilon/shardloom/pull/1531).
-The [join contract](../architecture/native-join-pressure-2026-10-08.md) records
-its separate acceptance gates; the [spill guide](native-query-spill.md) gives
-current examples and recovery boundaries.
+The [join contract](../architecture/native-join-pressure-2026-10-08.md) has
+[complete local acceptance](../benchmarks/native-join-pressure-2026-10-08.md),
+including independent packet inspection; hosted integration remains pending.
+The [spill guide](native-query-spill.md) gives current examples and recovery
+boundaries.
 
 `iter_batches(batch_rows=2048, memory_gb=..., max_parallelism=..., spill=...)`
 delivers admitted typed/nested results with acknowledged backpressure. Consume

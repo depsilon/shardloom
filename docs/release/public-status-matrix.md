@@ -89,8 +89,11 @@ explicit spill policy. Hosted integration completed in
 passing and the accepted runtime unchanged. The current
 [join pressure unit](../architecture/native-join-pressure-2026-10-08.md) adds an
 explicit native strategy for all seven join kinds and one single-use batch source
-on either side, alongside ordinary file/resident sources. Focused native/public
-checks pass; frozen broad acceptance and hosted integration remain pending.
+on either side, alongside ordinary file/resident sources. Its
+[complete local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
+passes constrained native spill, all 213 streaming cases, unchanged public/direct
+regressions, 129 Full43 results and independent packet inspection. Hosted
+integration remains pending.
 Resident input remains the default; no RSS bound, public maturity label or
 published v0.4.0 contents change follows from these additions.
 

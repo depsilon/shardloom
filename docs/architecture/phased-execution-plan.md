@@ -255,8 +255,9 @@ the ledger.
     and the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
     Existing owners are PERF-02/03/06/10/12 and CG-20/21; broader owners stay open.
   - V1 scope classification: `required_for_v1` for this declared local family.
-  - Current state: implemented with focused native/public checks passing; frozen
-    broad acceptance and hosted integration remain pending. The resident default
+  - Current state: complete frozen local acceptance and independent packet
+    inspection pass in the [join report](../benchmarks/native-join-pressure-2026-10-08.md);
+    hosted integration remains pending. The resident default
     retains the build side/index/match bitmap; explicit spill uses bounded native
     ordered records and match/restoration runs. One single-use batch source can
     coexist with ordinary file/resident sources on either side. General aggregate
@@ -278,7 +279,7 @@ the ledger.
     - [x] Prove larger-than-grant completion against resident denial and ample
       controls, plus reservation/quota/cancellation/corruption/consumer/source
       failures, destination protection and owned cleanup/restart.
-    - [ ] Freeze source/binary/oracles and complete focused, workspace, public,
+    - [x] Freeze source/binary/oracles and complete focused, workspace, public,
       direct/adapter and Full43 acceptance with independent packet inspection.
     - [ ] Complete adversarial source review, affected support alignment,
       hosted integration and exact ledger closeout.
@@ -1039,11 +1040,16 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     This is distinct from historical synthetic spill fixtures. Native weighted
     COUNT and integer DISTINCT runs are retained; non-null single-key UTF8
     COUNT now drains worker state into native runs under pressure. Compound
-    COUNT retains its serial spill route. Broader worker transfer, join spill
-    and production resource/recovery acceptance remain open.
+    COUNT retains its serial spill route. Multi-key relational ordering and
+    general grouped/scalar aggregation have complete local and hosted acceptance
+    in PR #1531. The [join pressure unit](../benchmarks/native-join-pressure-2026-10-08.md)
+    has complete constrained native/public/regression acceptance and independent
+    packet inspection; its hosted integration remains pending. Window/pivot
+    pressure, broader worker transfer and production resource/recovery acceptance
+    retain their separate obligations.
   - Execution checklist:
     - [ ] Extend quota-accounted native runs and exact pressure transitions to
-      the remaining aggregate/distinct/join families.
+      the remaining declared state families, including window/pivot pressure.
     - [ ] Complete cancellation, crash recovery, quota exhaustion, corruption and
       owned-cleanup acceptance across each admitted spill family.
     - [ ] Prove exact supported large-state completion under the admitted workload
