@@ -1,0 +1,285 @@
+{
+  "schema_version": "shardloom.native_pivot_local_acceptance.v1",
+  "status": "accepted_source_committed_locally_hosted_pending",
+  "units": [
+    "NATIVE-PIVOT-PRESSURE"
+  ],
+  "runtime_commit": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+  "source_identity_sha256": "c754261c7fc394147b3c7e7d37f8d5662d1b00c6ed9520393759144668e15855",
+  "runtime_source_assets_verified_against_commit": 1015,
+  "acceptance": {
+    "status": "passed_local_engine",
+    "source_identity_sha256": "c754261c7fc394147b3c7e7d37f8d5662d1b00c6ed9520393759144668e15855",
+    "binary_sha256": "22eb39060595afbde22e9ed4a0f1ca87c3504c58fe68f22641c336048eee8404",
+    "source_assets": 1015,
+    "public_checks": 32497,
+    "public_rows": 18595284,
+    "direct_checks": 202,
+    "direct_rows": 131734,
+    "full43_runs": 129,
+    "raw_public_envelopes": 64741,
+    "raw_direct_envelopes": 367,
+    "source_checks": 15,
+    "batch_checks": 48,
+    "format_checks": 19,
+    "streaming_public_checks": 442,
+    "streaming_raw_envelopes": 420,
+    "streaming_small_value_files": 365,
+    "streaming_complete_pressure_rows_reopened": 517499,
+    "malformed_protocol_traces": 10,
+    "native_pivot_pressure_cases": 1,
+    "native_pivot_pressure_executions": 2,
+    "public_pivot_pressure_checks": 3626,
+    "public_pivot_pressure_rows": 1713893,
+    "public_pivot_incremental_checks": 133,
+    "public_pivot_incremental_rows": 197148,
+    "retained_window_pressure_checks": 1498,
+    "retained_window_pressure_rows": 1061210,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9,
+    "compacted_archive_members_reopened": 1032,
+    "source_tree_clean": true,
+    "broader_documentation_updates_deferred": true,
+    "packet": "docs/benchmarks/evidence/native-pivot-pressure-2026-10-08.json.xz",
+    "packet_sha256": "e7107caebc9f374672e6a5d755feb53b521796233a2eab7ff52ce4ac71ef901a",
+    "packet_compressed_bytes": 53641616,
+    "packet_uncompressed_bytes": 4519733612,
+    "packet_uncompressed_sha256": "349ea38fdced68f8cb25e23019d5d367d1a2264fda7fa44dbd36e9e27762e637",
+    "public_family_union_repair_sha256": "826376fa1c668862caa45f9051445219685c3c0f55778d93665748b891f6bf03",
+    "public_family_executions_rerun": false
+  },
+  "original_acceptance_sha256": "032d2aaf8a3f611eb0d697be9ade52325489324f1de156607ce6f63afaa581b0",
+  "portable_inspection": "docs/benchmarks/evidence/native-pivot-pressure-2026-10-08-inspection.json",
+  "original_inspection_sha256": "ca9b54c22ff59db2371c31f689e6581e6aaee15fde1c192ae3037f96b86458ed",
+  "inspector_contract_tests": {
+    "status": "passed",
+    "cases": 190,
+    "inspector_sha256": "71744e3ff4239e3878a859eba9d5e84bf6c145928268d59e601947577aca1380",
+    "verifier_sha256": "acb9ee0d30f1fe884ecd922c8cda14b010528b9488f6db43381ee45ef8792c96"
+  },
+  "evidence_inputs_sha256": "13e8b4412ad15c87b5cac0288a1b83c61f0f9e242a0f9fa05af06cf981b6c034",
+  "evidence_freeze_boundary": "Metadata-only identity freeze preceded the guarded independent readback; no native execution occurs during freezing.",
+  "archive_guards": {
+    "pivot-finalize-4": {
+      "receipt_sha256": "7578d6fd97c74a972801a722a715388a8ce648a109efe99a5d8eec7429c07776",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/benchmarks/traditional_analytics",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<pivot-uat>/finalize_pivot_acceptance.py",
+          "--attempt",
+          "4",
+          "--supervisor",
+          "pivot-finalize-4"
+        ],
+        "cwd": "<repo>",
+        "head": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2647965696,
+            "log_bytes": 0,
+            "free_bytes": 99397992448,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 14673293312,
+            "log_bytes": 0,
+            "free_bytes": 99397992448,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1200.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 13658,
+        "output_bytes": 2117,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 533.3373754170025,
+        "log_sha256": "de01b1724788de29a37cefb04fc56bfebde7187b28719327782958f17649d095"
+      }
+    },
+    "pivot-packet-inspect-4": {
+      "receipt_sha256": "faf74f9e8dcb352d4348936d6bcc1765ccf2d23993f83595989b18ad6116d03e",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "<pivot-uat>/verify_pivot_packet.py",
+          "--attempt",
+          "4"
+        ],
+        "cwd": "<repo>",
+        "head": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2648637440,
+            "log_bytes": 0,
+            "free_bytes": 99213234176,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 14673293312,
+            "log_bytes": 0,
+            "free_bytes": 99213234176,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1500.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 14222,
+        "output_bytes": 2493,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 1227.4562743749993,
+        "log_sha256": "dd1f7293d6b387ac526bad4c1baa25a0a1ad527f76693cd7746f35f1f919d228"
+      }
+    }
+  },
+  "public_family_union_repair": {
+    "manifest_sha256": "826376fa1c668862caa45f9051445219685c3c0f55778d93665748b891f6bf03",
+    "status": "passed_completed_family_union",
+    "completed_families": 10,
+    "native_queries_rerun": false,
+    "original_failed_controller_summary_preserved": true,
+    "boundary": "All ten native families completed successfully. A summary-only repair reconciles two identical shared oracle declarations; the original failed aggregate summary and all family receipts are retained."
+  },
+  "native_pivot_pressure": [
+    {
+      "ample_peak_reserved_bytes": 291378361,
+      "call": 1,
+      "cells": 6145,
+      "complete_output_rows": 6145,
+      "domains": 1,
+      "family": "native_sparse_pivot_repeated_floating_updates",
+      "grant": 16777216,
+      "index_rows": 6145,
+      "input_file_bytes": 19342360,
+      "input_rows": 24580,
+      "lookup_blocks": 37896,
+      "merge_passes": 387,
+      "owned_cleanup_completed": true,
+      "peak_disk_bytes": 37324372,
+      "reader_opens": 776,
+      "resident_denial": "memory reservation denied: requested=33824, reserved=16759641, limit=16777216; fallback execution was not attempted",
+      "runs_written": 775,
+      "spilled_peak_reserved_bytes": 15657857
+    },
+    {
+      "ample_peak_reserved_bytes": 291378361,
+      "call": 2,
+      "cells": 6145,
+      "complete_output_rows": 6145,
+      "domains": 1,
+      "family": "native_sparse_pivot_repeated_floating_updates",
+      "grant": 16777216,
+      "index_rows": 6145,
+      "input_file_bytes": 19342360,
+      "input_rows": 24580,
+      "lookup_blocks": 37896,
+      "merge_passes": 387,
+      "owned_cleanup_completed": true,
+      "peak_disk_bytes": 37324372,
+      "reader_opens": 776,
+      "resident_denial": "memory reservation denied: requested=33824, reserved=16759641, limit=16777216; fallback execution was not attempted",
+      "runs_written": 775,
+      "spilled_peak_reserved_bytes": 15657857
+    }
+  ],
+  "pressure_boundary": "One file-backed fixture supplies 24,580 rows and 6,145 wide string keys with repeated floating updates. Two explicit-spill executions each return all 6,145 values in order under 16 MiB, with input exceeding the grant. Resident execution at 16 MiB denies; the ample control passes at 512 MiB. All controls restore reservation baselines and successful spill removes owned runs. Public pressure separately uses 1 GiB. Native reservations do not bound process RSS; cleanup/restart is not execution resume. Dynamic one-shot pivot input remains rejected.",
+  "public_complete_workflows": {
+    "streaming_cases": 442,
+    "streaming_pressure_rows_reopened": 517499,
+    "small_value_files": 365,
+    "malformed_protocol_traces": 10,
+    "ordinary_regression_cases": 32497,
+    "ordinary_complete_rows": 18595284,
+    "new_pivot_pressure_checks": 3626,
+    "new_pivot_pressure_rows": 1713893,
+    "pivot_incremental_checks": 133,
+    "pivot_incremental_rows": 197148,
+    "direct_cases": 202,
+    "direct_complete_rows": 131734,
+    "resident_batch_cases": 48,
+    "format_fidelity_cases": 19,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9
+  },
+  "full43_observation": {
+    "summary_sha256": "cd1ed5e1823b7081096830a5e4ef9e6d2c00cda27def62e7295516d695d19719",
+    "source_bytes": 15682956489,
+    "memory_policy_gb": 24,
+    "maximum_parallelism": 12,
+    "sum_query_minima_seconds": 63.95495554502122,
+    "sum_query_medians_seconds": 64.81904333501006,
+    "sum_all_calls_seconds": 195.3282133770408,
+    "maximum_native_process_rss_bytes": 5318213632,
+    "boundary": "129 complete native processes with retained Vortex input and preexisting native correctness references. No fresh ingest, comparative speedup or enforced RSS claim; ordinary host activity and file cache are uncontrolled."
+  },
+  "original_observations": {
+    "historical_completed_call_members_compacted_and_reopened": 1032,
+    "all_15_engine_gates_passed_on_identical_runtime_source": true,
+    "public_preflight_storage_failure_retained": true,
+    "development_failures_retained": true
+  },
+  "documentation_updates_complete": true,
+  "hosted_acceptance_complete": false,
+  "package_publication_performed": false,
+  "performance_claim_allowed": false,
+  "broader_resource_spill_recovery_complete": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "staging_driver_sha256": "f18ca1f8b364058df6935ea9d87dff88d3f508a8f77f07c439d2f55b4283dd56",
+  "portable_inspection_sha256": "ca9b54c22ff59db2371c31f689e6581e6aaee15fde1c192ae3037f96b86458ed",
+  "documentation_acceptance": "docs/benchmarks/evidence/native-pivot-support-2026-10-08.json",
+  "documentation_acceptance_sha256": "4ed3a9ae7ffe1dbd9d890d9545bfcc078c76bdd3e44b5e56783cfacd44701635",
+  "support_alignment_runtime_provenance": {
+    "accepted_runtime_commit": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+    "accepted_source_identity_sha256": "c754261c7fc394147b3c7e7d37f8d5662d1b00c6ed9520393759144668e15855",
+    "assets_byte_identical": 1013,
+    "asset_count_unchanged": 1015,
+    "harness_assets_repaired": 2,
+    "harness_behavior_changed": true,
+    "source_repair_manifest_sha256": "826376fa1c668862caa45f9051445219685c3c0f55778d93665748b891f6bf03",
+    "repaired_source_files": {
+      "scripts/run_native_relational_suite.py": {
+        "original_sha256": "7f5d1da1dd6b193fa73159cb08154d3cbf2c94c45724322489d0e618d9702b66",
+        "repaired_sha256": "ed19ad854497f489b75a04949544cc0301a4ed5dbcf5d87589e5dfa0ab82a824"
+      },
+      "scripts/test_native_relational_suite.py": {
+        "original_sha256": "670fdaae90be7d1de7c73580b9f3e31389f290a79c0ea6ab554e7d93a0cb3757",
+        "repaired_sha256": "a1d72a552a0946c58bf975c8b90453b8676e1dc78bb9d5cb77cd79663c7ea04d"
+      }
+    },
+    "source_repair_boundary": "Only the suite summary combiner and its regression tests change. All native and Python product execution sources, case declarations and expectations remain byte-identical.",
+    "executable_behavior_changed": false,
+    "binary_sha256": "22eb39060595afbde22e9ed4a0f1ca87c3504c58fe68f22641c336048eee8404"
+  }
+}

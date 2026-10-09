@@ -257,8 +257,12 @@ acceptance for existing analytic functions/frames under explicit native spill
 and one finite single-use batch source. Its
 [report](../benchmarks/native-window-pressure-2026-10-08.md) binds 16-MiB native
 pressure controls, 442 streaming checks, 28,871 public regressions and all 129
-Full43 results; hosted window integration remains pending. Pivot pressure,
-remaining allocations and broader adapters keep their existing obligations.
+Full43 results; hosted window integration completed in PR #1533 after all 39
+hosted checks passed (see [hosted receipt](../benchmarks/evidence/native-window-hosted-2026-10-08.json)).
+Pivot pressure has complete local acceptance in the
+[acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md); hosted
+integration remains pending. Remaining allocations and broader adapters keep
+their existing obligations.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
 require operational acceptance of a declared support envelope; package availability is complete,
 and cloud/complete-SQL parity is not a blanket prerequisite for that local promise.

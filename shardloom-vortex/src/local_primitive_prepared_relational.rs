@@ -12,7 +12,7 @@ use super::{
     native_relational_expression, native_relational_join,
     native_relational_set::RowSet,
     native_relational_sort, native_relational_subquery, native_relational_window,
-    prepared_unary::{BoundUnary, CompletedPivot},
+    prepared_unary::{BoundUnary, CompletedPivot, PivotSpillReport},
     vortex_error,
 };
 use crate::{
@@ -83,6 +83,17 @@ pub struct ExecutedVortexRelational {
     /// Data-dependent declarations are lowered afresh inside this execution.
     pub schema_binding_deferred: bool,
     pub dynamic_schema_stages: u64,
+    /// Sparse pivots executed through complete-state native replacement runs.
+    pub spilled_pivot_stages: u64,
+    pub spilled_pivot_input_rows: u64,
+    /// Distinct indices and cells before the output limit, summed across stages.
+    pub spilled_pivot_index_rows: u64,
+    pub spilled_pivot_domains: u64,
+    pub spilled_pivot_cells: u64,
+    /// Native blocks loaded by online, margin and output lookups; excludes merge scans.
+    pub spilled_pivot_lookup_blocks: u64,
+    /// Actual held-reader opens, including completion and output reopenings.
+    pub spilled_pivot_reader_opens: u64,
     /// General aggregate nodes executed through the explicit native spill strategy.
     pub ordered_aggregate_stages: u64,
     /// Rows consumed by those aggregate nodes, summed across composed stages.
@@ -256,7 +267,7 @@ enum ScanSource {
 enum NodeKind {
     CompletedPivot {
         operation: Box<BoundUnary>,
-        result: RefCell<Option<CompletedPivot>>,
+        result: Box<RefCell<Option<CompletedPivot>>>,
         rows: usize,
     },
     Outer,
@@ -516,6 +527,13 @@ struct Metrics<'a> {
     unary_state_items: Cell<u64>,
     unary_population_retention: Cell<u64>,
     schema_discovery_stages: Cell<u64>,
+    spilled_pivot_stages: Cell<u64>,
+    spilled_pivot_input_rows: Cell<u64>,
+    spilled_pivot_index_rows: Cell<u64>,
+    spilled_pivot_domains: Cell<u64>,
+    spilled_pivot_cells: Cell<u64>,
+    spilled_pivot_lookup_blocks: Cell<u64>,
+    spilled_pivot_reader_opens: Cell<u64>,
     ordered_aggregate_stages: Cell<u64>,
     ordered_aggregate_input_rows: Cell<u64>,
     ordered_aggregate_distinct_rows: Cell<u64>,
@@ -545,6 +563,16 @@ struct Metrics<'a> {
 }
 
 impl Metrics<'_> {
+    fn record_pivot_spill(&self, report: PivotSpillReport) -> Result<()> {
+        add(&self.spilled_pivot_stages, report.stages)?;
+        add(&self.spilled_pivot_input_rows, report.input_rows)?;
+        add(&self.spilled_pivot_index_rows, report.index_rows)?;
+        add(&self.spilled_pivot_domains, report.domains)?;
+        add(&self.spilled_pivot_cells, report.cells)?;
+        add(&self.spilled_pivot_lookup_blocks, report.lookup_blocks)?;
+        add(&self.spilled_pivot_reader_opens, report.reader_opens)
+    }
+
     fn detach_window_input(
         &self,
         array: ArrayRef,
@@ -908,6 +936,13 @@ impl PreparedVortexRelational {
                 + usize::from(input.is_some()),
             schema_binding_deferred: matches!(self.root, PreparedRoot::Dynamic(_)),
             dynamic_schema_stages: metrics.schema_discovery_stages.get(),
+            spilled_pivot_stages: metrics.spilled_pivot_stages.get(),
+            spilled_pivot_input_rows: metrics.spilled_pivot_input_rows.get(),
+            spilled_pivot_index_rows: metrics.spilled_pivot_index_rows.get(),
+            spilled_pivot_domains: metrics.spilled_pivot_domains.get(),
+            spilled_pivot_cells: metrics.spilled_pivot_cells.get(),
+            spilled_pivot_lookup_blocks: metrics.spilled_pivot_lookup_blocks.get(),
+            spilled_pivot_reader_opens: metrics.spilled_pivot_reader_opens.get(),
             ordered_aggregate_stages: metrics.ordered_aggregate_stages.get(),
             ordered_aggregate_input_rows: metrics.ordered_aggregate_input_rows.get(),
             ordered_aggregate_distinct_rows: metrics.ordered_aggregate_distinct_rows.get(),
@@ -956,7 +991,15 @@ impl PreparedVortexRelational {
                     .borrow_mut()
                     .take()
                     .ok_or_else(|| failed("dynamic pivot result was consumed twice"))?;
-                result.emit(operation, context, batch_rows, consume)
+                let report = result.emit_report(
+                    operation,
+                    context,
+                    batch_rows,
+                    #[cfg(all(feature = "vortex-write", unix))]
+                    metrics.spill.as_ref(),
+                    consume,
+                )?;
+                metrics.record_pivot_spill(report)
             }
             NodeKind::Unary { input, operation } => {
                 let usage = operation.consume_relation(

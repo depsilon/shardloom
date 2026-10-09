@@ -35,3 +35,35 @@ def require_native_resource_admission(name, envelope, *, memory_gb=1):
     if (not isinstance(peak, str) or not peak.isascii() or not peak.isdecimal()
             or int(peak) > budget):
         raise ValueError(f"{name}: shared native resource admission differs")
+
+
+def require_native_pivot_spill(name, envelope, spill, workspace, *, stages=None):
+    """Require the requested pivot strategy, measured state and owned cleanup."""
+    counters = {}
+    for suffix in ("stages", "input_rows", "index_rows", "domains", "cells",
+                   "lookup_blocks", "reader_opens"):
+        key = f"relational_spilled_pivot_{suffix}"
+        value = envelope.field(key)
+        if not isinstance(value, str) or not value.isascii() or not value.isdecimal():
+            raise ValueError(f"{name}: missing or malformed pivot spill counter {key}")
+        counters[suffix] = int(value)
+    declared = envelope.field("relational_dynamic_schema_stages") if stages is None else str(stages)
+    required = {
+        "relational_spill_requested": "true",
+        "relational_spill_strategy": "native_latest_pivot_state_and_stable_full_row_runs",
+        "relational_spill_workspace": str(workspace),
+        "relational_spill_quota_bytes": str(spill["quota_bytes"]),
+        "relational_spill_buffer_bytes": str(spill["buffer_bytes"]),
+        "relational_spill_owned_cleanup_completed": "true",
+        "relational_spilled_pivot_stages": declared,
+    }
+    if counters["stages"] == 0 or any(envelope.field(key) != value for key, value in required.items()):
+        raise ValueError(f"{name}: pivot did not use the requested native spill policy")
+    peak = envelope.field("relational_spill_peak_disk_bytes")
+    if (not isinstance(peak, str) or not peak.isascii() or not peak.isdecimal()
+            or int(peak) > spill["quota_bytes"]):
+        raise ValueError(f"{name}: pivot spill exceeded or omitted its disk accounting")
+    if counters["cells"] and not counters["reader_opens"]:
+        raise ValueError(f"{name}: stored pivot cells have no native reader evidence")
+    if list(workspace.iterdir()):
+        raise ValueError(f"{name}: pivot retained owned spill state after completion")

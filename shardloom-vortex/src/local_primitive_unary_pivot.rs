@@ -25,6 +25,21 @@ mod values;
 use super::super::native_payload;
 use values::Datum;
 
+#[cfg(all(feature = "vortex-write", unix))]
+#[path = "local_primitive_unary_pivot_spill.rs"]
+mod spill;
+
+#[derive(Default, Clone, Copy)]
+pub(in crate::local_primitives) struct SpillReport {
+    pub(in crate::local_primitives) stages: u64,
+    pub(in crate::local_primitives) input_rows: u64,
+    pub(in crate::local_primitives) index_rows: u64,
+    pub(in crate::local_primitives) domains: u64,
+    pub(in crate::local_primitives) cells: u64,
+    pub(in crate::local_primitives) lookup_blocks: u64,
+    pub(in crate::local_primitives) reader_opens: u64,
+}
+
 pub(super) struct Plan {
     pub(super) index_field: (String, DType),
     cell_dtype: DType,
@@ -33,6 +48,10 @@ pub(super) struct Plan {
     decimal_source: Option<DecimalDType>,
     nested_extrema: bool,
     fill: Option<OwnedScalar>,
+    #[cfg(all(feature = "vortex-write", unix))]
+    index_source: DType,
+    #[cfg(all(feature = "vortex-write", unix))]
+    value_source: DType,
 }
 
 impl PivotValue for ScalarValue {
@@ -167,7 +186,41 @@ impl Plan {
             decimal_source,
             nested_extrema,
             fill,
+            #[cfg(all(feature = "vortex-write", unix))]
+            index_source: dtypes[0].clone(),
+            #[cfg(all(feature = "vortex-write", unix))]
+            value_source: dtypes[2].clone(),
         })
+    }
+
+    fn check_domain(
+        domains: &std::collections::BTreeMap<String, String>,
+        key: &str,
+        pivot: &Datum,
+        projection: &VortexPivotProjectionRequest,
+    ) -> Result<()> {
+        if !domains.contains_key(key) {
+            if domains.len() >= 127 - usize::from(projection.margins) {
+                return Err(failed("pivot domain exceeds 128 result columns"));
+            }
+            if pivot.pivot_name()?.len() > 248 {
+                return Err(failed(
+                    "pivot domain name exceeds the native field-name boundary",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn fill<'a>(&'a self, value: Option<Value<'a>>) -> Result<Value<'a>> {
+        let value = if let Some(value) = value {
+            value
+        } else if let Some(fill) = &self.fill {
+            borrowed(fill.value())?
+        } else {
+            Value::Null
+        };
+        common_value(value, &self.cell_dtype)
     }
 }
 
@@ -294,14 +347,7 @@ impl Pivot {
         let pivot_key = pivot.pivot_key()?;
         let new_index = !self.state.index_keys.contains(&index_key);
         let new_pivot = !self.state.pivot_columns.contains_key(&pivot_key);
-        if new_pivot && self.state.pivot_columns.len() >= 127 - usize::from(projection.margins) {
-            return Err(failed("pivot domain exceeds 128 result columns"));
-        }
-        if new_pivot && pivot.pivot_name()?.len() > 248 {
-            return Err(failed(
-                "pivot domain name exceeds the native field-name boundary",
-            ));
-        }
+        Plan::check_domain(&self.state.pivot_columns, &pivot_key, pivot, projection)?;
         let cell_key = (index_key, pivot_key);
         let first = matches!(compiled.aggregate.as_str(), "first" | "first_unique");
         let new_cell = if first {
@@ -342,10 +388,16 @@ pub(super) struct Completed {
 
 /// One execution's sparse state and authoritative schema. Direct file calls and
 /// relational composition share completion and bounded emission of this owner.
-pub(in crate::local_primitives) struct CompletedPivot {
-    pub(in crate::local_primitives) fields: Vec<(String, DType)>,
+pub(in crate::local_primitives) enum CompletedPivot {
+    Resident(ResidentCompletedPivot),
+    #[cfg(all(feature = "vortex-write", unix))]
+    Stored(spill::Completed),
+}
+
+pub(in crate::local_primitives) struct ResidentCompletedPivot {
+    fields: Vec<(String, DType)>,
     columns: Vec<String>,
-    pub(in crate::local_primitives) rows: usize,
+    rows: usize,
     pre_limit_rows: usize,
     state: Pivot,
     indices: Vec<String>,
@@ -380,9 +432,9 @@ impl PreparedVortexUnary {
         let execution = self.certify_scan(
             context,
             evidence,
-            result.rows,
-            result.pre_limit_rows,
-            &result.columns,
+            result.rows(),
+            result.pre_limit_rows(),
+            result.columns(),
             result.usage(),
         )?;
         Ok(Completed { execution, result })
@@ -395,8 +447,15 @@ impl BoundUnary {
     pub(in crate::local_primitives) fn complete_relation_pivot(
         &self,
         context: &NativeExecutionContext<'_>,
+        #[cfg(all(feature = "vortex-write", unix))] spill: Option<
+            &crate::local_primitives::native_relational_spill::State,
+        >,
         produce: impl FnOnce(&mut dyn FnMut(ArrayRef) -> Result<()>) -> Result<()>,
     ) -> Result<CompletedPivot> {
+        #[cfg(all(feature = "vortex-write", unix))]
+        if let Some(spill) = spill {
+            return spill::complete(self, spill, context, produce).map(CompletedPivot::Stored);
+        }
         let mut state = Pivot::new(self, context)?;
         produce(&mut |array| {
             context.check_cancelled()?;
@@ -521,7 +580,7 @@ impl Pivot {
             .len()
             .checked_add(usize::from(has_margin))
             .ok_or_else(|| failed("pivot row count overflow"))?;
-        Ok(CompletedPivot {
+        Ok(CompletedPivot::Resident(ResidentCompletedPivot {
             fields,
             columns,
             rows,
@@ -532,11 +591,110 @@ impl Pivot {
             column_margins,
             grand_margin: grand,
             _metadata: metadata,
-        })
+        }))
     }
 }
 
 impl CompletedPivot {
+    pub(in crate::local_primitives) fn fields(&self) -> &[(String, DType)] {
+        match self {
+            Self::Resident(result) => &result.fields,
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::Stored(result) => &result.fields,
+        }
+    }
+
+    pub(in crate::local_primitives) fn rows(&self) -> usize {
+        match self {
+            Self::Resident(result) => result.rows,
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::Stored(result) => result.rows,
+        }
+    }
+
+    fn columns(&self) -> &[String] {
+        match self {
+            Self::Resident(result) => &result.columns,
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::Stored(result) => &result.columns,
+        }
+    }
+
+    fn pre_limit_rows(&self) -> usize {
+        match self {
+            Self::Resident(result) => result.pre_limit_rows,
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::Stored(result) => result.pre_limit_rows,
+        }
+    }
+
+    pub(in crate::local_primitives) fn usage(&self) -> super::report::StateUsage {
+        match self {
+            Self::Resident(result) => result.usage(),
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::Stored(result) => result.usage(),
+        }
+    }
+
+    pub(in crate::local_primitives) fn spill_report(&self) -> SpillReport {
+        match self {
+            Self::Resident(_) => SpillReport::default(),
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::Stored(result) => result.spill_report(),
+        }
+    }
+
+    pub(in crate::local_primitives) fn emit(
+        self,
+        plan: &BoundUnary,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        #[cfg(all(feature = "vortex-write", unix))] spill: Option<
+            &crate::local_primitives::native_relational_spill::State,
+        >,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        self.emit_report(
+            plan,
+            context,
+            batch_rows,
+            #[cfg(all(feature = "vortex-write", unix))]
+            spill,
+            consume,
+        )
+        .map(|_| ())
+    }
+
+    /// Return only work performed during output. Discovery has already been
+    /// reported, including when a downstream zero limit skips this call.
+    pub(in crate::local_primitives) fn emit_report(
+        self,
+        plan: &BoundUnary,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        #[cfg(all(feature = "vortex-write", unix))] spill: Option<
+            &crate::local_primitives::native_relational_spill::State,
+        >,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<SpillReport> {
+        match self {
+            Self::Resident(result) => {
+                result.emit(plan, context, batch_rows, consume)?;
+                Ok(SpillReport::default())
+            }
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::Stored(result) => result.emit(
+                plan,
+                spill.ok_or_else(|| failed("completed pivot lost its spill owner"))?,
+                context,
+                batch_rows,
+                consume,
+            ),
+        }
+    }
+}
+
+impl ResidentCompletedPivot {
     pub(in crate::local_primitives) fn usage(&self) -> super::report::StateUsage {
         self.state.usage()
     }
@@ -666,16 +824,7 @@ impl CompletedPivot {
         row: usize,
         column: usize,
     ) -> Result<Value<'a>> {
-        let fill = |value: Option<Value<'a>>| -> Result<Value<'a>> {
-            let value = if let Some(value) = value {
-                value
-            } else if let Some(fill) = &compiled.fill {
-                borrowed(fill.value())?
-            } else {
-                Value::Null
-            };
-            common_value(value, &compiled.cell_dtype)
-        };
+        let fill = |value| compiled.fill(value);
         if row == self.indices.len() {
             if column == 0 {
                 return Ok(Value::Text(std::borrow::Cow::Borrowed(

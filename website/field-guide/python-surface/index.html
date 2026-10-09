@@ -125,6 +125,11 @@ copies; output and sink reservations remain separate. No repeated-source spool
 or process-RSS ceiling is added. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-streamed-ordering-2026-10-07.md">streamed ordering contract</a>
 and <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md">aggregate, join and window spill examples</a>.</p>
+<p>Relational pivots over file or resident-memory sources can deliver complete
+admitted results through <code dir="auto">iter_batches()</code> with an explicit <code dir="auto">spill</code> policy.
+The <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state">sparse pivot example</a>
+shows setup and cleanup. Dynamic pivot execution over one-shot streaming input
+remains rejected before producer demand.</p>
 <p>Requesting the next result batch acknowledges the preceding one. Use the
 context manager when stopping early, and treat delivered batches as provisional
 until the final report is present after full exhaustion. Prepare compatibility

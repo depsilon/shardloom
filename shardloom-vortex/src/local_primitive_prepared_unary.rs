@@ -20,7 +20,7 @@ use vortex::array::{
 
 use super::result_batch::Value;
 use memory::ReservedVec;
-pub(super) use pivot::CompletedPivot;
+pub(super) use pivot::{CompletedPivot, SpillReport as PivotSpillReport};
 use values::NativeBatch;
 
 #[path = "local_primitive_unary_explode.rs"]
@@ -555,11 +555,14 @@ impl PreparedVortexUnary {
                 .with_native_execution_controlled(cancellation, |file, context| {
                     if self.bound.pivot.is_some() {
                         let completed = self.complete_pivot(file, context)?;
-                        completed
-                            .result
-                            .emit(&self.bound, context, BATCH_ROWS, &mut |array| {
-                                consume(array, context)
-                            })?;
+                        completed.result.emit(
+                            &self.bound,
+                            context,
+                            BATCH_ROWS,
+                            #[cfg(all(feature = "vortex-write", unix))]
+                            None,
+                            &mut |array| consume(array, context),
+                        )?;
                         return Ok(completed.execution);
                     }
                     self.consume_in_context(file, context, BATCH_ROWS, &mut |array| {

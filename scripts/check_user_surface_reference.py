@@ -428,10 +428,10 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
             blockers.append(f"{JSON_PATH}: native_dynamic_pivot_composition.{field} differs from its contract")
     for field in ("preparation_metadata_only", "inspection_side_effect_free",
                   "single_use_execution_references", "correlated_parameter_scopes",
-                  "declaration_reuse", "absent_domain_column_is_error"):
+                  "declaration_reuse", "absent_domain_column_is_error", "pivot_state_spill"):
         if pivot.get(field) is not True:
             blockers.append(f"{JSON_PATH}: native_dynamic_pivot_composition.{field} must be true")
-    for field in ("query_answer_reuse", "pivot_state_spill", "total_rss_bound",
+    for field in ("query_answer_reuse", "total_rss_bound",
                   "fallback_attempted", "external_engine_invoked"):
         if pivot.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_dynamic_pivot_composition.{field} must be false")
@@ -470,11 +470,47 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
     ):
         if nested_pivot.get(field) != value:
             blockers.append(f"{JSON_PATH}: native_nested_pivot_state.{field} differs from its contract")
-    for field in ("nested_index_margins", "nested_sum_mean", "pivot_state_spill", "total_rss_bound",
+    for field in ("nested_index_margins", "nested_sum_mean", "total_rss_bound",
                   "performance_claim", "fallback_attempted", "external_engine_invoked"):
         if nested_pivot.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_nested_pivot_state.{field} must be false")
     blockers.extend(validate_acceptance(repo_root, "native_nested_pivot_state", nested_pivot))
+
+    for name, section in (("native_dynamic_pivot_composition", pivot),
+                          ("native_nested_pivot_state", nested_pivot)):
+        if section.get("pivot_state_spill") is not True or section.get("pivot_state_spill_contract") != "native_relational_pivot_spill":
+            blockers.append(f"{JSON_PATH}: {name} must reference its explicit relational pivot spill contract")
+    pivot_spill = payload.get("native_relational_pivot_spill", {})
+    for field, value in (
+        ("reference", "docs/architecture/native-pivot-pressure-2026-10-08.md"),
+        ("required_features", ["vortex-local-primitives", "vortex-write"]),
+        ("required_platform", "unix"),
+        ("public_resource_arguments", ["memory_gb", "max_parallelism", "spill"]),
+        ("spill_fields", ["workspace", "quota_bytes", "buffer_bytes"]),
+        ("minimum_buffer_bytes", 1048576),
+        ("minimum_quota_bytes", 32768),
+        ("default_strategy", "resident"),
+        ("explicit_strategy", "native_sparse_latest_state_runs_with_bounded_exact_lookup"),
+        ("source_scope", ["file", "resident_memory"]),
+        ("type_scope", "existing_scalar_typed_and_static_nested_pivot_contracts"),
+        ("maximum_top_level_fields", 128),
+        ("file_and_resident_scalar_writer_count", 8),
+        ("typed_nested_writers", ["vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv"]),
+        ("dead_owner_recovery", "identity_checked_owned_cleanup_and_restart"),
+    ):
+        if pivot_spill.get(field) != value:
+            blockers.append(f"{JSON_PATH}: native_relational_pivot_spill.{field} differs from its contract")
+    for field in ("existing_observation_and_error_order_preserved", "shared_query_grant_and_disk_quota",
+                  "incremental_result_delivery", "cleanup_required_before_publication"):
+        if pivot_spill.get(field) is not True:
+            blockers.append(f"{JSON_PATH}: native_relational_pivot_spill.{field} must be true")
+    for field in ("direct_prepared_unary_spill", "one_shot_batch_input", "execution_resume",
+                  "total_rss_bound", "performance_claim", "fallback_attempted", "external_engine_invoked"):
+        if pivot_spill.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_relational_pivot_spill.{field} must be false")
+    if "CSV_uses_quoted_JSON_text_cells_without_native_dtype_persistence" not in pivot_spill.get("writer_fidelity", ""):
+        blockers.append(f"{JSON_PATH}: pivot spill must retain the nested CSV type-loss boundary")
+    blockers.extend(validate_acceptance(repo_root, "native_relational_pivot_spill", pivot_spill))
 
     for field in (
         "no_fallback_policy",

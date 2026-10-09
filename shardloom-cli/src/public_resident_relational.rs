@@ -369,7 +369,12 @@ fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelat
         fields.extend([
             (
                 "relational_spill_strategy".into(),
-                "stable_native_full_row_two_run_merge".into(),
+                if result.spilled_pivot_stages == 0 {
+                    "stable_native_full_row_two_run_merge"
+                } else {
+                    "native_latest_pivot_state_and_stable_full_row_runs"
+                }
+                .into(),
             ),
             (
                 "relational_spill_workspace".into(),
@@ -422,6 +427,36 @@ fn append_execution(
     reused: bool,
 ) {
     append_spill(fields, result);
+    fields.extend([
+        (
+            "relational_spilled_pivot_stages".into(),
+            result.spilled_pivot_stages.to_string(),
+        ),
+        (
+            "relational_spilled_pivot_input_rows".into(),
+            result.spilled_pivot_input_rows.to_string(),
+        ),
+        (
+            "relational_spilled_pivot_index_rows".into(),
+            result.spilled_pivot_index_rows.to_string(),
+        ),
+        (
+            "relational_spilled_pivot_domains".into(),
+            result.spilled_pivot_domains.to_string(),
+        ),
+        (
+            "relational_spilled_pivot_cells".into(),
+            result.spilled_pivot_cells.to_string(),
+        ),
+        (
+            "relational_spilled_pivot_lookup_blocks".into(),
+            result.spilled_pivot_lookup_blocks.to_string(),
+        ),
+        (
+            "relational_spilled_pivot_reader_opens".into(),
+            result.spilled_pivot_reader_opens.to_string(),
+        ),
+    ]);
     vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(
         fields,
         Some(&result.native_io_certificate),

@@ -138,19 +138,19 @@ fn unary_nested_pivot_all_roles_match_across_parent_dictionary_and_chunk_boundar
         let mut output = Vec::new();
         session
             .with_native_execution_context(&CancellationToken::default(), |context| {
-                let completed = bound.complete_relation_pivot(context, |accept| {
+                let completed = bound.complete_relation_pivot(context, None, |accept| {
                     accept(source.slice(0..3).unwrap())?;
                     accept(source.slice(3..6).unwrap())
                 })?;
                 assert_eq!(
                     completed
-                        .fields
+                        .fields()
                         .iter()
                         .map(|(name, _)| name.as_str())
                         .collect::<Vec<_>>(),
                     ["entity", "pivot_l0", "pivot_l1_i1", "pivot_l1_i2"]
                 );
-                completed.emit(&bound, context, 2, &mut |array| {
+                completed.emit(&bound, context, 2, None, &mut |array| {
                     output.push(array);
                     Ok(())
                 })

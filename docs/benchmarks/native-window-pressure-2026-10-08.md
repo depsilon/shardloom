@@ -5,14 +5,24 @@ explicit shared native spill policy and admits one finite single-use batch
 source. It reuses Window semantics, native ordering/run storage, exact keys,
 credited payloads and result writers. Resident execution stays the default.
 
-Status: complete local runtime, independent packet inspection and documentation
-acceptance. Hosted integration remains pending. The
+Status at local packet close: complete local runtime, independent packet
+inspection and documentation acceptance; hosted integration was pending. The
 [evidence index](evidence/native-window-pressure-2026-10-08.json),
 [portable packet](evidence/native-window-pressure-2026-10-08.json.xz) and
 [independent inspection](evidence/native-window-pressure-2026-10-08-inspection.json)
 bind source, complete results and original failure history. This unit makes no
 comparative performance or whole-process memory claim and does not publish a
 package or alter v0.4.0.
+
+Hosted follow-up, 2026-10-08: [PR #1533](https://github.com/depsilon/shardloom/pull/1533)
+merged at `a88ec5c9` with all 39 hosted checks passing and all 1,001 accepted
+runtime assets unchanged. The separate
+[hosted receipt](evidence/native-window-hosted-2026-10-08.json) preserves exact
+pre/post-merge evidence, preview/production search and guide checks, and the live
+acceptance link. Primary source review found no blocking issue. Automated hosted
+review was unavailable because the account review quota was exhausted; no
+independent source-review approval is claimed. The original local packet and
+its historical status remain unchanged.
 
 The packet contains 47,979,308 compressed bytes with SHA-256
 `338655c1d6878a879dfd3532483485d9b686b2c78810173380abf78f5a8c13f1`.

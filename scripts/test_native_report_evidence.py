@@ -1,13 +1,68 @@
 # SPDX-License-Identifier: Apache-2.0
 """Regression checks for ambiguous retained native report fields."""
 import unittest
+from pathlib import Path
+import tempfile
 from types import SimpleNamespace
 
 from run_native_unary_uat import require_unique_report_fields
-from native_report_evidence import has_diagnostic_detail, require_native_resource_admission
+from native_report_evidence import (
+    has_diagnostic_detail, require_native_pivot_spill, require_native_resource_admission,
+)
 
 
 class NativeReportEvidenceTests(unittest.TestCase):
+    def test_pivot_spill_requires_exact_strategy_counters_quota_and_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            spill = {"workspace": directory, "quota_bytes": 256 << 20, "buffer_bytes": 1 << 20}
+            fields = {
+                "relational_dynamic_schema_stages": "2", "relational_spill_requested": "true",
+                "relational_spill_strategy": "native_latest_pivot_state_and_stable_full_row_runs",
+                "relational_spill_workspace": directory,
+                "relational_spill_quota_bytes": str(spill["quota_bytes"]),
+                "relational_spill_buffer_bytes": str(spill["buffer_bytes"]),
+                "relational_spill_owned_cleanup_completed": "true",
+                "relational_spill_peak_disk_bytes": "8192",
+                **{f"relational_spilled_pivot_{key}": value for key, value in {
+                    "stages": "2", "input_rows": "9", "index_rows": "4", "domains": "2",
+                    "cells": "6", "lookup_blocks": "10", "reader_opens": "3",
+                }.items()},
+            }
+            def verify(values, **options):
+                require_native_pivot_spill("pivot", SimpleNamespace(field=values.get),
+                                          spill, workspace, **options)
+            verify(fields)
+            verify(fields, stages=2)
+            with self.assertRaises(ValueError):
+                verify(fields, stages=1)
+            changes = [
+                {"relational_spill_requested": "false"},
+                {"relational_spill_strategy": "stable_native_full_row_two_run_merge"},
+                {"relational_spill_workspace": directory + "-other"},
+                {"relational_spill_quota_bytes": "1"},
+                {"relational_spill_buffer_bytes": "1"},
+                {"relational_spill_owned_cleanup_completed": "false"},
+                {"relational_spill_peak_disk_bytes": str(spill["quota_bytes"] + 1)},
+                {"relational_spilled_pivot_stages": "0"},
+                {"relational_spilled_pivot_stages": "1"},
+                {"relational_spilled_pivot_reader_opens": "0"},
+            ] + [
+                {key: value} for key in ("relational_spilled_pivot_cells",
+                                         "relational_spill_peak_disk_bytes")
+                for value in (None, "", "-1", "NaN", "1.5", "١")
+            ]
+            for change in changes:
+                with self.subTest(change=change), self.assertRaises(ValueError):
+                    verify(fields | change)
+            # Empty discovery still executes its stage but creates no payload.
+            empty = fields | {f"relational_spilled_pivot_{key}": "0" for key in
+                              ("input_rows", "index_rows", "domains", "cells", "lookup_blocks", "reader_opens")}
+            verify(empty | {"relational_spill_peak_disk_bytes": "0"})
+            (workspace / "unreleased.vortex").write_bytes(b"owned state")
+            with self.assertRaisesRegex(ValueError, "retained"):
+                verify(fields)
+
     def test_specific_diagnostic_details_survive_either_standard_constructor(self):
         detail = "COUNT(DISTINCT <argument>) only"
         for key in ("message", "reason"):

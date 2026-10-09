@@ -164,34 +164,45 @@ impl<'a> Binder<'a> {
                 "correlated dynamic pivot requires per-parameter schema binding",
             ));
         }
-        let result = operation.complete_relation_pivot(execution.context, |consume| {
-            execution.owner.run(
-                input,
-                execution.context,
-                execution.metrics,
-                BATCH_ROWS,
-                execution.parameter,
-                consume,
-            )
-        })?;
+        let result = operation.complete_relation_pivot(
+            execution.context,
+            #[cfg(all(feature = "vortex-write", unix))]
+            execution.metrics.spill.as_ref(),
+            |consume| {
+                execution.owner.run(
+                    input,
+                    execution.context,
+                    execution.metrics,
+                    BATCH_ROWS,
+                    execution.parameter,
+                    consume,
+                )
+            },
+        )?;
         let usage = result.usage();
         execution
             .metrics
             .record_unary(usage.items, usage.all_input_retained)?;
+        execution
+            .metrics
+            .record_pivot_spill(result.spill_report())?;
         add(&execution.metrics.schema_discovery_stages, 1)?;
-        super::validate_width(result.fields.len())?;
-        for (name, dtype) in &result.fields {
+        super::validate_width(result.fields().len())?;
+        for (name, dtype) in result.fields() {
             super::validate_name(name)?;
             super::validate_key(dtype)?;
         }
-        super::validate_unique(&result.fields)?;
-        self.charge(result.fields.len() * 4096)?;
+        super::validate_unique(result.fields())?;
+        self.charge(result.fields().len() * 4096)?;
+        self.charge(std::mem::size_of::<
+            RefCell<Option<super::super::CompletedPivot>>,
+        >())?;
         Ok(Node {
-            fields: result.fields.clone(),
+            fields: result.fields().to_vec(),
             kind: NodeKind::CompletedPivot {
-                rows: result.rows,
+                rows: result.rows(),
                 operation: Box::new(operation),
-                result: RefCell::new(Some(result)),
+                result: Box::new(RefCell::new(Some(result))),
             },
         })
     }

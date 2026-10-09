@@ -532,6 +532,12 @@ or process-RSS ceiling is added. See the
 [streamed ordering contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-streamed-ordering-2026-10-07.md)
 and [aggregate, join and window spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
 
+Relational pivots over file or resident-memory sources can deliver complete
+admitted results through \`iter_batches()\` with an explicit \`spill\` policy.
+The [sparse pivot example](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state)
+shows setup and cleanup. Dynamic pivot execution over one-shot streaming input
+remains rejected before producer demand.
+
 Requesting the next result batch acknowledges the preceding one. Use the
 context manager when stopping early, and treat delivered batches as provisional
 until the final report is present after full exhaustion. Prepare compatibility
@@ -555,7 +561,7 @@ page describes current coverage gaps.`,
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 8, 2026.
+Current capabilities, reviewed October 9, 2026.
 
 ## Native Execution
 
@@ -593,7 +599,7 @@ repeated equal complete values and rejects conflicts. Nested extrema skip NULL
 parents and use the shared child-NULL ordering. Python pivot() and
 pivot_table(aggfunc="first") retain their first_unique alias, while SQL's
 explicit first selects the first row, including NULL. Nested SUM/MEAN,
-nested-index margins and pivot-state spill remain unsupported; nested MIN/MAX
+nested-index margins remain unsupported; nested MIN/MAX
 margins require a UTF8 index. Nested cells accept absent or NULL fill only.
 Representable nested results use Vortex, Parquet,
 Arrow IPC, Avro, JSON and JSONL; CSV translates nested values to quoted JSON
@@ -601,6 +607,14 @@ text, and ORC rejects nested output. Existing 128-field, collection and memory
 limits apply. Complete local workflow/regression acceptance and all 39 hosted
 checks passed before PR #1525 merged. Published v0.4.0 packages predate this source support.
 See the [nested pivot state contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-pivot-state-2026-10-06.md).
+Relational file/resident-memory pivots also implement an explicit
+[native spill strategy](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state).
+Sparse state, exact lookups, native runs and bounded output share the query grant
+and disk quota while preserving existing scalar, typed and nested semantics.
+Complete local acceptance and independent packet inspection
+[pass](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-pivot-pressure-2026-10-08.md);
+hosted integration remains pending. The direct prepared unary API remains
+resident; dynamic one-shot batch input rejects before producer demand.
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
 microsecond timestamps can travel as payloads, including nested leaves. Their
 flat equality, hashing and ordering are admitted through relational joins, sets,
@@ -646,8 +660,8 @@ offsets, calendar-month intervals and IGNORE NULLS
 remain outside the [frame contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-analytic-frames-2026-10-05.md).
 The [window pressure contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-window-pressure-2026-10-08.md)
 adds explicit native spill for the existing analytic functions and frames, plus
-one finite single-use batch source. Complete local acceptance passes; hosted
-window integration remains pending.
+one finite single-use batch source. Complete local and hosted acceptance passed
+before [PR #1533](https://github.com/depsilon/shardloom/pull/1533) merged.
 The [analytic-frame acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md)
 records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
 executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md)
@@ -761,14 +775,22 @@ adds existing analytic functions/frames with exact DISTINCT and extrema under
 native spill. File-backed and streamed 24,013-row controls both complete at
 16 MiB with exact values, safe resident denial and owned cleanup/restart.
 Complete public and regression acceptance passes; hosted window integration
-remains pending. All operator
-stages share one memory grant and spill quota. Output
+completed in PR #1533 after all 39 checks and actual preview/production verification.
+The subsequent
+[pivot acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-pivot-pressure-2026-10-08.md)
+completes local file/resident-memory relational pivot pressure and independent
+packet inspection. Two native 16-MiB executions each return all 6,145 wide-key
+results, with constrained resident denial and a 512-MiB ample control.
+The public portfolio contains 32,497 checks, including 3,626 pivot pressure
+checks and 133 incremental proofs; all 129 Full43 comparisons pass. Pivot hosted
+integration remains pending. Dynamic one-shot pivot input remains unsupported.
+All operator stages share one memory grant and spill quota. Output
 compaction prevents retained results from pinning input; native sink metadata
 and retained output still consume credits. Limits drain the complete source,
 and late failure prevents completion and incomplete file publication.
 The runtime also rejects malformed FSST row lengths before decoder allocation.
-Pivot pressure, repeated batch-source spooling, broader streaming
-destinations and remaining allocation coverage stay open; published v0.4.0 is unchanged.
+Repeated batch-source spooling, broader streaming destinations, unadmitted
+state/recovery and remaining allocation coverage stay open; published v0.4.0 is unchanged.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
@@ -794,9 +816,9 @@ The buffer is a flush threshold; it is not a second memory grant or a whole-proc
 Verified cleanup must finish before an execution or writer reports success.
 
 COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies.
-General relational aggregation, all seven admitted join kinds and existing analytic
-windows have their own strategies under the common explicit spill policy. Pivot and set state
-retain separate pressure contracts;
+General relational aggregation, all seven admitted join kinds, existing analytic
+windows and file/resident-memory relational pivots have their own strategies
+under the common explicit spill policy. Set state retains a separate pressure contract;
 unadmitted key types and broader resource accounting remain separate work. See
 [COUNT/DISTINCT contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
 [native spill contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md),
@@ -873,7 +895,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 8, 2026**. See the
+Current capabilities, reviewed **October 9, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -882,10 +904,10 @@ for the detailed evidence behind this scope.
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K, including explicit null ordering in flat aggregate collection and writes. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
-| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and accepted analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 admit [scalar-value subqueries](/field-guide/runtime-and-io#scalar-subqueries) with local and hosted acceptance. They also admit static List/FixedSizeList/Struct pivot index, domain and selected-value roles with complete [workflow, resource and regression acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md) and hosted integration. | Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested SUM/MEAN, non-NULL nested fill, nested-index margins, unsupported nested leaves and pivot-state spill remain outside the admitted contracts; nested MIN/MAX margins require a UTF8 index. Broader adapters and scalar pivot's 128-field, type and memory boundaries remain. |
+| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and accepted analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 admit [scalar-value subqueries](/field-guide/runtime-and-io#scalar-subqueries) with local and hosted acceptance. They also admit static List/FixedSizeList/Struct pivot index, domain and selected-value roles with complete [workflow, resource and regression acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md) and hosted integration. | Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested SUM/MEAN, non-NULL nested fill, nested-index margins and unsupported nested leaves remain outside the admitted contracts; nested MIN/MAX margins require a UTF8 index. Broader adapters and scalar pivot's 128-field, type and memory boundaries remain. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
-| Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, nullable multi-key relational ordering spill, and explicit general aggregation, join and analytic-window spill in current source builds. | Spill remains operator-specific; pivot pressure, broader reader/codec accounting, and whole-process RSS bounds remain separate work. Recovery is owned cleanup and restart, not resuming unfinished execution. |
+| Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, nullable multi-key relational ordering spill, and explicit general aggregation, join and analytic-window spill in current source builds. Relational file/resident-memory pivots have complete local pressure/workflow acceptance and independent packet inspection under their explicit native spill strategy; hosted integration remains pending. | Spill remains operator-specific; broader reader/codec accounting and whole-process RSS bounds remain separate work. Recovery is owned cleanup and restart, not resuming unfinished execution. |
 | Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
 
 Current source builds add reviewed FSST/Zstd buffer accounting and
@@ -909,10 +931,11 @@ shared native spill policy; see the
 [ordering/aggregate acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
 and [join acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-join-pressure-2026-10-08.md)
 and [window acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-window-pressure-2026-10-08.md).
-Join hosted integration is complete. Window local acceptance passes; its hosted
-integration remains pending. Other stateful
-families, repeated batch-source use, multiple batch producers and streamed
-compatibility writes remain denied.
+Join and window hosted integration are complete. On one-shot batch input,
+dynamic pivots and other unadmitted stateful families remain denied. Repeated
+batch-source use, multiple batch producers and streamed compatibility writes
+also remain denied. File/resident-memory relational pivot spill has its separate
+complete local acceptance above.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.
@@ -947,8 +970,12 @@ and masks, tail, sampling, parent forward fill, same-shape melt and rolling COUN
 Forward fill replaces a NULL parent; child NULLs do not trigger filling.
 Nested SUM/MEAN, non-NULL nested pivot fill, nested-index margins, nested
 arithmetic/string operations, temporal arithmetic rewrites, wider typed
-predicates and general state spill remain unsupported. Nested MIN/MAX margins
-require a UTF8 index. Nested pivot spill remains unsupported.
+predicates and unadmitted state spill remain unsupported. Nested MIN/MAX margins
+require a UTF8 index. Relational file/resident-memory pivots have an explicit
+[native spill contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-pivot-pressure-2026-10-08.md)
+with complete local acceptance and independent packet inspection; hosted
+integration remains pending. Direct prepared unary pivots remain resident and
+dynamic one-shot batch input rejects before producer demand.
 See the [typed unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-unary-2026-10-03.md).
 Computed aggregate arguments and exact decimal aggregate/rolling/scalar-pivot
 reductions now have complete local acceptance. Inexact decimal averages and final
@@ -1008,9 +1035,10 @@ The remaining local-engine exit criteria are concrete:
 - Bind correctness, operating measurements, API compatibility and support/upgrade instructions
   to the approved release source and binary.
 
-Ordering, general aggregation, join and analytic-window spill have quota,
-corruption, cancellation and consumer-failure coverage. Pivot pressure and broader reader/codec accounting
-remain open. A stable
+Ordering, general aggregation, join, analytic-window and file/resident-memory
+pivot spill have quota, corruption, cancellation and consumer-failure coverage.
+Pivot pressure has complete local acceptance and independent packet inspection;
+hosted integration and broader reader/codec accounting remain open. A stable
 local release need not wait for cloud integrations or every SQL feature; unsupported work must
 have an explicit boundary. The repository owns the
 [full acceptance checklist](https://github.com/depsilon/shardloom/blob/main/docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).

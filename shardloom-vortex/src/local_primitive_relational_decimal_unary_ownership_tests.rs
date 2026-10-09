@@ -68,8 +68,8 @@ fn deliver(
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
     if kind == Kind::PivotRows {
-        let completed = bound.complete_relation_pivot(context, produce)?;
-        completed.emit(bound, context, 1, consume)
+        let completed = bound.complete_relation_pivot(context, None, produce)?;
+        completed.emit(bound, context, 1, None, consume)
     } else {
         bound
             .consume_relation(context, None, 1, produce, consume)

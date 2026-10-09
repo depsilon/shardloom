@@ -111,8 +111,12 @@ copying a nested payload that cannot change the retained cell. Native output
 credits must survive producer/session drop, clones and slices. Cancellation
 checks apply inside child traversal and during discovery, completion and emission.
 
-Sparse-state pressure remains deterministic grant denial; this unit adds no
-pivot spill adapter. Existing sort spill does not grant pivot spill permission.
+At this unit's original acceptance, sparse-state pressure meant deterministic
+grant denial; no pivot spill adapter was added. The later
+[October 8 pivot pressure contract](native-pivot-pressure-2026-10-08.md) admits
+explicit relational spill for file/resident-memory sources. Direct prepared
+unary pivots remain resident. Existing sort spill alone grants no pivot spill
+permission.
 Failure must release state and staged output without publishing a partial result.
 Successful counters establish the named reservations, not complete reader/codec
 accounting or a process-RSS ceiling. Preserve source-generation and repeated-call

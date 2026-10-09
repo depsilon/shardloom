@@ -1,14 +1,21 @@
 # Native analytic windows under an explicit shared spill policy
 
-Status: complete local runtime acceptance and independent packet inspection
+Status: complete local runtime acceptance, independent packet inspection and
+hosted integration
 under PERF-02/03/06/10/12 and CG-20/21, following
 [join acceptance](native-join-pressure-2026-10-08.md). Runtime `80057ba6` passes
 the frozen public, direct, adapter, source and Full43 gates. The
 [acceptance report](../benchmarks/native-window-pressure-2026-10-08.md) binds
 complete values and constrained native resource/failure proof. Support alignment,
 six executable examples and desktop/mobile/search checks pass with all 1,001
-accepted runtime assets unchanged. Hosted integration remains open in the
-[phase plan](phased-execution-plan.md).
+accepted runtime assets unchanged. [PR #1533](https://github.com/depsilon/shardloom/pull/1533)
+merged at `a88ec5c9` after all 39 hosted checks passed. The
+[hosted receipt](../benchmarks/evidence/native-window-hosted-2026-10-08.json)
+records preview and production search, desktop/mobile guide checks and the live
+acceptance link. Primary source review found no blocking issue; hosted automated
+review was unavailable because the account review quota was exhausted. This is
+not an independent source-review approval. The [phase plan](phased-execution-plan.md)
+retains the broader work.
 The expert comparator is an external-memory analytic operator preserving exact
 frame semantics, observation order and complete output under one query grant.
 The resident strategy remains the default.
@@ -243,7 +250,10 @@ saved envelope and 517,499 streaming-pressure rows. A separate packet inspector
 passes its 165-case contract and full decompression/coverage checks. File-backed
 and streamed native tests each complete 24,013 wide rows under 16 MiB, while
 resident controls at that grant deny and ample controls pass. The public grant
-is separately 1 GiB. Hosted integration remains required.
+is separately 1 GiB. Hosted integration subsequently completed in
+[PR #1533](https://github.com/depsilon/shardloom/pull/1533) at `a88ec5c9` after all
+39 checks passed; the [hosted receipt](../benchmarks/evidence/native-window-hosted-2026-10-08.json)
+binds the unchanged accepted runtime and actual preview/production verification.
 
 The rejected alternatives are retaining the full partition behind a disk-backed
 input, rescanning each complete frame for every output, maintaining a new mutable

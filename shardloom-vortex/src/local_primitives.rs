@@ -169,6 +169,9 @@ mod native_sort_block;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_utf8.rs"]
 mod native_utf8;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitive_native_writer.rs"]
+mod native_writer;
 #[cfg(all(
     test,
     feature = "vortex-local-primitives",
@@ -17553,6 +17556,27 @@ trait PivotValue: Clone {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn pivot_first_is_new<T: PivotValue>(
+    existing: Option<&T>,
+    value: &T,
+    aggregate: &str,
+    projection: &VortexPivotProjectionRequest,
+) -> Result<bool> {
+    if let Some(existing) = existing {
+        if aggregate == "first_unique" && !existing.pivot_equal(value)? {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local Vortex scoped pivot row export found multiple values for index '{}' and pivot '{}'; use pivot_table with an explicit aggregate or provide unique cells; no fallback execution was attempted",
+                projection.index_column.as_str(),
+                projection.pivot_column.as_str()
+            )));
+        }
+        Ok(false)
+    } else {
+        Ok(true)
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 impl PivotValue for StatValue {
     fn pivot_key(&self) -> Result<String> {
         Ok(pivot_value_key(self))
@@ -17690,17 +17714,12 @@ impl<T: PivotValue, C> PivotRowExportState<T, C> {
             let cell_key = (index_key, pivot_key);
             match aggregate {
                 "first" | "first_unique" => {
-                    if let Some(existing) = self.first_cells.get(&cell_key) {
-                        if aggregate == "first_unique"
-                            && !existing.pivot_equal(&value_values[row_index])?
-                        {
-                            return Err(ShardLoomError::InvalidOperation(format!(
-                                "local Vortex scoped pivot row export found multiple values for index '{}' and pivot '{}'; use pivot_table with an explicit aggregate or provide unique cells; no fallback execution was attempted",
-                                projection.index_column.as_str(),
-                                projection.pivot_column.as_str()
-                            )));
-                        }
-                    } else {
+                    if pivot_first_is_new(
+                        self.first_cells.get(&cell_key),
+                        &value_values[row_index],
+                        aggregate,
+                        projection,
+                    )? {
                         self.first_cells
                             .insert(cell_key, retain(&value_values[row_index])?);
                     }

@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import asdict
 import json
 
 from run_clickbench_query_uat import file_sha256, strict_json
 from run_native_unary_uat import csv_cell
-from native_report_evidence import has_diagnostic_detail, require_native_resource_admission
+from native_report_evidence import (
+    has_diagnostic_detail, require_native_pivot_spill, require_native_resource_admission,
+)
 
 
 def literal(value):
@@ -92,12 +95,54 @@ def validate_dynamic_fields(name, envelope, stages=None, scans=None, reused=None
             raise ValueError(f"{name}: {key} differs: {envelope.field(key)!r} != {value!r}")
 
 
-def run(context, output, guard, accepted, complete, sources, identity):
+def consume_pivot_batches(name, workflow, resources, columns, *, output, schema=None):
+    """Check provisional batches and their retained values through final completion."""
+    retained, actual, observed_schema = [], [], None
+    with workflow.iter_batches(batch_rows=257, **resources) as iterator:
+        for batch in iterator:
+            if iterator.report is not None or len(batch.result_rows) > 257:
+                raise ValueError(f"{name}: incremental result completed early or exceeded its row bound")
+            if observed_schema is None:
+                observed_schema = batch.result_schema
+            if (batch.result_schema != observed_schema or list(batch.result_columns) != columns
+                    or (schema is not None and batch.result_schema != tuple(schema))):
+                raise ValueError(f"{name}: incremental pivot schema differs")
+            actual.extend(batch.result_rows)
+            retained.append(batch)
+        report = iterator.report
+        if report is None or iterator._process.poll() != 0:
+            raise ValueError(f"{name}: incremental transaction did not complete")
+    envelope = report.envelope
+    if (envelope.field("result_payload_complete") != "true"
+            or envelope.field("output_columns") != ",".join(columns)
+            or envelope.field_int("native_result_batches_acknowledged") != len(retained)
+            or [row for batch in retained for row in batch.result_rows] != actual):
+        raise ValueError(f"{name}: completed incremental evidence or retained values differ")
+    with (output / f"{name}.json").open("x") as stream:
+        json.dump(actual, stream, ensure_ascii=False)
+        stream.write("\n")
+    with (output / f"{name}-batch-proof.json").open("x") as stream:
+        json.dump({"schema": None if observed_schema is None else
+                   [(field, asdict(dtype)) for field, dtype in observed_schema],
+                   "batch_rows": [len(batch.result_rows) for batch in retained],
+                   "rows": len(actual), "completed": True, "child_exited": True},
+                  stream, ensure_ascii=False, indent=2)
+        stream.write("\n")
+    return report, actual
+
+
+def run(context, output, guard, accepted, complete, sources, identity, *, spill_strategy=False):
     import shardloom as sl
     from shardloom.query import SqlWorkflow
 
     output.mkdir(parents=True)
     resources = {"memory_gb": 1, "max_parallelism": 2}
+    case_prefix = "dynamic-pivot-pressure" if spill_strategy else "dynamic-pivot"
+    workspace = output / "pivot-spill"
+    if spill_strategy:
+        workspace.mkdir()
+        resources["spill"] = {"workspace": str(workspace), "quota_bytes": 256 << 20,
+                              "buffer_bytes": 1 << 20}
     expected = expected_cases()
     expected_path = output / "expected.json"
     expected_path.write_text(json.dumps(expected, ensure_ascii=False, indent=2) + "\n")
@@ -106,10 +151,16 @@ def run(context, output, guard, accepted, complete, sources, identity):
         sources.extend((path, file_sha256(path), identity(path)) for path in paths)
 
     remember(expected_path)
+    policy_path = output / "execution-policy.json"
+    policy_path.write_text(json.dumps({"execution": resources, "spill_strategy": spill_strategy},
+                                     indent=2) + "\n")
+    remember(policy_path)
 
     def verified(name, report, stages=None, scans=None, reused=None):
         envelope = accepted(name, report)
         validate_dynamic_fields(name, envelope, stages, scans, reused)
+        if spill_strategy:
+            require_native_pivot_spill(name, envelope, resources["spill"], workspace, stages=stages)
         return envelope
 
     def denied(name, report, destination=None, reason=None):
@@ -120,6 +171,8 @@ def run(context, output, guard, accepted, complete, sources, identity):
                 or (destination is not None and destination.exists())
                 or (reason is not None and not has_diagnostic_detail(envelope, reason))):
             raise ValueError(f"{name}: invalid dynamic request published output or success evidence")
+        if spill_strategy and list(workspace.iterdir()):
+            raise ValueError(f"{name}: denied pivot retained owned spill state")
         complete(name, [], [])
 
     def equal(name, actual, reference, destination=None):
@@ -177,7 +230,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
         writer.writerows((i, *row) for i, row in enumerate(original))
     remember(raw, typed)
     guard()
-    accepted("dynamic-pivot-prepare", context.read_json(raw).prepare(native, check=False))
+    accepted(f"{case_prefix}-prepare", context.read_json(raw).prepare(native, check=False))
     remember(native)
 
     for source_name, base in [
@@ -230,7 +283,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
         for label, dataframe, sql, stages in cases:
             columns = list(expected[label][0]) if expected[label] else ["entity"] + (["pivot_total"] if label == "empty-margins" else [])
             for spelling, workflow in [("dataframe", dataframe), ("sql", SqlWorkflow(sql, context.client, source_bindings=base._declared_sources()))]:
-                family = f"dynamic-pivot-{source_name}-{spelling}-{label}"
+                family = f"{case_prefix}-{source_name}-{spelling}-{label}"
                 route = workflow.route(bounded=True, check=False, **resources)
                 (output / f"{family}-route.json").write_text(json.dumps(route.envelope.raw, indent=2) + "\n")
                 if route.route_status != "admitted" or not route.side_effect_free or route.fallback_attempted or route.external_engine_invoked:
@@ -244,15 +297,27 @@ def run(context, output, guard, accepted, complete, sources, identity):
                         raise ValueError(f"{name}: incomplete payload or wrong dynamic schema")
                     equal(name, list(report.result_rows), expected[label])
                 write_all(family, workflow, expected[label], columns, stages)
+                if spill_strategy and source_name == "native":
+                    guard()
+                    name = f"{family}-batches"
+                    report, actual = consume_pivot_batches(name, workflow, resources, columns, output=output)
+                    verified(name, report, stages)
+                    equal(name, actual, expected[label], output / f"{name}.json")
 
         correlated_input = f"SELECT who AS entity,kind AS category,reading AS amount FROM {source} WHERE position < outer.position"
         correlated = f"SELECT position FROM {source} WHERE EXISTS (SELECT 1 FROM ({pivot_sql(correlated_input)}) AS p) ORDER BY position"
         workflow = SqlWorkflow(correlated, context.client, source_bindings=base._declared_sources())
-        family = f"dynamic-pivot-{source_name}-correlated"
+        family = f"{case_prefix}-{source_name}-correlated"
         report = workflow.collect(check=False, **resources)
         verified(family, report, 8, 72)
         equal(family, list(report.result_rows), expected["correlated"])
         write_all(family, workflow, expected["correlated"], ["position"], 8)
+        if spill_strategy and source_name == "native":
+            guard()
+            name = f"{family}-batches"
+            report, actual = consume_pivot_batches(name, workflow, resources, ["position"], output=output)
+            verified(name, report, 8, 72)
+            equal(name, actual, expected["correlated"], output / f"{name}.json")
 
     nullable = output / "o'clock.data"
     with nullable.open("x", newline="") as stream:
@@ -266,7 +331,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
         # absent cells. Both declared dropna settings retain observed domains.
         frame = base.limit(5).pivot(index="entity", columns="category", values="amount", fill_value=0, dropna=dropna)
         for spelling, workflow in [("dataframe", frame), ("sql", SqlWorkflow(frame._relation_statement(), context.client, source_bindings=base._declared_sources()))]:
-            family = f"dynamic-pivot-null-collision-{dropna}-{spelling}"
+            family = f"{case_prefix}-null-collision-{dropna}-{spelling}"
             report = workflow.collect(check=False, **resources)
             verified(family, report, 1, 5)
             equal(family, list(report.result_rows), expected["null-collision"])
@@ -278,18 +343,18 @@ def run(context, output, guard, accepted, complete, sources, identity):
                                 for value in range(128)))
     remember(wide_raw)
     guard()
-    accepted("dynamic-pivot-wide-prepare", context.read_json(wide_raw).prepare(wide, check=False))
+    accepted(f"{case_prefix}-wide-prepare", context.read_json(wide_raw).prepare(wide, check=False))
     remember(wide)
     wide_base = context.read_vortex(wide)
     frame = wide_base.limit(127).pivot_table(index="entity", columns="category", values="amount", aggfunc="sum")
     for spelling, workflow in [("dataframe", frame), ("sql", context.sql(frame._relation_statement()))]:
-        family = f"dynamic-pivot-wide-{spelling}"
+        family = f"{case_prefix}-wide-{spelling}"
         report = workflow.collect(check=False, **resources)
         verified(family, report, 1)
         equal(family, list(report.result_rows), expected["wide"])
         write_all(family, workflow, expected["wide"], list(expected["wide"][0]), 1)
     destination = output / "must-not-publish-domain-width.vortex"
-    denied("dynamic-pivot-domain-width", wide_base.limit(128).pivot_table(
+    denied(f"{case_prefix}-domain-width", wide_base.limit(128).pivot_table(
         index="entity", columns="category", values="amount", aggfunc="sum"
     ).write_vortex(destination, check=False, **resources), destination, "128 result columns")
 
@@ -300,12 +365,12 @@ def run(context, output, guard, accepted, complete, sources, identity):
             stream.write(json.dumps({"n": value, "k": "a", "v": value % 19 - 9}) + "\n")
     remember(large_raw)
     guard()
-    accepted("dynamic-pivot-large-prepare", context.read_json(large_raw).prepare(large, check=False))
+    accepted(f"{case_prefix}-large-prepare", context.read_json(large_raw).prepare(large, check=False))
     remember(large)
     frame = (context.read_vortex(large).select("n AS entity", "k AS category", "v AS amount")
              .pivot_table(index="entity", columns="category", values="amount", aggfunc="sum").sort("entity"))
     for spelling, workflow in [("dataframe", frame), ("sql", context.sql(frame._relation_statement()))]:
-        family = f"dynamic-pivot-large-{spelling}"
+        family = f"{case_prefix}-large-{spelling}"
         guard()
         report = workflow.limit(97).collect(check=False, **resources)
         verified(f"{family}-limited", report, 1, 65_541)
@@ -314,6 +379,12 @@ def run(context, output, guard, accepted, complete, sources, identity):
         denied(f"{family}-collection", workflow.collect(check=False, **resources),
                reason="collect exceeds 65,536 rows")
         write_all(family, workflow, expected["large"], ["entity", "pivot_a"], 1)
+        if spill_strategy:
+            guard()
+            name = f"{family}-batches"
+            report, actual = consume_pivot_batches(name, workflow, resources, ["entity", "pivot_a"], output=output)
+            verified(name, report, 1, 65_541)
+            equal(name, actual, expected["large"], output / f"{name}.json")
 
     negative_input = f"SELECT who AS entity,kind AS category,reading AS amount FROM {literal(native)} ORDER BY position"
     for label, statement, reason in [
@@ -324,12 +395,12 @@ def run(context, output, guard, accepted, complete, sources, identity):
     ]:
         destination = output / f"must-not-publish-{label}.vortex"
         report = SqlWorkflow(statement, context.client).write_vortex(destination, check=False, **resources)
-        denied(f"dynamic-pivot-{label}", report, destination, reason)
+        denied(f"{case_prefix}-{label}", report, destination, reason)
 
     # Inspection remains syntax-only even when neither input nor observed fields exist.
     missing = output / "never-created.vortex"
     inspected = context.sql(pivot_sql(f"SELECT entity,category,amount FROM {literal(missing)}")).route(bounded=True, check=False, **resources)
     if not inspected.side_effect_free or missing.exists() or inspected.fallback_attempted or inspected.external_engine_invoked:
         raise ValueError("dynamic pivot inspection accessed a missing source")
-    complete("dynamic-pivot-missing-source-inspection", [], [])
+    complete(f"{case_prefix}-missing-source-inspection", [], [])
     guard()

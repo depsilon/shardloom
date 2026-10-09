@@ -220,6 +220,23 @@ bytes. Failed/incomplete evidence and all ceilings remain unchanged. The
 retains the refusal and manifest and independently reopens all 516 members
 before accepting the fresh Full43 run.
 
+The October 9 pivot acceptance retained two further storage events. A pressure
+preflight stopped under the free-space guard; its partial results receive no
+acceptance credit. Guarded cleanup removed only the unused Cargo debug cache
+and 384 generated Vortex/reopen payloads from three completed historical
+pipeline cohorts, preserving their commands, identities, summaries, failure
+history, regeneration fixtures and frozen executables. Free-space observations
+increased by approximately 68.5 GB across those removals. A fresh pressure
+preflight then passed all 3,626 checks on unchanged sources and expectations.
+
+Full43 admission separately stopped before any query at the unchanged 252-MiB
+log threshold. Two complete historical cohorts were compacted with identity,
+closed-handle and complete member verification, recovering 4,575,232 accounted
+bytes. The accepted pivot packet independently reopens all 1,032 original
+JSON/companion members. Its [report](../benchmarks/native-pivot-pressure-2026-10-08.md)
+retains both refusals and successful continuations. Failed/incomplete evidence,
+resident inputs, unrelated files and storage ceilings remain unchanged.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and

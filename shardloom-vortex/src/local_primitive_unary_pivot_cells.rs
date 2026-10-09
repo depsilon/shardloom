@@ -1,5 +1,5 @@
-//! Typed cells inside the shared sparse pivot owner. Decimal cells keep exact
-//! totals; nested extrema retain only the selected complete native payload.
+//! Shared typed pivot transitions. Both resident maps and private native runs
+//! retain the same complete cell state and finalize only at the result boundary.
 
 use std::collections::BTreeMap;
 
@@ -14,59 +14,53 @@ type Key = (String, String);
 
 #[derive(Debug, Default, Clone, Copy)]
 pub(super) struct DecimalCell {
-    total: Total,
-    min: Option<i128>,
-    max: Option<i128>,
+    pub(super) total: Total,
+    pub(super) min: Option<i128>,
+    pub(super) max: Option<i128>,
 }
 
-pub(super) enum Cells {
-    Primitive(BTreeMap<Key, PivotAggregateCell>),
-    Decimal(DecimalDType, BTreeMap<Key, DecimalCell>),
-    Nested(BTreeMap<Key, Option<Datum>>),
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Kind {
+    Primitive,
+    Decimal(DecimalDType),
+    Nested,
 }
 
-impl Default for Cells {
-    fn default() -> Self {
-        Self::Primitive(BTreeMap::new())
-    }
+#[derive(Clone)]
+pub(super) enum Cell {
+    Primitive(PivotAggregateCell),
+    Decimal(DecimalDType, DecimalCell),
+    Nested(Option<Datum>),
 }
 
-impl Cells {
+impl Kind {
     pub(super) fn new(source: Option<DecimalDType>, nested: bool) -> Self {
         if nested {
-            return Self::Nested(BTreeMap::new());
+            Self::Nested
+        } else {
+            source.map_or(Self::Primitive, Self::Decimal)
         }
-        source.map_or_else(Self::default, |source| {
-            Self::Decimal(source, BTreeMap::new())
-        })
     }
 
-    pub(super) fn len(&self) -> usize {
+    pub(super) fn empty(self) -> Cell {
         match self {
-            Self::Primitive(cells) => cells.len(),
-            Self::Decimal(_, cells) => cells.len(),
-            Self::Nested(cells) => cells.len(),
+            Self::Primitive => Cell::Primitive(PivotAggregateCell::default()),
+            Self::Decimal(source) => Cell::Decimal(source, DecimalCell::default()),
+            Self::Nested => Cell::Nested(None),
         }
     }
+}
 
-    pub(super) fn contains_key(&self, key: &Key) -> bool {
-        match self {
-            Self::Primitive(cells) => cells.contains_key(key),
-            Self::Decimal(_, cells) => cells.contains_key(key),
-            Self::Nested(cells) => cells.contains_key(key),
-        }
-    }
-
+impl Cell {
     pub(super) fn update(
         &mut self,
-        key: Key,
         value: &Datum,
         aggregate: &str,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         match self {
-            Self::Primitive(cells) => {
-                let mut cell = cells.get(&key).copied().unwrap_or_default();
+            Self::Primitive(previous) => {
+                let mut cell = *previous;
                 cell.count = cell
                     .count
                     .checked_add(1)
@@ -85,9 +79,9 @@ impl Cells {
                     cell.min = Some(cell.min.map_or(value, |current| current.min(value)));
                     cell.max = Some(cell.max.map_or(value, |current| current.max(value)));
                 }
-                cells.insert(key, cell);
+                *previous = cell;
             }
-            Self::Decimal(source, cells) => {
+            Self::Decimal(source, previous) => {
                 let ScalarValue::Decimal128 {
                     value,
                     precision,
@@ -105,17 +99,15 @@ impl Cells {
                         "pivot decimal value differs from its bound source type",
                     ));
                 }
-                let mut cell = cells.get(&key).copied().unwrap_or_default();
+                let mut cell = *previous;
                 cell.total.add(*value, *source)?;
                 cell.min = Some(cell.min.map_or(*value, |current| current.min(*value)));
                 cell.max = Some(cell.max.map_or(*value, |current| current.max(*value)));
-                cells.insert(key, cell);
+                *previous = cell;
             }
-            Self::Nested(cells) => {
-                let cell = cells.entry(key).or_default();
+            Self::Nested(cell) => {
                 if nested_replaces(cell.as_ref(), value, aggregate)? {
-                    // Keep the old payload charged until the new compact owner
-                    // is complete, so replacement peak is admitted explicitly.
+                    // Admit the compact replacement while the old payload is held.
                     *cell = Some(value.retain(context)?);
                 }
             }
@@ -123,92 +115,42 @@ impl Cells {
         Ok(())
     }
 
-    pub(super) fn value(&self, key: &Key, aggregate: &str) -> Result<Option<Value<'static>>> {
-        match self {
-            Self::Primitive(cells) => cells
-                .get(key)
-                .map(|cell| primitive_value(cell, aggregate))
-                .transpose()
-                .map(Option::flatten),
-            Self::Decimal(source, cells) => cells
-                .get(key)
-                .map(|cell| decimal_value(cell, *source, aggregate))
-                .transpose()
-                .map(Option::flatten),
-            Self::Nested(_) => Err(failed("nested pivot extrema require native delivery")),
-        }
-    }
-
-    pub(super) fn native(&self, key: &Key) -> Result<Option<ArrayRef>> {
-        match self {
-            Self::Nested(cells) => cells
-                .get(key)
-                .and_then(Option::as_ref)
-                .map(Datum::native)
-                .transpose(),
-            _ => Err(failed("scalar pivot cell cannot supply a nested output")),
-        }
-    }
-}
-
-pub(super) enum Margin {
-    Primitive(Option<PivotAggregateCell>),
-    Decimal(DecimalDType, Option<DecimalCell>),
-    Nested(Option<Datum>),
-}
-
-impl Margin {
-    pub(super) fn new(cells: &Cells) -> Self {
-        match cells {
-            Cells::Primitive(_) => Self::Primitive(None),
-            Cells::Decimal(source, _) => Self::Decimal(*source, None),
-            Cells::Nested(_) => Self::Nested(None),
-        }
-    }
-
-    pub(super) fn push(&mut self, cells: &Cells, key: &Key, aggregate: &str) -> Result<()> {
-        match (self, cells) {
-            (Self::Primitive(total), Cells::Primitive(cells)) => {
-                if let Some(cell) = cells.get(key) {
-                    let current = total.get_or_insert_default();
-                    current.count = current
-                        .count
-                        .checked_add(cell.count)
-                        .ok_or_else(|| failed("pivot margin count overflow"))?;
-                    current.sum += cell.sum;
-                    if matches!(aggregate, "sum" | "mean") && !current.sum.is_finite() {
-                        return Err(failed("pivot margin accumulation is not finite"));
-                    }
-                    if let Some(value) = cell.min {
-                        current.min = Some(current.min.map_or(value, |current| current.min(value)));
-                    }
-                    if let Some(value) = cell.max {
-                        current.max = Some(current.max.map_or(value, |current| current.max(value)));
-                    }
+    fn merge(&mut self, other: &Self, aggregate: &str) -> Result<()> {
+        match (self, other) {
+            (Self::Primitive(current), Self::Primitive(cell)) => {
+                current.count = current
+                    .count
+                    .checked_add(cell.count)
+                    .ok_or_else(|| failed("pivot margin count overflow"))?;
+                current.sum += cell.sum;
+                if matches!(aggregate, "sum" | "mean") && !current.sum.is_finite() {
+                    return Err(failed("pivot margin accumulation is not finite"));
+                }
+                if let Some(value) = cell.min {
+                    current.min = Some(current.min.map_or(value, |current| current.min(value)));
+                }
+                if let Some(value) = cell.max {
+                    current.max = Some(current.max.map_or(value, |current| current.max(value)));
                 }
             }
-            (Self::Decimal(source, total), Cells::Decimal(expected, cells))
+            (Self::Decimal(source, current), Self::Decimal(expected, cell))
                 if source == expected =>
             {
-                if let Some(cell) = cells.get(key) {
-                    let current = total.get_or_insert_default();
-                    current.total.merge(&cell.total)?;
-                    if let Some(value) = cell.min {
-                        current.min = Some(current.min.map_or(value, |current| current.min(value)));
-                    }
-                    if let Some(value) = cell.max {
-                        current.max = Some(current.max.map_or(value, |current| current.max(value)));
-                    }
+                current.total.merge(&cell.total)?;
+                if let Some(value) = cell.min {
+                    current.min = Some(current.min.map_or(value, |current| current.min(value)));
+                }
+                if let Some(value) = cell.max {
+                    current.max = Some(current.max.map_or(value, |current| current.max(value)));
                 }
             }
-            (Self::Nested(total), Cells::Nested(cells)) => {
-                if let Some(Some(value)) = cells.get(key)
-                    && nested_replaces(total.as_ref(), value, aggregate)?
-                {
-                    // Margins share already compact payloads and their credits.
-                    *total = Some(value.clone());
+            (Self::Nested(current), Self::Nested(Some(value))) => {
+                if nested_replaces(current.as_ref(), value, aggregate)? {
+                    // Already compact values share their allocation credits.
+                    *current = Some(value.clone());
                 }
             }
+            (Self::Nested(_), Self::Nested(None)) => {}
             _ => return Err(failed("pivot margin differs from its bound cell type")),
         }
         Ok(())
@@ -216,25 +158,139 @@ impl Margin {
 
     pub(super) fn value(&self, aggregate: &str) -> Result<Option<Value<'static>>> {
         match self {
-            Self::Primitive(cell) => cell
-                .as_ref()
-                .map(|cell| primitive_value(cell, aggregate))
-                .transpose()
-                .map(Option::flatten),
-            Self::Decimal(source, cell) => cell
-                .as_ref()
-                .map(|cell| decimal_value(cell, *source, aggregate))
-                .transpose()
-                .map(Option::flatten),
-            Self::Nested(_) => Err(failed("nested pivot margin requires native delivery")),
+            Self::Primitive(cell) => primitive_value(cell, aggregate),
+            Self::Decimal(source, cell) => decimal_value(cell, *source, aggregate),
+            Self::Nested(_) => Err(failed("nested pivot extrema require native delivery")),
         }
     }
 
     pub(super) fn native(&self) -> Result<Option<ArrayRef>> {
         match self {
             Self::Nested(value) => value.as_ref().map(Datum::native).transpose(),
-            _ => Err(failed("scalar pivot margin cannot supply a nested output")),
+            _ => Err(failed("scalar pivot cell cannot supply a nested output")),
         }
+    }
+}
+
+pub(super) struct Cells {
+    kind: Kind,
+    values: BTreeMap<Key, Cell>,
+}
+
+impl Default for Cells {
+    fn default() -> Self {
+        Self::new(None, false)
+    }
+}
+
+impl Cells {
+    pub(super) fn new(source: Option<DecimalDType>, nested: bool) -> Self {
+        Self {
+            kind: Kind::new(source, nested),
+            values: BTreeMap::new(),
+        }
+    }
+
+    pub(super) fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    pub(super) fn contains_key(&self, key: &Key) -> bool {
+        self.values.contains_key(key)
+    }
+
+    pub(super) fn update(
+        &mut self,
+        key: Key,
+        value: &Datum,
+        aggregate: &str,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        let mut cell = self
+            .values
+            .get(&key)
+            .cloned()
+            .unwrap_or_else(|| self.kind.empty());
+        cell.update(value, aggregate, context)?;
+        self.values.insert(key, cell);
+        Ok(())
+    }
+
+    pub(super) fn value(&self, key: &Key, aggregate: &str) -> Result<Option<Value<'static>>> {
+        if self.kind == Kind::Nested {
+            return Err(failed("nested pivot extrema require native delivery"));
+        }
+        self.values
+            .get(key)
+            .map(|cell| cell.value(aggregate))
+            .transpose()
+            .map(Option::flatten)
+    }
+
+    pub(super) fn native(&self, key: &Key) -> Result<Option<ArrayRef>> {
+        if self.kind != Kind::Nested {
+            return Err(failed("scalar pivot cell cannot supply a nested output"));
+        }
+        self.values
+            .get(key)
+            .map(Cell::native)
+            .transpose()
+            .map(Option::flatten)
+    }
+}
+
+pub(super) struct Margin {
+    kind: Kind,
+    cell: Option<Cell>,
+}
+
+impl Margin {
+    pub(super) fn new(cells: &Cells) -> Self {
+        Self::for_kind(cells.kind)
+    }
+
+    pub(super) fn for_kind(kind: Kind) -> Self {
+        Self { kind, cell: None }
+    }
+
+    pub(super) fn push(&mut self, cells: &Cells, key: &Key, aggregate: &str) -> Result<()> {
+        if self.kind != cells.kind {
+            return Err(failed("pivot margin differs from its bound cell type"));
+        }
+        self.push_cell(cells.values.get(key), aggregate)
+    }
+
+    pub(super) fn push_cell(&mut self, cell: Option<&Cell>, aggregate: &str) -> Result<()> {
+        if let Some(cell) = cell {
+            // Even the first primitive cell is added to zero; copying it instead
+            // would change signed-zero and accumulation observation semantics.
+            self.cell
+                .get_or_insert_with(|| self.kind.empty())
+                .merge(cell, aggregate)?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn value(&self, aggregate: &str) -> Result<Option<Value<'static>>> {
+        if self.kind == Kind::Nested {
+            return Err(failed("nested pivot margin requires native delivery"));
+        }
+        self.cell
+            .as_ref()
+            .map(|cell| cell.value(aggregate))
+            .transpose()
+            .map(Option::flatten)
+    }
+
+    pub(super) fn native(&self) -> Result<Option<ArrayRef>> {
+        if self.kind != Kind::Nested {
+            return Err(failed("scalar pivot margin cannot supply a nested output"));
+        }
+        self.cell
+            .as_ref()
+            .map(Cell::native)
+            .transpose()
+            .map(Option::flatten)
     }
 }
 

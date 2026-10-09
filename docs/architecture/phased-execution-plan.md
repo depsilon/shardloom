@@ -249,39 +249,40 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-WINDOW-PRESSURE` — complete large analytic partitions under the
-  shared native spill policy and admit one finite single-use batch source.
-  - Source: [design and reuse map](native-window-pressure-2026-10-08.md), RFC 0044
+- [ ] `NATIVE-PIVOT-PRESSURE` — complete growing sparse pivot state under the
+  shared native spill policy without changing online updates or output semantics.
+  - Source: [design and reuse map](native-pivot-pressure-2026-10-08.md), RFC 0044
     and the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
     Existing owners are PERF-02/03/06/10/12 and CG-20/21; broader owners stay open.
   - V1 scope classification: `required_for_v1` for this declared local family.
-  - Current state: runtime `80057ba6` has complete local acceptance and independent
-    packet inspection: all 15 source gates, 442 streaming cases, 28,871 public
-    checks including 1,498 new spill-frame cases, direct/adapter checks and all
-    129 Full43 results pass. File-backed and streamed native windows complete
-    24,013 wide rows at 16 MiB, with resident denial and ample controls. The
-    [report](../benchmarks/native-window-pressure-2026-10-08.md) preserves the
-    public/native grant distinction. Support checks, six executable examples
-    and desktop/mobile/search review pass with all 1,001 accepted runtime assets
-    unchanged. Hosted integration remains pending; the resident strategy stays
-    the default.
-  - ShardLoom technique review: PulseWeave admits overlapping input, frame,
-    run, lookup and result owners in one grant. Compact private records and late
-    selected-value gathering constrain retention. Exact interval unions and
-    native range summaries avoid whole-frame rescans. Keep input completion,
-    preparation, first output, spill and full-workflow costs distinct.
+  - Current state: runtime `5665eee5` has complete local engine acceptance and
+    independent packet inspection. The [report](../benchmarks/native-pivot-pressure-2026-10-08.md)
+    binds all 15 source gates, 32,497 public checks and 18,595,284 complete rows,
+    including 3,626 pressure checks and 133 incremental proofs, plus streaming,
+    direct, adapter and all 129 Full43 comparisons. Two 16-MiB spill executions
+    return all 6,145 wide-key results; resident denial, a 512-MiB ample control,
+    exact online semantics, faults and cleanup/restart pass. The public-family
+    union retains the original summary-controller failure and its exact shared
+    oracle repair; engine execution and expected values are unchanged. Nine
+    support checks, seven native examples and desktop/mobile/search review pass;
+    hosted integration remains open.
+  - ShardLoom technique review: PulseWeave admits input, sparse state, native
+    runs, lookup/cache blocks and output overlap under one grant. Exact run key
+    bounds avoid impossible lookups; compact selected payloads and bounded
+    index-position delivery avoid dense retained output. Keep input, preparation,
+    lookup/merge, first-output and complete-workflow cost separate.
   - Execution checklist:
-    - [x] Share frame endpoint, exclusion, fixed-state and ranking semantics
-      between resident positions and bounded native stored positions.
-    - [x] Add native input/group/peer/result stores, exact interval-union DISTINCT
-      and range-summary extrema; restore original output order under one quota.
-    - [x] Admit one finite batch occurrence, detach input owners before the next
-      demand and preserve complete drain and pre-demand unsupported admission.
-    - [x] Prove every existing function/frame/exclusion/type/null/order/error
-      contract and complete composition through current result/writer owners.
-    - [x] Prove larger-than-grant completion against resident denial and ample
-      controls, plus resource/cancellation/corruption/consumer/source failures,
-      destination protection and owned cleanup/restart.
+    - [x] Share current cell/domain transitions and exact state serialization
+      without duplicating resident and stored semantic implementations.
+    - [x] Add bounded exact latest-state lookup and chronological native run
+      compaction under the existing quota, generation and cleanup owner.
+    - [x] Complete schema, margins and late bounded output while retaining only
+      bounded index metadata and preserving current observation order.
+    - [x] Prove all admitted aggregates/types/nulls/fill/margins/limits and
+      before/after composition through existing result and writer consumers.
+    - [x] Prove larger-than-grant completion, resident denial and ample controls,
+      plus resource/cancellation/corruption/consumer/source failures, protected
+      destinations and owned cleanup/restart.
     - [x] Freeze source/binary/oracles and complete focused, workspace, public,
       direct/adapter and Full43 acceptance with independent packet inspection.
     - [x] Complete adversarial source review and affected support alignment,
@@ -291,11 +292,64 @@ the ledger.
     exact focused native/Python/CLI tests and required fmt/clippy/workspace gates,
     under existing serial storage/process guards. No engine fallback is permitted.
   - User surface: the existing SQL/Python/CLI relational plan, explicit spill
-    policy, result consumers, native file and ordinary compatibility writers.
+    policy, file/resident-memory input, result consumers and representable writers.
     No alternate query route, dependency or release is introduced.
-  - Non-goals/claim boundary: no new frame semantics, pivot spill, repeated batch-source spool,
-    execution resume, compatibility streaming writer/fanout, wider batch types,
-    transport-limit increase, process-RSS ceiling or unmeasured speed claim.
+  - Non-goals/claim boundary: no new pivot semantics, direct-unary spill API,
+    dynamic one-shot batch admission, repeated-source spool, execution resume,
+    compatibility streaming writer/fanout, wider batch types/limits, process-RSS
+    ceiling or unmeasured speed claim. Dynamic batch input still rejects before
+    producer demand; its complete-plan admission is a separate streaming contract.
+
+- [ ] `RELEASE-050` — publish the approved substantial local-engine milestone
+  after fresh end-to-end UAT, then resume the remaining breadth/optimization work.
+  - V1 scope classification: `required_for_v1` for the approved release workflow.
+  - Source: the maintainer's October 9 instruction, the completed native resource,
+    finite streaming and aggregate/join/window/pivot units, and the normal
+    [publication handoff](../release/maintainer-publication-handoff.md).
+    Existing release/PERF-12 and CG-18/20/21 owners remain; no competitive gate
+    is duplicated or closed by package publication.
+  - Current state: selected public channels still serve v0.4.0. The maintainer
+    explicitly authorizes the v0.5.0 train after pivot cleanup/PR/docs and a full
+    fresh UAT run. No version source or new channel proof has changed yet.
+  - Execution checklist:
+    - [x] Retire verified disposable build/UAT payloads under the storage policy,
+      preserving summaries, original failures, fixtures and frozen executables.
+    - [ ] Close the current pivot PR, complete affected documentation and retain
+      exact local/hosted source and review evidence.
+    - [ ] Before the version bump, freshly ingest the full retained Parquet
+      dataset to a new Vortex artifact, run all 129 complete Full43 comparisons
+      on that artifact, and rerun the 18-cohort modular input/output matrix.
+      Bind the unchanged engine, exact two-file harness repair, complete public
+      pivot/streaming acceptance, storage/process guards and independent readback.
+    - [ ] Update v0.5.0 version sources, release notes, supported/unsupported
+      guidance and package artifacts, with an exact source-delta review and
+      the required source/package/hosted gates.
+    - [ ] Publish and independently verify GitHub release assets, TestPyPI,
+      PyPI and Homebrew in that order; update the canonical channel contract
+      only from actual install/smoke/checksum/SBOM/provenance evidence.
+    - [ ] Record immutable publication proof and resume every still-open area
+      and investigation in the remaining-scope contract.
+  - ShardLoom technique review: retain dynamic shape selection, capillary work
+    avoidance and PulseWeave admission from the accepted runtime. Preserve
+    metadata-first inspection, timing-surface boundaries and evidence-tier limits.
+  - Claim boundary: retain Vortex-native execution, exact values,
+    finite admission and no fallback. Fresh ingest/query/workflow clocks remain
+    distinct; no paired speedup or production/platform scope is inferred from
+    build success. Future package channels remain blocked. This release does
+    not close broader allocations, adapters, streaming, recovery or CG-1–CG-23.
+
+`NATIVE-WINDOW-PRESSURE` is complete in
+[PR #1533](https://github.com/depsilon/shardloom/pull/1533), merged at `a88ec5c9`
+after all 39 hosted checks passed. The
+[hosted receipt](../benchmarks/evidence/native-window-hosted-2026-10-08.json)
+records identical accepted/merged trees, all 1,001 runtime assets unchanged,
+actual preview/production search and guide verification, and the merged report
+link. Primary source review found no blocking findings; hosted automated review
+was unavailable because account review quota was exhausted, with no automated
+pass or independent review inferred. The [completed ledger](phased-execution-completed-ledger.md)
+retains the finite pressure, streaming and cleanup/restart evidence. Pivot local
+acceptance is recorded above; its hosted closeout and the broader six-area/
+eight-investigation completion contract remain open.
 
 `NATIVE-JOIN-PRESSURE` is complete in
 [PR #1532](https://github.com/depsilon/shardloom/pull/1532), merged at `25906290`
@@ -304,8 +358,8 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, all 981 accepted runtime assets
 unchanged and actual preview/production search, guide and report-link checks.
 The [completed ledger](phased-execution-completed-ledger.md) preserves its finite
-pressure, streaming and cleanup/restart scope. Window hosted integration, pivot
-pressure and the broader six-area/eight-investigation completion contract remain open.
+pressure, streaming and cleanup/restart scope. Pivot hosted closeout and the
+broader six-area/eight-investigation completion contract remain open.
 
 `NATIVE-GENERAL-AGGREGATE-PRESSURE` and `NATIVE-STREAMED-ORDERING` are complete in
 [PR #1531](https://github.com/depsilon/shardloom/pull/1531), merged at `9529bd78`
@@ -314,16 +368,17 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, preserved executable behavior, actual
 preview/production search, matching guide content and the merged acceptance link.
 The [completed ledger](phased-execution-completed-ledger.md) retains the finite
-scope and evidence. Window hosted integration, pivot pressure and the broader local completion
+scope and evidence. Pivot hosted closeout and the broader local completion
 contract remain open; published v0.4.0 is unchanged.
 
 The maintainer reaffirmed the full remaining body of work on October 7. The
 [remaining-scope contract](native-local-completion-scope-2026-10-07.md) maps all
 six areas and eight conditional investigations to existing owners without
-duplicating the queue. General aggregation/join pressure has finite acceptance;
-window/pivot pressure, remaining allocation coverage, broader streaming/adapters,
-and a defined local support/release promise remain required work. The completed
-families do not close window/pivot pressure or broader recovery. Keep each family visible
+duplicating the queue. General aggregation/join/window pressure has finite acceptance;
+pivot local pressure acceptance now passes while hosted closeout, remaining
+allocation coverage, broader streaming/adapters and a defined local support/
+release promise remain required work. The completed families do not close
+broader recovery. Keep each family visible
 until it has complete-workflow acceptance or an explicit supported resident-only
 bound with deterministic denial.
 
@@ -1058,12 +1113,18 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     general grouped/scalar aggregation have complete local and hosted acceptance
     in PR #1531. The [join pressure unit](../benchmarks/native-join-pressure-2026-10-08.md)
     has complete constrained native/public/regression acceptance and independent
-    packet inspection and hosted integration in PR #1532. Window/pivot
-    pressure, broader worker transfer and production resource/recovery acceptance
-    retain their separate obligations.
+    packet inspection and hosted integration in PR #1532. The
+    [window pressure unit](../benchmarks/native-window-pressure-2026-10-08.md)
+    likewise completes native constrained, streamed, public and regression
+    acceptance plus hosted integration in PR #1533. The
+    [pivot pressure unit](../benchmarks/native-pivot-pressure-2026-10-08.md) passes
+    complete local acceptance and independent packet inspection; its hosted
+    closeout, broader worker transfer and production resource/recovery acceptance
+    retain their obligations.
   - Execution checklist:
     - [ ] Extend quota-accounted native runs and exact pressure transitions to
-      the remaining declared state families, including window/pivot pressure.
+      the remaining unadmitted state families; retain the accepted finite pivot
+      transition while completing its hosted closeout.
     - [ ] Complete cancellation, crash recovery, quota exhaustion, corruption and
       owned-cleanup acceptance across each admitted spill family.
     - [ ] Prove exact supported large-state completion under the admitted workload
@@ -2889,14 +2950,26 @@ the whole optimization/breadth task: prioritize coherent stateful pressure and
 recovery, particularly general aggregation/join work, then broader streaming
 adapters and operational acceptance of the supported local envelope. The existing
 ordering connection is a bounded enabling unit, not the whole stateful milestone.
-General aggregation and joins now have complete local and hosted acceptance in
-PRs #1531 and #1532. Continue with `NATIVE-WINDOW-PRESSURE` as the next coherent
-family; the six areas and all eight investigations retain their separate owners.
+General aggregation, joins and analytic windows now have complete local and
+hosted acceptance in PRs #1531, #1532 and #1533. `NATIVE-PIVOT-PRESSURE` has
+subsequently passed complete local acceptance, independent packet inspection
+and support alignment; finish its hosted closeout. Dynamic one-shot input remains a separate
+complete-plan admission contract. The six areas and all eight investigations
+retain their separate owners.
 Prepare constraint-guided joins independently; gate nested identities on
 repetition and merge scheduling on real spill-run evidence.
 Preserve whole-dependency reconstruction cost, exact bag/null/order semantics,
 stable merge adjacency, native ownership and all unexplained negative controls.
 The five tracks remain attached to existing PERF owners and CG-1 through CG-23.
+
+October 9 sequencing direction supersedes the earlier discretionary release
+timing: complete safe cleanup, the current pivot PR and documentation, then run
+full fresh ingest/query/modular UAT **before** bumping to v0.5.0. Complete the
+approved four-channel release train under `RELEASE-050` before returning to the
+remaining implementation. Cleanup has recovered approximately 68.5 GB while
+preserving evidence and reproducible inputs. The release does not replace or
+complete the six areas or eight investigations; resume their existing owners
+after publication verification.
 
 The subsequent candidate set's exact decimal screen is dropped below its frozen
 gate, and conservative membership is dropped for high-match control regressions.

@@ -9,7 +9,7 @@ Python, SQL, DataFrame-style calls, and the CLI lower admitted work into the sam
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 8, 2026.
+Current capabilities, reviewed October 9, 2026.
 
 ## Native Execution
 
@@ -47,7 +47,7 @@ repeated equal complete values and rejects conflicts. Nested extrema skip NULL
 parents and use the shared child-NULL ordering. Python pivot() and
 pivot_table(aggfunc="first") retain their first_unique alias, while SQL's
 explicit first selects the first row, including NULL. Nested SUM/MEAN,
-nested-index margins and pivot-state spill remain unsupported; nested MIN/MAX
+nested-index margins remain unsupported; nested MIN/MAX
 margins require a UTF8 index. Nested cells accept absent or NULL fill only.
 Representable nested results use Vortex, Parquet,
 Arrow IPC, Avro, JSON and JSONL; CSV translates nested values to quoted JSON
@@ -55,6 +55,14 @@ text, and ORC rejects nested output. Existing 128-field, collection and memory
 limits apply. Complete local workflow/regression acceptance and all 39 hosted
 checks passed before PR #1525 merged. Published v0.4.0 packages predate this source support.
 See the [nested pivot state contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-pivot-state-2026-10-06.md).
+Relational file/resident-memory pivots also implement an explicit
+[native spill strategy](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state).
+Sparse state, exact lookups, native runs and bounded output share the query grant
+and disk quota while preserving existing scalar, typed and nested semantics.
+Complete local acceptance and independent packet inspection
+[pass](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-pivot-pressure-2026-10-08.md);
+hosted integration remains pending. The direct prepared unary API remains
+resident; dynamic one-shot batch input rejects before producer demand.
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
 microsecond timestamps can travel as payloads, including nested leaves. Their
 flat equality, hashing and ordering are admitted through relational joins, sets,
@@ -100,8 +108,8 @@ offsets, calendar-month intervals and IGNORE NULLS
 remain outside the [frame contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-analytic-frames-2026-10-05.md).
 The [window pressure contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-window-pressure-2026-10-08.md)
 adds explicit native spill for the existing analytic functions and frames, plus
-one finite single-use batch source. Complete local acceptance passes; hosted
-window integration remains pending.
+one finite single-use batch source. Complete local and hosted acceptance passed
+before [PR #1533](https://github.com/depsilon/shardloom/pull/1533) merged.
 The [analytic-frame acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md)
 records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
 executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md)
@@ -215,14 +223,22 @@ adds existing analytic functions/frames with exact DISTINCT and extrema under
 native spill. File-backed and streamed 24,013-row controls both complete at
 16 MiB with exact values, safe resident denial and owned cleanup/restart.
 Complete public and regression acceptance passes; hosted window integration
-remains pending. All operator
-stages share one memory grant and spill quota. Output
+completed in PR #1533 after all 39 checks and actual preview/production verification.
+The subsequent
+[pivot acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-pivot-pressure-2026-10-08.md)
+completes local file/resident-memory relational pivot pressure and independent
+packet inspection. Two native 16-MiB executions each return all 6,145 wide-key
+results, with constrained resident denial and a 512-MiB ample control.
+The public portfolio contains 32,497 checks, including 3,626 pivot pressure
+checks and 133 incremental proofs; all 129 Full43 comparisons pass. Pivot hosted
+integration remains pending. Dynamic one-shot pivot input remains unsupported.
+All operator stages share one memory grant and spill quota. Output
 compaction prevents retained results from pinning input; native sink metadata
 and retained output still consume credits. Limits drain the complete source,
 and late failure prevents completion and incomplete file publication.
 The runtime also rejects malformed FSST row lengths before decoder allocation.
-Pivot pressure, repeated batch-source spooling, broader streaming
-destinations and remaining allocation coverage stay open; published v0.4.0 is unchanged.
+Repeated batch-source spooling, broader streaming destinations, unadmitted
+state/recovery and remaining allocation coverage stay open; published v0.4.0 is unchanged.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
@@ -248,9 +264,9 @@ The buffer is a flush threshold; it is not a second memory grant or a whole-proc
 Verified cleanup must finish before an execution or writer reports success.
 
 COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies.
-General relational aggregation, all seven admitted join kinds and existing analytic
-windows have their own strategies under the common explicit spill policy. Pivot and set state
-retain separate pressure contracts;
+General relational aggregation, all seven admitted join kinds, existing analytic
+windows and file/resident-memory relational pivots have their own strategies
+under the common explicit spill policy. Set state retains a separate pressure contract;
 unadmitted key types and broader resource accounting remain separate work. See
 [COUNT/DISTINCT contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
 [native spill contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md),

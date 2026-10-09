@@ -106,7 +106,7 @@ fields, repeated flags, and simultaneous common and embedded spill declarations
 are rejected. The selected specialized numeric sort or aggregate provider retains
 its existing contract: the common `buffer_bytes` maps to that provider's
 `memory_bytes`, including the aggregate's 2 MiB minimum. For composed relational
-ordering, general aggregation, joins and analytic windows it is a retained-input flush threshold,
+ordering, general aggregation, joins, analytic windows and sparse pivots it is a retained-state flush threshold,
 at least 1 MiB and no larger
 than the query grant. Run metadata, readers, native keys and output allocations
 also consume the same grant; a threshold is not a second budget or a guarantee
@@ -122,8 +122,8 @@ does not establish zero-decode execution or a total RSS ceiling.
 `VortexRelationalSpillPolicy::cleanup_abandoned` recovers one explicitly selected
 owned directory through the same namespace/identity rules. It refuses active,
 unknown, replaced or symlinked entries. This permits cleanup and restart, not
-resuming an interrupted operator. Set and pivot state retain
-separate pressure contracts. Relational fanout remains separate work. See the
+resuming an interrupted operator. Set state retains a separate pressure contract.
+Relational fanout remains separate work. See the
 [ordering contract and acceptance](../architecture/native-relational-resources-2026-10-02.md).
 
 ## General aggregation and completion-aware input
@@ -322,7 +322,60 @@ owned cleanup precede success and publication. Corrupt/replaced runs, exhausted
 grants/quotas, cancellation and source/consumer failures remain errors. Recovery
 cleans a named abandoned directory and permits a fresh restart; it does not
 resume execution. Large individual values or overlapping metadata/readers may
-still exceed the grant. The policy does not bound total RSS, admit pivot/set
+still exceed the grant. This window contract does not bound total RSS, admit set
 spill, repeat a one-shot source, widen input types or enable compatibility
 streaming destinations. See the [window design](../architecture/native-window-pressure-2026-10-08.md)
 for the precise ownership and observation-order contract.
+
+## Sparse pivot state
+
+Current source builds implement explicit native spill for relational `pivot` and
+`pivot_table` over file and resident-memory sources. Complete local acceptance
+passes in the [pivot acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md);
+hosted acceptance remains pending. The default remains resident. Supply the existing `spill`
+argument to collection, incremental results or an admitted writer to select the
+stored strategy. The direct prepared unary API remains resident, and dynamic
+one-shot batch input rejects before producer consumption.
+
+For an existing Vortex file with `entity`, `category` and numeric `amount` columns:
+
+```python
+import tempfile
+import shardloom as sl
+
+workflow = sl.context().read("sales.vortex").pivot_table(
+    index="entity", columns="category", values="amount", aggfunc="sum",
+)
+with tempfile.TemporaryDirectory(prefix="shardloom-query-") as workspace:
+    with workflow.iter_batches(
+        memory_gb=1, max_parallelism=1,
+        spill={"workspace": workspace, "quota_bytes": 64 << 20, "buffer_bytes": 1 << 20},
+    ) as batches:
+        for batch in batches:
+            print(batch.result_rows)
+        assert batches.report is not None
+```
+
+Sparse updates preserve source order, first representatives and NULLs, sequential
+floating accumulation, exact decimal state, domain naming and existing margins.
+Native sorted runs retain complete replacement cells. Exact key bounds, a fixed
+two-block cache and at most one missing-key range per run bound lookup retention;
+all payload and metadata reservations share the query grant. Merging preserves
+chronological replacement order rather than reassociating floating partial sums.
+Output gathers bounded native batches without retaining a dense pivot matrix.
+
+The strategy keeps the current 128-field, aggregate, type, fill and margin rules.
+All eight scalar writers remain subject to representability; typed/nested output
+keeps its existing ORC restrictions and CSV JSON-text translation. Small collection
+retains its independent row/byte limits. Large individual values or overlapping
+source, writer and run metadata can still cause deterministic memory denial.
+
+The shared `relational_spill_*` fields report runs, merges, quota and cleanup.
+`relational_spilled_pivot_*` records stages, input rows, index rows, domains, cells,
+lookup block loads and reader opens. Early incremental batches remain provisional
+until the final report; source validation, complete evaluation and owned cleanup
+precede success and file publication. Failed work preserves existing destinations.
+Recovery removes only a verified abandoned directory and permits a new execution;
+it does not resume an interrupted pivot. This contract does not bound process RSS,
+expand batch-input admission or establish a speedup. See the
+[pivot design](../architecture/native-pivot-pressure-2026-10-08.md).

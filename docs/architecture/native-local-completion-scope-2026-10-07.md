@@ -46,8 +46,17 @@ frames and exclusions, plus one finite single-use batch source. Native
 file-backed and streamed pressure controls, complete public/direct/adapter and
 Full43 regressions, and independent packet inspection pass. The
 [acceptance report](../benchmarks/native-window-pressure-2026-10-08.md) records
-the finite scope; hosted window integration remains pending. Pivot pressure,
-broader recovery and the other five areas remain open.
+the finite scope. [PR #1533](https://github.com/depsilon/shardloom/pull/1533) merged
+at `a88ec5c9` after all 39 hosted checks passed. The
+[hosted receipt](../benchmarks/evidence/native-window-hosted-2026-10-08.json)
+records unchanged runtime/tree identity, primary source review, the unavailable
+automated review due to account quota, and actual preview/production verification.
+The subsequent [pivot pressure unit](native-pivot-pressure-2026-10-08.md) has
+complete local engine acceptance and independent packet inspection at `5665eee5`.
+Two 16-MiB native spill executions return all 6,145 wide-key results, with resident
+denial, a 512-MiB ample control, faults and owned cleanup/restart. Complete public,
+direct, streaming, adapter and Full43 acceptance passes; its hosted closeout
+remains pending. Broader recovery and the other five areas remain open.
 
 Reviewed FSST/Zstd payload buffers, actual Zstd decoder/prepared-dictionary
 workspaces, and primitive/Boolean/decimal builder output and finalization overlap
@@ -58,9 +67,9 @@ coverage remains open. A native grant is not a process-RSS limit.
 
 | Area and existing owner | Intake disposition and concrete remaining obligation | Completion evidence |
 | --- | --- | --- |
-| Stateful pressure and recovery — PERF-03/06/10/12 | General high-cardinality grouping/DISTINCT and relational ordering are accepted in PR #1531. Oversized join build/intermediate state has complete local and hosted acceptance in PR #1532. Analytic windows have complete local pressure/workflow acceptance; their hosted integration is pending. Growing pivot domain/cell state and broader recovery retain explicit pressure contracts to complete. Reuse the shared native mechanisms only where each family's semantics permit. | Complete exact workloads beyond the admitted resident allowance; native reservations/runs and disk quota; cancellation, corruption, exhausted resources, owned cleanup and publication. Distinguish cleanup/restart from actual execution resume. An intentionally resident-only supported shape may close with a documented bound and deterministic growth denial, not a spill claim. |
+| Stateful pressure and recovery — PERF-03/06/10/12 | General high-cardinality grouping/DISTINCT and relational ordering are accepted in PR #1531. Oversized join build/intermediate state has complete local and hosted acceptance in PR #1532. Analytic windows have complete local and hosted pressure/workflow acceptance in PR #1533. Growing relational pivot domain/cell state now has complete local pressure/workflow acceptance and independent packet inspection; hosted closeout remains pending. Other unadmitted state and broader recovery retain their own contracts. Reuse shared native mechanisms only where each family's semantics permit. | Complete exact workloads beyond the admitted resident allowance; native reservations/runs and disk quota; cancellation, corruption, exhausted resources, owned cleanup and publication. Distinguish cleanup/restart from actual execution resume. An intentionally resident-only supported shape may close with a documented bound and deterministic growth denial, not a spill claim. |
 | Remaining allocation coverage — PERF-03/06/08/09 | Merge into current resource inventory: child-decoder and selection scratch, structural metadata, compression contexts, dictionary training and other unreviewed reader/provider/builder allocations. Preserve completed provider fixes. | Valid credits before allocation, an implemented bounded/spill transition, or deterministic denial with cleanup for the supported workflow. Identify Python retention, conversion-library memory, allocator overhead and excluded providers separately. |
-| Broader streaming — PERF-03/06/07/11/12 | Extend the existing single-use finite source deliberately: compatibility destinations and fanout; remaining bounded/spill stateful families; declared retention or spool for repeated batch sources/self-joins; exact decimal, binary, temporal and nested intake. Ordering/aggregation, complete drain for limits and joins are implemented and integrated. Analytic windows have complete local acceptance with hosted integration pending. Preserve that completion contract when admitting further shapes. These are separate missing contracts, not larger constants. | Single-pass input, bounded owners, complete schema/value/order checks, late failure and cancellation, sink cleanup/publication, and no silent replay. Preserve current 4,096-batch/2,048-row and per-frame bounds until separately justified. Ordinary file-backed datasets do not inherit these transport bounds. |
+| Broader streaming — PERF-03/06/07/11/12 | Extend the existing single-use finite source deliberately: compatibility destinations and fanout; remaining bounded/spill stateful families and safe dynamic-schema admission; declared retention or spool for repeated batch sources/self-joins; exact decimal, binary, temporal and nested intake. Ordering/aggregation, complete drain for limits, joins and analytic windows are implemented and integrated. Preserve that completion contract when admitting further shapes. Dynamic pivot input still rejects before producer demand; ordinary pivot spill does not remove that admission boundary. These are separate missing contracts, not larger constants. | Single-pass input, bounded owners, complete schema/value/order checks, late failure and cancellation, sink cleanup/publication, and no silent replay. Preserve current 4,096-batch/2,048-row and per-frame bounds until separately justified. Ordinary file-backed datasets do not inherit these transport bounds. |
 | Adapter and composition coverage — PERF-02/07/10/11/12 and CG-19/20/21 | Merge into the universal-workflow matrix: typed/nested format boundaries, partition/schema evolution, prepared/public parity and remaining operator/type result streams. Connect automatic compatibility preparation to the incremental transaction's external cancellation owner before removing its explicit prepare-to-Vortex step. | Read → transform → retain or spill → consume again → write → reopen, checking intended types and every value. Format existence alone is insufficient. Small-result collect may remain deliberately bounded. |
 | Defined local support and release — PERF-12 and existing local-engine/release gates | Bind a specific release to declared workloads, operators/types/formats/resource conditions and supported OS/architectures. Add actual platform runtime evidence, pressure/failure/slow-consumer acceptance, recovery promises, known issues, compatibility, upgrade/rollback and install guidance. | The [local-engine exit criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria), workload-scoped runtime records, supported/unsupported matrix and normal publication gates. Current batch runtime acceptance is macOS arm64 with Unix facilities. A successful cross-platform build alone is insufficient. Package publication itself is already implemented. |
 | Conditional performance investigations — existing campaign/PERF owners | Preserve all eight rows below, attached to the components they may improve. Evidence prerequisites decide whether to prototype; each retained implementation still needs its frozen complete-operation gate. | Complete output, mechanism counters, grants and controls, original failures, all samples and an explicit retain/drop/defer decision. No investigation is a promised speedup. |
@@ -95,7 +104,13 @@ The next meaningful milestone is a declared set of complete workflows that
 behaves predictably under constrained resources, followed by a release carrying
 the accepted capability. Batch smaller fixes into that milestone. The maintainer
 delegated release timing but explicitly asked that version bumps be substantial;
-closing one experiment does not trigger a release train.
+closing one experiment does not trigger a release train. On October 9 the
+maintainer explicitly authorized v0.5.0 after safe cleanup and current pivot
+PR/documentation closeout, with full fresh UAT required **before** the version
+bump. The phase plan's `RELEASE-050` checklist now takes precedence over further
+implementation until that four-channel train is verified. Then resume all
+remaining areas and all eight investigations above. This is a substantial
+capability release, not a declaration that the whole completion contract is done.
 
 For every cohesive unit, keep a reuse map, native-I/O and execution evidence,
 resource/failure tests, complete public workflow checks, applicable regression

@@ -34,6 +34,9 @@ const READER_WORK_BYTES: u64 = 2 * 64 * 1024;
 mod stored;
 pub(super) use stored::{StoredBlock, StoredOrder};
 
+#[path = "native_relational_pivot_store.rs"]
+pub(super) mod pivot;
+
 #[cfg(test)]
 type BeforeRunOpen = Box<dyn FnOnce(&Path)>;
 #[cfg(test)]

@@ -469,6 +469,35 @@ class NativeRelationalCollectionTests(unittest.TestCase):
             run.assert_not_called()
             prepare.assert_not_called()
 
+    def test_composed_pivot_forwards_one_spill_policy_to_both_frontends_and_consumers(self) -> None:
+        from shardloom.query import SqlWorkflow
+
+        source = self.context.read_csv("input.data", schema={"key": "utf8", "kind": "utf8", "value": "int64"})
+        pivot = (source.select("key AS entity", "kind AS category", "value AS amount")
+                 .pivot_table(index="entity", columns="category", values="amount", aggfunc="sum")
+                 .sort("entity").limit(7))
+        statement = pivot._relation_statement()
+        spill = {"workspace": "/tmp/pivot-workspace", "quota_bytes": 64 << 20, "buffer_bytes": 1 << 20}
+        resources = {"memory_gb": 1, "max_parallelism": 2, "spill": spill}
+        sql = SqlWorkflow(statement, self.client, source_bindings=source._declared_sources())
+        for workflow in (pivot, sql):
+            with self.subTest(surface=type(workflow).__name__), mock.patch.object(
+                self.client, "public_workflow_run", return_value=self.reply([])
+            ) as run, mock.patch.object(self.client, "public_workflow_batches") as batches:
+                workflow.collect(check=True, **resources)
+                for extension in ("vortex", "json", "jsonl", "csv", "parquet", "arrow_ipc", "avro", "orc"):
+                    getattr(workflow, f"write_{extension}")(f"out.{extension}", check=True, **resources)
+                workflow.iter_batches(batch_rows=17, **resources)
+                self.assertEqual(run.call_count, 9)
+                batches.assert_called_once()
+                self.assertEqual(batches.call_args.kwargs["batch_rows"], 17)
+                for call in [*run.call_args_list, batches.call_args]:
+                    self.assertEqual(call.kwargs["sql_statement"], statement)
+                    self.assertEqual(call.kwargs["spill"], spill)
+                    self.assertEqual(call.kwargs["memory_gb"], 1)
+                    self.assertEqual(call.kwargs["max_parallelism"], 2)
+                    self.assertEqual(set(call.kwargs["source_bindings"]), {"input.data"})
+
     def test_dynamic_pivot_preserves_join_and_set_source_declarations(self) -> None:
         source = self.context.read_csv("facts.csv", schema={"entity": "int64", "category": "utf8", "amount": "int64"})
         other = self.context.read_vortex("other.vortex", schema={"entity": "int64"})

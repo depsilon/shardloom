@@ -32,6 +32,21 @@ pub(super) fn output_dtype(source: DecimalDType, average: bool) -> Result<Decima
 }
 
 impl Total {
+    /// Private spill state preserves the wide intermediate total without
+    /// applying a public Decimal128 result's precision or average checks.
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn spill_parts(&self) -> ([u8; 32], u64) {
+        (self.sum.as_i256().to_le_bytes(), self.count)
+    }
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn from_spill_parts(sum: [u8; 32], count: u64) -> Self {
+        Self {
+            sum: DecimalValue::I256(vortex::array::dtype::i256::from_le_bytes(sum)),
+            count,
+        }
+    }
+
     pub(super) fn count(&self) -> u64 {
         self.count
     }
@@ -207,6 +222,34 @@ mod tests {
         assert_eq!(full, before);
         for invalid in [DecimalDType::new(39, 0), DecimalDType::new(2, -1)] {
             assert!(output_dtype(invalid, false).is_err());
+        }
+    }
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    #[test]
+    fn native_decimal_spill_preserves_wide_signed_state_and_late_finalization() {
+        use vortex::array::dtype::i256;
+        for value in [i256::MIN, i256::MAX, i256::from_parts(37, -19), i256::ZERO] {
+            let total = Total {
+                sum: DecimalValue::I256(value),
+                count: u64::MAX,
+            };
+            let (bytes, count) = total.spill_parts();
+            assert_eq!(Total::from_spill_parts(bytes, count), total);
+        }
+        let dtype = DecimalDType::new(38, 6);
+        let maximum = 10i128.pow(38) - 1;
+        for sign in [-1, 1] {
+            let mut total = Total::default();
+            total.add(sign * maximum, dtype).unwrap();
+            total.add(sign * maximum, dtype).unwrap();
+            let (bytes, count) = total.spill_parts();
+            let mut restored = Total::from_spill_parts(bytes, count);
+            assert_eq!(restored, total);
+            assert!(restored.finish(dtype, false).is_err());
+            assert_eq!(restored.finish(dtype, true).unwrap(), Some(sign * maximum));
+            restored.add(-sign * maximum, dtype).unwrap();
+            assert_eq!(restored.finish(dtype, false).unwrap(), Some(sign * maximum));
         }
     }
 }
