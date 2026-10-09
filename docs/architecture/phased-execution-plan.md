@@ -303,9 +303,9 @@ actual preview/production search and guide verification, and the merged report
 link. Primary source review found no blocking findings; hosted automated review
 was unavailable because account review quota was exhausted, with no automated
 pass or independent review inferred. The [completed ledger](phased-execution-completed-ledger.md)
-retains the finite pressure, streaming and cleanup/restart evidence. Pivot local
-acceptance is recorded above; its hosted closeout and the broader six-area/
-eight-investigation completion contract remain open.
+retains the finite pressure, streaming and cleanup/restart evidence. Pivot
+integration is also complete in PR #1534; the broader six-area/eight-investigation
+completion contract remains open.
 
 `NATIVE-JOIN-PRESSURE` is complete in
 [PR #1532](https://github.com/depsilon/shardloom/pull/1532), merged at `25906290`
@@ -314,8 +314,8 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, all 981 accepted runtime assets
 unchanged and actual preview/production search, guide and report-link checks.
 The [completed ledger](phased-execution-completed-ledger.md) preserves its finite
-pressure, streaming and cleanup/restart scope. Pivot hosted closeout and the
-broader six-area/eight-investigation completion contract remain open.
+pressure, streaming and cleanup/restart scope. The broader six-area/
+eight-investigation completion contract remains open.
 
 `NATIVE-GENERAL-AGGREGATE-PRESSURE` and `NATIVE-STREAMED-ORDERING` are complete in
 [PR #1531](https://github.com/depsilon/shardloom/pull/1531), merged at `9529bd78`
@@ -324,15 +324,15 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, preserved executable behavior, actual
 preview/production search, matching guide content and the merged acceptance link.
 The [completed ledger](phased-execution-completed-ledger.md) retains the finite
-scope and evidence. Pivot hosted closeout and the broader local completion
-contract remain open; published v0.4.0 is unchanged.
+scope and evidence. The broader local completion contract remains open;
+published v0.4.0 is unchanged.
 
 The maintainer reaffirmed the full remaining body of work on October 7. The
 [remaining-scope contract](native-local-completion-scope-2026-10-07.md) maps all
 six areas and eight conditional investigations to existing owners without
-duplicating the queue. General aggregation/join/window pressure has finite acceptance;
-pivot local pressure acceptance now passes while hosted closeout, remaining
-allocation coverage, broader streaming/adapters and a defined local support/
+duplicating the queue. General aggregation/join/window/pivot pressure has finite
+acceptance and hosted integration. Remaining allocation coverage, broader
+streaming/adapters and a defined local support/
 release promise remain required work. The completed families do not close
 broader recovery. Keep each family visible
 until it has complete-workflow acceptance or an explicit supported resident-only
@@ -1073,14 +1073,14 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     [window pressure unit](../benchmarks/native-window-pressure-2026-10-08.md)
     likewise completes native constrained, streamed, public and regression
     acceptance plus hosted integration in PR #1533. The
-    [pivot pressure unit](../benchmarks/native-pivot-pressure-2026-10-08.md) passes
-    complete local acceptance and independent packet inspection; its hosted
-    closeout, broader worker transfer and production resource/recovery acceptance
-    retain their obligations.
+    [pivot pressure unit](../benchmarks/native-pivot-pressure-2026-10-08.md) has
+    complete local acceptance, independent packet inspection and hosted
+    integration in PR #1534. Broader worker transfer and production
+    resource/recovery acceptance retain their obligations.
   - Execution checklist:
     - [ ] Extend quota-accounted native runs and exact pressure transitions to
       the remaining unadmitted state families; retain the accepted finite pivot
-      transition while completing its hosted closeout.
+      transition and its completed hosted integration.
     - [ ] Complete cancellation, crash recovery, quota exhaustion, corruption and
       owned-cleanup acceptance across each admitted spill family.
     - [ ] Prove exact supported large-state completion under the admitted workload
