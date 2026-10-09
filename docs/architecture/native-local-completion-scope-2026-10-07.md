@@ -112,8 +112,12 @@ closing one experiment does not trigger a release train. On October 9 the
 maintainer explicitly authorized v0.5.0 after safe cleanup and current pivot
 PR/documentation closeout, with full fresh UAT required **before** the version
 bump. That [fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md)
-and pivot integration are complete; source/package metadata now targets the
-0.5.0 candidate while selected published channels remain at 0.4.0.
+and pivot integration are complete. The original v0.5.0 GitHub prerelease is
+published, but its Windows native build stopped the registry workflow before
+upload. Preserve those immutable assets and finish the same milestone as the
+corrected v0.5.1 candidate; see the
+[interruption record](../release/v0.5.0-channel-interruption.md). The complete
+selected four-channel contract remains at v0.4.0 pending fresh v0.5.1 proof.
 The phase plan's `RELEASE-050` checklist takes precedence over further
 implementation until that four-channel train is verified. Then resume all
 remaining areas and all eight investigations above. This is a substantial

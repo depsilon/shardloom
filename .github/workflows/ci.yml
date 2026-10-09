@@ -263,6 +263,24 @@ jobs:
         run: python -m compileall -q python/src scripts examples benchmarks/traditional_analytics
       - name: Python package build
         run: python -m build python
+      # Python-only wheels do not compile the CLI that release wheels bundle.
+      # Exercise the real Windows release features before a tag is published.
+      - name: Install Rust for Windows native package validation
+        if: ${{ matrix.os == 'windows-latest' }}
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - name: Cache Windows native package validation
+        if: ${{ matrix.os == 'windows-latest' }}
+        uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # Swatinem/rust-cache@v2
+        with:
+          key: windows-release-user-surfaces
+      - name: Build Windows native release CLI
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces
+      - name: Windows native CLI version smoke
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: ./target/release/shardloom.exe --version
       - name: Python compatibility lane report
         run: python scripts/write_release_compatibility_lane_report.py --lane ${{ matrix.lane }} --surface python --python-version ${{ matrix.python-version }} --os-name ${{ matrix.os }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7

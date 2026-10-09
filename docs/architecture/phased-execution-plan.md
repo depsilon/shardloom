@@ -257,14 +257,20 @@ the ledger.
     [publication handoff](../release/maintainer-publication-handoff.md).
     Existing release/PERF-12 and CG-18/20/21 owners remain; no competitive gate
     is duplicated or closed by package publication.
-  - Current state: selected public channels still serve v0.4.0. The maintainer
-    explicitly authorizes the v0.5.0 train. Pivot integration is complete in
+  - Current state: the selected complete four-channel contract remains v0.4.0.
+    The approved v0.5.0 GitHub prerelease is published and independently installed,
+    but its Windows native build failed before any registry upload. The original
+    tag/assets remain immutable; the same milestone continues as v0.5.1 with a
+    portable session-helper correction and an actual Windows native CI gate.
+    See the [interruption record](../release/v0.5.0-channel-interruption.md).
+    Pivot integration is complete in
     PR #1534 at `d7898cb9`, with all 39 checks and actual production verification.
     [Full fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md)
     passed before the bump: all 99,997,497 rows freshly ingested, 129 complete
     query comparisons and 18 modular cohorts. Independent packet inspection
     and export bind the original 0.4.0 source/binary identity. Source/package
-    metadata now targets 0.5.0; package and channel proofs remain open.
+    metadata now targets the corrected 0.5.1 candidate; fresh source gates and
+    its own four-channel package proofs remain open.
   - Execution checklist:
     - [x] Retire verified disposable build/UAT payloads under the storage policy,
       preserving summaries, original failures, fixtures and frozen executables.
@@ -277,9 +283,10 @@ the ledger.
       pivot/streaming acceptance, storage/process guards and independent readback.
       Record the subsequent assertion-message-only cleanup separately; never
       relabel the frozen pre-bump source or its executable as a package build.
-    - [ ] Update v0.5.0 version sources, release notes, supported/unsupported
+    - [ ] Update corrected v0.5.1 version sources, release notes, supported/unsupported
       guidance and package artifacts, with an exact source-delta review and
-      the required source/package/hosted gates.
+      the required source/package/hosted gates, including the Windows native build.
+      Preserve the interrupted v0.5.0 tag/assets and successful GitHub proof.
     - [ ] Publish and independently verify GitHub release assets, TestPyPI,
       PyPI and Homebrew in that order; update the canonical channel contract
       only from actual install/smoke/checksum/SBOM/provenance evidence.
@@ -2925,8 +2932,11 @@ full fresh ingest/query/modular UAT **before** bumping to v0.5.0. Complete the
 approved four-channel release train under `RELEASE-050` before returning to the
 remaining implementation. Cleanup has recovered approximately 68.5 GB while
 preserving evidence and reproducible inputs. The fresh ingest/query/modular UAT
-and independent inspection are complete with source still at 0.4.0; the candidate
-version changes follow that sealed proof. The release does not replace or
+and independent inspection completed with source still at 0.4.0; candidate
+version changes followed that sealed proof. The original v0.5.0 GitHub assets
+are immutable, and its registry build stopped before upload on Windows. Finish
+the same milestone as corrected v0.5.1 with fresh source and channel evidence;
+retain the original pre-bump UAT identities. The release does not replace or
 complete the six areas or eight investigations; resume their existing owners
 after publication verification.
 

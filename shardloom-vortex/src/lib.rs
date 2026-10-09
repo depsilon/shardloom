@@ -112,7 +112,8 @@ pub mod native_artifact_comparison;
 mod native_payload_schema;
 #[cfg(feature = "vortex-local-primitives")]
 mod native_provider_memory;
-#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+// Session memory configuration is portable; spill I/O keeps its own Unix admission.
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_spill_session;
 pub mod output_payload;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]

@@ -58,6 +58,11 @@ into the serial release-readiness tail:
   commands and gate semantics while avoiding the old serial `fmt -> clippy -> test` runner tail.
 - `python_compatibility_matrix` checks Python 3.10 through 3.13 on `ubuntu-latest` and keeps
   `macos-latest` plus `windows-latest` smoke lanes for OS matrix coverage.
+  Windows bundled native CLI compilation also runs the exact release feature build and
+  invokes the resulting executable. A Python-only package build cannot prove that the
+  native CLI bundled into a release wheel compiles. This closes the gap exposed by the
+  interrupted v0.5.0 registry build; it does not certify Unix-only spill or streaming
+  behavior on Windows.
 - `rust_msrv_validation` derives the Rust MSRV toolchain from root `Cargo.toml` and checks it with
   default features disabled and across all targets with `release-user-surfaces` enabled. This
   covers the native runtime and its test code at the supported minimum, while the existing
@@ -90,6 +95,15 @@ python-version: "3.11"
 python-version: "3.12"
 python-version: "3.13"
 retention-days: 14
+```
+
+Windows native package commands and admission markers:
+
+```text
+if: ${{ matrix.os == 'windows-latest' }}
+key: windows-release-user-surfaces
+cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces
+./target/release/shardloom.exe --version
 ```
 
 Workspace version source contract:
