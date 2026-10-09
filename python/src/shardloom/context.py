@@ -3507,7 +3507,9 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "native state. Dynamic schemas compose with native operators and bounded local "
             "writers subject to format fidelity, 128 fields and memory admission. ORC denies "
             "nested output; CSV translates it to JSON text. Nested roles require a source "
-            "build after published v0.4.0. Pivot state has no spill path. "
+            "build after published v0.4.0. Relational file/resident-memory pivots accept "
+            "explicit native spill under one query grant and disk quota; direct unary "
+            "execution remains resident and one-shot batch input is unsupported. "
             "Multi-index/multi-value pivots, hidden-index parity, and broader pandas reshape "
             "semantics remain outside this route and fail closed."
         ),
@@ -3547,7 +3549,9 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "complete selected values. Nested fill is absent/NULL, nested index margins "
             "are unsupported, and nested extrema margins require UTF8 index. These nested "
             "roles require a source build after published v0.4.0. Format fidelity, 128 fields "
-            "and memory admission still apply; pivot state has no spill path. Multi-index, "
+            "and memory admission still apply. Relational file/resident-memory pivots "
+            "accept explicit native spill; direct unary execution remains resident and "
+            "one-shot batch input is unsupported. Multi-index, "
             "multiple values, custom callables, hidden-index parity, and broader pandas reshape "
             "semantics remain outside this route and fail closed."
         ),

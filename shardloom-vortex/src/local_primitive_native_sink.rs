@@ -29,7 +29,7 @@ use vortex::{
     },
     editions::{ComponentKind, EditionSessionExt as _},
     expr::{BoundExpression, pack},
-    file::{OpenOptionsSessionExt as _, WriteOptionsSessionExt as _},
+    file::OpenOptionsSessionExt as _,
     io::runtime::BlockingRuntime as _,
     layout::scan::split_by::SplitBy,
 };
@@ -622,13 +622,13 @@ impl NativeSinkPlan {
                 } else {
                     native_flat_layout::SequentialNativeFlatLayout::strategy(max_chunks)
                 };
-                let mut writer = session
-                    .write_options()
-                    .with_strategy(strategy)
-                    .with_file_statistics(Vec::new())
-                    .blocking(runtime)
-                    .writer(&mut output.file, self.dtype.clone());
-                let mut writer_failed = false;
+                let mut writer = super::native_writer::NativeWriter::new(
+                    session,
+                    runtime,
+                    &mut output.file,
+                    self.dtype.clone(),
+                    strategy,
+                );
                 let delivery = if self.source.is_produced()
                     || (!self.metadata_pruned && self.row_count > 0)
                 {
@@ -676,10 +676,7 @@ impl NativeSinkPlan {
                             .ok_or_else(|| sink_error("native sink logical byte overflow"))?;
                         #[cfg(test)]
                         let started = overlap_timing::clock();
-                        if let Err(error) = writer.push(array) {
-                            writer_failed = true;
-                            return Err(vortex_error(error));
-                        }
+                        writer.push(array).map_err(vortex_error)?;
                         #[cfg(test)]
                         {
                             overlap_timing::record("writer_push", started);
@@ -695,19 +692,7 @@ impl NativeSinkPlan {
                 } else {
                     Ok(())
                 };
-                if let Err(error) = delivery {
-                    // The upstream writer owns a spawned layout task. Dropping
-                    // a healthy push writer can leave queued buffer owners in
-                    // that task until the resident runtime advances again.
-                    // Drain its bounded accepted prefix into the staging file;
-                    // publication is still forbidden and the original error wins.
-                    // A failed push already consumed the terminal writer future
-                    // and must not await that fused future a second time.
-                    if !writer_failed {
-                        let _ = writer.finish();
-                    }
-                    return Err(error);
-                }
+                delivery?;
                 #[cfg(test)]
                 let started = overlap_timing::clock();
                 let summary = writer.finish().map_err(vortex_error)?;

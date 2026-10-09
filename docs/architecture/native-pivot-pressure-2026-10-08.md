@@ -1,6 +1,7 @@
 # Native sparse-pivot pressure
 
-Status: implementation design under `NATIVE-PIVOT-PRESSURE`, PERF-02/03/06/10/12
+Status: implemented, with focused native verification complete and full acceptance
+pending under `NATIVE-PIVOT-PRESSURE`, PERF-02/03/06/10/12
 and CG-20/21. The [phase plan](phased-execution-plan.md) owns its checklist.
 This is the next coherent resource family after window integration in
 [PR #1533](https://github.com/depsilon/shardloom/pull/1533), merged at `a88ec5c9`.
@@ -80,12 +81,22 @@ the first index representative once, so no unbounded resident index map or
 duplicated per-cell representative is required. The bounded domain map remains
 resident and credited.
 
-Each retained run has charged key bounds and a checked held reader. Search the
-buffer and runs from newest to oldest, skipping only ranges excluded by exact
-bounds. Cache a fixed small number of native blocks under the same grant and
+Each retained run has charged key bounds and a checked held reader. Its index
+markers also have exact charged bounds: later cell updates may extend a run's
+range without adding index markers. Preserve those bounds through replacement
+merges so an impossible marker lookup does not displace a useful cached block.
+Search the buffer and runs from newest to oldest, skipping only ranges excluded
+by exact bounds. Cache a fixed small number of native blocks under the same grant and
 validate the held generation even on cache hits. Do not reopen and rehash a whole
-run for every cell lookup. Keep reader/footer ownership explicit as the run count
-grows; metadata exhaustion remains a deterministic denial.
+run for every cell lookup. Before whole-run binary search, narrow to a cached
+block when its exact first/last keys enclose the target. This avoids evicting a
+useful block with search ancestors on every adjacent cell, without another key
+directory or additional payload slots. A failed search may retain one credited
+half-open gap per immutable run, from the missing target to its next stored key.
+Generation validation still precedes a gap hit, and each new merged run discards
+its predecessors' gaps. The two payload slots use recent access for replacement.
+Keep reader/footer ownership explicit as the run count grows; metadata exhaustion
+remains a deterministic denial.
 
 ## Native state and merge lifecycle
 
@@ -111,6 +122,18 @@ let a reader borrowing relational spill state escape into the dynamic bound node
 Reopen through the same execution state during completion and output. All readers
 must drop before shared cleanup, and a completed pivot remains consumable once.
 An empty pivot needs no temporary payload run.
+
+The shared native push-writer boundary completes its accepted prefix before a
+fallible return. Pinned Vortex 0.85 queues one input array and cancels, without
+joining, its spawned layout task if the blocking writer is dropped or its sink
+fails. A healthy writer is finished into the owned unpublished file on producer
+failure. After a real sink failure, a narrow output adapter retains the first
+I/O error and discards pending native output; each push checks that error before
+the caller requests more input, closes the input and joins the native writer.
+No failed summary reaches publication, and actual partial bytes remain charged
+by the existing quota owner. The same boundary serves temporary runs and final
+native staging files. This wraps the existing Vortex writer and sequential Flat
+strategy; it does not change the shared session, executor or encoding providers.
 
 ## Completion and bounded output
 

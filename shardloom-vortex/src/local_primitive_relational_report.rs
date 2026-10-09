@@ -22,6 +22,16 @@ pub(super) fn certificate(
     let sources = file_sources + memory_sources + batch_sources;
     let data_work = metrics.data_scans.get() > 0;
     let spilled = spill.is_some_and(|report| report.runs_written > 0);
+    let pivot_proof = format!(
+        "spilled_pivot_stages={} spilled_pivot_input_rows={} spilled_pivot_index_rows={} spilled_pivot_domains={} spilled_pivot_cells={} spilled_pivot_lookup_blocks={} spilled_pivot_reader_opens={}",
+        metrics.spilled_pivot_stages.get(),
+        metrics.spilled_pivot_input_rows.get(),
+        metrics.spilled_pivot_index_rows.get(),
+        metrics.spilled_pivot_domains.get(),
+        metrics.spilled_pivot_cells.get(),
+        metrics.spilled_pivot_lookup_blocks.get(),
+        metrics.spilled_pivot_reader_opens.get(),
+    );
     NativeIoCertificate::new(
         "native_relational.execution.v1",
         "native_vortex_sources_to_relational_batches",
@@ -61,7 +71,7 @@ pub(super) fn certificate(
                 "bound_types_and_generation_checked_before_and_after_final_consumer".into()
             },
             proof_basis: format!(
-                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={}",
+                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {pivot_proof}",
                 metrics.scans_started.get(),
                 metrics.scans_pruned.get(),
                 metrics.scan_batches.get(),

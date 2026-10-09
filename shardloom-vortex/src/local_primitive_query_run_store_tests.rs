@@ -445,6 +445,94 @@ fn schema_and_block_shape_mismatch_never_publish_a_run() {
 }
 
 #[test]
+#[allow(clippy::used_underscore_binding)] // Verify the exact retained metadata lease without adding a runtime accessor.
+fn failed_run_writes_release_accepted_buffer_owners_before_returning() {
+    use vortex::{
+        array::{dtype::PType, validity::Validity},
+        buffer::Buffer,
+    };
+
+    // Existing store tests use imported, uncredited arrays. These payloads own
+    // real credits, so a queued layout task cannot silently keep them alive.
+    for failure in ["producer", "cancel", "schema", "shape", "quota"] {
+        for accepted in [0, 1, 2, 5] {
+            let workspace = Workspace::new();
+            let memory = LiveMemoryPool::new(8 << 20).unwrap();
+            let runtime =
+                local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+            let session = VortexSession::default().with_handle(runtime.handle());
+            let work = Arc::new(memory.reserve(1 << 20).unwrap());
+            let mut store = store(&workspace, &memory);
+            if failure == "quota" {
+                store.policy.quota_bytes = MARKER_BYTE_RESERVATION + 8;
+            }
+            let baseline = memory.snapshot().reserved_bytes;
+            let cancellation = store.policy.cancellation.clone();
+            let specification = QueryRunSpec {
+                block_rows: 2048,
+                ..spec((accepted + 1) * 2048)
+            };
+            let blocks = (0..=accepted).map(|index| {
+                if index == accepted {
+                    if failure == "producer" {
+                        return Err(spill_error("test producer failure"));
+                    }
+                    if failure == "cancel" {
+                        cancellation.cancel();
+                    }
+                }
+                let credit = memory.reserve(8192).unwrap();
+                let buffer = Buffer::<i32>::from_iter(0..2048).into_byte_buffer();
+                let buffer = crate::owned_buffers::retain_credit(buffer, credit);
+                let array = PrimitiveArray::from_byte_buffer(
+                    buffer,
+                    if index == accepted && failure == "schema" {
+                        PType::U32
+                    } else {
+                        PType::I32
+                    },
+                    Validity::NonNullable,
+                )
+                .into_array();
+                if index == accepted && failure == "shape" {
+                    Ok(array.slice(0..2047).unwrap())
+                } else {
+                    Ok(array)
+                }
+            });
+            let error = store
+                .write_arrays(&specification, blocks, &runtime, &session, &work)
+                .unwrap_err();
+            let expected = match failure {
+                "producer" => "test producer failure",
+                "cancel" => "cancelled",
+                "quota" => "quota",
+                _ => "geometry changed",
+            };
+            assert!(error.to_string().contains(expected), "{error}");
+            assert_eq!(store.snapshot().runs_written, 0);
+            // Failed-file metadata stays owned until cleanup; accepted payloads
+            // must already be gone without advancing or dropping the runtime.
+            let metadata: u64 = store
+                .identities
+                .values()
+                .map(|identity| identity._metadata.bytes())
+                .sum();
+            assert_eq!(
+                memory.snapshot().reserved_bytes,
+                baseline + metadata,
+                "{failure} after {accepted} accepted blocks"
+            );
+            store.cleanup().unwrap();
+            drop(store);
+            drop(work);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            workspace.assert_empty();
+        }
+    }
+}
+
+#[test]
 fn cancellation_stops_reader_and_mid_write_then_owned_cleanup_releases_every_credit() {
     let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
     let session = VortexSession::default().with_handle(runtime.handle());

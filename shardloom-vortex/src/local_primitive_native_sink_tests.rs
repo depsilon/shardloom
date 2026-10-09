@@ -14,6 +14,7 @@ use vortex::{
         iter::ArrayIteratorAdapter,
         validity::Validity,
     },
+    file::WriteOptionsSessionExt as _,
     io::session::RuntimeSessionExt as _,
     session::VortexSession,
 };

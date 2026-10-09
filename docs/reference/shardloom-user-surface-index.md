@@ -125,8 +125,9 @@ packet inspection. Hosted integration completed in
 passing and the accepted runtime unchanged. The
 [window acceptance](../benchmarks/native-window-pressure-2026-10-08.md) passes
 complete constrained native spill, 442 streaming checks and 28,871 public
-regressions, including 1,498 added spill-frame checks; hosted integration remains
-pending for that unit. Resident input remains
+regressions, including 1,498 added spill-frame checks. Hosted integration completed
+in [PR #1533](https://github.com/depsilon/shardloom/pull/1533), with all 39 checks
+passing and the accepted runtime unchanged. Resident input remains
 the default. Repeated batch-source spool, multiple batch producers, compatibility streaming
 writes and a process-RSS bound remain outside this contract.
 
@@ -150,8 +151,11 @@ Single-file sorting can use explicitly admitted temporary Vortex runs, including
 the flat typed keys scoped by the [typed key contract](../architecture/native-typed-keys-2026-10-03.md).
 See [Native Query Spill](native-query-spill.md) for supported keys, bounded
 output, workspace quotas, cancellation, and recovery. The same opt-in policy now
-also admits the documented general relational aggregate, join and analytic-window
-strategies. Pivot and set state retain their separate pressure contracts.
+also admits the documented general relational aggregate, join, analytic-window
+and file/resident-memory pivot strategies. The
+[pivot pressure contract](../architecture/native-pivot-pressure-2026-10-08.md)
+preserves the existing scalar/typed/nested semantics; full local and hosted
+acceptance is pending. Set state retains a separate pressure contract.
 
 ## Python Reads
 
@@ -302,8 +306,9 @@ objects. Common admitted methods include:
   Empty input retains the index field and any declared margins field; an absent
   named domain fails explicitly. Representable scalar output can use all eight local
   writers within the existing 128-field and memory limits; decimal output retains
-  the explicit ORC denial. Pivot-state spill and
-  cross-call answer reuse are unsupported. See the
+  the explicit ORC denial. An explicit relational spill policy permits native
+  sparse state runs under the shared query grant and quota. Cross-call answer
+  reuse is unsupported. See the
   [dynamic pivot ownership contract](../architecture/native-dynamic-pivot-composition-2026-10-03.md).
   Source builds after published v0.4.0 also admit static List, FixedSizeList and Struct
   index, domain and selected-value roles. Nested cells support `first`, `first_unique`,
@@ -311,7 +316,7 @@ objects. Common admitted methods include:
   and rejects conflicts. Nested extrema skip NULL parents and use the shared child-NULL
   ordering. Python `pivot()` and `pivot_table(aggfunc="first")` retain their
   `first_unique` alias, while SQL's explicit `first` selects the first row, including NULL.
-  Nested SUM/MEAN, nested-index margins and pivot-state spill remain unsupported;
+  Nested SUM/MEAN and nested-index margins remain unsupported;
   nested MIN/MAX margins require a UTF-8 index. Nested cells accept absent or NULL
   fill only. Representable nested results use Vortex, Parquet, Arrow IPC, Avro,
   JSON and JSONL; CSV translates nested values to quoted JSON text and ORC rejects nested
@@ -320,6 +325,13 @@ objects. Common admitted methods include:
   and [hosted integration](../benchmarks/evidence/native-nested-pivot-state-hosted-2026-10-06.json)
   is complete in PR #1525. Published v0.4.0
   packages predate this source support. See the [nested pivot state contract](../architecture/native-nested-pivot-state-2026-10-06.md).
+  Relational file/resident-memory pivots have a separate
+  [spill contract](../architecture/native-pivot-pressure-2026-10-08.md), with
+  shared typed transitions, bounded exact lookups, incremental result delivery
+  and existing representable writers. Local and hosted acceptance of that new
+  strategy is pending. Direct prepared unary pivots remain resident; dynamic
+  one-shot batch sources reject before producer demand. Spill does not expand
+  aggregate, type, margin or 128-field admission.
 - Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
   primitive; `sum`/`mean`/`min`/`max` require numeric inputs, `count` admits scalar rows, centered windows
   use bounded lookahead evidence, and time/calendar windows, custom frames, callbacks, and broad pandas rolling parity remain deterministic
@@ -484,8 +496,8 @@ admit [scalar-value subqueries](../architecture/native-scalar-subqueries-2026-10
 with one static output column and explicit correlation; published v0.4.0 packages
 predate that addition. Unadmitted operator/type combinations, lateral relations,
 dynamic-pivot-dependent scalar schemas, named windows, variable frame offsets,
-pivot/set state spill and relational fanout remain explicit boundaries.
-General aggregation, joins and analytic windows have their own admitted
+set state spill and relational fanout remain explicit boundaries.
+General aggregation, joins, analytic windows and file/resident-memory pivots have their own
 [spill strategies](native-query-spill.md).
 
 Not claimed by the technical preview: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary

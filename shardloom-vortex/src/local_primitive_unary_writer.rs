@@ -45,14 +45,15 @@ impl PreparedVortexUnary {
                     let plan = super::super::native_sink::NativeSinkPlan::produced(
                         self.session.clone(),
                         super::DType::struct_(
-                            completed.result.fields.clone(),
+                            completed.result.fields().to_vec(),
                             super::Nullability::NonNullable,
                         ),
-                        completed.result.rows as u64,
+                        completed.result.rows() as u64,
                         source_path,
                         Some(self.source.clone()),
                     )?;
                     let mut delivered = false;
+                    let mut result = Some(completed.result);
                     let mut producer = |context: &NativeExecutionContext<'_>,
                                         batch_rows,
                                         consume: &mut dyn FnMut(
@@ -62,9 +63,10 @@ impl PreparedVortexUnary {
                         if delivered {
                             return Err(failed("pivot result producer was invoked twice"));
                         }
-                        completed
-                            .result
-                            .emit(&self.bound, context, batch_rows, &mut |array| {
+                        result
+                            .take()
+                            .ok_or_else(|| failed("pivot result producer was invoked twice"))?
+                            .emit(&self.bound, context, batch_rows, None, &mut |array| {
                                 if !consume(array)? {
                                     return Err(failed(
                                         "pivot result consumer stopped before completion",

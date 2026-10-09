@@ -7,22 +7,28 @@ from dataclasses import asdict
 import json
 import subprocess
 
-from native_dynamic_pivot_cases import literal, pivot_sql, validate_dynamic_fields
+from native_dynamic_pivot_cases import consume_pivot_batches, literal, pivot_sql, validate_dynamic_fields
 from native_nested_pivot_reference import ORACLES, arrow_schema, fixtures, output_schema, records
-from native_report_evidence import has_diagnostic_detail
+from native_report_evidence import has_diagnostic_detail, require_native_pivot_spill
 from native_workflow_materialization import verify_materializations
 from native_workflow_outputs import LOCAL_FORMATS, write_outputs
 from run_clickbench_query_uat import file_sha256
 
 
 def run(context, output, guard, accepted, complete, sources, identity, fixture_generator, *,
-        materializations=("python",)):
+        materializations=("python",), spill_strategy=False):
     from shardloom._result_schema import ResultType as Type, schema_fields
     from shardloom.query import SqlWorkflow, UnsupportedWorkflowOperationReport
     from shardloom.runtime_defaults import DEFAULT_LOCAL_RUNTIME_MEMORY_GB
 
     output.mkdir(parents=True)
     resources = {"memory_gb": 1, "max_parallelism": 2}
+    case_prefix = "nested-pivot-pressure" if spill_strategy else "nested-pivot"
+    workspace = output / "pivot-spill"
+    if spill_strategy:
+        workspace.mkdir()
+        resources["spill"] = {"workspace": str(workspace), "quota_bytes": 256 << 20,
+                              "buffer_bytes": 1 << 20}
     inputs = fixtures()
     cases, invalid, declaration_denials = [], [], []
 
@@ -37,14 +43,16 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
             ("sql", sql(sql_statement or workflow._relation_statement(), workflow)),
         ]
         for surface, declared in variants:
-            cases.append({"name": f"nested-pivot-{name}-{surface}", "workflow": declared,
-                          "rows": rows, "schema": tuple(schema), "stages": stages, "large": large})
+            cases.append({"name": f"{case_prefix}-{name}-{surface}", "workflow": declared,
+                          "rows": rows, "schema": tuple(schema), "stages": stages, "large": large,
+                          "streamable": all(binding.source_format in ("vortex", "memory")
+                                            for binding in declared._declared_sources())})
 
     def reject(name, workflow, reason):
         variants = [("sql", workflow)] if isinstance(workflow, SqlWorkflow) else [
             ("dataframe", workflow), ("sql", sql(workflow._relation_statement(), workflow)),
         ]
-        invalid.extend((f"nested-pivot-invalid-{name}-{surface}", declared, reason)
+        invalid.extend((f"{case_prefix}-invalid-{name}-{surface}", declared, reason)
                        for surface, declared in variants)
 
     def pivot(frame, aggregate, **options):
@@ -157,7 +165,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
                 normal("count", "count", [["a", 3, 1, 4], ["b", 1, 1, 2],
                                              ["c", 1, 1, 2], ["total", 5, 3, 8]],
                        options={"margins": True, "margins_name": "total"})
-                declaration_denials.append((f"nested-pivot-invalid-{name}-first-margins-dataframe", prefix))
+                declaration_denials.append((f"{case_prefix}-invalid-{name}-first-margins-dataframe", prefix))
                 for aggregate in ("first", "first_unique"):
                     reject(f"{name}-{aggregate}-margins",
                            sql(pivot_sql(prefix._relation_statement(), aggregate=aggregate, margins=True), prefix),
@@ -192,8 +200,8 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
                     ("pivot_a", Type("struct", True, (("value", Type("int64", False)),))))
     # A single large declaration is sufficient for the shared emission boundary;
     # the small complete matrix above checks both frontend spellings separately.
-    cases.append({"name": "nested-pivot-large-dataframe", "workflow": large, "rows": large_rows,
-                  "schema": large_schema, "stages": 1, "large": True})
+    cases.append({"name": f"{case_prefix}-large-dataframe", "workflow": large, "rows": large_rows,
+                  "schema": large_schema, "stages": 1, "large": True, "streamable": True})
     add("large-limited", large.limit(97), large_rows[:97], large_schema)
 
     oracle_path = output / "nested-pivot-expected.json"
@@ -206,15 +214,18 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
                 "sql": case["workflow"]._relation_statement(), "rows": case["rows"],
                 "schema": [(name, asdict(dtype)) for name, dtype in case["schema"]],
                 "dynamic_stages": case["stages"], "large": case["large"],
+                "incremental_results": spill_strategy and case["streamable"],
             } for case in cases},
             "negative_declarations": {name: {"sql": workflow._relation_statement(), "reason": reason}
                                       for name, workflow, reason in invalid},
             "python_declaration_denials": {name: {"source_sql": frame._relation_statement(),
                                                    "aggregate": "first", "margins": True}
                                            for name, frame in declaration_denials},
-            "output_formats": LOCAL_FORMATS, "materializations": materializations,
+            "output_formats": LOCAL_FORMATS,
+            "materializations": [] if spill_strategy else materializations,
             "collect_and_writer_resources": resources,
-            "materialization_memory_gb": DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            "materialization_memory_gb": None if spill_strategy else DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            "spill_strategy": spill_strategy,
         }, stream, ensure_ascii=False, indent=2)
         stream.write("\n")
 
@@ -239,6 +250,8 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
                 or (destination is not None and destination.exists())
                 or (reason is not None and not has_diagnostic_detail(envelope, reason))):
             raise ValueError(f"{name}: nested pivot denial published output or lost its diagnostic")
+        if spill_strategy and list(workspace.iterdir()):
+            raise ValueError(f"{name}: denied nested pivot retained owned spill state")
         complete(name, [], [])
 
     guard()
@@ -247,11 +260,11 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         raw, native = fixture["raw"], fixture["native"]
         remember(raw)
         guard()
-        accepted(f"nested-pivot-{fixture_name}-prepare", context.read_arrow_ipc(raw).prepare(native, check=False))
+        accepted(f"{case_prefix}-{fixture_name}-prepare", context.read_arrow_ipc(raw).prepare(native, check=False))
         remember(native)
         for provider, source in (("native", context.read_vortex(native)),
                                  ("arrow", context.read_arrow_ipc(raw))):
-            name = f"nested-pivot-{fixture_name}-{provider}-source"
+            name = f"{case_prefix}-{fixture_name}-{provider}-source"
             report = source.sort("position").collect(check=False, **resources)
             accepted(name, report)
             check_schema(name, report, fixture["schema"])
@@ -265,6 +278,9 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         def verified(label, report, reused=None, *, memory_gb=1):
             envelope = accepted(label, report)
             validate_dynamic_fields(label, envelope, stages=case["stages"], reused=reused, memory_gb=memory_gb)
+            if spill_strategy:
+                require_native_pivot_spill(label, envelope, resources["spill"], workspace,
+                                          stages=case["stages"])
             return envelope
 
         route = workflow.route(bounded=True, check=False, **resources)
@@ -292,6 +308,13 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
             written=verified, complete=complete, execution=resources,
             denied_formats={"orc": "nested"} if nested else None, denied=denied,
         )
+        if spill_strategy and case["streamable"]:
+            guard()
+            label = f"{name}-batches"
+            report, actual = consume_pivot_batches(label, workflow, resources, columns,
+                                                  output=output, schema=schema)
+            verified(label, report)
+            complete(label, actual, rows, output / f"{label}.json")
         # These two boundaries preserve the exact native nested DType. Other
         # formats are checked for complete values within their translation scope.
         for extension in ("vortex", "arrow_ipc"):
@@ -301,7 +324,9 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
             report = context.sql(f"SELECT * FROM (SELECT * FROM {literal(destination)}) AS p LIMIT 0").collect(check=False)
             accepted(label, report)
             check_schema(label, report, schema)
-        if not case["large"]:
+        # Convenience conversions retain their independently accepted resident
+        # policy. Do not count those calls as execution under this spill policy.
+        if not case["large"] and not spill_strategy:
             def converted_report(label, report):
                 verified(label, report, memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB)
                 check_schema(label, report, schema)

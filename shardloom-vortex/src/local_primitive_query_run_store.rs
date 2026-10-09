@@ -31,7 +31,7 @@ use std::{
 };
 use vortex::{
     array::{ArrayRef, dtype::DType},
-    file::{OpenOptionsSessionExt as _, WriteOptionsSessionExt as _},
+    file::OpenOptionsSessionExt as _,
     io::runtime::BlockingRuntime,
     layout::scan::split_by::SplitBy,
     session::VortexSession,
@@ -493,12 +493,13 @@ impl QueryRunStore {
         writer: &mut QuotaWriter,
     ) -> Result<()> {
         let strategy = native_flat_layout::SequentialNativeFlatLayout::strategy(max_chunks);
-        let mut native_writer = session
-            .write_options()
-            .with_strategy(strategy)
-            .with_file_statistics(Vec::new())
-            .blocking(runtime)
-            .writer(writer, spec.dtype.clone());
+        let mut native_writer = super::native_writer::NativeWriter::new(
+            session,
+            runtime,
+            writer,
+            spec.dtype.clone(),
+            strategy,
+        );
         let mut written_rows = 0_u64;
         loop {
             self.policy.check_cancelled()?;

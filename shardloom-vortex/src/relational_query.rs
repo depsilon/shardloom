@@ -12,7 +12,7 @@ pub use window_frame::{
     VortexRelationalFrameOffset, VortexRelationalFrameUnit, VortexRelationalWindowFrame,
 };
 
-/// Explicit permission for native ordering, aggregate and join runs. The buffer
+/// Explicit permission for native ordering, aggregate, join, window and pivot runs. The buffer
 /// threshold controls flushing; the resident query pool remains the memory grant.
 /// Construction validates configuration without inspecting the filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]

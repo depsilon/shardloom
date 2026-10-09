@@ -49,7 +49,7 @@ fn unary_nested_pivot_compacts_all_retained_roles_and_output_credits_survive_ses
         let mut output = Vec::new();
         session
             .with_native_execution_context(&CancellationToken::default(), |context| {
-                let completed = bound.complete_relation_pivot(context, |accept| {
+                let completed = bound.complete_relation_pivot(context, None, |accept| {
                     let input = large_unused_children(context);
                     assert!(memory.snapshot().reserved_bytes >= 2 << 20);
                     accept(input)?;
@@ -59,7 +59,7 @@ fn unary_nested_pivot_compacts_all_retained_roles_and_output_credits_survive_ses
                     );
                     Ok(())
                 })?;
-                completed.emit(&bound, context, 1, &mut |array| {
+                completed.emit(&bound, context, 1, None, &mut |array| {
                     output.push(array);
                     Ok(())
                 })
@@ -127,7 +127,7 @@ fn unary_nested_pivot_unchanged_cells_avoid_payload_copies_and_replacements_char
         let baseline = memory.snapshot().reserved_bytes;
         let result =
             session.with_native_execution_context(&CancellationToken::default(), |context| {
-                bound.complete_relation_pivot(context, |accept| {
+                bound.complete_relation_pivot(context, None, |accept| {
                     accept(initial)?;
                     let retained = memory.snapshot().reserved_bytes;
                     assert!(retained > baseline + (128 << 10));
@@ -232,7 +232,7 @@ fn unary_nested_pivot_discovery_cancellation_drops_selected_payloads() {
     let token = CancellationToken::default();
     let mut accepted = false;
     let result = session.with_native_execution_context(&token, |context| {
-        bound.complete_relation_pivot(context, |accept| {
+        bound.complete_relation_pivot(context, None, |accept| {
             accept(input)?;
             accepted = true;
             token.cancel();

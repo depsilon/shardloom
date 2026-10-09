@@ -255,22 +255,24 @@ the ledger.
     and the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
     Existing owners are PERF-02/03/06/10/12 and CG-20/21; broader owners stay open.
   - V1 scope classification: `required_for_v1` for this declared local family.
-  - Current state: source intake confirms the public relational spill owner
-    exists during dynamic binding, but pivot cell/index state remains resident.
-    The design preserves source-order updates, exact first representatives,
-    floating prefixes, decimal finalization and margin/output error order.
-    No pivot spill implementation or acceptance is claimed yet.
+  - Current state: sparse latest-state runs and bounded exact lookups use the
+    public relational spill owner during dynamic binding. Seventy focused pivot
+    tests pass, including two complete 16-MiB pressure executions, constrained
+    resident denial, ample controls, fault cleanup and dead-owner restart.
+    Source-order updates, exact first representatives, floating prefixes,
+    decimal finalization and margin/output error order are preserved. Full
+    workspace/public/adapter/Full43 acceptance and hosted integration remain open.
   - ShardLoom technique review: PulseWeave admits input, sparse state, native
     runs, lookup/cache blocks and output overlap under one grant. Exact run key
     bounds avoid impossible lookups; compact selected payloads and bounded
     index-position delivery avoid dense retained output. Keep input, preparation,
     lookup/merge, first-output and complete-workflow cost separate.
   - Execution checklist:
-    - [ ] Share current cell/domain transitions and exact state serialization
+    - [x] Share current cell/domain transitions and exact state serialization
       without duplicating resident and stored semantic implementations.
-    - [ ] Add bounded exact latest-state lookup and chronological native run
+    - [x] Add bounded exact latest-state lookup and chronological native run
       compaction under the existing quota, generation and cleanup owner.
-    - [ ] Complete schema, margins and late bounded output while retaining only
+    - [x] Complete schema, margins and late bounded output while retaining only
       bounded index metadata and preserving current observation order.
     - [ ] Prove all admitted aggregates/types/nulls/fill/margins/limits and
       before/after composition through existing result and writer consumers.

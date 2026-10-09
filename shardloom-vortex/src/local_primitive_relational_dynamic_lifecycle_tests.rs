@@ -276,7 +276,7 @@ fn native_dynamic_pivot_shared_completion_drops_partial_state_when_discovery_is_
         prepared
             .session
             .with_sources_execution(&prepared.sources, &cancellation, |context| {
-                bound.complete_relation_pivot(context, |accept| {
+                bound.complete_relation_pivot(context, None, |accept| {
                     let batch = StructArray::new(
                         FieldNames::from(["entity", "category", "amount"]),
                         vec![
