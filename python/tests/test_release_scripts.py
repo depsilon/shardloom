@@ -5937,6 +5937,34 @@ jobs:
         self.assertIn("python_compatibility_matrix", lane_ids)
         self.assertIn("rust_msrv_validation", lane_ids)
 
+    def test_ci_gate_matrix_requires_windows_native_release_build(self) -> None:
+        module = self._load_script_module(
+            "check_ci_gate_matrix.py", "check_ci_gate_matrix_windows_native_for_test"
+        )
+        lane = next(
+            lane for lane in module.REQUIRED_LANES
+            if lane.lane_id == "python_compatibility_matrix"
+        )
+        workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        doc = (REPO_ROOT / "docs/release/ci-gate-matrix.md").read_text(encoding="utf-8")
+        accepted = module.lane_status(lane, workflow, doc)
+        self.assertEqual(accepted["status"], "passed", accepted["blockers"])
+
+        for command in (
+            "cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces",
+            "./target/release/shardloom.exe --version",
+        ):
+            with self.subTest(command=command):
+                # A Python-only package lane must not receive native build credit.
+                old_lane = module.workflow_job_section(workflow, lane.job_id)
+                changed = workflow.replace(old_lane, old_lane.replace(command, "echo omitted"))
+                rejected = module.lane_status(lane, changed, doc)
+                self.assertEqual(rejected["status"], "failed")
+                self.assertIn(
+                    f"workflow job {lane.job_id} missing command: {command}",
+                    rejected["blockers"],
+                )
+
     def test_focused_check_runner_scopes_rust_filters_to_exact_targets(self) -> None:
         module = self._load_script_module(
             "run_focused_checks.py", "run_focused_checks_for_test"

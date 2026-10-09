@@ -1,0 +1,120 @@
+{
+  "schema_version": "shardloom.release_channel_interruption.v1",
+  "status": "github_published_registry_build_failed_before_upload",
+  "observed_at_utc": "2026-10-09T15:44:53.485984+00:00",
+  "release_version": "0.5.0",
+  "release_source_commit": "21c7984c0954eb89f0c0e5fde770cebb43a584d1",
+  "github_release_url": "https://github.com/depsilon/shardloom/releases/tag/v0.5.0",
+  "github_download_install_proof": {
+    "path": "docs/release/channel-proofs/github-prerelease-v0.5.0-transcript.json",
+    "sha256": "fa5118beb5224ae505c86e83cec0d8ae10f50b6a2c4a7d8c07cb7f1216d2717c"
+  },
+  "github_tag_and_twelve_asset_identities_unchanged": true,
+  "workflow": {
+    "id": 37950242761,
+    "html_url": "https://github.com/depsilon/shardloom/actions/runs/37950242761",
+    "head_sha": "21c7984c0954eb89f0c0e5fde770cebb43a584d1",
+    "head_branch": "v0.5.0",
+    "path": ".github/workflows/pypi-publish-draft.yml",
+    "event": "workflow_dispatch",
+    "run_attempt": 1,
+    "status": "completed",
+    "conclusion": "failure",
+    "created_at": "2026-10-09T15:14:34Z",
+    "updated_at": "2026-10-09T15:33:48Z"
+  },
+  "jobs": [
+    {
+      "id": 113886857053,
+      "name": "Build Python package with bundled CLI (windows)",
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-10-09T15:14:38Z",
+      "completed_at": "2026-10-09T15:25:51Z",
+      "html_url": "https://github.com/depsilon/shardloom/actions/runs/37950242761/job/113886857053"
+    },
+    {
+      "id": 113886857471,
+      "name": "Build Python package with bundled CLI (macos)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-09T15:14:44Z",
+      "completed_at": "2026-10-09T15:33:47Z",
+      "html_url": "https://github.com/depsilon/shardloom/actions/runs/37950242761/job/113886857471"
+    },
+    {
+      "id": 113886857609,
+      "name": "Build Python package with bundled CLI (linux)",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-10-09T15:14:38Z",
+      "completed_at": "2026-10-09T15:28:14Z",
+      "html_url": "https://github.com/depsilon/shardloom/actions/runs/37950242761/job/113886857609"
+    },
+    {
+      "id": 113895162410,
+      "name": "validate-pypi-prior-proof",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-09T15:33:48Z",
+      "completed_at": "2026-10-09T15:33:48Z",
+      "html_url": "https://github.com/depsilon/shardloom/actions/runs/37950242761/job/113895162410"
+    },
+    {
+      "id": 113895162946,
+      "name": "publish-testpypi",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-09T15:33:48Z",
+      "completed_at": "2026-10-09T15:33:48Z",
+      "html_url": "https://github.com/depsilon/shardloom/actions/runs/37950242761/job/113895162946"
+    },
+    {
+      "id": 113895163835,
+      "name": "publish",
+      "status": "completed",
+      "conclusion": "skipped",
+      "started_at": "2026-10-09T15:33:48Z",
+      "completed_at": "2026-10-09T15:33:48Z",
+      "html_url": "https://github.com/depsilon/shardloom/actions/runs/37950242761/job/113895163835"
+    }
+  ],
+  "failure": {
+    "platform": "windows",
+    "compiler_code": "E0433",
+    "message": "cannot find `native_spill_session` in the crate root",
+    "call_site": "shardloom-vortex/src/local_primitives/exact_distinct_spill_accumulator.rs:97",
+    "configured_out_module": "shardloom-vortex/src/lib.rs:115-116",
+    "job_log_sha256": "26f3879a7dea1ab30d94449753637c8486b3f4bc05eecbe9f238d3fbbd006a5d",
+    "job_log_size_bytes": 106441,
+    "job_log_api": "https://api.github.com/repos/depsilon/shardloom/actions/jobs/113886857053/logs"
+  },
+  "registry_observations": [
+    {
+      "channel": "testpypi",
+      "url": "https://test.pypi.org/pypi/shardloom/0.5.0/json",
+      "http_status": 404,
+      "status": "version_not_published_at_observation"
+    },
+    {
+      "channel": "pypi",
+      "url": "https://pypi.org/pypi/shardloom/0.5.0/json",
+      "http_status": 404,
+      "status": "version_not_published_at_observation"
+    }
+  ],
+  "homebrew_public_formula": {
+    "url": "https://github.com/depsilon/homebrew-tap/blob/main/Formula/shardloom.rb",
+    "git_blob_sha": "84518e46b2e45b416e4f035b702571cf853fdfe4",
+    "sha256": "4032bd7eaf6717be057531b1ec648480fc428e82cab1554a6f47c4caf979efcc",
+    "version": "0.4.0"
+  },
+  "registry_upload_performed": false,
+  "homebrew_update_performed": false,
+  "four_channel_train_complete": false,
+  "corrected_candidate_version": "0.5.1",
+  "original_artifacts_rewritten": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "scope": "The existing v0.5.0 GitHub prerelease remains immutable. Continue the same milestone with a separately verified corrected version; build success does not establish broad platform runtime support."
+}

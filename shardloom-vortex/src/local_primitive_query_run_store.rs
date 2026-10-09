@@ -328,12 +328,14 @@ impl QueryRunStore {
                 .ok_or_else(|| spill_error("native query workspace reservation overflow"))?,
         )?;
         shardloom_core::plan_workspace_safe_local_output(&root, &directory, false)?;
-        let mut builder = fs::DirBuilder::new();
+        let builder = fs::DirBuilder::new();
         #[cfg(unix)]
-        {
+        let builder = {
             use std::os::unix::fs::DirBuilderExt as _;
+            let mut builder = builder;
             builder.mode(0o700);
-        }
+            builder
+        };
         builder.create(&directory).map_err(io_error)?;
         let mut store = Self {
             policy,

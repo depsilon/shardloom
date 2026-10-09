@@ -1,9 +1,10 @@
 //! Source selection only; all aggregate lowering, updates and finalization stay shared.
 
 use super::{
-    Result, SimpleAggregateStates, VortexLocalPrimitiveEmbeddedLayoutReport,
-    VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, footer_aggregate, vortex_error,
+    Result, VortexLocalPrimitiveEmbeddedLayoutReport, VortexQueryPrimitiveKind, vortex_error,
 };
+#[cfg(unix)]
+use super::{SimpleAggregateStates, VortexQueryPrimitiveRequest, footer_aggregate};
 use vortex::{
     array::{ArrayRef, dtype::DType},
     error::VortexResult,

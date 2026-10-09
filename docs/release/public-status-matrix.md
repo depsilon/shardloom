@@ -135,10 +135,13 @@ not, by themselves, block a stable release for a narrower declared local scope.
 The maintainer approved a v0.5.0 train on October 9. Pivot integration is complete,
 and [full fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md) passed
 **before** the version bump: 99,997,497 freshly ingested rows, all 129 complete
-query comparisons and all 18 modular input/output cohorts. Source/package
-metadata now targets the 0.5.0 candidate. These source-build results are not
-installation or publication proof; selected public channels remain v0.4.0 until
-the normal four-channel verification completes.
+query comparisons and all 18 modular input/output cohorts. The v0.5.0 GitHub
+prerelease is published and independently installed; its Windows registry build
+failed before upload, leaving TestPyPI, PyPI and Homebrew at v0.4.0. The
+[interruption record](v0.5.0-channel-interruption.md) preserves that outcome.
+Source/package metadata now targets the corrected v0.5.1 candidate. The selected
+complete four-channel contract remains v0.4.0 until the new candidate passes its
+own verification; the pre-bump UAT retains its original source/binary identity.
 
 ## Claim Boundary
 

@@ -1,0 +1,261 @@
+{
+  "schema_version": "shardloom.candidate_channel_version_check.v1",
+  "status": "passed",
+  "checked_at_utc": "2026-10-09T15:51:06.458029+00:00",
+  "candidate_version": "0.5.1",
+  "selected_published_version": "0.4.0",
+  "reason": "The approved capability milestone continues as corrected 0.5.1 after the immutable 0.5.0 GitHub publication and pre-upload Windows build failure.",
+  "registries": {
+    "pypi.org": {
+      "url": "https://pypi.org/pypi/shardloom/json",
+      "response_sha256": "f622e8c675a02fa251ed7a1443802a82320b1d1c275fbc6a08a231afd2a7a0d6",
+      "latest_info_version": "0.4.0",
+      "all_versions": [
+        "0.1.0",
+        "0.1.1",
+        "0.1.10",
+        "0.1.3",
+        "0.1.4",
+        "0.1.8",
+        "0.1.9",
+        "0.2.0",
+        "0.2.1",
+        "0.2.2",
+        "0.2.3",
+        "0.2.4",
+        "0.3.0",
+        "0.3.1",
+        "0.3.2",
+        "0.3.3",
+        "0.4.0"
+      ],
+      "candidate_version_present": false,
+      "latest_files": [
+        {
+          "filename": "shardloom-0.4.0-cp313-cp313-macosx_26_0_arm64.whl",
+          "yanked": false,
+          "upload_time_iso_8601": "2026-10-05T23:34:53.254310Z",
+          "sha256": "149f3f1209cd18791acf4441f812624b949ec8ca5232b647db16a237591ac5ff"
+        },
+        {
+          "filename": "shardloom-0.4.0-cp313-cp313-manylinux_2_39_x86_64.whl",
+          "yanked": false,
+          "upload_time_iso_8601": "2026-10-05T23:34:55.997654Z",
+          "sha256": "4bc9efdd9fcd5d27e511facdd1d45e2ee0873d1f7467422140dc1fd5bf433ee3"
+        },
+        {
+          "filename": "shardloom-0.4.0-cp313-cp313-win_amd64.whl",
+          "yanked": false,
+          "upload_time_iso_8601": "2026-10-05T23:34:58.706964Z",
+          "sha256": "4a896fcae9171d85365171a2c67a6ef97fef8162a56a57275200bc38690b794a"
+        },
+        {
+          "filename": "shardloom-0.4.0.tar.gz",
+          "yanked": false,
+          "upload_time_iso_8601": "2026-10-05T23:35:01.287831Z",
+          "sha256": "218467d2d4d06da3b88ef0a2846243a980434e6cb2e8c5e3e4189b44782eea6a"
+        }
+      ]
+    },
+    "test.pypi.org": {
+      "url": "https://test.pypi.org/pypi/shardloom/json",
+      "response_sha256": "5a4d5b4aa7872bd357ea23515032d3cb96d1c5ca9745ad3abed1422811f660d3",
+      "latest_info_version": "0.4.0",
+      "all_versions": [
+        "0.1.0",
+        "0.1.1",
+        "0.1.10",
+        "0.1.3",
+        "0.1.4",
+        "0.1.5",
+        "0.1.7",
+        "0.1.8",
+        "0.1.9",
+        "0.2.0",
+        "0.2.1",
+        "0.2.2",
+        "0.2.3",
+        "0.2.4",
+        "0.3.0",
+        "0.3.1",
+        "0.3.2",
+        "0.3.3",
+        "0.4.0"
+      ],
+      "candidate_version_present": false,
+      "latest_files": [
+        {
+          "filename": "shardloom-0.4.0-cp313-cp313-macosx_26_0_arm64.whl",
+          "yanked": false,
+          "upload_time_iso_8601": "2026-10-05T23:10:56.904618Z",
+          "sha256": "58fa053ebe93a06233cf5526c5742da14cee6b13d4e5e0c9d1aec1263ce147a8"
+        },
+        {
+          "filename": "shardloom-0.4.0-cp313-cp313-manylinux_2_39_x86_64.whl",
+          "yanked": false,
+          "upload_time_iso_8601": "2026-10-05T23:10:59.997489Z",
+          "sha256": "343cef04a9ded77d0fa347f3cc1b28fe98f01c27f082e5515d84c72db7451b56"
+        },
+        {
+          "filename": "shardloom-0.4.0-cp313-cp313-win_amd64.whl",
+          "yanked": false,
+          "upload_time_iso_8601": "2026-10-05T23:11:02.626667Z",
+          "sha256": "8096d7c7b8198650004a0eb0ecbba1e2839a07043e079cfdf52a2f385b7f1562"
+        },
+        {
+          "filename": "shardloom-0.4.0.tar.gz",
+          "yanked": false,
+          "upload_time_iso_8601": "2026-10-05T23:11:05.239356Z",
+          "sha256": "9de8060dee734de50549b8624155290c5b4033ab99cfaf2061a9aeb7dbcec0a9"
+        }
+      ]
+    }
+  },
+  "github": {
+    "api": "https://api.github.com/repos/depsilon/shardloom/releases?per_page=100",
+    "response_sha256": "b10dba014392e5a81977ca8c2f6cfca117105c47b02e33e2236c6f020503b0c5",
+    "all_releases": [
+      {
+        "tag": "v0.5.0",
+        "draft": false,
+        "published_at": "2026-10-09T14:57:29Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.5.0"
+      },
+      {
+        "tag": "v0.4.0",
+        "draft": false,
+        "published_at": "2026-10-05T22:48:47Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.4.0"
+      },
+      {
+        "tag": "v0.3.3",
+        "draft": false,
+        "published_at": "2026-09-30T11:17:17Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.3.3"
+      },
+      {
+        "tag": "v0.3.2",
+        "draft": false,
+        "published_at": "2026-09-27T23:08:56Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.3.2"
+      },
+      {
+        "tag": "v0.3.1",
+        "draft": false,
+        "published_at": "2026-09-27T12:42:03Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.3.1"
+      },
+      {
+        "tag": "v0.3.0",
+        "draft": false,
+        "published_at": "2026-09-26T13:08:59Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.3.0"
+      },
+      {
+        "tag": "v0.2.4",
+        "draft": false,
+        "published_at": "2026-09-13T08:28:42Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.2.4"
+      },
+      {
+        "tag": "v0.2.3",
+        "draft": false,
+        "published_at": "2026-09-05T16:38:11Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.2.3"
+      },
+      {
+        "tag": "v0.2.2",
+        "draft": false,
+        "published_at": "2026-08-30T19:47:42Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.2.2"
+      },
+      {
+        "tag": "v0.2.1",
+        "draft": false,
+        "published_at": "2026-06-28T13:46:22Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.2.1"
+      },
+      {
+        "tag": "v0.2.0",
+        "draft": false,
+        "published_at": "2026-06-21T10:24:19Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.2.0"
+      },
+      {
+        "tag": "v0.1.10",
+        "draft": false,
+        "published_at": "2026-06-20T07:08:21Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.10"
+      },
+      {
+        "tag": "v0.1.9",
+        "draft": false,
+        "published_at": "2026-06-20T00:28:42Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.9"
+      },
+      {
+        "tag": "v0.1.8",
+        "draft": false,
+        "published_at": "2026-06-19T10:01:27Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.8"
+      },
+      {
+        "tag": "v0.1.7",
+        "draft": false,
+        "published_at": "2026-06-19T08:12:58Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.7"
+      },
+      {
+        "tag": "v0.1.6",
+        "draft": false,
+        "published_at": "2026-06-19T06:59:50Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.6"
+      },
+      {
+        "tag": "v0.1.5",
+        "draft": false,
+        "published_at": "2026-06-19T05:41:51Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.5"
+      },
+      {
+        "tag": "v0.1.4",
+        "draft": false,
+        "published_at": "2026-06-17T08:11:12Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.4"
+      },
+      {
+        "tag": "v0.1.3",
+        "draft": false,
+        "published_at": "2026-06-16T23:47:30Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.3"
+      },
+      {
+        "tag": "v0.1.1",
+        "draft": false,
+        "published_at": "2026-06-16T11:21:04Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.1"
+      },
+      {
+        "tag": "v0.1.0",
+        "draft": false,
+        "published_at": "2026-06-16T06:53:50Z",
+        "url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.0"
+      }
+    ],
+    "candidate_release_present": false,
+    "candidate_tag_present": false,
+    "matching_remote_tags": ""
+  },
+  "homebrew": {
+    "url": "https://github.com/depsilon/homebrew-tap/blob/main/Formula/shardloom.rb",
+    "git_blob_sha": "84518e46b2e45b416e4f035b702571cf853fdfe4",
+    "response_sha256": "6dd5cf2a5527f1ee82f0efd29537aa061da1f3a860dd66f73b2047b85638cae1",
+    "content_sha256": "4032bd7eaf6717be057531b1ec648480fc428e82cab1554a6f47c4caf979efcc",
+    "content": "class Shardloom < Formula\n  desc \"Vortex-first no-fallback local compute engine technical preview\"\n  homepage \"https://shardloom.io\"\n  url \"https://github.com/depsilon/shardloom/releases/download/v0.4.0/shardloom-d9ccd11d069f-source.tar.gz\"\n  sha256 \"31e6ac407a1f081cbeb224699bf6dca2f524e55d2c2bcbc9d666c68cb8172549\"\n  license \"Apache-2.0\"\n  head \"https://github.com/depsilon/shardloom.git\", branch: \"main\"\n\n  depends_on \"rust\" => :build\n\n  def install\n    system \"cargo\", \"install\", *std_cargo_args(path: \"shardloom-cli\"), \"--features\", \"release-user-surfaces\"\n  end\n\n  test do\n    assert_match \"shardloom #{version}\", shell_output(\"#{bin}/shardloom --version\")\n    assert_match \"fallback execution: disabled\", shell_output(\"#{bin}/shardloom status\")\n  end\nend\n",
+    "candidate_version_present": false
+  },
+  "publication_attempted": false,
+  "channel_readiness_changed": false,
+  "driver_sha256": "5c3df39d1c4248a820e89c3c93a7e1b38924bd03c1b577fa1f10028e1c6d98c6",
+  "previous_version_interruption_ref": "docs/release/evidence/v0.5.0-registry-interruption.json"
+}
