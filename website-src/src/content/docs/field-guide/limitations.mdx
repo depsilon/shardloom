@@ -87,8 +87,8 @@ arithmetic/string operations, temporal arithmetic rewrites, wider typed
 predicates and unadmitted state spill remain unsupported. Nested MIN/MAX margins
 require a UTF8 index. Relational file/resident-memory pivots have an explicit
 [native spill contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-pivot-pressure-2026-10-08.md)
-with complete local acceptance and independent packet inspection; hosted
-integration remains pending. Direct prepared unary pivots remain resident and
+with complete local acceptance, independent packet inspection and hosted
+integration in PR #1534. Direct prepared unary pivots remain resident and
 dynamic one-shot batch input rejects before producer demand.
 See the [typed unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-unary-2026-10-03.md).
 Computed aggregate arguments and exact decimal aggregate/rolling/scalar-pivot
@@ -151,8 +151,8 @@ The remaining local-engine exit criteria are concrete:
 
 Ordering, general aggregation, join, analytic-window and file/resident-memory
 pivot spill have quota, corruption, cancellation and consumer-failure coverage.
-Pivot pressure has complete local acceptance and independent packet inspection;
-hosted integration and broader reader/codec accounting remain open. A stable
+Pivot pressure has complete local acceptance, independent packet inspection and
+hosted integration in PR #1534. Broader reader/codec accounting remains open. A stable
 local release need not wait for cloud integrations or every SQL feature; unsupported work must
 have an explicit boundary. The repository owns the
 [full acceptance checklist](https://github.com/depsilon/shardloom/blob/main/docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).
