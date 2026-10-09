@@ -1,0 +1,60 @@
+{
+  "schema_version": "shardloom.release_uat_packet_inspection.v1",
+  "status": "passed",
+  "packet_sha256": "6ecddbaf0aecec01ad01dd11f969942aa761062f7ce070603763d1ecd3906e02",
+  "manifest_sha256": "253b63bf822bb251f957d8b88974a62a4d9d5487c59da2396c14651bc05bd06d",
+  "uncompressed_bytes_verified": 208428741,
+  "uncompressed_sha256_verified": "26f5085bcf61bc0e757cdc751d8e58840c75d19d073278a6d8e5a1d35c313224",
+  "parser_command": [
+    "/usr/bin/jq",
+    "--stream",
+    "-n",
+    "-f",
+    "<RELEASE_WORKSPACE>/inspect_release_050_uat.jq"
+  ],
+  "counters": {
+    "schema_version": "shardloom.release_candidate_fresh_uat.v2",
+    "status": "passed_local_pre_version_bump",
+    "candidate_version": "0.5.0",
+    "source_version_before_bump": "0.4.0",
+    "runtime_source_commit": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+    "build_binary_sha256": "22eb39060595afbde22e9ed4a0f1ca87c3504c58fe68f22641c336048eee8404",
+    "runtime_assets_byte_identical": 1013,
+    "runtime_asset_count_unchanged": 1015,
+    "runtime_harness_assets_repaired": 2,
+    "runtime_executable_behavior_changed": false,
+    "ingest_rows": 99997497,
+    "ingest_seconds": 52.009960708004655,
+    "query_records": 129,
+    "failed_query_records": 0,
+    "query_complete": true,
+    "query_complete_validation": true,
+    "query_values": 129,
+    "query_envelopes": 129,
+    "query_native_family": 129,
+    "modular_cohorts": 18,
+    "modular_records": 1408,
+    "modular_native_records": 704,
+    "failed_modular_records": 0,
+    "modular_native_family": 704,
+    "modular_process_logs": 11311,
+    "invalid_fallback": 0,
+    "invalid_claim": 0,
+    "private_paths": 0,
+    "required_claims": {
+      "publication_attempted": false,
+      "production_readiness_claimed": false,
+      "comparative_performance_claimed": false,
+      "whole_core_queue_complete": false,
+      "complete_input_output_cartesian_coverage": false,
+      "all_cell_ingest_equivalence": false,
+      "observed_single_ingest_plus_full_query_wall_clock": false
+    }
+  },
+  "query": {
+    "sha256": "e046c4e2d265c6691e44b73920622b07c8a987e5a07a5c2ea47bbc46deda21b4",
+    "source": "reduce inputs as $event (\n  {schema_version:null,status:null,candidate_version:null,source_version_before_bump:null,\n   runtime_source_commit:null,build_binary_sha256:null,runtime_assets_byte_identical:null,\n   runtime_asset_count_unchanged:null,runtime_harness_assets_repaired:null,\n   runtime_executable_behavior_changed:null,ingest_rows:null,ingest_seconds:null,\n   query_records:0,failed_query_records:0,query_complete:false,query_complete_validation:false,\n   query_values:0,query_envelopes:0,query_native_family:0,modular_cohorts:0,\n   modular_records:0,modular_native_records:0,failed_modular_records:0,\n   modular_native_family:0,modular_process_logs:0,invalid_fallback:0,invalid_claim:0,\n   private_paths:0,required_claims:{},last_field:null};\n  if ($event|length) != 2 then . else\n    $event[0] as $p | $event[1] as $v |\n    if $p == [\"schema_version\"] then .schema_version=$v\n    elif $p == [\"status\"] then .status=$v\n    elif $p == [\"candidate_version\"] then .candidate_version=$v\n    elif $p == [\"source_version_before_bump\"] then .source_version_before_bump=$v\n    elif $p == [\"runtime_source_commit\"] then .runtime_source_commit=$v\n    elif $p == [\"build\",\"binary_sha256\"] then .build_binary_sha256=$v\n    elif $p == [\"protocol\",\"runtime_provenance\",\"assets_byte_identical\"] then .runtime_assets_byte_identical=$v\n    elif $p == [\"protocol\",\"runtime_provenance\",\"asset_count_unchanged\"] then .runtime_asset_count_unchanged=$v\n    elif $p == [\"protocol\",\"runtime_provenance\",\"harness_assets_repaired\"] then .runtime_harness_assets_repaired=$v\n    elif $p == [\"protocol\",\"runtime_provenance\",\"executable_behavior_changed\"] then .runtime_executable_behavior_changed=$v\n    elif $p == [\"ingest\",\"complete_rows\"] then .ingest_rows=$v\n    elif $p == [\"ingest\",\"timing\",\"seconds\"] then .ingest_seconds=$v\n    elif $p == [\"queries\",\"summary\",\"complete\"] then .query_complete=$v\n    elif $p == [\"queries\",\"summary\",\"full_result_validation\"] then .query_complete_validation=$v\n    elif ($p|length)==5 and $p[0:3]==[\"queries\",\"summary\",\"records\"] and $p[4]==\"passed\" then\n      .query_records+=1 | if $v!=true then .failed_query_records+=1 else . end\n    elif ($p|length)==4 and $p[0:2]==[\"queries\",\"complete_values\"] and $p[3]==\"result_sha256\" then .query_values+=1\n    elif ($p|length)==5 and $p[0:2]==[\"queries\",\"logs\"] and $p[3:5]==[\"content\",\"status\"] then\n      .query_envelopes+=1 | if $v!=\"success\" then .failed_query_records+=1 else . end\n    elif ($p|length)==4 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3]==\"sha256\" then .modular_cohorts+=1\n    elif ($p|length)==7 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3:5]==[\"report\",\"records\"] and $p[6]==\"engine\" then\n      .modular_records+=1 | if $v==\"shardloom\" then .modular_native_records+=1 else . end\n    elif ($p|length)==7 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3:5]==[\"report\",\"records\"] and $p[6]==\"status\" then\n      if $v!=\"passed\" then .failed_modular_records+=1 else . end\n    elif ($p|length)==8 and $p[0:2]==[\"modular\",\"cohorts\"] and $p[3:5]==[\"report\",\"records\"] and $p[6:8]==[\"evidence\",\"public_workflow_native_vortex_plan_route_family\"] then\n      if $v==\"native_vortex_unified_plan\" then .modular_native_family+=1 else .failed_modular_records+=1 end\n    elif ($p|length)==4 and $p[0:2]==[\"modular\",\"process_logs\"] and $p[3]==\"original_sha256\" then .modular_process_logs+=1\n    elif ($p|length)>=5 and ($p|index(\"content\"))!=null and ($p|index(\"fields\"))!=null and $p[-1]==\"key\" then .last_field=$v\n    elif ($p|length)>=5 and ($p|index(\"content\"))!=null and ($p|index(\"fields\"))!=null and $p[-1]==\"value\" then\n      .last_field as $field |\n      (if ($field|type)==\"string\" and ($field|test(\"(^|_)(fallback_attempted|external_engine_invoked|external_query_engine_invoked|fallback_execution_allowed)$\")) and $v!=false and $v!=\"false\" then .invalid_fallback+=1 else . end) |\n      if ($p|length)==7 and $p[0:2]==[\"queries\",\"logs\"] and $p[3:5]==[\"content\",\"fields\"] and $field==\"public_workflow_native_vortex_plan_route_family\" and $v==\"native_vortex_unified_plan\" then .query_native_family+=1 else . end\n    elif ($p|length)>=2 and ($p[-1]|type)==\"string\" and ($p[-1]|test(\"(^|_)(fallback_attempted|external_engine_invoked|external_query_engine_invoked|fallback_execution_allowed)$\")) then\n      if $v!=false and $v!=\"false\" then .invalid_fallback+=1 else . end\n    elif ($p|length)==2 and $p[0]==\"claim_boundaries\" and\n      ([\"publication_attempted\",\"production_readiness_claimed\",\n        \"comparative_performance_claimed\",\"whole_core_queue_complete\",\n        \"complete_input_output_cartesian_coverage\",\"all_cell_ingest_equivalence\",\n        \"observed_single_ingest_plus_full_query_wall_clock\"]|index($p[1]))!=null then\n      .required_claims[$p[1]]=$v | if $v!=false then .invalid_claim+=1 else . end\n    elif $p[0]==\"claim_boundaries\" and ($v|type)==\"boolean\" and $v!=false then .invalid_claim+=1\n    else . end |\n    if ((($v|type)==\"string\" and ($v|contains(\"/\" + \"Users\" + \"/\"))) or (($p|join(\"/\"))|contains(\"/\" + \"Users\" + \"/\"))) then .private_paths+=1 else . end\n  end\n) | del(.last_field)\n"
+  },
+  "inspector_sha256": "69c3addee82bd2bac4c608619c3b1c76100ac88529353a311a71aa2c0894c4fe",
+  "original_reports_rerun": false
+}

@@ -17,6 +17,50 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-PIVOT-PRESSURE` — growing sparse relational pivot state under
+  the shared explicit native spill policy, under PERF-02/03/06/10/12 and CG-20/21.
+  The [design](native-pivot-pressure-2026-10-08.md) shares existing transitions,
+  exact latest-state lookup, chronological native run merging, ordered margins
+  and late bounded output. PulseWeave charges input/state/lookup/output overlap;
+  exact run bounds avoid impossible lookups and selected payloads avoid a dense
+  retained matrix. File and resident-memory inputs use the existing result and
+  representable writer routes. Resident execution remains the default.
+  - Runtime `5665eee5` passes all 15 source gates, 32,497 public checks and
+    18,595,284 complete row comparisons, including 3,626 added pressure checks
+    and 133 incremental proofs, plus 442 streaming cases, direct/adapter
+    regressions and all 129 Full43 results. Two 16-MiB native spill executions
+    return every one of 6,145 wide-key results, with resident denial, a 512-MiB
+    ample control, exact online updates, failures and owned cleanup/restart.
+    The [report and independently inspected packet](../benchmarks/native-pivot-pressure-2026-10-08.md)
+    retain the original suite-summary failure and its exact two-file harness
+    repair. Native constrained controls and public 1-GiB grants remain distinct.
+  - Nine support checks, seven native examples and local desktop/mobile/search
+    verification pass. [PR #1534](https://github.com/depsilon/shardloom/pull/1534)
+    merged at `d7898cb95818c4c455ad770713046dbdb5a86ad1` after all 39 checks on
+    `1675693e3820906bb1859e48d0cc57eec36f8603` passed. Accepted and merged trees
+    match. Primary source review found no blocking findings. Hosted Codex review
+    was unavailable because account quota was exhausted; no independent source
+    review, automated review pass or submitted approval is inferred.
+  - Two earlier CodeQL findings concerned synthetic test-counter failure
+    messages and were statically triaged as not actionable. The
+    [test-only cleanup](../benchmarks/evidence/native-pivot-test-diagnostics-2026-10-09.json)
+    preserves predicates, fixtures, complete values and structured counters;
+    fresh exact-head CI and CodeQL pass. All 1,015 original assets are accounted
+    for: 1,012 unchanged, two accepted harness repairs and one test-message
+    cleanup. The frozen executable and native product behavior are unchanged.
+    No alert was dismissed or rule suppressed. The
+    [hosted receipt](../benchmarks/evidence/native-pivot-hosted-2026-10-08.json)
+    records actual preview/production search, matching guide/resource text,
+    deployment and the merged report link. Original evidence retains its
+    historical hosted-pending status and failed receipt attempt.
+  - Direct-unary spill, dynamic/repeated batch input, compatibility streaming
+    writers/fanout, wider intake/allocation coverage, execution resume and
+    supported-platform certification remain separate. The approved
+    `RELEASE-050` train has passed fresh ingest/query/modular UAT before its
+    version bump; package publication still requires its own proof. The six
+    areas and all eight investigations retain their owners. No process-RSS
+    ceiling, speedup, whole PERF/CG closure or broad maturity claim follows.
+
 - [x] `NATIVE-WINDOW-PRESSURE` — existing analytic functions, frames and
   exclusions under the shared explicit spill policy, plus one finite single-use
   batch source, under PERF-02/03/06/10/12 and CG-20/21. The

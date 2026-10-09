@@ -115,7 +115,10 @@ comparisons, including 3,626 added pressure checks and 133 incremental proofs;
 all 129 Full43 comparisons pass. The original summary-controller failure and
 exact two-file harness repair remain explicit in the evidence. Pivot support
 alignment passes nine checks, seven native examples and rendered desktop/mobile
-search verification; hosted integration remains pending. Direct prepared unary pivots
+search verification. PR #1534 merged at `d7898cb9` after all 39 checks passed on
+`1675693e`; the [hosted receipt](../benchmarks/evidence/native-pivot-hosted-2026-10-08.json)
+records production deployment, matching preview/production text and search,
+primary review and the separately documented test-message cleanup. Direct prepared unary pivots
 remain resident, and dynamic one-shot pivot input rejects before demand.
 Resident input remains the default; no RSS bound, public maturity label or
 published v0.4.0 contents change follows from these additions.
@@ -129,10 +132,13 @@ incomplete. The
 define the required evidence and approval. Missing cloud integrations or complete SQL parity do
 not, by themselves, block a stable release for a narrower declared local scope.
 
-The maintainer approved a v0.5.0 train on October 9 after current pivot PR/docs
-closeout and full fresh UAT **before** the version bump. This is authorization
-and sequencing, not new publication proof; selected public channels remain
-v0.4.0 until the normal four-channel verification completes.
+The maintainer approved a v0.5.0 train on October 9. Pivot integration is complete,
+and [full fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md) passed
+**before** the version bump: 99,997,497 freshly ingested rows, all 129 complete
+query comparisons and all 18 modular input/output cohorts. Source/package
+metadata now targets the 0.5.0 candidate. These source-build results are not
+installation or publication proof; selected public channels remain v0.4.0 until
+the normal four-channel verification completes.
 
 ## Claim Boundary
 

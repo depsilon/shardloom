@@ -1,0 +1,446 @@
+{
+  "schema_version": "shardloom.release_prebump_evidence_export.v1",
+  "status": "passed",
+  "source_version_at_export": "0.4.0",
+  "candidate_version": "0.5.0",
+  "pivot_merge_commit": "d7898cb95818c4c455ad770713046dbdb5a86ad1",
+  "pivot_hosted_receipt_sha256": "9cd04f6fe9c621a937bab8ad2ad044faa380ed51f5442a83af64ad23d797d8d3",
+  "frozen_uat_source": "83cd67d663a241dbe11ffaf16113f9ecb4f1fe98",
+  "uat_packet_manifest": {
+    "packet": "docs/benchmarks/evidence/release-candidate-fresh-uat-2026-10-09.json.xz",
+    "packet_sha256": "6ecddbaf0aecec01ad01dd11f969942aa761062f7ce070603763d1ecd3906e02",
+    "packet_compressed_bytes": 1795420,
+    "packet_uncompressed_bytes": 208428741,
+    "packet_uncompressed_sha256": "26f5085bcf61bc0e757cdc751d8e58840c75d19d073278a6d8e5a1d35c313224",
+    "status": "passed_local_pre_version_bump",
+    "complete_query_runs": 129,
+    "modular_records": 1408,
+    "modular_native_records": 704,
+    "modular_process_logs": 11311,
+    "ingest_native_seconds": 52.009960708004655,
+    "query_repeat_group_native_seconds": [
+      75.8782974560163,
+      72.98572079100995,
+      72.5044755419367
+    ],
+    "binary_sha256": "22eb39060595afbde22e9ed4a0f1ca87c3504c58fe68f22641c336048eee8404",
+    "runtime_source_commit": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+    "runtime_provenance": {
+      "accepted_runtime_commit": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+      "accepted_source_identity_sha256": "c754261c7fc394147b3c7e7d37f8d5662d1b00c6ed9520393759144668e15855",
+      "assets_byte_identical": 1013,
+      "asset_count_unchanged": 1015,
+      "harness_assets_repaired": 2,
+      "harness_behavior_changed": true,
+      "source_repair_manifest_sha256": "826376fa1c668862caa45f9051445219685c3c0f55778d93665748b891f6bf03",
+      "repaired_source_files": {
+        "scripts/run_native_relational_suite.py": {
+          "original_sha256": "7f5d1da1dd6b193fa73159cb08154d3cbf2c94c45724322489d0e618d9702b66",
+          "repaired_sha256": "ed19ad854497f489b75a04949544cc0301a4ed5dbcf5d87589e5dfa0ab82a824"
+        },
+        "scripts/test_native_relational_suite.py": {
+          "original_sha256": "670fdaae90be7d1de7c73580b9f3e31389f290a79c0ea6ab554e7d93a0cb3757",
+          "repaired_sha256": "a1d72a552a0946c58bf975c8b90453b8676e1dc78bb9d5cb77cd79663c7ea04d"
+        }
+      },
+      "source_repair_boundary": "Only the suite summary combiner and its regression tests change. All native and Python product execution sources, case declarations and expectations remain byte-identical.",
+      "executable_behavior_changed": false,
+      "binary_sha256": "22eb39060595afbde22e9ed4a0f1ca87c3504c58fe68f22641c336048eee8404"
+    }
+  },
+  "original_manifest_sha256": "253b63bf822bb251f957d8b88974a62a4d9d5487c59da2396c14651bc05bd06d",
+  "original_inspection_sha256": "71f3a72a625ebc18202b549d7ea11ed8a2707b81c5fd9ebc7bd0aaf5295546c5",
+  "portable_inspection_path": "docs/benchmarks/evidence/release-candidate-fresh-uat-inspection-2026-10-09.json",
+  "portable_inspection_sha256": "9ebc0bd3f65e91338cdec3771cf6c1ee2912108d57a67b90860dd56374e79745",
+  "candidate_channel_check_path": "docs/release/v0.5.0-candidate-channel-check-2026-10-09.json",
+  "candidate_channel_check_sha256": "fd54d91d71e533ab9767ab0f18e1d36edcd830e0704dc13f4809bcf5bbb2d157",
+  "candidate_channel_guard": {
+    "sha256": "e7f4b4e9365aa0b68eb09a04c471d9c842022b1d3cd59767a7702952e87797d2",
+    "contents": {
+      "status": "passed",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "<RELEASE_WORKSPACE>/release-tools/check_candidate_version.py"
+      ],
+      "cwd": "<SOURCE_ROOT>",
+      "head": "1675693e3820906bb1859e48d0cc57eec36f8603",
+      "working_tree": "",
+      "environment": {
+        "CARGO_TARGET_DIR": "<LOCAL_HOME>/.cache/shardloom/cargo-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0"
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "storage_last_observation": {
+        "output": {
+          "workspace_bytes": 302403584,
+          "log_bytes": 0,
+          "free_bytes": 83037216768,
+          "reserved_candidate_bytes": 134217728
+        },
+        "cargo": {
+          "workspace_bytes": 14673293312,
+          "log_bytes": 0,
+          "free_bytes": 83037216768,
+          "reserved_candidate_bytes": 134217728
+        }
+      },
+      "timeout_seconds": 240.0,
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "output_limit_bytes": 8388608,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "pid": 25112,
+      "output_bytes": 166,
+      "group_absence_unproved_at_cleanup": false,
+      "returncode": 0,
+      "seconds": 1.444139457977144,
+      "log_sha256": "c821e3a110c0cbdce09105b91ab8d8fde0d5bd4648a67354dc400aef24e04e70"
+    }
+  },
+  "guards": {
+    "release-050-full-ingest-2": {
+      "sha256": "ae35c871fa08cb2a34c8024148f7ba67d15b5213cda43ddc489db12b2be53de8",
+      "contents": {
+        "status": "passed",
+        "command": [
+          "bash",
+          "scripts/run_clickbench_ingest_uat.sh",
+          "--binary",
+          "<PIVOT_WORKSPACE>/shardloom-pivot-1",
+          "--source",
+          "<LOCAL_HOME>/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+          "--target",
+          "<LOCAL_HOME>/LocalData/shardloom/clickbench-100m-uat/vortex/release-050-prebump-20261009-a2.vortex",
+          "--memory-gb",
+          "24",
+          "--max-parallelism",
+          "12",
+          "--progress-interval-seconds",
+          "10",
+          "--max-runtime-seconds",
+          "1800",
+          "--max-artifact-gb",
+          "20"
+        ],
+        "cwd": "<SOURCE_ROOT>",
+        "head": "83cd67d663a241dbe11ffaf16113f9ecb4f1fe98",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<LOCAL_HOME>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 671744,
+            "log_bytes": 0,
+            "free_bytes": 84490596352,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 14673293312,
+            "log_bytes": 0,
+            "free_bytes": 84490579968,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 2100.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 18002,
+        "output_bytes": 2656,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 61.469505792018026,
+        "log_sha256": "ffc78b33835dcee73b604e16f700e54e1921f4a8855f5816397c8742a24d95df"
+      }
+    },
+    "release-050-fresh-full43-2": {
+      "sha256": "b2d1afc088ae4fcdb0949891e08d2e5a4c40b82eefec658194c12e0663b05f02",
+      "contents": {
+        "status": "passed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "scripts/run_clickbench_query_uat.py",
+          "--binary",
+          "<PIVOT_WORKSPACE>/shardloom-pivot-1",
+          "--input",
+          "<LOCAL_HOME>/LocalData/shardloom/clickbench-100m-uat/vortex/release-050-prebump-20261009-a2.vortex",
+          "--uat-root",
+          "<LOCAL_HOME>/LocalData/shardloom/clickbench-100m-uat",
+          "--reference-packet",
+          "<LOCAL_HOME>/LocalData/shardloom/native-typed-reductions-20261004/clickbench-reference-values-2.json",
+          "--build-commit",
+          "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+          "--memory-gb",
+          "24",
+          "--max-parallelism",
+          "12",
+          "--compress-logs"
+        ],
+        "cwd": "<SOURCE_ROOT>",
+        "head": "83cd67d663a241dbe11ffaf16113f9ecb4f1fe98",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<LOCAL_HOME>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 942080,
+            "log_bytes": 0,
+            "free_bytes": 82338922496,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 14673293312,
+            "log_bytes": 0,
+            "free_bytes": 82338918400,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1500.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 18272,
+        "output_bytes": 209309,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 252.3871828330157,
+        "log_sha256": "d9630ee7231fde180bbd1c0afce646a1ee386fa8710b08635dd97d0ed56ef64c"
+      }
+    },
+    "release-050-modular-native-2": {
+      "sha256": "8a273049dde07111c832fc8aa802b0d80fa51cb21e4f3af0766f824c09311da9",
+      "contents": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<LOCAL_HOME>/LocalData/shardloom/native-typed-reductions-20261004/python-deps",
+          "<LOCAL_HOME>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<RELEASE_WORKSPACE>/run_modular_acceptance.py",
+          "--repo",
+          "<SOURCE_ROOT>",
+          "--build-manifest",
+          "<PIVOT_WORKSPACE>/pivot-acceptance-build-1.json",
+          "--prefix",
+          "release-050-modular",
+          "--attempt",
+          "2"
+        ],
+        "cwd": "<SOURCE_ROOT>",
+        "head": "83cd67d663a241dbe11ffaf16113f9ecb4f1fe98",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<LOCAL_HOME>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 297734144,
+            "log_bytes": 0,
+            "free_bytes": 81984233472,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 14673293312,
+            "log_bytes": 0,
+            "free_bytes": 81984163840,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 2400.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 18830,
+        "output_bytes": 2179,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 477.47054191699135,
+        "log_sha256": "a7967e812c73a24fd14b2a94f2c949df73b4e6582ae0cf159453183651b21e38"
+      }
+    },
+    "release-050-record-fresh-uat-2": {
+      "sha256": "e82dcd9adc10b1c8374a994c0386403747fb43279b16ad0a464e46f469c4558a",
+      "contents": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<LOCAL_HOME>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<SOURCE_ROOT>/benchmarks/traditional_analytics",
+          "<LOCAL_HOME>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<RELEASE_WORKSPACE>/record_fresh_uat.py",
+          "--attempt",
+          "2",
+          "--runtime-acceptance",
+          "<PIVOT_WORKSPACE>/pivot-final-acceptance-4.json"
+        ],
+        "cwd": "<SOURCE_ROOT>",
+        "head": "83cd67d663a241dbe11ffaf16113f9ecb4f1fe98",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<LOCAL_HOME>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 302280704,
+            "log_bytes": 0,
+            "free_bytes": 81956270080,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 14673293312,
+            "log_bytes": 0,
+            "free_bytes": 81956270080,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1800.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 23655,
+        "output_bytes": 2206,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 24.021250374993542,
+        "log_sha256": "253b63bf822bb251f957d8b88974a62a4d9d5487c59da2396c14651bc05bd06d"
+      }
+    },
+    "release-050-independent-inspection-1": {
+      "sha256": "a9f9e0b02d405489db255684602fa9ef1bcb5ff97ec59f33e1a33099d25796f4",
+      "contents": {
+        "status": "passed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-B",
+          "<RELEASE_WORKSPACE>/inspect_release_050_uat.py",
+          "--uat-attempt",
+          "2",
+          "--attempt",
+          "1"
+        ],
+        "cwd": "<SOURCE_ROOT>",
+        "head": "83cd67d663a241dbe11ffaf16113f9ecb4f1fe98",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<LOCAL_HOME>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 302292992,
+            "log_bytes": 0,
+            "free_bytes": 81958809600,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 14673293312,
+            "log_bytes": 0,
+            "free_bytes": 81958809600,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1800.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 23713,
+        "output_bytes": 1384,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 54.769225584022934,
+        "log_sha256": "3dff1843f261ebd85b67a744212e6ce11e29ea9032cea191968c56593ab57f76"
+      }
+    }
+  },
+  "runtime_provenance_at_export": {
+    "accepted_runtime_commit": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+    "accepted_source_identity_sha256": "c754261c7fc394147b3c7e7d37f8d5662d1b00c6ed9520393759144668e15855",
+    "assets_byte_identical": 1012,
+    "asset_count_unchanged": 1015,
+    "harness_assets_repaired": 2,
+    "harness_behavior_changed": true,
+    "source_repair_manifest_sha256": "826376fa1c668862caa45f9051445219685c3c0f55778d93665748b891f6bf03",
+    "repaired_source_files": {
+      "scripts/run_native_relational_suite.py": {
+        "original_sha256": "7f5d1da1dd6b193fa73159cb08154d3cbf2c94c45724322489d0e618d9702b66",
+        "repaired_sha256": "ed19ad854497f489b75a04949544cc0301a4ed5dbcf5d87589e5dfa0ab82a824"
+      },
+      "scripts/test_native_relational_suite.py": {
+        "original_sha256": "670fdaae90be7d1de7c73580b9f3e31389f290a79c0ea6ab554e7d93a0cb3757",
+        "repaired_sha256": "a1d72a552a0946c58bf975c8b90453b8676e1dc78bb9d5cb77cd79663c7ea04d"
+      }
+    },
+    "source_repair_boundary": "The exact two-file suite-summary repair and one test-only assertion-message cleanup are admitted. All native and Python product execution sources, fixtures, predicates and expected values remain unchanged.",
+    "executable_behavior_changed": false,
+    "binary_sha256": "22eb39060595afbde22e9ed4a0f1ca87c3504c58fe68f22641c336048eee8404",
+    "test_diagnostic_assets_repaired": 1,
+    "test_diagnostic_cleanup_sha256": "8388c6f359d62d5e50e78b2f45c25b47275a92f9c4a5ad51262a7fed936e721a",
+    "test_diagnostic_source": {
+      "source_file": "shardloom-vortex/src/local_primitive_relational_pivot_spill_tests.rs",
+      "source_original_sha256": "148df33e8b37ee52f306f7365cf7548b2defcdbf641c6ae7fcd650ad78883792",
+      "source_updated_sha256": "c0324a809ad4f8535873f3898631cb49d63b69cca67f6e70faf6f335343c9cb5"
+    },
+    "runtime_provenance_before_test_diagnostics_cleanup": {
+      "accepted_runtime_commit": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+      "accepted_source_identity_sha256": "c754261c7fc394147b3c7e7d37f8d5662d1b00c6ed9520393759144668e15855",
+      "assets_byte_identical": 1013,
+      "asset_count_unchanged": 1015,
+      "harness_assets_repaired": 2,
+      "harness_behavior_changed": true,
+      "source_repair_manifest_sha256": "826376fa1c668862caa45f9051445219685c3c0f55778d93665748b891f6bf03",
+      "repaired_source_files": {
+        "scripts/run_native_relational_suite.py": {
+          "original_sha256": "7f5d1da1dd6b193fa73159cb08154d3cbf2c94c45724322489d0e618d9702b66",
+          "repaired_sha256": "ed19ad854497f489b75a04949544cc0301a4ed5dbcf5d87589e5dfa0ab82a824"
+        },
+        "scripts/test_native_relational_suite.py": {
+          "original_sha256": "670fdaae90be7d1de7c73580b9f3e31389f290a79c0ea6ab554e7d93a0cb3757",
+          "repaired_sha256": "a1d72a552a0946c58bf975c8b90453b8676e1dc78bb9d5cb77cd79663c7ea04d"
+        }
+      },
+      "source_repair_boundary": "Only the suite summary combiner and its regression tests change. All native and Python product execution sources, case declarations and expectations remain byte-identical.",
+      "executable_behavior_changed": false,
+      "binary_sha256": "22eb39060595afbde22e9ed4a0f1ca87c3504c58fe68f22641c336048eee8404"
+    }
+  },
+  "native_workloads_rerun": false,
+  "performance_relabelled": false,
+  "publication_attempted": false,
+  "driver_sha256": "87481bf6b4bc2184c7cc92c8382c63ecad6a3ade16d1711d658cec09a0dc395f"
+}
