@@ -249,57 +249,6 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-PIVOT-PRESSURE` — complete growing sparse pivot state under the
-  shared native spill policy without changing online updates or output semantics.
-  - Source: [design and reuse map](native-pivot-pressure-2026-10-08.md), RFC 0044
-    and the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
-    Existing owners are PERF-02/03/06/10/12 and CG-20/21; broader owners stay open.
-  - V1 scope classification: `required_for_v1` for this declared local family.
-  - Current state: runtime `5665eee5` has complete local engine acceptance and
-    independent packet inspection. The [report](../benchmarks/native-pivot-pressure-2026-10-08.md)
-    binds all 15 source gates, 32,497 public checks and 18,595,284 complete rows,
-    including 3,626 pressure checks and 133 incremental proofs, plus streaming,
-    direct, adapter and all 129 Full43 comparisons. Two 16-MiB spill executions
-    return all 6,145 wide-key results; resident denial, a 512-MiB ample control,
-    exact online semantics, faults and cleanup/restart pass. The public-family
-    union retains the original summary-controller failure and its exact shared
-    oracle repair; engine execution and expected values are unchanged. Nine
-    support checks, seven native examples and desktop/mobile/search review pass;
-    hosted integration remains open.
-  - ShardLoom technique review: PulseWeave admits input, sparse state, native
-    runs, lookup/cache blocks and output overlap under one grant. Exact run key
-    bounds avoid impossible lookups; compact selected payloads and bounded
-    index-position delivery avoid dense retained output. Keep input, preparation,
-    lookup/merge, first-output and complete-workflow cost separate.
-  - Execution checklist:
-    - [x] Share current cell/domain transitions and exact state serialization
-      without duplicating resident and stored semantic implementations.
-    - [x] Add bounded exact latest-state lookup and chronological native run
-      compaction under the existing quota, generation and cleanup owner.
-    - [x] Complete schema, margins and late bounded output while retaining only
-      bounded index metadata and preserving current observation order.
-    - [x] Prove all admitted aggregates/types/nulls/fill/margins/limits and
-      before/after composition through existing result and writer consumers.
-    - [x] Prove larger-than-grant completion, resident denial and ample controls,
-      plus resource/cancellation/corruption/consumer/source failures, protected
-      destinations and owned cleanup/restart.
-    - [x] Freeze source/binary/oracles and complete focused, workspace, public,
-      direct/adapter and Full43 acceptance with independent packet inspection.
-    - [x] Complete adversarial source review and affected support alignment,
-      including executable examples and rendered search/mobile verification.
-    - [ ] Complete hosted integration and exact ledger closeout.
-  - Acceptance/verification: the design's complete-output and failure matrix,
-    exact focused native/Python/CLI tests and required fmt/clippy/workspace gates,
-    under existing serial storage/process guards. No engine fallback is permitted.
-  - User surface: the existing SQL/Python/CLI relational plan, explicit spill
-    policy, file/resident-memory input, result consumers and representable writers.
-    No alternate query route, dependency or release is introduced.
-  - Non-goals/claim boundary: no new pivot semantics, direct-unary spill API,
-    dynamic one-shot batch admission, repeated-source spool, execution resume,
-    compatibility streaming writer/fanout, wider batch types/limits, process-RSS
-    ceiling or unmeasured speed claim. Dynamic batch input still rejects before
-    producer demand; its complete-plan admission is a separate streaming contract.
-
 - [ ] `RELEASE-050` — publish the approved substantial local-engine milestone
   after fresh end-to-end UAT, then resume the remaining breadth/optimization work.
   - V1 scope classification: `required_for_v1` for the approved release workflow.
@@ -309,18 +258,25 @@ the ledger.
     Existing release/PERF-12 and CG-18/20/21 owners remain; no competitive gate
     is duplicated or closed by package publication.
   - Current state: selected public channels still serve v0.4.0. The maintainer
-    explicitly authorizes the v0.5.0 train after pivot cleanup/PR/docs and a full
-    fresh UAT run. No version source or new channel proof has changed yet.
+    explicitly authorizes the v0.5.0 train. Pivot integration is complete in
+    PR #1534 at `d7898cb9`, with all 39 checks and actual production verification.
+    [Full fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md)
+    passed before the bump: all 99,997,497 rows freshly ingested, 129 complete
+    query comparisons and 18 modular cohorts. Independent packet inspection
+    and export bind the original 0.4.0 source/binary identity. Source/package
+    metadata now targets 0.5.0; package and channel proofs remain open.
   - Execution checklist:
     - [x] Retire verified disposable build/UAT payloads under the storage policy,
       preserving summaries, original failures, fixtures and frozen executables.
-    - [ ] Close the current pivot PR, complete affected documentation and retain
+    - [x] Close the current pivot PR, complete affected documentation and retain
       exact local/hosted source and review evidence.
-    - [ ] Before the version bump, freshly ingest the full retained Parquet
+    - [x] Before the version bump, freshly ingest the full retained Parquet
       dataset to a new Vortex artifact, run all 129 complete Full43 comparisons
       on that artifact, and rerun the 18-cohort modular input/output matrix.
       Bind the unchanged engine, exact two-file harness repair, complete public
       pivot/streaming acceptance, storage/process guards and independent readback.
+      Record the subsequent assertion-message-only cleanup separately; never
+      relabel the frozen pre-bump source or its executable as a package build.
     - [ ] Update v0.5.0 version sources, release notes, supported/unsupported
       guidance and package artifacts, with an exact source-delta review and
       the required source/package/hosted gates.
@@ -347,9 +303,9 @@ actual preview/production search and guide verification, and the merged report
 link. Primary source review found no blocking findings; hosted automated review
 was unavailable because account review quota was exhausted, with no automated
 pass or independent review inferred. The [completed ledger](phased-execution-completed-ledger.md)
-retains the finite pressure, streaming and cleanup/restart evidence. Pivot local
-acceptance is recorded above; its hosted closeout and the broader six-area/
-eight-investigation completion contract remain open.
+retains the finite pressure, streaming and cleanup/restart evidence. Pivot
+integration is also complete in PR #1534; the broader six-area/eight-investigation
+completion contract remains open.
 
 `NATIVE-JOIN-PRESSURE` is complete in
 [PR #1532](https://github.com/depsilon/shardloom/pull/1532), merged at `25906290`
@@ -358,8 +314,8 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, all 981 accepted runtime assets
 unchanged and actual preview/production search, guide and report-link checks.
 The [completed ledger](phased-execution-completed-ledger.md) preserves its finite
-pressure, streaming and cleanup/restart scope. Pivot hosted closeout and the
-broader six-area/eight-investigation completion contract remain open.
+pressure, streaming and cleanup/restart scope. The broader six-area/
+eight-investigation completion contract remains open.
 
 `NATIVE-GENERAL-AGGREGATE-PRESSURE` and `NATIVE-STREAMED-ORDERING` are complete in
 [PR #1531](https://github.com/depsilon/shardloom/pull/1531), merged at `9529bd78`
@@ -368,15 +324,15 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, preserved executable behavior, actual
 preview/production search, matching guide content and the merged acceptance link.
 The [completed ledger](phased-execution-completed-ledger.md) retains the finite
-scope and evidence. Pivot hosted closeout and the broader local completion
-contract remain open; published v0.4.0 is unchanged.
+scope and evidence. The broader local completion contract remains open;
+published v0.4.0 is unchanged.
 
 The maintainer reaffirmed the full remaining body of work on October 7. The
 [remaining-scope contract](native-local-completion-scope-2026-10-07.md) maps all
 six areas and eight conditional investigations to existing owners without
-duplicating the queue. General aggregation/join/window pressure has finite acceptance;
-pivot local pressure acceptance now passes while hosted closeout, remaining
-allocation coverage, broader streaming/adapters and a defined local support/
+duplicating the queue. General aggregation/join/window/pivot pressure has finite
+acceptance and hosted integration. Remaining allocation coverage, broader
+streaming/adapters and a defined local support/
 release promise remain required work. The completed families do not close
 broader recovery. Keep each family visible
 until it has complete-workflow acceptance or an explicit supported resident-only
@@ -1117,14 +1073,14 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     [window pressure unit](../benchmarks/native-window-pressure-2026-10-08.md)
     likewise completes native constrained, streamed, public and regression
     acceptance plus hosted integration in PR #1533. The
-    [pivot pressure unit](../benchmarks/native-pivot-pressure-2026-10-08.md) passes
-    complete local acceptance and independent packet inspection; its hosted
-    closeout, broader worker transfer and production resource/recovery acceptance
-    retain their obligations.
+    [pivot pressure unit](../benchmarks/native-pivot-pressure-2026-10-08.md) has
+    complete local acceptance, independent packet inspection and hosted
+    integration in PR #1534. Broader worker transfer and production
+    resource/recovery acceptance retain their obligations.
   - Execution checklist:
     - [ ] Extend quota-accounted native runs and exact pressure transitions to
       the remaining unadmitted state families; retain the accepted finite pivot
-      transition while completing its hosted closeout.
+      transition and its completed hosted integration.
     - [ ] Complete cancellation, crash recovery, quota exhaustion, corruption and
       owned-cleanup acceptance across each admitted spill family.
     - [ ] Prove exact supported large-state completion under the admitted workload
@@ -2952,8 +2908,9 @@ adapters and operational acceptance of the supported local envelope. The existin
 ordering connection is a bounded enabling unit, not the whole stateful milestone.
 General aggregation, joins and analytic windows now have complete local and
 hosted acceptance in PRs #1531, #1532 and #1533. `NATIVE-PIVOT-PRESSURE` has
-subsequently passed complete local acceptance, independent packet inspection
-and support alignment; finish its hosted closeout. Dynamic one-shot input remains a separate
+subsequently completed local acceptance, independent packet inspection,
+support alignment and hosted integration in PR #1534 at `d7898cb9`.
+Dynamic one-shot input remains a separate
 complete-plan admission contract. The six areas and all eight investigations
 retain their separate owners.
 Prepare constraint-guided joins independently; gate nested identities on
@@ -2967,7 +2924,9 @@ timing: complete safe cleanup, the current pivot PR and documentation, then run
 full fresh ingest/query/modular UAT **before** bumping to v0.5.0. Complete the
 approved four-channel release train under `RELEASE-050` before returning to the
 remaining implementation. Cleanup has recovered approximately 68.5 GB while
-preserving evidence and reproducible inputs. The release does not replace or
+preserving evidence and reproducible inputs. The fresh ingest/query/modular UAT
+and independent inspection are complete with source still at 0.4.0; the candidate
+version changes follow that sealed proof. The release does not replace or
 complete the six areas or eight investigations; resume their existing owners
 after publication verification.
 

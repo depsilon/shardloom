@@ -7,14 +7,35 @@ Resident execution stays the default. Direct prepared unary pivots remain
 resident, and dynamic one-shot batch input still rejects before producer demand.
 
 Status at local packet close: complete local engine acceptance, independent
-packet inspection and documentation alignment; hosted integration is pending.
+packet inspection and documentation alignment. That immutable packet predates
+hosted integration; the later receipt below records its completion.
 The [evidence index](evidence/native-pivot-pressure-2026-10-08.json),
 [portable packet](evidence/native-pivot-pressure-2026-10-08.json.xz) and
 [independent inspection](evidence/native-pivot-pressure-2026-10-08-inspection.json)
 bind the executable, original sources, complete values and failure history.
 No comparative performance, process-RSS or package-publication claim follows.
-Published v0.4.0 is unchanged. The separately approved v0.5.0 train follows
-current PR/docs closeout and a full fresh UAT run before the version bump.
+Published v0.4.0 is unchanged. The separately approved v0.5.0 train has passed
+[full fresh UAT before the version bump](release-candidate-fresh-uat-2026-10-09.md).
+Installation and publication still require their release-channel proofs.
+
+[PR #1534](https://github.com/depsilon/shardloom/pull/1534) merged at
+`d7898cb95818c4c455ad770713046dbdb5a86ad1` after all 39 hosted checks passed on
+`1675693e3820906bb1859e48d0cc57eec36f8603`. The accepted and merged trees match.
+The [hosted receipt](evidence/native-pivot-hosted-2026-10-08.json) records exact
+CI/CodeQL results, primary source review, actual preview/production search,
+matching rendered guide/resource text and the working merged report link.
+The hosted Codex reviewer was unavailable due to account quota; no independent
+source review, automated review pass or submitted approval is inferred.
+
+Two prior CodeQL findings concerned assertion failure messages for synthetic
+test counters. Static triage found no actionable disclosure; the
+[test-only cleanup](evidence/native-pivot-test-diagnostics-2026-10-09.json)
+changes those messages while retaining predicates, fixtures, values and
+structured counters. Fresh CI and CodeQL pass on the final head. Of 1,015
+original assets, 1,012 remain byte-identical, two contain the previously accepted
+harness repair and one contains that test-message cleanup. Native executable
+behavior and the frozen runtime binary are unchanged. No alert was dismissed
+or analysis rule suppressed.
 
 The packet contains 53,641,616 compressed bytes with SHA-256
 `e7107caebc9f374672e6a5d755feb53b521796233a2eab7ff52ce4ac71ef901a`.

@@ -1,16 +1,23 @@
 # Native sparse-pivot pressure
 
-Status: complete local engine acceptance, independent packet inspection and
-support alignment; hosted integration pending under `NATIVE-PIVOT-PRESSURE`, PERF-02/03/06/10/12
-and CG-20/21. The [phase plan](phased-execution-plan.md) owns its checklist.
-This is the next coherent resource family after window integration in
+Status: complete local engine acceptance, independent packet inspection,
+support alignment and hosted integration under `NATIVE-PIVOT-PRESSURE`,
+PERF-02/03/06/10/12 and CG-20/21. The
+[completed ledger](phased-execution-completed-ledger.md) records the finite unit.
+This resource family follows window integration in
 [PR #1533](https://github.com/depsilon/shardloom/pull/1533), merged at `a88ec5c9`.
 It implements the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md)
 under RFC 0044; it does not close that whole contract or introduce a release.
 The [acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md) binds
 runtime `5665eee5`, exact pressure controls, complete public results and retained
-failure history. The separately authorized `RELEASE-050` train follows current
-PR/documentation closeout and full fresh UAT before any version bump.
+failure history. [PR #1534](https://github.com/depsilon/shardloom/pull/1534)
+merged at `d7898cb9` after all 39 checks passed on `1675693e`. The
+[hosted receipt](../benchmarks/evidence/native-pivot-hosted-2026-10-08.json)
+binds the unchanged merged tree, test-message-only cleanup, actual production
+deployment and preview/production search. The separately authorized
+`RELEASE-050` train has passed
+[full fresh UAT before the version bump](../benchmarks/release-candidate-fresh-uat-2026-10-09.md).
+Package publication and broader completion remain separate gates.
 
 ## Decision and scope
 

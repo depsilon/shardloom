@@ -155,8 +155,10 @@ also admits the documented general relational aggregate, join, analytic-window
 and file/resident-memory pivot strategies. The
 [pivot pressure contract](../architecture/native-pivot-pressure-2026-10-08.md)
 preserves the existing scalar/typed/nested semantics; complete local acceptance
-passes in the [acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md),
-while hosted acceptance remains pending. Set state retains a separate pressure contract.
+passes in the [acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md).
+[PR #1534](https://github.com/depsilon/shardloom/pull/1534) completes hosted
+integration, with all 39 checks and actual preview/production verification.
+Set state retains a separate pressure contract.
 
 ## Python Reads
 

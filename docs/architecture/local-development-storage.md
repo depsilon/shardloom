@@ -237,6 +237,18 @@ JSON/companion members. Its [report](../benchmarks/native-pivot-pressure-2026-10
 retains both refusals and successful continuations. Failed/incomplete evidence,
 resident inputs, unrelated files and storage ceilings remain unchanged.
 
+Before the fresh October 9 pre-bump UAT, the unchanged 252-MiB log threshold
+stopped admission before ingest, target creation or query work. The completed
+pivot Full43 cohort's 516 original JSON/companion members were compacted into
+`completed-call-logs-release-050-prebump-20261009.tar.xz`. Source generations,
+closed handles and every member were verified before redundant files were
+removed, recovering 3,362,816 accounted bytes. The original summary and failed
+admission remain intact. The complete second attempt freshly ingested all rows
+and passed all query/workflow comparisons. The
+[pre-bump packet](../benchmarks/release-candidate-fresh-uat-2026-10-09.md)
+retains and independently reopens the archive; no limit was raised and no
+incomplete runs were combined.
+
 ## Ingest Guard
 
 `scripts/run_clickbench_ingest_uat.sh` defaults to the local-only workspace and

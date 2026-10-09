@@ -75,7 +75,9 @@ including independent packet inspection and hosted integration in
 [window contract](../architecture/native-window-pressure-2026-10-08.md) has
 [complete local acceptance](../benchmarks/native-window-pressure-2026-10-08.md)
 for existing analytic functions/frames under explicit native spill and one finite
-single-use batch source; hosted window integration remains pending.
+single-use batch source; hosted integration completed in
+[PR #1533](https://github.com/depsilon/shardloom/pull/1533), with all 39 checks
+and actual preview/production verification.
 The [spill guide](native-query-spill.md) gives current examples and recovery
 boundaries.
 

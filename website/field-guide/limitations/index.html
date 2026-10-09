@@ -110,7 +110,7 @@ for the detailed evidence behind this scope.</p>
 </tr>
 <tr>
 <td>Memory and recovery</td>
-<td>Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, nullable multi-key relational ordering spill, and explicit general aggregation, join and analytic-window spill in current source builds. Relational file/resident-memory pivots have complete local pressure/workflow acceptance and independent packet inspection under their explicit native spill strategy; hosted integration remains pending.</td>
+<td>Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, nullable multi-key relational ordering spill, and explicit general aggregation, join, analytic-window and relational pivot spill in current source builds. File/resident-memory pivot pressure has complete local acceptance, independent packet inspection and hosted integration in PR #1534.</td>
 <td>Spill remains operator-specific; broader reader/codec accounting and whole-process RSS bounds remain separate work. Recovery is owned cleanup and restart, not resuming unfinished execution.</td>
 </tr>
 <tr>

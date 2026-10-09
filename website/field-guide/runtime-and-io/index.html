@@ -121,8 +121,9 @@ Relational file/resident-memory pivots also implement an explicit
 Sparse state, exact lookups, native runs and bounded output share the query grant
 and disk quota while preserving existing scalar, typed and nested semantics.
 Complete local acceptance and independent packet inspection
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-pivot-pressure-2026-10-08.md">pass</a>;
-hosted integration remains pending. The direct prepared unary API remains
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-pivot-pressure-2026-10-08.md">pass</a>.
+PR #1534 merged after all 39 hosted checks passed, with actual preview/production
+search and guide verification. The direct prepared unary API remains
 resident; dynamic one-shot batch input rejects before producer demand.
 Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
 microsecond timestamps can travel as payloads, including nested leaves. Their
@@ -315,7 +316,8 @@ packet inspection. Two native 16-MiB executions each return all 6,145 wide-key
 results, with constrained resident denial and a 512-MiB ample control.
 The public portfolio contains 32,497 checks, including 3,626 pivot pressure
 checks and 133 incremental proofs; all 129 Full43 comparisons pass. Pivot hosted
-integration remains pending. Dynamic one-shot pivot input remains unsupported.
+integration completed in PR #1534 after all 39 checks and actual preview/production
+verification. Dynamic one-shot pivot input remains unsupported.
 All operator stages share one memory grant and spill quota. Output
 compaction prevents retained results from pinning input; native sink metadata
 and retained output still consume credits. Limits drain the complete source,
