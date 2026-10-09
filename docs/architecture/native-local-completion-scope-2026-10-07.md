@@ -150,14 +150,16 @@ original outcome. The same milestone is now published and independently
 verified as v0.5.1 through GitHub, TestPyPI, PyPI and Homebrew. Its
 [publication record](../release/v0.5.1-publication-verification.md) binds the
 source, platform builds and channel proofs without relabeling pre-bump UAT.
-The phase plan's `RELEASE-050` checklist takes precedence over further
-implementation until release-documentation integration and live website
-verification complete. Then resume all
-remaining areas and all eight investigations above. This is a substantial
+Publication documents merged in PR #1537 at `0877ea9c` after all 39 checks
+passed; the [production observation](../release/channel-proofs/website-v0.5.1-deployment.json)
+verifies the exact deployment, four live pages and six public documents.
+`RELEASE-050` is complete. Resume all remaining areas and all eight
+investigations above, prioritizing natural-scale batch execution and
+source/type/destination composition. This is a substantial
 capability release, not a declaration that the whole completion contract is done.
 
 The maintainer's later October 9 instruction supersedes discretionary release
-timing: finish the v0.5.1 train already in progress, then keep the version fixed
+timing: after the now-completed v0.5.1 train, keep the version fixed
 until all remaining ShardLoom work is complete. Do not start another patch or
 milestone bump for an intermediate capability or investigation. Continue the
 six areas, all eight investigations and their acceptance/documentation work

@@ -1,9 +1,9 @@
 {
   "schema_version": "shardloom.final_release_approval_post_release_verification.v1",
-  "status": "published_selected_channels_public_website_verification_pending",
+  "status": "published_selected_channels_and_public_website_verified",
   "publication_authorization_state": "approved",
-  "public_release_ready": false,
-  "post_release_verification_ready": false,
+  "public_release_ready": true,
+  "post_release_verification_ready": true,
   "approval_artifact_ref": "docs/release/v0.5.1-publication-verification.md",
   "approved_release_tag": "v0.5.1",
   "approved_release_commit": "764cd97df35918cc34ade1dc41c20264be80927c",
@@ -51,17 +51,17 @@
     },
     {
       "row_id": "docs_links_public_smoke",
-      "verification_status": "pending_deployment_verification",
+      "verification_status": "passed",
       "required_evidence": "public docs link/readiness validation after release links are live",
-      "evidence_ref": "docs/release/v0.5.1-publication-verification.md",
+      "evidence_ref": "docs/release/channel-proofs/website-v0.5.1-deployment.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
     {
       "row_id": "website_support_matrix_public_smoke",
-      "verification_status": "pending_deployment_verification",
+      "verification_status": "passed",
       "required_evidence": "website support matrix and benchmark/public-status pages reflect the approved release artifact and claim boundaries",
-      "evidence_ref": "docs/release/v0.5.1-publication-verification.md",
+      "evidence_ref": "docs/release/channel-proofs/website-v0.5.1-deployment.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     }

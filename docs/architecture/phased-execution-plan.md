@@ -249,61 +249,14 @@ the ledger.
 
 ## Planned
 
-- [ ] `RELEASE-050` — publish the approved substantial local-engine milestone
-  after fresh end-to-end UAT, then resume the remaining breadth/optimization work.
-  - V1 scope classification: `required_for_v1` for the approved release workflow.
-  - Source: the maintainer's October 9 instruction, the completed native resource,
-    finite streaming and aggregate/join/window/pivot units, and the normal
-    [publication handoff](../release/maintainer-publication-handoff.md).
-    Existing release/PERF-12 and CG-18/20/21 owners remain; no competitive gate
-    is duplicated or closed by package publication.
-  - Current state: corrected v0.5.1 is published and independently verified
-    through GitHub, TestPyPI, PyPI and Homebrew. The
-    [publication record](../release/v0.5.1-publication-verification.md) binds
-    source `764cd97d`, its actual Windows native build and all four channel proofs.
-    Release-documentation integration and live website verification remain
-    before final closeout and the return to implementation. The original
-    v0.5.0 tag/assets remain immutable; its
-    [interruption record](../release/v0.5.0-channel-interruption.md) preserves
-    the Windows build failure that stopped that version before registry upload.
-    Pivot integration is complete in
-    PR #1534 at `d7898cb9`, with all 39 checks and actual production verification.
-    [Full fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md)
-    passed before the bump: all 99,997,497 rows freshly ingested, 129 complete
-    query comparisons and 18 modular cohorts. Independent packet inspection
-    and export bind the original 0.4.0 source/binary identity. The corrected
-    0.5.1 source/package gates and channel installation proofs pass separately;
-    package publication does not relabel those earlier UAT measurements.
-  - Execution checklist:
-    - [x] Retire verified disposable build/UAT payloads under the storage policy,
-      preserving summaries, original failures, fixtures and frozen executables.
-    - [x] Close the current pivot PR, complete affected documentation and retain
-      exact local/hosted source and review evidence.
-    - [x] Before the version bump, freshly ingest the full retained Parquet
-      dataset to a new Vortex artifact, run all 129 complete Full43 comparisons
-      on that artifact, and rerun the 18-cohort modular input/output matrix.
-      Bind the unchanged engine, exact two-file harness repair, complete public
-      pivot/streaming acceptance, storage/process guards and independent readback.
-      Record the subsequent assertion-message-only cleanup separately; never
-      relabel the frozen pre-bump source or its executable as a package build.
-    - [x] Update corrected v0.5.1 version sources, release notes, supported/unsupported
-      guidance and package artifacts, with an exact source-delta review and
-      the required source/package/hosted gates, including the Windows native build.
-      Preserve the interrupted v0.5.0 tag/assets and successful GitHub proof.
-    - [x] Publish and independently verify GitHub release assets, TestPyPI,
-      PyPI and Homebrew in that order; update the canonical channel contract
-      only from actual install/smoke/checksum/SBOM/provenance evidence.
-    - [ ] Complete release-documentation integration and live website verification,
-      seal the final publication proof, then resume every still-open area and
-      investigation in the remaining-scope contract.
-  - ShardLoom technique review: retain dynamic shape selection, capillary work
-    avoidance and PulseWeave admission from the accepted runtime. Preserve
-    metadata-first inspection, timing-surface boundaries and evidence-tier limits.
-  - Claim boundary: retain Vortex-native execution, exact values,
-    finite admission and no fallback. Fresh ingest/query/workflow clocks remain
-    distinct; no paired speedup or production/platform scope is inferred from
-    build success. Future package channels remain blocked. This release does
-    not close broader allocations, adapters, streaming, recovery or CG-1–CG-23.
+`RELEASE-050` is complete as corrected v0.5.1: all four selected channels and
+the production website are verified. The
+[publication record](../release/v0.5.1-publication-verification.md) and
+[completed ledger](phased-execution-completed-ledger.md) preserve the original
+pre-bump UAT and interrupted v0.5.0 identities. Resume all six remaining areas
+and eight investigations under their existing owners, prioritizing natural-scale
+batch execution and source/type/destination composition. The version remains
+fixed until all remaining ShardLoom work is complete.
 
 `NATIVE-WINDOW-PRESSURE` is complete in
 [PR #1533](https://github.com/depsilon/shardloom/pull/1533), merged at `a88ec5c9`
@@ -2964,8 +2917,9 @@ October 9 sequencing direction supersedes the earlier discretionary release
 timing: complete safe cleanup, the current pivot PR and documentation, then run
 full fresh ingest/query/modular UAT **before** bumping to v0.5.0. The approved
 milestone is now published as corrected v0.5.1 through all four selected channels.
-Finish release-documentation integration and live website verification under
-`RELEASE-050` before returning to the remaining implementation.
+Release-documentation integration and live website verification under
+`RELEASE-050` are complete in PR #1537 at `0877ea9c`, after all 39 checks and
+actual production deployment/browser/document verification.
 Cleanup has recovered approximately 68.5 GB while
 preserving evidence and reproducible inputs. The fresh ingest/query/modular UAT
 and independent inspection completed with source still at 0.4.0; candidate
@@ -2974,18 +2928,17 @@ are immutable, and its registry build stopped before upload on Windows.
 The [v0.5.1 publication record](../release/v0.5.1-publication-verification.md)
 binds fresh source and channel evidence while retaining the original pre-bump
 UAT identities. The release does not replace or
-complete the six areas or eight investigations; resume their existing owners
-after publication verification.
+complete the six areas or eight investigations; resume their existing owners.
 
-The maintainer's later October 9 instruction holds the version fixed after the
-already-started v0.5.1 train. Complete all remaining ShardLoom work before another
+The maintainer's later October 9 instruction holds the version fixed at 0.5.1
+after the completed train. Complete all remaining ShardLoom work before another
 version bump; do not start additional patch or milestone release trains while
 that work remains. This supersedes the earlier discretionary release timing.
 Continue implementation, validation, documentation and hosted integration under
 the existing owners without treating each completed unit as a release trigger.
 
 The subsequent enterprise-workload feedback prioritizes natural-scale batch
-execution and source/type/destination composition after this release closeout.
+execution and source/type/destination composition as implementation resumes.
 Its cap-removal, automatic strategy, source-lifetime, richer-intake, preparation
 and sink work is merged into PERF-03/06/07/10/11/12 above. Complete the shared
 mechanisms and workload evidence; a larger constant or a limitations-page update
