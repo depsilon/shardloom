@@ -1,0 +1,89 @@
+{
+  "build_source_commit": "ce4ece33f986a237bc90293db797b6be93b40fb5",
+  "initial_failure": {
+    "install_or_smoke_executed": false,
+    "path": "docs/release/evidence/v0.5.1-pypi-initial-download-failure.json",
+    "sha256": "697ba4f53018d0f470aec45f96cdc959d39872adc8d24583510770058f1b9b65",
+    "stage": "download_registry_artifact"
+  },
+  "observed_at": "2026-10-09T20:58:35.183873+00:00",
+  "passed_retry": {
+    "attempt": 2,
+    "driver_receipt_sha256": "bbdb9bd306673c294984776c19bb4626d09a088e9b70862ebd6e7eed28143cdf",
+    "driver_sha256": "308836d6bb43c76226e0c977406473c2f584c595846a1e5b3438936e37d72ab9",
+    "installed_artifact_filename": "shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+    "installed_artifact_sha256": "50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9",
+    "path": "docs/release/channel-proofs/pypi-v0.5.1-transcript.json",
+    "sha256": "05b0acdb0ca2ec5f6c59c415aed325e9276c76f8288800e729988b863ecf8027"
+  },
+  "registry_visibility_observation": {
+    "failed_driver_receipt": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/release-051-pypi-package-proof-1.json",
+    "failed_guard_receipt": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/release-051-pypi-package-proof-guard-1.json",
+    "initial_proof_failed_before_install": true,
+    "observed_at": "2026-10-09T20:41:51.183111+00:00",
+    "original_canonical_path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/release/channel-proofs/pypi-v0.5.1-transcript.json",
+    "original_driver_sha256": "0b9a3a220278818357c9acba1ae6f3f9b79fea9c9941202f53a4ff86faf61d32",
+    "preserved_failed_transcript": {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/release-051-pypi-failed-transcript-1.json",
+      "sha256": "697ba4f53018d0f470aec45f96cdc959d39872adc8d24583510770058f1b9b65"
+    },
+    "publication_repeated": false,
+    "registry_artifacts": [
+      {
+        "digests": {
+          "blake2b_256": "93de260a393aaa81a66380352c37744be23ee14a009122510ffc8c540d4f560c",
+          "md5": "67e1ed1173fc75fe72bf6509a801d841",
+          "sha256": "50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9"
+        },
+        "filename": "shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+        "size": 23004498,
+        "upload_time_iso_8601": "2026-10-09T20:39:31.161256Z",
+        "url": "https://files.pythonhosted.org/packages/93/de/260a393aaa81a66380352c37744be23ee14a009122510ffc8c540d4f560c/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl"
+      },
+      {
+        "digests": {
+          "blake2b_256": "0bd424665a8a9527bb68fd4884a334a8ac79db2095bde9e8193d156a0b8f38f6",
+          "md5": "54cd87ad3b525e6f1ee3e04752fe34f6",
+          "sha256": "5743d479e05d4fd1952e39ca778dd02cf29517c817b46a5acdb1f5b23644dfe2"
+        },
+        "filename": "shardloom-0.5.1-cp313-cp313-manylinux_2_39_x86_64.whl",
+        "size": 25954733,
+        "upload_time_iso_8601": "2026-10-09T20:39:34.899837Z",
+        "url": "https://files.pythonhosted.org/packages/0b/d4/24665a8a9527bb68fd4884a334a8ac79db2095bde9e8193d156a0b8f38f6/shardloom-0.5.1-cp313-cp313-manylinux_2_39_x86_64.whl"
+      },
+      {
+        "digests": {
+          "blake2b_256": "c1936c8d9fa7d66a789f0b5dfe7a7817f6af59821e710bfb94f8072bc2a2865c",
+          "md5": "9a75abbb4ad27eccea0c03359bb70518",
+          "sha256": "1d1a9a8cd0ffb6832b4fa28e712f686393eae094f3fcaa64653b64fc61262456"
+        },
+        "filename": "shardloom-0.5.1-cp313-cp313-win_amd64.whl",
+        "size": 24487201,
+        "upload_time_iso_8601": "2026-10-09T20:39:38.834456Z",
+        "url": "https://files.pythonhosted.org/packages/c1/93/6c8d9fa7d66a789f0b5dfe7a7817f6af59821e710bfb94f8072bc2a2865c/shardloom-0.5.1-cp313-cp313-win_amd64.whl"
+      },
+      {
+        "digests": {
+          "blake2b_256": "dee95f28593bcfa684f686c9f1844b531e91e86388d1853577cb5a5bd71d93f0",
+          "md5": "b741d25fcd7328b4e53077a460a1df45",
+          "sha256": "5de5dc060227d449d7b132cc81d09412c8ec47ea9dd9a5e553abbe857fc4ad5f"
+        },
+        "filename": "shardloom-0.5.1.tar.gz",
+        "size": 546280,
+        "upload_time_iso_8601": "2026-10-09T20:39:42.097492Z",
+        "url": "https://files.pythonhosted.org/packages/de/e9/5f28593bcfa684f686c9f1844b531e91e86388d1853577cb5a5bd71d93f0/shardloom-0.5.1.tar.gz"
+      }
+    ],
+    "registry_json_sha256": "81a9cf4889f7aeddbdee7ab2ca6aa3ee12c176682936f5a378ee9399cb454a93",
+    "registry_observation_date": "Fri, 09 Oct 2026 20:41:51 GMT",
+    "retry_change_scope": "only three attempt-specific output paths change from 1 to 2; checks and canonical success paths unchanged",
+    "retry_driver_sha256": "308836d6bb43c76226e0c977406473c2f584c595846a1e5b3438936e37d72ab9",
+    "status": "retry_prepared_after_registry_inventory_visible"
+  },
+  "release_source_commit": "764cd97df35918cc34ade1dc41c20264be80927c",
+  "repeat_publication_or_version_change": false,
+  "retry_change_scope": "Only three attempt-specific output paths changed; all checks and canonical success paths were preserved.",
+  "schema_version": "shardloom.registry_install_retry.v1",
+  "status": "passed_after_initial_download_unavailable",
+  "workflow_run_id": 37985832079
+}

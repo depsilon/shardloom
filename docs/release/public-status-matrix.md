@@ -8,7 +8,7 @@ Schema marker: `shardloom.public_status_matrix.v1`.
 
 This matrix is the source-owned public posture summary for the README, getting-started docs,
 Python README, release readiness docs, and website wording. It describes what a public reader may
-infer from the current repository state. v0.4.0 package channels are published where explicitly
+infer from the current repository state. v0.5.1 package channels are published where explicitly
 listed, but that does not authorize production support, benchmark superiority, Spark displacement,
 external execution, or fallback execution.
 
@@ -19,7 +19,7 @@ The active v1 queue and feasibility firewall is tracked in
 [`docs/release/v1-inclusion-scope-matrix.md`](v1-inclusion-scope-matrix.md).
 The selected local/source/package v1 release track is tracked in
 [`docs/release/v1-local-source-package-release.md`](v1-local-source-package-release.md).
-Selected package channels are published for v0.4.0; real production environment gates remain
+Selected package channels are published for v0.5.1; real production environment gates remain
 blocked.
 The scoped local SQL/Python/DataFrame front-door runtime boundary is defined in
 [`docs/architecture/v1-front-door-runtime-scope.md`](../architecture/v1-front-door-runtime-scope.md).
@@ -38,8 +38,8 @@ support bundles remain local/redacted and remote telemetry/upload surfaces remai
 
 **Published local engine; operational hardening in progress.** This is the current public
 support label. The technical-preview designation describes the support promise, not whether
-the engine or packages exist. v0.4.0 is available through GitHub, TestPyPI, PyPI and Homebrew;
-the [publication verification](v0.4.0-publication-verification.md) closes the selected-channel
+the engine or packages exist. v0.5.1 is available through GitHub, TestPyPI, PyPI and Homebrew;
+the [publication verification](v0.5.1-publication-verification.md) closes the selected-channel
 proof requirement.
 
 The local engine executes admitted SQL, Python/DataFrame and CLI workflows through one native
@@ -47,11 +47,11 @@ pipeline, including typed and nested results, exact decimal reductions, analytic
 local writers. Native ordering spill, cancellation, corrupt-run and quota rejection, slow or
 failed consumers, source-generation checks and owned cleanup have executable evidence. Their
 scope is recorded in the [resource contract](../architecture/native-relational-resources-2026-10-02.md)
-and [current release acceptance](../benchmarks/release-candidate-fresh-uat-2026-10-05.md).
+and [current release acceptance](../benchmarks/release-candidate-fresh-uat-2026-10-09.md).
 
-Current source builds add reviewed FSST/Zstd buffer ownership,
+The v0.5.1 release includes reviewed FSST/Zstd buffer ownership,
 public resident batch intake and incremental results, plus two retained native
-CPU optimizations. Its [acceptance report](../benchmarks/native-engine-acceptance-2026-10-06.md)
+CPU optimizations. The [original acceptance report](../benchmarks/native-engine-acceptance-2026-10-06.md)
 records the complete source/public/Full43 checks and the three dropped hardware
 prototypes. PR #1526 merged after all 39 hosted checks passed. Published v0.4.0
 predates these additions. Target-cohort gains are not a broad engine performance claim.
@@ -61,8 +61,7 @@ adds actual decoder and by-reference prepared-dictionary admission to the same
 native memory owner. Local ownership and complete regression checks pass;
 PR #1528 merged after all 39 hosted checks passed with the accepted runtime
 source unchanged. Compression/training state and other
-unreviewed allocations remain outside that finite resource proof. This does
-not change the published version or public support label.
+unreviewed allocations remain outside that finite resource proof. The change is included in v0.5.1; the public support label is unchanged.
 
 The [builder acceptance](../benchmarks/native-builder-resources-2026-10-07.md)
 further covers native primitive/Boolean/decimal Chunked output and builder
@@ -120,8 +119,8 @@ search verification. PR #1534 merged at `d7898cb9` after all 39 checks passed on
 records production deployment, matching preview/production text and search,
 primary review and the separately documented test-message cleanup. Direct prepared unary pivots
 remain resident, and dynamic one-shot pivot input rejects before demand.
-Resident input remains the default; no RSS bound, public maturity label or
-published v0.4.0 contents change follows from these additions.
+Resident input remains the default. These capabilities are included in v0.5.1;
+no process-RSS bound or public maturity change follows from publication.
 
 The remaining maturity requirements are an explicit supported local workload/platform envelope,
 accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide
@@ -132,16 +131,17 @@ incomplete. The
 define the required evidence and approval. Missing cloud integrations or complete SQL parity do
 not, by themselves, block a stable release for a narrower declared local scope.
 
-The maintainer approved a v0.5.0 train on October 9. Pivot integration is complete,
-and [full fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md) passed
+The maintainer-approved capability milestone is published as corrected v0.5.1
+through GitHub, TestPyPI, PyPI and Homebrew. Its
+[publication verification](v0.5.1-publication-verification.md)
+records the source, registry builds and channel installation proofs.
+The original v0.5.0 tag/assets remain immutable; its
+[interruption record](v0.5.0-channel-interruption.md) preserves the failed
+Windows build that stopped that version before registry upload.
+[Full fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md) passed
 **before** the version bump: 99,997,497 freshly ingested rows, all 129 complete
-query comparisons and all 18 modular input/output cohorts. The v0.5.0 GitHub
-prerelease is published and independently installed; its Windows registry build
-failed before upload, leaving TestPyPI, PyPI and Homebrew at v0.4.0. The
-[interruption record](v0.5.0-channel-interruption.md) preserves that outcome.
-Source/package metadata now targets the corrected v0.5.1 candidate. The selected
-complete four-channel contract remains v0.4.0 until the new candidate passes its
-own verification; the pre-bump UAT retains its original source/binary identity.
+query comparisons and all 18 modular input/output cohorts. Those measurements
+retain their original pre-bump source and executable identities.
 
 ## Claim Boundary
 
@@ -150,7 +150,7 @@ the publication-attempt fields below describe this status/gate surface's side ef
 the history of the already published package channels.
 
 ```text
-package_publication_status=published_v0.4.0_selected_channels
+package_publication_status=published_v0.5.1_selected_channels
 public_package_release_claim_allowed=true
 public_release_claim_allowed=false
 public_package_claim_allowed=false
@@ -183,7 +183,7 @@ external_engine_invoked=false
 | Benchmarks | The parameterized local harness runs one ShardLoom candidate through the public native workflow, with declared input state and output format. It retains source, executable, command, timing, and complete-result evidence. Comparison engines provide independent references only. | Local correctness comparisons with explicit timing boundaries; published historical evidence keeps its original scope. | Public performance superiority, Spark displacement, stale-artifact claims, timing-surface substitution. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked for broader platform routes. | Capability posture, local fixture proof where explicitly named, blocked diagnostics. | Production platform/runtime claims and managed-service integrations. |
 | Website | Static public interpretation layer over checked-in source/evidence. | Claim-safe docs, use-case, benchmark, status, and architecture views. | Runtime expansion, package publication, public benchmark freshness beyond promoted artifacts. |
-| Package/release channels | v0.4.0 selected channels are published and proof-backed: GitHub pre-release assets, TestPyPI, PyPI, and Homebrew. | Install access through `gh release download v0.4.0`, `python -m pip install shardloom==0.4.0`, and `brew install depsilon/tap/shardloom`; channel proof refs remain checked in. | Scoop, winget, conda-forge, GHCR, crates.io, real production environment gates, signing/attestation expansion, and production/package-maturity claims remain blocked. |
+| Package/release channels | v0.5.1 selected channels are published and proof-backed: GitHub pre-release assets, TestPyPI, PyPI, and Homebrew. | Install access through `gh release download v0.5.1`, `python -m pip install shardloom==0.5.1`, and `brew install depsilon/tap/shardloom`; channel proof refs remain checked in. | Scoop, winget, conda-forge, GHCR, crates.io, real production environment gates, signing/attestation expansion, and production/package-maturity claims remain blocked. |
 
 ## Public Docs Ownership
 
@@ -221,6 +221,6 @@ external_engine_invoked=false
   policy.
 - Benchmark wording must state `timing_surface` and `claim_gate_status` before comparing numbers.
 - Package wording must distinguish source checkout, local wheel dry run, selected published
-  v0.4.0 channels, blocked future channels, and production/package-maturity claims.
+  v0.5.1 channels, blocked future channels, and production/package-maturity claims.
 - Website and docs changes must preserve `fallback_attempted=false` and
   `external_engine_invoked=false` for ShardLoom execution evidence.

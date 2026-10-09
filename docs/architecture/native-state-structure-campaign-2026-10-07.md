@@ -51,9 +51,10 @@ the builder's historical packet or claim a new measured implementation.
    unit under PERF-03/06/12, including reader and codec resource proof.
 
 These are finite work units attached to existing phase owners, not replacement
-phase IDs. Keep CG-1 through CG-23 intact. A version bump waits for a substantial
-capability milestone with operational evidence; it is not attached to each
-retained experiment.
+phase IDs. Keep CG-1 through CG-23 intact. The maintainer's later October 9
+instruction supersedes this intake's milestone-based release timing: after the
+already-started v0.5.1 train, hold the version fixed until all remaining ShardLoom
+work is complete. The [phase plan](phased-execution-plan.md) owns that sequencing.
 
 ## What source inspection establishes
 

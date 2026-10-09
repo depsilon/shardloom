@@ -485,10 +485,9 @@ See [runtime and I/O](/field-guide/runtime-and-io) and the
 
 ## Consume results in batches
 
-Current source builds add \`iter_batches()\` for admitted results and
+The published engine supports \`iter_batches()\` for admitted results and
 \`from_batches()\` for explicitly typed resident input. These additions merged
-in PR #1526 after complete local and hosted checks; published v0.4.0 packages
-predate them. Source builds also admit opt-in \`streaming=True\` for one finite
+in PR #1526 after complete local and hosted checks. The published engine also admits opt-in \`streaming=True\` for one finite
 source used once through scan/filter/project, global sorting, aggregation, joins,
 analytic windows and draining limits. See the [contracts and spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
 
@@ -592,8 +591,8 @@ Their observed columns bind during execution, including independent domains for
 correlated inner rows; inspection remains inert. All eight local writers accept
 representable scalar results within the existing field and state budgets. See the
 [dynamic pivot contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-dynamic-pivot-composition-2026-10-03.md).
-Current source builds after published v0.4.0 also admit static List,
-FixedSizeList and Struct pivot index, domain and selected-value roles. Nested
+The published engine admits static List, FixedSizeList and Struct pivot index,
+domain and selected-value roles. Nested
 cells support first, first_unique, count, min and max; first_unique accepts
 repeated equal complete values and rejects conflicts. Nested extrema skip NULL
 parents and use the shared child-NULL ordering. Python pivot() and
@@ -605,7 +604,7 @@ Representable nested results use Vortex, Parquet,
 Arrow IPC, Avro, JSON and JSONL; CSV translates nested values to quoted JSON
 text, and ORC rejects nested output. Existing 128-field, collection and memory
 limits apply. Complete local workflow/regression acceptance and all 39 hosted
-checks passed before PR #1525 merged. Published v0.4.0 packages predate this source support.
+checks passed before PR #1525 merged.
 See the [nested pivot state contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-pivot-state-2026-10-06.md).
 Relational file/resident-memory pivots also implement an explicit
 [native spill strategy](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state).
@@ -665,7 +664,7 @@ one finite single-use batch source. Complete local and hosted acceptance passed
 before [PR #1533](https://github.com/depsilon/shardloom/pull/1533) merged.
 The [analytic-frame acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md)
 records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
-executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md)
+executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-09.md)
 adds complete input/output workflow comparisons. These suites overlap and do
 not establish a comparative speedup.
 General joins, set operations, analytic windows and broader subquery shapes still have native coverage
@@ -674,9 +673,8 @@ and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main
 
 ## Scalar subqueries
 
-Current source builds after published v0.4.0 admit scalar-value subqueries through
-SQL \`(SELECT ...)\` and Python \`sl.scalar_subquery(...)\`. The v0.4.0 packages
-predate this addition. Use them to put one query result into an expression:
+The published engine admits scalar-value subqueries through
+SQL \`(SELECT ...)\` and Python \`sl.scalar_subquery(...)\`. Use them to put one query result into an expression:
 
 \`\`\`sql
 SELECT value, (SELECT outer.value + 10 AS adjusted) AS adjusted
@@ -741,12 +739,11 @@ row or serialized-byte limit fails without returning a successful prefix.
 
 ## Resources And Recovery
 
-Current source builds account for reviewed FSST/Zstd payload,
+The published engine accounts for reviewed FSST/Zstd payload,
 view and validity buffers through the shared native memory owner. Retained
 clones and slices keep their allocation credits. It also adds
 [Python batch input and results](/field-guide/python-surface#consume-results-in-batches).
-These additions merged in PR #1526 after complete local and hosted checks;
-published v0.4.0 predates them. Source implementation also admits the actual
+These additions merged in PR #1526 after complete local and hosted checks. Source implementation also admits the actual
 one-shot Zstd decoder and by-reference prepared-dictionary workspaces before
 allocation, releasing them after each decode. See the
 [workspace acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-codec-workspaces-2026-10-07.md)
@@ -792,7 +789,7 @@ and retained output still consume credits. Limits drain the complete source,
 and late failure prevents completion and incomplete file publication.
 The runtime also rejects malformed FSST row lengths before decoder allocation.
 Repeated batch-source spooling, broader streaming destinations, unadmitted
-state/recovery and remaining allocation coverage stay open; published v0.4.0 is unchanged.
+state/recovery and remaining allocation coverage stay open after v0.5.1 publication.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
@@ -906,16 +903,15 @@ for the detailed evidence behind this scope.
 | Area | Available today | Remaining work or boundary |
 | --- | --- | --- |
 | Core analytics | Metadata counts, filtering, projection, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, and sort/Top-K, including explicit null ordering in flat aggregate collection and writes. | Function, type, layout, and composition coverage is finite. Parser recognition alone does not mean native execution. |
-| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and accepted analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. Source builds after published v0.4.0 admit [scalar-value subqueries](/field-guide/runtime-and-io#scalar-subqueries) with local and hosted acceptance. They also admit static List/FixedSizeList/Struct pivot index, domain and selected-value roles with complete [workflow, resource and regression acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md) and hosted integration. | Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested SUM/MEAN, non-NULL nested fill, nested-index margins and unsupported nested leaves remain outside the admitted contracts; nested MIN/MAX margins require a UTF8 index. Broader adapters and scalar pivot's 128-field, type and memory boundaries remain. |
+| Relational and DataFrame operations | Current source builds compose admitted relational and unary stages, including static nested payloads/explode, nested key/retained-state operations, exact decimal reductions and accepted analytic ROWS/GROUPS/RANGE frames. Scalar pivot columns bind during execution, including correlated inner scopes. The published engine admits [scalar-value subqueries](/field-guide/runtime-and-io#scalar-subqueries) with local and hosted acceptance. They also admit static List/FixedSizeList/Struct pivot index, domain and selected-value roles with complete [workflow, resource and regression acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md) and hosted integration. | Operation/type coverage is finite. Named windows, variable frame offsets, dynamic-pivot-dependent scalar schemas, lateral relations, nested SUM/MEAN, non-NULL nested fill, nested-index margins and unsupported nested leaves remain outside the admitted contracts; nested MIN/MAX margins require a UTF8 index. Broader adapters and scalar pivot's 128-field, type and memory boundaries remain. |
 | Repeated queries | Retained local workers, source handles, supported lowering, and validated preparation reuse. | Fresh execution state per call. No global result cache or automatic incremental refresh of arbitrary queries. |
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, nullable multi-key relational ordering spill, and explicit general aggregation, join, analytic-window and relational pivot spill in current source builds. File/resident-memory pivot pressure has complete local acceptance, independent packet inspection and hosted integration in PR #1534. | Spill remains operator-specific; broader reader/codec accounting and whole-process RSS bounds remain separate work. Recovery is owned cleanup and restart, not resuming unfinished execution. |
 | Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
 
-Current source builds add reviewed FSST/Zstd buffer accounting and
+The published engine includes reviewed FSST/Zstd buffer accounting and
 [Python batch input/incremental results](/field-guide/python-surface#consume-results-in-batches).
-PR #1526 merged after complete local and hosted checks. Published v0.4.0
-predates these additions.
+PR #1526 merged after complete local and hosted checks.
 The subsequent [Zstd workspace unit](/field-guide/runtime-and-io#resources-and-recovery)
 also admits the actual decoder and by-reference prepared dictionary. Its
 resource proof remains limited to the reviewed allocations.

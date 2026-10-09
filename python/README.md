@@ -31,7 +31,7 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
-The current published local-engine release is 0.4.0, with verified GitHub, TestPyPI, PyPI and
+The current published local-engine release is 0.5.1, with verified GitHub, TestPyPI, PyPI and
 Homebrew access. The source package reports its version through `shardloom.__version__`;
 development checkouts should use editable installs so Python and CLI revisions remain aligned.
 Operational hardening is in progress. The technical-preview designation refers to the remaining local workload,
@@ -453,9 +453,9 @@ subject to each format's dtype contract and the operation's state budget. Native
 Vortex and text output admit supported mixed scalar melt/pivot results; mixed Variant
 columns are not general binary compatibility output support.
 
-Current source builds also support incremental Python consumption through
+v0.5.1 supports incremental Python consumption through
 `iter_batches`, merged in PR #1526 after complete local and hosted checks.
-Published v0.4.0 predates this addition. Use a context manager so stopping early cancels and drains the owned
+Use a context manager so stopping early cancels and drains the owned
 operation. Batches remain provisional until full exhaustion and a final report:
 
 ```python
@@ -521,7 +521,7 @@ process-RSS ceiling. See the [streamed ordering contract](../docs/architecture/n
 [window contract and example](../docs/reference/native-query-spill.md#analytic-windows-and-finite-streamed-input),
 [spill example](../docs/reference/native-query-spill.md#general-aggregation-and-completion-aware-input)
 and [local acceptance evidence](../docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md).
-Published v0.4.0 predates both batch modes.
+Both batch modes are included in v0.5.1.
 
 Current source builds compose flat-scalar DISTINCT, `drop_duplicates`, `duplicated`,
 tail, sample, scalar rewrites, melt and rolling with admitted filters, projections,
@@ -548,9 +548,8 @@ complete value; child NULLs do not trigger filling), lossless same-shape melt
 and rolling COUNT. See the [nested key and retained-state contract](../docs/architecture/native-nested-keys-state-2026-10-04.md);
 it is merged with complete local and hosted check evidence. General Variant/extension
 operations, nested arithmetic/string operations, wider analytic-window behavior,
-adapters and general state spill remain outside this
-scope. Scalar pivot retains its declared type/domain restrictions. Current
-source builds after published v0.4.0 also admit static List, FixedSizeList and
+adapters and unadmitted stateful pressure shapes remain outside this
+scope. Scalar pivot retains its declared type/domain restrictions. v0.5.1 also admits static List, FixedSizeList and
 Struct pivot roles; the finite type and policy boundaries are described below.
 See also the
 [nested payload contract](../docs/architecture/native-nested-composition-2026-10-02.md).
@@ -597,21 +596,21 @@ inspection do not read rows to guess them. Empty input keeps its actual index-on
 schema, with the declared margins column when requested. Referencing an absent
 domain fails explicitly. Correlated inner pivots bind independently for each
 outer row. All eight writers accept representable scalar results above the small
-collection limit, subject to the existing 128-field and memory limits. Pivot
-state has no spill path.
+collection limit, subject to the existing 128-field and memory limits. File/resident-memory relational pivots can use the explicit
+native sparse-state spill policy. The direct prepared unary path remains resident,
+and dynamic one-shot pivot input remains unsupported. See the
+[current pivot spill contract](../docs/reference/native-query-spill.md#sparse-pivot-state).
 
-Source builds after published v0.4.0 also admit static List, FixedSizeList and
+v0.5.1 also admits static List, FixedSizeList and
 Struct columns as pivot index, domain and selected-value roles. Complete local
 [workflow, resource and regression acceptance](../docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md)
-passes, with hosted integration complete in PR #1525. Published v0.4.0 packages
-predate it. Nested
-cells support `first`, `first_unique`, `count`, `min` and `max`; `first_unique`
+passes, with hosted integration complete in PR #1525. This support is included
+in v0.5.1. Nested cells support `first`, `first_unique`, `count`, `min` and `max`; `first_unique`
 accepts repeated equal complete values and rejects conflicts. Nested extrema
 skip NULL parents and use the shared child-NULL ordering. Python `pivot()` and
 `pivot_table(aggfunc="first")` retain their alias to `first_unique`; SQL's
 explicit `first` selects the first row, including a NULL value. Nested cells
-accept absent or NULL fill only. Nested SUM/MEAN, nested-index margins and
-pivot-state spill remain unsupported. Nested MIN/MAX margins require a UTF-8
+accept absent or NULL fill only. Nested SUM/MEAN and nested-index margins remain unsupported. Nested MIN/MAX margins require a UTF-8
 index. Representable nested results use Vortex, Parquet,
 Arrow IPC, Avro, JSON and JSONL; CSV writes quoted JSON text without preserving
 the nested logical dtype, and ORC rejects nested output. Existing 128-field,
@@ -619,10 +618,8 @@ collection and memory limits still apply. See the [scalar dynamic pivot
 contract](../docs/architecture/native-dynamic-pivot-composition-2026-10-03.md)
 and [nested pivot state contract](../docs/architecture/native-nested-pivot-state-2026-10-06.md).
 
-Current source builds after published v0.4.0 admit scalar-value subqueries through
-SQL `(SELECT ...)` and `sl.scalar_subquery(frame_or_sql_workflow)`. The v0.4.0
-packages predate this addition. For example, using a context backed by the current
-source build:
+v0.5.1 admits scalar-value subqueries through
+SQL `(SELECT ...)` and `sl.scalar_subquery(frame_or_sql_workflow)`. For example:
 
 ```python
 inner = ctx.sql("SELECT outer.value + 10 AS adjusted")

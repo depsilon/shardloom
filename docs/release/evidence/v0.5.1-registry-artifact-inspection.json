@@ -1,0 +1,158 @@
+{
+  "all_registry_distribution_and_actions_archive_bytes_reverified": true,
+  "artifact_count": 8,
+  "artifacts": [
+    {
+      "archive_sha256": "d56b342771b1deddd53fd11581e7a67257483d3bf5f50f60ba3625b3bcb7d40c",
+      "bundled_cli": {
+        "member": "shardloom-0.5.1.data/purelib/shardloom/bin/linux-x86_64/shardloom",
+        "platform": "linux-x86_64",
+        "sha256": "c7353c3d7453948bfc9f8297a82baf687a01861d6324cad6fb8635b6c4580b68",
+        "size_bytes": 76257168
+      },
+      "channel": "testpypi",
+      "executed_during_observation": false,
+      "filename": "shardloom-0.5.1-cp313-cp313-manylinux_2_39_x86_64.whl",
+      "sha256": "3b549fb79d2e3a01c22065a0fc6f280b2dc279dfb090651c8b93e124f43abca9"
+    },
+    {
+      "archive_sha256": "a01e65d014fed510a978eed6b968d281e7be25a2f7165274c28d6ae806529e46",
+      "bundled_cli": {
+        "member": "shardloom-0.5.1.data/purelib/shardloom/bin/macos-aarch64/shardloom",
+        "platform": "macos-aarch64",
+        "sha256": "37c7754db423a2df11100f176003d58fe5d38bf0382f75610b8521ce9cb4d5b1",
+        "size_bytes": 64841848
+      },
+      "channel": "testpypi",
+      "executed_during_observation": false,
+      "filename": "shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+      "sha256": "fb81f1dcf81cb57be29ab208895ec86ef359bf0b5c335bc684aa9f1ef8d2e0bf"
+    },
+    {
+      "archive_sha256": "7a9272b1b4b94622d1b0ee8e34e73429a07f87f5059a48b5440efc7beea32295",
+      "bundled_cli": null,
+      "channel": "testpypi",
+      "executed_during_observation": false,
+      "filename": "shardloom-0.5.1.tar.gz",
+      "sha256": "85c38e4c4f64ed81afef264bc85efc831018bd86f994fe1c7db35fd34e1f4ca2"
+    },
+    {
+      "archive_sha256": "78fc53f266c4d826b0b2fa1e14469ef712cdbc4472a0da028cdeb1bd1d72ae1e",
+      "bundled_cli": {
+        "member": "shardloom-0.5.1.data/purelib/shardloom/bin/windows-x86_64/shardloom.exe",
+        "platform": "windows-x86_64",
+        "sha256": "3256cb76857f65c05209b195b011871420db9944109f361c7106d364d2ad483c",
+        "size_bytes": 83757056
+      },
+      "channel": "testpypi",
+      "executed_during_observation": false,
+      "filename": "shardloom-0.5.1-cp313-cp313-win_amd64.whl",
+      "sha256": "48b0c81020ed9adaf3ca0cfd61224882ba9273be703c2647e294fe915fdc2c05"
+    },
+    {
+      "archive_sha256": "0204066a6b711831ce059d1169a68b69e6a3f671d13a865fa4b764d6861da645",
+      "bundled_cli": {
+        "member": "shardloom-0.5.1.data/purelib/shardloom/bin/linux-x86_64/shardloom",
+        "platform": "linux-x86_64",
+        "sha256": "c7353c3d7453948bfc9f8297a82baf687a01861d6324cad6fb8635b6c4580b68",
+        "size_bytes": 76257168
+      },
+      "channel": "pypi",
+      "executed_during_observation": false,
+      "filename": "shardloom-0.5.1-cp313-cp313-manylinux_2_39_x86_64.whl",
+      "sha256": "5743d479e05d4fd1952e39ca778dd02cf29517c817b46a5acdb1f5b23644dfe2"
+    },
+    {
+      "archive_sha256": "975d0a2d6e242b884e7b01bc2d51c2185164d316f3a472f9f9ea82ebf9f8f711",
+      "bundled_cli": {
+        "member": "shardloom-0.5.1.data/purelib/shardloom/bin/macos-aarch64/shardloom",
+        "platform": "macos-aarch64",
+        "sha256": "37c7754db423a2df11100f176003d58fe5d38bf0382f75610b8521ce9cb4d5b1",
+        "size_bytes": 64841848
+      },
+      "channel": "pypi",
+      "executed_during_observation": false,
+      "filename": "shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+      "sha256": "50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9"
+    },
+    {
+      "archive_sha256": "9f720ac9eb615f5aba1baf956d335af86392d59cf71d96fb1c2a281fe3abf33e",
+      "bundled_cli": null,
+      "channel": "pypi",
+      "executed_during_observation": false,
+      "filename": "shardloom-0.5.1.tar.gz",
+      "sha256": "5de5dc060227d449d7b132cc81d09412c8ec47ea9dd9a5e553abbe857fc4ad5f"
+    },
+    {
+      "archive_sha256": "3e5d1da365957bd191256c39105bc776d7e6ba21d1949760dd2ac0c526ca58de",
+      "bundled_cli": {
+        "member": "shardloom-0.5.1.data/purelib/shardloom/bin/windows-x86_64/shardloom.exe",
+        "platform": "windows-x86_64",
+        "sha256": "44ed1f98efd3b0f8706aee0290ebae9d168b6e63c567ea82797ff0c02c9bbeb9",
+        "size_bytes": 83757056
+      },
+      "channel": "pypi",
+      "executed_during_observation": false,
+      "filename": "shardloom-0.5.1-cp313-cp313-win_amd64.whl",
+      "sha256": "1d1a9a8cd0ffb6832b4fa28e712f686393eae094f3fcaa64653b64fc61262456"
+    }
+  ],
+  "inspection_environment_correction": "Initial import under Python 3.13 failed before validation because retained rpds schema support targets CPython 3.12. Validation uses the original bundled Python 3.12 runtime; package inputs and schema dependencies are unchanged.",
+  "native_packages_executed_during_inspection": false,
+  "observed_at": "2026-10-09T21:03:54.644504+00:00",
+  "other_platform_runtime_parity_claimed": false,
+  "registry_observer_log_sha256": "bfe4407dcc63f041cd4e7dc3e7640c45795b912a3c88d465b24a2d82803b95c3",
+  "release_source_commit": "764cd97df35918cc34ade1dc41c20264be80927c",
+  "sbom_count": 5,
+  "sboms": [
+    {
+      "path": "docs/release/channel-proofs/testpypi-v0.5.1-sbom.cdx.json",
+      "sha256": "898e538f046cfd295a99c39ee42da218ce5e424caf0c93b1c2949fd4739eadee",
+      "status": "passed"
+    },
+    {
+      "path": "docs/release/channel-proofs/pypi-v0.5.1-sbom.cdx.json",
+      "sha256": "4469c80c52e260b40a0fd7902df5c9cff87e7062869ee9789ed66ea560c32d0e",
+      "status": "passed"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/release-051-assets-1/github-prerelease-assets/shardloom-rust-workspace.cdx.json",
+      "sha256": "fc0bc74aa9a4f81d20082f1cad0ff763f3eecf7f26ed93834fb903eb282aaf0c",
+      "status": "passed"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/release-051-assets-1/github-prerelease-assets/shardloom-python-artifacts.cdx.json",
+      "sha256": "76050cfbe7d8bd2eee85c1c4dde5f8719150a477b5ea59f6cfd9b7fab25e3b0c",
+      "status": "passed"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/release-051-assets-1/github-prerelease-assets/shardloom-cli-binary.cdx.json",
+      "sha256": "a4c840e3a5ca4510ff121c637e59a2a46c9f397b1e89a8b00971ec1634a24e47",
+      "status": "passed"
+    }
+  ],
+  "schema_sources": [
+    {
+      "bytes": 164769,
+      "path": "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/release-040-proof-tools/cyclonedx-1.5-schema/bom-1.5.schema.json",
+      "sha256": "067f7824b08653839ea050ae9e09ca48375eadc2652b0e2a299476e7db90335b",
+      "url": "https://raw.githubusercontent.com/CycloneDX/specification/1.5/schema/bom-1.5.schema.json"
+    },
+    {
+      "bytes": 8058,
+      "path": "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/release-040-proof-tools/cyclonedx-1.5-schema/jsf-0.82.schema.json",
+      "sha256": "8bae002c25e723db7ee1f26afde680ae1a2b1a8f6b4b4b0fd65dc3becb090aae",
+      "url": "https://raw.githubusercontent.com/CycloneDX/specification/1.5/schema/jsf-0.82.schema.json"
+    },
+    {
+      "bytes": 12322,
+      "path": "/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/release-040-proof-tools/cyclonedx-1.5-schema/spdx.schema.json",
+      "sha256": "4f6e2b05c05d26a4f2dc5879fbc2fca94b0a28db46289d0c51345621b71cfbfc",
+      "url": "https://raw.githubusercontent.com/CycloneDX/specification/1.5/schema/spdx.schema.json"
+    }
+  ],
+  "schema_specification": "CycloneDX 1.5",
+  "schema_version": "shardloom.release_artifact_inspection.v1",
+  "signed_build_attestation_claimed": false,
+  "status": "passed"
+}

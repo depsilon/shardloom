@@ -1,0 +1,698 @@
+{
+  "blockers": [],
+  "bundled_cli_supplemental_proof": {
+    "blockers": [],
+    "channel_id": "pypi",
+    "external_cli_override": false,
+    "external_engine_invoked": false,
+    "fallback_attempted": false,
+    "input_identities": [
+      {
+        "generation": [
+          16777231,
+          89406795,
+          8431,
+          1789246837532150184,
+          1789246837532150184
+        ],
+        "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+        "resolved": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+        "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+      },
+      {
+        "generation": [
+          16777231,
+          102846367,
+          13192,
+          1791560793032973962,
+          1791560793032973962
+        ],
+        "path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/release-tools/verify_bundled_registry_051.py",
+        "resolved": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/release-tools/verify_bundled_registry_051.py",
+        "sha256": "c57c2bcbe21c5d21a1f877d36c0aee5fa336ae0988b4b8d97aff9f7c3aea7f00"
+      },
+      {
+        "generation": [
+          16777231,
+          102846366,
+          32253,
+          1791560793032720296,
+          1791560793032720296
+        ],
+        "path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/release-tools/verify_github_051.py",
+        "resolved": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/release-tools/verify_github_051.py",
+        "sha256": "354282f258cd3ee19d6a006463dc64e94dd9b774a9675356dc203e6521178ba4"
+      },
+      {
+        "generation": [
+          16777231,
+          102883913,
+          8908,
+          1791578519798381810,
+          1791578519798535143
+        ],
+        "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/release/channel-proofs/pypi-v0.5.1-transcript.json",
+        "resolved": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/release/channel-proofs/pypi-v0.5.1-transcript.json",
+        "sha256": "b7b20e883b829043c7b1c476ce992a3099fc1d822d644f1784ad5a15404707e1"
+      },
+      {
+        "generation": [
+          16777231,
+          102883857,
+          23004498,
+          1791578519077810739,
+          1791578519078062697
+        ],
+        "path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/downloads/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+        "resolved": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/downloads/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+        "sha256": "50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9"
+      },
+      {
+        "generation": [
+          16777231,
+          26961243,
+          52448,
+          1781600359953371208,
+          1781600359953427500
+        ],
+        "path": "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "resolved": "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/bin/python3.13",
+        "sha256": "4be5bd974c413ea1817a33d091f9470bb8735355d182db7fb852977e266d647e"
+      }
+    ],
+    "package_channel_submission_attempted_by_this_tool": false,
+    "package_upload_attempted_by_this_tool": false,
+    "prior_transcript_sha256": "b7b20e883b829043c7b1c476ce992a3099fc1d822d644f1784ad5a15404707e1",
+    "proof_directory": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37",
+    "proof_status": "passed",
+    "publication_attempted_by_this_tool": false,
+    "registry_upload_attempted_by_this_tool": false,
+    "release_source_commit": "764cd97df35918cc34ade1dc41c20264be80927c",
+    "result": {
+      "actual_disk_pressure_claimed_by_smoke": false,
+      "analytic_frame_values": [
+        {
+          "first_label": "caf\u00e9",
+          "id": 1,
+          "label": "caf\u00e9",
+          "n": 1
+        },
+        {
+          "first_label": "caf\u00e9",
+          "id": 2,
+          "label": "\u6771\u4eac",
+          "n": 2
+        },
+        {
+          "first_label": "\u6771\u4eac",
+          "id": 3,
+          "label": "na\u00efve",
+          "n": 2
+        },
+        {
+          "first_label": "na\u00efve",
+          "id": 4,
+          "label": "\u96ea",
+          "n": 2
+        }
+      ],
+      "bundled_cli": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom",
+      "cli_distribution": "bundled_wheel",
+      "cli_sha256": "37c7754db423a2df11100f176003d58fe5d38bf0382f75610b8521ce9cb4d5b1",
+      "correlated_scalar_subquery_values": [
+        {
+          "scalar": null,
+          "value": 0
+        },
+        {
+          "scalar": 1,
+          "value": 1
+        },
+        {
+          "scalar": 2,
+          "value": 2
+        },
+        {
+          "scalar": 3,
+          "value": 3
+        }
+      ],
+      "exact_results": [
+        [
+          {
+            "amount": 15,
+            "id": 2,
+            "label": "\u6771\u4eac"
+          },
+          {
+            "amount": 27,
+            "id": 3,
+            "label": "na\u00efve"
+          }
+        ],
+        [
+          {
+            "amount": 15,
+            "id": 2,
+            "label": "\u6771\u4eac"
+          },
+          {
+            "amount": 27,
+            "id": 3,
+            "label": "na\u00efve"
+          }
+        ],
+        [
+          {
+            "amount": 15,
+            "id": 2,
+            "label": "\u6771\u4eac"
+          },
+          {
+            "amount": 27,
+            "id": 3,
+            "label": "na\u00efve"
+          }
+        ]
+      ],
+      "explicit_homebrew_cli_binding": false,
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "incremental_complete_values": {
+        "sparse_pivot": {
+          "batches": 1,
+          "explicit_spill_policy": true,
+          "final_report_success": true,
+          "owned_workspace_empty": true,
+          "rows": [
+            {
+              "entity": 1,
+              "pivot_a": 7.0,
+              "pivot_b": null
+            },
+            {
+              "entity": 2,
+              "pivot_a": null,
+              "pivot_b": 5.0
+            }
+          ]
+        },
+        "streamed_analytic_window": {
+          "batches": 2,
+          "explicit_spill_policy": true,
+          "final_report_success": true,
+          "owned_workspace_empty": true,
+          "rows": [
+            {
+              "distinct_amounts": 1,
+              "previous_two_total": 3.0,
+              "sequence": 1,
+              "team": "red"
+            },
+            {
+              "distinct_amounts": 1,
+              "previous_two_total": 1.0,
+              "sequence": 2,
+              "team": "blue"
+            },
+            {
+              "distinct_amounts": 2,
+              "previous_two_total": 7.0,
+              "sequence": 3,
+              "team": "red"
+            },
+            {
+              "distinct_amounts": 2,
+              "previous_two_total": 7.0,
+              "sequence": 4,
+              "team": "red"
+            }
+          ]
+        },
+        "streamed_general_aggregate": {
+          "batches": 1,
+          "explicit_spill_policy": true,
+          "final_report_success": true,
+          "owned_workspace_empty": true,
+          "rows": [
+            {
+              "distinct_amounts": 1,
+              "team": "blue",
+              "total": 1.0
+            },
+            {
+              "distinct_amounts": 2,
+              "team": "red",
+              "total": 10.0
+            }
+          ]
+        },
+        "streamed_left_join": {
+          "batches": 3,
+          "explicit_spill_policy": true,
+          "final_report_success": true,
+          "owned_workspace_empty": true,
+          "rows": [
+            {
+              "amount": 3,
+              "customer": "Ada"
+            },
+            {
+              "amount": 5,
+              "customer": null
+            },
+            {
+              "amount": 4,
+              "customer": "Ada"
+            }
+          ]
+        },
+        "vortex_incremental_results": {
+          "batches": 2,
+          "explicit_spill_policy": false,
+          "final_report_success": true,
+          "owned_workspace_empty": true,
+          "rows": [
+            {
+              "amount": 8,
+              "id": 1,
+              "label": "caf\u00e9"
+            },
+            {
+              "amount": 15,
+              "id": 2,
+              "label": "\u6771\u4eac"
+            },
+            {
+              "amount": 27,
+              "id": 3,
+              "label": "na\u00efve"
+            },
+            {
+              "amount": 27,
+              "id": 4,
+              "label": "\u96ea"
+            }
+          ]
+        }
+      },
+      "native_vortex_output_sha256": "4b37aca5a6ab12b2f3e863e5d17b454640fbbf639a4ee6972d43f585553b63ca",
+      "native_vortex_roundtrip_values": [
+        {
+          "amount": 8,
+          "id": 1,
+          "label": "caf\u00e9"
+        },
+        {
+          "amount": 15,
+          "id": 2,
+          "label": "\u6771\u4eac"
+        },
+        {
+          "amount": 27,
+          "id": 3,
+          "label": "na\u00efve"
+        },
+        {
+          "amount": 27,
+          "id": 4,
+          "label": "\u96ea"
+        }
+      ],
+      "package_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/venv/lib/python3.13/site-packages/shardloom/__init__.py",
+      "repeated_sql_executions": 2,
+      "unsupported_blocker": "cg21.workflow.to_pandas.decoded_dataframe_unsupported",
+      "verified_native_cli": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom",
+      "version": "0.5.1"
+    },
+    "secrets_required": false,
+    "shared_smoke_sha256": "e9ea9fb690a947f8fcce7f272038ea3dc88b123282e84d0ad2407204e8b3f798",
+    "source_python_path_override": false,
+    "status": "passed",
+    "steps": [
+      {
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-I",
+          "-m",
+          "venv",
+          "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/venv"
+        ],
+        "direct_child_reaped": true,
+        "group_absence_unproved_at_cleanup": false,
+        "interrupted_signal": null,
+        "name": "create_fresh_venv",
+        "output_bytes": 0,
+        "output_limit_bytes": 2097152,
+        "pid": 50597,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 0.9375802499998827,
+        "stderr_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/00-create_fresh_venv.stderr.txt",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/00-create_fresh_venv.stdout.txt",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "timed_out": false,
+        "timeout_seconds": 60
+      },
+      {
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/venv/bin/python",
+          "-I",
+          "-c",
+          "import importlib.util; assert importlib.util.find_spec('shardloom') is None"
+        ],
+        "direct_child_reaped": true,
+        "group_absence_unproved_at_cleanup": false,
+        "interrupted_signal": null,
+        "name": "verify_clean_venv",
+        "output_bytes": 0,
+        "output_limit_bytes": 2097152,
+        "pid": 50603,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 0.03762104199267924,
+        "stderr_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/01-verify_clean_venv.stderr.txt",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/01-verify_clean_venv.stdout.txt",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "timed_out": false,
+        "timeout_seconds": 60
+      },
+      {
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/venv/bin/python",
+          "-I",
+          "-m",
+          "pip",
+          "--isolated",
+          "install",
+          "--no-index",
+          "--no-cache-dir",
+          "--no-deps",
+          "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/downloads/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl"
+        ],
+        "direct_child_reaped": true,
+        "group_absence_unproved_at_cleanup": false,
+        "interrupted_signal": null,
+        "name": "install_verified_wheel",
+        "output_bytes": 234,
+        "output_limit_bytes": 2097152,
+        "pid": 50604,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 0.3703047499875538,
+        "stderr_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/02-install_verified_wheel.stderr.txt",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/02-install_verified_wheel.stdout.txt",
+        "stdout_sha256": "aaf9ed6d91398b8159cef2c8b2853921541d1ffdb871c542cc000d781b7b1b56",
+        "timed_out": false,
+        "timeout_seconds": 60
+      },
+      {
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/venv/bin/python",
+          "-I",
+          "-c",
+          "\nimport hashlib, importlib.metadata, json, sys\nfrom pathlib import Path\nimport shardloom as sl\nfrom shardloom import ShardLoomClient\nsite = Path(sl.__file__).resolve()\nassert site.is_relative_to(Path(sys.prefix).resolve()) and '/site-packages/' in str(site), site\nassert importlib.metadata.version('shardloom') == '0.5.1'\nassert len(sys.argv) in (2, 3)\nhomebrew_binary = Path(sys.argv[2]).resolve() if len(sys.argv) == 3 else None\nif homebrew_binary is not None:\n    assert homebrew_binary == Path('/opt/homebrew/Cellar/shardloom/0.5.1/bin/shardloom'), homebrew_binary\nclient = ShardLoomClient(binary=homebrew_binary) if homebrew_binary is not None else ShardLoomClient.from_env()\nsmoke = client.smoke_check()\nbinary = Path(smoke.resolved_cli_path).resolve()\nif homebrew_binary is None:\n    assert binary.is_relative_to(site.parent / 'bin'), binary\nelse:\n    assert binary == homebrew_binary, binary\nassert smoke.cli_version == '0.5.1' and not smoke.fallback_attempted\nassert hashlib.sha256(binary.read_bytes()).hexdigest() == sys.argv[1]\nctx = sl.context(client=client)\nsource = Path('orders.csv').resolve()\nsource.write_text('id,label,amount\\n1,caf\\u00e9,8\\n2,\\u6771\\u4eac,15\\n3,na\\u00efve,27\\n4,\\u96ea,27\\n', encoding='utf-8')\nexpected = [{'id': 2, 'label': '\\u6771\\u4eac', 'amount': 15}, {'id': 3, 'label': 'na\\u00efve', 'amount': 27}]\nworkflows = [ctx.read(source).filter(sl.col('amount') >= 10).select('id', 'label', 'amount').limit(2)]\nworkflows += [ctx.sql(f\"SELECT id, label, amount FROM '{source}' WHERE amount >= 10 LIMIT 2\") for _ in range(2)]\nresults = []\nfor workflow in workflows:\n    result = workflow.collect()\n    assert result.runtime_execution and result.status == 'success' and result.output_row_count == 2\n    assert not result.fallback_attempted and not result.external_engine_invoked\n    values = [dict(row) for row in result.result_rows]\n    assert values == expected and all(type(r[k]) is int for r in values for k in ('id', 'amount')), values\n    results.append(values)\nframe = ctx.sql(f\"SELECT id,label,COUNT(*) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS n,FIRST_VALUE(label) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS first_label FROM '{source}' ORDER BY id\").collect()\nassert frame.runtime_execution and frame.status == 'success' and frame.output_row_count == 4\nassert not frame.fallback_attempted and not frame.external_engine_invoked\nframe_values = [dict(row) for row in frame.result_rows]\nassert frame_values == [\n    {'id': 1, 'label': 'caf\\u00e9', 'n': 1, 'first_label': 'caf\\u00e9'},\n    {'id': 2, 'label': '\\u6771\\u4eac', 'n': 2, 'first_label': 'caf\\u00e9'},\n    {'id': 3, 'label': 'na\\u00efve', 'n': 2, 'first_label': '\\u6771\\u4eac'},\n    {'id': 4, 'label': '\\u96ea', 'n': 2, 'first_label': 'na\\u00efve'},\n], frame_values\nassert all(type(row['id']) is int and type(row['n']) is int for row in frame_values)\noutput = Path('orders.vortex').resolve()\nwritten = ctx.read(source).write_vortex(output)\nassert written.runtime_execution and written.status == 'success'\nassert not written.fallback_attempted and not written.external_engine_invoked\nassert output.is_file() and output.stat().st_size > 0\nreopened = ctx.read(output).select('id', 'label', 'amount').collect()\nassert reopened.runtime_execution and reopened.status == 'success' and reopened.output_row_count == 4\nassert not reopened.fallback_attempted and not reopened.external_engine_invoked\nreopened_values = [dict(row) for row in reopened.result_rows]\nassert reopened_values == [\n    {'id': 1, 'label': 'caf\\u00e9', 'amount': 8}, *expected,\n    {'id': 4, 'label': '\\u96ea', 'amount': 27},\n], reopened_values\nscalar = ctx.sql('SELECT value,(SELECT MAX(value) AS best FROM range(1,5) '\n                 'WHERE value<=outer.value) AS scalar FROM range(0,4)').collect()\nassert scalar.runtime_execution and scalar.status == 'success' and scalar.output_row_count == 4\nassert not scalar.fallback_attempted and not scalar.external_engine_invoked\nscalar_values = [dict(row) for row in scalar.result_rows]\nassert scalar_values == [{'value': 0, 'scalar': None}, {'value': 1, 'scalar': 1},\n                         {'value': 2, 'scalar': 2}, {'value': 3, 'scalar': 3}], scalar_values\nworkspace = Path('native-spill').resolve()\nworkspace.mkdir()\nspill = {'workspace': str(workspace), 'quota_bytes': 64 << 20, 'buffer_bytes': 1 << 20}\nbatch_evidence = {}\ndef consume(name, workflow, expected_rows, *, stored=False):\n    rows, indices = [], []\n    with workflow.iter_batches(batch_rows=2, memory_gb=1, max_parallelism=1,\n                               spill=spill if stored else None) as batches:\n        assert batches.report is None\n        for batch in batches:\n            assert batches.report is None\n            indices.append(batch.index)\n            assert len(batch.result_rows) <= 2\n            rows.extend(dict(row) for row in batch.result_rows)\n        report = batches.report\n        assert report is not None and report.envelope.status == 'success'\n        assert report.runtime_execution and not report.fallback_attempted\n        assert not report.external_engine_invoked and not report.envelope.fallback.attempted\n        assert report.envelope.field_bool('result_payload_complete') is True\n        assert report.envelope.field_int('output_row_count') == len(expected_rows)\n        assert report.envelope.field_int('native_result_batches_acknowledged') == len(indices)\n        assert indices == list(range(len(indices))) and rows == expected_rows, (name, rows)\n    assert list(workspace.iterdir()) == [], name\n    batch_evidence[name] = {'rows': rows, 'batches': len(indices), 'final_report_success': True,\n                            'explicit_spill_policy': stored, 'owned_workspace_empty': True}\nconsume('vortex_incremental_results', ctx.read(output).select('id', 'label', 'amount'), reopened_values)\ndef measurements():\n    yield [{'sequence': 1, 'team': 'red', 'amount': 3},\n           {'sequence': 2, 'team': 'blue', 'amount': 1}]\n    yield [{'sequence': 3, 'team': 'red', 'amount': 4},\n           {'sequence': 4, 'team': 'red', 'amount': 3}]\ndef measurement_source():\n    return ctx.from_batches(measurements,\n        schema={'sequence': 'int64', 'team': 'utf8', 'amount': 'int64'}, streaming=True)\nconsume('streamed_general_aggregate', measurement_source().group_by('team').agg(\n    'SUM(amount) AS total', 'COUNT(DISTINCT amount) AS distinct_amounts').sort('team'),\n    [{'team': 'blue', 'total': 1.0, 'distinct_amounts': 1},\n     {'team': 'red', 'total': 10.0, 'distinct_amounts': 2}], stored=True)\ncustomers = ctx.from_rows([{'customer_id': 1, 'customer': 'Ada'}],\n                         schema={'customer_id': 'int64', 'customer': 'utf8'})\ndef orders():\n    yield [{'customer_id': 1, 'amount': 3}, {'customer_id': 2, 'amount': 5}]\n    yield [{'customer_id': 1, 'amount': 4}]\njoined = ctx.from_batches(orders, schema={'customer_id': 'int64', 'amount': 'int64'},\n                         streaming=True).join(customers, on='customer_id', how='left').select(\n                             'f.amount AS amount', 'd.customer AS customer')\nconsume('streamed_left_join', joined, [{'amount': 3, 'customer': 'Ada'},\n        {'amount': 5, 'customer': None}, {'amount': 4, 'customer': 'Ada'}], stored=True)\nwindow = measurement_source().window(\n    'SUM(amount) OVER (PARTITION BY team ORDER BY sequence '\n    'ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS previous_two_total',\n    'COUNT(DISTINCT amount) OVER (PARTITION BY team ORDER BY sequence '\n    'ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS distinct_amounts',\n).select('sequence', 'team', 'previous_two_total', 'distinct_amounts')\nconsume('streamed_analytic_window', window, [\n    {'sequence': 1, 'team': 'red', 'previous_two_total': 3.0, 'distinct_amounts': 1},\n    {'sequence': 2, 'team': 'blue', 'previous_two_total': 1.0, 'distinct_amounts': 1},\n    {'sequence': 3, 'team': 'red', 'previous_two_total': 7.0, 'distinct_amounts': 2},\n    {'sequence': 4, 'team': 'red', 'previous_two_total': 7.0, 'distinct_amounts': 2},\n], stored=True)\npivot = ctx.from_rows([\n    {'entity': 1, 'category': 'a', 'amount': 3},\n    {'entity': 2, 'category': 'b', 'amount': 5},\n    {'entity': 1, 'category': 'a', 'amount': 4},\n], schema={'entity': 'int64', 'category': 'utf8', 'amount': 'int64'}).pivot_table(\n    index='entity', columns='category', values='amount', aggfunc='sum')\nconsume('sparse_pivot', pivot, [{'entity': 1, 'pivot_a': 7.0, 'pivot_b': None},\n        {'entity': 2, 'pivot_a': None, 'pivot_b': 5.0}], stored=True)\nunsupported = ctx.read(source).select('id').to_pandas()\nassert unsupported.blocker_id == 'cg21.workflow.to_pandas.decoded_dataframe_unsupported'\nassert not unsupported.runtime_execution and not unsupported.fallback_attempted and not unsupported.external_engine_invoked\nprint(json.dumps({'package_path': str(site), 'bundled_cli': str(binary) if homebrew_binary is None else None,\n                  'verified_native_cli': str(binary),\n                  'cli_distribution': 'bundled_wheel' if homebrew_binary is None else 'homebrew_source_build',\n                  'explicit_homebrew_cli_binding': homebrew_binary is not None,\n                  'version': smoke.cli_version,\n                  'cli_sha256': sys.argv[1], 'exact_results': results, 'repeated_sql_executions': 2,\n                  'analytic_frame_values': frame_values, 'native_vortex_roundtrip_values': reopened_values,\n                  'correlated_scalar_subquery_values': scalar_values,\n                  'incremental_complete_values': batch_evidence,\n                  'actual_disk_pressure_claimed_by_smoke': False,\n                  'native_vortex_output_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),\n                  'unsupported_blocker': unsupported.blocker_id, 'fallback_attempted': False,\n                  'external_engine_invoked': False}))\nclient.close()\n",
+          "37c7754db423a2df11100f176003d58fe5d38bf0382f75610b8521ce9cb4d5b1"
+        ],
+        "direct_child_reaped": true,
+        "group_absence_unproved_at_cleanup": false,
+        "interrupted_signal": null,
+        "name": "bundled_cli_complete_values",
+        "output_bytes": 3611,
+        "output_limit_bytes": 2097152,
+        "pid": 50606,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 0.7134481660032179,
+        "stderr_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/03-bundled_cli_complete_values.stderr.txt",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/03-bundled_cli_complete_values.stdout.txt",
+        "stdout_sha256": "4b501f0225a88f4ba277e17b4108b836835fbef95feb15ed6d37738180cf491e",
+        "timed_out": false,
+        "timeout_seconds": 120
+      },
+      {
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/venv/bin/python",
+          "-I",
+          "-m",
+          "pip",
+          "--isolated",
+          "uninstall",
+          "-y",
+          "shardloom"
+        ],
+        "direct_child_reaped": true,
+        "group_absence_unproved_at_cleanup": false,
+        "interrupted_signal": null,
+        "name": "uninstall_verified_wheel",
+        "output_bytes": 118,
+        "output_limit_bytes": 2097152,
+        "pid": 50616,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 0.1731899160076864,
+        "stderr_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/04-uninstall_verified_wheel.stderr.txt",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/04-uninstall_verified_wheel.stdout.txt",
+        "stdout_sha256": "59ea9af532c4ebaee824b080a6b4eb2733dc1b0e86f929322c223b04f824ae0a",
+        "timed_out": false,
+        "timeout_seconds": 60
+      },
+      {
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/venv/bin/python",
+          "-I",
+          "-c",
+          "import importlib.util; assert importlib.util.find_spec('shardloom') is None"
+        ],
+        "direct_child_reaped": true,
+        "group_absence_unproved_at_cleanup": false,
+        "interrupted_signal": null,
+        "name": "verify_uninstalled",
+        "output_bytes": 0,
+        "output_limit_bytes": 2097152,
+        "pid": 50622,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 0.03560437500709668,
+        "stderr_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/05-verify_uninstalled.stderr.txt",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/bundled-registry-051-pypi-r18szo37/05-verify_uninstalled.stdout.txt",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "timed_out": false,
+        "timeout_seconds": 60
+      }
+    ],
+    "total_log_limit_bytes": 16777216,
+    "uninstall_transcript_status": "passed",
+    "wheel_identity": {
+      "generation": [
+        16777231,
+        102883857,
+        23004498,
+        1791578519077810739,
+        1791578519078062697
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/downloads/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/downloads/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+      "sha256": "50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9"
+    },
+    "wheel_metadata": "Wheel-Version: 1.0\nGenerator: setuptools (84.0.0)\nRoot-Is-Purelib: false\nTag: cp313-cp313-macosx_26_0_arm64\n\n",
+    "whole_run_timeout_seconds": 600
+  },
+  "channel_id": "pypi",
+  "clean_env": "external-path:venv",
+  "cli_binary_available": true,
+  "cli_binary_env_var": "SHARDLOOM_BIN",
+  "cli_binary_ref": "external-path:shardloom-release-051-764cd97df359",
+  "cli_binary_required_for_clean_registry_smoke": true,
+  "cli_binary_smoke_source": "approved_release_or_local_artifact",
+  "display_name": "PyPI",
+  "download_transcript_status": "passed",
+  "downloaded_registry_artifact_filename": "shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+  "downloaded_registry_artifact_ref": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/downloads/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+  "downloaded_registry_artifact_sha256": "50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "index_url": null,
+  "install_source": "pypi_registry",
+  "install_transcript_status": "passed",
+  "installed_registry_artifact": {
+    "filename": "shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+    "packagetype": "bdist_wheel",
+    "python_version": "cp313",
+    "sha256": "50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9",
+    "size": 23004498,
+    "upload_time_iso_8601": "2026-10-09T20:39:31.161256Z",
+    "url": "https://files.pythonhosted.org/packages/93/de/260a393aaa81a66380352c37744be23ee14a009122510ffc8c540d4f560c/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl"
+  },
+  "installed_registry_artifact_filename": "shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+  "installed_registry_artifact_sha256": "50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9",
+  "local_path_binding": {
+    "bound_downloaded_registry_artifact_ref": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/downloads/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+    "downloaded_registry_artifact_identity": {
+      "generation": [
+        16777231,
+        102883857,
+        23004498,
+        1791578519077810739,
+        1791578519078062697
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/downloads/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+      "sha256": "50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9",
+      "size_bytes": 23004498
+    },
+    "original_base_proof_sha256": "56dcce0fde5ecd1d541ea5d76721ace73372cd7b0956a5cbad128db5d0b04759",
+    "original_downloaded_registry_artifact_ref": "external-path:shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl"
+  },
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_name": "shardloom",
+  "package_version": "0.5.1",
+  "proof_status": "passed",
+  "publication_attempted_by_this_tool": false,
+  "registry_artifact_digest_binding_status": "passed",
+  "registry_download_cache_disabled": true,
+  "registry_download_isolated": true,
+  "registry_install_cache_disabled": true,
+  "registry_install_cache_hit_detected": false,
+  "registry_install_from_downloaded_artifact": true,
+  "registry_release_artifact_count": 4,
+  "registry_release_artifacts": [
+    {
+      "filename": "shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl",
+      "packagetype": "bdist_wheel",
+      "python_version": "cp313",
+      "sha256": "50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9",
+      "size": 23004498,
+      "upload_time_iso_8601": "2026-10-09T20:39:31.161256Z",
+      "url": "https://files.pythonhosted.org/packages/93/de/260a393aaa81a66380352c37744be23ee14a009122510ffc8c540d4f560c/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl"
+    },
+    {
+      "filename": "shardloom-0.5.1-cp313-cp313-manylinux_2_39_x86_64.whl",
+      "packagetype": "bdist_wheel",
+      "python_version": "cp313",
+      "sha256": "5743d479e05d4fd1952e39ca778dd02cf29517c817b46a5acdb1f5b23644dfe2",
+      "size": 25954733,
+      "upload_time_iso_8601": "2026-10-09T20:39:34.899837Z",
+      "url": "https://files.pythonhosted.org/packages/0b/d4/24665a8a9527bb68fd4884a334a8ac79db2095bde9e8193d156a0b8f38f6/shardloom-0.5.1-cp313-cp313-manylinux_2_39_x86_64.whl"
+    },
+    {
+      "filename": "shardloom-0.5.1-cp313-cp313-win_amd64.whl",
+      "packagetype": "bdist_wheel",
+      "python_version": "cp313",
+      "sha256": "1d1a9a8cd0ffb6832b4fa28e712f686393eae094f3fcaa64653b64fc61262456",
+      "size": 24487201,
+      "upload_time_iso_8601": "2026-10-09T20:39:38.834456Z",
+      "url": "https://files.pythonhosted.org/packages/c1/93/6c8d9fa7d66a789f0b5dfe7a7817f6af59821e710bfb94f8072bc2a2865c/shardloom-0.5.1-cp313-cp313-win_amd64.whl"
+    },
+    {
+      "filename": "shardloom-0.5.1.tar.gz",
+      "packagetype": "sdist",
+      "python_version": "source",
+      "sha256": "5de5dc060227d449d7b132cc81d09412c8ec47ea9dd9a5e553abbe857fc4ad5f",
+      "size": 546280,
+      "upload_time_iso_8601": "2026-10-09T20:39:42.097492Z",
+      "url": "https://files.pythonhosted.org/packages/de/e9/5f28593bcfa684f686c9f1844b531e91e86388d1853577cb5a5bd71d93f0/shardloom-0.5.1.tar.gz"
+    }
+  ],
+  "registry_release_json_url": "https://pypi.org/pypi/shardloom/0.5.1/json",
+  "registry_upload_attempted_by_this_tool": false,
+  "schema_version": "shardloom.python_registry_package_proof.v1",
+  "secrets_required": false,
+  "smoke_check_status": "passed",
+  "steps": [
+    {
+      "command": [
+        "external-path:python3",
+        "-m",
+        "venv",
+        "external-path:venv"
+      ],
+      "elapsed_millis": 912.2363,
+      "name": "create_clean_venv",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-m",
+        "pip",
+        "--isolated",
+        "download",
+        "--no-deps",
+        "--no-cache-dir",
+        "--only-binary",
+        ":all:",
+        "--dest",
+        "external-path:downloads",
+        "--index-url",
+        "https://pypi.org/simple/",
+        "shardloom==0.5.1"
+      ],
+      "elapsed_millis": 602.2795,
+      "name": "download_registry_artifact",
+      "returncode": 0,
+      "stderr": "\n[notice] A new release of pip is available: 26.1 -> 26.2.1\n[notice] To update, run: /Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/venv/bin/python -m pip install --upgrade pip\n",
+      "stdout": "Looking in indexes: https://pypi.org/simple/\nCollecting shardloom==0.5.1\n  Downloading shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl.metadata (86 kB)\nDownloading shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl (23.0 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 23.0/23.0 MB 145.7 MB/s  0:00:00\nSaved /Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/downloads/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl\nSuccessfully downloaded shardloom\n"
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-m",
+        "pip",
+        "install",
+        "--no-deps",
+        "--no-index",
+        "external-path:shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl"
+      ],
+      "elapsed_millis": 341.4755,
+      "name": "install_downloaded_registry_artifact",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "Processing /Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-2/downloads/shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl\nInstalling collected packages: shardloom\nSuccessfully installed shardloom-0.5.1\n"
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-c",
+        "from shardloom import ShardLoomClient; client=ShardLoomClient.from_env(); smoke=client.smoke_check(); caps=client.capabilities(); print('fallback_attempted=' + str(smoke.fallback_attempted)); print('external_engine_invoked=' + str(getattr(smoke, 'external_engine_invoked', False))); print('capabilities_command=' + caps.command)"
+      ],
+      "elapsed_millis": 84.9183,
+      "name": "registry_package_client_smoke",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "fallback_attempted=False\nexternal_engine_invoked=False\ncapabilities_command=capabilities\n"
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-m",
+        "pip",
+        "uninstall",
+        "-y",
+        "shardloom"
+      ],
+      "elapsed_millis": 148.1681,
+      "name": "uninstall_registry_package",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "Found existing installation: shardloom 0.5.1\nUninstalling shardloom-0.5.1:\n  Successfully uninstalled shardloom-0.5.1\n"
+    }
+  ],
+  "tag_created": false,
+  "testpypi_proof_ref": "docs/release/channel-proofs/testpypi-v0.5.1-transcript.json",
+  "testpypi_proof_required": true,
+  "uninstall_transcript_status": "passed"
+}

@@ -40,8 +40,8 @@ Their observed columns bind during execution, including independent domains for
 correlated inner rows; inspection remains inert. All eight local writers accept
 representable scalar results within the existing field and state budgets. See the
 [dynamic pivot contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-dynamic-pivot-composition-2026-10-03.md).
-Current source builds after published v0.4.0 also admit static List,
-FixedSizeList and Struct pivot index, domain and selected-value roles. Nested
+The published engine admits static List, FixedSizeList and Struct pivot index,
+domain and selected-value roles. Nested
 cells support first, first_unique, count, min and max; first_unique accepts
 repeated equal complete values and rejects conflicts. Nested extrema skip NULL
 parents and use the shared child-NULL ordering. Python pivot() and
@@ -53,7 +53,7 @@ Representable nested results use Vortex, Parquet,
 Arrow IPC, Avro, JSON and JSONL; CSV translates nested values to quoted JSON
 text, and ORC rejects nested output. Existing 128-field, collection and memory
 limits apply. Complete local workflow/regression acceptance and all 39 hosted
-checks passed before PR #1525 merged. Published v0.4.0 packages predate this source support.
+checks passed before PR #1525 merged.
 See the [nested pivot state contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-pivot-state-2026-10-06.md).
 Relational file/resident-memory pivots also implement an explicit
 [native spill strategy](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state).
@@ -113,7 +113,7 @@ one finite single-use batch source. Complete local and hosted acceptance passed
 before [PR #1533](https://github.com/depsilon/shardloom/pull/1533) merged.
 The [analytic-frame acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md)
 records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
-executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md)
+executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-09.md)
 adds complete input/output workflow comparisons. These suites overlap and do
 not establish a comparative speedup.
 General joins, set operations, analytic windows and broader subquery shapes still have native coverage
@@ -122,9 +122,8 @@ and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main
 
 ## Scalar subqueries
 
-Current source builds after published v0.4.0 admit scalar-value subqueries through
-SQL `(SELECT ...)` and Python `sl.scalar_subquery(...)`. The v0.4.0 packages
-predate this addition. Use them to put one query result into an expression:
+The published engine admits scalar-value subqueries through
+SQL `(SELECT ...)` and Python `sl.scalar_subquery(...)`. Use them to put one query result into an expression:
 
 ```sql
 SELECT value, (SELECT outer.value + 10 AS adjusted) AS adjusted
@@ -189,12 +188,11 @@ row or serialized-byte limit fails without returning a successful prefix.
 
 ## Resources And Recovery
 
-Current source builds account for reviewed FSST/Zstd payload,
+The published engine accounts for reviewed FSST/Zstd payload,
 view and validity buffers through the shared native memory owner. Retained
 clones and slices keep their allocation credits. It also adds
 [Python batch input and results](/field-guide/python-surface#consume-results-in-batches).
-These additions merged in PR #1526 after complete local and hosted checks;
-published v0.4.0 predates them. Source implementation also admits the actual
+These additions merged in PR #1526 after complete local and hosted checks. Source implementation also admits the actual
 one-shot Zstd decoder and by-reference prepared-dictionary workspaces before
 allocation, releasing them after each decode. See the
 [workspace acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-codec-workspaces-2026-10-07.md)
@@ -240,7 +238,7 @@ and retained output still consume credits. Limits drain the complete source,
 and late failure prevents completion and incomplete file publication.
 The runtime also rejects malformed FSST row lengths before decoder allocation.
 Repeated batch-source spooling, broader streaming destinations, unadmitted
-state/recovery and remaining allocation coverage stay open; published v0.4.0 is unchanged.
+state/recovery and remaining allocation coverage stay open after v0.5.1 publication.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
