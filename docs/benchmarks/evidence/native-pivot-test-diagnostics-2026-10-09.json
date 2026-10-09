@@ -1,0 +1,118 @@
+{
+  "schema_version": "shardloom.native_pivot_test_diagnostics.v1",
+  "status": "passed_static_and_format",
+  "source_head_before_cleanup": "83cd67d663a241dbe11ffaf16113f9ecb4f1fe98",
+  "runtime_commit": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+  "runtime_binary_sha256": "22eb39060595afbde22e9ed4a0f1ca87c3504c58fe68f22641c336048eee8404",
+  "source_file": "shardloom-vortex/src/local_primitive_relational_pivot_spill_tests.rs",
+  "source_original_sha256": "148df33e8b37ee52f306f7365cf7548b2defcdbf641c6ae7fcd650ad78883792",
+  "source_updated_sha256": "c0324a809ad4f8535873f3898631cb49d63b69cca67f6e70faf6f335343c9cb5",
+  "exact_replacements": [
+    [
+      "        \"sequential output loaded {} blocks for {blocks} distinct blocks\",\n        report.spilled_pivot_lookup_blocks",
+      "        \"sequential output must reuse covering native blocks\""
+    ],
+    [
+      "        \"repeated updates loaded {} blocks for {} input rows\",\n        report.spilled_pivot_lookup_blocks,\n        groups * 4",
+      "        \"repeated updates must load fewer blocks than input rows\""
+    ]
+  ],
+  "source_diff": "--- a/shardloom-vortex/src/local_primitive_relational_pivot_spill_tests.rs\n+++ b/shardloom-vortex/src/local_primitive_relational_pivot_spill_tests.rs\n@@ -156,8 +156,7 @@\n     let blocks = (groups * 2).div_ceil(1024) as u64;\n     assert!(\n         report.spilled_pivot_lookup_blocks <= blocks * 2,\n-        \"sequential output loaded {} blocks for {blocks} distinct blocks\",\n-        report.spilled_pivot_lookup_blocks\n+        \"sequential output must reuse covering native blocks\"\n     );\n     drop(report);\n     assert_eq!(spilled.snapshot().memory.reserved_bytes, baseline);\n@@ -184,9 +183,7 @@\n     // runs; requiring one read per output group would ignore that actual work.\n     assert!(\n         report.spilled_pivot_lookup_blocks < (groups * 4) as u64,\n-        \"repeated updates loaded {} blocks for {} input rows\",\n-        report.spilled_pivot_lookup_blocks,\n-        groups * 4\n+        \"repeated updates must load fewer blocks than input rows\"\n     );\n     eprintln!(\n         \"{}\",\n",
+  "scope": "Only two test assertion failure-message arguments change. Both numeric bound predicates, all fixture values, complete-result assertions and the structured synthetic lookup metric remain byte-identical. The parent module requires cfg(all(test, feature = \"vortex-write\")).",
+  "product_sources_changed": false,
+  "native_executable_changed": false,
+  "assertions_or_expected_values_changed": false,
+  "source_assets": 1015,
+  "assets_byte_identical_to_runtime_snapshot": 1012,
+  "harness_source_repairs": 2,
+  "test_diagnostic_source_repairs": 1,
+  "format_guard_sha256": "891e40cc1da9f4f1ed90b2f49d567a641026f03f9efe0b55ef35d38b6245f775",
+  "format_guard": {
+    "status": "passed",
+    "command": [
+      "<home>/.cargo/bin/rustup",
+      "run",
+      "1.99.0",
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "cwd": "<repo>",
+    "head": "83cd67d663a241dbe11ffaf16113f9ecb4f1fe98",
+    "working_tree": " M shardloom-vortex/src/local_primitive_relational_pivot_spill_tests.rs\n",
+    "environment": {
+      "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0"
+    },
+    "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+    "storage_last_observation": {
+      "output": {
+        "workspace_bytes": 2651160576,
+        "log_bytes": 0,
+        "free_bytes": 83044646912,
+        "reserved_candidate_bytes": 134217728
+      },
+      "cargo": {
+        "workspace_bytes": 14673293312,
+        "log_bytes": 0,
+        "free_bytes": 83044646912,
+        "reserved_candidate_bytes": 134217728
+      }
+    },
+    "timeout_seconds": 120.0,
+    "cleanup_grace_seconds_per_signal": 3.0,
+    "output_limit_bytes": 8388608,
+    "timed_out": false,
+    "interrupted_signal": null,
+    "process_group_drained": true,
+    "direct_child_reaped": true,
+    "pid": 23815,
+    "output_bytes": 0,
+    "group_absence_unproved_at_cleanup": false,
+    "returncode": 0,
+    "seconds": 2.6057943330088165,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "static_triage_sha256": "f1b1198ae00796b916f50c05e94ff305ac7d321007781410aa184741a0d8e48d",
+  "static_triage_verdicts": {
+    "github-code-scanning-115": "not_actionable",
+    "github-code-scanning-116": "not_actionable"
+  },
+  "reported_alerts": [
+    "https://github.com/depsilon/shardloom/security/code-scanning/115",
+    "https://github.com/depsilon/shardloom/security/code-scanning/116"
+  ],
+  "alert_dismissal_or_rule_suppression_performed": false,
+  "fresh_pre_bump_uat_manifest_sha256": "253b63bf822bb251f957d8b88974a62a4d9d5487c59da2396c14651bc05bd06d",
+  "fresh_pre_bump_uat_packet_sha256": "6ecddbaf0aecec01ad01dd11f969942aa761062f7ce070603763d1ecd3906e02",
+  "fresh_pre_bump_uat_inspection_sha256": "71f3a72a625ebc18202b549d7ea11ed8a2707b81c5fd9ebc7bd0aaf5295546c5",
+  "fresh_pre_bump_uat_head": "83cd67d663a241dbe11ffaf16113f9ecb4f1fe98",
+  "prior_runtime_provenance": {
+    "accepted_runtime_commit": "5665eee5b86a585ea50b7b54cbbd43f82154222f",
+    "accepted_source_identity_sha256": "c754261c7fc394147b3c7e7d37f8d5662d1b00c6ed9520393759144668e15855",
+    "assets_byte_identical": 1013,
+    "asset_count_unchanged": 1015,
+    "harness_assets_repaired": 2,
+    "harness_behavior_changed": true,
+    "source_repair_manifest_sha256": "826376fa1c668862caa45f9051445219685c3c0f55778d93665748b891f6bf03",
+    "repaired_source_files": {
+      "scripts/run_native_relational_suite.py": {
+        "original_sha256": "7f5d1da1dd6b193fa73159cb08154d3cbf2c94c45724322489d0e618d9702b66",
+        "repaired_sha256": "ed19ad854497f489b75a04949544cc0301a4ed5dbcf5d87589e5dfa0ab82a824"
+      },
+      "scripts/test_native_relational_suite.py": {
+        "original_sha256": "670fdaae90be7d1de7c73580b9f3e31389f290a79c0ea6ab554e7d93a0cb3757",
+        "repaired_sha256": "a1d72a552a0946c58bf975c8b90453b8676e1dc78bb9d5cb77cd79663c7ea04d"
+      }
+    },
+    "source_repair_boundary": "Only the suite summary combiner and its regression tests change. All native and Python product execution sources, case declarations and expectations remain byte-identical.",
+    "executable_behavior_changed": false,
+    "binary_sha256": "22eb39060595afbde22e9ed4a0f1ca87c3504c58fe68f22641c336048eee8404"
+  },
+  "tests_rerun_by_this_receipt": false,
+  "requires_fresh_exact_head_ci_and_codeql": true,
+  "driver_sha256": "a513392c6f03d252e427fb700312f35fc8b570bb9a49943bcd3aa335222638d9"
+}

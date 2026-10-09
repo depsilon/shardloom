@@ -156,8 +156,7 @@ fn native_pivot_spill_sequential_lookups_reuse_covering_blocks() {
     let blocks = (groups * 2).div_ceil(1024) as u64;
     assert!(
         report.spilled_pivot_lookup_blocks <= blocks * 2,
-        "sequential output loaded {} blocks for {blocks} distinct blocks",
-        report.spilled_pivot_lookup_blocks
+        "sequential output must reuse covering native blocks"
     );
     drop(report);
     assert_eq!(spilled.snapshot().memory.reserved_bytes, baseline);
@@ -184,9 +183,7 @@ fn native_pivot_spill_repeated_updates_bound_lookup_amplification() {
     // runs; requiring one read per output group would ignore that actual work.
     assert!(
         report.spilled_pivot_lookup_blocks < (groups * 4) as u64,
-        "repeated updates loaded {} blocks for {} input rows",
-        report.spilled_pivot_lookup_blocks,
-        groups * 4
+        "repeated updates must load fewer blocks than input rows"
     );
     eprintln!(
         "{}",
