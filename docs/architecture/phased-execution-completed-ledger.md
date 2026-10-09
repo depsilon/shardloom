@@ -17,6 +17,47 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `RELEASE-050` — approved substantial local-engine milestone, completed
+  as corrected v0.5.1 under the existing release/PERF-12 and CG-18/20/21 owners.
+  - Safe cleanup, pivot integration and affected documentation completed first.
+    The [fresh pre-bump UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md)
+    then ingested all 99,997,497 rows, passed all 129 complete Full43 comparisons
+    and 18 modular input/output cohorts, with independent packet inspection.
+    Those measurements retain their original 0.4.0 source/binary identities.
+  - Corrected source `764cd97d` passes local source/package gates, all 39 PR
+    checks and exact-source CI, including actual Windows native CLI compilation
+    and version execution. The original v0.5.0 tag/assets remain immutable;
+    its [interruption record](../release/v0.5.0-channel-interruption.md)
+    preserves the registry build failure before upload. Build success is not
+    platform pressure/runtime certification.
+  - GitHub, TestPyPI, PyPI and Homebrew were published and independently verified
+    in order. Complete installation, workflow, uninstall, checksum, SBOM and
+    provenance evidence passes. Homebrew tap PR #10 merged with the tested tree.
+    The [publication record](../release/v0.5.1-publication-verification.md)
+    binds all four channel transcripts, eight registry distribution identities,
+    five schema-validated SBOMs, published golden workflows and failure history.
+  - Publication documents and generated pages merged in
+    [PR #1537](https://github.com/depsilon/shardloom/pull/1537) at `0877ea9c`
+    after all 39 checks on `698adebe` passed with identical trees. All 25 local
+    publication checks passed, including 185 tests; the final support-page
+    correction also passed eight fresh site checks. All 1,015 frozen runtime
+    and packaging assets are unchanged. Primary review found no blocking issues;
+    automated review was unavailable because of quota, with no approval inferred.
+  - The [production observation](../release/channel-proofs/website-v0.5.1-deployment.json)
+    binds the successful exact-merge deployment, four live page inspections,
+    preserved support/no-fallback/performance boundaries and six public documents
+    matching the deployed tree byte for byte. Failed initial PyPI propagation,
+    the corrected older proof-verifier expectation and stale preview wording are
+    retained separately from passing evidence.
+  - Dynamic shape selection, capillary work avoidance and PulseWeave admission
+    remain part of the accepted engine; metadata-first inspection and distinct
+    ingest/query/workflow clocks preserve evidence limits. This is technical
+    preview publication, not production, broad platform/parity or speedup proof.
+    Future channels remain blocked and CG-1 through CG-23 retain their scope.
+    Resume all six remaining areas and eight investigations, prioritizing
+    natural-scale batch execution and source/type/destination composition.
+    Hold version 0.5.1 until all remaining ShardLoom work is complete.
+
 - [x] `NATIVE-PIVOT-PRESSURE` — growing sparse relational pivot state under
   the shared explicit native spill policy, under PERF-02/03/06/10/12 and CG-20/21.
   The [design](native-pivot-pressure-2026-10-08.md) shares existing transitions,
@@ -56,8 +97,8 @@ phase plan first.
   - Direct-unary spill, dynamic/repeated batch input, compatibility streaming
     writers/fanout, wider intake/allocation coverage, execution resume and
     supported-platform certification remain separate. The approved
-    `RELEASE-050` train has passed fresh ingest/query/modular UAT before its
-    version bump; package publication still requires its own proof. The six
+    `RELEASE-050` train subsequently completed fresh pre-bump UAT and corrected
+    v0.5.1 publication with the separate proofs recorded above. The six
     areas and all eight investigations retain their owners. No process-RSS
     ceiling, speedup, whole PERF/CG closure or broad maturity claim follows.
 
