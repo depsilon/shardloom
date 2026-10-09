@@ -2,9 +2,13 @@
 
 Status: complete local engine acceptance and independent portable-packet
 inspection pass for runtime `8a207745a55fb5678cd2b56866effb6fb0eb9352`.
-Affected support pages, native examples and local browser checks also pass;
-hosted integration remains pending. Published
-v0.4.0 is unchanged; this finite capability does not close the
+Affected support pages, native examples and local browser checks also pass.
+Hosted integration completed in
+[PR #1531](https://github.com/depsilon/shardloom/pull/1531) at `9529bd78`; the
+[hosted receipt](evidence/native-stateful-hosted-2026-10-08.json) records all 39
+checks and the preserved accepted runtime. This report retains the original
+local measurements and v0.4.0-era checkpoint; subsequent capability and release
+status follow the
 [remaining local workflow scope](../architecture/native-local-completion-scope-2026-10-07.md).
 
 ## Accepted behavior

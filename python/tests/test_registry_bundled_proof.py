@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -60,9 +61,9 @@ class RegistryBundledProofTests(unittest.TestCase):
             with self.subTest(channel=channel):
                 self.assertEqual(self.validate(self.proof(channel), channel), [])
 
-    def test_preserves_historical_024_and_030_installation_proofs(self):
+    def test_preserves_all_historical_installation_proofs(self):
         base = ROOT / "docs/release/channel-proofs"
-        for version in ("0.2.4", "0.3.0"):
+        for version in ("0.2.4", "0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.4.0"):
             for channel in ("testpypi", "pypi"):
                 with self.subTest(version=version, channel=channel):
                     proof = self.proof_for_version(channel, version)
@@ -74,6 +75,8 @@ class RegistryBundledProofTests(unittest.TestCase):
 
     def test_rejects_failed_missing_or_unbound_bundled_evidence(self):
         source_field = "source_commit" if SELECTED_PACKAGE_RELEASE_VERSION == "0.2.4" else "release_source_commit"
+        version_field = "version" if SELECTED_PACKAGE_RELEASE_VERSION == "0.5.1" else "cli_version"
+        cli_field = "bundled_cli" if SELECTED_PACKAGE_RELEASE_VERSION == "0.5.1" else "resolved_cli_path"
         mutations = [
             (("proof_status",), "failed", "proof_status must be passed"),
             (("status",), "failed", "status must be passed"),
@@ -99,12 +102,12 @@ class RegistryBundledProofTests(unittest.TestCase):
             (("wheel_identity", "sha256"), "f" * 64, "wheel digest must match"),
             (("wheel_identity", "path"), "/tmp/other.whl", "wheel filename must match"),
             (("wheel_metadata",), "Root-Is-Purelib: true\nTag: py3-none-any\n", "wheel metadata must match"),
-            (("result", "cli_version"), "0.0.0", "CLI version must match"),
+            (("result", version_field), "0.0.0", "CLI version must match"),
             (("result", "exact_results"), [], "complete DataFrame and two SQL results"),
             (("result", "unsupported_blocker"), None, "expected unsupported diagnostic"),
             (("result", "fallback_attempted"), True, "result fallback_attempted must be false"),
             (("result", "external_engine_invoked"), True, "result external_engine_invoked must be false"),
-            (("result", "resolved_cli_path"), "/opt/homebrew/bin/shardloom", "inside the same clean venv"),
+            (("result", cli_field), "/opt/homebrew/bin/shardloom", "inside the same clean venv"),
             (("result", "package_path"), "/tmp/source/shardloom/__init__.py", "inside the same clean venv"),
         ]
         mutations.extend(((field,), True, f"{field} must be false") for field in (
@@ -126,6 +129,77 @@ class RegistryBundledProofTests(unittest.TestCase):
                         target = target[key]
                     target[path[-1]] = value
                     self.assertIn(expected, "; ".join(self.validate(proof, channel)))
+
+    def test_051_rejects_rebound_incomplete_or_changed_workflow_results(self):
+        """Alter both the result and its capture, so receipt self-consistency cannot hide drift."""
+        mutations = [
+            (("native_vortex_roundtrip_values",), [], "native_vortex_roundtrip_values"),
+            (("analytic_frame_values", 1, "n"), 1, "analytic_frame_values"),
+            (("correlated_scalar_subquery_values", 0, "scalar"), 0, "correlated_scalar_subquery_values"),
+            (("repeated_sql_executions",), True, "repeated_sql_executions"),
+            (("actual_disk_pressure_claimed_by_smoke",), True, "actual_disk_pressure_claimed_by_smoke"),
+            (("native_vortex_output_sha256",), "bad", "native Vortex output digest"),
+            (("cli_distribution",), "homebrew_source_build", "same bundled wheel CLI"),
+            (("explicit_homebrew_cli_binding",), True, "same bundled wheel CLI"),
+            (("verified_native_cli",), "/opt/homebrew/bin/shardloom", "same bundled wheel CLI"),
+            (("cli_sha256",), "bad", "bundled CLI SHA256 argument"),
+            (("exact_results", 0, 0, "id"), 2.0, "complete DataFrame and two SQL results"),
+            (("incremental_complete_values",), {}, "all five complete incremental workflows"),
+        ]
+        names = ("vortex_incremental_results", "streamed_general_aggregate", "streamed_left_join",
+                 "streamed_analytic_window", "sparse_pivot")
+        for name in names:
+            mutations.extend([
+                (("incremental_complete_values", name), None, "complete typed rows"),
+                (("incremental_complete_values", name, "rows"), [], "complete typed rows"),
+                (("incremental_complete_values", name, "batches"), True, "acknowledged batch count"),
+                (("incremental_complete_values", name, "batches"), 0, "acknowledged batch count"),
+                (("incremental_complete_values", name, "batches"), 100, "acknowledged batch count"),
+                (("incremental_complete_values", name, "final_report_success"), False, "final_report_success"),
+                (("incremental_complete_values", name, "owned_workspace_empty"), False, "owned_workspace_empty"),
+                (("incremental_complete_values", name, "explicit_spill_policy"),
+                 name == "vortex_incremental_results", "approved spill policy"),
+            ])
+        mutations.append((("incremental_complete_values", "sparse_pivot", "rows", 0, "pivot_a"),
+                          7, "complete typed rows"))
+        for channel in ("testpypi", "pypi"):
+            original = self.proof_for_version(channel, "0.5.1")
+            for path, value, expected in mutations:
+                with self.subTest(channel=channel, path=path, value=value):
+                    proof = copy.deepcopy(original)
+                    supplement = proof["bundled_cli_supplemental_proof"]
+                    target = supplement["result"]
+                    for key in path[:-1]:
+                        target = target[key]
+                    target[path[-1]] = value
+                    capture = json.dumps(supplement["result"]).encode()
+                    supplement["steps"][3]["stdout_sha256"] = hashlib.sha256(capture).hexdigest()
+                    errors = bundled_registry_proof_blockers(
+                        proof, channel_id=channel, package_version="0.5.1",
+                        runtime_source_commit=PUBLISHED_REGISTRY_BUILD_IDENTITIES["0.5.1"]["testpypi"]["source_commit"],
+                        smoke_stdout=capture,
+                    )
+                    self.assertNotIn("result must equal the captured", "; ".join(errors))
+                    self.assertIn(expected, "; ".join(errors))
+
+    def test_051_rejects_changed_smoke_program_arguments_and_digest(self):
+        for channel in ("testpypi", "pypi"):
+            original = self.proof_for_version(channel, "0.5.1")
+            command = original["bundled_cli_supplemental_proof"]["steps"][3]["command"]
+            mutations = [
+                (command[:-1], "approved complete-value smoke program"),
+                (command + ["/opt/homebrew/bin/shardloom"], "approved complete-value smoke program"),
+                (command[:-1] + ["f" * 64], "bundled CLI SHA256 argument"),
+                (command[:3] + ["pass"] + command[4:], "approved complete-value smoke program"),
+            ]
+            for changed, expected in mutations:
+                with self.subTest(channel=channel, expected=expected):
+                    proof = copy.deepcopy(original)
+                    proof["bundled_cli_supplemental_proof"]["steps"][3]["command"] = changed
+                    self.assertIn(expected, "; ".join(self.validate(proof, channel)))
+            proof = copy.deepcopy(original)
+            proof["bundled_cli_supplemental_proof"]["shared_smoke_sha256"] = "f" * 64
+            self.assertIn("shared smoke digest", "; ".join(self.validate(proof, channel)))
 
     def test_rejects_missing_changed_or_unrelated_captured_stdout(self):
         for channel in ("testpypi", "pypi"):

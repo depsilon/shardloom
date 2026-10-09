@@ -44,8 +44,11 @@ needs a reconstruction/reuse trace. Stable-region preparation needs measured
 changed-source preparation cost. Credit-window output needs a separately frozen
 delivery experiment; input lifetime is handled by the separate completion-aware
 input unit. These are
-prerequisites, not implicit ship decisions. Batch any retained work into a
-substantial validated milestone before considering another version bump.
+prerequisites, not implicit ship decisions. Batch retained work into cohesive,
+validated implementation units. The maintainer's later October 9 instruction
+holds the version fixed after the already-started v0.5.1 train until all remaining
+ShardLoom work is complete; the [phase plan](phased-execution-plan.md) owns that
+sequencing.
 
 ## Current source and experiment contracts
 

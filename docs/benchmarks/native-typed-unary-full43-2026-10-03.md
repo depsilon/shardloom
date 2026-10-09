@@ -3,8 +3,13 @@
 # Native typed unary state acceptance — October 3, 2026
 
 The finite typed-unary unit passes local functional acceptance on frozen source
-`948551d4`. Hosted acceptance remains open, and the paired Q9 timing/RSS
-observation is inconclusive. This report preserves those limits.
+`948551d4`. Hosted integration subsequently completed in
+[PR #1515](https://github.com/depsilon/shardloom/pull/1515) at `5982b93d`, as
+recorded in the [completed ledger](../architecture/phased-execution-completed-ledger.md).
+The paired Q9 timing/RSS observation remains inconclusive. This report preserves
+the original source identities, measurements and review limitations; subsequent
+capability and release status follow the
+[remaining-work contract](../architecture/native-local-completion-scope-2026-10-07.md).
 
 The existing native unary state machines now preserve Binary, Decimal128,
 Date32 and timezone-free TimestampMicros. Direct file calls and relational

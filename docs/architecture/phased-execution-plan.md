@@ -257,20 +257,23 @@ the ledger.
     [publication handoff](../release/maintainer-publication-handoff.md).
     Existing release/PERF-12 and CG-18/20/21 owners remain; no competitive gate
     is duplicated or closed by package publication.
-  - Current state: the selected complete four-channel contract remains v0.4.0.
-    The approved v0.5.0 GitHub prerelease is published and independently installed,
-    but its Windows native build failed before any registry upload. The original
-    tag/assets remain immutable; the same milestone continues as v0.5.1 with a
-    portable session-helper correction and an actual Windows native CI gate.
-    See the [interruption record](../release/v0.5.0-channel-interruption.md).
+  - Current state: corrected v0.5.1 is published and independently verified
+    through GitHub, TestPyPI, PyPI and Homebrew. The
+    [publication record](../release/v0.5.1-publication-verification.md) binds
+    source `764cd97d`, its actual Windows native build and all four channel proofs.
+    Release-documentation integration and live website verification remain
+    before final closeout and the return to implementation. The original
+    v0.5.0 tag/assets remain immutable; its
+    [interruption record](../release/v0.5.0-channel-interruption.md) preserves
+    the Windows build failure that stopped that version before registry upload.
     Pivot integration is complete in
     PR #1534 at `d7898cb9`, with all 39 checks and actual production verification.
     [Full fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md)
     passed before the bump: all 99,997,497 rows freshly ingested, 129 complete
     query comparisons and 18 modular cohorts. Independent packet inspection
-    and export bind the original 0.4.0 source/binary identity. Source/package
-    metadata now targets the corrected 0.5.1 candidate; fresh source gates and
-    its own four-channel package proofs remain open.
+    and export bind the original 0.4.0 source/binary identity. The corrected
+    0.5.1 source/package gates and channel installation proofs pass separately;
+    package publication does not relabel those earlier UAT measurements.
   - Execution checklist:
     - [x] Retire verified disposable build/UAT payloads under the storage policy,
       preserving summaries, original failures, fixtures and frozen executables.
@@ -283,15 +286,16 @@ the ledger.
       pivot/streaming acceptance, storage/process guards and independent readback.
       Record the subsequent assertion-message-only cleanup separately; never
       relabel the frozen pre-bump source or its executable as a package build.
-    - [ ] Update corrected v0.5.1 version sources, release notes, supported/unsupported
+    - [x] Update corrected v0.5.1 version sources, release notes, supported/unsupported
       guidance and package artifacts, with an exact source-delta review and
       the required source/package/hosted gates, including the Windows native build.
       Preserve the interrupted v0.5.0 tag/assets and successful GitHub proof.
-    - [ ] Publish and independently verify GitHub release assets, TestPyPI,
+    - [x] Publish and independently verify GitHub release assets, TestPyPI,
       PyPI and Homebrew in that order; update the canonical channel contract
       only from actual install/smoke/checksum/SBOM/provenance evidence.
-    - [ ] Record immutable publication proof and resume every still-open area
-      and investigation in the remaining-scope contract.
+    - [ ] Complete release-documentation integration and live website verification,
+      seal the final publication proof, then resume every still-open area and
+      investigation in the remaining-scope contract.
   - ShardLoom technique review: retain dynamic shape selection, capillary work
     avoidance and PulseWeave admission from the accepted runtime. Preserve
     metadata-first inspection, timing-surface boundaries and evidence-tier limits.
@@ -1024,6 +1028,10 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       cancellation and memory/CPU ownership at coarse and fine topology levels.
     - [ ] Verify queue bytes, state growth denial, cancellation and worker reuse
       under mixed load, with explicit exclusions for unobserved provider owners.
+    - [ ] Replace cumulative input and schema-width ceilings with growable,
+      credited metadata and bounded execution units. Preserve per-frame memory,
+      cancellation and overflow protections while allowing complete workloads
+      to continue for as long as their authorized resource policy permits.
   - ShardLoom technique review: capillary units and PulseWeave must control observed
     work and scarcity; configuration comparisons cannot certify queue enforcement.
 
@@ -1092,6 +1100,10 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       owned-cleanup acceptance across each admitted spill family.
     - [ ] Prove exact supported large-state completion under the admitted workload
       budget without external execution; no fixed 4 GiB target is required.
+    - [ ] Select resident or native external-memory strategies automatically
+      within the caller's authorized memory, temporary-storage and effect policy.
+      Prove complete results and cleanup at the transition; storage permission
+      remains explicit even when operator strategy selection is automatic.
   - ShardLoom technique review: memory scarcity and capillary lifetime govern spill;
     synthetic spill fixtures remain distinct from query-data spill support.
 
@@ -1122,6 +1134,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       materialization or serialized JSON reconstruction.
     - [ ] Carry executable arrays, selections, validity and retained ownership
       through the remaining physical result and compatibility sink families.
+    - [ ] Complete compatibility streaming destinations and fanout from one
+      single-use execution, with owned retention or spooling where required;
+      validate all input before publication and preserve partial-commit recovery.
     - [ ] Complete close/cancel/slice and copied/decoded-byte acceptance for
       those routes, validating complete requested output.
     - [ ] Replace the legacy reader-generated numeric expansion with an explicit
@@ -1202,6 +1217,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     - [ ] Fuse admitted filter/project/aggregate kernels at plan or batch boundaries.
     - [ ] Cost native canonicalization, aggregation, distinct, join, sort, and windows.
     - [ ] Verify renamed schemas, non-ClickBench compositions, and byte-work reductions.
+    - [ ] Replace fixed plan/expression depth and node ceilings with scalable,
+      resource-accounted traversal and lowering. Prove wide/deep composed plans,
+      deterministic resource denial and cancellation without stack exhaustion.
   - ShardLoom technique review: native provider selection and work avoidance apply;
     volatile/effectful or floating-sensitive rewrites preserve existing semantics.
 
@@ -1218,6 +1236,18 @@ records the measured scope and preserved staged work. No PERF or competitive gat
   - Execution checklist:
     - [ ] Validate the declared input/output/memory/queue envelope under pressure
       and cancellation; keep original caller owners and provider gaps explicit.
+    - [ ] Complete shared ownership for repeated batch sources, multiple
+      producers and safe dynamic-schema discovery; consume each single-use
+      producer once and support reuse through declared retention or native spool.
+    - [ ] Admit exact decimal, binary, temporal and nested batch inputs through
+      the shared native type/buffer machinery, preserving nulls, ordering,
+      logical dtype and complete values across every supported destination.
+    - [ ] Connect automatic compatibility preparation to the transaction's
+      cancellation owner, with source identity, provisional output and owned
+      cleanup preserved across preparation, execution and publication.
+    - [ ] Execute generated ranges through bounded native units instead of a
+      fixed total-length ceiling; preserve checked arithmetic and complete
+      consumption under the shared resource policy.
     - [ ] Extend measured p50/p95/p99 to the remaining declared bulk-load envelope,
       including validation, intake, queue delay and result delivery.
   - ShardLoom technique review: Vortex normalization and late materialization apply;
@@ -1254,6 +1284,10 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     - [ ] Add held-out ingest, aggregate, relational, ownership, and serving cases.
     - [ ] Exercise supported ordinary and benchmark resource envelopes, recording
       actual host resources and observed RSS rather than requiring a fixed 4 GiB target.
+    - [ ] Prove complete batch workflows beyond the current cumulative-input,
+      schema-width, generated-range and plan-shape ceilings after their owning
+      mechanisms are implemented. Include resource exhaustion, late input
+      failures, slow consumers, cancellation and exact write/reopen comparisons.
     - [ ] Record paired uncertainty, complete outputs, and gains in non-ClickBench families.
   - ShardLoom technique review: correctness, evidence tiers, and no-fallback boundaries
     apply; cross-host ratios and success flags alone are insufficient proof.
@@ -2928,17 +2962,39 @@ The five tracks remain attached to existing PERF owners and CG-1 through CG-23.
 
 October 9 sequencing direction supersedes the earlier discretionary release
 timing: complete safe cleanup, the current pivot PR and documentation, then run
-full fresh ingest/query/modular UAT **before** bumping to v0.5.0. Complete the
-approved four-channel release train under `RELEASE-050` before returning to the
-remaining implementation. Cleanup has recovered approximately 68.5 GB while
+full fresh ingest/query/modular UAT **before** bumping to v0.5.0. The approved
+milestone is now published as corrected v0.5.1 through all four selected channels.
+Finish release-documentation integration and live website verification under
+`RELEASE-050` before returning to the remaining implementation.
+Cleanup has recovered approximately 68.5 GB while
 preserving evidence and reproducible inputs. The fresh ingest/query/modular UAT
 and independent inspection completed with source still at 0.4.0; candidate
 version changes followed that sealed proof. The original v0.5.0 GitHub assets
-are immutable, and its registry build stopped before upload on Windows. Finish
-the same milestone as corrected v0.5.1 with fresh source and channel evidence;
-retain the original pre-bump UAT identities. The release does not replace or
+are immutable, and its registry build stopped before upload on Windows.
+The [v0.5.1 publication record](../release/v0.5.1-publication-verification.md)
+binds fresh source and channel evidence while retaining the original pre-bump
+UAT identities. The release does not replace or
 complete the six areas or eight investigations; resume their existing owners
 after publication verification.
+
+The maintainer's later October 9 instruction holds the version fixed after the
+already-started v0.5.1 train. Complete all remaining ShardLoom work before another
+version bump; do not start additional patch or milestone release trains while
+that work remains. This supersedes the earlier discretionary release timing.
+Continue implementation, validation, documentation and hosted integration under
+the existing owners without treating each completed unit as a release trigger.
+
+The subsequent enterprise-workload feedback prioritizes natural-scale batch
+execution and source/type/destination composition after this release closeout.
+Its cap-removal, automatic strategy, source-lifetime, richer-intake, preparation
+and sink work is merged into PERF-03/06/07/10/11/12 above. Complete the shared
+mechanisms and workload evidence; a larger constant or a limitations-page update
+does not close those implementation checklists. Independent-job concurrency,
+incremental/continuous computation, distributed individual queries and analytical
+serving/federation retain their existing roadmap owners. Keep those resource and
+operating models distinct, and attach them to concrete deployment/workload needs.
+All six remaining areas, eight conditional investigations and CG-1 through CG-23
+remain visible; this prioritization does not reduce that scope.
 
 The subsequent candidate set's exact decimal screen is dropped below its frozen
 gate, and conservative membership is dropped for high-match control regressions.
@@ -2947,7 +3003,7 @@ acceptance, with ordered-index, physical-cache,
 output-window and stable-region reuse candidates gated on their measured workloads.
 See the [conditional work contract](native-conditional-work-campaign-2026-10-07.md).
 This extends the queue while preserving the input-completion architecture work
-and substantial-milestone version policy.
+and the October 9 hold on further version bumps.
 
 The October 1 product clarification makes
 [universal workflow completion](universal-workflow-completion-2026-10-01.md)

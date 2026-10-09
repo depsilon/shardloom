@@ -1,0 +1,70 @@
+{
+  "blockers": [
+    "registry proof step failed"
+  ],
+  "channel_id": "pypi",
+  "clean_env": "external-path:venv",
+  "cli_binary_available": true,
+  "cli_binary_env_var": "SHARDLOOM_BIN",
+  "cli_binary_ref": "external-path:shardloom-release-051-764cd97df359",
+  "cli_binary_required_for_clean_registry_smoke": true,
+  "cli_binary_smoke_source": "approved_release_or_local_artifact",
+  "display_name": "PyPI",
+  "download_transcript_status": "failed",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "index_url": null,
+  "install_source": "pypi_registry",
+  "install_transcript_status": "not_run",
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_name": "shardloom",
+  "package_version": "0.5.1",
+  "proof_status": "failed",
+  "publication_attempted_by_this_tool": false,
+  "registry_upload_attempted_by_this_tool": false,
+  "schema_version": "shardloom.python_registry_package_proof.v1",
+  "secrets_required": false,
+  "smoke_check_status": "not_run",
+  "steps": [
+    {
+      "command": [
+        "external-path:python3",
+        "-m",
+        "venv",
+        "external-path:venv"
+      ],
+      "elapsed_millis": 1029.106,
+      "name": "create_clean_venv",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-m",
+        "pip",
+        "--isolated",
+        "download",
+        "--no-deps",
+        "--no-cache-dir",
+        "--only-binary",
+        ":all:",
+        "--dest",
+        "external-path:downloads",
+        "--index-url",
+        "https://pypi.org/simple/",
+        "shardloom==0.5.1"
+      ],
+      "elapsed_millis": 255.67,
+      "name": "download_registry_artifact",
+      "returncode": 1,
+      "stderr": "ERROR: Could not find a version that satisfies the requirement shardloom==0.5.1 (from versions: 0.1.0, 0.1.1, 0.1.3, 0.1.4, 0.1.8, 0.1.9, 0.1.10, 0.2.0, 0.2.1, 0.2.2, 0.2.3, 0.2.4, 0.3.0, 0.3.1, 0.3.2, 0.3.3, 0.4.0)\n\n[notice] A new release of pip is available: 26.1 -> 26.2.1\n[notice] To update, run: /Users/dylan/LocalData/shardloom/release-0.5.1-20261009/python-registry-051-pypi-1/venv/bin/python -m pip install --upgrade pip\nERROR: No matching distribution found for shardloom==0.5.1\n",
+      "stdout": "Looking in indexes: https://pypi.org/simple/\n"
+    }
+  ],
+  "tag_created": false,
+  "testpypi_proof_ref": "docs/release/channel-proofs/testpypi-v0.5.1-transcript.json",
+  "testpypi_proof_required": true,
+  "uninstall_transcript_status": "not_run"
+}

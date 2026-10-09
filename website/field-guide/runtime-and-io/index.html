@@ -101,8 +101,8 @@ Their observed columns bind during execution, including independent domains for
 correlated inner rows; inspection remains inert. All eight local writers accept
 representable scalar results within the existing field and state budgets. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-dynamic-pivot-composition-2026-10-03.md">dynamic pivot contract</a>.
-Current source builds after published v0.4.0 also admit static List,
-FixedSizeList and Struct pivot index, domain and selected-value roles. Nested
+The published engine admits static List, FixedSizeList and Struct pivot index,
+domain and selected-value roles. Nested
 cells support first, first_unique, count, min and max; first_unique accepts
 repeated equal complete values and rejects conflicts. Nested extrema skip NULL
 parents and use the shared child-NULL ordering. Python pivot() and
@@ -114,7 +114,7 @@ Representable nested results use Vortex, Parquet,
 Arrow IPC, Avro, JSON and JSONL; CSV translates nested values to quoted JSON
 text, and ORC rejects nested output. Existing 128-field, collection and memory
 limits apply. Complete local workflow/regression acceptance and all 39 hosted
-checks passed before PR #1525 merged. Published v0.4.0 packages predate this source support.
+checks passed before PR #1525 merged.
 See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-pivot-state-2026-10-06.md">nested pivot state contract</a>.
 Relational file/resident-memory pivots also implement an explicit
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state">native spill strategy</a>.
@@ -174,16 +174,15 @@ one finite single-use batch source. Complete local and hosted acceptance passed
 before <a href="https://github.com/depsilon/shardloom/pull/1533">PR #1533</a> merged.
 The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md">analytic-frame acceptance</a>
 records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
-executions. The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md">fresh release UAT</a>
+executions. The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-09.md">fresh release UAT</a>
 adds complete input/output workflow comparisons. These suites overlap and do
 not establish a comparative speedup.
 General joins, set operations, analytic windows and broader subquery shapes still have native coverage
 gaps. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md">front-door contract</a>
 and <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory">remaining family inventory</a>.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="scalar-subqueries">Scalar subqueries</h2><a class="sl-anchor-link" href="#scalar-subqueries"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Scalar subqueries”</span></a></div>
-<p>Current source builds after published v0.4.0 admit scalar-value subqueries through
-SQL <code dir="auto">(SELECT ...)</code> and Python <code dir="auto">sl.scalar_subquery(...)</code>. The v0.4.0 packages
-predate this addition. Use them to put one query result into an expression:</p>
+<p>The published engine admits scalar-value subqueries through
+SQL <code dir="auto">(SELECT ...)</code> and Python <code dir="auto">sl.scalar_subquery(...)</code>. Use them to put one query result into an expression:</p>
 <div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.w36nc.css"/><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="sql"><code><div class="ec-line"><div class="code"><span style="--0:#C792EA;--1:#8844AE">SELECT</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">value</span><span style="--0:#D6DEEB;--1:#403F53">, (</span><span style="--0:#C792EA;--1:#8844AE">SELECT</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">outer</span><span style="--0:#D6DEEB;--1:#403F53">.</span><span style="--0:#82AAFF;--1:#3B61B0">value</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#7FDBCA;--1:#096E72">+</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#F78C6C;--1:#AA0982">10</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">AS</span><span style="--0:#D6DEEB;--1:#403F53"> adjusted) </span><span style="--0:#C792EA;--1:#8844AE">AS</span><span style="--0:#D6DEEB;--1:#403F53"> adjusted</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C792EA;--1:#8844AE">FROM</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">range</span><span style="--0:#D6DEEB;--1:#403F53">(</span><span style="--0:#F78C6C;--1:#AA0982">1</span><span style="--0:#D6DEEB;--1:#403F53">, </span><span style="--0:#F78C6C;--1:#AA0982">4</span><span style="--0:#D6DEEB;--1:#403F53">)</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="SELECT value, (SELECT outer.value + 10 AS adjusted) AS adjustedFROM range(1, 4)"><div></div></button></div></figure></div>
 <p>This returns values 1, 2 and 3 with adjusted values 11, 12 and 13. The inner
 query must bind one static output column. Zero rows return a typed NULL, one
@@ -274,12 +273,11 @@ Explicit SQL <code dir="auto">NULLS FIRST</code>/<code dir="auto">NULLS LAST</co
 JSON collection reports the final materialization boundary and metadata loss; exceeding its
 row or serialized-byte limit fails without returning a successful prefix.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="resources-and-recovery">Resources And Recovery</h2><a class="sl-anchor-link" href="#resources-and-recovery"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Resources And Recovery”</span></a></div>
-<p>Current source builds account for reviewed FSST/Zstd payload,
+<p>The published engine accounts for reviewed FSST/Zstd payload,
 view and validity buffers through the shared native memory owner. Retained
 clones and slices keep their allocation credits. It also adds
 <a href="/field-guide/python-surface#consume-results-in-batches">Python batch input and results</a>.
-These additions merged in PR #1526 after complete local and hosted checks;
-published v0.4.0 predates them. Source implementation also admits the actual
+These additions merged in PR #1526 after complete local and hosted checks. Source implementation also admits the actual
 one-shot Zstd decoder and by-reference prepared-dictionary workspaces before
 allocation, releasing them after each decode. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-codec-workspaces-2026-10-07.md">workspace acceptance</a>
@@ -324,7 +322,7 @@ and retained output still consume credits. Limits drain the complete source,
 and late failure prevents completion and incomplete file publication.
 The runtime also rejects malformed FSST row lengths before decoder allocation.
 Repeated batch-source spooling, broader streaming destinations, unadmitted
-state/recovery and remaining allocation coverage stay open; published v0.4.0 is unchanged.</p>
+state/recovery and remaining allocation coverage stay open after v0.5.1 publication.</p>
 <p>Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
 explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.

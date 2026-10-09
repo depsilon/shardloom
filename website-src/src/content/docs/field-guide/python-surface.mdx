@@ -49,10 +49,9 @@ See [runtime and I/O](/field-guide/runtime-and-io) and the
 
 ## Consume results in batches
 
-Current source builds add `iter_batches()` for admitted results and
+The published engine supports `iter_batches()` for admitted results and
 `from_batches()` for explicitly typed resident input. These additions merged
-in PR #1526 after complete local and hosted checks; published v0.4.0 packages
-predate them. Source builds also admit opt-in `streaming=True` for one finite
+in PR #1526 after complete local and hosted checks. The published engine also admits opt-in `streaming=True` for one finite
 source used once through scan/filter/project, global sorting, aggregation, joins,
 analytic windows and draining limits. See the [contracts and spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
 

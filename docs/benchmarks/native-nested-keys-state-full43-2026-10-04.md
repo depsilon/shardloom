@@ -4,14 +4,20 @@
 
 Local acceptance passes on frozen source `d65907f6`. All public, direct-unary,
 required local and paired regression checks pass; independent packet inspection
-also passes. Hosted acceptance remains open.
+also passes. Hosted integration subsequently completed in
+[PR #1516](https://github.com/depsilon/shardloom/pull/1516) at `42eb2a03`, as
+recorded in the [completed ledger](../architecture/phased-execution-completed-ledger.md).
+This report preserves its original source identities and measurements; subsequent
+capability and release status follow the
+[remaining-work contract](../architecture/native-local-completion-scope-2026-10-07.md).
 
 This unit extends the existing native key and state owners to static lists,
 fixed-size lists and structs. SQL, Python/DataFrame composition and direct native
 calls share those owners and the existing local writers. The
 [implementation contract](../architecture/native-nested-keys-state-2026-10-04.md)
-defines the exact type, null, ownership and failure boundaries. Broader
-aggregate/window, pivot, adapter and resource work remains open.
+defines the exact type, null, ownership and failure boundaries. The remaining-work
+contract distinguishes later aggregate/window and pivot completions from still-open
+adapter, resource and other obligations.
 
 ## Frozen identity and scope
 

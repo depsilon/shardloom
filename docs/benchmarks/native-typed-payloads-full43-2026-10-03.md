@@ -5,9 +5,14 @@
 Binary, exact Decimal128, Date32 and timezone-free microsecond timestamp payloads
 now traverse the shared native composition and local delivery path, including
 admitted nested leaves. The [implementation contract](../architecture/native-typed-payloads-2026-10-03.md)
-defines the finite type and format boundaries. This is local correctness and
-resource acceptance; hosted acceptance remains pending, and wider operator,
-adapter and spill work is still open.
+defines the finite type and format boundaries. This report records the original
+local correctness and resource acceptance. Hosted integration subsequently
+completed in [PR #1508](https://github.com/depsilon/shardloom/pull/1508) at
+`d7bd0930`, as recorded in the
+[completed ledger](../architecture/phased-execution-completed-ledger.md).
+Original source identities and measurements remain unchanged; subsequent
+capability and release status follow the
+[remaining-work contract](../architecture/native-local-completion-scope-2026-10-07.md).
 
 ## Frozen implementation and complete workflows
 

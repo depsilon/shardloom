@@ -11,6 +11,35 @@ coverage, and operational acceptance of a defined local product. Finishing one
 native provider, a streamed ordering connection, or a performance experiment
 does not finish that body of work.
 
+The October 9 enterprise-workload feedback prioritizes natural-scale batch
+execution and complete source/type/destination composition. The existing
+analytical engine is the implementation foundation. Fixed cumulative input,
+schema-width, generated-range and plan/expression ceilings are implementation
+work under the phase plan's existing PERF-03/06/07/10/11/12 checklists: replace
+them with resource-managed execution, scalable metadata/traversal and complete
+workflow proof. Bounded transport, checked arithmetic and deterministic failure
+remain necessary while those replacements are built. Operator strategy selection
+should be automatic within the caller's authorized memory/storage/effect policy.
+
+The feedback's six proposed packages are merged into existing owners:
+
+| Package | Existing owner and implementation disposition |
+| --- | --- |
+| Natural-scale enterprise batch | PERF-03/06/10/11/12: replace whole-workload ceilings, complete accounting and select native pressure strategies within authorized policy. |
+| Source, type and destination composition | PERF-02/07/10/11/12 and CG-19/20/21: shared source lifetimes, richer intake, repeated-source spooling, multiple producers, dynamic schemas, streaming writers/fanout and cancellable preparation. |
+| Independent jobs and users | Shared scheduling/resource and remote/deployment owners: concurrent admission, isolation, priorities, cancellation, retry/publication and observability around the native worker. This is distinct from distributing one computation. |
+| Incremental and continuous computation | Existing table/change, recovery and CG-22/23 owners: durable progress, change-aware state, event time, checkpoints and coordinated source/sink recovery. |
+| Distributed individual computations | Existing distributed/runtime and CG-10 owners: partition exchange, stage ownership, skew, worker recovery, remote access and coordinated publication. |
+| Analytical serving and federation | Existing prepared-session, API, catalog/connector and CG-11/20/21/23 owners: scheduling, protocols, identity integration and useful retained/indexed state. |
+
+This is an intake mapping, not another queue. Prioritize the first two packages;
+add operational concurrency alongside actual deployment needs. The other
+packages remain implementation outcomes in the roadmap. Classify workloads by
+execution behavior, resource shape and operating needs; embedded applications,
+scheduled workers and shared services can assign hosting responsibilities to
+different components. The current finite batch capabilities and later continuous,
+distributed or shared-service capabilities retain their own workload evidence.
+
 ## Current baseline and completed boundaries
 
 The assessment inspected main `0f7609da` and PR #1530 at `24bd2e5b`. Since that
@@ -20,7 +49,8 @@ The [integration receipt](../benchmarks/evidence/native-fsst-hosted-2026-10-07.j
 records preview/production search and guide verification, the merged report
 link, and exact preservation of all 947 accepted runtime assets. The first
 completion-aware input implementation and its FSST correction are completed
-work, not a request to implement them again. Published v0.4.0 is unchanged.
+work, not a request to implement them again. Published v0.4.0 was unchanged at
+that integration checkpoint; the subsequent release milestone is recorded below.
 
 [PR #1531](https://github.com/depsilon/shardloom/pull/1531) subsequently completes
 general aggregate spill and streamed global ordering/draining limits at
@@ -114,14 +144,24 @@ PR/documentation closeout, with full fresh UAT required **before** the version
 bump. That [fresh UAT](../benchmarks/release-candidate-fresh-uat-2026-10-09.md)
 and pivot integration are complete. The original v0.5.0 GitHub prerelease is
 published, but its Windows native build stopped the registry workflow before
-upload. Preserve those immutable assets and finish the same milestone as the
-corrected v0.5.1 candidate; see the
-[interruption record](../release/v0.5.0-channel-interruption.md). The complete
-selected four-channel contract remains at v0.4.0 pending fresh v0.5.1 proof.
+upload. Those assets remain immutable; the
+[interruption record](../release/v0.5.0-channel-interruption.md) preserves the
+original outcome. The same milestone is now published and independently
+verified as v0.5.1 through GitHub, TestPyPI, PyPI and Homebrew. Its
+[publication record](../release/v0.5.1-publication-verification.md) binds the
+source, platform builds and channel proofs without relabeling pre-bump UAT.
 The phase plan's `RELEASE-050` checklist takes precedence over further
-implementation until that four-channel train is verified. Then resume all
+implementation until release-documentation integration and live website
+verification complete. Then resume all
 remaining areas and all eight investigations above. This is a substantial
 capability release, not a declaration that the whole completion contract is done.
+
+The maintainer's later October 9 instruction supersedes discretionary release
+timing: finish the v0.5.1 train already in progress, then keep the version fixed
+until all remaining ShardLoom work is complete. Do not start another patch or
+milestone bump for an intermediate capability or investigation. Continue the
+six areas, all eight investigations and their acceptance/documentation work
+under the existing phase owners without additional release trains.
 
 For every cohesive unit, keep a reuse map, native-I/O and execution evidence,
 resource/failure tests, complete public workflow checks, applicable regression

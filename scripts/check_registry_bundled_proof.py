@@ -18,6 +18,92 @@ STEP_NAMES = (
 )
 
 
+def same_json(actual: Any, expected: Any) -> bool:
+    """Compare complete JSON values without accepting bool/int or int/float drift."""
+    try:
+        return json.dumps(actual, sort_keys=True, allow_nan=False) == json.dumps(
+            expected, sort_keys=True, allow_nan=False
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def expanded_workflow_blockers(result: dict[str, Any]) -> list[str]:
+    """Validate the additional complete-result contract of the approved v0.5.1 smoke."""
+    errors: list[str] = []
+    rows = [
+        {"id": 1, "label": "café", "amount": 8},
+        {"id": 2, "label": "東京", "amount": 15},
+        {"id": 3, "label": "naïve", "amount": 27},
+        {"id": 4, "label": "雪", "amount": 27},
+    ]
+    expected = {
+        "native_vortex_roundtrip_values": rows,
+        "analytic_frame_values": [
+            {"id": 1, "label": "café", "n": 1, "first_label": "café"},
+            {"id": 2, "label": "東京", "n": 2, "first_label": "café"},
+            {"id": 3, "label": "naïve", "n": 2, "first_label": "東京"},
+            {"id": 4, "label": "雪", "n": 2, "first_label": "naïve"},
+        ],
+        "correlated_scalar_subquery_values": [
+            {"value": 0, "scalar": None}, {"value": 1, "scalar": 1},
+            {"value": 2, "scalar": 2}, {"value": 3, "scalar": 3},
+        ],
+        "repeated_sql_executions": 2,
+        "actual_disk_pressure_claimed_by_smoke": False,
+    }
+    for field, value in expected.items():
+        if not same_json(result.get(field), value):
+            errors.append(f"must contain the approved complete {field}")
+    digest = result.get("native_vortex_output_sha256")
+    if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        errors.append("must identify the native Vortex output digest")
+    if (result.get("cli_distribution") != "bundled_wheel"
+            or result.get("explicit_homebrew_cli_binding") is not False
+            or not isinstance(result.get("bundled_cli"), str)
+            or result.get("bundled_cli") != result.get("verified_native_cli")):
+        errors.append("must identify the same bundled wheel CLI without a Homebrew override")
+    workflows = {
+        "vortex_incremental_results": rows,
+        "streamed_general_aggregate": [
+            {"team": "blue", "total": 1.0, "distinct_amounts": 1},
+            {"team": "red", "total": 10.0, "distinct_amounts": 2},
+        ],
+        "streamed_left_join": [
+            {"amount": 3, "customer": "Ada"}, {"amount": 5, "customer": None},
+            {"amount": 4, "customer": "Ada"},
+        ],
+        "streamed_analytic_window": [
+            {"sequence": 1, "team": "red", "previous_two_total": 3.0, "distinct_amounts": 1},
+            {"sequence": 2, "team": "blue", "previous_two_total": 1.0, "distinct_amounts": 1},
+            {"sequence": 3, "team": "red", "previous_two_total": 7.0, "distinct_amounts": 2},
+            {"sequence": 4, "team": "red", "previous_two_total": 7.0, "distinct_amounts": 2},
+        ],
+        "sparse_pivot": [
+            {"entity": 1, "pivot_a": 7.0, "pivot_b": None},
+            {"entity": 2, "pivot_a": None, "pivot_b": 5.0},
+        ],
+    }
+    incremental = result.get("incremental_complete_values")
+    if not isinstance(incremental, dict) or set(incremental) != set(workflows):
+        return errors + ["must contain all five complete incremental workflows"]
+    for name, values in workflows.items():
+        item = incremental[name]
+        if not isinstance(item, dict) or not same_json(item.get("rows"), values):
+            errors.append(f"{name} must contain the complete typed rows")
+        if not isinstance(item, dict):
+            continue
+        count = item.get("batches")
+        if type(count) is not int or not 0 < count <= len(values):
+            errors.append(f"{name} must record a valid acknowledged batch count")
+        for field in ("final_report_success", "owned_workspace_empty"):
+            if item.get(field) is not True:
+                errors.append(f"{name} {field} must be true")
+        if item.get("explicit_spill_policy") is not (name != "vortex_incremental_results"):
+            errors.append(f"{name} must record its approved spill policy")
+    return errors
+
+
 def bundled_registry_proof_blockers(
     proof: dict[str, Any], *, channel_id: str, package_version: str,
     runtime_source_commit: str | None,
@@ -25,6 +111,7 @@ def bundled_registry_proof_blockers(
 ) -> list[str]:
     prefix = f"{channel_id}: bundled CLI proof "
     errors: list[str] = []
+    expanded_workflows = package_version == "0.5.1"
 
     def require(condition: bool, message: str) -> None:
         if not condition:
@@ -101,7 +188,7 @@ def bundled_registry_proof_blockers(
 
         smoke_command = steps[3].get("command")
         approved_program = PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256.get(package_version)
-        require(isinstance(smoke_command, list) and len(smoke_command) == 4
+        require(isinstance(smoke_command, list) and len(smoke_command) == (5 if expanded_workflows else 4)
                 and smoke_command[1:3] == ["-I", "-c"]
                 and isinstance(smoke_command[3], str) and approved_program is not None
                 and hashlib.sha256(smoke_command[3].encode()).hexdigest() == approved_program,
@@ -113,23 +200,36 @@ def bundled_registry_proof_blockers(
             captured_result = json.loads(smoke_stdout) if isinstance(smoke_stdout, bytes) else None
         except (ValueError, UnicodeError):
             captured_result = None
-        require(isinstance(captured_result, dict) and captured_result == supplement.get("result"),
+        require(isinstance(captured_result, dict) and same_json(captured_result, supplement.get("result")),
                 "result must equal the captured smoke stdout")
+        if expanded_workflows:
+            cli_digest = captured_result.get("cli_sha256") if isinstance(captured_result, dict) else None
+            require(isinstance(cli_digest, str) and re.fullmatch(r"[0-9a-f]{64}", cli_digest) is not None
+                    and isinstance(smoke_command, list) and len(smoke_command) == 5
+                    and smoke_command[4] == cli_digest,
+                    "must bind the bundled CLI SHA256 argument to its captured result")
+            require(supplement.get("shared_smoke_sha256") == approved_program,
+                    "shared smoke digest must match the approved program")
 
     result = supplement.get("result")
     result = result if isinstance(result, dict) else {}
-    require(result.get("cli_version") == package_version, "CLI version must match the selected release")
+    require(result.get("version" if expanded_workflows else "cli_version") == package_version,
+            "CLI version must match the selected release")
     for field in ("fallback_attempted", "external_engine_invoked"):
         require(result.get(field) is False, f"result {field} must be false")
-    expected = [{"id": 2, "label": "βeta 雪", "amount": 15},
-                {"id": 3, "label": "gamma 🧵", "amount": 27}]
-    require(result.get("exact_results") == [expected, expected, expected],
+    expected = ([{"id": 2, "label": "東京", "amount": 15},
+                 {"id": 3, "label": "naïve", "amount": 27}] if expanded_workflows else
+                [{"id": 2, "label": "βeta 雪", "amount": 15},
+                 {"id": 3, "label": "gamma 🧵", "amount": 27}])
+    require(same_json(result.get("exact_results"), [expected, expected, expected]),
             "must contain the complete DataFrame and two SQL results")
+    if expanded_workflows:
+        errors.extend(prefix + error for error in expanded_workflow_blockers(result))
     require(result.get("unsupported_blocker") == "cg21.workflow.to_pandas.decoded_dataframe_unsupported",
             "must record the expected unsupported diagnostic")
     directory = supplement.get("proof_directory")
     package = result.get("package_path")
-    cli = result.get("resolved_cli_path")
+    cli = result.get("bundled_cli" if expanded_workflows else "resolved_cli_path")
     paths_valid = all(isinstance(value, str) and value.startswith("/")
                       and ".." not in PurePosixPath(value).parts for value in (directory, package, cli))
     if paths_valid:

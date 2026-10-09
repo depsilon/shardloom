@@ -7,12 +7,17 @@ Ordering, query run store and result writers. The default resident strategy and
 its deterministic resource denial remain available.
 
 Status: complete local runtime acceptance and independent packet inspection.
-Hosted integration remains pending. The [evidence index](evidence/native-join-pressure-2026-10-08.json),
+Hosted integration completed in
+[PR #1532](https://github.com/depsilon/shardloom/pull/1532) at `25906290`; the
+[hosted receipt](evidence/native-join-hosted-2026-10-08.json) records all 39 checks
+and the preserved accepted runtime. The [evidence index](evidence/native-join-pressure-2026-10-08.json),
 [portable packet](evidence/native-join-pressure-2026-10-08.json.xz) and
 [independent inspection](evidence/native-join-pressure-2026-10-08-inspection.json)
 bind the implementation, complete results and original failure history.
-This unit makes no performance or whole-process memory claim and does not
-publish a package or change the v0.4.0 release.
+This report preserves its original v0.4.0-era checkpoint and makes no performance
+or whole-process memory claim. Subsequent window/pivot completions, publication
+and still-open obligations follow the
+[remaining-work contract](../architecture/native-local-completion-scope-2026-10-07.md).
 
 The packet contains 44,936,164 compressed bytes with SHA-256
 `2e939bf93341ed72fec15ccb8b04ccfae119b76c794bf0b43b1da161483634f9`.

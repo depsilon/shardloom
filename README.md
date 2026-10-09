@@ -32,9 +32,9 @@ contract defines the supported operations, types, and resource limits.
   source adapters and Vortex preparation; native Vortex inputs stay native.
   Unsupported work must emit deterministic diagnostics with no hidden external-engine execution.
   Filters, projections, aggregates, sort/Top-K, and selected join workflows reuse the same native
-  families across front doors. Current source builds after v0.4.0 also admit
+  families across front doors. v0.5.1 also admits
   [scalar-value subqueries](docs/architecture/native-scalar-subqueries-2026-10-05.md)
-  in SQL and Python expressions; the published v0.4.0 packages predate this addition.
+  in SQL and Python expressions.
   General joins, set operations, windows, and broader subquery shapes still have
   [remaining native coverage gaps](docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
   See the [front-door contract](docs/architecture/v1-front-door-runtime-scope.md) and
@@ -272,7 +272,7 @@ python examples/local-python-benchmark-scenarios/timing_review.py --repo-root .
 ```
 
 The selected local/source/package v1 release track is proof-backed for package access only.
-GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for v0.4.0; that
+GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for v0.5.1; that
 does not authorize production, broad compatibility, or performance-superiority claims.
 
 Persisted preparation and subsequent queries use the same native engine:

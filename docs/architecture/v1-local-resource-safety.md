@@ -94,7 +94,11 @@ value under 16 MiB, resident execution at that grant denies, and a 512-MiB
 control passes. All controls release ownership and successful spill removes
 its runs. The [report](../benchmarks/native-pivot-pressure-2026-10-08.md) separates
 this native pressure proof from the public 1-GiB grant and records complete
-public/direct/adapter/Full43 evidence. Pivot hosted integration remains pending.
+public/direct/adapter/Full43 evidence. Hosted integration completed in
+[PR #1534](https://github.com/depsilon/shardloom/pull/1534) at `d7898cb9` after
+all 39 checks passed; the
+[hosted receipt](../benchmarks/evidence/native-pivot-hosted-2026-10-08.json)
+records source identity and actual production verification.
 
 Other unadmitted state spill, complete reader/codec/upstream scratch
 accounting and whole-process RSS bounds remain open. Other operators retain their own resource admission
