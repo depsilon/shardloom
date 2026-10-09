@@ -330,8 +330,9 @@ for the precise ownership and observation-order contract.
 ## Sparse pivot state
 
 Current source builds implement explicit native spill for relational `pivot` and
-`pivot_table` over file and resident-memory sources. Full local and hosted
-acceptance is pending. The default remains resident. Supply the existing `spill`
+`pivot_table` over file and resident-memory sources. Complete local acceptance
+passes in the [pivot acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md);
+hosted acceptance remains pending. The default remains resident. Supply the existing `spill`
 argument to collection, incremental results or an admitted writer to select the
 stored strategy. The direct prepared unary API remains resident, and dynamic
 one-shot batch input rejects before producer consumption.

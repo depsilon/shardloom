@@ -255,13 +255,17 @@ the ledger.
     and the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md).
     Existing owners are PERF-02/03/06/10/12 and CG-20/21; broader owners stay open.
   - V1 scope classification: `required_for_v1` for this declared local family.
-  - Current state: sparse latest-state runs and bounded exact lookups use the
-    public relational spill owner during dynamic binding. Seventy focused pivot
-    tests pass, including two complete 16-MiB pressure executions, constrained
-    resident denial, ample controls, fault cleanup and dead-owner restart.
-    Source-order updates, exact first representatives, floating prefixes,
-    decimal finalization and margin/output error order are preserved. Full
-    workspace/public/adapter/Full43 acceptance and hosted integration remain open.
+  - Current state: runtime `5665eee5` has complete local engine acceptance and
+    independent packet inspection. The [report](../benchmarks/native-pivot-pressure-2026-10-08.md)
+    binds all 15 source gates, 32,497 public checks and 18,595,284 complete rows,
+    including 3,626 pressure checks and 133 incremental proofs, plus streaming,
+    direct, adapter and all 129 Full43 comparisons. Two 16-MiB spill executions
+    return all 6,145 wide-key results; resident denial, a 512-MiB ample control,
+    exact online semantics, faults and cleanup/restart pass. The public-family
+    union retains the original summary-controller failure and its exact shared
+    oracle repair; engine execution and expected values are unchanged. Nine
+    support checks, seven native examples and desktop/mobile/search review pass;
+    hosted integration remains open.
   - ShardLoom technique review: PulseWeave admits input, sparse state, native
     runs, lookup/cache blocks and output overlap under one grant. Exact run key
     bounds avoid impossible lookups; compact selected payloads and bounded
@@ -274,14 +278,14 @@ the ledger.
       compaction under the existing quota, generation and cleanup owner.
     - [x] Complete schema, margins and late bounded output while retaining only
       bounded index metadata and preserving current observation order.
-    - [ ] Prove all admitted aggregates/types/nulls/fill/margins/limits and
+    - [x] Prove all admitted aggregates/types/nulls/fill/margins/limits and
       before/after composition through existing result and writer consumers.
-    - [ ] Prove larger-than-grant completion, resident denial and ample controls,
+    - [x] Prove larger-than-grant completion, resident denial and ample controls,
       plus resource/cancellation/corruption/consumer/source failures, protected
       destinations and owned cleanup/restart.
-    - [ ] Freeze source/binary/oracles and complete focused, workspace, public,
+    - [x] Freeze source/binary/oracles and complete focused, workspace, public,
       direct/adapter and Full43 acceptance with independent packet inspection.
-    - [ ] Complete adversarial source review and affected support alignment,
+    - [x] Complete adversarial source review and affected support alignment,
       including executable examples and rendered search/mobile verification.
     - [ ] Complete hosted integration and exact ledger closeout.
   - Acceptance/verification: the design's complete-output and failure matrix,
@@ -296,6 +300,44 @@ the ledger.
     ceiling or unmeasured speed claim. Dynamic batch input still rejects before
     producer demand; its complete-plan admission is a separate streaming contract.
 
+- [ ] `RELEASE-050` — publish the approved substantial local-engine milestone
+  after fresh end-to-end UAT, then resume the remaining breadth/optimization work.
+  - V1 scope classification: `required_for_v1` for the approved release workflow.
+  - Source: the maintainer's October 9 instruction, the completed native resource,
+    finite streaming and aggregate/join/window/pivot units, and the normal
+    [publication handoff](../release/maintainer-publication-handoff.md).
+    Existing release/PERF-12 and CG-18/20/21 owners remain; no competitive gate
+    is duplicated or closed by package publication.
+  - Current state: selected public channels still serve v0.4.0. The maintainer
+    explicitly authorizes the v0.5.0 train after pivot cleanup/PR/docs and a full
+    fresh UAT run. No version source or new channel proof has changed yet.
+  - Execution checklist:
+    - [x] Retire verified disposable build/UAT payloads under the storage policy,
+      preserving summaries, original failures, fixtures and frozen executables.
+    - [ ] Close the current pivot PR, complete affected documentation and retain
+      exact local/hosted source and review evidence.
+    - [ ] Before the version bump, freshly ingest the full retained Parquet
+      dataset to a new Vortex artifact, run all 129 complete Full43 comparisons
+      on that artifact, and rerun the 18-cohort modular input/output matrix.
+      Bind the unchanged engine, exact two-file harness repair, complete public
+      pivot/streaming acceptance, storage/process guards and independent readback.
+    - [ ] Update v0.5.0 version sources, release notes, supported/unsupported
+      guidance and package artifacts, with an exact source-delta review and
+      the required source/package/hosted gates.
+    - [ ] Publish and independently verify GitHub release assets, TestPyPI,
+      PyPI and Homebrew in that order; update the canonical channel contract
+      only from actual install/smoke/checksum/SBOM/provenance evidence.
+    - [ ] Record immutable publication proof and resume every still-open area
+      and investigation in the remaining-scope contract.
+  - ShardLoom technique review: retain dynamic shape selection, capillary work
+    avoidance and PulseWeave admission from the accepted runtime. Preserve
+    metadata-first inspection, timing-surface boundaries and evidence-tier limits.
+  - Claim boundary: retain Vortex-native execution, exact values,
+    finite admission and no fallback. Fresh ingest/query/workflow clocks remain
+    distinct; no paired speedup or production/platform scope is inferred from
+    build success. Future package channels remain blocked. This release does
+    not close broader allocations, adapters, streaming, recovery or CG-1–CG-23.
+
 `NATIVE-WINDOW-PRESSURE` is complete in
 [PR #1533](https://github.com/depsilon/shardloom/pull/1533), merged at `a88ec5c9`
 after all 39 hosted checks passed. The
@@ -305,8 +347,9 @@ actual preview/production search and guide verification, and the merged report
 link. Primary source review found no blocking findings; hosted automated review
 was unavailable because account review quota was exhausted, with no automated
 pass or independent review inferred. The [completed ledger](phased-execution-completed-ledger.md)
-retains the finite pressure, streaming and cleanup/restart evidence. Pivot pressure
-and the broader six-area/eight-investigation completion contract remain open.
+retains the finite pressure, streaming and cleanup/restart evidence. Pivot local
+acceptance is recorded above; its hosted closeout and the broader six-area/
+eight-investigation completion contract remain open.
 
 `NATIVE-JOIN-PRESSURE` is complete in
 [PR #1532](https://github.com/depsilon/shardloom/pull/1532), merged at `25906290`
@@ -315,8 +358,8 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, all 981 accepted runtime assets
 unchanged and actual preview/production search, guide and report-link checks.
 The [completed ledger](phased-execution-completed-ledger.md) preserves its finite
-pressure, streaming and cleanup/restart scope. Pivot pressure and the broader
-six-area/eight-investigation completion contract remain open.
+pressure, streaming and cleanup/restart scope. Pivot hosted closeout and the
+broader six-area/eight-investigation completion contract remain open.
 
 `NATIVE-GENERAL-AGGREGATE-PRESSURE` and `NATIVE-STREAMED-ORDERING` are complete in
 [PR #1531](https://github.com/depsilon/shardloom/pull/1531), merged at `9529bd78`
@@ -325,16 +368,17 @@ after all 39 hosted checks passed. The
 records identical accepted/merged trees, preserved executable behavior, actual
 preview/production search, matching guide content and the merged acceptance link.
 The [completed ledger](phased-execution-completed-ledger.md) retains the finite
-scope and evidence. Pivot pressure and the broader local completion
+scope and evidence. Pivot hosted closeout and the broader local completion
 contract remain open; published v0.4.0 is unchanged.
 
 The maintainer reaffirmed the full remaining body of work on October 7. The
 [remaining-scope contract](native-local-completion-scope-2026-10-07.md) maps all
 six areas and eight conditional investigations to existing owners without
 duplicating the queue. General aggregation/join/window pressure has finite acceptance;
-pivot pressure, remaining allocation coverage, broader streaming/adapters,
-and a defined local support/release promise remain required work. The completed
-families do not close pivot pressure or broader recovery. Keep each family visible
+pivot local pressure acceptance now passes while hosted closeout, remaining
+allocation coverage, broader streaming/adapters and a defined local support/
+release promise remain required work. The completed families do not close
+broader recovery. Keep each family visible
 until it has complete-workflow acceptance or an explicit supported resident-only
 bound with deterministic denial.
 
@@ -1072,11 +1116,15 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     packet inspection and hosted integration in PR #1532. The
     [window pressure unit](../benchmarks/native-window-pressure-2026-10-08.md)
     likewise completes native constrained, streamed, public and regression
-    acceptance plus hosted integration in PR #1533. Pivot pressure, broader worker
-    transfer and production resource/recovery acceptance retain their obligations.
+    acceptance plus hosted integration in PR #1533. The
+    [pivot pressure unit](../benchmarks/native-pivot-pressure-2026-10-08.md) passes
+    complete local acceptance and independent packet inspection; its hosted
+    closeout, broader worker transfer and production resource/recovery acceptance
+    retain their obligations.
   - Execution checklist:
     - [ ] Extend quota-accounted native runs and exact pressure transitions to
-      the remaining declared state families, including pivot pressure.
+      the remaining unadmitted state families; retain the accepted finite pivot
+      transition while completing its hosted closeout.
     - [ ] Complete cancellation, crash recovery, quota exhaustion, corruption and
       owned-cleanup acceptance across each admitted spill family.
     - [ ] Prove exact supported large-state completion under the admitted workload
@@ -2903,15 +2951,25 @@ recovery, particularly general aggregation/join work, then broader streaming
 adapters and operational acceptance of the supported local envelope. The existing
 ordering connection is a bounded enabling unit, not the whole stateful milestone.
 General aggregation, joins and analytic windows now have complete local and
-hosted acceptance in PRs #1531, #1532 and #1533. Continue with
-`NATIVE-PIVOT-PRESSURE` as the next coherent family; dynamic one-shot input remains
-a separate complete-plan admission contract. The six areas and all eight
-investigations retain their separate owners.
+hosted acceptance in PRs #1531, #1532 and #1533. `NATIVE-PIVOT-PRESSURE` has
+subsequently passed complete local acceptance, independent packet inspection
+and support alignment; finish its hosted closeout. Dynamic one-shot input remains a separate
+complete-plan admission contract. The six areas and all eight investigations
+retain their separate owners.
 Prepare constraint-guided joins independently; gate nested identities on
 repetition and merge scheduling on real spill-run evidence.
 Preserve whole-dependency reconstruction cost, exact bag/null/order semantics,
 stable merge adjacency, native ownership and all unexplained negative controls.
 The five tracks remain attached to existing PERF owners and CG-1 through CG-23.
+
+October 9 sequencing direction supersedes the earlier discretionary release
+timing: complete safe cleanup, the current pivot PR and documentation, then run
+full fresh ingest/query/modular UAT **before** bumping to v0.5.0. Complete the
+approved four-channel release train under `RELEASE-050` before returning to the
+remaining implementation. Cleanup has recovered approximately 68.5 GB while
+preserving evidence and reproducible inputs. The release does not replace or
+complete the six areas or eight investigations; resume their existing owners
+after publication verification.
 
 The subsequent candidate set's exact decimal screen is dropped below its frozen
 gate, and conservative membership is dropped for high-match control regressions.

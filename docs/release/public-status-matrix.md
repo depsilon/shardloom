@@ -102,18 +102,37 @@ analytic functions, frames and exclusions. Its
 [complete local acceptance](../benchmarks/native-window-pressure-2026-10-08.md)
 passes file-backed and streamed 16-MiB native pressure controls, 442 streaming
 cases, 28,871 public checks including 1,498 added spill-frame cases, and all 129
-Full43 results. Independent packet inspection passes; hosted window integration
-remains pending.
+Full43 results. Independent packet inspection passes; hosted integration
+completed in [PR #1533](https://github.com/depsilon/shardloom/pull/1533) after all
+39 checks passed, with unchanged runtime assets and actual preview/production
+verification in the [hosted receipt](../benchmarks/evidence/native-window-hosted-2026-10-08.json).
+The subsequent [pivot pressure unit](../benchmarks/native-pivot-pressure-2026-10-08.md)
+has complete local engine acceptance and independent packet inspection for
+file/resident-memory relational pivots. Two native 16-MiB controls return all
+6,145 wide-key results; resident denial and a 512-MiB ample control pass.
+The public portfolio now contains 32,497 checks and 18,595,284 complete row
+comparisons, including 3,626 added pressure checks and 133 incremental proofs;
+all 129 Full43 comparisons pass. The original summary-controller failure and
+exact two-file harness repair remain explicit in the evidence. Pivot support
+alignment passes nine checks, seven native examples and rendered desktop/mobile
+search verification; hosted integration remains pending. Direct prepared unary pivots
+remain resident, and dynamic one-shot pivot input rejects before demand.
 Resident input remains the default; no RSS bound, public maturity label or
 published v0.4.0 contents change follows from these additions.
 
 The remaining maturity requirements are an explicit supported local workload/platform envelope,
 accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide
 pressure, cancellation, fault and recovery evidence. A query memory grant is not a process-RSS
-ceiling; pivot pressure and broader recovery remain incomplete. The
+ceiling; broader allocation, unadmitted state pressure and recovery remain
+incomplete. The
 [local-engine exit criteria](production-certification-gate.md#local-engine-preview-exit-criteria)
 define the required evidence and approval. Missing cloud integrations or complete SQL parity do
 not, by themselves, block a stable release for a narrower declared local scope.
+
+The maintainer approved a v0.5.0 train on October 9 after current pivot PR/docs
+closeout and full fresh UAT **before** the version bump. This is authorization
+and sequencing, not new publication proof; selected public channels remain
+v0.4.0 until the normal four-channel verification completes.
 
 ## Claim Boundary
 

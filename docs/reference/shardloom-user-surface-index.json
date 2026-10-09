@@ -304,8 +304,9 @@
   },
   "native_relational_pivot_spill": {
     "reference": "docs/architecture/native-pivot-pressure-2026-10-08.md",
-    "availability": "current_source_implementation_acceptance_pending",
-    "local_acceptance_complete": false,
+    "availability": "current_source_local_acceptance_hosted_pending",
+    "local_acceptance_complete": true,
+    "local_acceptance_report": "docs/benchmarks/native-pivot-pressure-2026-10-08.md",
     "hosted_acceptance_complete": false,
     "required_features": ["vortex-local-primitives", "vortex-write"],
     "required_platform": "unix",

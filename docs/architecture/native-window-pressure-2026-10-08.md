@@ -250,7 +250,10 @@ saved envelope and 517,499 streaming-pressure rows. A separate packet inspector
 passes its 165-case contract and full decompression/coverage checks. File-backed
 and streamed native tests each complete 24,013 wide rows under 16 MiB, while
 resident controls at that grant deny and ample controls pass. The public grant
-is separately 1 GiB. Hosted integration remains required.
+is separately 1 GiB. Hosted integration subsequently completed in
+[PR #1533](https://github.com/depsilon/shardloom/pull/1533) at `a88ec5c9` after all
+39 checks passed; the [hosted receipt](../benchmarks/evidence/native-window-hosted-2026-10-08.json)
+binds the unchanged accepted runtime and actual preview/production verification.
 
 The rejected alternatives are retaining the full partition behind a disk-backed
 input, rescanning each complete frame for every output, maintaining a new mutable

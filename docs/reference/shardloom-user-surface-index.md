@@ -154,8 +154,9 @@ output, workspace quotas, cancellation, and recovery. The same opt-in policy now
 also admits the documented general relational aggregate, join, analytic-window
 and file/resident-memory pivot strategies. The
 [pivot pressure contract](../architecture/native-pivot-pressure-2026-10-08.md)
-preserves the existing scalar/typed/nested semantics; full local and hosted
-acceptance is pending. Set state retains a separate pressure contract.
+preserves the existing scalar/typed/nested semantics; complete local acceptance
+passes in the [acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md),
+while hosted acceptance remains pending. Set state retains a separate pressure contract.
 
 ## Python Reads
 
@@ -328,8 +329,9 @@ objects. Common admitted methods include:
   Relational file/resident-memory pivots have a separate
   [spill contract](../architecture/native-pivot-pressure-2026-10-08.md), with
   shared typed transitions, bounded exact lookups, incremental result delivery
-  and existing representable writers. Local and hosted acceptance of that new
-  strategy is pending. Direct prepared unary pivots remain resident; dynamic
+  and existing representable writers. Complete local acceptance passes in the
+  [acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md); hosted
+  acceptance remains pending. Direct prepared unary pivots remain resident; dynamic
   one-shot batch sources reject before producer demand. Spill does not expand
   aggregate, type, margin or 128-field admission.
 - Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window

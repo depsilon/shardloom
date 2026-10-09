@@ -1,12 +1,16 @@
 # Native sparse-pivot pressure
 
-Status: implemented, with focused native verification complete and full acceptance
-pending under `NATIVE-PIVOT-PRESSURE`, PERF-02/03/06/10/12
+Status: complete local engine acceptance, independent packet inspection and
+support alignment; hosted integration pending under `NATIVE-PIVOT-PRESSURE`, PERF-02/03/06/10/12
 and CG-20/21. The [phase plan](phased-execution-plan.md) owns its checklist.
 This is the next coherent resource family after window integration in
 [PR #1533](https://github.com/depsilon/shardloom/pull/1533), merged at `a88ec5c9`.
 It implements the maintainer's [remaining-scope contract](native-local-completion-scope-2026-10-07.md)
 under RFC 0044; it does not close that whole contract or introduce a release.
+The [acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md) binds
+runtime `5665eee5`, exact pressure controls, complete public results and retained
+failure history. The separately authorized `RELEASE-050` train follows current
+PR/documentation closeout and full fresh UAT before any version bump.
 
 ## Decision and scope
 
@@ -188,6 +192,34 @@ Freeze executable, sources and independent expectations; inspect the portable
 evidence, review the source, align affected support surfaces and finish hosted
 checks before ledger closeout. Broader allocation coverage, streaming/adapters,
 platform/release acceptance and all eight conditional investigations stay open.
+
+The frozen local acceptance now passes all 15 source gates, 32,497 public checks
+covering 18,595,284 complete row comparisons, 202 direct cases, 442 streaming
+checks, 48 batch and 19 format checks, 145 admitted-semantic stages, nine golden
+stages and all 129 Full43 comparisons. The added explicit-spill cohort contributes
+3,626 checks and 1,713,893 rows, including 133 complete incremental transactions
+covering 197,148 rows. Existing window cases and their independent expectations
+are retained. Independent readback reopens 64,741 public envelopes and complete
+values; a separate stream inspector verifies the portable packet and its
+190-case positive/negative contract.
+
+One file-backed pressure fixture supplies 24,580 rows with 6,145 distinct
+768-byte keys and repeated floating updates. Its 19,342,360-byte input exceeds
+the 16-MiB grant. Two explicit-spill executions each check every output value
+and canonical key order, peak at 15,657,857 tracked bytes, and remove their owned
+runs. The resident strategy denies under the same grant; a 512-MiB control
+completes. Each spill execution records 775 runs, 387 merges, 37,896 lookup
+blocks and a 37,324,372-byte peak disk footprint. These are finite correctness
+and resource controls, not a process-RSS ceiling or performance comparison.
+
+All ten public families completed successfully. Their initial aggregate summary
+rejected two identical shared oracle entries; an isolated, tested combiner repair
+reconciles the immutable family results after rechecking every source generation
+and hash. The original failure and all native receipts remain preserved. The
+final verifier also retains its initial summary-reader, environment and empty
+batch-schema assertion failures. Empty complete results carry one acknowledged
+zero-row batch with the exact typed schema. No native result, expected value or
+engine source changed for these readback corrections.
 
 ## Alternatives and risks
 

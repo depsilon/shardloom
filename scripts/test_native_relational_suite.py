@@ -83,7 +83,35 @@ class NativeRelationalSuiteTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "source changed"):
             combine_summaries(self.cohorts)
 
-    def test_duplicate_source_or_envelope_paths_are_rejected(self):
+    def test_shared_sources_require_identical_frozen_declarations(self):
+        source = json.loads(Path(self.cohorts[0]["path"]).read_text())["source_files"][0]
+        self.mutate(1, lambda summary: summary["source_files"].append(dict(source)))
+        report = combine_summaries(self.cohorts, dict.fromkeys(FAMILIES, 2))
+        self.assertEqual(len(report["source_files"]), len(FAMILIES))
+        self.assertEqual(report["source_files"][0], source)
+        self.assertEqual(report["case_count"], len(FAMILIES))
+        self.assertEqual(report["cohort_summaries"], self.cohorts)
+        self.mutate(1, lambda summary: summary["source_files"][-1].update(extra="changed"))
+        with self.assertRaisesRegex(ValueError, "shared source provenance differs"):
+            combine_summaries(self.cohorts)
+
+    def test_shared_source_hash_and_generation_are_rechecked(self):
+        source = json.loads(Path(self.cohorts[0]["path"]).read_text())["source_files"][0]
+        self.mutate(1, lambda summary: summary["source_files"].append(dict(source)))
+        self.mutate(1, lambda summary: summary["source_files"][-1].update(sha256="changed"))
+        with self.assertRaisesRegex(ValueError, "source changed"):
+            combine_summaries(self.cohorts)
+        self.mutate(1, lambda summary: summary["source_files"][-1].update(
+            sha256=source["sha256"], identity=[0] * 5))
+        with self.assertRaisesRegex(ValueError, "source changed"):
+            combine_summaries(self.cohorts)
+
+    def test_duplicate_source_within_one_family_is_rejected(self):
+        self.mutate(0, lambda summary: summary["source_files"].append(dict(summary["source_files"][0])))
+        with self.assertRaisesRegex(ValueError, "family contains duplicate source_files"):
+            combine_summaries(self.cohorts)
+
+    def test_duplicate_envelope_paths_are_rejected(self):
         self.mutate(1, lambda summary: summary["envelope_files"][0].update(
             path=str(self.root / f"{FAMILIES[0]}.envelope")))
         with self.assertRaisesRegex(ValueError, "duplicate envelope"):

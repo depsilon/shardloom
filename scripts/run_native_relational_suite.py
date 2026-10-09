@@ -49,6 +49,7 @@ def combine_summaries(cohorts: list[dict], expected: dict[str, int] | None = Non
         raise ValueError("suite requires each declared family exactly once, in order")
     common = None
     merged = {key: [] for key in ("cases", "source_files", "envelope_files", "envelope_archives")}
+    sources = {}
     for item in cohorts:
         path = Path(item["path"])
         if file_sha256(path) != item["sha256"]:
@@ -65,13 +66,23 @@ def combine_summaries(cohorts: list[dict], expected: dict[str, int] | None = Non
             common = fields
         elif common != fields:
             raise ValueError(f"family execution provenance differs: {item['family']}")
-        for key in merged:
+        for key in ("cases", "envelope_files", "envelope_archives"):
             merged[key].extend(summary[key])
+        family_sources = set()
         for source in summary["source_files"]:
+            if source["path"] in family_sources:
+                raise ValueError("family contains duplicate source_files paths")
+            family_sources.add(source["path"])
             source_path = Path(source["path"])
             if (source_identity(source_path) != source["identity"]
                     or file_sha256(source_path) != source["sha256"]):
                 raise ValueError(f"family source changed: {source_path}")
+            # Distinct families may share a frozen oracle or input. Retain one
+            # inventory entry only when every declaration is exactly identical.
+            previous = sources.setdefault(source["path"], source)
+            if previous != source:
+                raise ValueError(f"shared source provenance differs: {source_path}")
+    merged["source_files"] = list(sources.values())
     cases = {}
     for case in merged["cases"]:
         if (case["name"] in cases or case["passed"] is not True

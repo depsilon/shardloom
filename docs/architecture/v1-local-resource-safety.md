@@ -82,10 +82,21 @@ acceptance for existing analytic functions/frames and the same single-use
 input. File-backed and streamed controls each complete 24,013 wide rows under
 16 MiB; resident controls at that grant deny and ample controls pass. Its
 [acceptance report](../benchmarks/native-window-pressure-2026-10-08.md) separates
-those native pressure grants from the public 1-GiB minimum and records pending
-hosted integration.
+those native pressure grants from the public 1-GiB minimum. Hosted integration
+completed in [PR #1533](https://github.com/depsilon/shardloom/pull/1533) after all
+39 checks passed; the [receipt](../benchmarks/evidence/native-window-hosted-2026-10-08.json)
+records unchanged runtime assets and actual production verification.
 
-Pivot and other unadmitted state spill, complete reader/codec/upstream scratch
+The [pivot continuation](native-pivot-pressure-2026-10-08.md) has complete local
+engine acceptance and independent packet inspection. One file-backed fixture
+contains 24,580 rows and 6,145 wide keys; two spill executions complete every
+value under 16 MiB, resident execution at that grant denies, and a 512-MiB
+control passes. All controls release ownership and successful spill removes
+its runs. The [report](../benchmarks/native-pivot-pressure-2026-10-08.md) separates
+this native pressure proof from the public 1-GiB grant and records complete
+public/direct/adapter/Full43 evidence. Pivot hosted integration remains pending.
+
+Other unadmitted state spill, complete reader/codec/upstream scratch
 accounting and whole-process RSS bounds remain open. Other operators retain their own resource admission
 and deterministic denials. A supported reader, large input or successful ingest does not by
 itself establish that every query can complete under the same resource limit.
@@ -172,8 +183,9 @@ The v1 boundary uses ShardLoom-native resource controls where they are already m
 
 The following need separate implementation or acceptance before broader support is promised:
 
-- pivot and other unadmitted operator spill transitions; the aggregate, join and
-  analytic-window contracts above retain their finite workload and type scope.
+- other unadmitted operator spill transitions and pivot hosted closeout; the
+  aggregate, join, analytic-window and pivot contracts above retain their finite
+  workload and type scope. Dynamic one-shot pivot input remains separately denied.
 - reader/codec/upstream scratch accounting beyond the finite accepted provider
   buffers, Zstd decoder/prepared-dictionary workspaces and Chunked value/validity/
   finalization buffers, including child decoder scratch, structural metadata,
