@@ -1605,7 +1605,7 @@ mod tests {
 
     #[test]
     fn registry_matches_cli_dispatch_table() {
-        let source = include_str!("main.rs");
+        let source = include_str!("lib.rs");
         let (_, after_match) = source
             .split_once("match args.next().as_deref() {")
             .expect("run dispatch match");

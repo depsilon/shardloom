@@ -95,7 +95,7 @@ impl PreparedVortexRelational {
         format: VortexLocalPrimitiveRowExportFormat,
         overwrite: bool,
         cancellation: &CancellationToken,
-        input: Option<&mut super::batch_input::Provider<'_>>,
+        input: Option<super::batch_input::Provider<'_>>,
     ) -> Result<WrittenVortexRelational> {
         self.validate_batch_provider(input.is_some())?;
         let mut written =

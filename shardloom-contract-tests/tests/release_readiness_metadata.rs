@@ -1862,7 +1862,7 @@ fn gar_0041_a_per_claim_evidence_attachment_matrix_fails_closed() {
         );
     }
 
-    let main = read_repo_file("shardloom-cli/src/main.rs");
+    let main = read_repo_file("shardloom-cli/src/lib.rs");
     assert!(main.contains("release_plan_fields_expose_per_claim_evidence_attachment_matrix"));
 
     let script = read_repo_file("scripts/check_release_readiness.py");
@@ -5773,7 +5773,7 @@ fn gar_0001b_a_engine_replacement_claim_inventory_blocks_displacement_language()
         );
     }
 
-    let cli_tests = read_repo_file("shardloom-cli/src/main.rs");
+    let cli_tests = read_repo_file("shardloom-cli/src/lib.rs");
     assert!(cli_tests.contains(
         "engine_replacement_claim_inventory_row_spark_displacement_claim_claim_gate_status"
     ));

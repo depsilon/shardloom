@@ -117,7 +117,7 @@ fn native_dynamic_pivot_repeated_calls_do_not_retain_a_previous_empty_or_nonempt
     let fixture = fixture();
     let source = fixture.scan();
     let calls = Cell::new(0);
-    let observed = Rc::new(RefCell::new(Vec::new()));
+    let observed = Arc::new(Mutex::new(Vec::new()));
     let columns = observed.clone();
     let prepared = prepare_relational_with_dynamic_schema(
         &[uri(&fixture)],
@@ -132,7 +132,7 @@ fn native_dynamic_pivot_repeated_calls_do_not_retain_a_previous_empty_or_nonempt
                 count,
             }));
             let (result, fields) = schemas.resolve_output(&pivot(input))?;
-            columns.borrow_mut().push(fields.clone());
+            columns.lock().unwrap().push(fields.clone());
             Ok(project(result, &fields))
         },
     )
@@ -150,7 +150,7 @@ fn native_dynamic_pivot_repeated_calls_do_not_retain_a_previous_empty_or_nonempt
         assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     }
     assert_eq!(
-        *observed.borrow(),
+        *observed.lock().unwrap(),
         vec![
             vec!["entity"],
             vec!["entity", "pivot_a", "pivot_b"],
@@ -322,7 +322,7 @@ fn native_dynamic_pivot_correlated_state_uses_each_parameter_once_and_releases_i
             })
             .collect(),
     })));
-    let observed = Rc::new(RefCell::new(Vec::new()));
+    let observed = Arc::new(Mutex::new(Vec::new()));
     let domains = observed.clone();
     let prepared = prepare_relational_with_dynamic_schema(
         &[uri(&fixture)],
@@ -333,7 +333,7 @@ fn native_dynamic_pivot_correlated_state_uses_each_parameter_once_and_releases_i
             let domains = domains.clone();
             let relation = schemas.defer_subquery(65_536, move |schemas| {
                 let (result, columns) = schemas.resolve_output(&inner)?;
-                domains.borrow_mut().push(columns);
+                domains.lock().unwrap().push(columns);
                 Ok(project(result, &["entity".into()]))
             })?;
             Ok(VortexRelationalPlan::CorrelatedSubquery(Box::new(
@@ -383,7 +383,7 @@ fn native_dynamic_pivot_correlated_state_uses_each_parameter_once_and_releases_i
         assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     }
     assert_eq!(
-        *observed.borrow(),
+        *observed.lock().unwrap(),
         [
             vec!["entity", "pivot_a", "pivot_b"],
             vec!["entity", "pivot_a", "pivot_b"],

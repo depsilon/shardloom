@@ -80,13 +80,13 @@ use crate::universal_format_io::{
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "ingest_arrow_ownership.rs"]
-mod arrow_ownership;
+pub(crate) mod arrow_ownership;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "ingest_bounded_layout.rs"]
 pub(crate) mod bounded_ingest_layout;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "vortex_ingest_nested.rs"]
-mod nested;
+pub(crate) mod nested;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "vortex_ingest_column_layout.rs"]

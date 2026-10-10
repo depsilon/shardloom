@@ -71,6 +71,32 @@ pub(crate) fn prepare_with_inputs(
     raw: &str,
     policy: VortexLocalPrimitiveExecutionPolicy,
     inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
+    resolve_source: impl FnMut(
+        &ParsedRelationLeaf,
+        Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    ) -> NativeResult<Vec<DatasetUri>>,
+) -> NativeResult<PreparedVortexRelational> {
+    prepare_with_owner(raw, policy, None, inputs, resolve_source)
+}
+
+pub(crate) fn prepare_in_session(
+    raw: &str,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
+    resolve_source: impl FnMut(
+        &ParsedRelationLeaf,
+        Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    ) -> NativeResult<Vec<DatasetUri>>,
+) -> NativeResult<PreparedVortexRelational> {
+    prepare_with_owner(raw, policy, Some(session), inputs, resolve_source)
+}
+
+fn prepare_with_owner(
+    raw: &str,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: Option<&shardloom_vortex::resident_session::ResidentVortexSession>,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
     mut resolve_source: impl FnMut(
         &ParsedRelationLeaf,
         Option<&shardloom_exec::live_memory::LiveMemoryPool>,
@@ -83,9 +109,9 @@ pub(crate) fn prepare_with_inputs(
                 "dynamic native SQL does not admit a trailing OFFSET",
             ));
         }
-        return dynamic::prepare(parsed, policy, inputs, &mut resolve_source);
+        return dynamic::prepare(parsed, policy, session, inputs, &mut resolve_source);
     }
-    prepare_relational_with_schema(policy, |schemas| {
+    let lower = |schemas: &mut VortexRelationalPreparation<'_>| {
         register_sql_memory_inputs(&parsed, schemas)?;
         inputs(schemas)?;
         let mut lowerer = Lowerer {
@@ -98,7 +124,13 @@ pub(crate) fn prepare_with_inputs(
         let mut query = lowerer.query(&parsed)?.offset(offset)?;
         lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
         Ok(query.plan)
-    })
+    };
+    match session {
+        Some(session) => shardloom_vortex::local_primitives::prepared_relational::prepare_relational_with_schema_in_session(
+            policy, session, lower,
+        ),
+        None => prepare_relational_with_schema(policy, lower),
+    }
 }
 
 /// Shape discovery is syntax-only. File/type/resource admission happens at prepare.

@@ -167,7 +167,7 @@ pub(super) fn defaults(
 }
 
 /// A typed empty row record keeps the same width policy as nonempty delivery.
-pub(super) fn empty_record(
+pub(crate) fn empty_record(
     dtype: &DType,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {

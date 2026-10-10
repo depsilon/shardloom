@@ -107,7 +107,7 @@ impl NativeExecutionContext<'_> {
         match &self.gate {
             Gate::Exclusive(guard, _) => {
                 let () = &**guard;
-                self.owner.parallelism
+                self.owner.cpu_limit()
             }
             Gate::Serving(permit) => permit.lanes,
         }

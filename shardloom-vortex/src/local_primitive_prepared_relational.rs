@@ -51,7 +51,10 @@ pub(super) use bind::{
 };
 #[path = "local_primitive_relational_dynamic.rs"]
 mod dynamic;
-pub use dynamic::{prepare_relational_with_dynamic_inputs, prepare_relational_with_dynamic_schema};
+pub use dynamic::{
+    prepare_relational_with_dynamic_inputs, prepare_relational_with_dynamic_inputs_in_session,
+    prepare_relational_with_dynamic_schema,
+};
 #[path = "local_primitive_relational_correlated.rs"]
 mod correlated;
 #[path = "local_primitive_relational_report.rs"]
@@ -65,6 +68,11 @@ mod transform;
 mod writer;
 #[cfg(feature = "vortex-write")]
 pub use writer::WrittenVortexRelational;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "local_primitive_relational_arrow.rs"]
+mod arrow;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub use arrow::ExecutedVortexArrowRelational;
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "local_primitive_relational_tests.rs"]
 mod tests;
@@ -171,7 +179,8 @@ pub struct PreparedVortexRelational {
     _preparation_metadata: Option<MemoryLease>,
 }
 
-type DynamicLowerer = dyn Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>;
+type DynamicLowerer =
+    dyn Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan> + Send;
 
 enum PreparedRoot {
     Bound(Box<Node>),
@@ -427,6 +436,20 @@ pub fn prepare_relational_with_schema(
     prepare_relational_with_owner(policy, session, None, lower)
 }
 
+/// Lower a frontend inside an existing session's allocation. Input conversion,
+/// previously retained results and this plan compete for the same memory credits.
+/// No additional runtime or resource grant is created.
+/// # Errors
+/// Rejects inconsistent resource policy, a session exceeding the requested grant,
+/// frontend errors, source changes and native preparation failures.
+pub fn prepare_relational_with_schema_in_session(
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    lower: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>,
+) -> Result<PreparedVortexRelational> {
+    prepare_relational_with_owner(policy, session.clone(), None, lower)
+}
+
 /// Lower against an already admitted source and retain its generation and grant.
 /// # Errors
 /// Rejects source/request/resource mismatch and all ordinary relational bind errors.
@@ -448,6 +471,7 @@ fn prepare_relational_with_owner(
     source: Option<(shardloom_core::DatasetUri, PreparedVortexSource)>,
     lower: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>,
 ) -> Result<PreparedVortexRelational> {
+    validate_session_policy(policy, &session)?;
     let mut preparation = VortexRelationalPreparation {
         binding: bind::Binder::new(&session)?,
     };
@@ -492,13 +516,7 @@ pub fn prepare_relational_in_session(
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexRelational> {
-    if policy.max_parallelism == 0
-        || policy.max_parallelism != policy.resource_envelope.max_parallelism
-        || session.parallelism() > policy.max_parallelism
-        || session.memory().snapshot().limit_bytes > policy.resource_envelope.memory_budget_bytes
-    {
-        return Err(failed("session exceeds the requested resource grant"));
-    }
+    validate_session_policy(policy, session)?;
     let mut binding = bind::Binder::new(session)?;
     let root = binding.bind(plan, 0)?;
     let bind::BoundSources {
@@ -526,6 +544,24 @@ pub fn prepare_relational_in_session(
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         _preparation_metadata: None,
     })
+}
+
+/// Check a caller-owned session before an adapter inspects or prepares inputs.
+/// This does not access sources, allocate another grant or execute a plan.
+/// # Errors
+/// Rejects inconsistent policy or a session exceeding the requested allocation.
+pub fn validate_session_policy(
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+) -> Result<()> {
+    if policy.max_parallelism == 0
+        || policy.max_parallelism != policy.resource_envelope.max_parallelism
+        || session.parallelism() > policy.max_parallelism
+        || session.memory().snapshot().limit_bytes > policy.resource_envelope.memory_budget_bytes
+    {
+        return Err(failed("session exceeds the requested resource grant"));
+    }
+    Ok(())
 }
 
 #[derive(Default)]
@@ -756,7 +792,7 @@ impl PreparedVortexRelational {
         &self,
         cancellation: &CancellationToken,
         batch_rows: usize,
-        input: Option<&mut batch_input::Provider<'_>>,
+        input: Option<batch_input::Provider<'_>>,
         mut consume: impl FnMut(ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
         self.validate_batch_provider(input.is_some())?;
@@ -798,7 +834,7 @@ impl PreparedVortexRelational {
         cancellation: &CancellationToken,
         batch_rows: usize,
         max_batch_bytes: usize,
-        input: Option<&mut batch_input::Provider<'_>>,
+        input: Option<batch_input::Provider<'_>>,
         mut consume: impl FnMut(super::collect::SerializedVortexResultBatch) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
         if batch_rows == 0
@@ -838,7 +874,7 @@ impl PreparedVortexRelational {
         &self,
         context: &NativeExecutionContext<'_>,
         batch_rows: usize,
-        input: Option<&mut batch_input::Provider<'_>>,
+        input: Option<batch_input::Provider<'_>>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
         self.with_bound_root(context, input, |root, metrics| {
@@ -1303,7 +1339,7 @@ impl PreparedVortexRelational {
     fn collect_jsonl_with_input(
         &self,
         cancellation: &CancellationToken,
-        input: Option<&mut batch_input::Provider<'_>>,
+        input: Option<batch_input::Provider<'_>>,
     ) -> Result<CollectedVortexRelational> {
         let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
         let mut execution =
@@ -1324,25 +1360,51 @@ impl PreparedVortexRelational {
     /// # Errors
     /// Denies results above the small collection boundary; use streaming or a writer.
     pub fn execute_owned(&self) -> Result<ExecutedOwnedVortexRelational> {
+        self.retain_complete_result(&CancellationToken::default(), true, None)
+    }
+
+    /// Retain complete native batches under the existing shared allocation.
+    /// This explicit materialization has no synthetic row or logical-byte limit;
+    /// live input, operator state and retained output must fit the admitted grant.
+    /// Use `for_each_batch` when the consumer can release batches incrementally.
+    /// No Python rows, JSON, intermediate file or query replay is involved.
+    /// # Errors
+    /// Propagates cancellation, source changes, arithmetic overflow and shared
+    /// resource denial. Failed executions publish no partially completed result.
+    pub fn execute_native(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<ExecutedOwnedVortexRelational> {
+        self.retain_complete_result(cancellation, false, None)
+    }
+
+    fn retain_complete_result(
+        &self,
+        cancellation: &CancellationToken,
+        small_collection: bool,
+        input: Option<batch_input::Provider<'_>>,
+    ) -> Result<ExecutedOwnedVortexRelational> {
         let mut arrays = ReservedVec::new(self.session.memory())?;
         let mut rows = 0usize;
         let mut bytes = 0u64;
-        let execution = self.for_each_batch(&CancellationToken::default(), |array, _| {
-            rows = rows
-                .checked_add(array.len())
-                .ok_or_else(|| failed("collection row overflow"))?;
-            bytes = bytes
-                .checked_add(array.nbytes())
-                .ok_or_else(|| failed("collection byte overflow"))?;
-            if rows > 65_536 || bytes > 8 * 1024 * 1024 {
-                return Err(failed(
-                    "small collection exceeds 65536 rows or 8 MiB; use streaming output",
-                ));
-            }
-            arrays.push(array)
-        })?;
+        let mut execution =
+            self.for_each_batch_with_input(cancellation, BATCH_ROWS, input, |array, _| {
+                rows = rows
+                    .checked_add(array.len())
+                    .ok_or_else(|| failed("collection row overflow"))?;
+                bytes = bytes
+                    .checked_add(array.nbytes())
+                    .ok_or_else(|| failed("collection byte overflow"))?;
+                if small_collection && (rows > 65_536 || bytes > 8 * 1024 * 1024) {
+                    return Err(failed(
+                        "small collection exceeds 65536 rows or 8 MiB; use streaming output",
+                    ));
+                }
+                arrays.push(array)
+            })?;
         let (arrays, ownership) = arrays.into_parts();
         let result = self.session.own_completed_arrays(arrays, ownership)?;
+        execution.runtime = self.snapshot();
         Ok(ExecutedOwnedVortexRelational { execution, result })
     }
 }

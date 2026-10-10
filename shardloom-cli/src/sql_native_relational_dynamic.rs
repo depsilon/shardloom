@@ -9,6 +9,7 @@ use super::{
 };
 use shardloom_vortex::local_primitives::prepared_relational::{
     VortexRelationalPreparation, prepare_relational_with_dynamic_inputs,
+    prepare_relational_with_dynamic_inputs_in_session,
 };
 
 #[derive(Clone)]
@@ -83,6 +84,7 @@ pub(super) fn predicate_required(predicate: &ParsedPredicate) -> bool {
 pub(super) fn prepare(
     parsed: ParsedRelationQuery,
     policy: VortexLocalPrimitiveExecutionPolicy,
+    session: Option<&shardloom_vortex::resident_session::ResidentVortexSession>,
     inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
     resolve_source: &mut SourceResolver<'_>,
 ) -> NativeResult<PreparedVortexRelational> {
@@ -96,14 +98,16 @@ pub(super) fn prepare(
     // Retain the already parsed declaration, including nested statement copies.
     // Every execution only resolves schemas and lowers it; it does not reparse.
     let mut declaration_bytes = declaration_bytes(&parsed)?;
+    let shared_memory =
+        session.map(shardloom_vortex::resident_session::ResidentVortexSession::shared_memory_pool);
     let mut sources = BTreeMap::new();
     for leaf in leaves {
         let uris = if leaf.memory_input.is_some() {
             vec![DatasetUri::new(leaf.path.to_string_lossy())?]
         } else {
-            // Compatibility preparation completes before this dynamic plan
-            // creates its native session or retains any memory inputs.
-            resolve_source(&leaf, None)?
+            // A caller-owned session already has live inputs/results. Compatibility
+            // preparation must compete with those owners for its existing grant.
+            resolve_source(&leaf, shared_memory.as_ref())?
         };
         let uri_bytes = uris
             .iter()
@@ -126,34 +130,45 @@ pub(super) fn prepare(
         bytes: declaration_bytes,
     };
     let memory_parsed = parsed.clone();
-    prepare_relational_with_dynamic_inputs(
-        &uris,
-        policy,
-        declaration_bytes,
-        |schemas| {
-            super::register_sql_memory_inputs(&memory_parsed, schemas)?;
-            inputs(schemas)
-        },
-        move |schemas| {
-            let mut resolver =
-                |leaf: &ParsedRelationLeaf,
-                 _: Option<&shardloom_exec::live_memory::LiveMemoryPool>| {
-                    declaration.sources.get(leaf).cloned().ok_or_else(|| {
-                        unsupported_sql_error("dynamic SQL referenced an undeclared source")
-                    })
-                };
-            let mut lowerer = Lowerer {
-                schemas,
-                serial: 0,
-                resolve_source: &mut resolver,
-                declaration: Some(declaration.clone()),
-                outer: None,
+    let initialize = |schemas: &mut VortexRelationalPreparation<'_>| {
+        super::register_sql_memory_inputs(&memory_parsed, schemas)?;
+        inputs(schemas)
+    };
+    let lower = move |schemas: &mut VortexRelationalPreparation<'_>| {
+        let mut resolver =
+            |leaf: &ParsedRelationLeaf, _: Option<&shardloom_exec::live_memory::LiveMemoryPool>| {
+                declaration.sources.get(leaf).cloned().ok_or_else(|| {
+                    unsupported_sql_error("dynamic SQL referenced an undeclared source")
+                })
             };
-            let mut query = lowerer.query(&parsed)?;
-            lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
-            Ok(query.plan)
-        },
-    )
+        let mut lowerer = Lowerer {
+            schemas,
+            serial: 0,
+            resolve_source: &mut resolver,
+            declaration: Some(declaration.clone()),
+            outer: None,
+        };
+        let mut query = lowerer.query(&parsed)?;
+        lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
+        Ok(query.plan)
+    };
+    match session {
+        Some(session) => prepare_relational_with_dynamic_inputs_in_session(
+            &uris,
+            policy,
+            session,
+            declaration_bytes,
+            initialize,
+            lower,
+        ),
+        None => prepare_relational_with_dynamic_inputs(
+            &uris,
+            policy,
+            declaration_bytes,
+            initialize,
+            lower,
+        ),
+    }
 }
 
 fn declaration_bytes(query: &ParsedRelationQuery) -> NativeResult<usize> {

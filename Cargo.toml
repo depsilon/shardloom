@@ -5,6 +5,7 @@ members = [
   "shardloom-plan",
   "shardloom-exec",
   "shardloom-cli",
+  "shardloom-python",
   "shardloom-contract-tests",
 ]
 exclude = ["vendor/vortex-zstd"]
@@ -30,10 +31,13 @@ rust-version = "1.96"
 arrow-array = "58.3.0"
 arrow-avro = { version = "58.3.0", default-features = false, features = ["deflate", "snappy"] }
 arrow-ipc = "58.3.0"
+arrow-pyarrow = "=58.3.0"
 arrow-schema = "58.3.0"
 futures = "0.3.34"
 memchr = "2.8.3"
 parquet = "58.3.0"
+pyo3 = "=0.28.3"
+pyo3-build-config = "=0.28.3"
 regex = "1.13.1"
 rustc-hash = "2.1.3"
 serde = "1.0.228"
@@ -42,6 +46,7 @@ sha2 = "0.11"
 shardloom-core = { version = "0.5.1", path = "shardloom-core" }
 shardloom-exec = { version = "0.5.1", path = "shardloom-exec" }
 shardloom-plan = { version = "0.5.1", path = "shardloom-plan" }
+shardloom-runtime = { package = "shardloom-cli", version = "0.5.1", path = "shardloom-cli" }
 shardloom-vortex = { version = "0.5.1", path = "shardloom-vortex" }
 vortex = "0.85"
 vortex-zstd = "0.85"

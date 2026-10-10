@@ -1,0 +1,72 @@
+use pyo3::prelude::*;
+
+#[path = "capsules.rs"]
+mod capsules;
+#[path = "plan.rs"]
+mod plan;
+#[path = "resources.rs"]
+mod resources;
+#[path = "result.rs"]
+mod result;
+#[path = "rows.rs"]
+mod rows;
+#[path = "schema.rs"]
+mod schema;
+#[path = "session.rs"]
+mod session;
+#[path = "stream.rs"]
+mod stream;
+
+#[pymodule]
+fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    module.add("execution_provider", "shared_shardloom_native")?;
+    module.add_class::<resources::NativeResources>()?;
+    module.add_class::<session::NativeSession>()?;
+    module.add_class::<session::NativeSource>()?;
+    module.add_class::<plan::NativePlan>()?;
+    module.add_class::<result::NativeResult>()?;
+    module.add_class::<capsules::NativeColumnarStream>()?;
+    module.add_class::<stream::NativeExecutionStream>()?;
+    module.add_class::<stream::NativeColumnarBatch>()?;
+    Ok(())
+}
+
+// Result::map_err transfers the owned native failure into Python diagnostics.
+#[allow(clippy::needless_pass_by_value)]
+fn native_error(error: shardloom_core::ShardLoomError) -> PyErr {
+    Python::attach(|py| {
+        let diagnostic = error.to_diagnostic();
+        let message = format!("{}: {error}", diagnostic.code.as_str());
+        let exception = if diagnostic.code == shardloom_core::DiagnosticCode::ConfigurationError {
+            pyo3::exceptions::PyValueError::new_err(message)
+        } else {
+            pyo3::exceptions::PyRuntimeError::new_err(message)
+        };
+        let attach = || -> PyResult<()> {
+            let details = pyo3::types::PyDict::new(py);
+            details.set_item("code", diagnostic.code.as_str())?;
+            details.set_item("severity", diagnostic.severity.as_str())?;
+            details.set_item("category", diagnostic.category.as_str())?;
+            details.set_item("message", diagnostic.message)?;
+            details.set_item("feature", diagnostic.feature)?;
+            details.set_item("reason", diagnostic.reason)?;
+            details.set_item("suggested_next_step", diagnostic.suggested_next_step)?;
+            let fallback = pyo3::types::PyDict::new(py);
+            fallback.set_item("attempted", diagnostic.fallback.attempted)?;
+            fallback.set_item("allowed", diagnostic.fallback.allowed)?;
+            fallback.set_item("engine", diagnostic.fallback.engine)?;
+            fallback.set_item("reason", diagnostic.fallback.reason)?;
+            details.set_item("fallback", fallback)?;
+            exception.value(py).setattr("diagnostic", details)?;
+            exception
+                .value(py)
+                .setattr("external_engine_invoked", false)?;
+            Ok(())
+        };
+        match attach() {
+            Ok(()) => exception,
+            Err(error) => error,
+        }
+    })
+}

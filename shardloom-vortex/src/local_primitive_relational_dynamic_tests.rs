@@ -4,7 +4,10 @@ use crate::{
     relational_query::{VortexRelationalLimit, VortexRelationalProject, VortexRelationalUnary},
 };
 use shardloom_core::{ExprId, Expression};
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    sync::{Arc, Mutex},
+};
 use vortex::array::arrays::VarBinArray;
 
 #[path = "local_primitive_relational_dynamic_lifecycle_tests.rs"]
@@ -217,18 +220,18 @@ fn native_dynamic_pivot_writes_actual_schema_through_all_eight_sinks() {
 fn native_dynamic_pivot_rejects_repeated_and_foreign_execution_references() {
     let fixture = fixture();
     let plan = pivot(fixture.scan());
-    let previous = Rc::new(RefCell::new(None));
+    let previous = Arc::new(Mutex::new(None));
     let saved = previous.clone();
     let prepared = prepare_relational_with_dynamic_schema(
         &[uri(&fixture)],
         policy(),
         65_536,
         move |schemas| {
-            if let Some(prior) = saved.borrow_mut().take() {
+            if let Some(prior) = saved.lock().unwrap().take() {
                 return Ok(prior);
             }
             let (resolved, _) = schemas.resolve_output(&plan)?;
-            *saved.borrow_mut() = Some(resolved.clone());
+            *saved.lock().unwrap() = Some(resolved.clone());
             Ok(resolved)
         },
     )

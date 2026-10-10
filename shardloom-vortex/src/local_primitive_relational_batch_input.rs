@@ -7,8 +7,40 @@ use super::{
 };
 use std::cell::{Cell, RefCell};
 
-pub(super) type Provider<'a> =
+type ColumnProvider<'a> =
     dyn FnMut(&ResidentVortexSession) -> Result<Option<ResidentMemorySource>> + 'a;
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+type ArrowProvider<'a> = dyn FnMut() -> Result<Option<arrow_array::RecordBatch>> + 'a;
+
+pub(super) enum Provider<'a> {
+    Columns(&'a mut ColumnProvider<'a>),
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    Arrow(&'a mut ArrowProvider<'a>),
+}
+
+impl Provider<'_> {
+    fn next(
+        &mut self,
+        session: &ResidentVortexSession,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<ResidentMemorySource>> {
+        context.check_cancelled()?;
+        match self {
+            Self::Columns(input) => input(session),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            Self::Arrow(input) => input()?
+                .map(|batch| {
+                    ResidentMemorySource::from_arrow_in_context(session, batch, context, true)
+                })
+                .transpose(),
+        }
+    }
+
+    fn has_transport_bounds(&self) -> bool {
+        matches!(self, Self::Columns(_))
+    }
+}
 
 /// Successful completion evidence for a finite, single-use native batch source.
 /// Logical bytes describe input values/offsets/validity/names, not capacity or RSS.
@@ -18,6 +50,9 @@ pub struct ExecutedVortexBatchInput {
     pub rows: u64,
     pub input_logical_bytes: u64,
     pub intake_payload_bytes_copied: u64,
+    /// Referenced Arrow buffer bytes copied into the shared native allocation.
+    /// Caller storage and metadata are excluded; this is not process RSS.
+    pub intake_columnar_buffer_bytes_copied: u64,
     pub max_batch_rows: usize,
     pub max_retained_input_batches: usize,
     pub max_retained_input_logical_bytes: u64,
@@ -47,6 +82,7 @@ impl Default for ExecutedVortexBatchInput {
             rows: 0,
             input_logical_bytes: 0,
             intake_payload_bytes_copied: 0,
+            intake_columnar_buffer_bytes_copied: 0,
             max_batch_rows: 0,
             max_retained_input_batches: 0,
             max_retained_input_logical_bytes: 0,
@@ -66,7 +102,7 @@ impl Default for ExecutedVortexBatchInput {
 /// the prepared plan retains only the declared schema, never a replayable source.
 pub struct VortexRelationalBatchInput<'p, 'i> {
     prepared: &'p PreparedVortexRelational,
-    input: &'i mut Provider<'i>,
+    input: Provider<'i>,
 }
 
 impl PreparedVortexRelational {
@@ -78,12 +114,33 @@ impl PreparedVortexRelational {
     /// Rejects a provider when the plan has no streaming source declaration.
     pub fn with_batch_input<'p, 'i>(
         &'p self,
-        input: &'i mut Provider<'i>,
+        input: &'i mut ColumnProvider<'i>,
     ) -> Result<VortexRelationalBatchInput<'p, 'i>> {
         self.validate_batch_provider(true)?;
         Ok(VortexRelationalBatchInput {
             prepared: self,
-            input,
+            input: Provider::Columns(input),
+        })
+    }
+
+    /// Import one caller-owned Arrow batch for each native source demand. The
+    /// exact declared schema is required even for empty batches. Copies and
+    /// private ownership use the existing shared grant; no row/JSON conversion
+    /// or complete-input retention is introduced. The producer's batch must fit
+    /// the available allocation, but has no synthetic row or logical-byte cap.
+    /// `None` is required to certify complete input. Producer callbacks must not
+    /// reenter this session while its execution is active.
+    /// # Errors
+    /// Rejects absent streaming declarations before invoking the producer.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn with_arrow_batch_input<'p, 'i>(
+        &'p self,
+        input: &'i mut ArrowProvider<'i>,
+    ) -> Result<VortexRelationalBatchInput<'p, 'i>> {
+        self.validate_batch_provider(true)?;
+        Ok(VortexRelationalBatchInput {
+            prepared: self,
+            input: Provider::Arrow(input),
         })
     }
 
@@ -111,18 +168,15 @@ pub(super) trait Input {
     fn completed(&self) -> Result<ExecutedVortexBatchInput>;
 }
 
-pub(super) struct Execution<'p, 'i, 'v> {
+pub(super) struct Execution<'p, 'i> {
     prepared: &'p PreparedVortexRelational,
-    provider: RefCell<&'i mut Provider<'v>>,
+    provider: RefCell<Provider<'i>>,
     started: Cell<bool>,
     report: RefCell<ExecutedVortexBatchInput>,
 }
 
-impl<'p, 'i, 'v> Execution<'p, 'i, 'v> {
-    pub(super) fn new(
-        prepared: &'p PreparedVortexRelational,
-        provider: &'i mut Provider<'v>,
-    ) -> Self {
+impl<'p, 'i> Execution<'p, 'i> {
+    pub(super) fn new(prepared: &'p PreparedVortexRelational, provider: Provider<'i>) -> Self {
         Self {
             prepared,
             provider: RefCell::new(provider),
@@ -132,7 +186,7 @@ impl<'p, 'i, 'v> Execution<'p, 'i, 'v> {
     }
 }
 
-impl Input for Execution<'_, '_, '_> {
+impl Input for Execution<'_, '_> {
     fn run(
         &self,
         context: &NativeExecutionContext<'_>,
@@ -155,7 +209,7 @@ impl Input for Execution<'_, '_, '_> {
         let mut report = self.report.borrow_mut();
         loop {
             context.check_cancelled()?;
-            let next = input(&self.prepared.session)?;
+            let next = input.next(&self.prepared.session, context)?;
             context.check_cancelled()?;
             let Some(source) = next else {
                 report.end_of_input_observed = true;
@@ -163,8 +217,9 @@ impl Input for Execution<'_, '_, '_> {
             };
             if !source.belongs_to_session(&self.prepared.session)
                 || source.dtype() != schema.dtype()
-                || source.row_count() > crate::resident_memory_source::MAX_BATCH_ROWS
-                || source.input_logical_bytes() > 32 * 1024 * 1024
+                || (input.has_transport_bounds()
+                    && (source.row_count() > crate::resident_memory_source::MAX_BATCH_ROWS
+                        || source.input_logical_bytes() > 32 * 1024 * 1024))
             {
                 return Err(failed(
                     "input changed its declared schema, session or finite batch bounds",
@@ -179,6 +234,10 @@ impl Input for Execution<'_, '_, '_> {
             checked_add(
                 &mut report.intake_payload_bytes_copied,
                 source.intake_payload_bytes_copied(),
+            )?;
+            checked_add(
+                &mut report.intake_columnar_buffer_bytes_copied,
+                source.intake_columnar_buffer_bytes_copied(),
             )?;
             report.max_batch_rows = report.max_batch_rows.max(rows);
             report.max_retained_input_batches = 1;
@@ -207,6 +266,32 @@ impl Input for Execution<'_, '_, '_> {
 }
 
 impl VortexRelationalBatchInput<'_, '_> {
+    /// Retain a complete native result after consuming the source exactly once.
+    /// All retained output must fit the shared allocation. No row bridge occurs.
+    /// # Errors
+    /// Propagates input, schema, ownership, cancellation and resource failures.
+    pub fn execute_native(
+        self,
+        cancellation: &CancellationToken,
+    ) -> Result<super::ExecutedOwnedVortexRelational> {
+        self.prepared
+            .retain_complete_result(cancellation, false, Some(self.input))
+    }
+
+    /// Deliver Arrow batches incrementally from the same admitted native query.
+    /// Batches are provisional until source completion and final certification.
+    /// # Errors
+    /// Propagates input, consumer, conversion, cancellation and resource failures.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn for_each_arrow_batch(
+        self,
+        cancellation: &CancellationToken,
+        consume: impl FnMut(arrow_array::RecordBatch) -> Result<()>,
+    ) -> Result<super::ExecutedVortexArrowRelational> {
+        self.prepared
+            .for_each_arrow_batch_with_input(cancellation, Some(self.input), consume)
+    }
+
     /// Deliver independently owned native batches; success requires source end.
     /// # Errors
     /// Propagates input, consumer, cancellation, schema and resource failures.

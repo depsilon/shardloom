@@ -8,7 +8,7 @@ use std::{
     path::Path,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU64, AtomicUsize, Ordering},
     },
 };
 
@@ -52,9 +52,29 @@ pub use io_ownership::ResidentIoSnapshot;
 use serving_admission::CallClass;
 pub use serving_admission::{ResidentAdmissionSnapshot, ResidentServingPolicy};
 
+#[path = "resident_operation_resources.rs"]
+mod operation_resources;
+pub use operation_resources::ConfigurableResidentSession;
+
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_result_json.rs"]
 mod result_json;
+
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+#[path = "resident_result_arrow.rs"]
+mod result_arrow;
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+pub use result_arrow::{NativeArrowBatchStream, NativeArrowExportReport};
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_segment_reuse.rs"]
@@ -89,9 +109,18 @@ struct RuntimeOwner {
     io_budget: Option<Arc<io_ownership::IoBudget>>,
     memory: LiveMemoryPool,
     parallelism: usize,
+    configured_parallelism: Option<AtomicUsize>,
     provider_background_workers: usize,
     opens: AtomicU64,
     executions: AtomicU64,
+}
+
+impl RuntimeOwner {
+    fn cpu_limit(&self) -> usize {
+        self.configured_parallelism
+            .as_ref()
+            .map_or(self.parallelism, |limit| limit.load(Ordering::Acquire))
+    }
 }
 
 /// A session shares provider registries and runtime workers across prepared calls.
@@ -115,6 +144,13 @@ impl ResidentVortexSession {
         &self.0.memory
     }
 
+    /// Share the existing reservation owner with an input/output adapter. The
+    /// returned handle grants no additional capacity and retains the same pool.
+    #[must_use]
+    pub fn shared_memory_pool(&self) -> LiveMemoryPool {
+        self.0.memory.clone()
+    }
+
     /// Reserve temporary input framing/conversion storage under this session's
     /// grant before demanding or allocating it. The adapter must retain the
     /// returned lease until its temporary storage is released. This does not
@@ -131,7 +167,7 @@ impl ResidentVortexSession {
 
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn parallelism(&self) -> usize {
-        self.0.parallelism
+        self.0.cpu_limit()
     }
 
     /// Array-backed queries share the same outer admission and completion
@@ -200,6 +236,8 @@ impl ResidentVortexSession {
     }
 
     /// Retain already completed batches without combining or copying their buffers.
+    /// Output size is admitted by the buffers' existing credits; a small-result
+    /// consumer applies its own row and representation bounds before this transfer.
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn own_completed_arrays(
         &self,
@@ -224,9 +262,7 @@ impl ResidentVortexSession {
                 .checked_add(array.nbytes())
                 .ok_or_else(|| resident_error("completed result byte count overflow"))?;
         }
-        if rows > 65_536
-            || logical_buffer_bytes > 8 * 1024 * 1024
-            || !self.memory().owns(&ownership)
+        if !self.memory().owns(&ownership)
             || ownership.bytes() < (arrays.capacity() * std::mem::size_of::<ArrayRef>()) as u64
         {
             return Err(resident_error(
@@ -465,8 +501,19 @@ impl ResidentVortexSession {
         if max_parallelism == 0 {
             return Err(resident_error("parallelism must be greater than zero"));
         }
-        let parallelism = shardloom_exec::compute_pool::bounded_cpu_parallelism(max_parallelism);
         let memory = LiveMemoryPool::new(memory_bytes)?;
+        Self::with_memory_pool(memory, max_parallelism, external_cpu_pool)
+    }
+
+    fn with_memory_pool(
+        memory: LiveMemoryPool,
+        max_parallelism: usize,
+        external_cpu_pool: bool,
+    ) -> Result<Self> {
+        if max_parallelism == 0 {
+            return Err(resident_error("parallelism must be greater than zero"));
+        }
+        let parallelism = shardloom_exec::compute_pool::bounded_cpu_parallelism(max_parallelism);
         let runtime = CurrentThreadRuntime::new();
         let provider_background_workers = if external_cpu_pool {
             0
@@ -488,6 +535,7 @@ impl ResidentVortexSession {
             io_budget: None,
             memory,
             parallelism,
+            configured_parallelism: None,
             provider_background_workers,
             opens: AtomicU64::new(0),
             executions: AtomicU64::new(0),
@@ -500,7 +548,7 @@ impl ResidentVortexSession {
             prepared_source_opens: self.0.opens.load(Ordering::Relaxed),
             completed_executions: self.0.executions.load(Ordering::Relaxed),
             provider_background_workers: self.0.provider_background_workers,
-            admitted_max_parallelism: self.0.parallelism,
+            admitted_max_parallelism: self.0.cpu_limit(),
             memory: self.0.memory.snapshot(),
         }
     }
@@ -524,7 +572,7 @@ impl ResidentVortexSession {
         let input = identity.reader_scoped(
             self.0.session.allocator(),
             self.0.runtime.handle(),
-            self.0.parallelism,
+            context.cpu_lanes(),
             context.io_scope(),
         );
         let file = self
@@ -662,7 +710,7 @@ impl PreparedVortexSource {
     pub(crate) fn resource_limits(&self) -> (u64, usize) {
         (
             self.0.runtime.memory.snapshot().limit_bytes,
-            self.0.runtime.parallelism,
+            self.0.runtime.cpu_limit(),
         )
     }
 

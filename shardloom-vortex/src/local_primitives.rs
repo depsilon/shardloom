@@ -117,7 +117,7 @@ mod native_numeric_accessor;
 mod native_numeric_owner;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_payload.rs"]
-mod native_payload;
+pub(crate) mod native_payload;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_input_schema.rs"]
@@ -47538,14 +47538,14 @@ fn stat_value_to_f64(value: &StatValue) -> Result<f64> {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn usize_to_u64(value: usize) -> Result<u64> {
+pub(crate) fn usize_to_u64(value: usize) -> Result<u64> {
     u64::try_from(value).map_err(|_| {
         ShardLoomError::InvalidOperation("local primitive row count exceeded u64".to_string())
     })
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn vortex_error(error: impl std::fmt::Display) -> ShardLoomError {
+pub(crate) fn vortex_error(error: impl std::fmt::Display) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!("Vortex local primitive failed: {error}"))
 }
 

@@ -101,6 +101,13 @@ pub mod metadata_pruning;
 pub mod metadata_summary;
 #[cfg(all(
     feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+mod native_arrow_conversion;
+#[cfg(all(
+    feature = "vortex-local-primitives",
     feature = "universal-format-io",
     unix
 ))]

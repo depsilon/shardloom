@@ -188,6 +188,10 @@ mod resident_unary;
 #[path = "public_resident_relational.rs"]
 mod resident_relational;
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "native_runtime.rs"]
+pub mod native;
+
 /// Caller-owned prepared execution. Only the latest admitted operation is retained;
 /// results are never cached and every execution validates its source generation.
 #[derive(Default)]

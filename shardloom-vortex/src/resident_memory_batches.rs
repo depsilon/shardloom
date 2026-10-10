@@ -32,6 +32,7 @@ pub struct MemoryBatchSourceBuilder {
     rows: usize,
     bytes: usize,
     copied: u64,
+    columnar_copied: u64,
     cancellation: CancellationToken,
 }
 
@@ -50,6 +51,7 @@ impl MemoryBatchSourceBuilder {
             rows: 0,
             bytes: 0,
             copied: 0,
+            columnar_copied: 0,
             cancellation,
         })
     }
@@ -73,39 +75,122 @@ impl MemoryBatchSourceBuilder {
         // Each payload carries its own structural credit, including escaped
         // child buffers. The container and final composition have separate owners.
         let source = ResidentMemorySource::from_batch_columns(&self.session, columns)?;
+        self.push_source(&source)
+    }
+
+    /// Copy an explicitly columnar input batch under the same shared allocation.
+    /// The source scan selects execution batch sizes after intake; the producer's
+    /// batch geometry is not an artificial total-input limit.
+    /// # Errors
+    /// Rejects unsupported schemas, invalid values, schema drift, cancellation,
+    /// overflow or memory pressure before publishing a source.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn push_arrow(&mut self, batch: arrow_array::RecordBatch) -> Result<()> {
+        self.cancellation.check()?;
+        let source = ResidentMemorySource::from_arrow_record_batch(
+            &self.session,
+            batch,
+            &self.cancellation,
+        )?;
+        self.push_source(&source)
+    }
+
+    fn push_source(&mut self, source: &ResidentMemorySource) -> Result<()> {
+        self.push_array(
+            source.0.array.clone(),
+            source.input_logical_bytes(),
+            source.intake_payload_bytes_copied(),
+            source.intake_columnar_buffer_bytes_copied(),
+        )
+    }
+
+    /// Append complete native batches from this same session without transferring
+    /// their values through a compatibility representation. Result schema and
+    /// buffer ownership remain valid after the original result handle drops.
+    /// # Errors
+    /// Rejects foreign grants, inconsistent results, schema drift, cancellation,
+    /// overflow or native structure/composition admission failure.
+    #[cfg(feature = "vortex-write")]
+    pub fn push_native_result(
+        &mut self,
+        result: &crate::resident_session::OwnedVortexResultBatch,
+    ) -> Result<()> {
+        use vortex::array::VortexSessionExecute as _;
+        self.cancellation.check()?;
+        let session = result.retained_session();
+        if !self.session.same_owner(&session) {
+            return Err(memory_error(
+                "native result belongs to another resource owner",
+            ));
+        }
+        result.validate_schema_and_rows()?;
+        let cancellation = self.cancellation.clone();
+        session.with_native_execution_context(&cancellation, |context| {
+            let mut execution = context.native_session().create_execution_ctx();
+            if result.arrays().is_empty() {
+                let empty =
+                    crate::local_primitives::native_payload::empty_record(result.dtype(), context)?;
+                return self.push_array(empty, 0, 0, 0);
+            }
+            for array in result.arrays() {
+                context.check_cancelled()?;
+                let structure = array
+                    .clone()
+                    .execute::<StructArray>(&mut execution)
+                    .map_err(native_error)?
+                    .into_array();
+                let bytes = usize::try_from(structure.nbytes()).map_err(native_error)?;
+                self.push_array(structure, bytes, 0, 0)?;
+            }
+            Ok(())
+        })
+    }
+
+    fn push_array(
+        &mut self,
+        array: ArrayRef,
+        input_logical_bytes: usize,
+        intake_payload_bytes_copied: u64,
+        intake_columnar_buffer_bytes_copied: u64,
+    ) -> Result<()> {
         if self
             .batches
             .values
             .first()
-            .is_some_and(|first| first.dtype() != source.dtype())
+            .is_some_and(|first| first.dtype() != array.dtype())
         {
             return Err(memory_error("native batch source schema changed"));
         }
         let rows = self
             .rows
-            .checked_add(source.row_count())
+            .checked_add(array.len())
             .ok_or_else(|| memory_error("native batch source row overflow"))?;
         let bytes = self
             .bytes
-            .checked_add(source.input_logical_bytes())
+            .checked_add(input_logical_bytes)
             .ok_or_else(|| memory_error("native batch source byte overflow"))?;
         let copied = self
             .copied
-            .checked_add(source.intake_payload_bytes_copied())
+            .checked_add(intake_payload_bytes_copied)
             .ok_or_else(|| memory_error("native batch source copy count overflow"))?;
+        let columnar_copied = self
+            .columnar_copied
+            .checked_add(intake_columnar_buffer_bytes_copied)
+            .ok_or_else(|| memory_error("native columnar copy count overflow"))?;
         self.cancellation.check()?;
         if self.batches.values.is_empty() {
-            self.batches.push(source.0.array.clone())?;
-        } else if source.row_count() != 0 {
+            self.batches.push(array)?;
+        } else if !array.is_empty() {
             if self.batches.values[0].is_empty() {
-                self.batches.values[0] = source.0.array.clone();
+                self.batches.values[0] = array;
             } else {
-                self.batches.push(source.0.array.clone())?;
+                self.batches.push(array)?;
             }
         }
         self.rows = rows;
         self.bytes = bytes;
         self.copied = copied;
+        self.columnar_copied = columnar_copied;
         Ok(())
     }
 
@@ -175,6 +260,7 @@ impl MemoryBatchSourceBuilder {
             },
             input_logical_bytes: self.bytes,
             intake_payload_bytes_copied: self.copied,
+            intake_columnar_buffer_bytes_copied: self.columnar_copied,
             metadata: Some(credit),
             is_batch: false,
             generated_range: None,

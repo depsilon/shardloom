@@ -8,6 +8,18 @@ use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::Budgeted;
 
 impl OwnedVortexResultBatch {
+    /// Export only the authoritative ordered schema. This never reads result
+    /// values, reopens a source or constructs row objects. The returned metadata
+    /// keeps its reservation on the result's original resource owner.
+    /// # Errors
+    /// Rejects unsupported metadata depth/size and shared-memory denial.
+    pub fn schema_json(&self) -> Result<Budgeted<String>> {
+        crate::local_primitives::collect::serialize_result_schema(
+            self.dtype(),
+            &self.runtime.memory,
+        )
+    }
+
     /// Materialize this retained result through the existing native JSON sink.
     /// No source is reopened and no query is rerun. The result's own runtime and
     /// allocator survive the original session handle. JSON is an explicit copy

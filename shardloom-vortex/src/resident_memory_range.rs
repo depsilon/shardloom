@@ -70,6 +70,7 @@ pub(super) fn source(
         },
         input_logical_bytes,
         intake_payload_bytes_copied: 0,
+        intake_columnar_buffer_bytes_copied: 0,
         metadata: None,
         is_batch: false,
         generated_range: Some(GeneratedInt64Range {

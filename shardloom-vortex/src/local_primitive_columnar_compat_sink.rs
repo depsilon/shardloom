@@ -38,8 +38,7 @@ use vortex::{
     arrow::ArrowSessionExt as _,
 };
 
-#[path = "local_primitive_columnar_compat_nested.rs"]
-mod nested;
+use crate::native_arrow_conversion as nested;
 #[cfg(test)]
 use vortex::array::arrays::VarBinViewArray;
 
@@ -303,10 +302,16 @@ fn admitted_canonical(
     }
     let mut expanded = 0_u64;
     let mut children = Vec::with_capacity(names.len());
+    let check = || limits.check();
+    let conversion = nested::ConversionLimits {
+        string_bytes: limits.string_bytes,
+        arrow_batch_bytes: limits.arrow_batch_bytes,
+        check: &check,
+    };
     for name in names {
         limits.check()?;
         let child = logical_field_from_native_array(array, name)?;
-        let canonical = nested::canonical(&child, ctx, limits, &mut expanded)?;
+        let canonical = nested::canonical(&child, ctx, &conversion, &mut expanded)?;
         children.push(canonical);
     }
     let packed = StructArray::try_new(

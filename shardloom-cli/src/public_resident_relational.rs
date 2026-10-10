@@ -24,6 +24,7 @@ mod batches;
 #[path = "public_relational_sources.rs"]
 mod sources;
 pub(super) use batches::run as run_batches;
+pub(super) use sources::prepare_in_session;
 
 pub(super) struct PreparedPublicRelational {
     pub(super) request: PublicWorkflowRouteRequest,
@@ -421,7 +422,7 @@ fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelat
 }
 
 #[allow(clippy::too_many_lines)]
-fn append_execution(
+pub(super) fn append_execution(
     fields: &mut Vec<(String, String)>,
     result: &ExecutedVortexRelational,
     reused: bool,
@@ -656,6 +657,7 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_batch_rows", input.rows.to_string()),
         ("native_input_logical_bytes", input.input_logical_bytes.to_string()),
         ("native_input_payload_bytes_copied", input.intake_payload_bytes_copied.to_string()),
+        ("native_input_columnar_buffer_bytes_copied", input.intake_columnar_buffer_bytes_copied.to_string()),
         ("native_input_max_batch_rows", input.max_batch_rows.to_string()),
         ("native_input_max_retained_batches", input.max_retained_input_batches.to_string()),
         ("native_input_max_retained_logical_bytes", input.max_retained_input_logical_bytes.to_string()),

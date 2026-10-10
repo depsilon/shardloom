@@ -3,7 +3,7 @@
 use super::{
     Metrics, NativeExecutionContext, Node, PreparedRoot, PreparedVortexRelational,
     ResidentVortexSession, Result, VortexLocalPrimitiveExecutionPolicy, VortexRelationalPlan,
-    VortexRelationalPreparation, bind, failed,
+    VortexRelationalPreparation, bind, failed, validate_session_policy,
 };
 use shardloom_core::DatasetUri;
 
@@ -21,7 +21,9 @@ pub fn prepare_relational_with_dynamic_schema(
     sources: &[DatasetUri],
     policy: VortexLocalPrimitiveExecutionPolicy,
     declaration_bytes: usize,
-    lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan> + 'static,
+    lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>
+    + Send
+    + 'static,
 ) -> Result<PreparedVortexRelational> {
     prepare_relational_with_dynamic_inputs(sources, policy, declaration_bytes, |_| Ok(()), lower)
 }
@@ -35,7 +37,9 @@ pub fn prepare_relational_with_dynamic_inputs(
     policy: VortexLocalPrimitiveExecutionPolicy,
     declaration_bytes: usize,
     inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<()>,
-    lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan> + 'static,
+    lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>
+    + Send
+    + 'static,
 ) -> Result<PreparedVortexRelational> {
     if policy.max_parallelism == 0
         || policy.resource_envelope.max_parallelism != policy.max_parallelism
@@ -46,17 +50,44 @@ pub fn prepare_relational_with_dynamic_inputs(
             "dynamic preparation requires consistent positive resource and metadata grants",
         ));
     }
-    if sources.is_empty() || sources.len() > 128 {
-        return Err(failed(
-            "dynamic preparation requires between 1 and 128 declared sources",
-        ));
-    }
+    validate_sources(sources)?;
     let session = ResidentVortexSession::new(
         policy.resource_envelope.memory_budget_bytes,
         policy.max_parallelism,
     )?;
+    prepare_relational_with_dynamic_inputs_in_session(
+        sources,
+        policy,
+        &session,
+        declaration_bytes,
+        inputs,
+        lower,
+    )
+}
+
+/// Retain a dynamic frontend declaration inside an existing native allocation.
+/// Previously retained inputs, results and every execution share its owners.
+/// # Errors
+/// Rejects inconsistent allocation, source/schema failures and metadata denial.
+pub fn prepare_relational_with_dynamic_inputs_in_session(
+    sources: &[DatasetUri],
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    declaration_bytes: usize,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<()>,
+    lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>
+    + Send
+    + 'static,
+) -> Result<PreparedVortexRelational> {
+    validate_session_policy(policy, session)?;
+    if declaration_bytes == 0 {
+        return Err(failed(
+            "dynamic preparation requires a positive metadata grant",
+        ));
+    }
+    validate_sources(sources)?;
     let mut preparation = VortexRelationalPreparation {
-        binding: bind::Binder::new(&session)?,
+        binding: bind::Binder::new(session)?,
     };
     inputs(&mut preparation)?;
     preparation.binding.reject_dynamic_batch_input()?;
@@ -72,7 +103,7 @@ pub fn prepare_relational_with_dynamic_inputs(
         metadata,
     } = preparation.binding.finish()?;
     Ok(PreparedVortexRelational {
-        session,
+        session: session.clone(),
         sources,
         memory_sources,
         batch_source,
@@ -91,6 +122,15 @@ pub fn prepare_relational_with_dynamic_inputs(
     })
 }
 
+fn validate_sources(sources: &[DatasetUri]) -> Result<()> {
+    if sources.is_empty() || sources.len() > 128 {
+        return Err(failed(
+            "dynamic preparation requires between 1 and 128 declared sources",
+        ));
+    }
+    Ok(())
+}
+
 impl VortexRelationalPreparation<'_> {
     /// Retain a schema-dependent inner declaration. The existing correlated
     /// executor lowers it afresh for each native outer singleton, under the same
@@ -101,7 +141,9 @@ impl VortexRelationalPreparation<'_> {
     pub fn defer_subquery(
         &mut self,
         declaration_bytes: usize,
-        lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan> + 'static,
+        lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>
+        + Send
+        + 'static,
     ) -> Result<VortexRelationalPlan> {
         self.binding
             .defer_subquery(declaration_bytes, Box::new(lower))
@@ -125,7 +167,7 @@ impl PreparedVortexRelational {
     pub(super) fn with_bound_root<T>(
         &self,
         context: &NativeExecutionContext<'_>,
-        input: Option<&mut super::batch_input::Provider<'_>>,
+        input: Option<super::batch_input::Provider<'_>>,
         consume: impl FnOnce(&Node, &Metrics<'_>) -> Result<T>,
     ) -> Result<T> {
         self.validate_batch_provider(input.is_some())?;

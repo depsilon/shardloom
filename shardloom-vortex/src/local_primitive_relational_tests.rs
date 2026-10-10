@@ -37,6 +37,8 @@ mod join_condition_tests;
 mod join_spill_tests;
 #[path = "local_primitive_relational_memory_tests.rs"]
 mod memory_tests;
+#[path = "local_primitive_relational_native_ownership_tests.rs"]
+mod native_ownership_tests;
 #[path = "local_primitive_relational_nested_tests.rs"]
 mod nested_tests;
 #[path = "local_primitive_relational_pivot_spill_tests.rs"]

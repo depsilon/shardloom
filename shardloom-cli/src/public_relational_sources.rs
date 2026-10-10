@@ -37,6 +37,33 @@ pub(super) fn prepare_with_source(
     )
 }
 
+/// Embedded callers use the same source resolver and SQL lowerer while retaining
+/// their existing session. Native input handles never pass through JSON cells.
+pub(crate) fn prepare_in_session(
+    statement: &str,
+    request: &PublicWorkflowRouteRequest,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    inputs: impl FnOnce(
+        &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<
+            '_,
+        >,
+    ) -> Result<(), ShardLoomError>,
+) -> Result<PreparedVortexRelational, ShardLoomError> {
+    validate_bindings(statement, request)?;
+    let policy = native_vortex_materializing_policy(request)?;
+    let mut sources = Sources::default();
+    let operation = native_relational::prepare_in_session(
+        statement,
+        policy,
+        session,
+        inputs,
+        |leaf, memory| sources.resolve(leaf, request, memory),
+    )?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    let operation = operation.with_preparation_sources(sources.preparations)?;
+    Ok(operation)
+}
+
 // Preparation owners transfer into the plan when format preparation is enabled.
 #[cfg_attr(
     not(all(feature = "vortex-write", feature = "universal-format-io")),

@@ -40,6 +40,10 @@ pub use batches::MemoryBatchSourceBuilder;
 #[path = "resident_memory_range.rs"]
 mod generated_range;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "resident_memory_arrow.rs"]
+mod arrow_intake;
+
 /// Explicit typed input. Slices are borrowed only for intake;
 /// published Vortex buffers retain no references into caller memory.
 #[derive(Clone, Copy)]
@@ -92,6 +96,7 @@ struct MemorySourceOwner {
     bounds: MemorySourceBounds,
     input_logical_bytes: usize,
     intake_payload_bytes_copied: u64,
+    intake_columnar_buffer_bytes_copied: u64,
     // Every copied/transferred payload buffer also holds this credit, including
     // cloned/sliced child buffers. Generated ranges have their own compact owner.
     metadata: Option<Arc<MemoryLease>>,
@@ -104,6 +109,22 @@ struct MemorySourceOwner {
 pub struct ResidentMemorySource(Arc<MemorySourceOwner>);
 
 impl ResidentMemorySource {
+    /// Retain a completed native result as input to further native operations.
+    /// Its buffers and session grant remain shared; no rows, JSON or temporary
+    /// file are constructed. Growing composition metadata uses that same grant.
+    /// # Errors
+    /// Rejects inconsistent completed results, cancellation and memory denial.
+    #[cfg(feature = "vortex-write")]
+    pub fn from_completed_result(
+        result: &OwnedVortexResultBatch,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<Self> {
+        let mut builder =
+            MemoryBatchSourceBuilder::new(&result.retained_session(), cancellation.clone())?;
+        builder.push_native_result(result)?;
+        builder.finish()
+    }
+
     /// Construct compact native signed-range input under the session's grant.
     /// The relational engine generates only each admitted scan interval; whole
     /// array projection remains an explicitly materializing operation.
@@ -190,6 +211,7 @@ impl ResidentMemorySource {
             bounds,
             input_logical_bytes,
             intake_payload_bytes_copied: 0,
+            intake_columnar_buffer_bytes_copied: 0,
             metadata: Some(metadata),
             is_batch: false,
             generated_range: None,
@@ -299,6 +321,7 @@ impl ResidentMemorySource {
             bounds,
             input_logical_bytes,
             intake_payload_bytes_copied,
+            intake_columnar_buffer_bytes_copied: 0,
             metadata: Some(metadata),
             is_batch,
             generated_range: None,
@@ -340,6 +363,14 @@ impl ResidentMemorySource {
     #[must_use]
     pub fn intake_payload_bytes_copied(&self) -> u64 {
         self.0.intake_payload_bytes_copied
+    }
+
+    /// Bytes copied by direct Arrow intake, including validity, offsets and
+    /// referenced child buffers. Original producer capacity and allocation
+    /// alignment headroom are excluded. Native-result composition copies none.
+    #[must_use]
+    pub fn intake_columnar_buffer_bytes_copied(&self) -> u64 {
+        self.0.intake_columnar_buffer_bytes_copied
     }
 
     /// Build an immutable native file layout over owned memory segments. This
@@ -507,10 +538,12 @@ impl PreparedMemoryProjection {
         Ok(result)
     }
 
-    /// Reuse the schema-bound projection against the current input batch.
-    pub(crate) fn execute_batch(
+    /// Reuse the schema-bound projection over a bounded range of the current
+    /// input batch, retaining its original resource owner until consumption ends.
+    pub(crate) fn execute_batch_range(
         &self,
         source: &ResidentMemorySource,
+        range: std::ops::Range<usize>,
         context: &crate::resident_session::NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
         self.source.0.session.validate_execution_context(context)?;
@@ -521,7 +554,7 @@ impl PreparedMemoryProjection {
                 "SL-NATIVE-BATCH: input changed its declared schema or resource owner",
             ));
         }
-        let array = source.array_range(0..source.row_count(), &|| context.check_cancelled())?;
+        let array = source.array_range(range, &|| context.check_cancelled())?;
         let result = self.execute_array(array, context.native_session())?;
         context.check_cancelled()?;
         Ok(result)

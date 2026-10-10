@@ -1,20 +1,34 @@
 //! Recursive type and byte admission at the explicit Arrow output boundary.
 
-use super::{CompatibilityLimits, add, error};
 use crate::local_primitives::{usize_to_u64, vortex_error};
 use arrow_schema::{DataType, Field};
-use shardloom_core::Result;
+use shardloom_core::{Result, ShardLoomError};
 use std::sync::Arc;
 use vortex::array::{
     ArrayRef, Columnar, ExecutionCtx, IntoArray,
     arrays::fixed_size_list::{FixedSizeListArrayExt as _, FixedSizeListArraySlotsExt as _},
     arrays::listview::{ListViewArrayExt as _, ListViewArraySlotsExt as _},
     arrays::struct_::StructArrayExt as _,
-    arrays::{FixedSizeListArray, ListViewArray, StructArray, VarBinViewArray},
+    arrays::{FixedSizeListArray, ListViewArray, StructArray, VarBin, VarBinViewArray},
     dtype::{DType, PType},
 };
 
-pub(super) fn data_type(dtype: &DType) -> Option<DataType> {
+/// Callers choose representation/work admission and supply their cancellation
+/// check. Native result export uses its shared grant; compatibility writers keep
+/// their separately admitted per-batch constraints.
+pub(crate) struct ConversionLimits<'a> {
+    pub string_bytes: usize,
+    pub arrow_batch_bytes: u64,
+    pub check: &'a dyn Fn() -> Result<()>,
+}
+
+impl ConversionLimits<'_> {
+    fn check(&self) -> Result<()> {
+        (self.check)()
+    }
+}
+
+pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
     Some(match dtype {
         DType::Bool(_) => DataType::Boolean,
         DType::Utf8(_) => DataType::Utf8,
@@ -60,9 +74,6 @@ pub(super) fn data_type(dtype: &DType) -> Option<DataType> {
                 .zip(fields.fields())
                 .map(|(name, dtype)| {
                     let name: &str = name.as_ref();
-                    if name.len() > 256 {
-                        return None;
-                    }
                     Some(Field::new(name, data_type(&dtype)?, dtype.is_nullable()))
                 })
                 .collect::<Option<Vec<_>>>()?
@@ -72,7 +83,7 @@ pub(super) fn data_type(dtype: &DType) -> Option<DataType> {
     })
 }
 
-pub(super) fn field_count(dtype: &DType) -> usize {
+pub(crate) fn field_count(dtype: &DType) -> usize {
     1 + match dtype {
         DType::Struct(fields, _) => fields.fields().map(|child| field_count(&child)).sum(),
         DType::List(element, _) | DType::FixedSizeList(element, _, _) => field_count(element),
@@ -84,7 +95,7 @@ pub(super) fn field_count(dtype: &DType) -> usize {
 /// identify Avro records, not different logical payload types. Decimal fields
 /// also repeat precision/scale as metadata; require exact agreement with the
 /// declared decimal dtype. Keep names, nullability and every leaf exact.
-pub(super) fn avro_field_matches(actual: &Field, expected: &Field) -> bool {
+pub(crate) fn avro_field_matches(actual: &Field, expected: &Field) -> bool {
     if actual.name() != expected.name()
         || actual.is_nullable() != expected.is_nullable()
         || !expected.metadata().is_empty()
@@ -114,8 +125,10 @@ pub(super) fn avro_field_matches(actual: &Field, expected: &Field) -> bool {
     }
 }
 
-fn charge(expanded: &mut u64, bytes: u64, limits: &CompatibilityLimits) -> Result<()> {
-    add(expanded, bytes)?;
+fn charge(expanded: &mut u64, bytes: u64, limits: &ConversionLimits<'_>) -> Result<()> {
+    *expanded = expanded
+        .checked_add(bytes)
+        .ok_or_else(|| error("byte or row counter overflow"))?;
     if *expanded > limits.arrow_batch_bytes {
         return Err(error(
             "native fields exceed Arrow batch expansion admission",
@@ -127,10 +140,10 @@ fn charge(expanded: &mut u64, bytes: u64, limits: &CompatibilityLimits) -> Resul
 /// Preserve native structural validity and canonicalize only at the terminal
 /// adapter. A retained view's entire child domain is counted conservatively.
 /// Completed relational payloads already own compact selected child domains.
-pub(super) fn canonical(
+pub(crate) fn canonical(
     array: &ArrayRef,
     ctx: &mut ExecutionCtx,
-    limits: &CompatibilityLimits,
+    limits: &ConversionLimits<'_>,
     expanded: &mut u64,
 ) -> Result<ArrayRef> {
     limits.check()?;
@@ -233,7 +246,7 @@ pub(super) fn canonical(
 fn canonical_text(
     array: &ArrayRef,
     ctx: &mut ExecutionCtx,
-    limits: &CompatibilityLimits,
+    limits: &ConversionLimits<'_>,
     expanded: &mut u64,
 ) -> Result<ArrayRef> {
     charge(
@@ -258,7 +271,20 @@ fn canonical_text(
         }
         charge(expanded, usize_to_u64(len)?, limits)?;
     }
-    Ok(text.into_array())
+    // A compatible contiguous byte array can share its offsets and payload with
+    // Arrow. The view above is only for byte/length admission; do not replace
+    // this representation and force the provider to rebuild it from views.
+    if array.is::<VarBin>() {
+        Ok(array.clone())
+    } else {
+        Ok(text.into_array())
+    }
+}
+
+fn error(message: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "native columnar compatibility sink: {message}; no fallback execution was attempted"
+    ))
 }
 
 #[cfg(test)]

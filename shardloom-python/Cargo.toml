@@ -1,0 +1,41 @@
+[package]
+name = "shardloom-python"
+version.workspace = true
+edition.workspace = true
+description = "In-process Python ownership over the shared ShardLoom native runtime"
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "_native"
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[features]
+default = []
+python-native = [
+    "dep:pyo3", "dep:pyo3-build-config", "dep:arrow-pyarrow", "dep:arrow-array", "dep:arrow-schema",
+    "dep:shardloom-core", "dep:shardloom-exec", "dep:shardloom-vortex",
+    "dep:shardloom-runtime", "shardloom-runtime/release-user-surfaces",
+]
+release-user-surfaces = ["python-native"]
+
+[dependencies]
+pyo3 = { workspace = true, features = ["abi3-py310"], optional = true }
+arrow-pyarrow = { workspace = true, optional = true }
+arrow-array = { workspace = true, features = ["ffi"], optional = true }
+arrow-schema = { workspace = true, optional = true }
+shardloom-core = { workspace = true, optional = true }
+shardloom-exec = { workspace = true, optional = true }
+shardloom-vortex = { workspace = true, optional = true }
+shardloom-runtime = { workspace = true, optional = true }
+
+[build-dependencies]
+pyo3-build-config = { workspace = true, optional = true }
