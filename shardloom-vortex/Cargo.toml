@@ -36,7 +36,7 @@ universal-format-io = [
 vortex-file-io = ["upstream-vortex"]
 vortex-object-store = ["vortex-file-io"]
 vortex-write = ["vortex-file-io", "dep:vortex-zstd"]
-vortex-local-primitives = ["vortex-file-io", "dep:lending-iterator", "vortex/serde"]
+vortex-local-primitives = ["vortex-file-io", "dep:lending-iterator", "dep:serde", "vortex/serde"]
 vortex-staged-output-fs = []
 vortex-metadata-executor = []
 vortex-encoded-read-executor = []
@@ -58,6 +58,7 @@ shardloom-exec = { workspace = true }
 shardloom-plan = { workspace = true }
 lending-iterator = { version = "0.1.7", optional = true }
 memchr = { workspace = true }
+serde = { workspace = true, optional = true }
 serde_json = { version = "1.0", features = ["raw_value"] }
 sha2 = { workspace = true }
 vortex = { workspace = true, optional = true }

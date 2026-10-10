@@ -156,6 +156,91 @@ fn owned_flat_columns_preserve_nullable_schema_and_full_values() {
 }
 
 #[test]
+fn ordinary_boolean_intake_keeps_empty_and_nullable_buffer_schema_ownership() {
+    fn buffers(array: &ArrayRef, output: &mut Vec<vortex::buffer::ByteBuffer>) {
+        output.extend(array.buffers().iter().cloned());
+        for child in array.slots().iter().flatten() {
+            buffers(child, output);
+        }
+    }
+
+    // Copy intake is nullable; owned intake also admits nonnullable columns.
+    for (owned, nullable) in [(false, true), (true, true), (true, false)] {
+        for empty in [true, false] {
+            let mut index = 0;
+            loop {
+                let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
+                let memory = session.memory().clone();
+                let source = if owned {
+                    let values = if empty {
+                        vec![]
+                    } else {
+                        vec![true, false, true]
+                    };
+                    let valid = nullable.then(|| {
+                        if empty {
+                            vec![]
+                        } else {
+                            vec![true, false, true]
+                        }
+                    });
+                    let column =
+                        OwnedMemoryColumn::boolean(&session, "flag", values, valid).unwrap();
+                    ResidentMemorySource::from_owned_columns(
+                        &session,
+                        vec![column],
+                        MemorySourceBounds::default(),
+                    )
+                    .unwrap()
+                } else {
+                    let values = if empty {
+                        vec![]
+                    } else {
+                        vec![Some(true), None, Some(true)]
+                    };
+                    ResidentMemorySource::from_batch_columns(
+                        &session,
+                        &[MemoryColumn {
+                            name: "flag",
+                            values: MemoryColumnValues::Bool(&values),
+                        }],
+                    )
+                    .unwrap()
+                };
+                assert_eq!(
+                    source.dtype().as_struct_fields().field("flag"),
+                    Some(DType::Bool(Nullability::from(nullable)))
+                );
+                let witness = Arc::downgrade(source.0.metadata.as_ref().unwrap());
+                let field = source.0.array.slots()[1].as_ref().unwrap();
+                let mut all = Vec::new();
+                buffers(field, &mut all);
+                assert_eq!(all.len(), if empty || !nullable { 1 } else { 2 });
+                if index == all.len() {
+                    break;
+                }
+                let held = all.swap_remove(index);
+                let alias = field.slice(0..field.len()).unwrap();
+                drop(all);
+                drop(source);
+                drop(session);
+                assert!(witness.upgrade().is_some());
+                assert!(memory.snapshot().reserved_bytes > 0);
+                drop(alias);
+                assert!(
+                    witness.upgrade().is_some(),
+                    "owned={owned} nullable={nullable} empty={empty} buffer={index}"
+                );
+                drop(held);
+                assert!(witness.upgrade().is_none());
+                assert_eq!(memory.snapshot().reserved_bytes, 0);
+                index += 1;
+            }
+        }
+    }
+}
+
+#[test]
 fn owned_intake_rejects_foreign_budgets_invalid_offsets_and_denial_without_leaks() {
     let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
     let other = ResidentVortexSession::new(1024 * 1024, 1).unwrap();

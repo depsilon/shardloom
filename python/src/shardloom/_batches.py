@@ -51,10 +51,14 @@ def validate_inputs(bindings, inputs):
 class BatchInput:
     """Inert input declaration. A factory supplies a fresh iterable for each call."""
 
-    def __init__(self, batches: object, schema: tuple[tuple[str, str], ...]):
+    def __init__(self, batches: object, schema: tuple[tuple[str, object], ...], *,
+                 types: tuple[tuple[str, ResultType], ...] | None = None):
+        from ._input_schema import normalize_schema
+
         if not callable(batches) and not hasattr(batches, "__iter__"):
             raise TypeError("batches must be an iterable or a factory returning an iterable")
         self.schema = schema
+        self._types = types if types is not None else normalize_schema(dict(schema))
         self._batches = batches
         self._used = False
 
@@ -67,7 +71,7 @@ class BatchInput:
         return iter(self._batches)
 
     def encode(self, batch: object) -> list[list[str | None]]:
-        from .query import _memory_value
+        from ._input_schema import encode_cell
 
         if isinstance(batch, (str, bytes, bytearray)) or not isinstance(batch, Sequence):
             raise TypeError("each input batch must be a sequence of row mappings")
@@ -82,8 +86,8 @@ class BatchInput:
             if not isinstance(row, Mapping) or set(row) != names:
                 raise ValueError("batch rows must match the complete declared schema")
             values = []
-            for name, kind in self.schema:
-                value = None if row[name] is None else _memory_value(kind, row[name])
+            for name, dtype in self._types:
+                value = encode_cell(dtype, row[name])
                 if value is not None and len(value) > _MAX_INPUT_FRAME:
                     raise ValueError("input batch value exceeds 8 MiB")
                 value_bytes += 1 if value is None else len(value.encode("utf-8"))

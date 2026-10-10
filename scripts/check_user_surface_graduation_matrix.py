@@ -102,11 +102,8 @@ COMMAND_FAMILY_FUNCTIONS = (
 )
 REQUIRED_DOC_MARKERS = {
     "README.md": [
-        "user surface graduation",
-        "high_level_context",
-        "client_only",
-        "diagnostic_only",
-        "feature_gated",
+        "https://shardloom.io/field-guide/python-surface/",
+        "docs/reference/shardloom-user-surface-index.md",
     ],
     "python/README.md": [
         "user_surface_graduation_matrix",

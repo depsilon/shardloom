@@ -15,7 +15,10 @@ The [design](../architecture/native-input-growth-2026-10-09.md),
 [evidence index](evidence/native-input-growth-2026-10-09.json),
 [portable packet](evidence/native-input-growth-2026-10-09.json.xz) and
 [independent inspection](evidence/native-input-growth-2026-10-09-inspection.json)
-bind the complete source and result evidence. Hosted integration is pending.
+bind the complete source and result evidence. Hosted integration is complete in
+[PR #1539](https://github.com/depsilon/shardloom/pull/1539); its
+[receipt](evidence/native-input-growth-hosted-2026-10-09.json) binds the merge
+and actual production verification.
 
 ## Ownership and native providers
 
@@ -221,6 +224,24 @@ warnings or errors are observed. The temporary preview is closed and its process
 group drained. The evidence index binds the support receipt, final documentation
 hashes and a separately reopened archive containing the checks and screenshots.
 All 1,020 accepted runtime assets and the executable remain byte-identical.
+
+## Hosted integration
+
+PR #1539 merged at `7d8230b2e69c23073c329ff07d75e3e5658decdd` after all 39
+checks passed on `bdb6ec334e8a790734f9b1964ddaae7d6254d3df`, including CodeQL.
+The accepted head and merge trees are identical. Primary source review found
+no blocking findings. Hosted automated review was unavailable because the
+account review quota was exhausted; no independent review or submitted approval
+is inferred.
+
+The [hosted receipt](evidence/native-input-growth-hosted-2026-10-09.json)
+retains 19 records and eight screenshots, including the successful preview and
+production deployments. Actual desktop/mobile Python, resource and limitation
+guide text and growth links match between preview and production. Search for
+`cumulative` reaches the batch-consumption section. The public acceptance link
+opens the merged report, whose GitHub bytes match the accepted source. Temporary
+tabs are closed and viewport overrides are reset. No package publication or
+version change accompanies integration.
 
 ## Remaining implementation
 

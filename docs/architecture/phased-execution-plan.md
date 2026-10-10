@@ -249,20 +249,88 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-INPUT-GROWTH` complete hosted integration for the
-  finite cumulative-input, top-level schema and generated-range growth unit.
+- [ ] `NATIVE-TYPED-INPUT` extend exact typed values through the shared native
+  resident and finite batch source.
   - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-03/06/07/10/11/12 and CG-3/5/19/20/21.
-  - Local engine acceptance and independent packet inspection pass at
-    `61a813b7`: all 15 source gates, 20 growth cases, five input-pressure
-    controls, 442 streaming cases, 32,497 public cases and all 129 Full43
-    results. The [report](../benchmarks/native-input-growth-2026-10-09.md)
-    preserves exact source/value proof and the failed candidates.
-  - Affected documentation, ten generated-site checks, three native examples,
-    contribution governance and desktop/mobile/search review pass. Complete
-    hosted checks and integration without changing the accepted runtime.
-    Keep 0.5.1 fixed. Richer intake, repeated/multiple producers,
-    streaming sink composition and deeper traversal remain implementation work.
+  - Existing owners: PERF-03/07/11/12 and CG-19/20/21; this extends the current
+    local implementation phase, without changing the CG-1 through CG-23 queue.
+  - Contract: [typed native input](native-typed-input-2026-10-10.md).
+    Preserve the existing four scalar declarations and add explicit exact
+    widths, decimal, binary, temporal and nested schemas to ordinary rows,
+    buffered batches and the existing finite single-use stream.
+  - Shared family: normalize all declarations into the existing native source,
+    resource pool, relational binder and sinks. Reuse Vortex DType and native
+    arrays inside shardloom-vortex; no new execution provider or fallback.
+  - ShardLoom technique review: dynamic shared-grant admission owns schema,
+    conversion and native-buffer overlap; capillary demand bounds each input
+    frame; PulseWeave retains the same resource policy; metadata-first binding
+    checks typed empty schemas before demand. Separate wrapper conversion from
+    execution timing and require complete values and certificates at the same
+    evidence tier. No speedup claim accompanies this capability unit.
+  - Execution checklist:
+    - [x] Finalize the provider reuse and exact schema/value wire contract.
+    - [x] Implement native typed construction, retained credits and source reuse.
+    - [x] Add Python declarations/conversion and preserve legacy wire identities.
+    - [x] Verify every admitted type through resident/buffered/streamed workflows,
+      native write/reopen, compatibility contracts and resource/failure controls.
+    - [x] Complete source/public regression acceptance, independent packet
+      inspection and affected documentation with rendered guide checks.
+    - [ ] Complete hosted integration against the final reviewed PR head.
+  - Preserve finite completion, per-frame and small-result boundaries, explicit
+    `fallback_attempted=false` and `external_engine_invoked=false`. Multiple or
+    repeated producers, dynamic schemas, streaming sink composition and deeper
+    traversal retain their existing owners. Keep version 0.5.1 fixed.
+
+- [ ] `REQUIRED-EXECUTION-RESOURCES` require an explicit shared allocation before
+  any data inspection, preparation, producer consumption or execution.
+  - V1 scope classification: `required_for_v1`.
+  - Existing owners: PERF-03/06/11/12 and CG-19/20/21/23.
+  - Contract: [required execution resources](required-execution-resources-2026-10-10.md).
+    The October 10 maintainer direction makes this the next implementation unit.
+    Remove numeric production defaults; inherit validated context/session or
+    platform configuration, allow authorized call overrides and retain exact bytes
+    and per-field origin. Environment loading is deliberate and strict.
+  - Share actual owners across preparation, retained state, execution and output;
+    report declared/admitted allocation separately from observed use and spill.
+    Missing/invalid configuration must consume no input or create output.
+  - ShardLoom technique review: dynamic scheduling, capillary demand and PulseWeave
+    operate inside explicit permission; metadata-first descriptions stay inert.
+    Preserve timing-surface and evidence-tier distinctions for observed usage.
+  - Execution checklist:
+    - [ ] Implement shared resource resolution, origin and authorization limits.
+    - [ ] Wire all Python, SQL, CLI, worker and native execution boundaries.
+    - [ ] Prove no-consumption rejection, inherited/overridden configuration,
+      ownership, reports and complete workflows; update guides and hosted checks.
+
+- [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations
+  directly through Python after required resources.
+  - V1 scope classification: `required_for_v1`.
+  - Existing owners: PERF-02/03/07/11/12 and CG-19/20/21.
+  - Contract: [native Python ownership](native-python-surface-2026-10-10.md).
+    The October 10 direction resumes native binding against the current shared
+    engine. The earlier unbuilt/unmeasured prototype is a reference, not a failed
+    performance comparison or permission to restore its narrow experimental caps.
+  - ShardLoom technique review: retain dynamic shared grants, capillary batch
+    demand, PulseWeave scheduling and metadata-first plans behind native handles.
+    Separate conversion/native/workflow timing-surface observations at the same
+    evidence-tier before accepting a measured improvement.
+  - Execution checklist:
+    - [ ] Retain native result/batch owners and export columnar data directly.
+    - [ ] Admit direct columnar input with exact schemas and real producer owners.
+    - [ ] Expose in-process sessions and complete operations through shared Rust
+      planning/execution, resources, cancellation and diagnostics.
+    - [ ] Add native expression/prepared-plan handles converging with SQL's IR.
+    - [ ] Verify lifetimes, failure, complete workflows and paired end-to-end
+      measurements; preserve an explicit subprocess option without semantic drift.
+  - Adjacent ingest/pruning work under PERF-07/08/11/12 must restore useful
+    full-domain timestamp compression and safe statistics with endpoint and
+    conservative-pruning proof. Do not narrow accepted temporal storage values.
+  - Both units preserve all six remaining areas, eight investigations and
+    CG-1 through CG-23 under their existing owners. Keep version 0.5.1 fixed.
+
+`NATIVE-INPUT-GROWTH` completed in PR #1539 after all 39 hosted checks passed;
+the [completed ledger](phased-execution-completed-ledger.md) records the accepted
+runtime, unchanged merge tree and actual production verification.
 
 `RELEASE-050` is complete as corrected v0.5.1: all four selected channels and
 the production website are verified. The
@@ -961,8 +1029,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     the remaining prepared/public families.
     The [relational continuation](native-relational-workflows-2026-10-01.md) adds
     retained typed joins, sets, analytic windows and scoped subqueries plus public
-    collection/writers. Native Python binding remains parked; broader composition,
-    types, sources and per-family pressure transitions remain open.
+    collection/writers. The October 10 maintainer direction resumes native Python
+    binding through `NATIVE-PYTHON-SURFACE` after explicit resources; broader
+    composition, types, sources and per-family pressure transitions remain open.
   - Execution checklist:
     - [ ] Extend prepared native execution to the remaining operator families.
     - [ ] Complete the native Python prototype/binding decision and migration;
@@ -3047,7 +3116,9 @@ remain unchanged.
 5. The intake selectively reopens derived-text representation, writer-overlap
    admission and optimized-build screening. It does not revive rejected weighted
    partials, conversion-owner allocation, topology/coalescing sweeps, universal
-   state/bitmap replacements, broad codec sweeps or native Python binding.
+   state/bitmap replacements or broad codec sweeps. The later October 10
+   maintainer direction separately resumes native Python binding through
+   `NATIVE-PYTHON-SURFACE`; the older prototype was unbuilt and unmeasured.
    Consult the [control ledger](performance-control-progression-2026-09-12.md)
    and linked experiment records instead of restarting completed work.
 6. Keep large builds and UAT serial under

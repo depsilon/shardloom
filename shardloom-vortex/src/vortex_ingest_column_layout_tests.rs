@@ -3,6 +3,8 @@ use super::*;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "vortex_ingest_column_layout_bench.rs"]
 mod benchmark;
+#[path = "vortex_ingest_temporal_tests.rs"]
+mod temporal;
 use vortex::{
     array::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,

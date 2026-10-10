@@ -10,9 +10,7 @@ use shardloom_core::{Result, ShardLoomError, StatValue};
 use vortex::{
     array::{
         ArrayRef, IntoArray as _,
-        arrays::{
-            BoolArray, DecimalArray, ExtensionArray, PrimitiveArray, StructArray, VarBinArray,
-        },
+        arrays::{DecimalArray, ExtensionArray, PrimitiveArray, StructArray, VarBinArray},
         dtype::{DType, DecimalDType, FieldNames, PType},
         memory::{HostAllocatorRef, WritableHostBuffer},
         validity::Validity,
@@ -21,6 +19,7 @@ use vortex::{
 };
 
 use super::vortex_error;
+use crate::owned_buffers::bool_array_with_retained_buffer;
 
 #[path = "local_primitive_variant_result.rs"]
 mod variant;
@@ -336,7 +335,7 @@ fn multiply(left: usize, right: usize) -> Result<usize> {
         .ok_or_else(|| failed("buffer size overflow"))
 }
 
-fn width(dtype: &DType) -> Result<usize> {
+pub(super) fn width(dtype: &DType) -> Result<usize> {
     match dtype {
         DType::Bool(_) => Ok(0),
         DType::Utf8(_) | DType::Binary(_) => Ok(8),
@@ -553,12 +552,10 @@ pub(super) fn build_column<'a>(
                 .copy_from_slice(&u64::try_from(text_end).map_err(vortex_error)?.to_ne_bytes());
         }
     }
-    let validity = validity.map_or(Validity::NonNullable, |buffer| {
-        Validity::Array(
-            BoolArray::new(BitBuffer::new(buffer.freeze(), rows), Validity::NonNullable)
-                .into_array(),
-        )
-    });
+    let validity = validity
+        .map(|buffer| finish_validity(buffer.freeze(), rows))
+        .transpose()?
+        .unwrap_or(Validity::NonNullable);
     if text_end != text_bytes {
         return Err(failed(
             "completed variable payload changed during construction",
@@ -573,6 +570,12 @@ pub(super) fn build_column<'a>(
     )
 }
 
+fn finish_validity(buffer: ByteBuffer, rows: usize) -> Result<Validity> {
+    bool_array_with_retained_buffer(BitBuffer::new(buffer, rows), Validity::NonNullable)
+        .map(|array| Validity::Array(array.into_array()))
+        .map_err(vortex_error)
+}
+
 fn finish_column(
     dtype: &DType,
     rows: usize,
@@ -581,7 +584,9 @@ fn finish_column(
     variable: Option<ByteBuffer>,
 ) -> Result<ArrayRef> {
     match dtype {
-        DType::Bool(_) => Ok(BoolArray::new(BitBuffer::new(data, rows), validity).into_array()),
+        DType::Bool(_) => bool_array_with_retained_buffer(BitBuffer::new(data, rows), validity)
+            .map(vortex::array::IntoArray::into_array)
+            .map_err(vortex_error),
         DType::Primitive(ptype, _) => primitive(*ptype, data, validity),
         DType::Decimal(decimal, _) => {
             DecimalArray::try_new(Buffer::<i128>::from_byte_buffer(data), *decimal, validity)

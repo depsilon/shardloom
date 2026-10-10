@@ -248,7 +248,7 @@ fn check(row: usize, context: &NativeExecutionContext<'_>) -> Result<()> {
     Ok(())
 }
 
-fn default_value(dtype: &DType) -> Result<Value<'static>> {
+pub(super) fn default_value(dtype: &DType) -> Result<Value<'static>> {
     if dtype.is_nullable() {
         return Ok(Value::Null);
     }

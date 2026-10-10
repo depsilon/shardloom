@@ -22,7 +22,7 @@ pub(crate) fn build(
     let typed = schema
         .iter()
         .enumerate()
-        .map(|(index, (_, kind))| TypedColumn::from_rows(*kind, index, rows))
+        .map(|(index, (_, kind))| TypedColumn::from_rows(kind, index, rows))
         .collect::<Result<Vec<_>, _>>()?;
     let columns = schema
         .iter()
@@ -108,7 +108,7 @@ fn with_batch_columns<T>(
     let typed = schema
         .iter()
         .enumerate()
-        .map(|(index, (_, kind))| TypedColumn::from_rows(*kind, index, rows))
+        .map(|(index, (_, kind))| TypedColumn::from_rows(kind, index, rows))
         .collect::<Result<Vec<_>, _>>()?;
     let columns = schema
         .iter()
@@ -126,11 +126,15 @@ enum TypedColumn<'a> {
     Float64(Vec<Option<f64>>),
     Bool(Vec<Option<bool>>),
     Utf8(Vec<Option<&'a str>>),
+    Native {
+        dtype: &'a str,
+        values: Vec<Option<&'a str>>,
+    },
 }
 
 impl<'a> TypedColumn<'a> {
     fn from_rows(
-        kind: MemoryValueType,
+        kind: &'a MemoryValueType,
         index: usize,
         rows: &'a [MemoryRow],
     ) -> Result<Self, ShardLoomError> {
@@ -152,6 +156,15 @@ impl<'a> TypedColumn<'a> {
                 .map(Self::Bool)
                 .map_err(|_| adapter_error("invalid typed bool")),
             MemoryValueType::Utf8 => Ok(Self::Utf8(values().collect())),
+            MemoryValueType::Native { encoding, dtype } => {
+                if encoding != "vortex.dtype.serde.v1" {
+                    return Err(adapter_error("unsupported native input schema encoding"));
+                }
+                Ok(Self::Native {
+                    dtype,
+                    values: values().collect(),
+                })
+            }
         }
     }
 
@@ -161,6 +174,10 @@ impl<'a> TypedColumn<'a> {
             Self::Float64(values) => MemoryColumnValues::Float64(values),
             Self::Bool(values) => MemoryColumnValues::Bool(values),
             Self::Utf8(values) => MemoryColumnValues::Utf8(values),
+            Self::Native { dtype, values } => MemoryColumnValues::TypedJson {
+                dtype_json: dtype,
+                values,
+            },
         }
     }
 }
@@ -172,6 +189,53 @@ fn adapter_error(message: &str) -> ShardLoomError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rich_wire_rows_and_buffered_batches_share_native_construction() {
+        use serde_json::{Value, json};
+        use shardloom_exec::compute_pool::CancellationToken;
+        let session = ResidentVortexSession::new(4 * 1024 * 1024, 1).unwrap();
+        let dtype = json!({"Struct":[{"names":["id","bytes","items"],"dtypes":[
+            {"Primitive":["u64",false]}, {"Binary":true},
+            {"List":[{"Decimal":[{"precision":8,"scale":2},true]},true]},
+        ]},true]});
+        let schema = vec![(
+            "v".into(),
+            MemoryValueType::Native {
+                encoding: "vortex.dtype.serde.v1".into(),
+                dtype: dtype.to_string(),
+            },
+        )];
+        let value = json!({"id":u64::MAX,"bytes":"00ff","items":["decimal128(8,2):-1234",null]});
+        let rows = vec![
+            MemoryRow(vec![Some(value.to_string())]),
+            MemoryRow(vec![None]),
+        ];
+        let resident = build(&schema, &rows, &session).unwrap();
+        let mut builder =
+            MemoryBatchSourceBuilder::new(&session, CancellationToken::default()).unwrap();
+        append_batch(&schema, &[], &mut builder).unwrap();
+        append_batch(&schema, &rows, &mut builder).unwrap();
+        let buffered = builder.finish().unwrap();
+        assert_eq!(resident.dtype(), buffered.dtype());
+        for source in [resident, buffered] {
+            let result = source
+                .prepare_projection(&["v"], None, None)
+                .unwrap()
+                .execute()
+                .unwrap();
+            assert_eq!(
+                serde_json::from_str::<Value>(result.values_json.value()).unwrap(),
+                json!([{"v":value},{"v":null}])
+            );
+            assert!(result.native_io_certificate.is_certified());
+        }
+        assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        for invalid in ["{\"id\":1}", "{\"id\":1,\"bytes\":\"0g\",\"items\":[]}"] {
+            assert!(build(&schema, &[MemoryRow(vec![Some(invalid.into())])], &session).is_err());
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        }
+    }
 
     #[test]
     fn invalid_rows_release_conversion_and_native_reservations() {
@@ -203,13 +267,13 @@ mod tests {
             MemoryRow(vec![None, None]),
         ];
         let TypedColumn::Int64(ints) =
-            TypedColumn::from_rows(MemoryValueType::Int64, 0, &rows).unwrap()
+            TypedColumn::from_rows(&MemoryValueType::Int64, 0, &rows).unwrap()
         else {
             panic!("int64 schema must create native int64 values");
         };
         assert_eq!(ints, vec![Some(i64::MAX), Some(i64::MIN), None]);
         let TypedColumn::Utf8(text) =
-            TypedColumn::from_rows(MemoryValueType::Utf8, 1, &rows).unwrap()
+            TypedColumn::from_rows(&MemoryValueType::Utf8, 1, &rows).unwrap()
         else {
             panic!("utf8 schema must create native utf8 values");
         };

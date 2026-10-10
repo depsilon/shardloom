@@ -505,11 +505,11 @@ $$('[data-layer]').forEach(button=>button.addEventListener('click',()=>{
  state.layer=+button.dataset.layer;$$('[data-layer]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));$('#layerName').textContent=layerInfo[state.layer][0];$('#layerDescription').textContent=layerInfo[state.layer][1];dirty();
 }));
 
-/* Code matches the previously supplied README examples. SQL is valid Python. */
+/* Public local examples; SQL runs through the Python context. */
 const samples={
- python:{title:'quickstart.py',code:`import shardloom as sl\n\nctx = sl.context()\nresult = (\n    ctx.read("orders.csv")\n       .filter(sl.col("status") == "paid")\n       .limit(10)\n       .run()\n)\n\nprint(result.envelope.field_int("output_row_count"))`,note:'Example from the public README. Bring a local orders.csv with a status column. Supported operations and enabled features still apply.'},
- sql:{title:'query.py',code:`import shardloom as sl\n\nctx = sl.context()\nresult = ctx.sql(\n    "SELECT COUNT(*) FROM hits "\n    "WHERE URL LIKE '%google%'",\n    input="hits.vortex",\n).run(bounded=True)\n\nprint(result.envelope.field_int("count"))`,note:'Uses the README SQL binding pattern. Bring an admitted local hits.vortex artifact with a URL column. This is not a browser-side ShardLoom runtime.'},
- install:{title:'terminal',code:`# Python package\npython -m pip install shardloom\n\n# Or Homebrew\nbrew install depsilon/tap/shardloom\n\n# Then follow the local getting-started guide.`,note:'Installation commands from the public README. Check repository support and platform requirements before use.'}
+ python:{title:'quickstart.py',code:`import shardloom as sl\n\nctx = sl.context()\nresult = (\n    ctx.read("orders.csv")\n       .filter(sl.col("status") == "paid")\n       .limit(10)\n       .run()\n)\n\nprint(result.envelope.field_int("output_row_count"))`,note:'Local Python example. Bring a local orders.csv with a status column. Supported operations and enabled features still apply.'},
+ sql:{title:'query.py',code:`import shardloom as sl\n\nctx = sl.context()\nresult = ctx.sql(\n    "SELECT COUNT(*) FROM hits "\n    "WHERE URL LIKE '%google%'",\n    input="hits.vortex",\n).run(bounded=True)\n\nprint(result.envelope.field_int("count"))`,note:'SQL with an explicit local input. Bring an admitted local hits.vortex artifact with a URL column. This is not a browser-side ShardLoom runtime.'},
+ install:{title:'terminal',code:`# Python package\npython -m pip install shardloom\n\n# Or Homebrew\nbrew install depsilon/tap/shardloom\n\n# Then follow the local getting-started guide.`,note:'Package installation commands. Check repository support and platform requirements before use.'}
 };
 function escapeHTML(t){return t.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function highlight(text){

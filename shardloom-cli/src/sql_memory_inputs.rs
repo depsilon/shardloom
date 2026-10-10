@@ -143,13 +143,13 @@ fn parse_values(raw: &str) -> Result<MemoryInput, ShardLoomError> {
             .map(literal_cell)
             .collect::<Result<Vec<_>, _>>()?;
         if kinds.is_empty() {
-            kinds.extend(row.iter().map(|(kind, _)| *kind));
+            kinds.extend(row.iter().map(|(kind, _)| kind.clone()));
         } else {
             for (kind, (next, _)) in kinds.iter_mut().zip(&row) {
-                *kind = match (*kind, *next) {
-                    (left, right) if left == right => left,
-                    (None, right) => right,
-                    (left, None) => left,
+                *kind = match (kind.as_ref(), next.as_ref()) {
+                    (left, right) if left == right => left.cloned(),
+                    (None, right) => right.cloned(),
+                    (left, None) => left.cloned(),
                     (Some(MemoryValueType::Int64), Some(MemoryValueType::Float64))
                     | (Some(MemoryValueType::Float64), Some(MemoryValueType::Int64)) => {
                         Some(MemoryValueType::Float64)
@@ -186,7 +186,7 @@ fn parse_values(raw: &str) -> Result<MemoryInput, ShardLoomError> {
         .map(|(i, kind)| {
             (
                 format!("column_{}", i + 1),
-                kind.unwrap_or(MemoryValueType::Bool),
+                kind.clone().unwrap_or(MemoryValueType::Bool),
             )
         })
         .collect::<Vec<_>>();

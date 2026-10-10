@@ -57,9 +57,7 @@ DOC_MARKERS = (
 
 PUBLIC_DOC_MARKERS = {
     "README.md": (
-        DOC_PATH.as_posix(),
-        "Local output/sink scope",
-        "write_vortex",
+        "https://shardloom.io/field-guide/runtime-and-io/",
     ),
     "python/README.md": (
         DOC_PATH.as_posix(),

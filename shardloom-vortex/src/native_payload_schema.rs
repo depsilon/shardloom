@@ -2,34 +2,14 @@
 
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
-use vortex::array::{
-    dtype::{DType, DecimalDType, PType},
-    extension::datetime::{Date, TimeUnit, Timestamp},
-};
+use vortex::array::dtype::{DType, DecimalDType, PType};
+
+pub(crate) use crate::native_temporal::temporal_storage;
 
 pub(crate) fn admitted_decimal(dtype: DecimalDType) -> bool {
     (1..=38).contains(&dtype.precision())
         && dtype.scale() >= 0
         && i16::from(dtype.scale()) <= i16::from(dtype.precision())
-}
-
-/// Recognize provider metadata, never an extension name or its storage alone.
-pub(crate) fn temporal_storage(dtype: &DType) -> Option<PType> {
-    let DType::Extension(extension) = dtype else {
-        return None;
-    };
-    let storage = if extension.metadata_opt::<Date>() == Some(&TimeUnit::Days) {
-        PType::I32
-    } else if extension
-        .metadata_opt::<Timestamp>()
-        .is_some_and(|metadata| metadata.unit == TimeUnit::Microseconds && metadata.tz.is_none())
-    {
-        PType::I64
-    } else {
-        return None;
-    };
-    matches!(extension.storage_dtype(), DType::Primitive(ptype, _) if *ptype == storage)
-        .then_some(storage)
 }
 
 /// Flat values admitted by native keys and compact retained scalar state.

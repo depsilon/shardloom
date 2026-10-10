@@ -128,7 +128,10 @@ cumulative batch input, top-level schema metadata and compact generated ranges
 grow under the shared query grant. All 15 source gates, 20 growth workflows,
 five input-pressure controls, complete public/streaming regressions and all 129
 Full43 results pass, followed by independent packet inspection and complete
-documentation/example/browser checks. Hosted integration remains pending.
+documentation/example/browser checks. PR #1539 merged at `7d8230b2` after all
+39 checks passed; the
+[hosted receipt](../benchmarks/evidence/native-input-growth-hosted-2026-10-09.json)
+binds identical accepted/merged trees and actual production verification.
 Per-frame and small-result bounds remain;
 richer intake, multiple/repeated producers, streaming destination composition
 and deeper traversal remain implementation work. Published 0.5.1 artifacts

@@ -118,6 +118,13 @@ mod native_numeric_owner;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_payload.rs"]
 mod native_payload;
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_input_schema.rs"]
+mod native_input_schema;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_input_values.rs"]
+mod native_input_values;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_aggregate.rs"]
 mod native_relational_aggregate;
@@ -166,6 +173,9 @@ mod native_relational_window_frame;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_sort_block.rs"]
 mod native_sort_block;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_typed_input.rs"]
+pub(crate) mod native_typed_input;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_utf8.rs"]
 mod native_utf8;

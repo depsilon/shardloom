@@ -272,7 +272,10 @@ replaces cumulative-input, top-level schema and generated-range ceilings with
 shared admission. All 20 growth cases, five input-pressure controls, complete
 public/streaming regressions and 129 Full43 results pass on corrected source
 `61a813b7`; independent packet inspection and support documentation checks pass.
-Hosted integration remains pending. Deeper traversal, richer intake, repeated/multiple producers,
+Hosted integration completed in PR #1539 after all 39 checks passed; the
+[hosted receipt](../benchmarks/evidence/native-input-growth-hosted-2026-10-09.json)
+binds the unchanged runtime and actual production verification.
+Deeper traversal, richer intake, repeated/multiple producers,
 streaming destination composition and remaining allocation coverage keep their
 existing implementation obligations.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)

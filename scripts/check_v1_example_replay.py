@@ -4,8 +4,8 @@
 
 This gate is intentionally local and bounded. It executes the source-checkout
 Python examples sequentially, validates golden-workflow replay/certificate
-markers, and checks that README/website snippet anchors still describe the same
-primary ShardLoom route. It does not publish packages, create tags, call
+markers, and checks README guide links plus Python/website snippet anchors.
+Detailed examples retain the same primary ShardLoom route. It does not publish packages, create tags, call
 external query engines, or authorize production/performance claims.
 """
 
@@ -47,15 +47,8 @@ EXPECTED_UNSUPPORTED_FAILURE_FIXTURES = 1
 
 DOC_MARKERS: dict[str, tuple[str, ...]] = {
     "README.md": (
-        "python examples/local-python-smoke/run.py --repo-root .",
-        "python examples/local-python-benchmark-scenarios/run.py --repo-root .",
-        "python examples/local-python-benchmark-scenarios/timing_review.py --repo-root .",
-        "import shardloom as sl",
-        "ctx = sl.context()",
-        'ctx.read("orders.csv")',
-        "ctx.prepare_vortex(",
-        'orders.filter("amount >= 10").select("id", "amount").write_jsonl(',
-        "print(result.fallback_attempted, result.external_engine_invoked)",
+        "https://shardloom.io/field-guide/start-local-proof/",
+        "https://shardloom.io/field-guide/python-surface/",
     ),
     "python/README.md": (
         "from shardloom import context",

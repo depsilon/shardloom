@@ -99,9 +99,7 @@ pub(super) fn stream_options(
             .map_err(vortex_error)?;
         let counters = strategy.counters();
         return Ok((
-            memory
-                .session
-                .write_options()
+            nested_layout::file_statistics(memory.session.write_options(), dtype)
                 .with_strategy(Arc::new(strategy)),
             StreamLayoutEvidence {
                 status: "native_struct_column_chunked_preserved_subtrees",
@@ -114,10 +112,12 @@ pub(super) fn stream_options(
     // Once an admitted candidate begins writing, a malformed native batch or
     // incompatible child layout is an error, never a mid-stream route change.
     Ok((
-        memory.session.write_options().with_strategy(Arc::new(
-            bounded_ingest_layout::BoundedIngestLayout::new(child, 0, memory.pool.reserve(0)?)
-                .with_input_prefetch(lookahead),
-        )),
+        nested_layout::file_statistics(memory.session.write_options(), dtype).with_strategy(
+            Arc::new(
+                bounded_ingest_layout::BoundedIngestLayout::new(child, 0, memory.pool.reserve(0)?)
+                    .with_input_prefetch(lookahead),
+            ),
+        ),
         StreamLayoutEvidence {
             status: if requested == StreamFooterLayout::ColumnAddressable {
                 "retained_source_batch_rows_candidate_schema_not_admitted"

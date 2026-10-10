@@ -26,6 +26,10 @@ The [September 26 cleanup](local-artifact-cleanup-2026-09-26.md) records retirem
 of obsolete local test/UAT artifacts. Local incremental compilation is disabled
 after its debug/test cache accumulated 146 GiB. Preserve frozen comparison
 binaries and receipts; retire redundant bulk outputs only after identity checks.
+The [October 10 cleanup](local-artifact-cleanup-2026-10-10.md) archives 40,365
+completed input-growth payloads with complete member verification before removing
+their originals, recovering 1.29 GB of accounted space. Source fixtures, summaries,
+failed/incomplete evidence and current build outputs remain retained.
 On September 27, 5,822 completed historical per-call log files were compacted
 losslessly into three `completed-call-logs-20260927.tar.xz` archives beside their
 original summaries. Per-member size/SHA-256 manifests preserve old path lookup;

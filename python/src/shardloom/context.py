@@ -11323,7 +11323,7 @@ class ShardLoomContext:
     def from_rows(
         self, rows: Sequence[Mapping[str, object]], *, schema: Mapping[str, object] | None = None,
     ) -> LazyFrame:
-        """Declare native scalar rows, including typed empty and nullable inputs."""
+        """Declare native rows; use an explicit schema for rich types or empty columns."""
 
         return from_rows(rows, schema=schema, client=self.client)
 

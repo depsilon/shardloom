@@ -1,0 +1,47 @@
+{
+  "status": "completed",
+  "action": "archived_then_removed_verified_redundant_originals",
+  "cohort": "<growth-workspace>/growth-regression-public-all-1",
+  "source_summary_sha256": "717a5b3671687d99b2941b392d087c89dae8c3de300f2e0f1ba2d0207dac3f8a",
+  "archive": "<growth-workspace>/growth-regression-public-all-1/completed-growth-payloads-20261010.tar.xz",
+  "archive_sha256": "32867f6b72234c666c80f6a41e566ee3d082d8024733fe1e2bdc90b8a6011c41",
+  "archive_bytes": 76631728,
+  "archive_allocated_bytes": 84492288,
+  "manifest": "<growth-workspace>/growth-regression-public-all-1/completed-growth-payloads-20261010.manifest.json",
+  "manifest_sha256": "438f209b65a100c6843c4e3f849d30e6276fb9fae9efdf952b0cbc03068c53fa",
+  "removed_files": 40365,
+  "removed_logical_bytes": 1278695028,
+  "removed_allocated_bytes": 1388584960,
+  "net_accounted_reclaimed_bytes": 1287606272,
+  "all_members_verified": true,
+  "originals_reverified_before_removal": true,
+  "retained_summaries_and_sources_unchanged": true,
+  "closed_handles_verified": true,
+  "failed_incomplete_cohorts_untouched": true,
+  "guard_limits_unchanged": true,
+  "storage_before": {
+    "workspace_bytes": 2613157888,
+    "log_bytes": 0,
+    "free_bytes": 54320164864,
+    "reserved_candidate_bytes": 1412912756
+  },
+  "storage_after": {
+    "workspace_bytes": 1325551616,
+    "log_bytes": 0,
+    "free_bytes": 55653171200,
+    "reserved_candidate_bytes": 134217728
+  },
+  "free_bytes_before": 54320164864,
+  "free_bytes_after": 55653171200,
+  "seconds": 47.359004974365234,
+  "guard": {
+    "status": "passed",
+    "returncode": 0,
+    "seconds": 47.59721320899553,
+    "process_group_drained": true,
+    "log_sha256": "3b25f19147764a8d0532ca96298d6cbf1fbe049bab8c23920348bbdb2f5e6e8a"
+  },
+  "compaction_script_sha256": "7dc65f8845667b1e5c8fb97999829c33236c15ca306f4cb623eac1f8c89a0c88",
+  "receipt_sha256": "9a5d26e3eff7bfe3842c2e57a20d3924aad81208b1ca47fcfb145cb7680c6759",
+  "local_path_binding": "Replace <growth-workspace> with the retained local native-input-growth-corrected-20261009 workspace."
+}

@@ -8345,8 +8345,9 @@ def from_batches(
 ) -> LazyFrame:
     """Declare native input in batches of up to 2,048 rows.
 
-    Each batch is a sequence of row mappings. Schema is explicit and admits
-    nullable int64, finite float64, bool and utf8. Input is pulled at execution;
+    Each batch is a sequence of row mappings. Schema is explicit and supports
+    exact numeric widths, decimal, binary, temporal and nested native types.
+    Input is pulled at execution;
     pass a factory for repeated calls, or an iterable for one execution. Total
     input has no fixed batch-count or field-count ceiling. Schema metadata and
     native payloads share the query memory grant; each transport frame remains
@@ -8363,25 +8364,18 @@ def from_batches(
     succeeds.
     """
     from ._batches import BatchInput
+    from ._input_schema import normalize_schema, schema_hints, wire_schema
     from uuid import uuid4
 
     if not isinstance(streaming, bool):
         raise TypeError("streaming must be a bool")
-    declared = _normalize_schema(schema)
-    aliases = {"int": "int64", "integer": "int64", "float": "float64", "double": "float64",
-               "boolean": "bool", "str": "utf8", "string": "utf8"}
-    declared = tuple((name, aliases.get(str(dtype).lower(), str(dtype).lower())) for name, dtype in declared)
-    if not declared or len({name for name, _ in declared}) != len(declared):
+    fields = normalize_schema(schema)
+    if not fields:
         raise ValueError("batch schema requires nonempty distinct fields")
-    if any(not name or len(name.encode("utf-8")) > 256 for name, _ in declared):
-        raise ValueError("batch field names require 1..=256 UTF8 bytes")
-    if any(kind not in {"int64", "float64", "bool", "utf8"} for _, kind in declared):
-        raise ValueError("batch input schema admits int64, float64, bool and utf8")
-    if len(json.dumps(declared, ensure_ascii=False).encode("utf-8")) > 8 * 1024 * 1024:
-        raise ValueError("native batch schema exceeds the 8 MiB declaration bound")
-    source = BatchInput(batches, declared)
+    declared = wire_schema(fields)
+    source = BatchInput(batches, declared, types=fields)
     return LazyFrame(
-        source=WorkflowSource("memory", "memory://batches/" + uuid4().hex, declared,
+        source=WorkflowSource("memory", "memory://batches/" + uuid4().hex, schema_hints(fields),
                               (("kind", "batches"), ("schema", declared), ("streaming", streaming)), source),
         client=_client_from_config(client, client_config),
     )
@@ -8394,7 +8388,7 @@ def from_rows(
     schema: Mapping[str, object] | None = None,
     **client_config: object,
 ) -> LazyFrame:
-    """Declare native scalar rows; pass schema for typed empty or all-null columns."""
+    """Declare native rows; use an explicit schema for rich types or empty columns."""
 
     return _memory_rows_source(
         rows,
@@ -8750,12 +8744,14 @@ def _memory_rows_source(
     schema: Mapping[str, object] | None = None,
     engine_mode: str = "auto",
 ) -> LazyFrame:
-    """Declare bounded nullable scalar rows without executing any expressions."""
+    """Declare bounded native rows without executing any expressions."""
+    from ._input_schema import encode_cell, normalize_schema, schema_hints, wire_schema
+    from ._result_schema import ResultType
     if isinstance(rows, (str, bytes, bytearray)) or not isinstance(rows, Sequence):
         raise TypeError("rows must be a sequence of mappings")
     if len(rows) > 65_536:
         raise ValueError("native row input exceeds 65,536 rows")
-    declared = _normalize_schema(schema)
+    declared = normalize_schema(schema)
     if declared:
         columns = tuple(name for name, _ in declared)
     elif rows and isinstance(rows[0], Mapping):
@@ -8777,19 +8773,15 @@ def _memory_rows_source(
         if set(row) != keys:
             raise ValueError("all rows must match the declared column names")
     if declared:
-        aliases = {"int": "int64", "integer": "int64", "float": "float64", "double": "float64",
-                   "boolean": "bool", "str": "utf8", "string": "utf8"}
-        kinds = tuple(aliases.get(str(dtype).lower(), str(dtype).lower()) for _, dtype in declared)
-        if any(kind not in {"int64", "float64", "bool", "utf8"} for kind in kinds):
-            raise ValueError("native row schema admits int64, float64, bool and utf8")
+        fields = declared
     else:
-        kinds = tuple(_infer_memory_column_type(row[name] for row in rows) for name in columns)
-    schema_fields = tuple(zip(columns, kinds))
-    encoded_rows = tuple(tuple(None if row[name] is None else _memory_value(kind, row[name])
-                               for name, kind in schema_fields) for row in rows)
+        fields = tuple((name, ResultType(_infer_memory_column_type(row[name] for row in rows), True))
+                       for name in columns)
+    schema_fields = wire_schema(fields)
+    encoded_rows = tuple(tuple(encode_cell(dtype, row[name]) for name, dtype in fields) for row in rows)
     return _native_memory_frame(
         {"kind": "rows", "schema": schema_fields, "rows": encoded_rows},
-        schema=schema_fields, client=client, engine_mode=engine_mode,
+        schema=schema_hints(fields), client=client, engine_mode=engine_mode,
     )
 
 

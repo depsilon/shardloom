@@ -78,15 +78,13 @@ CANONICAL_PUBLIC_STATUS_MARKERS = (
     "external_engine_invoked=false",
 )
 
+# The README links to the field guide; detailed contracts stay in the checked docs below.
 PUBLIC_DOC_MARKERS = {
     "README.md": (
         PUBLIC_STATUS_REF.as_posix(),
-        "docs/release/finished-product-scope.md",
-        "docs/getting-started/source-checkout-install.md",
-        "docs/getting-started/package-user-install.md",
-        "docs/getting-started/v1-supported-unsupported.md",
         "Current Support Posture",
-        "selected local/source/package v1 release track",
+        "https://shardloom.io/field-guide/",
+        "https://shardloom.io/field-guide/limitations/",
     ),
     "docs/getting-started/install.md": (
         PUBLIC_STATUS_REF.as_posix(),
