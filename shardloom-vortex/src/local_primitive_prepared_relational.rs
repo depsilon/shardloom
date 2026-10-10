@@ -195,14 +195,11 @@ impl Node {
         match &self.kind {
             NodeKind::CompletedPivot { rows, .. } => Some(*rows as u64),
             NodeKind::Outer => Some(1),
-            NodeKind::Scan { source, .. } => Some(match source {
-                ScanSource::File(index) => sources[*index].file().row_count(),
-                ScanSource::Memory(projection) => projection.source_rows() as u64,
-                ScanSource::Batch(_) => {
-                    (crate::resident_memory_source::MAX_BATCHES
-                        * crate::resident_memory_source::MAX_BATCH_ROWS) as u64
-                }
-            }),
+            NodeKind::Scan { source, .. } => match source {
+                ScanSource::File(index) => Some(sources[*index].file().row_count()),
+                ScanSource::Memory(projection) => Some(projection.source_rows() as u64),
+                ScanSource::Batch(_) => None,
+            },
             NodeKind::Project { input, .. }
             | NodeKind::Filter { input, .. }
             | NodeKind::Sort { input, .. }
@@ -355,6 +352,15 @@ pub struct VortexRelationalPreparation<'a> {
 }
 
 impl VortexRelationalPreparation<'_> {
+    /// Admit source-adapter scratch under the same grant as the eventual plan.
+    /// This does not open a source or evaluate rows. A control transport can use
+    /// a zero-byte lease as an owner before starting its credited reader.
+    /// # Errors
+    /// Rejects growth beyond the preparation's shared memory grant.
+    pub fn reserve_input_scratch(&self, bytes: u64) -> Result<MemoryLease> {
+        self.binding.reserve_input_scratch(bytes)
+    }
+
     /// Normalize a declared input into native memory owned by this preparation.
     /// The adapter constructs arrays only; the returned URI is consumed by the
     /// ordinary relational scan, operators, resource controls and writers.

@@ -28,6 +28,12 @@ the same source lifecycle to global sort, draining limits and aggregates, with
 Their explicit state-spill policy does not admit repeated-source replay or other
 stateful families.
 
+The later [input growth contract](native-input-growth-2026-10-09.md) replaces
+this snapshot's total batch/field caps and fixed conversion reservation with
+growing owners under the shared grant. It applies to source builds after the
+0.5.1 release. Per-frame bounds and explicit end-of-input remain; the historical
+acceptance records and limits below describe the original unit.
+
 ## Decision
 
 Explicit streaming input uses the existing native relational execution and

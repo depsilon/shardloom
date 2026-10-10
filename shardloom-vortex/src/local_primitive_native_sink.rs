@@ -48,6 +48,7 @@ pub(super) struct NativeSinkPlan {
     pub(super) row_count: u64,
     pub(super) limit: Option<u64>,
     pub(super) metadata_pruned: bool,
+    schema_metadata: shardloom_exec::live_memory::MemoryLease,
 }
 
 pub(super) enum NativeSinkInput {
@@ -249,6 +250,7 @@ fn prepare_with_source(
         let source = session.prepare_file(source_path)?;
         (session, source)
     };
+    let metadata = source_metadata(request, &session, &source, source_projection)?;
     let scan_plan = row_export_scan_plan(request, source.dtype())?;
     if scan_plan.residual_predicate.is_some() {
         if source_projection {
@@ -298,7 +300,45 @@ fn prepare_with_source(
         row_count,
         limit: request.source_order_limit.map(usize_to_u64).transpose()?,
         metadata_pruned,
+        schema_metadata: metadata,
     }))
+}
+
+fn source_metadata(
+    request: &VortexQueryPrimitiveRequest,
+    session: &ResidentVortexSession,
+    source: &PreparedVortexSource,
+    source_projection: bool,
+) -> Result<shardloom_exec::live_memory::MemoryLease> {
+    let mut metadata = if let Some(fields) = source.dtype().as_struct_fields_opt() {
+        crate::native_payload_schema::reserve_names(session.memory(), fields.nfields(), |index| {
+            fields.names()[index].as_ref()
+        })?
+    } else {
+        // Primitive native files expose the existing implicit `value` column.
+        // The scan planner remains responsible for logical-type admission.
+        crate::native_payload_schema::reserve_names(session.memory(), 1, |_| "value")?
+    };
+    let output_bytes = if source_projection {
+        let projection = request
+            .structured_projection
+            .as_ref()
+            .ok_or_else(|| sink_error("source projection is absent"))?;
+        crate::native_payload_schema::names_bytes(projection.columns.len(), |index| {
+            projection.columns[index].output_column.as_str()
+        })?
+    } else if let shardloom_plan::ProjectionRequest::Columns(columns) = &request.projection {
+        crate::native_payload_schema::names_bytes(columns.len(), |index| columns[index].as_str())?
+    } else {
+        0
+    };
+    metadata.resize(
+        metadata
+            .bytes()
+            .checked_add(output_bytes)
+            .ok_or_else(|| sink_error("native source projection metadata overflow"))?,
+    )?;
+    Ok(metadata)
 }
 
 fn prepare_source_projection(
@@ -364,13 +404,15 @@ impl NativeSinkPlan {
         source_path: Option<PathBuf>,
         sources: Vec<PreparedVortexSource>,
     ) -> Result<Self> {
-        let columns = dtype
+        let fields = dtype
             .as_struct_fields_opt()
-            .ok_or_else(|| sink_error("produced output requires a struct dtype"))?
-            .names()
-            .iter()
-            .map(ToString::to_string)
-            .collect();
+            .ok_or_else(|| sink_error("produced output requires a struct dtype"))?;
+        let metadata = crate::native_payload_schema::reserve_names(
+            session.memory(),
+            fields.nfields(),
+            |index| fields.names()[index].as_ref(),
+        )?;
+        let columns = fields.names().iter().map(ToString::to_string).collect();
         Ok(Self {
             source: NativeSinkInput::Produced {
                 session: session.clone(),
@@ -387,6 +429,7 @@ impl NativeSinkPlan {
             row_count: upper_rows.max(1),
             limit: None,
             metadata_pruned: false,
+            schema_metadata: metadata,
         })
     }
 
@@ -470,6 +513,11 @@ impl NativeSinkPlan {
         let fields = dtype
             .as_struct_fields_opt()
             .ok_or_else(|| sink_error("completed result requires a struct dtype"))?;
+        let metadata = crate::native_payload_schema::reserve_names(
+            result.retained_session().memory(),
+            fields.nfields(),
+            |index| fields.names()[index].as_ref(),
+        )?;
         let columns = fields.names().iter().map(ToString::to_string).collect();
         Ok(Self {
             session: result.retained_session(),
@@ -482,6 +530,7 @@ impl NativeSinkPlan {
             columns,
             limit: None,
             metadata_pruned: false,
+            schema_metadata: metadata,
         })
     }
 
@@ -581,13 +630,20 @@ impl NativeSinkPlan {
             };
             usize::try_from(chunks).map_err(|_| sink_error("source chunk count overflow"))?
         };
+        // The footer serializes the complete schema in addition to its leaf
+        // layouts. Reserve that width-dependent workspace before writer creation.
+        let metadata_base = self
+            .schema_metadata
+            .bytes()
+            .checked_add(128 * 1024)
+            .ok_or_else(|| sink_error("native sink schema metadata overflow"))?;
         let metadata_bytes = if self.source.is_produced() {
-            128 * 1024
+            metadata_base
         } else {
             u64::try_from(max_chunks)
                 .ok()
                 .and_then(|chunks| chunks.checked_mul(METADATA_BYTES_PER_CHUNK))
-                .and_then(|bytes| bytes.checked_add(128 * 1024))
+                .and_then(|bytes| bytes.checked_add(metadata_base))
                 .ok_or_else(|| sink_error("native sink metadata reservation overflow"))?
         };
         let metadata = std::sync::Arc::new(std::sync::Mutex::new(

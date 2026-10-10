@@ -8343,19 +8343,21 @@ def from_batches(
     batches: object, *, schema: Mapping[str, object],
     streaming: bool = False, client: ShardLoomClient | None = None, **client_config: object,
 ) -> LazyFrame:
-    """Declare native input in batches of up to 2,048 rows and 128 fields.
+    """Declare native input in batches of up to 2,048 rows.
 
     Each batch is a sequence of row mappings. Schema is explicit and admits
     nullable int64, finite float64, bool and utf8. Input is pulled at execution;
     pass a factory for repeated calls, or an iterable for one execution. Total
-    input is limited to 4,096 batches. The default resident mode retains all
-    native input under the query memory grant. ``streaming=True`` instead
-    admits one batch source used once through filters/projections, sorting,
-    aggregation, joins and limits, alongside ordinary file or resident sources.
+    input has no fixed batch-count or field-count ceiling. Schema metadata and
+    native payloads share the query memory grant; each transport frame remains
+    bounded. The default resident mode retains all native input under that grant.
+    ``streaming=True`` instead admits one batch source used once through
+    filters/projections, sorting, aggregation, joins, analytic windows and limits,
+    alongside ordinary file or resident sources.
     Incremental results, bounded small collection and one native Vortex output
     are admitted. Limits drain and validate the complete source. Stateful work
-    shares the query grant; ordering, aggregation and joins can use an explicit
-    spill policy. Repeated batch use, multiple batch producers and unsupported
+    shares the query grant; ordering, aggregation, joins and windows can use an
+    explicit spill policy. Repeated batch use, multiple batch producers and unsupported
     operator families reject before consumption.
     Results remain provisional until the producer ends and final validation
     succeeds.
@@ -8369,12 +8371,14 @@ def from_batches(
     aliases = {"int": "int64", "integer": "int64", "float": "float64", "double": "float64",
                "boolean": "bool", "str": "utf8", "string": "utf8"}
     declared = tuple((name, aliases.get(str(dtype).lower(), str(dtype).lower())) for name, dtype in declared)
-    if not 1 <= len(declared) <= 128 or len({name for name, _ in declared}) != len(declared):
-        raise ValueError("batch schema requires 1..=128 distinct fields")
+    if not declared or len({name for name, _ in declared}) != len(declared):
+        raise ValueError("batch schema requires nonempty distinct fields")
     if any(not name or len(name.encode("utf-8")) > 256 for name, _ in declared):
         raise ValueError("batch field names require 1..=256 UTF8 bytes")
     if any(kind not in {"int64", "float64", "bool", "utf8"} for _, kind in declared):
         raise ValueError("batch input schema admits int64, float64, bool and utf8")
+    if len(json.dumps(declared, ensure_ascii=False).encode("utf-8")) > 8 * 1024 * 1024:
+        raise ValueError("native batch schema exceeds the 8 MiB declaration bound")
     source = BatchInput(batches, declared)
     return LazyFrame(
         source=WorkflowSource("memory", "memory://batches/" + uuid4().hex, declared,
@@ -8760,8 +8764,8 @@ def _memory_rows_source(
         raise TypeError("rows must contain mappings")
     else:
         raise ValueError("empty row input requires an explicit schema")
-    if not columns or len(columns) > 64:
-        raise ValueError("native row input requires 1..=64 columns")
+    if not columns:
+        raise ValueError("native row input requires at least one column")
     if any(not isinstance(name, str) for name in columns):
         raise TypeError("row column names must be strings")
     if any(not name or len(name.encode("utf-8")) > 256 for name in columns):

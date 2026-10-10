@@ -148,7 +148,10 @@ complete local acceptance above.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.</p>
-<p>The <strong>65,536-row / 128-top-level-field / 8-MiB</strong> bound applies to small computed-result collection.
+<p>The <strong>65,536-row / 8-MiB</strong> bound applies to small computed-result collection.
+Current source builds admit top-level field metadata through the shared query grant.
+This <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md">growth contract</a>
+applies after the 0.5.1 release; published 0.5.1 artifacts retain their release-time limits.
 Current source builds deliver complete admitted flat results through bounded native batches to
 all eight local writers, including admitted ordering spill, above the collection row and byte
 limits. Representable static nested results use Vortex, JSON, JSONL, Arrow IPC, Parquet

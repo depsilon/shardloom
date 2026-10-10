@@ -5,6 +5,7 @@ use super::{
     MemoryColumn, MemorySourceBounds, MemorySourceOwner, ResidentMemorySource, memory_error,
     native_error,
 };
+use crate::local_primitives::native_capacity::ReservedVec;
 use crate::resident_session::ResidentVortexSession;
 use shardloom_core::Result;
 use shardloom_exec::{compute_pool::CancellationToken, live_memory::MemoryLease};
@@ -19,8 +20,6 @@ use vortex::{
     buffer::Buffer,
 };
 
-pub(crate) const MAX_BATCHES: usize = 4096;
-pub(crate) const MAX_COLUMNS: usize = 128;
 pub(crate) const MAX_BATCH_ROWS: usize = 2048;
 
 /// Incremental typed intake under one native memory owner. Input remains
@@ -28,7 +27,7 @@ pub(crate) const MAX_BATCH_ROWS: usize = 2048;
 /// A source is published only by `finish`, after every batch has been validated.
 pub struct MemoryBatchSourceBuilder {
     session: ResidentVortexSession,
-    batches: Vec<ArrayRef>,
+    batches: ReservedVec<ArrayRef>,
     metadata: MemoryLease,
     rows: usize,
     bytes: usize,
@@ -37,18 +36,16 @@ pub struct MemoryBatchSourceBuilder {
 }
 
 impl MemoryBatchSourceBuilder {
-    /// Start a resident source with at most 4,096 batches of 2,048 rows and
-    /// 128 columns. Payload size is admitted by the shared session grant.
+    /// Start a resident source with 2,048-row intake units.
+    /// Payload and growing batch metadata use the shared session grant.
     /// # Errors
     /// Rejects cancellation or metadata admission failure before allocating.
     pub fn new(session: &ResidentVortexSession, cancellation: CancellationToken) -> Result<Self> {
         cancellation.check()?;
-        let metadata = session
-            .memory()
-            .reserve((MAX_BATCHES * std::mem::size_of::<ArrayRef>() + MAX_COLUMNS * 1024) as u64)?;
+        let metadata = session.memory().reserve(4096)?;
         Ok(Self {
             session: session.clone(),
-            batches: Vec::with_capacity(MAX_BATCHES),
+            batches: ReservedVec::new(session.memory())?,
             metadata,
             rows: 0,
             bytes: 0,
@@ -69,35 +66,16 @@ impl MemoryBatchSourceBuilder {
     /// Copy one caller-owned typed batch into native allocator-owned buffers.
     /// All batches, including empty ones, must declare the exact same schema.
     /// # Errors
-    /// Rejects width/row limits, schema drift, nonfinite floats, cancellation,
+    /// Rejects row/byte limits, schema drift, nonfinite floats, cancellation,
     /// overflow and memory pressure before publishing any source.
     pub fn push_columns(&mut self, columns: &[MemoryColumn<'_>]) -> Result<()> {
         self.cancellation.check()?;
-        if self.batches.len() == MAX_BATCHES {
-            return Err(memory_error("native batch source exceeds 4,096 batches"));
-        }
-        if columns.is_empty() || columns.len() > MAX_COLUMNS {
-            return Err(memory_error("native batch source requires 1..=128 fields"));
-        }
-        // Covers each batch's native array metadata. Payloads use their own
-        // allocator credits, and the composition credit is attached at finish.
-        self.metadata.resize(
-            self.metadata
-                .bytes()
-                .checked_add((columns.len() as u64 + 1) * 1024)
-                .ok_or_else(|| memory_error("batch metadata size overflow"))?,
-        )?;
-        let source = ResidentMemorySource::from_columns_with_width(
-            &self.session,
-            columns,
-            MemorySourceBounds {
-                max_input_rows: MAX_BATCH_ROWS,
-                ..MemorySourceBounds::default()
-            },
-            MAX_COLUMNS,
-        )?;
+        // Each payload carries its own structural credit, including escaped
+        // child buffers. The container and final composition have separate owners.
+        let source = ResidentMemorySource::from_batch_columns(&self.session, columns)?;
         if self
             .batches
+            .values
             .first()
             .is_some_and(|first| first.dtype() != source.dtype())
         {
@@ -116,7 +94,15 @@ impl MemoryBatchSourceBuilder {
             .checked_add(source.intake_payload_bytes_copied())
             .ok_or_else(|| memory_error("native batch source copy count overflow"))?;
         self.cancellation.check()?;
-        self.batches.push(source.0.array.clone());
+        if self.batches.values.is_empty() {
+            self.batches.push(source.0.array.clone())?;
+        } else if source.row_count() != 0 {
+            if self.batches.values[0].is_empty() {
+                self.batches.values[0] = source.0.array.clone();
+            } else {
+                self.batches.push(source.0.array.clone())?;
+            }
+        }
         self.rows = rows;
         self.bytes = bytes;
         self.copied = copied;
@@ -131,12 +117,13 @@ impl MemoryBatchSourceBuilder {
         self.cancellation.check()?;
         let fields = self
             .batches
+            .values
             .first()
             .ok_or_else(|| memory_error("native batch source requires a typed batch"))?
             .dtype()
             .as_struct_fields_opt()
             .ok_or_else(|| memory_error("native batch source requires a struct"))?;
-        let composition_bytes = (self.batches.len() as u64 + 1)
+        let composition_bytes = (self.batches.values.len() as u64 + 1)
             .checked_mul(fields.nfields() as u64)
             .and_then(|bytes| bytes.checked_mul(128))
             .and_then(|bytes| bytes.checked_add(4096))
@@ -153,6 +140,7 @@ impl MemoryBatchSourceBuilder {
             self.cancellation.check()?;
             let chunks = self
                 .batches
+                .values
                 .iter()
                 .map(|batch| {
                     batch
@@ -185,12 +173,14 @@ impl MemoryBatchSourceBuilder {
             },
             input_logical_bytes: self.bytes,
             intake_payload_bytes_copied: self.copied,
-            batch_metadata: None,
+            metadata: Some(credit),
+            is_batch: false,
+            generated_range: None,
         })))
     }
 }
 
-fn owned_chunks(
+pub(super) fn owned_chunks(
     chunks: impl ExactSizeIterator<Item = ArrayRef>,
     dtype: DType,
     credit: &Arc<MemoryLease>,

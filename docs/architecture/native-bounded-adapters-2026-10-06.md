@@ -10,6 +10,12 @@ passed. Published v0.4.0 packages predate these additions.
 They extend universal workflow step 2 under the existing PERF and CG-20/21
 owners through one native Vortex plan.
 
+The [October 9 input growth contract](native-input-growth-2026-10-09.md)
+supersedes this initial contract's fixed input field/batch counts and result
+field count in source builds after the 0.5.1 release. Growing metadata consumes
+the shared query grant. Per-frame row/byte limits and complete collection's
+row/byte bounds remain. Published 0.5.1 artifacts retain their release-time limits.
+
 ## Public usage
 
 `shardloom.from_batches(...)` and `ShardLoomContext.from_batches(...)` declare native
@@ -43,6 +49,9 @@ Each `ResultBatch` exposes `index`, `result_rows`, `result_schema`,
 Conversions consume the delivered values; they do not execute another query.
 
 ## Admission and lifecycle
+
+The table below records the original October 6 admission snapshot. Use the
+linked growth contract for current source field and cumulative-input admission.
 
 | Boundary | Contract |
 | --- | --- |

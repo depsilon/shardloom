@@ -446,7 +446,8 @@ print(report.result_rows)
 workflow.write_vortex("deduplicated-cargo.vortex")
 ```
 
-These collections admit at most 65,536 rows, 128 scalar fields and 8 MiB of JSONL.
+These collections admit at most 65,536 rows and 8 MiB of JSONL. Current source
+builds admit top-level field metadata through the shared memory grant.
 Larger results use bounded batches through `write_vortex`, `write_parquet`,
 `write_arrow_ipc`, `write_avro`, `write_orc`, `write_json`, `write_jsonl` or `write_csv`,
 subject to each format's dtype contract and the operation's state budget. Native
@@ -469,17 +470,21 @@ with workflow.iter_batches(batch_rows=1024) as batches:
 `ctx.from_batches(...)` declare resident input from sequences of row mappings.
 Pass a factory returning fresh batches for repeated execution, or an iterable
 for one execution. Declaration does not call the producer. Nullable Int64,
-finite Float64, Boolean and UTF8 are admitted; each batch has at most 2,048 rows,
-128 fields and an 8 MiB frame, with at most 4,096 batches per source. In the
+finite Float64, Boolean and UTF8 are admitted; each batch has at most 2,048 rows
+and an 8 MiB frame. Current source builds admit field and retained batch metadata
+through the shared memory grant, with no fixed total field or batch count. In the
 default resident mode (`streaming=False`), accumulated native input must fit the
 shared memory grant. Output supports the existing
 admitted typed/nested schemas, with the same 2,048-row / 8-MiB payload ceiling.
 Prepare compatibility file input explicitly to Vortex before batch consumption.
 See the [complete batch contract and example](../docs/architecture/native-bounded-adapters-2026-10-06.md)
 for backpressure, conversions, timeout scope and final-validation semantics.
+The [input growth contract](../docs/architecture/native-input-growth-2026-10-09.md)
+applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
+their release-time limits. Schema declarations still have an 8 MiB envelope.
 
 Current source builds also accept `streaming=True` for one finite batch source used
-once through scan/filter/project, global sorting, aggregation, joins and limits,
+once through scan/filter/project, global sorting, aggregation, joins, windows and limits,
 alongside ordinary native file or resident sources.
 This can process cumulative input larger than the native grant by retaining at
 most one native input batch. Retained operator state shares that grant; ordering,

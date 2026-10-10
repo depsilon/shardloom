@@ -45,7 +45,9 @@ impl Binder<'_> {
             }
             VortexRelationalSubqueryKind::Exists | VortexRelationalSubqueryKind::Scalar => &[],
         };
-        self.charge((columns.len() + query.correlation.len() + 1) * 8192)?;
+        self.charge_items(columns.len(), 8192)?;
+        self.charge_items(query.correlation.len(), 8192)?;
+        self.charge(8192)?;
         let input = Box::new(self.bind(&query.input, depth + 1)?);
         let guard = query
             .evaluation_guard
@@ -60,27 +62,14 @@ impl Binder<'_> {
                 "subquery evaluation guard requires a Boolean expression",
             ));
         }
-        let relation =
-            if let crate::relational_query::VortexRelationalPlan::DeferredSubquery(reference) =
-                &query.relation
-            {
-                if !parameterized {
-                    return Err(failed("deferred relation requires per-parameter execution"));
-                }
-                SubqueryRelation::Dynamic(self.take_deferred(reference)?)
-            } else if parameterized {
-                self.charge(input.fields.len() * 4096)?;
-                let previous = self.outer_fields.replace(input.fields.clone());
-                let previous_binding = std::mem::replace(&mut self.parameterized_binding, true);
-                let relation = self.bind(&query.relation, depth + 1);
-                self.outer_fields = previous;
-                self.parameterized_binding = previous_binding;
-                SubqueryRelation::Bound(Box::new(relation?))
-            } else {
-                SubqueryRelation::Bound(Box::new(self.bind(&query.relation, depth + 1)?))
-            };
-        validate_width(input.fields.len() + 1)?;
-        self.charge(input.fields.len() * 4096)?;
+        let relation = self.subquery_relation(query, depth, parameterized, &input.fields)?;
+        let width = input
+            .fields
+            .len()
+            .checked_add(1)
+            .ok_or_else(|| failed("subquery width overflow"))?;
+        validate_width(width)?;
+        self.charge_fields(width)?;
         let mut left_keys = Vec::new();
         let mut right_keys = Vec::new();
         for key in query.correlation.iter().chain(columns) {
@@ -116,6 +105,35 @@ impl Binder<'_> {
                 parameterized,
             },
         })
+    }
+
+    fn subquery_relation(
+        &mut self,
+        query: &VortexRelationalSubquery,
+        depth: usize,
+        parameterized: bool,
+        input_fields: &[(String, DType)],
+    ) -> Result<SubqueryRelation> {
+        if let crate::relational_query::VortexRelationalPlan::DeferredSubquery(reference) =
+            &query.relation
+        {
+            if !parameterized {
+                return Err(failed("deferred relation requires per-parameter execution"));
+            }
+            return Ok(SubqueryRelation::Dynamic(self.take_deferred(reference)?));
+        }
+        let relation = if parameterized {
+            self.charge_fields(input_fields.len())?;
+            let previous = self.outer_fields.replace(input_fields.to_vec());
+            let previous_binding = std::mem::replace(&mut self.parameterized_binding, true);
+            let relation = self.bind(&query.relation, depth + 1);
+            self.outer_fields = previous;
+            self.parameterized_binding = previous_binding;
+            relation?
+        } else {
+            self.bind(&query.relation, depth + 1)?
+        };
+        Ok(SubqueryRelation::Bound(Box::new(relation)))
     }
 }
 

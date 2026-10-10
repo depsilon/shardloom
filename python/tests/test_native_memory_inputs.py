@@ -66,10 +66,21 @@ class NativeMemoryInputTests(unittest.TestCase):
 
     def test_invalid_shape_and_payload_bounds_fail_before_execution(self) -> None:
         with mock.patch.object(self.client, "public_workflow_run") as execute:
-            for rows in [[{"n": 1}, {"m": 2}], [{str(i): i for i in range(65)}],
+            for rows in [[{"n": 1}, {"m": 2}],
                          [{"n": 1}] * 65_537, [{"n": "x" * (8 * 1024 * 1024)}]]:
                 with self.subTest(size=len(rows)), self.assertRaises(ValueError):
                     self.context.from_rows(rows)
+            execute.assert_not_called()
+
+    def test_wide_rows_preserve_the_complete_declaration(self) -> None:
+        row = {f"c{index}": index if index % 2 else None for index in range(1025)}
+        schema = dict.fromkeys(row, "int64")
+        with mock.patch.object(self.client, "public_workflow_run") as execute:
+            for rows in [[], [row]]:
+                frame = self.context.from_rows(rows, schema=schema)
+                self.assertEqual(frame.source.schema, tuple(schema.items()))
+                self.assertEqual(self.declaration(frame)["rows"],
+                                 [] if not rows else [[None if value is None else str(value) for value in row.values()]])
             execute.assert_not_called()
 
 

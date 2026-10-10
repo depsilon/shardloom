@@ -93,7 +93,7 @@ mod mixed_distinct_partial;
 mod mixed_distinct_workers;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_capacity.rs"]
-mod native_capacity;
+pub(crate) mod native_capacity;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_decimal_reduce.rs"]
 mod native_decimal_reduce;

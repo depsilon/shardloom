@@ -13,6 +13,12 @@ PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. The expert comparator is a columnar
 engine maintainer reviewing logical types, nested validity, selected-buffer
 ownership and complete output fidelity.
 
+The later [input growth contract](native-input-growth-2026-10-09.md) admits
+top-level record width through the shared grant in source builds after the
+0.5.1 release. The original recursive schema bounds below now apply within each
+value below that record. Historical acceptance and published 0.5.1 artifacts
+retain their release-time contract.
+
 ## Scope and contracts
 
 Admit statically declared lists, fixed-size lists and structs whose leaves are

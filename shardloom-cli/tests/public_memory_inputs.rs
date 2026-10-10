@@ -156,7 +156,7 @@ mod native {
         assert_eq!(field(&envelope, "resident_source_opens"), Some("0"));
         for sql in [
             "SELECT value FROM range(1, 5, 0)",
-            "SELECT value FROM range(0, 1000001)",
+            "SELECT value FROM generate_series(-9223372036854775808, 9223372036854775807)",
             "VALUES (1), ('wrong')",
             "VALUES (9007199254740993), (1.5)",
             "SELECT unknown",
@@ -166,6 +166,30 @@ mod native {
             assert_ne!(envelope["status"], "success");
             assert_eq!(envelope["fallback"]["attempted"], false);
         }
+    }
+
+    #[test]
+    fn generated_range_grows_while_small_result_collection_keeps_its_bound() {
+        for surface in ["sql", "python", "dataframe", "cli"] {
+            let (success, envelope) = run(
+                surface,
+                "SELECT COUNT(*) AS n, MIN(value) AS first, MAX(value) AS last FROM range(0, 1000017)",
+                "collect",
+                &[],
+            );
+            assert!(success, "{surface}: {envelope}");
+            assert_eq!(
+                rows(&envelope),
+                json!([{"n":1_000_017,"first":0,"last":1_000_016}])
+            );
+            assert_eq!(field(&envelope, "resident_source_opens"), Some("0"));
+            assert_eq!(field(&envelope, "source_io_performed"), Some("false"));
+        }
+        let (success, envelope) = run("sql", "SELECT value FROM range(0, 1000017)", "collect", &[]);
+        assert!(!success, "{envelope}");
+        assert_ne!(envelope["status"], "success");
+        assert_eq!(envelope["fallback"]["attempted"], false);
+        assert!(envelope.to_string().contains("65,536"), "{envelope}");
     }
 
     #[test]

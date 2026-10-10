@@ -517,14 +517,86 @@ fn completion_input_native_writer_reopens_complete_values_and_cleans_late_failur
 }
 
 #[test]
-fn completion_input_empty_batches_still_obey_the_finite_source_limit() {
-    for extra in [false, true] {
-        let prepared = prepare(&scan(), 2 << 20).unwrap();
+fn completion_input_consumes_all_batches_beyond_the_prior_count_limit() {
+    for (count, empty) in [(8193, true), (4099, false)] {
+        let prepared = prepare(&scan(), 4 << 20).unwrap();
         let initial = prepared.snapshot().memory.reserved_bytes;
         let mut batches = 0;
+        let mut prior: Option<Weak<MemoryLease>> = None;
         let mut input = |session: &ResidentVortexSession| {
-            if !extra && batches == 4096 {
+            assert!(prior.as_ref().is_none_or(|lease| lease.strong_count() == 0));
+            if batches == count {
                 return Ok(None);
+            }
+            let batch = if empty {
+                source(session, &[], &[])?
+            } else {
+                source(session, &[Some(batches)], &[Some("東京")])?
+            };
+            batches += 1;
+            prior = Some(batch.batch_release_witness()?);
+            Ok(Some(batch))
+        };
+        let result = prepared
+            .with_batch_input(&mut input)
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(batches, count);
+        assert_eq!(
+            result.execution.input.as_ref().unwrap().payload_batches,
+            u64::try_from(count).unwrap()
+        );
+        assert_eq!(
+            result.execution.output_rows,
+            if empty {
+                0
+            } else {
+                u64::try_from(count).unwrap()
+            }
+        );
+        let expected = if empty {
+            vec![]
+        } else {
+            (0..count)
+                .map(|n| serde_json::json!({"n":n,"s":"東京"}))
+                .collect()
+        };
+        assert_eq!(json_rows(&result), expected);
+        assert_eq!(prepared.snapshot().completed_executions, 1);
+        drop(result);
+        assert!(
+            prior
+                .as_ref()
+                .is_some_and(|lease| lease.strong_count() == 0)
+        );
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    }
+}
+
+#[test]
+fn completion_input_late_failure_schema_drift_and_cancellation_survive_count_growth() {
+    for terminal in 0..3 {
+        let prepared = prepare(&scan(), 2 << 20).unwrap();
+        let initial = prepared.snapshot().memory.reserved_bytes;
+        let cancellation = CancellationToken::default();
+        let mut batches = 0;
+        let mut input = |session: &ResidentVortexSession| {
+            if batches == 8193 {
+                return match terminal {
+                    0 => Err(failed("late producer error after count growth")),
+                    1 => Ok(Some(ResidentMemorySource::from_batch_columns(
+                        session,
+                        &[MemoryColumn {
+                            name: "changed",
+                            values: MemoryColumnValues::Int64(&[]),
+                        }],
+                    )?)),
+                    _ => {
+                        cancellation.cancel();
+                        Ok(Some(source(session, &[], &[])?))
+                    }
+                };
             }
             batches += 1;
             Ok(Some(source(session, &[], &[])?))
@@ -532,20 +604,15 @@ fn completion_input_empty_batches_still_obey_the_finite_source_limit() {
         let result = prepared
             .with_batch_input(&mut input)
             .unwrap()
-            .collect_jsonl(&CancellationToken::default());
-        if extra {
-            assert!(result.err().unwrap().to_string().contains("4,096"));
-            assert_eq!(batches, 4097);
-            assert_eq!(prepared.snapshot().completed_executions, 0);
-        } else {
-            let result = result.unwrap();
-            assert_eq!(
-                result.execution.input.as_ref().unwrap().payload_batches,
-                4096
-            );
-            assert_eq!(result.execution.output_rows, 0);
-            assert_eq!(prepared.snapshot().completed_executions, 1);
+            .collect_jsonl(&cancellation);
+        let error = result.err().unwrap().to_string();
+        assert_eq!(batches, 8193);
+        match terminal {
+            0 => assert!(error.contains("late producer error after count growth")),
+            1 => assert!(error.contains("schema")),
+            _ => assert!(error.to_ascii_lowercase().contains("cancel")),
         }
+        assert_eq!(prepared.snapshot().completed_executions, 0);
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
 }

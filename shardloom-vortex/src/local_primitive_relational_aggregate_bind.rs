@@ -21,14 +21,13 @@ impl Binder<'_> {
         if aggregate.measures.is_empty() && aggregate.group_by.is_empty() {
             return Err(failed("aggregate requires a group key or measure"));
         }
-        validate_width(
-            aggregate
-                .group_by
-                .len()
-                .checked_add(aggregate.measures.len())
-                .ok_or_else(|| failed("aggregate width overflow"))?,
-        )?;
-        self.charge((aggregate.group_by.len() + aggregate.measures.len()) * 16_384)?;
+        let width = aggregate
+            .group_by
+            .len()
+            .checked_add(aggregate.measures.len())
+            .ok_or_else(|| failed("aggregate width overflow"))?;
+        validate_width(width)?;
+        self.charge_items(width, 16_384)?;
         let input = Box::new(self.bind(&aggregate.input, depth + 1)?);
         let mut groups = Vec::new();
         for column in &aggregate.group_by {

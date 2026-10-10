@@ -76,16 +76,14 @@ pub(super) fn take_with_policy(
     policy: CopyPolicy,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
-    let metadata = metadata_bytes(dtype)?;
+    let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
     if source.dtype().as_nonnullable() != dtype.as_nonnullable() {
         return Err(failed(
             "nested payload gathering requires the same declared child types",
         ));
     }
-    let allocator = crate::owned_buffers::with_credit(
-        context.native_session().allocator(),
-        context.memory().reserve(metadata)?,
-    );
+    let allocator =
+        crate::owned_buffers::with_credit(context.native_session().allocator(), metadata);
     let mut execution = context.native_session().create_execution_ctx();
     let mut rows = ReservedVec::new(context.memory())?;
     rows.reserve(indices.len())?;
@@ -131,7 +129,7 @@ pub(super) fn defaults(
 ) -> Result<ArrayRef> {
     let allocator = crate::owned_buffers::with_credit(
         context.native_session().allocator(),
-        context.memory().reserve(metadata_bytes(dtype)?)?,
+        crate::native_payload_schema::reserve_schema(dtype, context.memory())?,
     );
     let mut indices = ReservedVec::new(context.memory())?;
     indices.reserve(rows)?;

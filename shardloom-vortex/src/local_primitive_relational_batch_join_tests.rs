@@ -26,6 +26,62 @@ fn other_scan(uri: DatasetUri) -> VortexRelationalPlan {
     })
 }
 
+#[test]
+fn completion_input_plan_exceeds_old_node_count_without_repeating_the_producer() {
+    fn tree(levels: usize, streamed: bool) -> VortexRelationalPlan {
+        if levels == 0 {
+            return if streamed {
+                scan()
+            } else {
+                other_scan(DatasetUri::new("memory://ordinary").unwrap())
+            };
+        }
+        VortexRelationalPlan::Join(Box::new(VortexRelationalJoin {
+            left: tree(levels - 1, streamed),
+            right: tree(levels - 1, false),
+            kind: JoinKind::Inner,
+            keys: vec![VortexRelationalJoinKey {
+                left: ColumnRef::new("n").unwrap(),
+                right: ColumnRef::new("n").unwrap(),
+            }],
+            condition: None,
+            columns: vec![VortexRelationalJoinColumn {
+                side: Side::Left,
+                column: ColumnRef::new("n").unwrap(),
+                output_column: "n".into(),
+            }],
+        }))
+    }
+    let plan = tree(7, true);
+    let prepared = prepare_relational_with_schema(policy(), |schema| {
+        schema.register_batch_source(DatasetUri::new("memory://stream")?, |session| {
+            source(session, &[], &[])
+        })?;
+        schema.register_memory_source(DatasetUri::new("memory://ordinary")?, |session| {
+            ResidentMemorySource::from_int64_range(session, "n", 1, 1, 1)
+        })?;
+        Ok(plan)
+    })
+    .unwrap();
+    let mut calls = 0;
+    let mut input = |session: &ResidentVortexSession| {
+        calls += 1;
+        if calls > 1 {
+            return Ok(None);
+        }
+        source(session, &[Some(1), None, Some(2), Some(1)], &[None; 4]).map(Some)
+    };
+    let result = prepared
+        .with_batch_input(&mut input)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(json_rows(&result), [json!({"n":1}), json!({"n":1})]);
+    assert_eq!(calls, 2);
+    assert_eq!(result.execution.runtime.completed_executions, 1);
+    assert!(result.execution.native_io_certificate.is_certified());
+}
+
 fn joined(other: VortexRelationalPlan, stream_right: bool, kind: JoinKind) -> VortexRelationalPlan {
     let (left, right) = if stream_right {
         (other, scan())

@@ -21,8 +21,10 @@ fn native_batch_source_complete_values_cross_collection_and_input_boundaries() {
     let prepared = prepare_relational_with_schema(policy(), |schemas| {
         schemas.register_memory_source(uri.clone(), |session| {
             let mut builder = MemoryBatchSourceBuilder::new(session, CancellationToken::default())?;
-            for start in (0..65_539).step_by(2048) {
-                let values = (start..(start + 2048).min(65_539))
+            // More than 4,096 nonempty batches and more than the collection
+            // row bound must still complete through bounded native delivery.
+            for start in (0..65_539).step_by(16) {
+                let values = (start..(start + 16).min(65_539))
                     .map(|n| {
                         if n % 17 == 0 {
                             None
@@ -159,6 +161,86 @@ fn native_batch_source_denials_drop_every_owned_buffer() {
     let tiny = ResidentVortexSession::new(1024, 1).unwrap();
     assert!(MemoryBatchSourceBuilder::new(&tiny, CancellationToken::default()).is_err());
     assert_eq!(tiny.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn native_batch_source_empty_batches_validate_without_retained_growth() {
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let mut builder =
+        MemoryBatchSourceBuilder::new(&session, CancellationToken::default()).unwrap();
+    let empty = [MemoryColumn {
+        name: "n",
+        values: MemoryColumnValues::Int64(&[]),
+    }];
+    builder.push_columns(&empty).unwrap();
+    let retained = session.snapshot().memory.reserved_bytes;
+    for _ in 1..8193 {
+        builder.push_columns(&empty).unwrap();
+        assert_eq!(session.snapshot().memory.reserved_bytes, retained);
+    }
+    assert!(
+        builder
+            .push_columns(&[MemoryColumn {
+                name: "renamed",
+                values: MemoryColumnValues::Int64(&[]),
+            }])
+            .unwrap_err()
+            .to_string()
+            .contains("schema changed")
+    );
+    assert_eq!(session.snapshot().memory.reserved_bytes, retained);
+    builder
+        .push_columns(&[MemoryColumn {
+            name: "n",
+            values: MemoryColumnValues::Int64(&[Some(i64::MIN), None, Some(i64::MAX)]),
+        }])
+        .unwrap();
+    let source = builder.finish().unwrap();
+    assert_eq!(source.row_count(), 3);
+    let result = source
+        .prepare_projection(&["n"], None, None)
+        .unwrap()
+        .execute()
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(result.values_json.value()).unwrap(),
+        serde_json::json!([{ "n": i64::MIN }, { "n": null }, { "n": i64::MAX }])
+    );
+    drop(result);
+    drop(source);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn native_batch_source_growth_denial_preserves_accepted_payloads_and_releases_credit() {
+    let session = ResidentVortexSession::new(128 << 10, 1).unwrap();
+    let mut builder =
+        MemoryBatchSourceBuilder::new(&session, CancellationToken::default()).unwrap();
+    let mut accepted = 0;
+    loop {
+        let before = session.snapshot().memory.reserved_bytes;
+        let value = [Some(accepted)];
+        if builder
+            .push_columns(&[MemoryColumn {
+                name: "n",
+                values: MemoryColumnValues::Int64(&value),
+            }])
+            .is_err()
+        {
+            assert!(accepted > 8);
+            assert_eq!(builder.rows, usize::try_from(accepted).unwrap());
+            assert_eq!(session.snapshot().memory.reserved_bytes, before);
+            assert!(session.snapshot().memory.denied_reservations > 0);
+            break;
+        }
+        accepted += 1;
+        assert!(accepted < 4096);
+    }
+    let retained = builder.batches.values[0].clone();
+    drop(builder);
+    assert!(session.snapshot().memory.reserved_bytes > 0);
+    drop(retained);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
 }
 
 #[test]

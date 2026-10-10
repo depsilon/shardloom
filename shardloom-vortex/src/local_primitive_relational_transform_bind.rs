@@ -15,7 +15,7 @@ impl Binder<'_> {
         depth: usize,
     ) -> Result<Node> {
         validate_width(project.expressions.len())?;
-        self.charge(project.expressions.len() * 4096)?;
+        self.charge_fields(project.expressions.len())?;
         let input = Box::new(self.bind(&project.input, depth + 1)?);
         let mut fields = Vec::new();
         let mut expressions = Vec::new();
@@ -60,7 +60,7 @@ impl Binder<'_> {
         if !matches!(predicate.dtype, DType::Bool(_) | DType::Null) {
             return Err(failed("filter predicate must produce a nullable boolean"));
         }
-        self.charge(input.fields.len() * 4096)?;
+        self.charge_fields(input.fields.len())?;
         Ok(Node {
             fields: input.fields.clone(),
             kind: NodeKind::Filter { input, predicate },
@@ -69,9 +69,9 @@ impl Binder<'_> {
 
     pub(super) fn sort(&mut self, sort: &VortexRelationalSort, depth: usize) -> Result<Node> {
         validate_width(sort.keys.len())?;
-        self.charge(sort.keys.len() * 4096)?;
+        self.charge_fields(sort.keys.len())?;
         let input = Box::new(self.bind(&sort.input, depth + 1)?);
-        self.charge(input.fields.len() * 4096)?;
+        self.charge_fields(input.fields.len())?;
         for key in &sort.keys {
             validate_name(key.column.as_str())?;
             validate_key(field(&input.fields, key.column.as_str())?)?;
@@ -101,7 +101,7 @@ impl Binder<'_> {
         if limit.count != 0 {
             cap_rolling_prefix(&mut input, prefix)?;
         }
-        self.charge(input.fields.len() * 4096)?;
+        self.charge_fields(input.fields.len())?;
         Ok(Node {
             fields: input.fields.clone(),
             kind: NodeKind::Limit {

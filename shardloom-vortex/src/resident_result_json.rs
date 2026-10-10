@@ -14,26 +14,31 @@ impl OwnedVortexResultBatch {
     /// and materialization boundary; the returned `String` retains its reservation.
     ///
     /// # Errors
-    /// Rejects empty, duplicate or oversized field lists, unknown/unsupported
-    /// fields, provider failures, and row/byte/shared-memory bounds.
+    /// Rejects empty or duplicate field lists, invalid/unknown/unsupported fields,
+    /// provider failures, and row/byte/shared-memory bounds. Field metadata is
+    /// admitted by the retained result's shared grant.
     pub fn to_bounded_json(
         &self,
         columns: &[String],
         max_bytes: usize,
     ) -> Result<Budgeted<String>> {
-        if columns.is_empty() || columns.len() > 64 || !(1..=8 * 1024 * 1024).contains(&max_bytes) {
+        if columns.is_empty() || !(1..=8 * 1024 * 1024).contains(&max_bytes) {
             return Err(resident_error(
-                "result JSON requires 1..=64 fields and 1..=8 MiB output bound",
+                "result JSON requires fields and a 1..=8 MiB output bound",
             ));
         }
-        let mut seen = std::collections::HashSet::new();
         for name in columns {
-            if name.is_empty() || name.len() > 256 || !seen.insert(name.as_str()) {
+            if name.is_empty() || name.len() > 256 {
                 return Err(resident_error(
-                    "result JSON fields must be unique, nonempty and at most 256 bytes",
+                    "result JSON field names must contain 1..=256 UTF8 bytes",
                 ));
             }
         }
+        let _metadata = crate::native_payload_schema::reserve_names(
+            &self.runtime.memory,
+            columns.len(),
+            |index| columns[index].as_str(),
+        )?;
         self.render_admitted_json(columns, max_bytes)
     }
 

@@ -32,6 +32,7 @@ pub(super) fn prepare_with_source(
         request,
         source,
         preparations,
+        |_| Ok(()),
         |_, input, session| input.build(session),
     )
 }
@@ -46,6 +47,9 @@ pub(super) fn prepare_with_input_adapter(
     request: &PublicWorkflowRouteRequest,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
     preparations: PublicSourcePreparations,
+    initialize: impl FnOnce(
+        &shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
+    ) -> Result<(), ShardLoomError>,
     mut build: impl FnMut(
         &str,
         &crate::native_memory_input::MemoryInput,
@@ -72,14 +76,20 @@ pub(super) fn prepare_with_input_adapter(
             policy,
             uri,
             source,
-            |schemas| register_memory_inputs(schemas, request, &mut build),
+            |schemas| {
+                initialize(schemas)?;
+                register_memory_inputs(schemas, request, &mut build)
+            },
             |path| sources.resolve(path, request),
         )?
     } else {
         native_relational::prepare_with_inputs(
             statement,
             policy,
-            |schemas| register_memory_inputs(schemas, request, &mut build),
+            |schemas| {
+                initialize(schemas)?;
+                register_memory_inputs(schemas, request, &mut build)
+            },
             |path| sources.resolve(path, request),
         )?
     };
@@ -427,6 +437,7 @@ mod tests {
                 &request,
                 None,
                 PublicSourcePreparations::default(),
+                |_| Ok(()),
                 |_, input, session| {
                     if let MemoryInput::Batches { schema, .. } = input {
                         crate::native_memory_rows::build_batch(schema, &[], session)
@@ -498,6 +509,7 @@ mod tests {
                 &request,
                 None,
                 PublicSourcePreparations::default(),
+                |_| Ok(()),
                 |_, _, _| {
                     calls += 1;
                     Err(failed("unexpected producer demand"))

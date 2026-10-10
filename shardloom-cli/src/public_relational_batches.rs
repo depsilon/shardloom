@@ -47,12 +47,14 @@ fn execute(
             "SL-NATIVE-BATCH: batch transactions require native Vortex or memory sources; prepare compatibility inputs to Vortex before batch consumption; no fallback execution was attempted".into(),
         ));
     }
+    let adapter = std::cell::RefCell::new(&mut *transport);
     let (operation, normalized) = sources::prepare_with_input_adapter(
         statement,
         request,
         None,
         PublicSourcePreparations::default(),
-        |uri, input, session| transport.build_source(uri, input, session),
+        |preparation| adapter.borrow_mut().start_reader(preparation),
+        |uri, input, session| adapter.borrow_mut().build_source(uri, input, session),
     )?;
     if let Some((uri, input)) = request.source_bindings.iter().find_map(|(uri, binding)| {
         binding
@@ -234,7 +236,7 @@ fn adapter_fields(transport: &Transport, normalized: usize) -> [(String, String)
         ),
         (
             "native_batch_input_peak_scratch_reservation_bytes".into(),
-            transport.input_scratch_peak_bytes.to_string(),
+            transport.input_scratch_peak_bytes().to_string(),
         ),
         (
             "native_batch_control_frame_bound_bytes".into(),

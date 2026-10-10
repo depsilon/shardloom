@@ -34,8 +34,11 @@ pub use owned_intake::OwnedMemoryColumn;
 
 #[path = "resident_memory_batches.rs"]
 mod batches;
+pub(crate) use batches::MAX_BATCH_ROWS;
 pub use batches::MemoryBatchSourceBuilder;
-pub(crate) use batches::{MAX_BATCH_ROWS, MAX_BATCHES, MAX_COLUMNS};
+
+#[path = "resident_memory_range.rs"]
+mod generated_range;
 
 /// Explicit flat-scalar input. Slices are borrowed only for intake;
 /// published Vortex buffers retain no references into caller memory.
@@ -82,9 +85,11 @@ struct MemorySourceOwner {
     bounds: MemorySourceBounds,
     input_logical_bytes: usize,
     intake_payload_bytes_copied: u64,
-    // Present only for a private, finite streaming intake batch. Every payload
-    // buffer also holds this credit, including cloned/sliced child buffers.
-    batch_metadata: Option<Arc<MemoryLease>>,
+    // Every copied/transferred payload buffer also holds this credit, including
+    // cloned/sliced child buffers. Generated ranges have their own compact owner.
+    metadata: Option<Arc<MemoryLease>>,
+    is_batch: bool,
+    generated_range: Option<generated_range::GeneratedInt64Range>,
 }
 
 /// Validated immutable native memory, visible without durable publication.
@@ -92,11 +97,12 @@ struct MemorySourceOwner {
 pub struct ResidentMemorySource(Arc<MemorySourceOwner>);
 
 impl ResidentMemorySource {
-    /// Construct a bounded signed sequence directly in admitted native buffers.
-    /// This is an input adapter; subsequent expressions use the relational engine.
+    /// Construct compact native signed-range input under the session's grant.
+    /// The relational engine generates only each admitted scan interval; whole
+    /// array projection remains an explicitly materializing operation.
     /// # Errors
-    /// Rejects invalid names, zero steps, overflow, more than one million rows,
-    /// and shared-memory admission failures before publishing the source.
+    /// Rejects invalid names, zero steps, endpoint/logical-byte overflow and
+    /// shared-memory admission failures before publishing the source.
     pub fn from_int64_range(
         session: &ResidentVortexSession,
         name: &str,
@@ -104,47 +110,7 @@ impl ResidentMemorySource {
         step: i64,
         rows: usize,
     ) -> Result<Self> {
-        if name.is_empty() || name.len() > 256 || step == 0 || rows > 1_000_000 {
-            return Err(memory_error(
-                "range requires a valid field, nonzero step and at most one million rows",
-            ));
-        }
-        if rows > 0 {
-            i64::try_from(i128::from(start) + i128::from(step) * (rows - 1) as i128)
-                .map_err(|_| memory_error("signed range endpoint overflow"))?;
-        }
-        let bytes = fixed_bytes(&session.native_allocator(), rows, |index| {
-            // Monotonic endpoints were validated before allocating any buffer.
-            let value = i128::from(start) + i128::from(step) * index as i128;
-            i64::try_from(value)
-                .map(i64::to_ne_bytes)
-                .map_err(|_| memory_error("signed range value overflow"))
-        })?;
-        let values = PrimitiveArray::new(
-            Buffer::<i64>::from_byte_buffer(bytes),
-            Validity::NonNullable,
-        )
-        .into_array();
-        let array = StructArray::try_new(
-            FieldNames::from(vec![name]),
-            vec![values],
-            rows,
-            Validity::NonNullable,
-        )
-        .map_err(native_error)?
-        .into_array();
-        Ok(Self(Arc::new(MemorySourceOwner {
-            array,
-            session: session.clone(),
-            bounds: MemorySourceBounds {
-                max_input_rows: 1_000_000,
-                max_output_rows: 1_000_000,
-                ..MemorySourceBounds::default()
-            },
-            input_logical_bytes: rows * 8 + name.len(),
-            intake_payload_bytes_copied: 0,
-            batch_metadata: None,
-        })))
+        generated_range::source(session, name, start, step, rows)
     }
 
     pub(crate) fn belongs_to_session(&self, session: &ResidentVortexSession) -> bool {
@@ -163,7 +129,6 @@ impl ResidentMemorySource {
         bounds: MemorySourceBounds,
     ) -> Result<Self> {
         if columns.is_empty()
-            || columns.len() > 64
             || bounds.max_input_rows == 0
             || bounds.max_input_rows > 65_536
             || bounds.max_output_rows == 0
@@ -172,12 +137,12 @@ impl ResidentMemorySource {
             || bounds.max_output_bytes == 0
         {
             return Err(memory_error(
-                "owned memory intake requires 1..=64 columns and positive bounds up to 65,536 rows",
+                "owned memory intake requires columns and positive bounds up to 65,536 rows",
             ));
         }
         let rows = columns[0].array.len();
         let mut input_logical_bytes = 0usize;
-        for (index, column) in columns.iter().enumerate() {
+        for column in &columns {
             if !session.memory().owns(&column.identity) {
                 return Err(memory_error(
                     "owned column belongs to a different shared memory budget",
@@ -188,18 +153,17 @@ impl ResidentMemorySource {
                     "owned column lengths disagree or exceed the input row bound",
                 ));
             }
-            if columns[..index]
-                .iter()
-                .any(|prior| prior.name == column.name)
-            {
-                return Err(memory_error("owned column names must be distinct"));
-            }
             input_logical_bytes = input_logical_bytes
                 .checked_add(usize::try_from(column.array.nbytes()).map_err(native_error)?)
                 .and_then(|bytes| bytes.checked_add(column.name.len()))
                 .filter(|bytes| *bytes <= bounds.max_input_bytes)
                 .ok_or_else(|| memory_error("owned input byte bound exceeded"))?;
         }
+        let metadata = Arc::new(crate::native_payload_schema::reserve_names(
+            session.memory(),
+            columns.len(),
+            |index| columns[index].name.as_str(),
+        )?);
         let names = FieldNames::from(
             columns
                 .iter()
@@ -208,8 +172,8 @@ impl ResidentMemorySource {
         );
         let fields = columns
             .into_iter()
-            .map(|column| column.array)
-            .collect::<Vec<_>>();
+            .map(|column| owned_intake::retain_metadata(&column.array, &metadata))
+            .collect::<Result<Vec<_>>>()?;
         let array = StructArray::try_new(names, fields, rows, Validity::NonNullable)
             .map_err(native_error)?
             .into_array();
@@ -219,7 +183,9 @@ impl ResidentMemorySource {
             bounds,
             input_logical_bytes,
             intake_payload_bytes_copied: 0,
-            batch_metadata: None,
+            metadata: Some(metadata),
+            is_batch: false,
+            generated_range: None,
         })))
     }
 
@@ -228,31 +194,40 @@ impl ResidentMemorySource {
     ///
     /// # Errors
     /// Rejects duplicate/empty names, mismatched column lengths, nonfinite
-    /// floats, more than 64 columns, and input/shared-memory bound violations.
+    /// floats and input/shared-memory bound violations. Schema width consumes
+    /// the same shared grant as the native payload buffers.
     pub fn from_columns(
         session: &ResidentVortexSession,
         columns: &[MemoryColumn<'_>],
         bounds: MemorySourceBounds,
     ) -> Result<Self> {
-        Self::from_columns_with_width(session, columns, bounds, 64)
+        Self::copy_columns(session, columns, bounds, false)
     }
 
-    fn from_columns_with_width(
+    fn copy_columns(
         session: &ResidentVortexSession,
         columns: &[MemoryColumn<'_>],
         bounds: MemorySourceBounds,
-        max_columns: usize,
+        is_batch: bool,
     ) -> Result<Self> {
-        let (rows, input_logical_bytes) = validate_columns(columns, bounds, max_columns)?;
-        let allocator = session.native_allocator();
+        let (_, input_logical_bytes) = validate_columns(columns, bounds)?;
+        let metadata = Arc::new(crate::native_payload_schema::reserve_names(
+            session.memory(),
+            columns.len(),
+            |index| columns[index].name,
+        )?);
+        let allocator = crate::owned_buffers::with_shared_credit(
+            session.native_allocator(),
+            Arc::clone(&metadata),
+        );
         Self::build_columns(
             session,
             columns,
             bounds,
-            rows,
             input_logical_bytes,
             &allocator,
-            None,
+            metadata,
+            is_batch,
         )
     }
 
@@ -260,7 +235,7 @@ impl ResidentMemorySource {
     /// structural reservation follows every buffer alias until it is released.
     /// A typed empty batch may declare the schema before opening a producer.
     /// # Errors
-    /// Rejects more than 128 fields, 2,048 rows or 32 MiB of logical input,
+    /// Rejects more than 2,048 rows or 32 MiB of logical input,
     /// invalid scalar values and shared-memory admission failures.
     pub fn from_batch_columns(
         session: &ResidentVortexSession,
@@ -270,36 +245,19 @@ impl ResidentMemorySource {
             max_input_rows: MAX_BATCH_ROWS,
             ..MemorySourceBounds::default()
         };
-        let (rows, bytes) = validate_columns(columns, bounds, MAX_COLUMNS)?;
-        let metadata = Arc::new(
-            session
-                .memory()
-                .reserve((columns.len() as u64 + 1) * 1024)?,
-        );
-        let allocator = crate::owned_buffers::with_shared_credit(
-            session.native_allocator(),
-            Arc::clone(&metadata),
-        );
-        Self::build_columns(
-            session,
-            columns,
-            bounds,
-            rows,
-            bytes,
-            &allocator,
-            Some(metadata),
-        )
+        Self::copy_columns(session, columns, bounds, true)
     }
 
     fn build_columns(
         session: &ResidentVortexSession,
         columns: &[MemoryColumn<'_>],
         bounds: MemorySourceBounds,
-        rows: usize,
         input_logical_bytes: usize,
         allocator: &HostAllocatorRef,
-        batch_metadata: Option<Arc<MemoryLease>>,
+        metadata: Arc<MemoryLease>,
+        is_batch: bool,
     ) -> Result<Self> {
+        let rows = columns[0].values.len();
         let mut intake_payload_bytes_copied = 0;
         let fields = columns
             .iter()
@@ -315,29 +273,25 @@ impl ResidentMemorySource {
             bounds,
             input_logical_bytes,
             intake_payload_bytes_copied,
-            batch_metadata,
+            metadata: Some(metadata),
+            is_batch,
+            generated_range: None,
         })))
     }
 
     pub(crate) fn is_batch_source(&self) -> bool {
-        self.0.batch_metadata.is_some()
+        self.0.is_batch
     }
 
     pub(crate) fn batch_release_witness(&self) -> Result<std::sync::Weak<MemoryLease>> {
-        if Arc::strong_count(&self.0) != 1 {
+        if !self.0.is_batch || Arc::strong_count(&self.0) != 1 {
             return Err(memory_error(
                 "SL-NATIVE-BATCH: input batch must transfer private ownership",
             ));
         }
-        self.0
-            .batch_metadata
-            .as_ref()
-            .map(Arc::downgrade)
-            .ok_or_else(|| {
-                memory_error(
-                    "SL-NATIVE-BATCH: streaming input requires from_batch_columns ownership",
-                )
-            })
+        self.0.metadata.as_ref().map(Arc::downgrade).ok_or_else(|| {
+            memory_error("SL-NATIVE-BATCH: streaming input requires from_batch_columns ownership")
+        })
     }
 
     #[must_use]
@@ -374,9 +328,10 @@ impl ResidentMemorySource {
         &self,
         bounds: crate::memory_file_generation::MemoryFileGenerationBounds,
     ) -> Result<crate::memory_file_generation::MemoryFileGeneration> {
+        let array = self.generation_array(None)?;
         crate::memory_file_generation::MemoryFileGeneration::build(
             &self.0.session,
-            &self.0.array,
+            &array,
             self.0.input_logical_bytes,
             self.0.intake_payload_bytes_copied,
             bounds,
@@ -397,15 +352,52 @@ impl ResidentMemorySource {
         layout: crate::memory_file_generation::MemoryFileGenerationLayout,
         cancelled: Option<&std::sync::atomic::AtomicBool>,
     ) -> Result<crate::memory_file_generation::MemoryFileGeneration> {
+        let array = self.generation_array(cancelled)?;
         crate::memory_file_generation::MemoryFileGeneration::build_with_layout(
             &self.0.session,
-            &self.0.array,
+            &array,
             self.0.input_logical_bytes,
             self.0.intake_payload_bytes_copied,
             bounds,
             layout,
             cancelled,
         )
+    }
+
+    fn array_range(
+        &self,
+        range: std::ops::Range<usize>,
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<ArrayRef> {
+        check()?;
+        match &self.0.generated_range {
+            Some(generated) => generated.materialize(&self.0, range, check),
+            None => self.0.array.slice(range).map_err(native_error),
+        }
+    }
+
+    #[cfg(feature = "vortex-write")]
+    fn generation_array(
+        &self,
+        cancelled: Option<&std::sync::atomic::AtomicBool>,
+    ) -> Result<ArrayRef> {
+        if self.0.generated_range.is_none() {
+            return Ok(self.0.array.clone());
+        }
+        // This separate whole-memory generation API has an explicit intake
+        // bound. Public relational writers consume the bounded range scanner.
+        if self.row_count() > crate::memory_file_generation::GENERATION_INPUT_ROWS {
+            return Err(memory_error(
+                "memory file generation exceeds its admitted input rows",
+            ));
+        }
+        self.array_range(0..self.row_count(), &|| {
+            if cancelled.is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire)) {
+                Err(memory_error("memory range generation cancelled"))
+            } else {
+                Ok(())
+            }
+        })
     }
 
     /// Bind a native projection and optional exact Vortex expression. This is
@@ -421,14 +413,11 @@ impl ResidentMemorySource {
         filter: Option<Expression>,
         limit: Option<usize>,
     ) -> Result<PreparedMemoryProjection> {
-        if columns.is_empty() || columns.len() > 128 {
-            return Err(memory_error("projection requires 1..=128 fields"));
-        }
-        for (index, name) in columns.iter().enumerate() {
-            if columns[..index].contains(name) {
-                return Err(memory_error("duplicate projection fields"));
-            }
-        }
+        let metadata = crate::native_payload_schema::reserve_names(
+            self.0.session.memory(),
+            columns.len(),
+            |index| columns[index],
+        )?;
         if limit.is_some_and(|limit| limit > self.0.bounds.max_output_rows) {
             return Err(memory_error(
                 "requested row limit exceeds admitted output bound",
@@ -457,6 +446,7 @@ impl ResidentMemorySource {
             filter,
             limit,
             columns: columns.iter().map(|name| (*name).to_owned()).collect(),
+            _metadata: metadata,
         })
     }
 }
@@ -468,6 +458,7 @@ pub struct PreparedMemoryProjection {
     filter: Option<BoundExpression>,
     limit: Option<usize>,
     columns: Vec<String>,
+    _metadata: MemoryLease,
 }
 
 impl PreparedMemoryProjection {
@@ -482,7 +473,9 @@ impl PreparedMemoryProjection {
         context: &crate::resident_session::NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
         self.source.0.session.validate_execution_context(context)?;
-        let array = self.source.0.array.slice(range).map_err(native_error)?;
+        let array = self
+            .source
+            .array_range(range, &|| context.check_cancelled())?;
         let result = self.execute_array(array, context.native_session())?;
         context.check_cancelled()?;
         Ok(result)
@@ -502,7 +495,8 @@ impl PreparedMemoryProjection {
                 "SL-NATIVE-BATCH: input changed its declared schema or resource owner",
             ));
         }
-        let result = self.execute_array(source.0.array.clone(), context.native_session())?;
+        let array = source.array_range(0..source.row_count(), &|| context.check_cancelled())?;
+        let result = self.execute_array(array, context.native_session())?;
         context.check_cancelled()?;
         Ok(result)
     }
@@ -521,7 +515,17 @@ impl PreparedMemoryProjection {
         source.session.execute_owned_array(
             source.bounds.max_output_rows as u64,
             source.bounds.max_output_bytes as u64,
-            |session| self.execute_array(source.array.clone(), session),
+            |session| {
+                let rows = if self.filter.is_none() {
+                    self.limit
+                        .unwrap_or(self.source.row_count())
+                        .min(self.source.row_count())
+                } else {
+                    self.source.row_count()
+                };
+                let array = self.source.array_range(0..rows, &|| Ok(()))?;
+                self.execute_array(array, session)
+            },
         )
     }
 
@@ -531,6 +535,11 @@ impl PreparedMemoryProjection {
         session: &vortex::session::VortexSession,
     ) -> Result<ArrayRef> {
         let source = &self.source.0;
+        let metadata = Arc::new(crate::native_payload_schema::reserve_names(
+            source.session.memory(),
+            self.columns.len(),
+            |index| self.columns[index].as_str(),
+        )?);
         let mut context = session.create_execution_ctx();
         if let Some(filter) = &self.filter {
             let predicate = array
@@ -570,11 +579,36 @@ impl PreparedMemoryProjection {
                 .slice(0..limit.min(array.len()))
                 .map_err(native_error)?;
         }
-        array
+        let result = array
             .apply_bound(&self.projection)
             .and_then(|array| array.execute::<StructArray>(&mut context))
-            .map(vortex::array::IntoArray::into_array)
-            .map_err(native_error)
+            .map_err(native_error)?;
+        // One native chunk per selected field anchors the new record metadata
+        // without copying or traversing a retained multi-batch payload tree.
+        let fields = result.dtype().as_struct_fields();
+        let columns = result
+            .slots()
+            .iter()
+            .skip(1)
+            .map(|column| {
+                let column = column
+                    .as_ref()
+                    .ok_or_else(|| memory_error("projection omitted a native field"))?;
+                batches::owned_chunks(
+                    [column.clone()].into_iter(),
+                    column.dtype().clone(),
+                    &metadata,
+                )
+            })
+            .collect::<Result<Vec<_>>>()?;
+        StructArray::try_new(
+            fields.names().clone(),
+            columns,
+            result.len(),
+            Validity::NonNullable,
+        )
+        .map(vortex::array::IntoArray::into_array)
+        .map_err(native_error)
     }
 
     /// Complete the bounded native operation and its explicitly requested JSON
@@ -636,10 +670,8 @@ impl MemoryColumnValues<'_> {
 fn validate_columns(
     columns: &[MemoryColumn<'_>],
     bounds: MemorySourceBounds,
-    max_columns: usize,
 ) -> Result<(usize, usize)> {
     if columns.is_empty()
-        || columns.len() > max_columns
         || bounds.max_input_rows > 65_536
         || bounds.max_output_rows > 65_536
         || bounds.max_input_rows == 0
@@ -647,22 +679,17 @@ fn validate_columns(
         || bounds.max_input_bytes == 0
         || bounds.max_output_bytes == 0
     {
-        return Err(memory_error(&format!(
-            "memory intake requires 1..={max_columns} columns and positive bounds up to 65,536 rows",
-        )));
+        return Err(memory_error(
+            "memory intake requires columns and positive bounds up to 65,536 rows",
+        ));
     }
     let rows = columns[0].values.len();
     if rows > bounds.max_input_rows {
         return Err(memory_error("input row bound exceeded"));
     }
     let mut bytes = 0_usize;
-    for (index, column) in columns.iter().enumerate() {
-        if column.name.is_empty()
-            || column.name.len() > 256
-            || columns[..index]
-                .iter()
-                .any(|prior| prior.name == column.name)
-        {
+    for column in columns {
+        if column.name.is_empty() || column.name.len() > 256 {
             return Err(memory_error(
                 "column names must be distinct and contain 1..=256 UTF8 bytes",
             ));

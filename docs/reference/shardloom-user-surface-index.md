@@ -93,6 +93,14 @@ ownership, source-change behavior, and examples. This is a bounded native Rust a
 CLI-backed transport surface; it does not add a native Python binding or establish
 performance claims.
 
+`ShardLoomContext.from_rows` declares nullable scalar rows, and `range` declares
+compact native Int64 input. The [input growth contract](../architecture/native-input-growth-2026-10-09.md)
+admits top-level schemas, cumulative batch input and generated range lengths
+through shared resources and checked arithmetic rather than fixed total counts.
+It applies to source builds after the 0.5.1 release; published 0.5.1 artifacts
+retain their release-time limits. Row/frame/collection bounds and the remaining
+recursive and operator-specific limits are explicit in that contract.
+
 Current source also exposes `shardloom.from_batches` and
 `ShardLoomContext.from_batches` for explicitly typed resident input, plus
 `LazyFrame.iter_batches` and `SqlWorkflow.iter_batches` for acknowledged

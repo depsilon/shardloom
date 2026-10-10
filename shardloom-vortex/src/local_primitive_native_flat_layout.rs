@@ -89,6 +89,13 @@ impl LayoutStrategy for SequentialNativeFlatLayout {
         Self: 'future,
     {
         Box::pin(async move {
+            let metadata_base = match &self.metadata {
+                Some(metadata) => metadata
+                    .lock()
+                    .map_err(|_| vortex_err!("native leaf metadata owner poisoned"))?
+                    .bytes(),
+                None => 0,
+            };
             let dtype = input.dtype().clone();
             let mut children = Vec::new();
             if self.metadata.is_none() {
@@ -110,7 +117,7 @@ impl LayoutStrategy for SequentialNativeFlatLayout {
                     let bytes = u64::try_from(children.len() + 1)
                         .ok()
                         .and_then(|n| n.checked_mul(8192))
-                        .and_then(|n| n.checked_add(128 * 1024))
+                        .and_then(|n| n.checked_add(metadata_base))
                         .ok_or_else(|| vortex_err!("native leaf metadata size overflow"))?;
                     metadata
                         .lock()

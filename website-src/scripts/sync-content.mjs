@@ -508,13 +508,17 @@ with frame.iter_batches(batch_rows=1024) as batches:
 
 Input admits nullable Int64, finite Float64, booleans and UTF8 strings with an
 explicit schema. Each input batch contains at most 2,048 row mappings and an
-8 MiB frame, with up to 128 fields and 4,096 batches per source. In the default
+8 MiB frame. Current source builds admit growing field and batch metadata through
+the shared query grant, without fixed total field or batch counts. In the default
 resident mode (\`streaming=False\`), total native input must fit the query memory
 grant. A factory, as above, supplies fresh input for repeated calls; an iterable
 can be consumed once.
+The [input growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
+applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
+their release-time limits. Schema declarations still have an 8 MiB envelope.
 
 Streaming retains at most one native input batch, so cumulative input may exceed
-the query grant within those finite limits. It supports incremental results,
+the query grant while individual batches remain bounded. It supports incremental results,
 bounded small collection or one native Vortex destination. Retained operator
 state shares the grant; ordering, general aggregation, joins and analytic windows
 support an explicit native spill policy. A single-use batch source can occur on either join side,
@@ -725,10 +729,14 @@ Supported owned results retain Vortex arrays, validity, and memory credits. Curr
 stream admitted flat aggregate, ordered, unary, and relational results through all eight local
 writers without rerunning the query or reparsing serialized JSON for binary export. This includes
 admitted native ordering spill. Small computed-result collection remains bounded to
-**65,536 rows, 128 scalar fields, and 8 MiB**; complete writers use bounded native batches and
+**65,536 rows and 8 MiB**; top-level schema metadata uses the shared grant in current
+source builds. Complete writers use bounded native batches and
 can exceed the collection row and byte limits. Type, resource, and write-policy admission still
 apply. Nested and extension results have separate coverage limits. See the
 [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
+The [input growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
+applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
+their release-time limits.
 
 Flat aggregate collection and writes use the same native admission, carrying the complete
 filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.
@@ -938,7 +946,10 @@ Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.
 
-The **65,536-row / 128-top-level-field / 8-MiB** bound applies to small computed-result collection.
+The **65,536-row / 8-MiB** bound applies to small computed-result collection.
+Current source builds admit top-level field metadata through the shared query grant.
+This [growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
+applies after the 0.5.1 release; published 0.5.1 artifacts retain their release-time limits.
 Current source builds deliver complete admitted flat results through bounded native batches to
 all eight local writers, including admitted ordering spill, above the collection row and byte
 limits. Representable static nested results use Vortex, JSON, JSONL, Arrow IPC, Parquet

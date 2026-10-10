@@ -72,10 +72,11 @@ impl Binder<'_> {
         fields: &[(String, DType)],
         depth: usize,
     ) -> Result<Expression> {
-        self.expression_nodes += 1;
-        if depth > 24 || self.expression_nodes > 4096 {
-            return Err(failed("scalar expressions exceed 24 levels or 4096 nodes"));
+        if depth > 24 {
+            return Err(failed("recursive scalar expression exceeds 24 levels"));
         }
+        // Each expression is admitted before allocation, including independent
+        // projected fields in a wide schema. Do not cap their cumulative count.
         self.charge(4096)?;
         let (dtype, kind) = match &input.kind {
             ExpressionKind::Column(column) => {
@@ -201,7 +202,7 @@ impl Binder<'_> {
         if values.len() > 128 {
             return Err(failed("list constructor exceeds 128 elements"));
         }
-        self.charge(values.len() * 4096)?;
+        self.charge_fields(values.len())?;
         let values = values
             .iter()
             .map(|value| self.expression(value, fields, depth + 1))
@@ -229,7 +230,7 @@ impl Binder<'_> {
         if children.is_empty() || children.len() > 128 {
             return Err(failed("struct constructor requires 1..=128 fields"));
         }
-        self.charge(children.len() * 4096)?;
+        self.charge_fields(children.len())?;
         let mut values = Vec::new();
         let mut output_fields = Vec::new();
         for (name, value) in children {
@@ -264,7 +265,7 @@ impl Binder<'_> {
         if args.len() > 128 {
             return Err(failed("scalar function exceeds 128 arguments"));
         }
-        self.charge(args.len() * 4096)?;
+        self.charge_fields(args.len())?;
         let mut args = args
             .iter()
             .map(|arg| self.expression(arg, fields, depth + 1))

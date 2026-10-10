@@ -95,8 +95,10 @@ contract defines the supported operations, types, and resource limits.
   CSV, JSON, and JSONL through the enabled adapters and writers. Completed flat aggregate and
   sorted results reach the shared writers without rerunning the query or serializing and
   reparsing JSON as the binary export substrate. Small owned collection is bounded to
-  65,536 rows, 128 fields, and 8 MiB; complete admitted native file writes can exceed that row
-  bound through bounded batches, with format-specific type restrictions.
+  65,536 rows and 8 MiB; schema width uses the shared memory grant in current source builds.
+  Complete admitted native file writes can exceed that row bound through bounded batches,
+  with format-specific type restrictions. The [input growth contract](docs/architecture/native-input-growth-2026-10-09.md)
+  applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain their release-time limits.
   Vortex preserves the most native structure; compatibility outputs report their
   fidelity boundary. This is scoped format support, not every-operator/every-sink parity.
   See the [0.3.2 integration contract](docs/architecture/public-io-route-repair-2026-09-27.md)
