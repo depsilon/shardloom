@@ -63,6 +63,15 @@ an existing authorization limit. Invalid declarations use the existing stable
 `SL_CONFIGURATION_ERROR` diagnostic. This object grants permission; it does not
 reserve memory, authenticate a platform or measure resource use.
 
+`ExecutionResourceLimits` may be configured without a job allocation. Clients,
+contexts, sessions and lazy plans retain these ceilings in `resource_limits`
+while `resources` remains unset. A later execution must provide both allocation
+values and satisfy all inherited ceilings. Child sessions may tighten those
+ceilings; an execution override cannot remove them. Contexts sharing a client
+retain their own configuration without mutating that client. Direct context
+`run`, `prepare` and `route` calls use the same inheritance and override rules as
+SQL and DataFrame workflows; resource-free routing remains permitted.
+
 The existing `ResourceBudget` and `MemoryBudget` describe runtime task limits and
 memory policy respectively. `LiveMemoryPool` and native leases track actual
 admitted owners. Preserve those distinctions and map the resolved declaration

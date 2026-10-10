@@ -212,14 +212,31 @@ def optional_resources(
 ) -> ExecutionResources | None:
     """Permit a wholly unconfigured lazy declaration, but never a partial one."""
 
+    # A deployment ceiling is not a job allocation. Owners retain it separately
+    # while a lazy declaration waits for both execution values.
+    merge_resource_limits(limits)
     if all(value is None for value in (
-        memory_gb, memory_bytes, max_parallelism, inherited, resources, limits,
+        memory_gb, memory_bytes, max_parallelism, inherited, resources,
     )):
         return None
     return resolve_resources(
         memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
         inherited=inherited, resources=resources, origin=origin, limits=limits,
     )
+
+
+def merge_resource_limits(
+    *limits: ExecutionResourceLimits | None,
+) -> ExecutionResourceLimits | None:
+    """Intersect explicit ceilings independently of a complete job allocation."""
+
+    result = None
+    for value in limits:
+        if value is not None:
+            if not isinstance(value, ExecutionResourceLimits):
+                raise ShardLoomResourceConfigurationError("limits must be ExecutionResourceLimits")
+            result = value if result is None else result.intersect(value)
+    return result
 
 
 def resource_command_args(resources: ExecutionResources | None) -> list[str]:

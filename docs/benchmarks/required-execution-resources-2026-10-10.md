@@ -234,6 +234,37 @@ Clippy, feature-isolation and minimum-Rust-version checks also pass. The
 separate correction packet binding these checks, the failed first attempt and
 the unchanged original evidence. Hosted checks for this correction remain pending.
 
+## Python inheritance follow-up
+
+Further review identified two Python gaps: direct context `run` and `prepare`
+calls omitted a context-only allocation, and a ceiling-only configuration was
+incorrectly treated as an incomplete execution allocation. Direct context calls
+now resolve and forward their resources, including partial call overrides.
+Clients, contexts, sessions and lazy plans retain ceilings separately from the
+job grant. Descendant plans and source factories preserve those ceilings, and
+terminals validate them before data conversion, producer demand or dispatch.
+Shared client configuration remains unchanged.
+
+All 660 Python tests pass, including the new ceiling-only, direct-call and
+early-refusal cases. Eight fresh public Python/native workflow checks verify
+complete values, exact bytes, per-field origins and ceiling propagation across
+preparation, direct execution, context/client/session collection, a writer and
+incremental results. These wrapper checks deliberately use the retained initial
+resource-contract release executable identified above; they do not remeasure the
+later Rust corrections. The first full Python run caught an unclassified public
+property in the static API inventory, now corrected. Two acceptance-driver
+failures are preserved: an omitted explicit input declaration, and use of the
+wrong result-wrapper accessor. Neither is counted as passing acceptance.
+
+The supplemental packet in the
+[evidence index](evidence/required-execution-resources-2026-10-10.json) binds the
+seven changed Python source/test files, full test output, all eight raw runtime
+reports and their complete-result checks. Rust sources and dependency manifests
+are byte-identical to the preceding 14-gate correction, so those expensive Rust
+checks are retained rather than described as newly executed. No Full43 rerun,
+new performance claim or package publication accompanies this Python correction.
+Fresh hosted acceptance remains required.
+
 ## Remaining work
 
 Hosted acceptance remains pending. The next implementation

@@ -282,6 +282,11 @@ the ledger.
       and cache floors and preserve nonaggregate preparation. All 14 fresh source
       gates pass, including 2,539 native Vortex and 1,338 CLI tests; the correction
       packet preserves the failed first attempt. Hosted acceptance remains below.
+    - [x] Correct direct context resource forwarding and independent ceiling-only
+      configuration. All 660 Python tests and eight native wrapper workflows pass;
+      the separate evidence preserves failed intermediate checks and unchanged
+      Rust gate coverage. Context, client and session ceilings remain independent
+      of job grants and survive lazy plan construction.
     - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations

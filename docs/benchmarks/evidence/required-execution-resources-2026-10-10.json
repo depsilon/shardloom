@@ -871,5 +871,17 @@
     "documentation_checks": 14,
     "original_complete_workflows_rerun": false,
     "performance_claim": false
+  },
+  "python_inheritance_review_correction": {
+    "path": "required-execution-resources-python-inheritance-2026-10-10.json",
+    "sha256": "4426f77581c79b561251e1ca7aceebf983a5bc9f5672701d788a88ceb3704eb2",
+    "status": "passed_local_python_and_native_wrapper_checks_pending_hosted",
+    "source_identity_sha256": "4692396f498b8333c354466d43849743cf98a7b833b2a730cf059f07cd2f22e1",
+    "python_tests": 660,
+    "native_wrapper_workflows": 8,
+    "documentation_checks": 14,
+    "rust_checks_rerun": false,
+    "original_complete_workflows_rerun": false,
+    "performance_claim": false
   }
 }
