@@ -10,6 +10,7 @@ use super::{
 pub(super) use crate::native_payload_schema::metadata_bytes;
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
+use shardloom_exec::live_memory::MemoryLease;
 use vortex::array::{
     ArrayRef, Columnar, IntoArray, VortexSessionExecute as _,
     arrays::struct_::StructArrayExt as _,
@@ -57,7 +58,7 @@ pub(super) fn detach_with_policy(
         super::native_relational_batch::index_array(array.len(), false, context, |row| {
             Ok(Some(row))
         })?;
-    take_with_policy(array, &indices, array.dtype(), policy, context)
+    take_record_with_policy(array, &indices, array.dtype(), policy, context)
 }
 
 pub(super) fn take(
@@ -76,7 +77,41 @@ pub(super) fn take_with_policy(
     policy: CopyPolicy,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
+    // A struct-valued column is one nested value, not a table schema. In
+    // particular, sparse state may retain many independent one-row values.
+    let metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
+    take_admitted(source, indices, dtype, policy, context, metadata)
+}
+
+/// Gather a whole row record whose top-level width uses shared admission.
+pub(super) fn take_record(
+    source: &ArrayRef,
+    indices: &ArrayRef,
+    dtype: &DType,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
+    take_record_with_policy(source, indices, dtype, CopyPolicy::ValidateValues, context)
+}
+
+pub(super) fn take_record_with_policy(
+    source: &ArrayRef,
+    indices: &ArrayRef,
+    dtype: &DType,
+    policy: CopyPolicy,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
     let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
+    take_admitted(source, indices, dtype, policy, context, metadata)
+}
+
+fn take_admitted(
+    source: &ArrayRef,
+    indices: &ArrayRef,
+    dtype: &DType,
+    policy: CopyPolicy,
+    context: &NativeExecutionContext<'_>,
+    metadata: MemoryLease,
+) -> Result<ArrayRef> {
     if source.dtype().as_nonnullable() != dtype.as_nonnullable() {
         return Err(failed(
             "nested payload gathering requires the same declared child types",
@@ -127,10 +162,27 @@ pub(super) fn defaults(
     rows: usize,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
-    let allocator = crate::owned_buffers::with_credit(
-        context.native_session().allocator(),
-        crate::native_payload_schema::reserve_schema(dtype, context.memory())?,
-    );
+    let metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
+    defaults_admitted(dtype, rows, context, metadata)
+}
+
+/// A typed empty row record keeps the same width policy as nonempty delivery.
+pub(super) fn empty_record(
+    dtype: &DType,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
+    let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
+    defaults_admitted(dtype, 0, context, metadata)
+}
+
+fn defaults_admitted(
+    dtype: &DType,
+    rows: usize,
+    context: &NativeExecutionContext<'_>,
+    metadata: MemoryLease,
+) -> Result<ArrayRef> {
+    let allocator =
+        crate::owned_buffers::with_credit(context.native_session().allocator(), metadata);
     let mut indices = ReservedVec::new(context.memory())?;
     indices.reserve(rows)?;
     indices.values.resize(rows, None);

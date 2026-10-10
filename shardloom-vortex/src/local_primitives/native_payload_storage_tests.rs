@@ -43,6 +43,103 @@ const F64_BITS: [u64; 8] = [
     0xbff0_0000_0000_0000,
 ];
 
+#[test]
+fn native_payload_value_admission_keeps_many_retained_structs_within_the_shared_grant() {
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let retained_child = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let source = StructArray::try_new(
+                FieldNames::from(["value"]),
+                vec![PrimitiveArray::from_iter(0..2048_i64).into_array()],
+                2048,
+                Validity::NonNullable,
+            )
+            .map_err(vortex_error)?
+            .into_array();
+            let mut retained = ReservedVec::new(context.memory())?;
+            let mut execution = context.native_session().create_execution_ctx();
+            for row in 0..source.len() {
+                let indices = index_array(1, false, context, |_| Ok(Some(row)))?;
+                let value = take(&source, &indices, source.dtype(), context)?;
+                let child = field(&value, "value")?
+                    .execute::<PrimitiveArray>(&mut execution)
+                    .map_err(vortex_error)?;
+                assert_eq!(child.to_buffer::<i64>()[0], i64::try_from(row).unwrap());
+                retained.push(value)?;
+            }
+            assert!(context.memory().snapshot().reserved_bytes < 8 << 20);
+            let child = field(&retained.values[2047], "value")?;
+            drop(retained);
+            assert!(context.memory().snapshot().reserved_bytes >= metadata_bytes(source.dtype())?);
+            let indices = index_array(1, false, context, |_| Ok(Some(0)))?;
+            let before = context.memory().snapshot().reserved_bytes;
+            let hold = context.memory().reserve((16 << 20) - before - 1)?;
+            assert!(take(&source, &indices, source.dtype(), context).is_err());
+            drop(hold);
+            assert_eq!(context.memory().snapshot().reserved_bytes, before);
+            Ok(child)
+        })
+        .unwrap();
+    assert!(session.memory().snapshot().reserved_bytes > 0);
+    drop(retained_child);
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn native_payload_record_admission_preserves_wide_values_empty_children_and_nested_bounds() {
+    let fields = (0..1025)
+        .map(|index| format!("field{index}"))
+        .collect::<Vec<_>>();
+    let source = StructArray::try_new(
+        FieldNames::from(fields.iter().map(String::as_str).collect::<Vec<_>>()),
+        (0..1025_i64)
+            .map(|value| PrimitiveArray::from_iter([value]).into_array())
+            .collect::<Vec<_>>(),
+        1,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let children =
+        session.with_native_execution_context(&CancellationToken::default(), |context| {
+            let indices = index_array(1, false, context, |_| Ok(Some(0)))?;
+            let before = context.memory().snapshot().reserved_bytes;
+            assert!(take(&source, &indices, source.dtype(), context).is_err());
+            assert!(defaults(source.dtype(), 0, context).is_err());
+            assert_eq!(context.memory().snapshot().reserved_bytes, before);
+            let record = take_record(&source, &indices, source.dtype(), context)?;
+            assert_eq!(record.dtype(), source.dtype());
+            let mut execution = context.native_session().create_execution_ctx();
+            for (index, name) in fields.iter().enumerate() {
+                let child = field(&record, name)?
+                    .execute::<PrimitiveArray>(&mut execution)
+                    .map_err(vortex_error)?;
+                assert_eq!(child.to_buffer::<i64>()[0], i64::try_from(index).unwrap());
+            }
+            let child = field(&record, "field1024")?;
+            drop(record);
+            let metadata = crate::native_payload_schema::schema_bytes(source.dtype())?;
+            assert!(context.memory().snapshot().reserved_bytes >= metadata);
+            let empty = empty_record(source.dtype(), context)?;
+            assert!(empty.is_empty());
+            assert_eq!(empty.dtype(), source.dtype());
+            let empty_child = field(&empty, "field1024")?;
+            drop(empty);
+            assert!(context.memory().snapshot().reserved_bytes >= metadata * 2);
+            drop((child, empty_child));
+            assert_eq!(context.memory().snapshot().reserved_bytes, before);
+            let hold = context.memory().reserve((16 << 20) - before - 1)?;
+            assert!(take_record(&source, &indices, source.dtype(), context).is_err());
+            assert!(empty_record(source.dtype(), context).is_err());
+            drop(hold);
+            assert_eq!(context.memory().snapshot().reserved_bytes, before);
+            Ok(())
+        });
+    children.unwrap();
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+}
+
 fn measures(rows: usize) -> ArrayRef {
     let decimal = DecimalDType::new(2, 0);
     StructArray::try_new(

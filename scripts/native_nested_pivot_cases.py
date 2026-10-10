@@ -171,7 +171,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
                            sql(pivot_sql(prefix._relation_statement(), aggregate=aggregate, margins=True), prefix),
                            "margins require count")
                 reject(f"{name}-margin-domain-collision", pivot(prefix, "min", margins=True, margins_name="x"),
-                       "duplicate output field name")
+                       "field names must be nonempty and distinct")
             else:
                 for aggregate in ("first", "count", "min", "max"):
                     expected = oracle["count" if aggregate == "count" else "first_unique"]
@@ -189,7 +189,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
     reject("domain-name", pivot(long_name, "sum"), "field-name boundary")
     collision = context.range(0, 1).select("STRUCT(value) AS pivot_a", "'a' AS category", "value AS amount")
     reject("index-domain-collision", collision.pivot_table(index="pivot_a", columns="category",
-                                                           values="amount", aggfunc="sum"), "duplicate output field name")
+                                                           values="amount", aggfunc="sum"), "field names must be nonempty and distinct")
 
     # Complete streaming output crosses the existing small-result row boundary.
     count = 65_537

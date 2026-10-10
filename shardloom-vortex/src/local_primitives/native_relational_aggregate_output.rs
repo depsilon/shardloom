@@ -36,7 +36,7 @@ impl<'a> Results<'a> {
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
         let dtype = DType::struct_(spec.fields.clone(), Nullability::NonNullable);
-        let row_metadata_bytes = native_payload::metadata_bytes(&dtype)?
+        let row_metadata_bytes = crate::native_payload_schema::schema_bytes(&dtype)?
             .checked_mul(2)
             .ok_or_else(|| failed("aggregate result metadata capacity overflow"))?;
         Ok(Self {
@@ -92,7 +92,7 @@ impl<'a> Results<'a> {
             .map_err(vortex_error)?
             .into_array();
         let indices = index_array(rows, false, context, |row| Ok(Some(row)))?;
-        let compact = native_payload::take(&chunked, &indices, &self.dtype, context)?;
+        let compact = native_payload::take_record(&chunked, &indices, &self.dtype, context)?;
         drop((chunked, ownership, indices));
         self.order.build(compact, context)
     }

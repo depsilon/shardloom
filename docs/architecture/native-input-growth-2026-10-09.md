@@ -44,6 +44,10 @@ implementation obligations.
   before construction. Owned intake wraps only its reviewed primitive, Boolean,
   UTF8 and slice encodings with safe typed Vortex reconstruction, preserving
   payload pointers and their original capacity owners.
+  Copy boundaries distinguish a whole row record from an individual nested
+  value column. Retaining a one-row struct value uses its bounded nested
+  metadata allowance; it does not repeat table-schema container admission.
+  Both paths keep the schema lease attached to every copied child buffer.
   Native footer admission includes schema serialization workspace before writer
   creation, and incremental leaf credit preserves that width-dependent base.
 - Incoming frame buffers, JSON workspace, decoded cells and typed conversion
@@ -84,3 +88,22 @@ the schema; its failed observation is retained, and the corrected writer now
 admits schema serialization workspace before construction. Wide source aliases
 and primitive-root Vortex inputs also pass their focused writer checks. Broader
 regression and final public acceptance remain in progress.
+
+The first broad public regression then exposed table-schema admission being
+charged for each retained nested pivot value. The 65,537-row nested pivot
+exhausted its unchanged 1 GiB grant before reaching the collection row limit.
+That failed candidate is retained. The correction separates native record and
+value copy admission and requires fresh nested-state, wide-record and complete
+public acceptance; the grant and expected collection denial stay unchanged.
+
+The native regression suite then exposed a related spill estimate: sorting
+counted retained payload and keys but omitted each compact record's admitted
+schema metadata. Many small records could exhaust the grant before reaching
+the spill threshold. Sorting now includes that metadata when deciding to spill.
+A 1,025-batch reproducer fails before the correction and passes afterward under
+the same 8 MiB grant, with exact ordered values, producer release and cleanup.
+The original 133,137-row DISTINCT/grouped aggregation pressure test also passes
+with its unchanged 16 MiB grant, complete result comparison and spill cleanup.
+Both failed observations remain retained. All fifteen corrected source gates
+now pass, including 2,513 native library tests with 24 ignored tests. Fresh
+complete public acceptance on the corrected release executable remains required.

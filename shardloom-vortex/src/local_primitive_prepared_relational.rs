@@ -908,7 +908,7 @@ impl PreparedVortexRelational {
         }
         // No input schema sampling, and no missing-schema sentinel for empty output.
         if !emitted.get() {
-            let array = super::native_payload::defaults(&dtype, 0, context)?;
+            let array = super::native_payload::empty_record(&dtype, context)?;
             emit(array)?;
         }
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]

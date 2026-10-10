@@ -91,20 +91,27 @@ fn unique_names<'a>(count: usize, name_at: impl Fn(usize) -> &'a str) -> Result<
 /// retain their separate depth/node bounds until their traversal is generalized.
 /// Returned credit must outlive every native schema/container it admits.
 pub(crate) fn reserve_schema(dtype: &DType, memory: &LiveMemoryPool) -> Result<MemoryLease> {
+    let credit = memory.reserve(schema_bytes(dtype)?)?;
+    if let DType::Struct(fields, _) = dtype {
+        unique_names(fields.nfields(), |index| fields.names()[index].as_ref())?;
+    }
+    Ok(credit)
+}
+
+/// Whole-record estimate for batching or admission; individual value columns
+/// use `metadata_bytes` and retain the nested schema traversal policy.
+pub(crate) fn schema_bytes(dtype: &DType) -> Result<u64> {
     let DType::Struct(fields, _) = dtype else {
-        return memory.reserve(metadata_bytes(dtype)?);
+        return metadata_bytes(dtype);
     };
-    let bytes = fields.fields().try_fold(
+    fields.fields().try_fold(
         names_bytes(fields.nfields(), |index| fields.names()[index].as_ref())?,
         |bytes, child| {
             bytes
                 .checked_add(metadata_bytes(&child)?)
                 .ok_or_else(|| failed("schema metadata overflow"))
         },
-    )?;
-    let credit = memory.reserve(bytes)?;
-    unique_names(fields.nfields(), |index| fields.names()[index].as_ref())?;
-    Ok(credit)
+    )
 }
 
 /// Reserve before cloning an already-bound field list into a native `DType`.

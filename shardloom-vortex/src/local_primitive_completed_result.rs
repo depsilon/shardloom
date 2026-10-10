@@ -276,8 +276,9 @@ impl<'consumer> CompletedRows<'consumer> {
                                 context,
                                 |row| Ok(Some(start + row)),
                             )?;
-                            let batch =
-                                super::native_payload::take(&array, &indices, &dtype, context)?;
+                            let batch = super::native_payload::take_record(
+                                &array, &indices, &dtype, context,
+                            )?;
                             if batch.nbytes() <= MAX_BYTES as u64 {
                                 break batch;
                             }
@@ -305,7 +306,7 @@ impl<'consumer> CompletedRows<'consumer> {
     ) -> Result<()> {
         if Self::needs_native_schema(&self.fields) {
             let dtype = DType::struct_(self.fields.clone(), Nullability::NonNullable);
-            let array = super::native_payload::defaults(&dtype, 0, context)?;
+            let array = super::native_payload::empty_record(&dtype, context)?;
             self.push_native(array, context)
         } else {
             self.push_values(columns, 0, |_, _| {
