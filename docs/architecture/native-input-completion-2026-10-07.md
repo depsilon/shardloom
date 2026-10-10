@@ -44,7 +44,7 @@ and projections. It may deliver incremental results, collect an already bounded
 small result, or write one native Vortex destination. It cannot silently retain
 the whole input when that plan shape is unsupported.
 
-Keep the existing finite intake bounds: 1–128 declared nullable scalar fields,
+The original implementation kept these bounds: 1–128 declared nullable scalar fields,
 2,048 rows per batch, an 8-MiB control frame and at most 4,096 payload batches.
 The native typed intake retains its 32-MiB logical-byte bound per batch. Total
 input may exceed the query grant, but this does not authorize an unbounded
@@ -112,7 +112,9 @@ supported. Source pruning must not erase the obligation to observe end-of-input.
 The SQL parser's internal unlimited token retains its synthetic origin; a user
 written `LIMIT`, including the largest representable limit, remains a prefix
 operation and is rejected. The schema owner's zero rows are not an execution
-estimate: the native plan exposes the finite 4,096 × 2,048 input-row bound.
+estimate: the original native plan exposed a 4,096 × 2,048 input-row bound.
+The later growth contract uses an unknown estimate for a finite producer whose
+total row count is not known before consumption.
 
 `PreparedVortexRelational::with_batch_input` creates one borrowed execution
 adapter around the prepared plan and a callback returning

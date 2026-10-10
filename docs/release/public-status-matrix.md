@@ -122,6 +122,19 @@ remain resident, and dynamic one-shot pivot input rejects before demand.
 Resident input remains the default. These capabilities are included in v0.5.1;
 no process-RSS bound or public maturity change follows from publication.
 
+Source builds after 0.5.1 have complete local
+[input growth acceptance](../benchmarks/native-input-growth-2026-10-09.md):
+cumulative batch input, top-level schema metadata and compact generated ranges
+grow under the shared query grant. All 15 source gates, 20 growth workflows,
+five input-pressure controls, complete public/streaming regressions and all 129
+Full43 results pass, followed by independent packet inspection and complete
+documentation/example/browser checks. Hosted integration remains pending.
+Per-frame and small-result bounds remain;
+richer intake, multiple/repeated producers, streaming destination composition
+and deeper traversal remain implementation work. Published 0.5.1 artifacts
+retain their release-time behavior. No version bump or support-label change
+accompanies this finite unit.
+
 The remaining maturity requirements are an explicit supported local workload/platform envelope,
 accounting and safe failure through readers/codecs/operators/writers, and accepted workload-wide
 pressure, cancellation, fault and recovery evidence. A query memory grant is not a process-RSS

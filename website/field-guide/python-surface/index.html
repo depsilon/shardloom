@@ -110,7 +110,9 @@ grant. A factory, as above, supplies fresh input for repeated calls; an iterable
 can be consumed once.
 The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md">input growth contract</a>
 applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
-their release-time limits. Schema declarations still have an 8 MiB envelope.</p>
+their release-time limits. Schema declarations still have an 8 MiB envelope.
+The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md">complete growth acceptance</a>
+records wide schemas, cumulative input, generated ranges, resource denial and complete write/reopen checks.</p>
 <p>Streaming retains at most one native input batch, so cumulative input may exceed
 the query grant while individual batches remain bounded. It supports incremental results,
 bounded small collection or one native Vortex destination. Retained operator

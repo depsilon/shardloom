@@ -516,9 +516,10 @@ apply to the complete relation and drain the producer, including `LIMIT 0`.
 The producer must reach its explicit end event before results are final; earlier
 batches remain provisional and late failures remain failures.
 
-The finite schema, row, frame and batch-count limits above still apply, with a
-separate 16 MiB wire-frame ceiling and 32 MiB native logical-intake limit per
-batch. Typed intake and output compaction are charged copies; output reservations
+The per-batch row and frame bounds still apply, with a separate 16 MiB wire-frame
+ceiling and 32 MiB native logical-intake limit per batch. Current source builds
+admit cumulative batches and field metadata through the shared grant.
+Typed intake and output compaction are charged copies; output reservations
 and native sink metadata remain separate. This adds no repeated-source spool or
 process-RSS ceiling. See the [streamed ordering contract](../docs/architecture/native-streamed-ordering-2026-10-07.md),
 [general aggregate contract](../docs/architecture/native-aggregate-pressure-2026-10-07.md),

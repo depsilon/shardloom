@@ -269,7 +269,9 @@ apply. Nested and extension results have separate coverage limits. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md">output contract</a>.
 The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md">input growth contract</a>
 applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
-their release-time limits.</p>
+their release-time limits.
+The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md">complete growth acceptance</a>
+binds the exact source and complete values across admitted destinations.</p>
 <p>Flat aggregate collection and writes use the same native admission, carrying the complete
 filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.
 Explicit SQL <code dir="auto">NULLS FIRST</code>/<code dir="auto">NULLS LAST</code> and Python <code dir="auto">sort(..., nulls=&quot;first&quot;)</code> or

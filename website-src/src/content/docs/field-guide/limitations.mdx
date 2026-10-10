@@ -58,6 +58,8 @@ The **65,536-row / 8-MiB** bound applies to small computed-result collection.
 Current source builds admit top-level field metadata through the shared query grant.
 This [growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
 applies after the 0.5.1 release; published 0.5.1 artifacts retain their release-time limits.
+The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
+preserves resource-denial, late-failure, cancellation and native output cleanup checks.
 Current source builds deliver complete admitted flat results through bounded native batches to
 all eight local writers, including admitted ordering spill, above the collection row and byte
 limits. Representable static nested results use Vortex, JSON, JSONL, Arrow IPC, Parquet

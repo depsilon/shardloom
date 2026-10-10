@@ -516,6 +516,8 @@ can be consumed once.
 The [input growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
 applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
 their release-time limits. Schema declarations still have an 8 MiB envelope.
+The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
+records wide schemas, cumulative input, generated ranges, resource denial and complete write/reopen checks.
 
 Streaming retains at most one native input batch, so cumulative input may exceed
 the query grant while individual batches remain bounded. It supports incremental results,
@@ -737,6 +739,8 @@ apply. Nested and extension results have separate coverage limits. See the
 The [input growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
 applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
 their release-time limits.
+The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
+binds the exact source and complete values across admitted destinations.
 
 Flat aggregate collection and writes use the same native admission, carrying the complete
 filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.
@@ -950,6 +954,8 @@ The **65,536-row / 8-MiB** bound applies to small computed-result collection.
 Current source builds admit top-level field metadata through the shared query grant.
 This [growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
 applies after the 0.5.1 release; published 0.5.1 artifacts retain their release-time limits.
+The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
+preserves resource-denial, late-failure, cancellation and native output cleanup checks.
 Current source builds deliver complete admitted flat results through bounded native batches to
 all eight local writers, including admitted ordering spill, above the collection row and byte
 limits. Representable static nested results use Vortex, JSON, JSONL, Arrow IPC, Parquet

@@ -1,6 +1,7 @@
 # Native input growth under shared admission
 
-Status: implementation and acceptance in progress. This work belongs to the
+Status: complete local engine, documentation and independent packet acceptance;
+hosted integration is pending. This work belongs to the
 existing PERF-03/06/07/10/11/12 checklists. The version remains 0.5.1; this unit
 does not close the remaining local-workflow scope or authorize a release.
 
@@ -74,9 +75,9 @@ Verify resource denial, retained aliases, typed empty input, late producer or
 expression failure, slow consumption, cancellation and owned output cleanup.
 Run applicable existing operator/public/regression gates before integration.
 
-The first public growth packet passes 20 cases, including 1,025 fields, 4,099
+The first public growth packet passed 20 cases, including 1,025 fields, 4,099
 nonempty and 8,193 empty batches, and every value of a 1,000,017-row range.
-The existing input/protocol packet passes 37 cases. These are intermediate
+The existing input/protocol packet passed 37 cases. Those were intermediate
 checks on the working implementation, not final broad acceptance or performance
 claims. Richer intake, multiple/repeated producers, dynamic input, compatibility
 streaming/fanout, deeper traversal and the other existing scope owners remain
@@ -86,8 +87,8 @@ Subsequent native checks exercise 4,097 flat projected fields and all eight
 destinations. That case exposed a footer reservation which did not grow with
 the schema; its failed observation is retained, and the corrected writer now
 admits schema serialization workspace before construction. Wide source aliases
-and primitive-root Vortex inputs also pass their focused writer checks. Broader
-regression and final public acceptance remain in progress.
+and primitive-root Vortex inputs also passed their focused writer checks. At that
+intermediate checkpoint, broad regression and final public acceptance were pending.
 
 The first broad public regression then exposed table-schema admission being
 charged for each retained nested pivot value. The 65,537-row nested pivot
@@ -105,5 +106,18 @@ the same 8 MiB grant, with exact ordered values, producer release and cleanup.
 The original 133,137-row DISTINCT/grouped aggregation pressure test also passes
 with its unchanged 16 MiB grant, complete result comparison and spill cleanup.
 Both failed observations remain retained. All fifteen corrected source gates
-now pass, including 2,513 native library tests with 24 ignored tests. Fresh
-complete public acceptance on the corrected release executable remains required.
+pass, including 2,513 native library tests with 24 ignored tests.
+
+Final corrected acceptance uses clean runtime `61a813b7` and 1,020 frozen assets.
+All eleven workflow stages run freshly: 20 growth cases, 442 retained streaming
+cases, five input-pressure controls, 32,497 ordinary public cases with
+18,595,284 complete row comparisons, direct/adaptor/semantic regressions and
+all 129 Full43 results pass. The wide public fixture has 4,097 fields; cumulative
+controls exceed 4,096 batches; every value of the 1,000,017-row range is checked.
+Streaming completes 4,851,019,008 logical input bytes under a 1-GiB grant, while
+resident intake denies that grant and completes under 6 GiB. Every producer closes.
+The [acceptance report](../benchmarks/native-input-growth-2026-10-09.md) binds
+the independently inspected packet, unchanged oracles and grants, all retained
+failures, and exact source/executable identities. Hosted integration remains
+pending. This finite unit does not close the broader implementation obligations
+above or authorize another version bump.
