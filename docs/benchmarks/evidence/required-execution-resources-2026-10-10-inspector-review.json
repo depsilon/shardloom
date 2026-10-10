@@ -1,0 +1,569 @@
+{
+  "schema_version": "shardloom.required_resources_inspector_review.v1",
+  "status": "passed_independent_inspection_after_counter_correction",
+  "packet_sha256": "f40cb7c3442242f1783a0e98f2963151880ab321e7a795f1c7ebe70133f2f389",
+  "runtime_source_changed": false,
+  "packet_changed": false,
+  "new_engine_execution": false,
+  "reason": "The original streaming inspector counted the authoritative fields and duplicated typed-result fields, while the expected total counted authoritative declarations only. The separate finalizer had already verified authoritative fields and all three partial typed projections. The reviewed inspector counts authoritative fields once and still rejects invalid declarations in every projection.",
+  "original_observed_resource_declarations": 132110,
+  "authoritative_resource_declarations": 66055,
+  "additional_projection_controls": 864,
+  "original_projection_conformance_preserved": true,
+  "contract": {
+    "status": "passed",
+    "cases": 1379,
+    "inspector_sha256": "e74636756f6379ead5c34f13ad69febf25d8c492a6853e13df50210e9b26f178",
+    "verifier_sha256": "1b49181aae92efae2f8454744005ea1451db8e348d409acef6de636b3d001e60",
+    "resource_report_contract": {
+      "status": "passed",
+      "cases": 52
+    },
+    "resource_report_verifier_sha256": "ec4eed705e225abf4ea13081b4fa93b88e6b5bb3082ab5e8a7be64108aa4c4cd"
+  },
+  "files": {
+    "inspect_resource_packet.jq": {
+      "original_sha256": "0fef24ffd39989c8843d411c5d841751091500f6297f565bb3cadb75886bcb75",
+      "original_bytes": 10224,
+      "value": "def raw_family($p):\n  ($p|length) >= 5 and\n  ([\"public\",\"direct\",\"full43\",\"batches\",\"formats\",\"streaming\",\"growth\",\"input_pressure\",\"typed\"]|index($p[0])) != null and\n  ([\"raw_envelopes\",\"raw_logs\"]|index($p[1])) != null and $p[3] == \"envelope\";\n\nreduce inputs as $event (\n  {schema_version:null,status:null,source_identity:null,binary_sha256:null,source_commit:null,\n   counts:{public_cases:0,public_rows:0,direct_cases:0,direct_rows:0,\n     streaming_cases:0,growth_cases:0,typed_cases:0,batch_checks:0,format_checks:0,\n     full43_runs:0,source_checks:0,source_fresh_checks:0,source_reused_checks:0,source_assets:0,\n     typed_value_files:0,typed_schemas:0,typed_artifacts:0,typed_float_files:0,typed_float_values:0,\n     typed_protocol_traces:0,typed_output_files:0,typed_denials:0,typed_timestamp_certificates:0,\n     typed_stream_certificates:0,streaming_value_files:0,streaming_protocol_traces:0,\n     streaming_pressure_files:0,streaming_pressure_rows:0,saved_pressure_files:0,saved_pressure_rows:0,\n     growth_value_files:0,growth_artifacts:0,growth_range_values:0,\n     pressure_controls:0,pressure_closed:0,pressure_ended:0,pressure_denied:0,pressure_output_rows:0,\n     unified_routes:0,nested_unified_routes:0},\n   envelopes:{public:0,direct:0,full43:0,batches:0,formats:0,streaming:0,growth:0,input_pressure:0,typed:0},\n   fallback_headers:{public:0,direct:0,full43:0,batches:0,formats:0,streaming:0,growth:0,input_pressure:0,typed:0},\n   claim_boundaries:{},stream_terminals:[],full43_complete:null,full43_values:null,\n   fresh_public:null,historical_union:null,public_families:[],pressure_grants:{},\n   invalid_checks:0,invalid_envelopes:0,fallback_violations:0,invalid_routes:0,\n   resource_report_status:null,resource_declarations:0,resource_origins:0,resource_no_rss_claims:0,\n   resource_declaration_failures:0,\n   last_schema:null,last_pressure_file:null,last_pressure_row:null,\n   pair_path:null,pair_key:null,pair_value:null,pair_key_set:false,pair_value_set:false};\n  if ($event|length) != 2 then . else\n    $event[0] as $p | $event[1] as $v |\n    if $p == [\"schema_version\"] then .schema_version = $v\n    elif $p == [\"status\"] then .status = $v\n    elif $p == [\"resource_report_conformance\",\"status\"] then .resource_report_status = $v\n    elif $p == [\"source_snapshot\",\"source_identity_sha256\"] then .source_identity = $v\n    elif $p == [\"build\",\"binary_sha256\"] then .binary_sha256 = $v\n    elif $p == [\"build\",\"source_commit\"] then .source_commit = $v\n    elif ($p|length) == 5 and $p[1:3] == [\"summary\",\"cases\"] then\n      if ($p[0] == \"public\" or $p[0] == \"direct\") and $p[4] == \"name\" then .counts[($p[0] + \"_cases\")] += 1\n      elif ($p[0] == \"public\" or $p[0] == \"direct\") and $p[4] == \"complete_rows_verified\" then .counts[($p[0] + \"_rows\")] += $v\n      elif $p[0] == \"streaming\" and $p[4] == \"status\" then .counts.streaming_cases += 1 | if $v != \"passed\" then .invalid_checks += 1 else . end\n      elif ($p[0] == \"public\" or $p[0] == \"direct\") and $p[4] == \"passed\" and $v != true then .invalid_checks += 1\n      else . end\n    elif ($p|length) == 4 and ($p[0] == \"typed\" or $p[0] == \"growth\") and $p[1] == \"cases\" and $p[3] == \"status\" then\n      .counts[($p[0] + \"_cases\")] += 1 | if $v != \"passed\" then .invalid_checks += 1 else . end\n    elif ($p|length) == 5 and ($p[0] == \"batches\" or $p[0] == \"formats\") and $p[1:3] == [\"summary\",\"checks\"] and $p[4] == \"passed\" then\n      .counts[(if $p[0] == \"batches\" then \"batch_checks\" else \"format_checks\" end)] += 1 | if $v != true then .invalid_checks += 1 else . end\n    elif ($p|length) == 5 and $p[0:2] == [\"source_checks\",\"checks\"] and $p[3:5] == [\"receipt_value\",\"status\"] then\n      .counts.source_checks += 1 | .counts.source_fresh_checks += 1 |\n      if $v != \"passed\" then .invalid_checks += 1 else . end\n    elif ($p|length) == 3 and $p[0] == \"frozen_source_assets\" and $p[2] == \"original_sha256\" then .counts.source_assets += 1\n    elif $p == [\"full43\",\"summary\",\"complete\"] then .full43_complete = $v\n    elif $p == [\"full43\",\"summary\",\"full_result_validation\"] then .full43_values = $v\n    elif ($p|length) == 5 and $p[0:3] == [\"full43\",\"summary\",\"records\"] and $p[4] == \"passed\" then\n      .counts.full43_runs += 1 | if $v != true then .invalid_checks += 1 else . end\n    elif ($p|length) == 4 and ($p[0] == \"typed\" or $p[0] == \"growth\") and $p[1] == \"complete_values\" and $p[3] == \"sha256\" then .counts[($p[0] + \"_value_files\")] += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"typed\",\"artifacts\"] and $p[3] == \"sha256\" then .counts.typed_artifacts += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"typed\",\"stored_output_files\"] and $p[3] == \"sha256\" then .counts.typed_output_files += 1\n    elif ($p|length) == 5 and $p[0:2] == [\"typed\",\"protocol_traces\"] and $p[3:] == [\"trace\",\"sha256\"] then .counts.typed_protocol_traces += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"typed\",\"float_bit_proofs\"] and $p[3] == \"complete_bitwise_values\" then .counts.typed_float_files += 1 | .counts.typed_float_values += $v\n    elif $p == [\"typed\",\"denial_count\"] then .counts.typed_denials = $v\n    elif $p == [\"typed\",\"timestamp_prepare_certificates\"] then .counts.typed_timestamp_certificates = $v\n    elif $p == [\"typed\",\"stream_completion_certificates\"] then .counts.typed_stream_certificates = $v\n    elif ($p|length) == 4 and $p[0:2] == [\"streaming\",\"exact_small_values\"] and $p[3] == \"sha256\" then .counts.streaming_value_files += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"streaming\",\"protocol_traces\"] and $p[3] == \"sha256\" then .counts.streaming_protocol_traces += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"streaming\",\"pressure_complete_value_proofs\"] and $p[3] == \"complete_rows_reopened\" then .counts.streaming_pressure_files += 1 | .counts.streaming_pressure_rows += $v\n    elif ($p|length) == 4 and $p[0:2] == [\"growth\",\"wide_artifacts\"] and $p[3] == \"sha256\" then .counts.growth_artifacts += 1\n    elif $p == [\"growth\",\"range\",\"every_value_verified\"] then .counts.growth_range_values = $v\n    elif ($p|length) == 6 and $p[0:2] == [\"input_pressure\",\"controls\"] and $p[3:5] == [\"summary\",\"value\"] then\n      if $p[5] == \"status\" then .counts.pressure_controls += 1 | if $v != \"passed\" then .invalid_checks += 1 else . end\n      elif $p[5] == \"producer_closed\" and $v == true then .counts.pressure_closed += 1\n      elif $p[5] == \"producer_ended\" and $v == true then .counts.pressure_ended += 1\n      elif $p[5] == \"expected_memory_denial\" and $v == true then .counts.pressure_denied += 1\n      elif $p[5] == \"complete_output_rows_verified\" then .counts.pressure_output_rows += $v\n      else . end\n    elif ($p|length) == 6 and $p[0:2] == [\"input_pressure\",\"controls\"] and $p[3:] == [\"protocol\",\"value\",\"memory_grant_bytes\"] then .pressure_grants[$p[2]] = $v\n    elif $p == [\"public_family_execution\",\"fresh_execution\"] then .fresh_public = $v\n    elif $p == [\"public_family_execution\",\"historical_union_repair_used\"] then .historical_union = $v\n    elif ($p|length) == 3 and $p[0:2] == [\"public_family_execution\",\"families\"] then .public_families += [$v]\n    elif ($p|length) == 2 and $p[0] == \"claim_boundaries\" then .claim_boundaries[$p[1]] = $v\n    elif ($p|length) == 3 and $p[0:2] == [\"claim_boundaries\",\"single_use_stream_terminals\"] then .stream_terminals += [$v]\n    else . end |\n    if ($p|length) >= 4 and $p[0:2] == [\"typed\",\"schema_proofs\"] and .last_schema != $p[2] then .counts.typed_schemas += 1 | .last_schema = $p[2] else . end |\n    if ($p|length) >= 4 and $p[0:2] == [\"streaming\",\"complete_pressure_rows\"] then\n      (if .last_pressure_file != $p[2] then .counts.saved_pressure_files += 1 | .last_pressure_file = $p[2] else . end) |\n      if .last_pressure_row != $p[0:4] then .counts.saved_pressure_rows += 1 | .last_pressure_row = $p[0:4] else . end\n    else . end |\n    if raw_family($p) then\n      if $p[4:] == [\"status\"] then\n        .envelopes[$p[0]] += 1 | if ([\"success\",\"error\",\"unsupported\"]|index($v)) == null then .invalid_envelopes += 1 else . end\n      elif $p[4:] == [\"fallback\",\"attempted\"] then\n        .fallback_headers[$p[0]] += 1 | if $v != false then .fallback_violations += 1 else . end\n      elif ($p|length) >= 7 and ($p|index(\"fields\")) != null and ($p[-1] == \"key\" or $p[-1] == \"value\") then\n        (if .pair_path != $p[:-1] then .pair_path = $p[:-1] | .pair_key_set = false | .pair_value_set = false else . end) |\n        (if $p[-1] == \"key\" then .pair_key = $v | .pair_key_set = true else .pair_value = $v | .pair_value_set = true end) |\n        if .pair_key_set and .pair_value_set then\n          .pair_key as $key | .pair_value as $value |\n          (if $key == \"execution_resource_configuration_status\" then\n             .resource_declarations += 1 | if $value != \"explicit_validated\" then .resource_declaration_failures += 1 else . end\n           elif $key == \"execution_resource_memory_origin\" or $key == \"execution_resource_parallelism_origin\" then\n             .resource_origins += 1 | if ([\"execution_call\",\"context\",\"session\",\"environment\",\"platform\"]|index($value)) == null then .resource_declaration_failures += 1 else . end\n           elif $key == \"execution_resource_whole_process_memory_limit_enforced\" then\n             .resource_no_rss_claims += 1 | if $value != \"false\" then .resource_declaration_failures += 1 else . end\n           else . end) |\n          (if ($key|type) == \"string\" and ($key|test(\"(fallback_attempted|external_engine_invoked|external_query_engine_invoked|fallback_execution_allowed)$\")) and $value != false and $value != \"false\" then .fallback_violations += 1 else . end) |\n          if $p[0] == \"full43\" and $key == \"public_workflow_native_vortex_plan_route_family\" then\n            if $p[4:-2] == [\"fields\"] then\n              if $value == \"native_vortex_unified_plan\" then .counts.unified_routes += 1 else .invalid_routes += 1 end\n            elif $p[4:-2] == [\"result\",\"fields\"] then\n              if $value == \"native_vortex_unified_plan\" then .counts.nested_unified_routes += 1 else .invalid_routes += 1 end\n            else . end\n          else . end\n        else . end\n      else . end\n    else . end\n  end\n) | del(.last_schema,.last_pressure_file,.last_pressure_row,.pair_path,.pair_key,.pair_value,.pair_key_set,.pair_value_set)\n"
+    },
+    "verify_resource_packet.py": {
+      "original_sha256": "2f44c5962abccd1e2efb98a1d0a2fbf1feed2aad424926031a47f389eb35ea10",
+      "original_bytes": 12520,
+      "value": "\"\"\"Independently stream-inspect the complete resource evidence packet.\"\"\"\nimport argparse\nimport copy\nimport hashlib\nimport json\nimport lzma\nfrom pathlib import Path\nimport subprocess\n\nimport resource_acceptance_common as c\nfrom resource_report_evidence import self_test as resource_report_self_test\n\nINSPECTOR = c.OUT / 'inspect_resource_packet.jq'\nCOMMAND = ['/usr/bin/jq', '--stream', '-n', '-f', str(INSPECTOR)]\nFAMILIES = ('public', 'direct', 'full43', 'batches', 'formats', 'streaming', 'growth', 'input_pressure', 'typed')\nCLAIMS = {'source_tree_clean': True, 'fallback_attempted': False, 'external_engine_invoked': False,\n    'comparative_performance_claim': False, 'total_process_rss_bound_claim': False,\n    'all_provider_allocations_accounted': False, 'execution_resume_claim': False,\n    'one_shot_dynamic_pivot_input_admitted': False, 'compatibility_stream_terminals_admitted': False,\n    'multiple_batch_producers_admitted': False, 'package_publication_performed': False,\n    'version_bump_performed': False, 'hosted_acceptance_complete': False}\nTERMINALS = ['complete_small_collect', 'complete_batch_iteration', 'new_vortex_destination']\n\n\ndef self_test():\n    count = 0\n    def inspect(value):\n        nonlocal count\n        count += 1\n        result = subprocess.run(COMMAND, input=json.dumps(value), text=True, capture_output=True, check=True)\n        return json.loads(result.stdout)\n    for family in FAMILIES:\n        member = 'raw_logs' if family == 'full43' else 'raw_envelopes'\n        for key in ('fallback_attempted', 'public_workflow_external_engine_invoked',\n                    'native_external_query_engine_invoked', 'fallback_execution_allowed'):\n            for value, violations in ((False, 0), ('false', 0), (True, 1), ('true', 1), (None, 1)):\n                for reverse in (False, True):\n                    field = {'value': value, 'key': key} if reverse else {'key': key, 'value': value}\n                    sample = {family: {member: {'case': {'envelope': {'status': 'success', 'fields': [field]}}}}}\n                    assert inspect(sample)['fallback_violations'] == violations\n        for value, violations in ((False, 0), (True, 1), ('false', 1)):\n            sample = {family: {member: {'case': {'envelope': {'fallback': {'attempted': value}}}}}}\n            result = inspect(sample)\n            assert result['fallback_violations'] == violations and result['fallback_headers'][family] == 1\n        assert inspect({family: {member: {'case': {'envelope': {'status': 'unknown'}}}}})['invalid_envelopes'] == 1\n    for where in ('top', 'result', 'unrelated'):\n        for route in ('native_vortex_unified_plan', 'other', None, True):\n            fields = {'fields': [{'key': 'public_workflow_native_vortex_plan_route_family', 'value': route}]}\n            envelope = fields if where == 'top' else {where: fields}\n            result = inspect({'full43': {'raw_logs': {'case': {'envelope': envelope}}}})\n            assert result['counts']['unified_routes'] == int(where == 'top' and route == 'native_vortex_unified_plan')\n            assert result['counts']['nested_unified_routes'] == int(where == 'result' and route == 'native_vortex_unified_plan')\n            assert result['invalid_routes'] == int(where != 'unrelated' and route != 'native_vortex_unified_plan')\n    sample = {'claim_boundaries': {**CLAIMS, 'single_use_stream_terminals': TERMINALS},\n        'typed': {'cases': {'one': {'status': 'passed'}}, 'complete_values': {'one': {'sha256': 'x'}},\n            'schema_proofs': {'a': [['v', {'name': 'int8'}]], 'b': [['n', {'name': 'list', 'parameters': [{'name': 'int16'}]}]]},\n            'artifacts': {'one': {'sha256': 'x'}}, 'stored_output_files': {'one': {'sha256': 'x'}},\n            'protocol_traces': {'one': {'trace': {'sha256': 'x'}}},\n            'float_bit_proofs': {'one': {'complete_bitwise_values': 10}},\n            'denial_count': 39, 'timestamp_prepare_certificates': 32, 'stream_completion_certificates': 25},\n        'streaming': {'complete_pressure_rows': {'a': {'0': {'x': 1}, '1': {'v': [1, 2]}}, 'b': {'0': {'x': 3}}}},\n        'source_checks': {'checks': {'one': {'receipt_value': {'status': 'passed'}}, 'two': {'receipt_value': {'status': 'passed'}}}}}\n    result = inspect(sample)\n    assert result['claim_boundaries'] == CLAIMS and result['stream_terminals'] == TERMINALS\n    expected = {'typed_cases': 1, 'typed_value_files': 1, 'typed_schemas': 2, 'typed_artifacts': 1,\n        'typed_float_files': 1, 'typed_float_values': 10, 'typed_protocol_traces': 1, 'typed_output_files': 1,\n        'typed_denials': 39, 'typed_timestamp_certificates': 32, 'typed_stream_certificates': 25,\n        'saved_pressure_files': 2, 'saved_pressure_rows': 3,\n        'source_checks': 2, 'source_fresh_checks': 2, 'source_reused_checks': 0}\n    assert all(result['counts'][key] == value for key, value in expected.items())\n    for key, value in CLAIMS.items():\n        for missing in (False, True):\n            bad = copy.deepcopy(sample)\n            if missing:\n                del bad['claim_boundaries'][key]\n            else:\n                bad['claim_boundaries'][key] = not value\n            assert inspect(bad)['claim_boundaries'] != CLAIMS\n    for family in ('typed', 'source_checks'):\n        bad = copy.deepcopy(sample)\n        record = bad['typed']['cases']['one'] if family == 'typed' else bad['source_checks']['checks']['one']['receipt_value']\n        record['status'] = 'failed'\n        assert inspect(bad)['invalid_checks'] == 1\n    for member, count_key in (('complete_values', 'typed_value_files'), ('schema_proofs', 'typed_schemas'),\n            ('artifacts', 'typed_artifacts'), ('protocol_traces', 'typed_protocol_traces'),\n            ('float_bit_proofs', 'typed_float_values'), ('stored_output_files', 'typed_output_files')):\n        bad = copy.deepcopy(sample)\n        del bad['typed'][member]\n        assert inspect(bad)['counts'][count_key] == 0\n    for family in FAMILIES:\n        member = 'raw_logs' if family == 'full43' else 'raw_envelopes'\n        for key, valid, invalid, observed in (\n                ('execution_resource_configuration_status', 'explicit_validated', 'implicit', 'resource_declarations'),\n                ('execution_resource_memory_origin', 'context', 'host_detected', 'resource_origins'),\n                ('execution_resource_parallelism_origin', 'platform', 'implicit', 'resource_origins'),\n                ('execution_resource_whole_process_memory_limit_enforced', 'false', 'true', 'resource_no_rss_claims')):\n            for value, failures in ((valid, 0), (invalid, 1)):\n                fields = [{'value': value, 'key': key}]\n                sample = {family: {member: {'case': {'envelope': {'fields': fields}}}}}\n                result = inspect(sample)\n                assert result[observed] == 1 and result['resource_declaration_failures'] == failures\n    return {'status': 'passed', 'cases': count, 'inspector_sha256': c.sha(INSPECTOR),\n        'verifier_sha256': c.sha(__file__), 'resource_report_contract': resource_report_self_test(),\n        'resource_report_verifier_sha256': c.sha(c.OUT / 'resource_report_evidence.py')}\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument('--attempt', type=int, required=True)\n    parser.add_argument('--self-test', action='store_true')\n    args = parser.parse_args()\n    assert args.attempt > 0\n    if args.self_test:\n        result = self_test()\n        c.write(c.OUT / f'resource-inspector-contract-{args.attempt}.json', result)\n        print(json.dumps(result), flush=True)\n        return\n    final_path = c.OUT / f'resource-final-acceptance-{args.attempt}.json'\n    final = c.read(final_path)\n    assert final['status'] == 'passed_local_engine'\n    packet = Path(final['packet'])\n    assert packet.stat().st_size == final['packet_compressed_bytes'] and c.sha(packet) == final['packet_sha256']\n    digest, size = hashlib.sha256(), 0\n    with subprocess.Popen(COMMAND, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:\n        with lzma.open(packet, 'rb') as stream:\n            while chunk := stream.read(1 << 20):\n                process.stdin.write(chunk)\n                digest.update(chunk)\n                size += len(chunk)\n        process.stdin.close()\n        stdout, stderr = process.stdout.read(), process.stderr.read()\n        assert process.wait() == 0, stderr.decode()\n    assert size == final['packet_uncompressed_bytes'] and digest.hexdigest() == final['packet_uncompressed_sha256']\n    observed = json.loads(stdout)\n    counts = {'public_cases': 32497, 'public_rows': 18595284, 'direct_cases': 202, 'direct_rows': 131734,\n        'streaming_cases': 442, 'growth_cases': 20, 'typed_cases': 87, 'batch_checks': 48, 'format_checks': 19,\n        'full43_runs': 129, 'source_checks': 16,\n        'source_fresh_checks': 16 - final['source_checks_reused_from_identical_source'],\n        'source_reused_checks': final['source_checks_reused_from_identical_source'], 'source_assets': final['source_assets'],\n        'typed_value_files': 164, 'typed_schemas': 36, 'typed_artifacts': 88, 'typed_float_files': 3, 'typed_float_values': 30,\n        'typed_protocol_traces': 16, 'typed_output_files': 177, 'typed_denials': 39,\n        'typed_timestamp_certificates': 32, 'typed_stream_certificates': 25,\n        'streaming_value_files': 365, 'streaming_protocol_traces': 10, 'streaming_pressure_files': 14,\n        'streaming_pressure_rows': 517499, 'saved_pressure_files': 14, 'saved_pressure_rows': 517499,\n        'growth_value_files': 32, 'growth_artifacts': 17, 'growth_range_values': 1000017,\n        'pressure_controls': 5, 'pressure_closed': 5, 'pressure_ended': 4, 'pressure_denied': 1,\n        'pressure_output_rows': 4608, 'unified_routes': 129, 'nested_unified_routes': 129}\n    envelopes = {'public': final['raw_public_envelopes'], 'direct': final['raw_direct_envelopes'], 'full43': 129,\n        'batches': 45, 'formats': 24, 'streaming': 420, 'growth': 69, 'input_pressure': 6, 'typed': 343}\n    resource_reports = final['resource_report_conformance']\n    assert resource_reports['status'] == 'passed' and set(resource_reports['families']) == set(FAMILIES)\n    resource_declarations = sum(value['counts']['declared_field_blocks'] for value in resource_reports['families'].values())\n    assert resource_declarations > 0\n    expected = {'schema_version': 'shardloom.required_execution_resources_acceptance.v1', 'status': 'passed_local_engine',\n        'source_identity': final['source_identity_sha256'], 'binary_sha256': final['binary_sha256'],\n        'source_commit': final['source_commit'], 'counts': counts, 'envelopes': envelopes,\n        'fallback_headers': envelopes, 'claim_boundaries': CLAIMS, 'stream_terminals': TERMINALS,\n        'full43_complete': True, 'full43_values': True, 'fresh_public': True, 'historical_union': False,\n        'public_families': ['base', 'unary', 'nested', 'pivot', 'pivot-pressure', 'typed', 'memory', 'frames', 'frames-pressure', 'scalars'],\n        'pressure_grants': {'streaming-low': 1 << 30, 'resident-low': 1 << 30, 'streaming-high': 6 << 30,\n                           'resident-high': 6 << 30, 'streaming-vortex-low': 1 << 30},\n        'invalid_checks': 0, 'invalid_envelopes': 0, 'fallback_violations': 0, 'invalid_routes': 0,\n        'resource_report_status': 'passed', 'resource_declarations': resource_declarations,\n        'resource_origins': 2 * resource_declarations, 'resource_no_rss_claims': resource_declarations,\n        'resource_declaration_failures': 0}\n    assert observed == expected, {key: {'actual': observed.get(key), 'expected': value}\n                                 for key, value in expected.items() if observed.get(key) != value}\n    assert c.sha(packet) == final['packet_sha256']\n    c.write(c.OUT / f'resource-packet-verified-{args.attempt}.json', {\n        'status': 'passed_independent_stream_inspection', 'final_acceptance_sha256': c.sha(final_path),\n        'packet_sha256': final['packet_sha256'], 'inspection': observed,\n        'inspector_sha256': c.sha(INSPECTOR), 'verifier_sha256': c.sha(__file__),\n        'scope': 'Complete decompression hash, structural coverage, every saved stream-pressure row, claim boundaries, and all retained raw no-fallback reports. The frozen finalizer separately reconstructs and reopens complete values. No native query execution.'})\n    print(json.dumps({'status': 'passed', 'inspection': observed}), flush=True)\n\n\nif __name__ == '__main__':\n    main()\n"
+    },
+    "resource_report_evidence.py": {
+      "original_sha256": "ec4eed705e225abf4ea13081b4fa93b88e6b5bb3082ab5e8a7be64108aa4c4cd",
+      "original_bytes": 12511,
+      "value": "\"\"\"Validate allocation, admission and measurement distinctions in actual reports.\"\"\"\nfrom collections import Counter\nfrom copy import deepcopy\n\nfrom resource_evidence_io import StreamMap, envelope_fields\n\nPREFIX = 'execution_resource_'\nORIGINS = {'execution_call', 'context', 'session', 'environment', 'platform'}\n\n\ndef integer(value, *, positive=False):\n    assert isinstance(value, str) and value.isascii() and value.isdecimal(), value\n    number = int(value)\n    assert number <= (1 << 64) - 1 and (number > 0 if positive else number >= 0), value\n    return number\n\n\ndef verify_fields(fields):\n    values = {key.removeprefix(PREFIX): value for key, value in fields.items() if key.startswith(PREFIX)}\n    assert values['schema_version'] == 'shardloom.execution_resources.v1'\n    assert values['configuration_status'] == 'explicit_validated'\n    memory = integer(values['declared_memory_bytes'], positive=True)\n    lanes = integer(values['declared_max_parallelism'], positive=True)\n    gib = str(memory >> 30) if memory % (1 << 30) == 0 else 'unavailable'\n    assert values['declared_memory_gb'] == gib\n    assert values['memory_origin'] in ORIGINS and values['parallelism_origin'] in ORIGINS\n    assert values['memory_gb_unit'] == 'GiB=1073741824_bytes'\n    assert values['allocation_semantics'] == 'permission_not_preallocated_memory_or_measured_usage'\n    assert values['parallelism_semantics'] == 'integer_execution_lane_ceiling_not_cpu_quota_or_utilization'\n    assert values['origin_scope'] == 'caller_supplied_provenance_not_platform_authentication'\n    assert values['whole_process_memory_limit_enforced'] == 'false'\n    for key, allocation in (('authorized_memory_limit_bytes', memory), ('authorized_parallelism_limit', lanes)):\n        if values[key] != 'not_supplied':\n            assert allocation <= integer(values[key], positive=True)\n    admission = values['admission_status']\n    assert admission in ('admitted', 'not_observed')\n    if admission == 'admitted':\n        admitted_memory = integer(values['admitted_memory_bytes'], positive=True)\n        admitted_lanes = integer(values['admitted_max_parallelism'], positive=True)\n        assert admitted_memory <= memory and admitted_lanes <= lanes\n        assert values['admission_policy'] not in ('', 'not_observed', 'unavailable')\n    else:\n        assert values['admitted_memory_bytes'] == values['admitted_max_parallelism'] == 'unavailable'\n        assert values['admission_policy'] == 'not_observed'\n        admitted_memory = None\n    peak = values['observed_native_peak_reserved_bytes']\n    reserved = values['observed_native_reserved_bytes']\n    if peak == 'unavailable':\n        assert reserved == 'unavailable' and values['memory_observation_scope'] == 'not_instrumented'\n    else:\n        peak = integer(peak)\n        assert admitted_memory is not None and peak <= admitted_memory\n        assert values['memory_observation_scope'] not in ('', 'not_instrumented', 'unavailable')\n        if reserved != 'unavailable':\n            assert integer(reserved) <= peak\n    # These are deliberately unmeasured on this implementation. Never relabel\n    # the lane ceiling or native pool counter as utilization or process RSS.\n    assert values['observed_peak_active_lanes'] == 'unavailable'\n    assert values['observed_process_peak_rss_bytes'] == 'unavailable'\n    spill = values['observed_spill_io_performed']\n    spill_bytes = values['observed_spill_bytes']\n    scope = values['spill_observation_scope']\n    if spill == 'unavailable':\n        assert spill_bytes == 'unavailable' and scope == 'not_instrumented'\n    elif spill == 'false':\n        assert spill_bytes == '0' and scope == 'no_spill_io'\n    else:\n        assert spill == 'true'\n        if spill_bytes == 'unavailable':\n            assert scope == 'spill_io_observed;byte_count_not_instrumented'\n        else:\n            integer(spill_bytes)\n            assert scope == 'cumulative_native_spill_payload_bytes_written;excludes_workspace_markers_and_filesystem_overhead'\n    return values\n\n\ndef field_blocks(item):\n    if isinstance(item, list):\n        for child in item:\n            yield from field_blocks(child)\n    elif isinstance(item, dict):\n        rows = item.get('fields')\n        if isinstance(rows, list) and all(isinstance(row, dict) and 'key' in row for row in rows):\n            fields = envelope_fields(item)\n            if any(key.startswith(PREFIX) for key in fields):\n                yield fields\n        for child in item.values():\n            yield from field_blocks(child)\n\n\ndef verify_envelope_reports(envelope):\n    \"\"\"Validate the authoritative fields and every typed-envelope projection.\"\"\"\n    fields = envelope_fields(envelope)\n    declared = {key: value for key, value in fields.items() if key.startswith(PREFIX)}\n    blocks = list(field_blocks(envelope))\n    if not declared:\n        assert not blocks, 'resource projection without an authoritative declaration'\n        return None, 0\n    resources = verify_fields(fields)\n    assert blocks and blocks[0] == fields\n    for block in blocks[1:]:\n        for key, value in block.items():\n            if key.startswith(PREFIX):\n                assert key in declared and declared[key] == value, ('inconsistent resource projection', key)\n    return resources, len(blocks) - 1\n\n\ndef verify_resource_reports(families):\n    reports = {}\n    for family, value in families.items():\n        entries = value['raw_logs' if family == 'full43' else 'raw_envelopes']\n        entries = entries.factory() if isinstance(entries, StreamMap) else entries.items()\n        counts, origins, allocations, commands = Counter(), Counter(), Counter(), Counter()\n        for name, item in entries:\n            if 'envelope' not in item:\n                continue\n            envelope = item['envelope']\n            counts['envelopes'] += 1\n            commands[envelope.get('command', 'not_present')] += 1\n            try:\n                resources, projections = verify_envelope_reports(envelope)\n            except (AssertionError, KeyError) as error:\n                raise AssertionError((family, name, str(error))) from error\n            if envelope['status'] == 'success':\n                assert resources is not None, ('successful execution omitted allocation', family, name, envelope.get('command'))\n                counts['successful_envelopes_with_declaration'] += 1\n            elif resources is not None:\n                counts['rejection_envelopes_with_declaration'] += 1\n            else:\n                counts['rejections_before_valid_configuration'] += 1\n            counts['consistent_projected_field_blocks'] += projections\n            if resources is not None:\n                counts['declared_field_blocks'] += 1\n                counts[resources['admission_status'] + '_field_blocks'] += 1\n                counts['measured_memory_field_blocks'] += resources['observed_native_peak_reserved_bytes'] != 'unavailable'\n                counts['observed_spill_field_blocks'] += resources['observed_spill_io_performed'] == 'true'\n                origins[resources['memory_origin'] + '/' + resources['parallelism_origin']] += 1\n                allocations[resources['declared_memory_bytes'] + '/' + resources['declared_max_parallelism']] += 1\n        assert counts['envelopes'] > 0 and counts['declared_field_blocks'] > 0, family\n        reports[family] = {'counts': dict(counts), 'origins_memory_parallelism': dict(origins),\n            'declared_bytes_maximum_lanes': dict(allocations), 'commands': dict(commands)}\n    assert set(reports) == {'public', 'direct', 'full43', 'typed', 'streaming', 'growth', 'input_pressure', 'batches', 'formats'}\n    return {'status': 'passed', 'families': reports,\n        'scope': 'Every retained current execution envelope has its authoritative allocation checked; every nested typed-envelope resource projection must agree exactly. Complete value and no-fallback checks are separate. Unmeasured lanes, process RSS and legacy admission remain unavailable.',\n        'whole_process_memory_limit_claim': False, 'all_provider_allocations_accounted_claim': False}\n\n\ndef self_test():\n    valid = dict(schema_version='shardloom.execution_resources.v1', configuration_status='explicit_validated',\n        declared_memory_bytes='1500000001', declared_memory_gb='unavailable', declared_max_parallelism='3',\n        memory_origin='platform', parallelism_origin='context', authorized_memory_limit_bytes='1500000001',\n        authorized_parallelism_limit='3', memory_gb_unit='GiB=1073741824_bytes',\n        allocation_semantics='permission_not_preallocated_memory_or_measured_usage',\n        parallelism_semantics='integer_execution_lane_ceiling_not_cpu_quota_or_utilization',\n        origin_scope='caller_supplied_provenance_not_platform_authentication',\n        whole_process_memory_limit_enforced='false', admission_status='admitted',\n        admitted_memory_bytes='1500000001', admitted_max_parallelism='2', admission_policy='test_native_policy',\n        observed_native_reserved_bytes='16', observed_native_peak_reserved_bytes='32',\n        memory_observation_scope='session_pool;not_RSS', observed_peak_active_lanes='unavailable',\n        observed_process_peak_rss_bytes='unavailable', observed_spill_io_performed='false',\n        observed_spill_bytes='0', spill_observation_scope='no_spill_io')\n    def check(fields):\n        return verify_fields({PREFIX + key: value for key, value in fields.items()})\n    check(valid)\n    count = 1\n    for key in valid:\n        bad = deepcopy(valid)\n        del bad[key]\n        try:\n            check(bad)\n        except (AssertionError, KeyError):\n            count += 1\n        else:\n            raise AssertionError(('missing field admitted', key))\n    for key, value in (\n        ('declared_memory_bytes', '0'), ('declared_memory_bytes', True),\n        ('declared_max_parallelism', 'eight'), ('declared_memory_gb', '2'),\n        ('memory_origin', 'host_detected'), ('authorized_memory_limit_bytes', '1'),\n        ('authorized_parallelism_limit', '1'), ('admitted_memory_bytes', '1500000002'),\n        ('admitted_max_parallelism', '4'), ('observed_native_reserved_bytes', '33'),\n        ('observed_native_peak_reserved_bytes', '1500000002'), ('observed_peak_active_lanes', '3'),\n        ('observed_process_peak_rss_bytes', '32'), ('whole_process_memory_limit_enforced', 'true'),\n        ('observed_spill_io_performed', 'true'), ('observed_spill_bytes', '1')):\n        bad = {**valid, key: value}\n        try:\n            check(bad)\n        except (AssertionError, KeyError):\n            count += 1\n        else:\n            raise AssertionError(('invalid field admitted', key, value))\n    unknown = {**valid, 'admission_status': 'not_observed', 'admitted_memory_bytes': 'unavailable',\n        'admitted_max_parallelism': 'unavailable', 'admission_policy': 'not_observed',\n        'observed_native_reserved_bytes': 'unavailable', 'observed_native_peak_reserved_bytes': 'unavailable',\n        'memory_observation_scope': 'not_instrumented', 'observed_spill_io_performed': 'unavailable',\n        'observed_spill_bytes': 'unavailable', 'spill_observation_scope': 'not_instrumented'}\n    check(unknown)\n    count += 1\n    complete = [{'key': PREFIX + key, 'value': value} for key, value in valid.items()]\n    projected = {'fields': complete, 'result': {'fields': [complete[2]]},\n        'policy': {'fields': [complete[17]]}, 'lifecycle': {'fields': [complete[0]]}}\n    _, projections = verify_envelope_reports(projected)\n    assert projections == 3\n    assert verify_envelope_reports({'fields': []}) == (None, 0)\n    count += 2\n    bad_values = []\n    bad = deepcopy(projected)\n    bad['fields'] = []\n    bad_values.append(bad)\n    bad = deepcopy(projected)\n    bad['result']['fields'][0]['value'] = '1'\n    bad_values.append(bad)\n    bad = deepcopy(projected)\n    bad['result']['fields'][0]['key'] = PREFIX + 'not_declared'\n    bad_values.append(bad)\n    bad = deepcopy(projected)\n    bad['result']['fields'].append(deepcopy(bad['result']['fields'][0]))\n    bad_values.append(bad)\n    bad = deepcopy(projected)\n    bad['fields'].append(deepcopy(bad['fields'][0]))\n    bad_values.append(bad)\n    bad = deepcopy(projected)\n    del bad['fields'][0]\n    bad_values.append(bad)\n    for bad in bad_values:\n        try:\n            verify_envelope_reports(bad)\n        except (AssertionError, KeyError):\n            count += 1\n        else:\n            raise AssertionError('invalid resource projection admitted')\n    return {'status': 'passed', 'cases': count}\n"
+    },
+    "resource-independent-2.json": {
+      "original_sha256": "4605f48b7d1add2aa2b20389eac8dcd42fc1a3c8c3d44971a7e3c8ff8daa321a",
+      "original_bytes": 1763,
+      "value": {
+        "status": "failed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<resource-uat>/verify_resource_packet.py",
+          "--attempt",
+          "2"
+        ],
+        "cwd": "<repo>",
+        "head": "868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2710867968,
+            "log_bytes": 0,
+            "free_bytes": 40210046976,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 39386918912,
+            "log_bytes": 0,
+            "free_bytes": 40210046976,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 2400.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 69300,
+        "output_bytes": 626,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 1526.626208917005,
+        "log_sha256": "12ade05e88e2207c36d5df88ad64e1125d57b0756ef463ceb79256e9944c6d2a"
+      }
+    },
+    "resource-independent-2.log": {
+      "original_sha256": "12ade05e88e2207c36d5df88ad64e1125d57b0756ef463ceb79256e9944c6d2a",
+      "original_bytes": 626,
+      "value": "Traceback (most recent call last):\n  File \"<resource-uat>/verify_resource_packet.py\", line 178, in <module>\n    main()\n  File \"<resource-uat>/verify_resource_packet.py\", line 166, in main\n    assert observed == expected, {key: {'actual': observed.get(key), 'expected': value}\n           ^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'resource_declarations': {'actual': 132110, 'expected': 66055}, 'resource_origins': {'actual': 264220, 'expected': 132110}, 'resource_no_rss_claims': {'actual': 132110, 'expected': 66055}}\n"
+    },
+    "inspect_resource_packet_review.jq": {
+      "original_sha256": "e74636756f6379ead5c34f13ad69febf25d8c492a6853e13df50210e9b26f178",
+      "original_bytes": 10395,
+      "value": "def raw_family($p):\n  ($p|length) >= 5 and\n  ([\"public\",\"direct\",\"full43\",\"batches\",\"formats\",\"streaming\",\"growth\",\"input_pressure\",\"typed\"]|index($p[0])) != null and\n  ([\"raw_envelopes\",\"raw_logs\"]|index($p[1])) != null and $p[3] == \"envelope\";\n\nreduce inputs as $event (\n  {schema_version:null,status:null,source_identity:null,binary_sha256:null,source_commit:null,\n   counts:{public_cases:0,public_rows:0,direct_cases:0,direct_rows:0,\n     streaming_cases:0,growth_cases:0,typed_cases:0,batch_checks:0,format_checks:0,\n     full43_runs:0,source_checks:0,source_fresh_checks:0,source_reused_checks:0,source_assets:0,\n     typed_value_files:0,typed_schemas:0,typed_artifacts:0,typed_float_files:0,typed_float_values:0,\n     typed_protocol_traces:0,typed_output_files:0,typed_denials:0,typed_timestamp_certificates:0,\n     typed_stream_certificates:0,streaming_value_files:0,streaming_protocol_traces:0,\n     streaming_pressure_files:0,streaming_pressure_rows:0,saved_pressure_files:0,saved_pressure_rows:0,\n     growth_value_files:0,growth_artifacts:0,growth_range_values:0,\n     pressure_controls:0,pressure_closed:0,pressure_ended:0,pressure_denied:0,pressure_output_rows:0,\n     unified_routes:0,nested_unified_routes:0},\n   envelopes:{public:0,direct:0,full43:0,batches:0,formats:0,streaming:0,growth:0,input_pressure:0,typed:0},\n   fallback_headers:{public:0,direct:0,full43:0,batches:0,formats:0,streaming:0,growth:0,input_pressure:0,typed:0},\n   claim_boundaries:{},stream_terminals:[],full43_complete:null,full43_values:null,\n   fresh_public:null,historical_union:null,public_families:[],pressure_grants:{},\n   invalid_checks:0,invalid_envelopes:0,fallback_violations:0,invalid_routes:0,\n   resource_report_status:null,resource_declarations:0,resource_origins:0,resource_no_rss_claims:0,\n   resource_declaration_failures:0,\n   last_schema:null,last_pressure_file:null,last_pressure_row:null,\n   pair_path:null,pair_key:null,pair_value:null,pair_key_set:false,pair_value_set:false};\n  if ($event|length) != 2 then . else\n    $event[0] as $p | $event[1] as $v |\n    if $p == [\"schema_version\"] then .schema_version = $v\n    elif $p == [\"status\"] then .status = $v\n    elif $p == [\"resource_report_conformance\",\"status\"] then .resource_report_status = $v\n    elif $p == [\"source_snapshot\",\"source_identity_sha256\"] then .source_identity = $v\n    elif $p == [\"build\",\"binary_sha256\"] then .binary_sha256 = $v\n    elif $p == [\"build\",\"source_commit\"] then .source_commit = $v\n    elif ($p|length) == 5 and $p[1:3] == [\"summary\",\"cases\"] then\n      if ($p[0] == \"public\" or $p[0] == \"direct\") and $p[4] == \"name\" then .counts[($p[0] + \"_cases\")] += 1\n      elif ($p[0] == \"public\" or $p[0] == \"direct\") and $p[4] == \"complete_rows_verified\" then .counts[($p[0] + \"_rows\")] += $v\n      elif $p[0] == \"streaming\" and $p[4] == \"status\" then .counts.streaming_cases += 1 | if $v != \"passed\" then .invalid_checks += 1 else . end\n      elif ($p[0] == \"public\" or $p[0] == \"direct\") and $p[4] == \"passed\" and $v != true then .invalid_checks += 1\n      else . end\n    elif ($p|length) == 4 and ($p[0] == \"typed\" or $p[0] == \"growth\") and $p[1] == \"cases\" and $p[3] == \"status\" then\n      .counts[($p[0] + \"_cases\")] += 1 | if $v != \"passed\" then .invalid_checks += 1 else . end\n    elif ($p|length) == 5 and ($p[0] == \"batches\" or $p[0] == \"formats\") and $p[1:3] == [\"summary\",\"checks\"] and $p[4] == \"passed\" then\n      .counts[(if $p[0] == \"batches\" then \"batch_checks\" else \"format_checks\" end)] += 1 | if $v != true then .invalid_checks += 1 else . end\n    elif ($p|length) == 5 and $p[0:2] == [\"source_checks\",\"checks\"] and $p[3:5] == [\"receipt_value\",\"status\"] then\n      .counts.source_checks += 1 | .counts.source_fresh_checks += 1 |\n      if $v != \"passed\" then .invalid_checks += 1 else . end\n    elif ($p|length) == 3 and $p[0] == \"frozen_source_assets\" and $p[2] == \"original_sha256\" then .counts.source_assets += 1\n    elif $p == [\"full43\",\"summary\",\"complete\"] then .full43_complete = $v\n    elif $p == [\"full43\",\"summary\",\"full_result_validation\"] then .full43_values = $v\n    elif ($p|length) == 5 and $p[0:3] == [\"full43\",\"summary\",\"records\"] and $p[4] == \"passed\" then\n      .counts.full43_runs += 1 | if $v != true then .invalid_checks += 1 else . end\n    elif ($p|length) == 4 and ($p[0] == \"typed\" or $p[0] == \"growth\") and $p[1] == \"complete_values\" and $p[3] == \"sha256\" then .counts[($p[0] + \"_value_files\")] += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"typed\",\"artifacts\"] and $p[3] == \"sha256\" then .counts.typed_artifacts += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"typed\",\"stored_output_files\"] and $p[3] == \"sha256\" then .counts.typed_output_files += 1\n    elif ($p|length) == 5 and $p[0:2] == [\"typed\",\"protocol_traces\"] and $p[3:] == [\"trace\",\"sha256\"] then .counts.typed_protocol_traces += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"typed\",\"float_bit_proofs\"] and $p[3] == \"complete_bitwise_values\" then .counts.typed_float_files += 1 | .counts.typed_float_values += $v\n    elif $p == [\"typed\",\"denial_count\"] then .counts.typed_denials = $v\n    elif $p == [\"typed\",\"timestamp_prepare_certificates\"] then .counts.typed_timestamp_certificates = $v\n    elif $p == [\"typed\",\"stream_completion_certificates\"] then .counts.typed_stream_certificates = $v\n    elif ($p|length) == 4 and $p[0:2] == [\"streaming\",\"exact_small_values\"] and $p[3] == \"sha256\" then .counts.streaming_value_files += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"streaming\",\"protocol_traces\"] and $p[3] == \"sha256\" then .counts.streaming_protocol_traces += 1\n    elif ($p|length) == 4 and $p[0:2] == [\"streaming\",\"pressure_complete_value_proofs\"] and $p[3] == \"complete_rows_reopened\" then .counts.streaming_pressure_files += 1 | .counts.streaming_pressure_rows += $v\n    elif ($p|length) == 4 and $p[0:2] == [\"growth\",\"wide_artifacts\"] and $p[3] == \"sha256\" then .counts.growth_artifacts += 1\n    elif $p == [\"growth\",\"range\",\"every_value_verified\"] then .counts.growth_range_values = $v\n    elif ($p|length) == 6 and $p[0:2] == [\"input_pressure\",\"controls\"] and $p[3:5] == [\"summary\",\"value\"] then\n      if $p[5] == \"status\" then .counts.pressure_controls += 1 | if $v != \"passed\" then .invalid_checks += 1 else . end\n      elif $p[5] == \"producer_closed\" and $v == true then .counts.pressure_closed += 1\n      elif $p[5] == \"producer_ended\" and $v == true then .counts.pressure_ended += 1\n      elif $p[5] == \"expected_memory_denial\" and $v == true then .counts.pressure_denied += 1\n      elif $p[5] == \"complete_output_rows_verified\" then .counts.pressure_output_rows += $v\n      else . end\n    elif ($p|length) == 6 and $p[0:2] == [\"input_pressure\",\"controls\"] and $p[3:] == [\"protocol\",\"value\",\"memory_grant_bytes\"] then .pressure_grants[$p[2]] = $v\n    elif $p == [\"public_family_execution\",\"fresh_execution\"] then .fresh_public = $v\n    elif $p == [\"public_family_execution\",\"historical_union_repair_used\"] then .historical_union = $v\n    elif ($p|length) == 3 and $p[0:2] == [\"public_family_execution\",\"families\"] then .public_families += [$v]\n    elif ($p|length) == 2 and $p[0] == \"claim_boundaries\" then .claim_boundaries[$p[1]] = $v\n    elif ($p|length) == 3 and $p[0:2] == [\"claim_boundaries\",\"single_use_stream_terminals\"] then .stream_terminals += [$v]\n    else . end |\n    if ($p|length) >= 4 and $p[0:2] == [\"typed\",\"schema_proofs\"] and .last_schema != $p[2] then .counts.typed_schemas += 1 | .last_schema = $p[2] else . end |\n    if ($p|length) >= 4 and $p[0:2] == [\"streaming\",\"complete_pressure_rows\"] then\n      (if .last_pressure_file != $p[2] then .counts.saved_pressure_files += 1 | .last_pressure_file = $p[2] else . end) |\n      if .last_pressure_row != $p[0:4] then .counts.saved_pressure_rows += 1 | .last_pressure_row = $p[0:4] else . end\n    else . end |\n    if raw_family($p) then\n      if $p[4:] == [\"status\"] then\n        .envelopes[$p[0]] += 1 | if ([\"success\",\"error\",\"unsupported\"]|index($v)) == null then .invalid_envelopes += 1 else . end\n      elif $p[4:] == [\"fallback\",\"attempted\"] then\n        .fallback_headers[$p[0]] += 1 | if $v != false then .fallback_violations += 1 else . end\n      elif ($p|length) >= 7 and ($p|index(\"fields\")) != null and ($p[-1] == \"key\" or $p[-1] == \"value\") then\n        (if .pair_path != $p[:-1] then .pair_path = $p[:-1] | .pair_key_set = false | .pair_value_set = false else . end) |\n        (if $p[-1] == \"key\" then .pair_key = $v | .pair_key_set = true else .pair_value = $v | .pair_value_set = true end) |\n        if .pair_key_set and .pair_value_set then\n          .pair_key as $key | .pair_value as $value |\n          (if $key == \"execution_resource_configuration_status\" then\n             (if $p[4:-2] == [\"fields\"] then .resource_declarations += 1 else . end) |\n             if $value != \"explicit_validated\" then .resource_declaration_failures += 1 else . end\n           elif $key == \"execution_resource_memory_origin\" or $key == \"execution_resource_parallelism_origin\" then\n             (if $p[4:-2] == [\"fields\"] then .resource_origins += 1 else . end) |\n             if ([\"execution_call\",\"context\",\"session\",\"environment\",\"platform\"]|index($value)) == null then .resource_declaration_failures += 1 else . end\n           elif $key == \"execution_resource_whole_process_memory_limit_enforced\" then\n             (if $p[4:-2] == [\"fields\"] then .resource_no_rss_claims += 1 else . end) |\n             if $value != \"false\" then .resource_declaration_failures += 1 else . end\n           else . end) |\n          (if ($key|type) == \"string\" and ($key|test(\"(fallback_attempted|external_engine_invoked|external_query_engine_invoked|fallback_execution_allowed)$\")) and $value != false and $value != \"false\" then .fallback_violations += 1 else . end) |\n          if $p[0] == \"full43\" and $key == \"public_workflow_native_vortex_plan_route_family\" then\n            if $p[4:-2] == [\"fields\"] then\n              if $value == \"native_vortex_unified_plan\" then .counts.unified_routes += 1 else .invalid_routes += 1 end\n            elif $p[4:-2] == [\"result\",\"fields\"] then\n              if $value == \"native_vortex_unified_plan\" then .counts.nested_unified_routes += 1 else .invalid_routes += 1 end\n            else . end\n          else . end\n        else . end\n      else . end\n    else . end\n  end\n) | del(.last_schema,.last_pressure_file,.last_pressure_row,.pair_path,.pair_key,.pair_value,.pair_key_set,.pair_value_set)\n"
+    },
+    "verify_resource_packet_review.py": {
+      "original_sha256": "1b49181aae92efae2f8454744005ea1451db8e348d409acef6de636b3d001e60",
+      "original_bytes": 14415,
+      "value": "\"\"\"Inspect the unchanged resource packet with authoritative projection counts.\n\nThe first reader correctly hashes the full packet but mistakenly compares all\ntyped projections with authoritative-only expected totals. Preserve that reader,\nits inspector, final packet, failure log and guard. This revision counts only the\ntop-level authoritative fields while continuing to reject invalid values anywhere\nin retained resource projections.\n\"\"\"\nimport argparse\nimport copy\nimport hashlib\nimport json\nimport lzma\nfrom pathlib import Path\nimport subprocess\n\nimport resource_acceptance_common as c\nfrom resource_report_evidence import self_test as resource_report_self_test\n\nINSPECTOR = c.OUT / 'inspect_resource_packet_review.jq'\nCOMMAND = ['/usr/bin/jq', '--stream', '-n', '-f', str(INSPECTOR)]\nFAMILIES = ('public', 'direct', 'full43', 'batches', 'formats', 'streaming', 'growth', 'input_pressure', 'typed')\nCLAIMS = {'source_tree_clean': True, 'fallback_attempted': False, 'external_engine_invoked': False,\n    'comparative_performance_claim': False, 'total_process_rss_bound_claim': False,\n    'all_provider_allocations_accounted': False, 'execution_resume_claim': False,\n    'one_shot_dynamic_pivot_input_admitted': False, 'compatibility_stream_terminals_admitted': False,\n    'multiple_batch_producers_admitted': False, 'package_publication_performed': False,\n    'version_bump_performed': False, 'hosted_acceptance_complete': False}\nTERMINALS = ['complete_small_collect', 'complete_batch_iteration', 'new_vortex_destination']\n\n\ndef self_test():\n    count = 0\n    def inspect(value):\n        nonlocal count\n        count += 1\n        result = subprocess.run(COMMAND, input=json.dumps(value), text=True, capture_output=True, check=True)\n        return json.loads(result.stdout)\n    for family in FAMILIES:\n        member = 'raw_logs' if family == 'full43' else 'raw_envelopes'\n        for key in ('fallback_attempted', 'public_workflow_external_engine_invoked',\n                    'native_external_query_engine_invoked', 'fallback_execution_allowed'):\n            for value, violations in ((False, 0), ('false', 0), (True, 1), ('true', 1), (None, 1)):\n                for reverse in (False, True):\n                    field = {'value': value, 'key': key} if reverse else {'key': key, 'value': value}\n                    sample = {family: {member: {'case': {'envelope': {'status': 'success', 'fields': [field]}}}}}\n                    assert inspect(sample)['fallback_violations'] == violations\n        for value, violations in ((False, 0), (True, 1), ('false', 1)):\n            sample = {family: {member: {'case': {'envelope': {'fallback': {'attempted': value}}}}}}\n            result = inspect(sample)\n            assert result['fallback_violations'] == violations and result['fallback_headers'][family] == 1\n        assert inspect({family: {member: {'case': {'envelope': {'status': 'unknown'}}}}})['invalid_envelopes'] == 1\n    for where in ('top', 'result', 'unrelated'):\n        for route in ('native_vortex_unified_plan', 'other', None, True):\n            fields = {'fields': [{'key': 'public_workflow_native_vortex_plan_route_family', 'value': route}]}\n            envelope = fields if where == 'top' else {where: fields}\n            result = inspect({'full43': {'raw_logs': {'case': {'envelope': envelope}}}})\n            assert result['counts']['unified_routes'] == int(where == 'top' and route == 'native_vortex_unified_plan')\n            assert result['counts']['nested_unified_routes'] == int(where == 'result' and route == 'native_vortex_unified_plan')\n            assert result['invalid_routes'] == int(where != 'unrelated' and route != 'native_vortex_unified_plan')\n    sample = {'claim_boundaries': {**CLAIMS, 'single_use_stream_terminals': TERMINALS},\n        'typed': {'cases': {'one': {'status': 'passed'}}, 'complete_values': {'one': {'sha256': 'x'}},\n            'schema_proofs': {'a': [['v', {'name': 'int8'}]], 'b': [['n', {'name': 'list', 'parameters': [{'name': 'int16'}]}]]},\n            'artifacts': {'one': {'sha256': 'x'}}, 'stored_output_files': {'one': {'sha256': 'x'}},\n            'protocol_traces': {'one': {'trace': {'sha256': 'x'}}},\n            'float_bit_proofs': {'one': {'complete_bitwise_values': 10}},\n            'denial_count': 39, 'timestamp_prepare_certificates': 32, 'stream_completion_certificates': 25},\n        'streaming': {'complete_pressure_rows': {'a': {'0': {'x': 1}, '1': {'v': [1, 2]}}, 'b': {'0': {'x': 3}}}},\n        'source_checks': {'checks': {'one': {'receipt_value': {'status': 'passed'}}, 'two': {'receipt_value': {'status': 'passed'}}}}}\n    result = inspect(sample)\n    assert result['claim_boundaries'] == CLAIMS and result['stream_terminals'] == TERMINALS\n    expected = {'typed_cases': 1, 'typed_value_files': 1, 'typed_schemas': 2, 'typed_artifacts': 1,\n        'typed_float_files': 1, 'typed_float_values': 10, 'typed_protocol_traces': 1, 'typed_output_files': 1,\n        'typed_denials': 39, 'typed_timestamp_certificates': 32, 'typed_stream_certificates': 25,\n        'saved_pressure_files': 2, 'saved_pressure_rows': 3,\n        'source_checks': 2, 'source_fresh_checks': 2, 'source_reused_checks': 0}\n    assert all(result['counts'][key] == value for key, value in expected.items())\n    for key, value in CLAIMS.items():\n        for missing in (False, True):\n            bad = copy.deepcopy(sample)\n            if missing:\n                del bad['claim_boundaries'][key]\n            else:\n                bad['claim_boundaries'][key] = not value\n            assert inspect(bad)['claim_boundaries'] != CLAIMS\n    for family in ('typed', 'source_checks'):\n        bad = copy.deepcopy(sample)\n        record = bad['typed']['cases']['one'] if family == 'typed' else bad['source_checks']['checks']['one']['receipt_value']\n        record['status'] = 'failed'\n        assert inspect(bad)['invalid_checks'] == 1\n    for member, count_key in (('complete_values', 'typed_value_files'), ('schema_proofs', 'typed_schemas'),\n            ('artifacts', 'typed_artifacts'), ('protocol_traces', 'typed_protocol_traces'),\n            ('float_bit_proofs', 'typed_float_values'), ('stored_output_files', 'typed_output_files')):\n        bad = copy.deepcopy(sample)\n        del bad['typed'][member]\n        assert inspect(bad)['counts'][count_key] == 0\n    for family in FAMILIES:\n        member = 'raw_logs' if family == 'full43' else 'raw_envelopes'\n        for key, valid, invalid, observed in (\n                ('execution_resource_configuration_status', 'explicit_validated', 'implicit', 'resource_declarations'),\n                ('execution_resource_memory_origin', 'context', 'host_detected', 'resource_origins'),\n                ('execution_resource_parallelism_origin', 'platform', 'implicit', 'resource_origins'),\n                ('execution_resource_whole_process_memory_limit_enforced', 'false', 'true', 'resource_no_rss_claims')):\n            for value, failures in ((valid, 0), (invalid, 1)):\n                fields = [{'value': value, 'key': key}]\n                sample = {family: {member: {'case': {'envelope': {'fields': fields}}}}}\n                result = inspect(sample)\n                assert result[observed] == 1 and result['resource_declaration_failures'] == failures\n            for where in ('result', 'policy', 'lifecycle'):\n                for reverse in (False, True):\n                    for value, failures in ((valid, 0), (invalid, 1)):\n                        top = {'key': key, 'value': valid}\n                        projection = {'value': value, 'key': key} if reverse else {'key': key, 'value': value}\n                        sample = {family: {member: {'case': {'envelope': {\n                            'fields': [top], where: {'fields': [projection]},\n                        }}}}}\n                        result = inspect(sample)\n                        assert result[observed] == 1 and result['resource_declaration_failures'] == failures\n                        del sample[family][member]['case']['envelope']['fields']\n                        result = inspect(sample)\n                        assert result[observed] == 0 and result['resource_declaration_failures'] == failures\n    return {'status': 'passed', 'cases': count, 'inspector_sha256': c.sha(INSPECTOR),\n        'verifier_sha256': c.sha(__file__), 'resource_report_contract': resource_report_self_test(),\n        'resource_report_verifier_sha256': c.sha(c.OUT / 'resource_report_evidence.py')}\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument('--attempt', type=int, required=True)\n    parser.add_argument('--packet-attempt', type=int)\n    parser.add_argument('--self-test', action='store_true')\n    args = parser.parse_args()\n    assert args.attempt > 0\n    if args.self_test:\n        result = self_test()\n        c.write(c.OUT / f'resource-inspector-contract-{args.attempt}.json', result)\n        print(json.dumps(result), flush=True)\n        return\n    packet_attempt = args.packet_attempt if args.packet_attempt is not None else args.attempt\n    assert packet_attempt > 0\n    final_path = c.OUT / f'resource-final-acceptance-{packet_attempt}.json'\n    final = c.read(final_path)\n    assert final['status'] == 'passed_local_engine'\n    packet = Path(final['packet'])\n    assert packet.stat().st_size == final['packet_compressed_bytes'] and c.sha(packet) == final['packet_sha256']\n    digest, size = hashlib.sha256(), 0\n    with subprocess.Popen(COMMAND, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:\n        with lzma.open(packet, 'rb') as stream:\n            while chunk := stream.read(1 << 20):\n                process.stdin.write(chunk)\n                digest.update(chunk)\n                size += len(chunk)\n        process.stdin.close()\n        stdout, stderr = process.stdout.read(), process.stderr.read()\n        assert process.wait() == 0, stderr.decode()\n    assert size == final['packet_uncompressed_bytes'] and digest.hexdigest() == final['packet_uncompressed_sha256']\n    observed = json.loads(stdout)\n    c.write(c.OUT / f'resource-inspection-observed-{args.attempt}.json', {\n        'packet_sha256': final['packet_sha256'], 'complete_decompression_sha256': digest.hexdigest(),\n        'complete_decompression_bytes': size, 'inspection': observed,\n        'inspector_sha256': c.sha(INSPECTOR), 'verifier_sha256': c.sha(__file__),\n    })\n    counts = {'public_cases': 32497, 'public_rows': 18595284, 'direct_cases': 202, 'direct_rows': 131734,\n        'streaming_cases': 442, 'growth_cases': 20, 'typed_cases': 87, 'batch_checks': 48, 'format_checks': 19,\n        'full43_runs': 129, 'source_checks': 16,\n        'source_fresh_checks': 16 - final['source_checks_reused_from_identical_source'],\n        'source_reused_checks': final['source_checks_reused_from_identical_source'], 'source_assets': final['source_assets'],\n        'typed_value_files': 164, 'typed_schemas': 36, 'typed_artifacts': 88, 'typed_float_files': 3, 'typed_float_values': 30,\n        'typed_protocol_traces': 16, 'typed_output_files': 177, 'typed_denials': 39,\n        'typed_timestamp_certificates': 32, 'typed_stream_certificates': 25,\n        'streaming_value_files': 365, 'streaming_protocol_traces': 10, 'streaming_pressure_files': 14,\n        'streaming_pressure_rows': 517499, 'saved_pressure_files': 14, 'saved_pressure_rows': 517499,\n        'growth_value_files': 32, 'growth_artifacts': 17, 'growth_range_values': 1000017,\n        'pressure_controls': 5, 'pressure_closed': 5, 'pressure_ended': 4, 'pressure_denied': 1,\n        'pressure_output_rows': 4608, 'unified_routes': 129, 'nested_unified_routes': 129}\n    envelopes = {'public': final['raw_public_envelopes'], 'direct': final['raw_direct_envelopes'], 'full43': 129,\n        'batches': 45, 'formats': 24, 'streaming': 420, 'growth': 69, 'input_pressure': 6, 'typed': 343}\n    resource_reports = final['resource_report_conformance']\n    assert resource_reports['status'] == 'passed' and set(resource_reports['families']) == set(FAMILIES)\n    resource_declarations = sum(value['counts']['declared_field_blocks'] for value in resource_reports['families'].values())\n    assert resource_declarations > 0\n    expected = {'schema_version': 'shardloom.required_execution_resources_acceptance.v1', 'status': 'passed_local_engine',\n        'source_identity': final['source_identity_sha256'], 'binary_sha256': final['binary_sha256'],\n        'source_commit': final['source_commit'], 'counts': counts, 'envelopes': envelopes,\n        'fallback_headers': envelopes, 'claim_boundaries': CLAIMS, 'stream_terminals': TERMINALS,\n        'full43_complete': True, 'full43_values': True, 'fresh_public': True, 'historical_union': False,\n        'public_families': ['base', 'unary', 'nested', 'pivot', 'pivot-pressure', 'typed', 'memory', 'frames', 'frames-pressure', 'scalars'],\n        'pressure_grants': {'streaming-low': 1 << 30, 'resident-low': 1 << 30, 'streaming-high': 6 << 30,\n                           'resident-high': 6 << 30, 'streaming-vortex-low': 1 << 30},\n        'invalid_checks': 0, 'invalid_envelopes': 0, 'fallback_violations': 0, 'invalid_routes': 0,\n        'resource_report_status': 'passed', 'resource_declarations': resource_declarations,\n        'resource_origins': 2 * resource_declarations, 'resource_no_rss_claims': resource_declarations,\n        'resource_declaration_failures': 0}\n    assert observed == expected, {key: {'actual': observed.get(key), 'expected': value}\n                                 for key, value in expected.items() if observed.get(key) != value}\n    assert c.sha(packet) == final['packet_sha256']\n    c.write(c.OUT / f'resource-packet-verified-{args.attempt}.json', {\n        'status': 'passed_independent_stream_inspection', 'final_acceptance_sha256': c.sha(final_path),\n        'packet_attempt': packet_attempt, 'inspection_attempt': args.attempt,\n        'packet_sha256': final['packet_sha256'], 'inspection': observed,\n        'inspector_sha256': c.sha(INSPECTOR), 'verifier_sha256': c.sha(__file__),\n        'scope': 'Complete decompression hash, structural coverage, every saved stream-pressure row, claim boundaries, and all retained raw no-fallback reports. The frozen finalizer separately reconstructs and reopens complete values. No native query execution.'})\n    print(json.dumps({'status': 'passed', 'inspection': observed}), flush=True)\n\n\nif __name__ == '__main__':\n    main()\n"
+    },
+    "resource-inspector-contract-4.json": {
+      "original_sha256": "b49943292c317600e8278bff89184cf935641b1c5501e46d0151562c0ab59143",
+      "original_bytes": 403,
+      "value": {
+        "status": "passed",
+        "cases": 1379,
+        "inspector_sha256": "e74636756f6379ead5c34f13ad69febf25d8c492a6853e13df50210e9b26f178",
+        "verifier_sha256": "1b49181aae92efae2f8454744005ea1451db8e348d409acef6de636b3d001e60",
+        "resource_report_contract": {
+          "status": "passed",
+          "cases": 52
+        },
+        "resource_report_verifier_sha256": "ec4eed705e225abf4ea13081b4fa93b88e6b5bb3082ab5e8a7be64108aa4c4cd"
+      }
+    },
+    "resource-inspector-review-1.json": {
+      "original_sha256": "33da7aa45f179e272f8cfbf14de3b552a40fabeea8ef6e4c128d73e4537254a3",
+      "original_bytes": 1719,
+      "value": {
+        "status": "failed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "verify_resource_packet_review.py",
+          "--attempt",
+          "4",
+          "--self-test"
+        ],
+        "cwd": "<repo>",
+        "head": "868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2710904832,
+            "log_bytes": 0,
+            "free_bytes": 40207429632,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 39386918912,
+            "log_bytes": 0,
+            "free_bytes": 40207429632,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 180.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 70691,
+        "output_bytes": 252,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 2,
+        "seconds": 0.02869679100695066,
+        "log_sha256": "99b5ecf7bfb907c2f498f589a5196d805e5c8b4e175eedf979b98972a2bbf63e"
+      }
+    },
+    "resource-inspector-review-1.log": {
+      "original_sha256": "99b5ecf7bfb907c2f498f589a5196d805e5c8b4e175eedf979b98972a2bbf63e",
+      "original_bytes": 252,
+      "value": "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3: can't open file '<repo>/verify_resource_packet_review.py': [Errno 2] No such file or directory\n"
+    },
+    "resource-inspector-review-2.json": {
+      "original_sha256": "55b37aec57878babc03bcba9905fcfada783697ea4a377201d47389910329612",
+      "original_bytes": 1788,
+      "value": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<resource-uat>/verify_resource_packet_review.py",
+          "--attempt",
+          "4",
+          "--self-test"
+        ],
+        "cwd": "<repo>",
+        "head": "868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2710913024,
+            "log_bytes": 0,
+            "free_bytes": 40207560704,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 39386918912,
+            "log_bytes": 0,
+            "free_bytes": 40207552512,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 180.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 70703,
+        "output_bytes": 377,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 5.989342832996044,
+        "log_sha256": "c06022106123639080222d035bcaf5989d75048c2d04c8255fbd0607302105db"
+      }
+    },
+    "resource-inspector-review-2.log": {
+      "original_sha256": "c06022106123639080222d035bcaf5989d75048c2d04c8255fbd0607302105db",
+      "original_bytes": 377,
+      "value": "{\"status\": \"passed\", \"cases\": 1379, \"inspector_sha256\": \"e74636756f6379ead5c34f13ad69febf25d8c492a6853e13df50210e9b26f178\", \"verifier_sha256\": \"1b49181aae92efae2f8454744005ea1451db8e348d409acef6de636b3d001e60\", \"resource_report_contract\": {\"status\": \"passed\", \"cases\": 52}, \"resource_report_verifier_sha256\": \"ec4eed705e225abf4ea13081b4fa93b88e6b5bb3082ab5e8a7be64108aa4c4cd\"}\n"
+    },
+    "resource-inspection-observed-3.json": {
+      "original_sha256": "b49902c60097e653e251dc5a80a8f5781effb82aa88c6ff7c46e523a5f8e265b",
+      "original_bytes": 4101,
+      "value": {
+        "packet_sha256": "f40cb7c3442242f1783a0e98f2963151880ab321e7a795f1c7ebe70133f2f389",
+        "complete_decompression_sha256": "19592adc6aa6c441b22d06ca748508c5b60849e6d1401ef7b880369940000b42",
+        "complete_decompression_bytes": 5018635157,
+        "inspection": {
+          "schema_version": "shardloom.required_execution_resources_acceptance.v1",
+          "status": "passed_local_engine",
+          "source_identity": "33757c73b634e1f2292f9ff5030f8c07d29ff49e7fea32f4f1ece26be5d1dd38",
+          "binary_sha256": "c414cd924cb5345d52ccc2b1f153eaa858e82ab77d93d39a3afaac23f30d96dd",
+          "source_commit": "868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97",
+          "counts": {
+            "public_cases": 32497,
+            "public_rows": 18595284,
+            "direct_cases": 202,
+            "direct_rows": 131734,
+            "streaming_cases": 442,
+            "growth_cases": 20,
+            "typed_cases": 87,
+            "batch_checks": 48,
+            "format_checks": 19,
+            "full43_runs": 129,
+            "source_checks": 16,
+            "source_fresh_checks": 16,
+            "source_reused_checks": 0,
+            "source_assets": 1037,
+            "typed_value_files": 164,
+            "typed_schemas": 36,
+            "typed_artifacts": 88,
+            "typed_float_files": 3,
+            "typed_float_values": 30,
+            "typed_protocol_traces": 16,
+            "typed_output_files": 177,
+            "typed_denials": 39,
+            "typed_timestamp_certificates": 32,
+            "typed_stream_certificates": 25,
+            "streaming_value_files": 365,
+            "streaming_protocol_traces": 10,
+            "streaming_pressure_files": 14,
+            "streaming_pressure_rows": 517499,
+            "saved_pressure_files": 14,
+            "saved_pressure_rows": 517499,
+            "growth_value_files": 32,
+            "growth_artifacts": 17,
+            "growth_range_values": 1000017,
+            "pressure_controls": 5,
+            "pressure_closed": 5,
+            "pressure_ended": 4,
+            "pressure_denied": 1,
+            "pressure_output_rows": 4608,
+            "unified_routes": 129,
+            "nested_unified_routes": 129
+          },
+          "envelopes": {
+            "public": 64741,
+            "direct": 367,
+            "full43": 129,
+            "batches": 45,
+            "formats": 24,
+            "streaming": 420,
+            "growth": 69,
+            "input_pressure": 6,
+            "typed": 343
+          },
+          "fallback_headers": {
+            "public": 64741,
+            "direct": 367,
+            "full43": 129,
+            "batches": 45,
+            "formats": 24,
+            "streaming": 420,
+            "growth": 69,
+            "input_pressure": 6,
+            "typed": 343
+          },
+          "claim_boundaries": {
+            "source_tree_clean": true,
+            "fallback_attempted": false,
+            "external_engine_invoked": false,
+            "comparative_performance_claim": false,
+            "total_process_rss_bound_claim": false,
+            "all_provider_allocations_accounted": false,
+            "execution_resume_claim": false,
+            "one_shot_dynamic_pivot_input_admitted": false,
+            "compatibility_stream_terminals_admitted": false,
+            "multiple_batch_producers_admitted": false,
+            "package_publication_performed": false,
+            "version_bump_performed": false,
+            "hosted_acceptance_complete": false
+          },
+          "stream_terminals": [
+            "complete_small_collect",
+            "complete_batch_iteration",
+            "new_vortex_destination"
+          ],
+          "full43_complete": true,
+          "full43_values": true,
+          "fresh_public": true,
+          "historical_union": false,
+          "public_families": [
+            "base",
+            "unary",
+            "nested",
+            "pivot",
+            "pivot-pressure",
+            "typed",
+            "memory",
+            "frames",
+            "frames-pressure",
+            "scalars"
+          ],
+          "pressure_grants": {
+            "streaming-low": 1073741824,
+            "resident-low": 1073741824,
+            "streaming-high": 6442450944,
+            "resident-high": 6442450944,
+            "streaming-vortex-low": 1073741824
+          },
+          "invalid_checks": 0,
+          "invalid_envelopes": 0,
+          "fallback_violations": 0,
+          "invalid_routes": 0,
+          "resource_report_status": "passed",
+          "resource_declarations": 66055,
+          "resource_origins": 132110,
+          "resource_no_rss_claims": 66055,
+          "resource_declaration_failures": 0
+        },
+        "inspector_sha256": "e74636756f6379ead5c34f13ad69febf25d8c492a6853e13df50210e9b26f178",
+        "verifier_sha256": "1b49181aae92efae2f8454744005ea1451db8e348d409acef6de636b3d001e60"
+      }
+    },
+    "resource-independent-3.json": {
+      "original_sha256": "e734acb3ba7cccaf3e481ed45dc01fa399124c52d54a32fc888cad33968c75b3",
+      "original_bytes": 1805,
+      "value": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<resource-uat>/verify_resource_packet_review.py",
+          "--attempt",
+          "3",
+          "--packet-attempt",
+          "2"
+        ],
+        "cwd": "<repo>",
+        "head": "868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2709397504,
+            "log_bytes": 0,
+            "free_bytes": 40157757440,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 39417810944,
+            "log_bytes": 0,
+            "free_bytes": 40157757440,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 2400.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 72893,
+        "output_bytes": 3022,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 1506.3324253750034,
+        "log_sha256": "03e7acae9b2cba7b48f09d834bb812d14db6e019ed2cc2fcd2623cab1ced0539"
+      }
+    },
+    "resource-independent-3.log": {
+      "original_sha256": "03e7acae9b2cba7b48f09d834bb812d14db6e019ed2cc2fcd2623cab1ced0539",
+      "original_bytes": 3022,
+      "value": "{\"status\": \"passed\", \"inspection\": {\"schema_version\": \"shardloom.required_execution_resources_acceptance.v1\", \"status\": \"passed_local_engine\", \"source_identity\": \"33757c73b634e1f2292f9ff5030f8c07d29ff49e7fea32f4f1ece26be5d1dd38\", \"binary_sha256\": \"c414cd924cb5345d52ccc2b1f153eaa858e82ab77d93d39a3afaac23f30d96dd\", \"source_commit\": \"868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97\", \"counts\": {\"public_cases\": 32497, \"public_rows\": 18595284, \"direct_cases\": 202, \"direct_rows\": 131734, \"streaming_cases\": 442, \"growth_cases\": 20, \"typed_cases\": 87, \"batch_checks\": 48, \"format_checks\": 19, \"full43_runs\": 129, \"source_checks\": 16, \"source_fresh_checks\": 16, \"source_reused_checks\": 0, \"source_assets\": 1037, \"typed_value_files\": 164, \"typed_schemas\": 36, \"typed_artifacts\": 88, \"typed_float_files\": 3, \"typed_float_values\": 30, \"typed_protocol_traces\": 16, \"typed_output_files\": 177, \"typed_denials\": 39, \"typed_timestamp_certificates\": 32, \"typed_stream_certificates\": 25, \"streaming_value_files\": 365, \"streaming_protocol_traces\": 10, \"streaming_pressure_files\": 14, \"streaming_pressure_rows\": 517499, \"saved_pressure_files\": 14, \"saved_pressure_rows\": 517499, \"growth_value_files\": 32, \"growth_artifacts\": 17, \"growth_range_values\": 1000017, \"pressure_controls\": 5, \"pressure_closed\": 5, \"pressure_ended\": 4, \"pressure_denied\": 1, \"pressure_output_rows\": 4608, \"unified_routes\": 129, \"nested_unified_routes\": 129}, \"envelopes\": {\"public\": 64741, \"direct\": 367, \"full43\": 129, \"batches\": 45, \"formats\": 24, \"streaming\": 420, \"growth\": 69, \"input_pressure\": 6, \"typed\": 343}, \"fallback_headers\": {\"public\": 64741, \"direct\": 367, \"full43\": 129, \"batches\": 45, \"formats\": 24, \"streaming\": 420, \"growth\": 69, \"input_pressure\": 6, \"typed\": 343}, \"claim_boundaries\": {\"source_tree_clean\": true, \"fallback_attempted\": false, \"external_engine_invoked\": false, \"comparative_performance_claim\": false, \"total_process_rss_bound_claim\": false, \"all_provider_allocations_accounted\": false, \"execution_resume_claim\": false, \"one_shot_dynamic_pivot_input_admitted\": false, \"compatibility_stream_terminals_admitted\": false, \"multiple_batch_producers_admitted\": false, \"package_publication_performed\": false, \"version_bump_performed\": false, \"hosted_acceptance_complete\": false}, \"stream_terminals\": [\"complete_small_collect\", \"complete_batch_iteration\", \"new_vortex_destination\"], \"full43_complete\": true, \"full43_values\": true, \"fresh_public\": true, \"historical_union\": false, \"public_families\": [\"base\", \"unary\", \"nested\", \"pivot\", \"pivot-pressure\", \"typed\", \"memory\", \"frames\", \"frames-pressure\", \"scalars\"], \"pressure_grants\": {\"streaming-low\": 1073741824, \"resident-low\": 1073741824, \"streaming-high\": 6442450944, \"resident-high\": 6442450944, \"streaming-vortex-low\": 1073741824}, \"invalid_checks\": 0, \"invalid_envelopes\": 0, \"fallback_violations\": 0, \"invalid_routes\": 0, \"resource_report_status\": \"passed\", \"resource_declarations\": 66055, \"resource_origins\": 132110, \"resource_no_rss_claims\": 66055, \"resource_declaration_failures\": 0}}\n"
+    },
+    "resource-packet-verified-3.json": {
+      "original_sha256": "083e4efc4cd092cdce218a29657e4c78b23a20f1f9bd2b55c4392f9b4ae78754",
+      "original_bytes": 4409,
+      "value": {
+        "status": "passed_independent_stream_inspection",
+        "final_acceptance_sha256": "028f7168d511895b1c09d90dea6a38bfc73f7f0dfb9f164ae6eac08d6f9a2eb2",
+        "packet_attempt": 2,
+        "inspection_attempt": 3,
+        "packet_sha256": "f40cb7c3442242f1783a0e98f2963151880ab321e7a795f1c7ebe70133f2f389",
+        "inspection": {
+          "schema_version": "shardloom.required_execution_resources_acceptance.v1",
+          "status": "passed_local_engine",
+          "source_identity": "33757c73b634e1f2292f9ff5030f8c07d29ff49e7fea32f4f1ece26be5d1dd38",
+          "binary_sha256": "c414cd924cb5345d52ccc2b1f153eaa858e82ab77d93d39a3afaac23f30d96dd",
+          "source_commit": "868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97",
+          "counts": {
+            "public_cases": 32497,
+            "public_rows": 18595284,
+            "direct_cases": 202,
+            "direct_rows": 131734,
+            "streaming_cases": 442,
+            "growth_cases": 20,
+            "typed_cases": 87,
+            "batch_checks": 48,
+            "format_checks": 19,
+            "full43_runs": 129,
+            "source_checks": 16,
+            "source_fresh_checks": 16,
+            "source_reused_checks": 0,
+            "source_assets": 1037,
+            "typed_value_files": 164,
+            "typed_schemas": 36,
+            "typed_artifacts": 88,
+            "typed_float_files": 3,
+            "typed_float_values": 30,
+            "typed_protocol_traces": 16,
+            "typed_output_files": 177,
+            "typed_denials": 39,
+            "typed_timestamp_certificates": 32,
+            "typed_stream_certificates": 25,
+            "streaming_value_files": 365,
+            "streaming_protocol_traces": 10,
+            "streaming_pressure_files": 14,
+            "streaming_pressure_rows": 517499,
+            "saved_pressure_files": 14,
+            "saved_pressure_rows": 517499,
+            "growth_value_files": 32,
+            "growth_artifacts": 17,
+            "growth_range_values": 1000017,
+            "pressure_controls": 5,
+            "pressure_closed": 5,
+            "pressure_ended": 4,
+            "pressure_denied": 1,
+            "pressure_output_rows": 4608,
+            "unified_routes": 129,
+            "nested_unified_routes": 129
+          },
+          "envelopes": {
+            "public": 64741,
+            "direct": 367,
+            "full43": 129,
+            "batches": 45,
+            "formats": 24,
+            "streaming": 420,
+            "growth": 69,
+            "input_pressure": 6,
+            "typed": 343
+          },
+          "fallback_headers": {
+            "public": 64741,
+            "direct": 367,
+            "full43": 129,
+            "batches": 45,
+            "formats": 24,
+            "streaming": 420,
+            "growth": 69,
+            "input_pressure": 6,
+            "typed": 343
+          },
+          "claim_boundaries": {
+            "source_tree_clean": true,
+            "fallback_attempted": false,
+            "external_engine_invoked": false,
+            "comparative_performance_claim": false,
+            "total_process_rss_bound_claim": false,
+            "all_provider_allocations_accounted": false,
+            "execution_resume_claim": false,
+            "one_shot_dynamic_pivot_input_admitted": false,
+            "compatibility_stream_terminals_admitted": false,
+            "multiple_batch_producers_admitted": false,
+            "package_publication_performed": false,
+            "version_bump_performed": false,
+            "hosted_acceptance_complete": false
+          },
+          "stream_terminals": [
+            "complete_small_collect",
+            "complete_batch_iteration",
+            "new_vortex_destination"
+          ],
+          "full43_complete": true,
+          "full43_values": true,
+          "fresh_public": true,
+          "historical_union": false,
+          "public_families": [
+            "base",
+            "unary",
+            "nested",
+            "pivot",
+            "pivot-pressure",
+            "typed",
+            "memory",
+            "frames",
+            "frames-pressure",
+            "scalars"
+          ],
+          "pressure_grants": {
+            "streaming-low": 1073741824,
+            "resident-low": 1073741824,
+            "streaming-high": 6442450944,
+            "resident-high": 6442450944,
+            "streaming-vortex-low": 1073741824
+          },
+          "invalid_checks": 0,
+          "invalid_envelopes": 0,
+          "fallback_violations": 0,
+          "invalid_routes": 0,
+          "resource_report_status": "passed",
+          "resource_declarations": 66055,
+          "resource_origins": 132110,
+          "resource_no_rss_claims": 66055,
+          "resource_declaration_failures": 0
+        },
+        "inspector_sha256": "e74636756f6379ead5c34f13ad69febf25d8c492a6853e13df50210e9b26f178",
+        "verifier_sha256": "1b49181aae92efae2f8454744005ea1451db8e348d409acef6de636b3d001e60",
+        "scope": "Complete decompression hash, structural coverage, every saved stream-pressure row, claim boundaries, and all retained raw no-fallback reports. The frozen finalizer separately reconstructs and reopens complete values. No native query execution."
+      }
+    }
+  }
+}

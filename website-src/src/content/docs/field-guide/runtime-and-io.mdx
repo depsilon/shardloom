@@ -253,6 +253,7 @@ Native file operations drain admitted I/O and reader ownership before completion
 aggregates avoid payload and worker admission, including when no spare payload credit is available.
 
 Current source builds require explicit memory and parallelism limits before every execution, data inspection, and preparation through Rust, the CLI, or Python. In Python, configure `memory_gb` (GiB) and `max_parallelism` on a context/session or terminal call; lazy declarations and inert discovery need no allocation. This contract supersedes the numeric defaults in the unchanged v0.5.1 packages. The [required-resource contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/required-execution-resources-2026-10-10.md) defines exact bytes, inheritance, authorization ceilings and reports that separate declared allocation from admitted resources and observed use.
+The [complete local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/required-execution-resources-2026-10-10.md) checks rejection before input demand, shared ownership, complete workflows and every retained resource report. Unmeasured usage remains unavailable; a declared budget is neither a measured peak nor a whole-process memory limit.
 The runtime selects concurrency within the supplied maximum and the CPU capacity available
 to the process; an explicit one-CPU allocation stays one. Streaming ingestion shares this
 grant across ready source, conversion, statistics, and writer tasks. Full bounded queues

@@ -359,6 +359,119 @@ class RequiredResourceBoundaryTests(unittest.TestCase):
         self.assertEqual(session.resources.max_parallelism, 3)
         self.assertIsNone(client.resources)
 
+    def test_direct_context_calls_inherit_override_and_validate_before_dispatch(self):
+        client = RecordingClient()
+        ctx = sl.context(client=client, memory_bytes=1500000001, max_parallelism=3)
+        operations = (
+            lambda **kwargs: ctx.run("sql", sql_statement="SELECT 1", **kwargs),
+            lambda **kwargs: ctx.prepare("python", input_uri="never-open.csv",
+                                         output_ref="never-create.vortex", **kwargs),
+            lambda **kwargs: ctx.route("sql", sql_statement="SELECT 1", **kwargs),
+        )
+        for operation in operations:
+            with self.assertRaises(Dispatched):
+                operation()
+            self.assert_allocation(client.calls[-1], 1500000001, 3)
+            with self.assertRaises(Dispatched):
+                operation(max_parallelism=2)
+            self.assert_allocation(client.calls[-1], 1500000001, 2,
+                                   parallelism_origin="execution_call")
+            before = len(client.calls)
+            with self.assertRaises(sl.ShardLoomResourceConfigurationError):
+                operation(memory_bytes=False)
+            self.assertEqual(len(client.calls), before)
+        self.assertEqual(ctx.resources.memory_bytes, 1500000001)
+        self.assertEqual(ctx.resources.max_parallelism, 3)
+        self.assertIsNone(client.resources)
+
+    def test_ceiling_only_client_context_and_session_keep_lazy_grants_unset(self):
+        limits = sl.ExecutionResourceLimits(memory_bytes=1024, max_parallelism=2)
+        client = RecordingClient(resource_limits=limits)
+        owners = (
+            sl.context(client=client), sl.session(client=client),
+            sl.context(resource_limits=limits), sl.session(resource_limits=limits),
+            sl.ShardLoomContext.from_env(env={}, resource_limits=limits),
+            sl.ShardLoomContext.from_repo("never-open", resource_limits=limits),
+        )
+        for owner in owners:
+            self.assertIsNone(owner.resources)
+            self.assertEqual(owner.resource_limits, limits)
+        self.assertIsNone(client.resources)
+        self.assertEqual(client.resource_limits, limits)
+        self.assertEqual(client.calls, [])
+        for options in ({}, {"memory_bytes": 1025, "max_parallelism": 1},
+                        {"resources": sl.ExecutionResources(512, 3)}):
+            with self.assertRaises(sl.ShardLoomResourceConfigurationError):
+                client.public_workflow_run("sql", sql_statement="SELECT 1", **options)
+        with self.assertRaises(Dispatched):
+            client.public_workflow_run("sql", sql_statement="SELECT 1",
+                                       memory_bytes=1024, max_parallelism=2)
+        self.assert_allocation(client.calls[-1], 1024, 2, "execution_call", "execution_call")
+        self.assertIn("--memory-limit-bytes", client.calls[-1])
+        self.assertIn("--parallelism-limit", client.calls[-1])
+
+    def test_context_only_ceilings_survive_descendants_without_mutating_shared_client(self):
+        client = RecordingClient()
+        limits = sl.ExecutionResourceLimits(memory_bytes=2048, max_parallelism=2)
+        ctx = sl.context(client=client, resource_limits=limits)
+        session = ctx.session(resource_limits=sl.ExecutionResourceLimits(4096, 1))
+        self.assertEqual(session.resource_limits, sl.ExecutionResourceLimits(2048, 1))
+        frames = (
+            ctx.read_vortex("never-open.vortex").filter("n > 0").select("n").limit(1),
+            ctx.range(0, 3).with_column("other", sl.col("value") + 1),
+            ctx.sql("SELECT n FROM 'never-open.vortex'").select("n").limit(1),
+            session.read_vortex("never-open.vortex").select("n"),
+            session.sql("SELECT n FROM 'never-open.vortex'").select("n"),
+            sl.read_vortex("never-open.vortex", client=client, resource_limits=limits).limit(1),
+        )
+        for frame in frames:
+            with self.subTest(frame=type(frame).__name__):
+                for options in ({}, {"memory_bytes": 2049, "max_parallelism": 1},
+                                {"resources": sl.ExecutionResources(2049, 1)}):
+                    with self.assertRaises(sl.ShardLoomResourceConfigurationError):
+                        frame.collect(**options)
+                with self.assertRaises(Dispatched):
+                    frame.collect(memory_bytes=2048, max_parallelism=1)
+                self.assert_allocation(client.calls[-1], 2048, 1, "execution_call", "execution_call")
+                self.assertIn("--memory-limit-bytes", client.calls[-1])
+        self.assertIsNone(client.resources)
+        self.assertIsNone(client.resource_limits)
+        self.assertIsNone(ctx.resources)
+        self.assertIsNone(session.resources)
+
+    def test_ceiling_only_input_and_writers_refuse_before_access_or_creation(self):
+        client = RecordingClient()
+        ctx = sl.context(client=client, resource_limits=sl.ExecutionResourceLimits(1024, 1))
+        rows = UnopenedRows()
+        columnar = UnopenedColumnar()
+        for call in (
+            lambda: ctx.from_rows(rows, memory_bytes=1025, max_parallelism=1),
+            lambda: ctx.from_arrow_table(columnar, memory_bytes=1025, max_parallelism=1),
+            lambda: ctx.from_pandas(columnar, memory_bytes=1025, max_parallelism=1),
+        ):
+            with self.assertRaises(sl.ShardLoomResourceConfigurationError):
+                call()
+        demanded = []
+        def batches():
+            demanded.append(True)
+            yield [{"n": 1}]
+        frame = ctx.from_batches(batches, schema={"n": "int64"}).select("n")
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "never-create.vortex"
+            for call in (
+                lambda: frame.iter_batches(memory_bytes=1025, max_parallelism=1),
+                lambda: frame.write_vortex(target, memory_bytes=1025, max_parallelism=1),
+                lambda: ctx.prepare("python", input_uri="never-open.csv", output_ref=target,
+                                    memory_bytes=1025, max_parallelism=1),
+            ):
+                with self.assertRaises(sl.ShardLoomResourceConfigurationError):
+                    call()
+            self.assertEqual(list(Path(directory).iterdir()), [])
+        self.assertEqual(rows.accesses, 0)
+        self.assertEqual(columnar.accesses, 0)
+        self.assertEqual(demanded, [])
+        self.assertEqual(client.calls, [])
+
 
 if __name__ == "__main__":
     unittest.main()

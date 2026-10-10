@@ -42,6 +42,7 @@ from .client import (
 from .models import Diagnostic, OutputEnvelope
 from .execution_resources import (
     ExecutionResourceLimits, ExecutionResources, optional_resources, resolve_resources,
+    merge_resource_limits,
 )
 from .query import (
     LazyFrame,
@@ -5170,8 +5171,8 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "Context construction and environment/repo binding",
         "high_level_context",
         "side_effect_free_constructor",
-        context_methods=("from_env", "from_repo", "resources"),
-        client_methods=("from_env", "from_repo", "resources"),
+        context_methods=("from_env", "from_repo", "resources", "resource_limits"),
+        client_methods=("from_env", "from_repo", "resources", "resource_limits"),
         runtime_route="constructor_only_no_runtime_execution",
         promotion_criteria="constructs a high-level context without probing data, catalogs, or engines",
         evidence_refs=("context_constructor_no_side_effect_docstrings", "python_import_smoke"),
@@ -10099,10 +10100,14 @@ class ShardLoomContext:
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
     ) -> None:
+        limits = merge_resource_limits(resource_limits, getattr(client, "resource_limits", None))
         self._resources = optional_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, inherited=getattr(client, "resources", None),
-            limits=resource_limits, origin="context",
+            limits=limits, origin="context",
+        )
+        self._resource_limits = merge_resource_limits(
+            limits, self._resources.limits if self._resources is not None else None,
         )
         self.client = client if client is not None else ShardLoomClient.from_env()
         self.engine = _normalize_engine_mode(engine)
@@ -10112,6 +10117,12 @@ class ShardLoomContext:
         """Return the allocation inherited by work created from this context."""
 
         return self._resources
+
+    @property
+    def resource_limits(self) -> ExecutionResourceLimits | None:
+        """Return the ceilings inherited by work, with or without a job grant."""
+
+        return self._resource_limits
 
     @classmethod
     def from_env(
@@ -10211,10 +10222,18 @@ class ShardLoomContext:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> PublicWorkflowRoute:
         """Return the shared public route envelope before execution."""
 
+        allocation = optional_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
         return self.client.public_workflow_route(
             surface,
             input_uri=input_uri,
@@ -10227,6 +10246,7 @@ class ShardLoomContext:
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=bounded,
+            resources=allocation,
             check=check,
         )
 
@@ -10244,10 +10264,18 @@ class ShardLoomContext:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Run an admitted public workflow through the shared route facade."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
         return self.client.public_workflow_run(
             surface,
             input_uri=input_uri,
@@ -10260,6 +10288,7 @@ class ShardLoomContext:
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=bounded,
+            resources=allocation,
             check=check,
         )
 
@@ -10272,10 +10301,18 @@ class ShardLoomContext:
         input_format: str | None = None,
         plan_summary: str | None = None,
         evidence_level: str = "runtime_smoke",
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Prepare an admitted public workflow input through the shared route facade."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
         return self.client.public_workflow_prepare(
             surface,
             input_uri=input_uri,
@@ -10283,6 +10320,7 @@ class ShardLoomContext:
             output_ref=output_ref,
             plan_summary=plan_summary,
             evidence_level=evidence_level,
+            resources=allocation,
             check=check,
         )
 
@@ -10350,7 +10388,7 @@ class ShardLoomContext:
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.udf_local_scalar_fixture_smoke(values, resources=allocation, check=check)
@@ -10370,7 +10408,7 @@ class ShardLoomContext:
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.embedding_vector_local_fixture_smoke(
@@ -10664,7 +10702,7 @@ class ShardLoomContext:
             input=input,
             input_format=input_format,
             client=self.client,
-            resources=self.resources,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
     def sequence(
@@ -10683,7 +10721,7 @@ class ShardLoomContext:
             step=step,
             column=column,
             client=self.client,
-            resources=self.resources,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
     def sql_values(
@@ -10695,7 +10733,7 @@ class ShardLoomContext:
         return generated_sql_values(
             values_clause,
             client=self.client,
-            resources=self.resources,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
     def sql_literal_select(
@@ -10707,7 +10745,7 @@ class ShardLoomContext:
         return generated_sql_literal_select(
             expression,
             client=self.client,
-            resources=self.resources,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
     def dataframe_source_free_projection(
@@ -10722,7 +10760,7 @@ class ShardLoomContext:
         """Create a scoped source-free literal projection for local output runtime."""
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         _ = check
@@ -10752,7 +10790,7 @@ class ShardLoomContext:
         """
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         _ = check
@@ -10798,7 +10836,7 @@ class ShardLoomContext:
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
         normalized_format = _normalize_generated_object_store_output_format(output_format)
         staging_ref = (
@@ -10889,7 +10927,7 @@ class ShardLoomContext:
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
         normalized_format = _normalize_generated_object_store_output_format(output_format)
         partition_segments = _normalize_generated_output_partition_segments(partition_values)
@@ -10959,7 +10997,7 @@ class ShardLoomContext:
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
         result_dataset = Path(result_ref)
         evidence_dataset = (
@@ -11115,7 +11153,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.live_fixture_run(operator, argument, resources=allocation, check=check)
@@ -11138,7 +11176,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.hybrid_overlay_run(operator, argument, resources=allocation, check=check)
@@ -11159,7 +11197,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.live_hybrid_state_transition_smoke(resources=allocation, check=check)
@@ -11181,7 +11219,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.live_hybrid_durable_checkpoint_smoke(
@@ -11208,7 +11246,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.distributed_local_fixture_run(
@@ -11226,7 +11264,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy native Vortex source using this context's client."""
 
-        return read_vortex(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources)
+        return read_vortex(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
     def read(
         self,
@@ -11236,7 +11274,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy local source by inferring the adapter from the path extension."""
 
-        return read_source(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources)
+        return read_source(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
     def read_csv(
         self,
@@ -11246,7 +11284,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy CSV compatibility source using this context's client."""
 
-        return read_csv(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources)
+        return read_csv(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
     def read_json(
         self,
@@ -11256,7 +11294,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy JSON/NDJSON compatibility source using this context's client."""
 
-        return read_json(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources)
+        return read_json(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
     def read_parquet(
         self,
@@ -11266,7 +11304,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy Parquet compatibility source using this context's client."""
 
-        return read_parquet(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources)
+        return read_parquet(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
     def read_arrow_ipc(
         self,
@@ -11276,7 +11314,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy Arrow IPC compatibility source using this context's client."""
 
-        return read_arrow_ipc(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources)
+        return read_arrow_ipc(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
     def read_avro(
         self,
@@ -11286,7 +11324,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy Avro compatibility source using this context's client."""
 
-        return read_avro(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources)
+        return read_avro(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
     def read_orc(
         self,
@@ -11296,7 +11334,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy ORC compatibility source using this context's client."""
 
-        return read_orc(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources)
+        return read_orc(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
     def prepare_vortex(
         self,
@@ -11316,7 +11354,7 @@ class ShardLoomContext:
 
         resources = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
         if target_vortex_path is None:
             raise ValueError("prepare_vortex requires target_vortex_path")
@@ -11351,7 +11389,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.object_store_read_smoke(
@@ -11382,7 +11420,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.object_store_partition_discovery_smoke(
@@ -11414,7 +11452,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.object_store_write_smoke(
@@ -11446,7 +11484,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.object_store_write_recovery_smoke(
@@ -11472,7 +11510,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.local_table_metadata_read_smoke(resources=allocation, check=check)
@@ -11497,7 +11535,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.local_table_append_commit_rehearsal_smoke(
@@ -11528,7 +11566,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.local_table_commit_recovery_smoke(
@@ -11560,7 +11598,7 @@ class ShardLoomContext:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return self.client.sqlite_local_import_export_smoke(
@@ -11587,13 +11625,14 @@ class ShardLoomContext:
         allocation = optional_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes,
             max_parallelism=max_parallelism, resources=resources,
-            inherited=self.resources, limits=resource_limits, origin="session",
+            inherited=self.resources, limits=merge_resource_limits(self.resource_limits, resource_limits), origin="session",
         )
         return ShardLoomSession(
             self.client,
             engine=self.engine,
             session_id=session_id,
             resources=allocation,
+            resource_limits=merge_resource_limits(self.resource_limits, resource_limits),
         )
 
     def from_rows(
@@ -11606,7 +11645,7 @@ class ShardLoomContext:
         """Declare native rows; use an explicit schema for rich types or empty columns."""
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         return from_rows(rows, schema=schema, client=self.client, resources=allocation)
@@ -11615,7 +11654,7 @@ class ShardLoomContext:
         self, batches: object, *, schema: Mapping[str, object], streaming: bool = False,
     ) -> LazyFrame:
         """Declare resident or explicit streaming input without consuming it."""
-        return from_batches(batches, schema=schema, streaming=streaming, client=self.client, resources=self.resources)
+        return from_batches(batches, schema=schema, streaming=streaming, client=self.client, resources=self.resources, resource_limits=self.resource_limits)
 
     def literal_table(
         self, rows: Sequence[Mapping[str, object]], *, schema: Mapping[str, object] | None = None,
@@ -11627,7 +11666,7 @@ class ShardLoomContext:
         """Declare a literal table through this context's native engine."""
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         return generated_literal_table(rows, schema=schema, client=self.client, resources=allocation)
@@ -11648,7 +11687,7 @@ class ShardLoomContext:
             step=step,
             column=column,
             client=self.client,
-            resources=self.resources,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
     def calendar(
@@ -11666,7 +11705,7 @@ class ShardLoomContext:
         """Create a scoped source-free calendar/date dimension using this context's client."""
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         return generated_calendar(
@@ -11692,7 +11731,7 @@ class ShardLoomContext:
         """Normalize a bounded pandas input into native scalar rows."""
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         return from_pandas(
@@ -11718,7 +11757,7 @@ class ShardLoomContext:
         """Normalize a bounded Arrow input into native scalar rows."""
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         return from_arrow_table(
@@ -11744,7 +11783,7 @@ class ShardLoomContext:
         """Normalize bounded Arrow IPC input into native scalar rows."""
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         return from_arrow_ipc(
@@ -11774,7 +11813,7 @@ class ShardLoomContext:
             source=WorkflowSource("sql", "sql:statement"),
             client=self.client,
             engine_mode=self.engine,
-            resources=self.resources,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
         envelope = self.client.workflow_unsupported_plan(
             operation,
@@ -11800,7 +11839,7 @@ class ShardLoomContext:
             source=WorkflowSource("generated_source", f"source_free:{source_free_case}"),
             client=self.client,
             engine_mode=self.engine,
-            resources=self.resources,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
         envelope = self.client.workflow_unsupported_plan(
             operation,
@@ -11841,7 +11880,7 @@ def context(
     resources = optional_resources(
         memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
         resources=resources, inherited=getattr(client, "resources", None),
-        limits=resource_limits, origin="context",
+        limits=merge_resource_limits(resource_limits, getattr(client, "resource_limits", None)), origin="context",
     )
     if client is not None:
         if any(
@@ -11849,7 +11888,7 @@ def context(
             for value in (binary, env, cwd, repo_root, profile_order, timeout)
         ):
             raise ValueError("client cannot be combined with client configuration arguments")
-        return ShardLoomContext(client, engine=engine, resources=resources)
+        return ShardLoomContext(client, engine=engine, resources=resources, resource_limits=resource_limits)
     if repo_root is not None:
         return ShardLoomContext.from_repo(
             repo_root,
@@ -11860,6 +11899,7 @@ def context(
             timeout=timeout,
             engine=engine,
             resources=resources,
+            resource_limits=resource_limits,
         )
     return ShardLoomContext.from_env(
         env=env,
@@ -11869,6 +11909,7 @@ def context(
         timeout=timeout,
         engine=engine,
         resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -11898,7 +11939,7 @@ def session(
     resources = optional_resources(
         memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
         resources=resources, inherited=getattr(client, "resources", None),
-        limits=resource_limits, origin="session",
+        limits=merge_resource_limits(resource_limits, getattr(client, "resource_limits", None)), origin="session",
     )
     return context(
         client=client,
@@ -11910,6 +11951,7 @@ def session(
         profile_order=profile_order,
         timeout=timeout,
         resources=resources,
+        resource_limits=resource_limits,
     ).session(session_id=session_id)
 
 

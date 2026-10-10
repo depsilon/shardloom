@@ -17,6 +17,7 @@ from .client import (
 from .models import RuntimeEnvelopeValidationReport
 from .execution_resources import (
     ExecutionResourceLimits, ExecutionResources, optional_resources, resolve_resources,
+    merge_resource_limits,
 )
 from .query import (
     GroupedLazyFrame,
@@ -1151,10 +1152,14 @@ class ShardLoomSession:
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
     ) -> None:
+        limits = merge_resource_limits(resource_limits, getattr(client, "resource_limits", None))
         self._resources = optional_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, inherited=getattr(client, "resources", None),
-            limits=resource_limits, origin="session",
+            limits=limits, origin="session",
+        )
+        self._resource_limits = merge_resource_limits(
+            limits, self._resources.limits if self._resources is not None else None,
         )
         self.client = client
         self.engine = engine
@@ -1183,6 +1188,12 @@ class ShardLoomSession:
         """Return the allocation inherited by this session's complete operations."""
 
         return self._resources
+
+    @property
+    def resource_limits(self) -> ExecutionResourceLimits | None:
+        """Return explicit session ceilings independently of the current grant."""
+
+        return self._resource_limits
 
     @property
     def closed(self) -> bool:
@@ -1242,7 +1253,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
-                resources=self.resources,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1262,7 +1273,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
-                resources=self.resources,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1282,7 +1293,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
-                resources=self.resources,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1302,7 +1313,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
-                resources=self.resources,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1322,7 +1333,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
-                resources=self.resources,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1342,7 +1353,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
-                resources=self.resources,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1362,7 +1373,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
-                resources=self.resources,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1376,7 +1387,7 @@ class ShardLoomSession:
                 uri,
                 client=self.client,
                 engine_mode=self.engine,
-                resources=self.resources,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1386,7 +1397,8 @@ class ShardLoomSession:
         self._ensure_open()
         return SessionSqlWorkflow(
             session=self,
-            workflow=sql_workflow(statement, client=self.client, resources=self.resources),
+            workflow=sql_workflow(statement, client=self.client, resources=self.resources,
+                                  resource_limits=self.resource_limits),
         )
 
     def prepare_vortex(
@@ -1409,7 +1421,7 @@ class ShardLoomSession:
         self._ensure_open()
         resources = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
         if target_vortex_path is None:
             raise ValueError("prepare_vortex requires target_vortex_path")
@@ -1504,6 +1516,7 @@ class ShardLoomSession:
         resources = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, inherited=self.resources or frame.resources,
+            limits=merge_resource_limits(self.resource_limits, frame.resource_limits),
         )
         return self._sql_result(
             operation="collect",
@@ -1535,6 +1548,7 @@ class ShardLoomSession:
         resources = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, inherited=self.resources or frame.resources,
+            limits=merge_resource_limits(self.resource_limits, frame.resource_limits),
         )
         normalized_output_format = _normalize_local_output_format(output_format)
         return self._sql_result(
@@ -1569,6 +1583,7 @@ class ShardLoomSession:
         resources = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, inherited=self.resources or frame.resources,
+            limits=merge_resource_limits(self.resource_limits, frame.resource_limits),
         )
         normalized_outputs = _normalize_fanout_outputs(outputs)
         return self._sql_result(

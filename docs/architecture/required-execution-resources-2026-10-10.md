@@ -1,7 +1,10 @@
 # Required execution resources
 
-Status: implementation contract directed by the maintainer on October 10.
-Implementation is in progress; this document is not an acceptance record.
+Status: implemented with complete local engine acceptance and independent
+inspection. The [acceptance report](../benchmarks/required-execution-resources-2026-10-10.md)
+records the exact source and evidence. Support and rendered-guide checks pass;
+hosted integration remains pending. This contract was directed by the maintainer
+on October 10.
 The typed-input work retains its separately frozen source and evidence.
 Keep version 0.5.1 fixed. This work belongs to existing PERF-03/06/11/12 and
 CG-19/20/21/23 owners; the six remaining areas, eight investigations and all
@@ -59,6 +62,15 @@ intersect with inherited ceilings; neither omission nor a larger override remove
 an existing authorization limit. Invalid declarations use the existing stable
 `SL_CONFIGURATION_ERROR` diagnostic. This object grants permission; it does not
 reserve memory, authenticate a platform or measure resource use.
+
+`ExecutionResourceLimits` may be configured without a job allocation. Clients,
+contexts, sessions and lazy plans retain these ceilings in `resource_limits`
+while `resources` remains unset. A later execution must provide both allocation
+values and satisfy all inherited ceilings. Child sessions may tighten those
+ceilings; an execution override cannot remove them. Contexts sharing a client
+retain their own configuration without mutating that client. Direct context
+`run`, `prepare` and `route` calls use the same inheritance and override rules as
+SQL and DataFrame workflows; resource-free routing remains permitted.
 
 The existing `ResourceBudget` and `MemoryBudget` describe runtime task limits and
 memory policy respectively. `LiveMemoryPool` and native leases track actual
@@ -149,7 +161,7 @@ local-engine primitive path that currently forwards parallelism into a construct
 which replaces the request's memory budget with 4 GiB. Remove the ingest stream's
 implicit 1-GiB prefetch allocation when no explicit native memory owner is supplied.
 
-## Implemented source contract, pending complete acceptance
+## Implemented source contract
 
 The shared Rust and Python `ExecutionResources` declarations now validate exact
 bytes, origins and intersected authorization ceilings without numeric defaults.
@@ -165,6 +177,32 @@ retained input and preparation compete for the same credits. Sequential standalo
 preparation creates its admitted owner only when needed. Writer refusal precedes
 producer pulls and output creation; the shared-pool tests retain another input
 owner across denial and verify a successful retry after credits are released.
+
+PR review identified two additional admission gaps. Existing native `.vortex`
+preparation now carries the resolved resources and shared pool through both CLI
+and public workflow entry points. It reserves copy scratch before input inspection,
+routes footer buffers through the existing reserved Vortex allocator, and reserves
+the workspace writer's declared buffer capacity before staging output. Copies
+preserve the original bytes and layouts. Pass-through preparation uses the same
+footer admission and reports one admitted lane. Its reservation scope excludes
+report objects and uninstrumented provider metadata; it is not a process-RSS bound.
+
+The older `PreparedEncoded`, `SourceBackedEncoded` and `ReaderBackedEncoded`
+top-level report kernels have no shared resource owner. Their public provider
+dispatch now returns `encoded_facade_resource_admission` without executing a
+kernel or issuing execution certificates. Capability discovery marks those three
+rows unsupported. Ordinary SQL, Python and CLI operations use the separate admitted
+native relational/Vortex primitive paths. The private legacy helpers remain as
+test fixtures; a resource declaration alone does not authorize their execution.
+
+A further review found that aggregate policy retained a 65,536-item floor even
+for sub-MiB byte declarations. Aggregate item estimates now scale from exact
+bytes; heavy-hitter windows and their route-specific choices can only narrow
+that budget. The transformed dictionary cache also respects the smaller estimate.
+These are policy estimates, not measured reservations for every hash-table or
+tree allocation. A grouped grant below one estimated 128-byte item fails before
+source opening or grouped-state construction. The same runtime-owner constructor
+continues to accept nonaggregate projection/count/sort preparation.
 
 All execution reports attach the declared bytes, lane maximum and origins.
 Resident count, filtered count, unary, aggregate and relational paths attach the
@@ -182,6 +220,15 @@ measure. `execution_resource_spill_observation_scope` identifies payload-byte
 coverage, an uninstrumented byte count, or observed absence of spill. No whole
 process ceiling, new execution provider or performance improvement is claimed.
 
-Focused resource rejection, shared ownership, worker reuse and report tests pass.
-Complete source, feature, public workflow and hosted acceptance remain required
-before this implementation unit is marked complete.
+Initial resource rejection, shared ownership, worker reuse and report tests pass,
+along with 16 fresh source/feature gates, 655 Python tests, 32,497 complete public
+cases, retained streaming/type/pressure families and all 129 Full43 results.
+Independent inspection verifies the immutable packet and all 66,055 authoritative
+resource declarations. The report preserves the original reader's projection
+counting failure and its separate correction. Support and rendered-guide checks
+also pass. The two subsequent PR admission corrections pass 14 fresh source gates,
+including 3,166 default tests, 1,338 native CLI tests, 2,534 native Vortex tests
+and 17 example tests. Their separate correction evidence preserves the initial
+complete-workflow source identity and does not attribute its timings to the
+changed copy path. Hosted acceptance remains required before this implementation
+unit is marked complete.

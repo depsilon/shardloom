@@ -6,7 +6,8 @@ from unittest.mock import patch
 
 from shardloom.execution_resources import (
     BYTES_PER_GIB, MAX_MEMORY_BYTES, ExecutionResourceLimits, ExecutionResources,
-    ShardLoomResourceConfigurationError, resolve_resources,
+    ShardLoomResourceConfigurationError, resolve_resources, optional_resources,
+    merge_resource_limits,
 )
 
 
@@ -84,6 +85,20 @@ class ExecutionResourcesTests(unittest.TestCase):
             with self.subTest(invalid=invalid[:12]):
                 with self.assertRaises(ShardLoomResourceConfigurationError):
                     ExecutionResources.from_env({"SHARDLOOM_MEMORY_GB": "1", "SHARDLOOM_MAX_PARALLELISM": invalid})
+
+    def test_ceiling_only_configuration_is_inert_but_partial_allocations_are_errors(self):
+        limits = ExecutionResourceLimits(1024, 2)
+        self.assertIsNone(optional_resources(limits=limits))
+        for invalid in ({}, 1, "1024", False):
+            with self.assertRaises(ShardLoomResourceConfigurationError):
+                optional_resources(limits=invalid)
+        for supplied in ({"memory_bytes": 512}, {"max_parallelism": 1}):
+            with self.assertRaises(ShardLoomResourceConfigurationError):
+                optional_resources(limits=limits, **supplied)
+        self.assertEqual(merge_resource_limits(limits, ExecutionResourceLimits(2048, 1)),
+                         ExecutionResourceLimits(1024, 1))
+        with self.assertRaises(ShardLoomResourceConfigurationError):
+            resolve_resources(memory_bytes=1025, max_parallelism=1, limits=limits)
 
 
 if __name__ == "__main__":

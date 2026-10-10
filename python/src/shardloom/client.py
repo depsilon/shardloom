@@ -32,7 +32,7 @@ from .models import (
     RuntimeActivationSummary,
 )
 from .execution_resources import (
-    ExecutionResourceLimits, ExecutionResources, optional_resources,
+    ExecutionResourceLimits, ExecutionResources, optional_resources, merge_resource_limits,
     resolve_resources, resource_command_args,
 )
 
@@ -6422,6 +6422,9 @@ class ShardLoomClient:
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, limits=resource_limits,
         )
+        self._resource_limits = merge_resource_limits(
+            resource_limits, self._resources.limits if self._resources is not None else None,
+        )
         self._binary = binary
         self._env = dict(env) if env is not None else None
         self._cwd = Path(cwd) if cwd is not None else None
@@ -6440,6 +6443,12 @@ class ShardLoomClient:
         """Return this client's explicit allocation, independent of its transport."""
 
         return self._resources
+
+    @property
+    def resource_limits(self) -> ExecutionResourceLimits | None:
+        """Return explicit ceilings, including when no job grant is configured."""
+
+        return self._resource_limits
 
     @classmethod
     def from_repo(
@@ -6678,7 +6687,7 @@ class ShardLoomClient:
 
         resources = optional_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
         args: list[CommandPart] = ["route", surface]
         if input_uri is not None:
@@ -6920,7 +6929,7 @@ class ShardLoomClient:
     ) -> list[CommandPart]:
         resources = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
         args: list[CommandPart] = [command, surface]
         if input_uri is not None:
@@ -7053,7 +7062,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         args = ["live-fixture-run", operator]
@@ -7080,7 +7089,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         args = ["hybrid-overlay-run", operator]
@@ -7105,7 +7114,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return LiveHybridStateTransitionReport(
@@ -7129,7 +7138,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return LiveHybridDurableCheckpointReport(
@@ -7157,7 +7166,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         return LocalDistributedFixtureRunReport(
@@ -7228,7 +7237,7 @@ class ShardLoomClient:
 
         resources = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
         command: list[CommandPart] = [
             "vortex-prepare",
@@ -7279,7 +7288,7 @@ class ShardLoomClient:
         if primitive.strip().lower() not in {"count", "count_all"}:
             allocation = resolve_resources(
                 memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-                max_parallelism=max_parallelism, inherited=self.resources,
+                max_parallelism=max_parallelism, inherited=self.resources, limits=self.resource_limits,
             )
             return self.run(
                 ["vortex-run", str(dataset_uri), primitive, *resource_command_args(allocation)],
@@ -7311,7 +7320,7 @@ class ShardLoomClient:
         args = ["vortex-count", str(dataset_uri)]
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
-            max_parallelism=max_parallelism, inherited=self.resources,
+            max_parallelism=max_parallelism, inherited=self.resources, limits=self.resource_limits,
         )
         if execute_local_encoded_count:
             args.append("--execute-local-encoded-count")
@@ -7528,7 +7537,7 @@ class ShardLoomClient:
 
         resources = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
         return LocalVortexPrimitiveSmokeReport(
             count=self.vortex_run(
@@ -7856,7 +7865,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         command = ["local-table-metadata-read-smoke"]
@@ -7930,7 +7939,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         command = ["object-store-read-smoke", str(local_object_path), "--profile", profile]
@@ -7962,7 +7971,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         command = [
@@ -8003,7 +8012,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         command = [
@@ -8042,7 +8051,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         command = [
@@ -8078,7 +8087,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         command = [
@@ -8110,7 +8119,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         command = [
@@ -8362,7 +8371,7 @@ class ShardLoomClient:
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         if isinstance(values, str):
@@ -8386,7 +8395,7 @@ class ShardLoomClient:
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
-            resources=resources, inherited=self.resources,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
         )
 
         if isinstance(texts, str):
@@ -8420,7 +8429,7 @@ class ShardLoomClient:
             memory_bytes=memory_bytes,
             max_parallelism=max_parallelism,
             resources=resources,
-            inherited=self.resources,
+            inherited=self.resources, limits=self.resource_limits,
         )
 
         command: list[CommandPart] = [

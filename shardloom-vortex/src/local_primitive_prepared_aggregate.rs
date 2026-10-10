@@ -321,6 +321,11 @@ pub(super) fn aggregate_session(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<ResidentVortexSession> {
+    // Unary/sort preparation also shares this runtime-owner constructor. Only
+    // an actual aggregate payload has an aggregate-state admission requirement.
+    if let Some(aggregate) = &request.simple_aggregate {
+        super::admit_aggregate_state_policy(aggregate, policy.resource_envelope())?;
+    }
     let (effective, _) = policy.with_physical_policy_for_request(request);
     if external_workers(request, effective.resource_envelope()) {
         ResidentVortexSession::for_external_cpu_pool(
@@ -416,6 +421,10 @@ fn prepared_policy(
 )> {
     canonical(request)?;
     validate_policy(policy)?;
+    super::admit_aggregate_state_policy(
+        required_simple_aggregate(request)?,
+        policy.resource_envelope(),
+    )?;
     let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     let snapshot = session.snapshot();
     if snapshot.memory.limit_bytes > policy.resource_envelope.memory_budget_bytes {

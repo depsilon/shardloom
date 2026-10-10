@@ -1129,11 +1129,14 @@ pub struct VortexPreparedStateReuseReport {
 
 /// Request to admit an existing local `.vortex` artifact as a prepared Vortex
 /// state without parsing a compatibility source or rewriting encoded layouts.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct VortexNativeArtifactPrepareRequest {
     pub source_path: PathBuf,
     pub target_path: PathBuf,
     pub allow_overwrite: bool,
+    pub resources: shardloom_core::ExecutionResources,
+    /// An existing preparation/execution owner, never an additional allocation.
+    pub shared_memory_pool: Option<shardloom_exec::live_memory::LiveMemoryPool>,
     pub provider_version: String,
     pub feature_gates: String,
     pub certification_level: String,
@@ -1144,6 +1147,9 @@ pub struct VortexNativeArtifactPrepareRequest {
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexNativeArtifactPrepareReport {
     pub schema_version: &'static str,
+    pub resources: shardloom_core::ExecutionResources,
+    /// Shared-pool accounting at completion, not process RSS or exclusive usage.
+    pub memory: shardloom_exec::live_memory::LiveMemorySnapshot,
     pub status: String,
     pub policy: String,
     pub source_path: PathBuf,
@@ -1386,6 +1392,7 @@ impl VortexNativeArtifactPrepareRequest {
         source_path: impl AsRef<Path>,
         target_path: impl AsRef<Path>,
         allow_overwrite: bool,
+        resources: shardloom_core::ExecutionResources,
         provider_version: impl Into<String>,
         feature_gates: impl Into<String>,
         certification_level: impl Into<String>,
@@ -1398,6 +1405,8 @@ impl VortexNativeArtifactPrepareRequest {
             source_path,
             target_path,
             allow_overwrite,
+            resources,
+            shared_memory_pool: None,
             provider_version: provider_version.into(),
             feature_gates: feature_gates.into(),
             certification_level: certification_level.into(),
@@ -1547,7 +1556,7 @@ impl VortexNativeArtifactPrepareReport {
             ),
             (
                 "vortex_ingest_requested_max_parallelism".to_string(),
-                "not_applicable_native_vortex_artifact".to_string(),
+                self.resources.max_parallelism().to_string(),
             ),
             (
                 "prepared_state_id".to_string(),
@@ -1925,6 +1934,23 @@ impl VortexNativeArtifactPrepareReport {
         fields.extend(self.segment_metadata_primitive.evidence_fields());
         if let Some(write_report) = &self.workspace_write_report {
             fields.extend(write_report.evidence_fields("vortex_to_vortex_copy"));
+        }
+        fields.extend(self.resources.evidence_fields());
+        for (key, value) in [
+            ("admission_status", "admitted".into()),
+            ("admitted_memory_bytes", self.memory.limit_bytes.to_string()),
+            ("admitted_max_parallelism", "1".into()),
+            ("admission_policy", "shared_native_footer_and_copy_buffers_serial".into()),
+            ("observed_native_reserved_bytes", self.memory.reserved_bytes.to_string()),
+            ("observed_native_peak_reserved_bytes", self.memory.peak_reserved_bytes.to_string()),
+            ("memory_observation_scope", "shared_pool_native_footer_copy_and_staging_buffers;excludes_report_objects_and_uninstrumented_provider_metadata".into()),
+            ("observed_peak_active_lanes", "unavailable".into()),
+            ("observed_spill_io_performed", "false".into()),
+            ("observed_spill_bytes", "0".into()),
+            ("spill_observation_scope", "no_spill_io".into()),
+            ("observed_process_peak_rss_bytes", "unavailable".into()),
+        ] {
+            fields.push((format!("execution_resource_{key}"), value));
         }
         fields
     }
@@ -3702,6 +3728,18 @@ pub fn prepare_native_vortex_artifact(
     request: &VortexNativeArtifactPrepareRequest,
 ) -> Result<VortexNativeArtifactPrepareReport> {
     let prepare_start = Instant::now();
+    let memory = match &request.shared_memory_pool {
+        Some(pool) if pool.snapshot().limit_bytes > request.resources.memory_bytes() => {
+            return Err(ShardLoomError::new(
+                "shared native preparation memory owner exceeds the declared allocation",
+            ));
+        }
+        Some(pool) => pool.clone(),
+        None => shardloom_exec::live_memory::LiveMemoryPool::new(request.resources.memory_bytes())?,
+    };
+    // Admit copy scratch before inspecting the source or creating a target. The
+    // same pool also owns provider footer reads. This is not a file-size limit.
+    let copy_credit = memory.reserve(8192)?;
     ensure_native_vortex_artifact_extension(&request.source_path, "native Vortex source")?;
     ensure_native_vortex_artifact_extension(&request.target_path, "prepared Vortex target")?;
     let source_metadata = fs::metadata(&request.source_path).map_err(|error| {
@@ -3733,7 +3771,10 @@ pub fn prepare_native_vortex_artifact(
 
     let metadata_open_start = Instant::now();
     let prepared_olap_layout_inventory =
-        read_prepared_vortex_artifact_layout_inventory(&request.source_path)?;
+        read_prepared_vortex_artifact_layout_inventory_with_memory(
+            &request.source_path,
+            Some(&memory),
+        )?;
     let metadata_open_micros = metadata_open_start.elapsed().as_micros();
     let row_count = prepared_olap_layout_inventory.row_count.ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
@@ -3774,7 +3815,9 @@ pub fn prepare_native_vortex_artifact(
             "no_copy_same_vortex_artifact".to_string(),
         )
     } else {
-        let source_file = fs::File::open(&request.source_path).map_err(|error| {
+        let _writer_credit = memory
+            .reserve(shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes())?;
+        let mut source_file = fs::File::open(&request.source_path).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to open native Vortex source '{}' for workspace-safe copy: {error}; no fallback execution was attempted",
                 request.source_path.display()
@@ -3790,8 +3833,22 @@ pub fn prepare_native_vortex_artifact(
                 request.allow_overwrite,
                 "native vortex artifact workspace-safe copy",
                 |writer| {
-                    let mut reader = std::io::BufReader::new(source_file);
-                    std::io::copy(&mut reader, writer).map_err(|error| {
+                    let mut buffer = vec![0_u8; 8192];
+                    let copy = (|| -> std::io::Result<u64> {
+                        let mut bytes = 0_u64;
+                        loop {
+                            let read = source_file.read(&mut buffer)?;
+                            if read == 0 {
+                                break;
+                            }
+                            std::io::Write::write_all(writer, &buffer[..read])?;
+                            bytes = bytes.checked_add(read as u64).ok_or_else(|| {
+                                std::io::Error::other("native artifact copy size overflow")
+                            })?;
+                        }
+                        Ok(bytes)
+                    })();
+                    copy.map_err(|error| {
                         ShardLoomError::InvalidOperation(format!(
                             "failed to copy native Vortex artifact '{}' to '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
                             request.source_path.display(),
@@ -3855,8 +3912,11 @@ pub fn prepare_native_vortex_artifact(
         "not_applicable_native_vortex_artifact",
     );
     let prepare_once_micros = prepare_start.elapsed().as_micros();
+    drop(copy_credit);
     Ok(VortexNativeArtifactPrepareReport {
         schema_version: VORTEX_NATIVE_ARTIFACT_PREPARE_SCHEMA_VERSION,
+        resources: request.resources,
+        memory: memory.snapshot(),
         status,
         policy,
         source_path: request.source_path.clone(),
@@ -15185,7 +15245,17 @@ fn compact_field_evidence_token(value: &str) -> String {
 fn read_prepared_vortex_artifact_layout_inventory(
     path: &Path,
 ) -> Result<VortexPreparedOlapLayoutInventory> {
+    read_prepared_vortex_artifact_layout_inventory_with_memory(path, None)
+}
+
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_lines)]
+fn read_prepared_vortex_artifact_layout_inventory_with_memory(
+    path: &Path,
+    memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+) -> Result<VortexPreparedOlapLayoutInventory> {
     use vortex::VortexSessionDefault as _;
+    use vortex::array::memory::MemorySessionExt as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
     use vortex::io::runtime::single::SingleThreadRuntime;
@@ -15193,7 +15263,12 @@ fn read_prepared_vortex_artifact_layout_inventory(
     use vortex::session::VortexSession;
 
     let runtime = SingleThreadRuntime::default();
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let mut session = VortexSession::default().with_handle(runtime.handle());
+    if let Some(memory) = memory {
+        session = session.with_allocator(Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+        ));
+    }
     let file = runtime
         .block_on(
             session
@@ -15560,6 +15635,12 @@ mod tests {
             &source,
             &source,
             false,
+            shardloom_core::ExecutionResources::from_bytes(
+                1024 * 1024,
+                2,
+                shardloom_core::ExecutionResourceOrigin::Context,
+            )
+            .unwrap(),
             "test-vortex-provider",
             "vortex-write",
             "ingest_certified",
@@ -15624,6 +15705,12 @@ mod tests {
             &source,
             &target,
             false,
+            shardloom_core::ExecutionResources::from_bytes(
+                1024 * 1024,
+                2,
+                shardloom_core::ExecutionResourceOrigin::Context,
+            )
+            .unwrap(),
             "test-vortex-provider",
             "vortex-write",
             "ingest_certified",
@@ -15659,6 +15746,130 @@ mod tests {
         );
         assert!(!legacy_prepared_olap_state_manifest_path(&target).exists());
         std::fs::remove_dir_all(root).expect("remove temp root");
+    }
+
+    #[test]
+    fn native_vortex_artifact_resources_refuse_before_input_and_preserve_shared_ownership() {
+        use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+        use shardloom_exec::live_memory::LiveMemoryPool;
+        let root = temp_test_root("native-vortex-resources");
+        let source = root.join("source.vortex");
+        let target = root.join("target.vortex");
+        let resources = |bytes| {
+            ExecutionResources::from_bytes(bytes, 3, ExecutionResourceOrigin::Platform).unwrap()
+        };
+        let mut request = VortexNativeArtifactPrepareRequest::new_local(
+            &source,
+            &target,
+            true,
+            resources(1),
+            "test-provider",
+            "vortex-write",
+            "ingest_certified",
+        )
+        .unwrap();
+        // A missing source would return a stat error if any inspection ran first.
+        let error = prepare_native_vortex_artifact(&request).unwrap_err();
+        assert!(error.to_string().contains("memory reservation denied"));
+        assert!(!source.exists());
+        assert!(!target.exists());
+
+        write_test_prepared_vortex_artifact(&source, 41);
+        fs::write(&target, b"preserve existing output").unwrap();
+        let pool = LiveMemoryPool::new(1024 * 1024).unwrap();
+        request.resources = resources(1024 * 1024);
+        request.shared_memory_pool = Some(pool.clone());
+        let retained = pool.reserve(1024 * 1024 - 4096).unwrap();
+        assert!(
+            prepare_native_vortex_artifact(&request)
+                .unwrap_err()
+                .to_string()
+                .contains("memory reservation denied")
+        );
+        assert_eq!(fs::read(&target).unwrap(), b"preserve existing output");
+        assert_eq!(pool.snapshot().reserved_bytes, retained.bytes());
+        drop(retained);
+
+        // The copy slot fits, but the provider footer does not. It must use the
+        // same pool and still fail before replacing the existing target.
+        let retained = pool.reserve(1024 * 1024 - 8192).unwrap();
+        assert!(prepare_native_vortex_artifact(&request).is_err());
+        assert_eq!(pool.snapshot().reserved_bytes, retained.bytes());
+        assert_eq!(fs::read(&target).unwrap(), b"preserve existing output");
+        drop(retained);
+
+        request.resources = resources(1024 * 1024 - 1);
+        assert!(
+            prepare_native_vortex_artifact(&request)
+                .unwrap_err()
+                .to_string()
+                .contains("exceeds the declared allocation")
+        );
+        request.resources = resources(1024 * 1024);
+        let retained = pool.reserve(2048).unwrap();
+        for pass_through in [false, true] {
+            request.target_path = if pass_through {
+                source.clone()
+            } else {
+                target.clone()
+            };
+            let report = prepare_native_vortex_artifact(&request).unwrap();
+            assert_eq!(report.memory.reserved_bytes, retained.bytes());
+            assert_eq!(pool.snapshot().reserved_bytes, retained.bytes());
+            assert_eq!(report.resources, request.resources);
+            assert!(report.memory.peak_reserved_bytes <= report.memory.limit_bytes);
+            let fields: BTreeMap<_, _> = report.evidence_fields().into_iter().collect();
+            assert_eq!(fields["execution_resource_memory_origin"], "platform");
+            assert_eq!(fields["execution_resource_declared_max_parallelism"], "3");
+            assert_eq!(fields["execution_resource_admitted_max_parallelism"], "1");
+            assert_eq!(
+                fields["execution_resource_admitted_memory_bytes"],
+                "1048576"
+            );
+            assert_eq!(
+                fields["execution_resource_whole_process_memory_limit_enforced"],
+                "false"
+            );
+            assert_eq!(
+                fields["execution_resource_observed_spill_io_performed"],
+                "false"
+            );
+        }
+        assert_eq!(fs::read(&source).unwrap(), fs::read(&target).unwrap());
+        drop(retained);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_vortex_artifact_copy_reserves_workspace_staging_capacity() {
+        use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+        let root = temp_test_root("native-vortex-staging-resources");
+        let source = root.join("source.vortex");
+        let target = root.join("target.vortex");
+        write_test_prepared_vortex_artifact(&source, 41);
+        fs::write(&target, b"preserve existing output").unwrap();
+        let request = VortexNativeArtifactPrepareRequest::new_local(
+            &source,
+            &target,
+            true,
+            ExecutionResources::from_bytes(128 * 1024, 1, ExecutionResourceOrigin::Context)
+                .unwrap(),
+            "test-provider",
+            "vortex-write",
+            "ingest_certified",
+        )
+        .unwrap();
+        // Footer reads and the copy buffer fit, but the staged writer must also
+        // obtain credits before output creation or replacement.
+        let error = prepare_native_vortex_artifact(&request).unwrap_err();
+        let writer_bytes = shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes();
+        assert!(error.to_string().contains(&format!(
+            "memory reservation denied: requested={writer_bytes}, reserved=8192, limit=131072"
+        )));
+        assert_eq!(fs::read(&target).unwrap(), b"preserve existing output");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+        fs::remove_dir_all(root).unwrap();
     }
 
     fn reuse_request_for_test(

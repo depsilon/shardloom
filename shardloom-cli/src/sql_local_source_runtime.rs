@@ -2426,19 +2426,24 @@ pub(crate) fn handle_vortex_prepare_with_facade(
                 ),
             );
         }
-        let native_request = match shardloom_vortex::VortexNativeArtifactPrepareRequest::new_local(
-            &request.source_path,
-            &request.target_path,
-            request.allow_overwrite,
-            shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
-            "vortex-write",
-            request.certification_level.as_str(),
-        ) {
-            Ok(request) => request,
-            Err(error) => {
-                return emit_error(emit_command, format, "vortex prepare failed", &error);
-            }
-        };
+        let mut native_request =
+            match shardloom_vortex::VortexNativeArtifactPrepareRequest::new_local(
+                &request.source_path,
+                &request.target_path,
+                request.allow_overwrite,
+                request.resources,
+                shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
+                "vortex-write",
+                request.certification_level.as_str(),
+            ) {
+                Ok(request) => request,
+                Err(error) => {
+                    return emit_error(emit_command, format, "vortex prepare failed", &error);
+                }
+            };
+        native_request
+            .shared_memory_pool
+            .clone_from(&request.shared_memory_pool);
         let report = match shardloom_vortex::prepare_native_vortex_artifact(&native_request) {
             Ok(report) => report,
             Err(error) => {
@@ -2586,10 +2591,13 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
             source_path.as_ref(),
             &target_path,
             allow_overwrite,
+            resources,
             shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
             "vortex-write",
             shardloom_vortex::VortexIngestCertificationLevel::IngestCertified.as_str(),
         )?;
+        let mut request = request;
+        request.shared_memory_pool = shared_memory_pool.cloned();
         let report = shardloom_vortex::prepare_native_vortex_artifact(&request)?;
         let raw_fields = report.evidence_fields();
         return Ok(PublicWorkflowVortexPreparation {

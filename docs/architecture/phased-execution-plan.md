@@ -267,8 +267,27 @@ the ledger.
   - Execution checklist:
     - [x] Implement shared resource resolution, origin and authorization limits.
     - [x] Wire all Python, SQL, CLI, worker and native execution boundaries.
-    - [ ] Prove no-consumption rejection, inherited/overridden configuration,
-      ownership, reports and complete workflows; update guides and hosted checks.
+    - [x] Prove no-consumption rejection, inherited/overridden configuration,
+      ownership, reports and complete workflows. The
+      [local acceptance](../benchmarks/required-execution-resources-2026-10-10.md)
+      records all 16 fresh source gates, 32,497 public cases and 129 Full43
+      results; complete independent readback verifies 66,055 declarations.
+    - [x] Refresh support/guide acceptance: all 14 documentation checks, ten
+      site steps and desktop/mobile rendered navigation/search checks pass.
+    - [x] Close both PR allocation-bypass findings with shared native-copy
+      ownership, explicit refusal for unbudgeted legacy facade variants, and
+      all 14 fresh source gates. The correction evidence remains separate from
+      the initial complete-workflow measurements.
+    - [x] Correct the further exact-byte aggregate-policy finding: remove candidate
+      and cache floors and preserve nonaggregate preparation. All 14 fresh source
+      gates pass, including 2,539 native Vortex and 1,338 CLI tests; the correction
+      packet preserves the failed first attempt. Hosted acceptance remains below.
+    - [x] Correct direct context resource forwarding and independent ceiling-only
+      configuration. All 660 Python tests and eight native wrapper workflows pass;
+      the separate evidence preserves failed intermediate checks and unchanged
+      Rust gate coverage. Context, client and session ceilings remain independent
+      of job grants and survive lazy plan construction.
+    - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations
   directly through Python after required resources.

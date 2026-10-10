@@ -1215,6 +1215,14 @@ impl std::fmt::Debug for WorkspaceSafeLocalStagingWriter {
 }
 
 impl WorkspaceSafeLocalStagingWriter {
+    /// Heap buffer capacity required while a workspace-safe writer is alive.
+    /// Callers with a memory pool must reserve this before invoking the producer
+    /// helpers; writer metadata and filesystem bookkeeping are separate.
+    #[must_use]
+    pub const fn buffer_capacity_bytes() -> u64 {
+        WORKSPACE_SAFE_LOCAL_STAGING_BUFFER_BYTES as u64
+    }
+
     #[must_use]
     pub const fn bytes_written(&self) -> u64 {
         self.bytes_written
