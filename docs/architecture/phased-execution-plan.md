@@ -267,8 +267,14 @@ the ledger.
   - Execution checklist:
     - [x] Implement shared resource resolution, origin and authorization limits.
     - [x] Wire all Python, SQL, CLI, worker and native execution boundaries.
-    - [ ] Prove no-consumption rejection, inherited/overridden configuration,
-      ownership, reports and complete workflows; update guides and hosted checks.
+    - [x] Prove no-consumption rejection, inherited/overridden configuration,
+      ownership, reports and complete workflows. The
+      [local acceptance](../benchmarks/required-execution-resources-2026-10-10.md)
+      records all 16 fresh source gates, 32,497 public cases and 129 Full43
+      results; complete independent readback verifies 66,055 declarations.
+    - [x] Refresh support/guide acceptance: all 14 documentation checks, ten
+      site steps and desktop/mobile rendered navigation/search checks pass.
+    - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations
   directly through Python after required resources.

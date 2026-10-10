@@ -1,0 +1,855 @@
+{
+  "schema_version": "shardloom.required_resources_local_acceptance.v1",
+  "status": "passed_local_engine_independent_inspection_and_support_pending_hosted",
+  "units": [
+    "REQUIRED-EXECUTION-RESOURCES"
+  ],
+  "version": "0.5.1",
+  "acceptance": {
+    "status": "passed_local_engine",
+    "source_identity_sha256": "33757c73b634e1f2292f9ff5030f8c07d29ff49e7fea32f4f1ece26be5d1dd38",
+    "source_commit": "868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97",
+    "acceptance_inputs_sha256": "123168e2464b92098a700261367ed781f1c33a9a3e98b8f4719944a5ac8cf0ba",
+    "binary_sha256": "c414cd924cb5345d52ccc2b1f153eaa858e82ab77d93d39a3afaac23f30d96dd",
+    "source_assets": 1037,
+    "source_checks": 16,
+    "source_checks_reused_from_identical_source": 0,
+    "python_tests": 655,
+    "public_checks": 32497,
+    "public_rows": 18595284,
+    "direct_checks": 202,
+    "direct_rows": 131734,
+    "full43_runs": 129,
+    "historical_compaction_members_reopened": 520,
+    "raw_public_envelopes": 64741,
+    "raw_direct_envelopes": 367,
+    "typed_checks": 87,
+    "typed_raw_envelopes": 343,
+    "typed_complete_value_files": 164,
+    "typed_recursive_schema_proofs": 36,
+    "typed_output_artifacts": 88,
+    "typed_float_bit_values": 30,
+    "typed_protocol_traces": 16,
+    "typed_output_file_identities": 177,
+    "typed_expected_denials": 39,
+    "typed_timestamp_prepare_certificates": 32,
+    "typed_stream_completion_certificates": 25,
+    "streaming_checks": 442,
+    "streaming_raw_envelopes": 420,
+    "streaming_small_value_files": 365,
+    "streaming_pressure_rows": 517499,
+    "streaming_protocol_traces": 10,
+    "growth_checks": 20,
+    "growth_value_files": 32,
+    "growth_raw_envelopes": 69,
+    "growth_wide_artifacts": 17,
+    "growth_range_values": 1000017,
+    "input_pressure_controls": 5,
+    "input_pressure_raw_envelopes": 6,
+    "batch_checks": 48,
+    "format_checks": 19,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9,
+    "retained_pivot_pressure_checks": 3626,
+    "retained_pivot_pressure_rows": 1713893,
+    "retained_window_pressure_checks": 1498,
+    "retained_window_pressure_rows": 1061210,
+    "public_family_executions_fresh": true,
+    "historical_union_repair_used": false,
+    "source_tree_clean": true,
+    "resource_report_conformance": {
+      "status": "passed",
+      "families": {
+        "public": {
+          "counts": {
+            "envelopes": 64741,
+            "successful_envelopes_with_declaration": 64741,
+            "consistent_projected_field_blocks": 194223,
+            "declared_field_blocks": 64741,
+            "not_observed_field_blocks": 9698,
+            "measured_memory_field_blocks": 55043,
+            "observed_spill_field_blocks": 2323,
+            "admitted_field_blocks": 55043
+          },
+          "origins_memory_parallelism": {
+            "execution_call/execution_call": 64741
+          },
+          "declared_bytes_maximum_lanes": {
+            "4294967296/2": 37980,
+            "1073741824/1": 2815,
+            "1073741824/2": 23946
+          },
+          "commands": {
+            "prepare": 9698,
+            "run": 55043
+          }
+        },
+        "direct": {
+          "counts": {
+            "envelopes": 367,
+            "successful_envelopes_with_declaration": 366,
+            "consistent_projected_field_blocks": 1098,
+            "declared_field_blocks": 366,
+            "not_observed_field_blocks": 74,
+            "measured_memory_field_blocks": 292,
+            "observed_spill_field_blocks": 0,
+            "admitted_field_blocks": 292,
+            "rejections_before_valid_configuration": 1
+          },
+          "origins_memory_parallelism": {
+            "context/context": 366
+          },
+          "declared_bytes_maximum_lanes": {
+            "4294967296/2": 366
+          },
+          "commands": {
+            "prepare": 74,
+            "run": 293
+          }
+        },
+        "full43": {
+          "counts": {
+            "envelopes": 129,
+            "successful_envelopes_with_declaration": 129,
+            "consistent_projected_field_blocks": 387,
+            "declared_field_blocks": 129,
+            "admitted_field_blocks": 126,
+            "measured_memory_field_blocks": 114,
+            "observed_spill_field_blocks": 0,
+            "not_observed_field_blocks": 3
+          },
+          "origins_memory_parallelism": {
+            "execution_call/execution_call": 129
+          },
+          "declared_bytes_maximum_lanes": {
+            "25769803776/12": 129
+          },
+          "commands": {
+            "run": 129
+          }
+        },
+        "typed": {
+          "counts": {
+            "envelopes": 343,
+            "successful_envelopes_with_declaration": 304,
+            "consistent_projected_field_blocks": 912,
+            "declared_field_blocks": 304,
+            "admitted_field_blocks": 267,
+            "measured_memory_field_blocks": 267,
+            "observed_spill_field_blocks": 0,
+            "not_observed_field_blocks": 37,
+            "rejections_before_valid_configuration": 39
+          },
+          "origins_memory_parallelism": {
+            "execution_call/execution_call": 304
+          },
+          "declared_bytes_maximum_lanes": {
+            "1073741824/1": 166,
+            "4294967296/2": 138
+          },
+          "commands": {
+            "run": 309,
+            "prepare": 34
+          }
+        },
+        "streaming": {
+          "counts": {
+            "envelopes": 420,
+            "successful_envelopes_with_declaration": 381,
+            "consistent_projected_field_blocks": 1143,
+            "declared_field_blocks": 381,
+            "admitted_field_blocks": 372,
+            "measured_memory_field_blocks": 372,
+            "observed_spill_field_blocks": 9,
+            "rejections_before_valid_configuration": 39,
+            "not_observed_field_blocks": 9
+          },
+          "origins_memory_parallelism": {
+            "execution_call/execution_call": 381
+          },
+          "declared_bytes_maximum_lanes": {
+            "1073741824/1": 381
+          },
+          "commands": {
+            "run": 418,
+            "estimate": 1,
+            "explain": 1
+          }
+        },
+        "growth": {
+          "counts": {
+            "envelopes": 69,
+            "rejections_before_valid_configuration": 1,
+            "consistent_projected_field_blocks": 204,
+            "successful_envelopes_with_declaration": 68,
+            "declared_field_blocks": 68,
+            "admitted_field_blocks": 56,
+            "measured_memory_field_blocks": 56,
+            "observed_spill_field_blocks": 0,
+            "not_observed_field_blocks": 12
+          },
+          "origins_memory_parallelism": {
+            "execution_call/execution_call": 68
+          },
+          "declared_bytes_maximum_lanes": {
+            "1073741824/1": 38,
+            "4294967296/2": 30
+          },
+          "commands": {
+            "run": 61,
+            "prepare": 8
+          }
+        },
+        "input_pressure": {
+          "counts": {
+            "envelopes": 6,
+            "successful_envelopes_with_declaration": 5,
+            "consistent_projected_field_blocks": 15,
+            "declared_field_blocks": 5,
+            "admitted_field_blocks": 5,
+            "measured_memory_field_blocks": 5,
+            "observed_spill_field_blocks": 0,
+            "rejections_before_valid_configuration": 1
+          },
+          "origins_memory_parallelism": {
+            "execution_call/execution_call": 5
+          },
+          "declared_bytes_maximum_lanes": {
+            "1073741824/1": 3,
+            "6442450944/1": 2
+          },
+          "commands": {
+            "run": 6
+          }
+        },
+        "batches": {
+          "counts": {
+            "envelopes": 45,
+            "successful_envelopes_with_declaration": 40,
+            "consistent_projected_field_blocks": 120,
+            "declared_field_blocks": 40,
+            "admitted_field_blocks": 35,
+            "measured_memory_field_blocks": 35,
+            "observed_spill_field_blocks": 0,
+            "not_observed_field_blocks": 5,
+            "rejections_before_valid_configuration": 5
+          },
+          "origins_memory_parallelism": {
+            "execution_call/execution_call": 25,
+            "context/context": 15
+          },
+          "declared_bytes_maximum_lanes": {
+            "1073741824/2": 40
+          },
+          "commands": {
+            "run": 40,
+            "prepare": 5
+          }
+        },
+        "formats": {
+          "counts": {
+            "envelopes": 24,
+            "rejections_before_valid_configuration": 3,
+            "consistent_projected_field_blocks": 63,
+            "successful_envelopes_with_declaration": 21,
+            "declared_field_blocks": 21,
+            "not_observed_field_blocks": 3,
+            "measured_memory_field_blocks": 18,
+            "observed_spill_field_blocks": 0,
+            "admitted_field_blocks": 18
+          },
+          "origins_memory_parallelism": {
+            "context/context": 3,
+            "execution_call/execution_call": 18
+          },
+          "declared_bytes_maximum_lanes": {
+            "1073741824/2": 21
+          },
+          "commands": {
+            "run": 21,
+            "prepare": 3
+          }
+        }
+      },
+      "scope": "Every retained current execution envelope has its authoritative allocation checked; every nested typed-envelope resource projection must agree exactly. Complete value and no-fallback checks are separate. Unmeasured lanes, process RSS and legacy admission remain unavailable.",
+      "whole_process_memory_limit_claim": false,
+      "all_provider_allocations_accounted_claim": false
+    },
+    "packet": "docs/benchmarks/evidence/required-execution-resources-2026-10-10.json.xz",
+    "packet_sha256": "f40cb7c3442242f1783a0e98f2963151880ab321e7a795f1c7ebe70133f2f389",
+    "packet_compressed_bytes": 56119196,
+    "packet_uncompressed_bytes": 5018635157,
+    "packet_uncompressed_sha256": "19592adc6aa6c441b22d06ca748508c5b60849e6d1401ef7b880369940000b42"
+  },
+  "original_acceptance_sha256": "028f7168d511895b1c09d90dea6a38bfc73f7f0dfb9f164ae6eac08d6f9a2eb2",
+  "portable_inspection": "docs/benchmarks/evidence/required-execution-resources-2026-10-10-inspection.json",
+  "original_inspection_sha256": "083e4efc4cd092cdce218a29657e4c78b23a20f1f9bd2b55c4392f9b4ae78754",
+  "portable_inspector": "docs/benchmarks/evidence/required-execution-resources-2026-10-10-inspector.jq",
+  "portable_inspector_sha256": "e74636756f6379ead5c34f13ad69febf25d8c492a6853e13df50210e9b26f178",
+  "inspector_contract": {
+    "status": "passed",
+    "cases": 1379,
+    "inspector_sha256": "e74636756f6379ead5c34f13ad69febf25d8c492a6853e13df50210e9b26f178",
+    "verifier_sha256": "1b49181aae92efae2f8454744005ea1451db8e348d409acef6de636b3d001e60",
+    "resource_report_contract": {
+      "status": "passed",
+      "cases": 52
+    },
+    "resource_report_verifier_sha256": "ec4eed705e225abf4ea13081b4fa93b88e6b5bb3082ab5e8a7be64108aa4c4cd"
+  },
+  "inspector_review": {
+    "path": "docs/benchmarks/evidence/required-execution-resources-2026-10-10-inspector-review.json",
+    "sha256": "2e4f893962fb60ac4da4a75a01657a3f8a00dff7f5ce08a6bf2e1a352fc22aed"
+  },
+  "source_gates": {
+    "default-tests": {
+      "name": "default-tests",
+      "receipt": "<resource-uat>/resource-engine-default-tests-2.json",
+      "receipt_sha256": "0a8ad37cb75c1835d0ae61d2e51bea95cc4c5fbefc68228a41bc91e0ee5bb570",
+      "log_sha256": "32e8bc2f3262ad0a7fa3e673174904d88c6dd0c260bed48e66fd1e4859d65bf3",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--no-fail-fast"
+      ],
+      "seconds": 2.7340532910020556,
+      "rust_test_totals": {
+        "passed": 3165,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    "native-without-write": {
+      "name": "native-without-write",
+      "receipt": "<resource-uat>/resource-engine-native-without-write-2.json",
+      "receipt_sha256": "cfc6c001894c1a0a469a90d8fc03689961f8499f0ba172856aae9560aeffd455",
+      "log_sha256": "fe67374daee8a6f05284f34677656113ba98df348486b8f5785ca8d1f2bf46de",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "shardloom-cli/vortex-local-primitives",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "seconds": 13.178701500000898
+    },
+    "native-write-only": {
+      "name": "native-write-only",
+      "receipt": "<resource-uat>/resource-engine-native-write-only-2.json",
+      "receipt_sha256": "da5a3bb6689a781e644dc05752bb90780ca17697ace0ce7f9e0120900d99ba48",
+      "log_sha256": "d82526e912f64e9441f0b44dfc422dce1c3fc1154439c72b1f624bdb73a53c1b",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--no-default-features",
+        "--features",
+        "vortex-write"
+      ],
+      "seconds": 3.902637249993859
+    },
+    "lean-workspace": {
+      "name": "lean-workspace",
+      "receipt": "<resource-uat>/resource-engine-lean-workspace-2.json",
+      "receipt_sha256": "fb83dc87c08ba527179f036f658e77dcf5b850c3ded8ca4e90a4f0743165fef4",
+      "log_sha256": "500c34229dfee86ee227d5b3dc94f882da627ce7eb95069414ee150999386e8f",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--no-default-features"
+      ],
+      "seconds": 4.880634958011797
+    },
+    "all-features": {
+      "name": "all-features",
+      "receipt": "<resource-uat>/resource-engine-all-features-2.json",
+      "receipt_sha256": "f765469f9cb9869a87e17272731cb4d44dcb134288316186f2f23dc58ab24a0e",
+      "log_sha256": "32a5b7bc32bd88525c8f74d04b605bbdd06c2f05216e92bccffbd0d85e133865",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-features"
+      ],
+      "seconds": 8.088583542004926
+    },
+    "msrv-lean": {
+      "name": "msrv-lean",
+      "receipt": "<resource-uat>/resource-engine-msrv-lean-2.json",
+      "receipt_sha256": "57f576f3c11bf8adc1845c5ba41378da4d913408d0b0393930ba59b590284e9d",
+      "log_sha256": "1f747f728cb7a71e2236dfa22f4f4899386390131f26cb27d075f3527d7bc8c9",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.96.0",
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--no-default-features"
+      ],
+      "seconds": 5.508604500006186
+    },
+    "msrv-native": {
+      "name": "msrv-native",
+      "receipt": "<resource-uat>/resource-engine-msrv-native-2.json",
+      "receipt_sha256": "20cfcef97bc6b782ef6c621286f78105c7b35a8e2c058ab6d332f7f21ea33b39",
+      "log_sha256": "bb0ba8b345a7c3c2e0edf3f14b316ea043453921ed0b1a9a8f5d9a9338e31fc1",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.96.0",
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "seconds": 18.46281845800695
+    },
+    "native-clippy": {
+      "name": "native-clippy",
+      "receipt": "<resource-uat>/resource-engine-native-clippy-2.json",
+      "receipt_sha256": "0efe4935306209a4b8055b22e1ed794909c004f38bd4ed0d270396a6b96c8224",
+      "log_sha256": "bf48c5c69ce68bfadd8d902162caadd715920e053625b45bef680c86e4a4f03c",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "seconds": 18.443833958008327
+    },
+    "native-examples": {
+      "name": "native-examples",
+      "receipt": "<resource-uat>/resource-engine-native-examples-2.json",
+      "receipt_sha256": "74e288260e5e71fce2926eb83088dab8d00be915ac8fd057abce146904ef101b",
+      "log_sha256": "430b742eea22b4b8b93668c6c10ef533eb220e7943088af02cc9d8d349b1470a",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--examples",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "--test-threads=1"
+      ],
+      "seconds": 24.074014624988195,
+      "rust_test_totals": {
+        "passed": 17,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    "native-cli-tests": {
+      "name": "native-cli-tests",
+      "receipt": "<resource-uat>/resource-engine-native-cli-tests-2.json",
+      "receipt_sha256": "d24c51db12020cfae08fb7e9b4d03764e99a79bbace3c4a2f62d5810290ce2a9",
+      "log_sha256": "c000e3102750e423b8f08ce960eca5a48dc1f2ba3f36453ce00a262d479385aa",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "--all-targets",
+        "--no-fail-fast",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "--test-threads=1"
+      ],
+      "seconds": 75.87147683301009,
+      "rust_test_totals": {
+        "passed": 1337,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    "native-vortex-tests": {
+      "name": "native-vortex-tests",
+      "receipt": "<resource-uat>/resource-engine-native-vortex-tests-2.json",
+      "receipt_sha256": "386370f2399c61a3fc8676f5797d394e64fa9cb3ab67c42eeeaebc1cde676c2c",
+      "log_sha256": "ea3258b0e7ec0fc9bb728053376456b555ee120ccbf5c7110e7bf498b0fc0f75",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "--test-threads=1"
+      ],
+      "seconds": 1395.8701729580062,
+      "rust_test_totals": {
+        "passed": 2531,
+        "failed": 0,
+        "ignored": 24
+      }
+    },
+    "fmt": {
+      "name": "fmt",
+      "receipt": "<resource-uat>/resource-engine-fmt-3.json",
+      "receipt_sha256": "e8f17127f5f79df10642bcbd94f91a0dc7726d9da14dd533ca517619afd122e8",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "seconds": 2.743787916988367
+    },
+    "default-clippy": {
+      "name": "default-clippy",
+      "receipt": "<resource-uat>/resource-engine-default-clippy-3.json",
+      "receipt_sha256": "ab4c0674bcf92736911c3f3ac6423d4ce2f9901736adbd6f383e76460089ed0f",
+      "log_sha256": "2b4bcabac648623d2a3d71b6ba4766c9cfacb0b274c7866bd43b1c289aa41d6d",
+      "command": [
+        "<home>/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "seconds": 0.6827525419939775
+    },
+    "python-optional": {
+      "name": "python-optional",
+      "receipt": "<resource-uat>/resource-engine-python-optional-3.json",
+      "receipt_sha256": "718a2ff3c4796f94e2559ad9c1744a33e07da58ac7cbcdbc6a7f00fb050fdb9a",
+      "log_sha256": "9a8080ba755b4b715923e4b5dbdf2c2ca66539018dcea30f8ca4fe55ecc35076",
+      "command": [
+        "/usr/bin/env",
+        "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+        "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-v"
+      ],
+      "seconds": 18.587868958013132
+    },
+    "dependency-check": {
+      "name": "dependency-check",
+      "receipt": "<resource-uat>/resource-engine-dependency-check-3.json",
+      "receipt_sha256": "6f92e9943739e5f7f70edeab5e439b9ec4a1cc90e59cd692ef3c8a5f3557954f",
+      "log_sha256": "ae33ee597df9172580edf1424003c634ec4c3e1d7557d4d52edf8e1712fc2cea",
+      "command": [
+        "/usr/bin/env",
+        "PATH=<home>/.rustup/toolchains/1.99.0-aarch64-apple-darwin/bin:<home>/.cargo/bin:/opt/homebrew/opt/python@3.13/libexec/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "scripts/check_dependency_audit.py",
+        "--strict-missing",
+        "--json-output",
+        "<resource-uat>/resource-dependency-report-3.json"
+      ],
+      "seconds": 0.55702841602033
+    },
+    "diff": {
+      "name": "diff",
+      "receipt": "<resource-uat>/resource-engine-diff-3.json",
+      "receipt_sha256": "c5621801c2169594126167ef5a07b2ffeef2c8f6bffb553c83aab27664376e5e",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "seconds": 0.11054945798241533
+    }
+  },
+  "guard_receipts": {
+    "resource-finalize-2": {
+      "original_sha256": "31088b99e992e04935d07a883eebd5704902f44e3503db0e91b5331bf372818f",
+      "original_bytes": 1817,
+      "value": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<resource-uat>/finalize_resource_acceptance.py",
+          "--attempt",
+          "2",
+          "--supervisor",
+          "resource-finalize-2"
+        ],
+        "cwd": "<repo>",
+        "head": "868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2710847488,
+            "log_bytes": 0,
+            "free_bytes": 40334114816,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 39386918912,
+            "log_bytes": 0,
+            "free_bytes": 40334114816,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 2400.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 68784,
+        "output_bytes": 7456,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 644.0036962500017,
+        "log_sha256": "876e042f59b7ea60ff5458b844147475b1cead76600dbdb01d6cc9878267fb0d"
+      }
+    },
+    "resource-independent-3": {
+      "original_sha256": "e734acb3ba7cccaf3e481ed45dc01fa399124c52d54a32fc888cad33968c75b3",
+      "original_bytes": 1805,
+      "value": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<resource-uat>/verify_resource_packet_review.py",
+          "--attempt",
+          "3",
+          "--packet-attempt",
+          "2"
+        ],
+        "cwd": "<repo>",
+        "head": "868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2709397504,
+            "log_bytes": 0,
+            "free_bytes": 40157757440,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 39417810944,
+            "log_bytes": 0,
+            "free_bytes": 40157757440,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 2400.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 72893,
+        "output_bytes": 3022,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 1506.3324253750034,
+        "log_sha256": "03e7acae9b2cba7b48f09d834bb812d14db6e019ed2cc2fcd2623cab1ced0539"
+      }
+    },
+    "resource-inspector-review-2": {
+      "original_sha256": "55b37aec57878babc03bcba9905fcfada783697ea4a377201d47389910329612",
+      "original_bytes": 1788,
+      "value": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<resource-uat>/verify_resource_packet_review.py",
+          "--attempt",
+          "4",
+          "--self-test"
+        ],
+        "cwd": "<repo>",
+        "head": "868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2710913024,
+            "log_bytes": 0,
+            "free_bytes": 40207560704,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 39386918912,
+            "log_bytes": 0,
+            "free_bytes": 40207552512,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 180.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 70703,
+        "output_bytes": 377,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 5.989342832996044,
+        "log_sha256": "c06022106123639080222d035bcaf5989d75048c2d04c8255fbd0607302105db"
+      }
+    }
+  },
+  "full43": {
+    "summary_sha256": "1fa65575af746464c6d7121d26bddacce4455959fe2d2192ac9c0462600f175b",
+    "source_bytes": 15682956489,
+    "memory_gb": 24,
+    "max_parallelism": 12,
+    "runs_completed": 129,
+    "complete_results_verified": 129,
+    "sum_query_minima_seconds": 70.13562191609526,
+    "sum_query_medians_seconds": 72.63366804111865,
+    "all_native_calls_seconds": 223.50440087309107,
+    "guarded_stage_seconds": 255.51351270801388,
+    "native_peak_rss_bytes": 4495409152,
+    "timing_boundary": "native process creation through completed public CLI output and process exit",
+    "correctness_boundary": "complete returned values compared with retained native regression outputs; finite floats use 1e-12 tolerance; not an independent oracle",
+    "reference_kind": "retained_native_regression",
+    "cache_policy": "new_process_per_run_os_page_cache_uncontrolled_no_answer_cache",
+    "retained_artifact": true,
+    "fresh_ingest": false,
+    "paired_comparison": false,
+    "performance_claim": false
+  },
+  "provenance_boundary": "All sixteen source gates and complete workflow families executed freshly at the recorded source. The inspector review changes only evidence counting; it preserves the accepted source, native executable, original packet and failed reader observation. No query executions are relabeled or duplicated.",
+  "failed_observations": "The immutable packet retains development failures, two storage refusals and verified historical compactions, and the first finalizer environment failure. The separate inspector-review artifact retains the complete first reader rejection, original and corrected helpers, a wrong-relative-path invocation failure, projection controls and the subsequent successful complete readback.",
+  "claim_boundaries": {
+    "no_fallback": true,
+    "external_engine_invoked": false,
+    "comparative_performance": false,
+    "whole_process_rss_bound": false,
+    "all_provider_allocations_accounted": false,
+    "max_parallelism_is_measured_utilization": false,
+    "declared_memory_is_preallocated": false,
+    "new_package_publication": false,
+    "version_bump": false,
+    "broader_work_complete": false,
+    "native_python_binding_implemented": false,
+    "required_resources_implemented": true
+  },
+  "support_acceptance": {
+    "status": "passed_local_support_and_rendered_review",
+    "path": "docs/benchmarks/evidence/required-execution-resources-support-2026-10-10.json",
+    "sha256": "bb199e05076f56965cdb28f063ea802acb6c697ea1d19e54fcec5dc761900e38"
+  },
+  "hosted_acceptance": {
+    "status": "pending"
+  }
+}

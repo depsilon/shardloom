@@ -1,7 +1,10 @@
 # Required execution resources
 
-Status: implementation contract directed by the maintainer on October 10.
-Implementation is in progress; this document is not an acceptance record.
+Status: implemented with complete local engine acceptance and independent
+inspection. The [acceptance report](../benchmarks/required-execution-resources-2026-10-10.md)
+records the exact source and evidence. Support and rendered-guide checks pass;
+hosted integration remains pending. This contract was directed by the maintainer
+on October 10.
 The typed-input work retains its separately frozen source and evidence.
 Keep version 0.5.1 fixed. This work belongs to existing PERF-03/06/11/12 and
 CG-19/20/21/23 owners; the six remaining areas, eight investigations and all
@@ -149,7 +152,7 @@ local-engine primitive path that currently forwards parallelism into a construct
 which replaces the request's memory budget with 4 GiB. Remove the ingest stream's
 implicit 1-GiB prefetch allocation when no explicit native memory owner is supplied.
 
-## Implemented source contract, pending complete acceptance
+## Implemented source contract
 
 The shared Rust and Python `ExecutionResources` declarations now validate exact
 bytes, origins and intersected authorization ceilings without numeric defaults.
@@ -182,6 +185,11 @@ measure. `execution_resource_spill_observation_scope` identifies payload-byte
 coverage, an uninstrumented byte count, or observed absence of spill. No whole
 process ceiling, new execution provider or performance improvement is claimed.
 
-Focused resource rejection, shared ownership, worker reuse and report tests pass.
-Complete source, feature, public workflow and hosted acceptance remain required
-before this implementation unit is marked complete.
+Resource rejection, shared ownership, worker reuse and report tests pass, along
+with all 16 fresh source/feature gates, 655 Python tests, 32,497 complete public
+cases, retained streaming/type/pressure families and all 129 Full43 results.
+Independent inspection verifies the immutable packet and all 66,055 authoritative
+resource declarations. The report preserves the original reader's projection
+counting failure and its separate correction. Support and rendered-guide checks
+also pass. Hosted acceptance remains required before this implementation unit
+is marked complete.
