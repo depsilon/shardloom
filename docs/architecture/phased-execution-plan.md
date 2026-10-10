@@ -271,31 +271,62 @@ the ledger.
     - [x] Finalize the provider reuse and exact schema/value wire contract.
     - [x] Implement native typed construction, retained credits and source reuse.
     - [x] Add Python declarations/conversion and preserve legacy wire identities.
-    - [ ] Verify every admitted type through resident/buffered/streamed workflows,
+    - [x] Verify every admitted type through resident/buffered/streamed workflows,
       native write/reopen, compatibility contracts and resource/failure controls.
-    - [ ] Complete source/public regression acceptance, independent packet
-      inspection, affected documentation and hosted integration.
+    - [x] Complete source/public regression acceptance, independent packet
+      inspection and affected documentation with rendered guide checks.
+    - [ ] Complete hosted integration against the final reviewed PR head.
   - Preserve finite completion, per-frame and small-result boundaries, explicit
     `fallback_attempted=false` and `external_engine_invoked=false`. Multiple or
     repeated producers, dynamic schemas, streaming sink composition and deeper
     traversal retain their existing owners. Keep version 0.5.1 fixed.
 
-- [ ] `REQUIRED-EXECUTION-RESOURCES` require an explicit allocation before work.
-  - October 10 maintainer priority, immediately after typed-input acceptance;
-    existing PERF-03/06/11/12 and CG-19/20/21/23 owners remain responsible.
+- [ ] `REQUIRED-EXECUTION-RESOURCES` require an explicit shared allocation before
+  any data inspection, preparation, producer consumption or execution.
+  - V1 scope classification: `required_for_v1`.
+  - Existing owners: PERF-03/06/11/12 and CG-19/20/21/23.
   - Contract: [required execution resources](required-execution-resources-2026-10-10.md).
-    Require memory and maximum parallelism from execution arguments or an
-    explicitly configured context/session/platform. Remove numeric and ambient
-    environment fallback across Python, CLI, workers and native constructors.
-  - Validate before eager conversion, source inspection, preparation, producer
-    demand or output. Preserve one allocation across overlapping stage owners;
-    report declaration, per-field origin, admission and measured usage distinctly.
-  - Complete missing/invalid/inheritance/override and no-consumption conformance
-    tests, exact-byte transport, native ownership proof, source/public acceptance
-    and documentation. Pure lazy construction stays resource-free.
-  - This contract also governs the requested native Python ownership and columnar
-    interface follow-on. Keep version 0.5.1 fixed and all six remaining areas,
-    eight investigations and CG-1 through CG-23 visible.
+    The October 10 maintainer direction makes this the next implementation unit.
+    Remove numeric production defaults; inherit validated context/session or
+    platform configuration, allow authorized call overrides and retain exact bytes
+    and per-field origin. Environment loading is deliberate and strict.
+  - Share actual owners across preparation, retained state, execution and output;
+    report declared/admitted allocation separately from observed use and spill.
+    Missing/invalid configuration must consume no input or create output.
+  - ShardLoom technique review: dynamic scheduling, capillary demand and PulseWeave
+    operate inside explicit permission; metadata-first descriptions stay inert.
+    Preserve timing-surface and evidence-tier distinctions for observed usage.
+  - Execution checklist:
+    - [ ] Implement shared resource resolution, origin and authorization limits.
+    - [ ] Wire all Python, SQL, CLI, worker and native execution boundaries.
+    - [ ] Prove no-consumption rejection, inherited/overridden configuration,
+      ownership, reports and complete workflows; update guides and hosted checks.
+
+- [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations
+  directly through Python after required resources.
+  - V1 scope classification: `required_for_v1`.
+  - Existing owners: PERF-02/03/07/11/12 and CG-19/20/21.
+  - Contract: [native Python ownership](native-python-surface-2026-10-10.md).
+    The October 10 direction resumes native binding against the current shared
+    engine. The earlier unbuilt/unmeasured prototype is a reference, not a failed
+    performance comparison or permission to restore its narrow experimental caps.
+  - ShardLoom technique review: retain dynamic shared grants, capillary batch
+    demand, PulseWeave scheduling and metadata-first plans behind native handles.
+    Separate conversion/native/workflow timing-surface observations at the same
+    evidence-tier before accepting a measured improvement.
+  - Execution checklist:
+    - [ ] Retain native result/batch owners and export columnar data directly.
+    - [ ] Admit direct columnar input with exact schemas and real producer owners.
+    - [ ] Expose in-process sessions and complete operations through shared Rust
+      planning/execution, resources, cancellation and diagnostics.
+    - [ ] Add native expression/prepared-plan handles converging with SQL's IR.
+    - [ ] Verify lifetimes, failure, complete workflows and paired end-to-end
+      measurements; preserve an explicit subprocess option without semantic drift.
+  - Adjacent ingest/pruning work under PERF-07/08/11/12 must restore useful
+    full-domain timestamp compression and safe statistics with endpoint and
+    conservative-pruning proof. Do not narrow accepted temporal storage values.
+  - Both units preserve all six remaining areas, eight investigations and
+    CG-1 through CG-23 under their existing owners. Keep version 0.5.1 fixed.
 
 `NATIVE-INPUT-GROWTH` completed in PR #1539 after all 39 hosted checks passed;
 the [completed ledger](phased-execution-completed-ledger.md) records the accepted
@@ -998,8 +1029,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     the remaining prepared/public families.
     The [relational continuation](native-relational-workflows-2026-10-01.md) adds
     retained typed joins, sets, analytic windows and scoped subqueries plus public
-    collection/writers. Native Python binding remains parked; broader composition,
-    types, sources and per-family pressure transitions remain open.
+    collection/writers. The October 10 maintainer direction resumes native Python
+    binding through `NATIVE-PYTHON-SURFACE` after explicit resources; broader
+    composition, types, sources and per-family pressure transitions remain open.
   - Execution checklist:
     - [ ] Extend prepared native execution to the remaining operator families.
     - [ ] Complete the native Python prototype/binding decision and migration;
@@ -3084,7 +3116,9 @@ remain unchanged.
 5. The intake selectively reopens derived-text representation, writer-overlap
    admission and optimized-build screening. It does not revive rejected weighted
    partials, conversion-owner allocation, topology/coalescing sweeps, universal
-   state/bitmap replacements, broad codec sweeps or native Python binding.
+   state/bitmap replacements or broad codec sweeps. The later October 10
+   maintainer direction separately resumes native Python binding through
+   `NATIVE-PYTHON-SURFACE`; the older prototype was unbuilt and unmeasured.
    Consult the [control ledger](performance-control-progression-2026-09-12.md)
    and linked experiment records instead of restarting completed work.
 6. Keep large builds and UAT serial under

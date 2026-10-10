@@ -78,3 +78,17 @@ def rich_fixture():
     rows.append(dict.fromkeys(schema))
     expected.append(dict.fromkeys(schema))
     return schema, tuple(fields), rows, expected
+
+
+def rich_python_values():
+    """Expected logical objects from declared fixture values, without output adapters."""
+    _, _, supplied, transport = rich_fixture()
+    expected = [dict(row) for row in transport]
+    for index in range(3):
+        expected[index]["blob"] = bytes(supplied[index]["blob"])
+        expected[index]["amount"] = supplied[index]["amount"]
+        expected[index]["day"] = supplied[index]["day"]
+        expected[index]["stamp"] = supplied[index]["stamp"]
+        if supplied[index]["detail"] is not None:
+            expected[index]["detail"] = dict(supplied[index]["detail"])
+    return expected

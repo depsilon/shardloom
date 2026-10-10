@@ -499,6 +499,11 @@ frame = sl.from_rows(
 
 The [typed native input contract](../docs/architecture/native-typed-input-2026-10-10.md)
 defines schema syntax, value conversion, nullability and the admitted recursive types.
+Python object results use `date`/`datetime` where Python's calendar can represent
+the value; other valid temporal values remain exact integer epoch days or
+microseconds, including nested fields. The
+[complete typed-input acceptance](../docs/benchmarks/native-typed-input-2026-10-10.md)
+records complete values, writer fidelity, failure controls and the review correction.
 This source capability does not change the published v0.5.1 packages.
 
 Current source builds also accept `streaming=True` for one finite batch source used

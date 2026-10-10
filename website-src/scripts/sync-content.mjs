@@ -525,6 +525,11 @@ records wide schemas, cumulative input, generated ranges, resource denial and co
 The [typed native input contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-input-2026-10-10.md)
 defines schema syntax, value conversion, nullability and admitted recursive types
 for both \`from_rows\` and \`from_batches\`.
+Python object results use \`date\`/\`datetime\` where Python's calendar can represent
+the value; other valid temporal values remain exact integer epoch days or
+microseconds, including nested fields. The
+[complete typed-input acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-typed-input-2026-10-10.md)
+records complete values, writer fidelity, failure controls and the review correction.
 
 Streaming retains at most one native input batch, so cumulative input may exceed
 the query grant while individual batches remain bounded. It supports incremental results,

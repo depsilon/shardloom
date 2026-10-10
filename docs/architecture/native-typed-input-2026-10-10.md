@@ -1,9 +1,12 @@
 # Exact typed input into the shared native source
 
-Status: implementation contract for the next cohesive PERF-11 unit,
-with PERF-03/07/12 and CG-19/20/21 obligations. This draft is not an acceptance
-record. Keep version 0.5.1 fixed and preserve the remaining six areas, eight
-investigations and CG-1 through CG-23 in the phase plan.
+Status: local engine, Python review correction and independent packet acceptance
+complete under PERF-11, with PERF-03/07/12 and CG-19/20/21 obligations. Refreshed
+support and rendered guide checks pass; hosted integration remains pending in PR #1540. The
+[acceptance report](../benchmarks/native-typed-input-2026-10-10.md) binds the
+tested sources, complete results and remaining boundaries. Keep version 0.5.1
+fixed and preserve the six remaining areas, eight investigations and CG-1 through
+CG-23 in the phase plan.
 
 ## Scope and compatibility
 
@@ -53,6 +56,10 @@ Use Python integers with exact range checks, finite floating values with exact
 Float32 representability when requested, `Decimal` without contextual rounding,
 bytes-like binary input, dates and naive datetimes. Integer day/microsecond
 storage values also represent temporal values outside Python's calendar range.
+At the explicit Python-object result boundary, representable values become
+`date`/`datetime`; valid values outside that calendar remain exact integer epoch
+days/microseconds. The rule applies recursively. Invalid storage-domain values
+still reject, and Arrow conversion retains native temporal units directly.
 Lists accept sequences of values and structs accept mappings with exactly the
 declared names. Parent and child nullability are independent. Do not reinterpret
 an input string as a decimal, binary value or temporal value without its explicit
@@ -129,6 +136,9 @@ files without these timestamps retain their default file statistics. Date32
 storage does not use the restricted timestamp calendar validator. This is
 provider admission through the existing native writer, with no invented bounds,
 calendar narrowing, external execution or performance claim.
+Safe full-domain timestamp compression and field-appropriate statistics are an
+explicit follow-up under the existing ingest/pruning owners. Require endpoint,
+complete-value and conservative-pruning proofs before changing this policy.
 
 ## Resource and lifecycle contract
 
