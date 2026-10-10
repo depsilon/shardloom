@@ -119,7 +119,12 @@ The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/nat
 records wide schemas, cumulative input, generated ranges, resource denial and complete write/reopen checks.
 The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-input-2026-10-10.md">typed native input contract</a>
 defines schema syntax, value conversion, nullability and admitted recursive types
-for both <code dir="auto">from_rows</code> and <code dir="auto">from_batches</code>.</p>
+for both <code dir="auto">from_rows</code> and <code dir="auto">from_batches</code>.
+Python object results use <code dir="auto">date</code>/<code dir="auto">datetime</code> where Python’s calendar can represent
+the value; other valid temporal values remain exact integer epoch days or
+microseconds, including nested fields. The
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-typed-input-2026-10-10.md">complete typed-input acceptance</a>
+records complete values, writer fidelity, failure controls and the review correction.</p>
 <p>Streaming retains at most one native input batch, so cumulative input may exceed
 the query grant while individual batches remain bounded. It supports incremental results,
 bounded small collection or one native Vortex destination. Retained operator

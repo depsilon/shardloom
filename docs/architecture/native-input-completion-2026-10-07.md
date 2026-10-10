@@ -34,6 +34,11 @@ growing owners under the shared grant. It applies to source builds after the
 0.5.1 release. Per-frame bounds and explicit end-of-input remain; the historical
 acceptance records and limits below describe the original unit.
 
+The subsequent [exact typed-input contract](native-typed-input-2026-10-10.md)
+extends the original four scalar declarations to exact widths, binary, decimal,
+temporal and recursive list/struct schemas. Its separate acceptance record
+preserves the source and scope of this historical contract.
+
 ## Decision
 
 Explicit streaming input uses the existing native relational execution and

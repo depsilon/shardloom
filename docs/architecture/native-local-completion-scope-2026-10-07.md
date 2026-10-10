@@ -107,6 +107,20 @@ Nested value-schema bounds,
 deep traversal, richer intake and source/destination composition stay open;
 this finite acceptance does not close the six-area/eight-investigation contract.
 
+The later [exact typed-input unit](../benchmarks/native-typed-input-2026-10-10.md)
+has complete local engine acceptance and independent inspection for exact widths,
+binary, Decimal128, Date32, full-domain microsecond timestamps and recursive
+lists/structs through resident, buffered and finite single-use workflows. Its
+Python result correction preserves exact temporal storage values outside Python's
+calendar. Hosted integration remains pending in PR #1540. Broader type/source/
+destination composition remains open; this extends the historical scalar intake.
+
+The October 10 direction prioritizes [required explicit resources](required-execution-resources-2026-10-10.md)
+before data inspection or execution, followed by [native Python ownership and
+columnar exchange](native-python-surface-2026-10-10.md). Both extend existing
+owners. Safe full-domain timestamp statistics/compression stays attached to ingest
+and pruning. The unbuilt native-binding experiment was not a failed benchmark.
+
 Reviewed FSST/Zstd payload buffers, actual Zstd decoder/prepared-dictionary
 workspaces, and primitive/Boolean/decimal builder output and finalization overlap
 also remain completed under their finite acceptance records. Broader ownership
