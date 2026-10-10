@@ -161,9 +161,6 @@ impl Input for Execution<'_, '_, '_> {
                 report.end_of_input_observed = true;
                 return Ok(());
             };
-            if report.payload_batches == crate::resident_memory_source::MAX_BATCHES as u64 {
-                return Err(failed("streaming source exceeds 4,096 payload batches"));
-            }
             if !source.belongs_to_session(&self.prepared.session)
                 || source.dtype() != schema.dtype()
                 || source.row_count() > crate::resident_memory_source::MAX_BATCH_ROWS
@@ -176,7 +173,7 @@ impl Input for Execution<'_, '_, '_> {
             let released = source.batch_release_witness()?;
             let rows = source.row_count();
             let bytes = source.input_logical_bytes() as u64;
-            report.payload_batches += 1;
+            checked_add(&mut report.payload_batches, 1)?;
             checked_add(&mut report.rows, rows as u64)?;
             checked_add(&mut report.input_logical_bytes, bytes)?;
             checked_add(
@@ -278,8 +275,7 @@ pub(super) fn classify(
     plan: &VortexRelationalPlan,
     uri: &shardloom_core::DatasetUri,
 ) -> Result<()> {
-    let mut nodes = 0;
-    match count_sources(plan, uri, 0, &mut nodes)? {
+    match count_sources(plan, uri, 0)? {
         1 => Ok(()),
         0 => Err(failed(
             "streaming plan does not use its declared batch source",
@@ -294,36 +290,35 @@ fn count_sources(
     plan: &VortexRelationalPlan,
     uri: &shardloom_core::DatasetUri,
     depth: usize,
-    nodes: &mut usize,
 ) -> Result<usize> {
-    *nodes += 1;
-    if depth > 24 || *nodes > 128 {
-        return Err(failed("streaming plan exceeds 24 levels or 128 operators"));
+    if depth > 24 {
+        return Err(failed("recursive streaming plan exceeds 24 levels"));
     }
     let operator = match plan {
         VortexRelationalPlan::Scan(scan) => return Ok(usize::from(&scan.source_uri == uri)),
         VortexRelationalPlan::Project(project) => {
-            return count_sources(&project.input, uri, depth + 1, nodes);
+            return count_sources(&project.input, uri, depth + 1);
         }
         VortexRelationalPlan::Filter(filter) => {
-            return count_sources(&filter.input, uri, depth + 1, nodes);
+            return count_sources(&filter.input, uri, depth + 1);
         }
         VortexRelationalPlan::Sort(sort) => {
-            return count_sources(&sort.input, uri, depth + 1, nodes);
+            return count_sources(&sort.input, uri, depth + 1);
         }
         VortexRelationalPlan::Limit(limit) => {
-            return count_sources(&limit.input, uri, depth + 1, nodes);
+            return count_sources(&limit.input, uri, depth + 1);
         }
         VortexRelationalPlan::Aggregate(aggregate) => {
-            return count_sources(&aggregate.input, uri, depth + 1, nodes);
+            return count_sources(&aggregate.input, uri, depth + 1);
         }
         VortexRelationalPlan::Window(window) => {
-            return count_sources(&window.input, uri, depth + 1, nodes);
+            return count_sources(&window.input, uri, depth + 1);
         }
         VortexRelationalPlan::Join(join) => {
-            let left = count_sources(&join.left, uri, depth + 1, nodes)?;
-            let right = count_sources(&join.right, uri, depth + 1, nodes)?;
-            return Ok(left + right);
+            let left = count_sources(&join.left, uri, depth + 1)?;
+            let right = count_sources(&join.right, uri, depth + 1)?;
+            // Only zero, exactly one and repeated use are relevant here.
+            return Ok((left + right).min(2));
         }
         VortexRelationalPlan::Set(_) => "set operation/repeated source",
         VortexRelationalPlan::Subquery(_) | VortexRelationalPlan::CorrelatedSubquery(_) => {

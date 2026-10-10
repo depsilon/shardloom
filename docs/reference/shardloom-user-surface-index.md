@@ -93,6 +93,14 @@ ownership, source-change behavior, and examples. This is a bounded native Rust a
 CLI-backed transport surface; it does not add a native Python binding or establish
 performance claims.
 
+`ShardLoomContext.from_rows` declares nullable scalar rows, and `range` declares
+compact native Int64 input. The [input growth contract](../architecture/native-input-growth-2026-10-09.md)
+admits top-level schemas, cumulative batch input and generated range lengths
+through shared resources and checked arithmetic rather than fixed total counts.
+It applies to source builds after the 0.5.1 release; published 0.5.1 artifacts
+retain their release-time limits. Row/frame/collection bounds and the remaining
+recursive and operator-specific limits are explicit in that contract.
+
 Current source also exposes `shardloom.from_batches` and
 `ShardLoomContext.from_batches` for explicitly typed resident input, plus
 `LazyFrame.iter_batches` and `SqlWorkflow.iter_batches` for acknowledged
@@ -110,7 +118,8 @@ admit `streaming=True` for one finite batch source used once through
 Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window alongside ordinary file/resident
 sources, with incremental results, bounded small collection or one native Vortex
 destination. It retains at most one native input batch, permitting
-cumulative input above the shared grant within the existing finite intake limits.
+cumulative input above the shared grant while each frame remains bounded and
+the finite producer must reach its explicit end.
 Typed intake and output compaction remain charged; result and sink reservations
 remain separate. Unsupported plans reject before producer consumption, and success
 requires observed end-of-input. Limits, including zero, drain and validate the
@@ -333,7 +342,10 @@ objects. Common admitted methods include:
   shared typed transitions, bounded exact lookups, incremental result delivery
   and existing representable writers. Complete local acceptance passes in the
   [acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md); hosted
-  acceptance remains pending. Direct prepared unary pivots remain resident; dynamic
+  acceptance completed in PR #1534 after all 39 checks passed, with exact source
+  and production verification in the
+  [hosted receipt](../benchmarks/evidence/native-pivot-hosted-2026-10-08.json).
+  Direct prepared unary pivots remain resident; dynamic
   one-shot batch sources reject before producer demand. Spill does not expand
   aggregate, type, margin or 128-field admission.
 - Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window

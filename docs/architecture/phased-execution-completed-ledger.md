@@ -17,6 +17,37 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-INPUT-GROWTH` — finite local engine and documentation acceptance under
+  PERF-03/06/07/10/11/12 and CG-3/5/19/20/21; hosted integration
+  remains in the phase plan. Runtime `61a813b7` admits cumulative input and
+  top-level field metadata through the shared grant, retains capacity/schema
+  credits through aliases, and scans compact Vortex Sequence ranges in bounded
+  native intervals. Existing ChunkedArray composition, resource policy and
+  certificates remain shared; no dependency or fallback engine is added.
+  - All 15 source gates and eleven fresh workflow stages pass. Acceptance
+    includes 20 growth cases, five input-pressure controls, 442 streaming cases,
+    32,497 public cases and 18,595,284 complete row comparisons, direct and
+    adapter regressions, two native 16-MiB pivot observations and all 129
+    Full43 results. Independent inspection checks the complete portable packet.
+    The [report](../benchmarks/native-input-growth-2026-10-09.md) preserves exact
+    source/executable identities, unchanged grants/oracles and earlier failures.
+    Documentation validators, ten generated-site checks, three native examples,
+    contribution governance and desktop/mobile/search review also pass.
+  - Complete workloads include 4,099 nonempty and 8,193 empty batches, 4,097
+    fields and every value of a 1,000,017-row range. Streaming completes more
+    than 4.8 GB of logical input under 1 GiB; resident intake denies that grant
+    and completes under 6 GiB. Late failure, cancellation, producer closure,
+    complete native write/reopen and owned cleanup pass.
+  - The wide-footer, nested-value metadata and retained-record spill corrections
+    are accepted with their failed observations retained. No earlier partial
+    public family contributes current acceptance credit. This is a correctness
+    and admission unit, without a speedup or process-RSS claim.
+  - Richer intake, repeated/multiple producers, dynamic input, compatibility
+    streaming/fanout, cancellable automatic preparation and deep traversal
+    remain with their existing owners. All six areas, eight investigations and
+    CG-1 through CG-23 remain visible. Published 0.5.1 is unchanged; the version
+    stays fixed until the remaining work is complete.
+
 - [x] `RELEASE-050` — approved substantial local-engine milestone, completed
   as corrected v0.5.1 under the existing release/PERF-12 and CG-18/20/21 owners.
   - Safe cleanup, pivot integration and affected documentation completed first.

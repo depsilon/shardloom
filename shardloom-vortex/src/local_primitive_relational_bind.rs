@@ -35,8 +35,6 @@ pub(super) struct Binder<'a> {
     memory_sources: ReservedVec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
     batch_source: Option<(shardloom_core::DatasetUri, ResidentMemorySource)>,
     metadata: MemoryLease,
-    nodes: usize,
-    expression_nodes: usize,
     outer_fields: Option<Vec<(String, DType)>>,
     parameterized_binding: bool,
     execution: Option<dynamic::ExecutionBinding<'a>>,
@@ -61,6 +59,10 @@ enum SourceIndex {
 }
 
 impl<'a> Binder<'a> {
+    pub(super) fn reserve_input_scratch(&self, bytes: u64) -> Result<MemoryLease> {
+        self.session.reserve_input_scratch(bytes)
+    }
+
     pub(super) fn new(session: &'a ResidentVortexSession) -> Result<Self> {
         Ok(Self {
             session,
@@ -69,8 +71,6 @@ impl<'a> Binder<'a> {
             memory_sources: ReservedVec::new(session.memory())?,
             batch_source: None,
             metadata: session.memory().reserve(4096)?,
-            nodes: 0,
-            expression_nodes: 0,
             outer_fields: None,
             parameterized_binding: false,
             execution: None,
@@ -87,6 +87,18 @@ impl<'a> Binder<'a> {
                 .checked_add(u64::try_from(bytes).map_err(vortex_error)?)
                 .ok_or_else(|| failed("plan metadata size overflow"))?,
         )
+    }
+
+    pub(super) fn charge_items(&mut self, count: usize, per_item: usize) -> Result<()> {
+        self.charge(
+            count
+                .checked_mul(per_item)
+                .ok_or_else(|| failed("plan metadata size overflow"))?,
+        )
+    }
+
+    pub(super) fn charge_fields(&mut self, count: usize) -> Result<()> {
+        self.charge_items(count, 4096)
     }
 
     pub(super) fn finish(mut self) -> Result<BoundSources> {
@@ -229,10 +241,11 @@ impl<'a> Binder<'a> {
     }
 
     pub(super) fn bind(&mut self, input: &VortexRelationalPlan, depth: usize) -> Result<Node> {
-        self.nodes += 1;
-        if depth > 24 || self.nodes > 128 {
-            return Err(failed("plan exceeds 24 levels or 128 operators"));
+        if depth > 24 {
+            return Err(failed("recursive plan exceeds 24 levels"));
         }
+        // Total operator count grows under the shared metadata lease. The
+        // independent recursion guard remains until traversal is iterative.
         self.charge(4096)?;
         match input {
             VortexRelationalPlan::DeferredSubquery(_) => Err(failed(
@@ -253,7 +266,7 @@ impl<'a> Binder<'a> {
                     .as_ref()
                     .ok_or_else(|| failed("outer row source requires a correlated subquery scope"))?
                     .len();
-                self.charge(width * 4096)?;
+                self.charge_fields(width)?;
                 Ok(Node {
                     fields: self
                         .outer_fields
@@ -270,6 +283,7 @@ impl<'a> Binder<'a> {
             VortexRelationalPlan::Aggregate(aggregate) => self.aggregate(aggregate, depth),
             VortexRelationalPlan::Unary(unary) => {
                 let input = Box::new(self.bind(&unary.input, depth + 1)?);
+                self.charge_fields(input.fields.len())?;
                 let operation = BoundUnary::for_relation(
                     &unary.request,
                     &DType::struct_(input.fields.clone(), Nullability::NonNullable),
@@ -279,6 +293,7 @@ impl<'a> Binder<'a> {
                     return self.complete_pivot(&input, operation);
                 }
                 validate_width(operation.fields().len())?;
+                self.charge_fields(operation.fields().len())?;
                 for (name, dtype) in operation.fields() {
                     validate_name(name)?;
                     if unary.request.kind == VortexQueryPrimitiveKind::ExplodeRows {
@@ -288,7 +303,6 @@ impl<'a> Binder<'a> {
                     }
                 }
                 validate_unique(operation.fields())?;
-                self.charge(operation.fields().len() * 4096)?;
                 Ok(Node {
                     fields: operation.fields().to_vec(),
                     kind: NodeKind::Unary {
@@ -401,7 +415,7 @@ impl<'a> Binder<'a> {
             for column in columns {
                 validate_name(column.as_str())?;
             }
-            self.charge(columns.len() * 4096)?;
+            self.charge_fields(columns.len())?;
         }
         let source = self.input(&scan.source_uri)?;
         let dtype = self.source_dtype(source);
@@ -503,7 +517,8 @@ impl<'a> Binder<'a> {
             validate_name(&column.output_column)?;
             validate_name(column.column.as_str())?;
         }
-        self.charge((join.keys.len() * 2 + join.columns.len() * 2) * 4096)?;
+        self.charge_items(join.keys.len(), 8192)?;
+        self.charge_items(join.columns.len(), 8192)?;
         let left = Box::new(self.bind(&join.left, depth + 1)?);
         let right = Box::new(self.bind(&join.right, depth + 1)?);
         let mut left_keys = Vec::new();
@@ -568,7 +583,7 @@ impl<'a> Binder<'a> {
         if left.fields.len() != right.fields.len() {
             return Err(failed("set branches have different column counts"));
         }
-        self.charge(left.fields.len() * 4096)?;
+        self.charge_fields(left.fields.len())?;
         let fields = left
             .fields
             .iter()
@@ -594,8 +609,8 @@ impl<'a> Binder<'a> {
 }
 
 fn validate_width(width: usize) -> Result<()> {
-    if width == 0 || width > 128 {
-        return Err(failed("relational schema requires 1 through 128 fields"));
+    if width == 0 {
+        return Err(failed("relational schema requires at least one field"));
     }
     Ok(())
 }
@@ -608,8 +623,10 @@ fn validate_name(name: &str) -> Result<()> {
 }
 
 fn validate_unique(fields: &[(String, DType)]) -> Result<()> {
-    for (index, (name, _)) in fields.iter().enumerate() {
-        if fields[..index].iter().any(|(prior, _)| prior == name) {
+    // Binder field admission precedes this temporary, borrowed-name index.
+    let mut names = std::collections::BTreeSet::new();
+    for (name, _) in fields {
+        if !names.insert(name) {
             return Err(failed("output column names must be unique"));
         }
     }

@@ -10,7 +10,7 @@ fn failed() -> ShardLoomError {
     )
 }
 
-pub(super) fn bytes<T>(capacity: usize) -> Result<u64> {
+pub(crate) fn bytes<T>(capacity: usize) -> Result<u64> {
     capacity
         .checked_mul(std::mem::size_of::<T>())
         .and_then(|bytes| u64::try_from(bytes).ok())
@@ -18,24 +18,24 @@ pub(super) fn bytes<T>(capacity: usize) -> Result<u64> {
 }
 
 /// Values drop before the container credit; contained payloads own their credits.
-pub(super) struct ReservedVec<T> {
-    pub(super) values: Vec<T>,
+pub(crate) struct ReservedVec<T> {
+    pub(crate) values: Vec<T>,
     lease: MemoryLease,
 }
 
 impl<T> ReservedVec<T> {
-    pub(super) fn new(memory: &LiveMemoryPool) -> Result<Self> {
+    pub(crate) fn new(memory: &LiveMemoryPool) -> Result<Self> {
         Ok(Self {
             values: Vec::new(),
             lease: memory.reserve(0)?,
         })
     }
 
-    pub(super) fn reserve_one(&mut self) -> Result<()> {
+    pub(crate) fn reserve_one(&mut self) -> Result<()> {
         self.reserve(1)
     }
 
-    pub(super) fn reserve(&mut self, additional: usize) -> Result<()> {
+    pub(crate) fn reserve(&mut self, additional: usize) -> Result<()> {
         let needed = self
             .values
             .len()
@@ -67,13 +67,13 @@ impl<T> ReservedVec<T> {
         self.lease.resize(new_bytes)
     }
 
-    pub(super) fn push(&mut self, value: T) -> Result<()> {
+    pub(crate) fn push(&mut self, value: T) -> Result<()> {
         self.reserve_one()?;
         self.values.push(value);
         Ok(())
     }
 
-    pub(super) fn into_parts(self) -> (Vec<T>, MemoryLease) {
+    pub(crate) fn into_parts(self) -> (Vec<T>, MemoryLease) {
         (self.values, self.lease)
     }
 }

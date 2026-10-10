@@ -3,6 +3,7 @@
 
 use crate::native_memory_input::{MemoryRow, MemoryValueType, validate_batch_rows, validate_rows};
 use shardloom_core::ShardLoomError;
+use shardloom_exec::live_memory::MemoryLease;
 use shardloom_vortex::{
     resident_memory_source::{
         MemoryBatchSourceBuilder, MemoryColumn, MemoryColumnValues, MemorySourceBounds,
@@ -17,6 +18,7 @@ pub(crate) fn build(
     session: &ResidentVortexSession,
 ) -> Result<ResidentMemorySource, ShardLoomError> {
     validate_rows(schema, rows)?;
+    let _scratch = session.reserve_input_scratch(conversion_bytes(schema.len(), rows.len())?)?;
     let typed = schema
         .iter()
         .enumerate()
@@ -35,27 +37,73 @@ pub(crate) fn build(
 
 pub(crate) fn append_batch(
     schema: &[(String, MemoryValueType)],
-    rows: &[MemoryRow<128>],
+    rows: &[MemoryRow],
     builder: &mut MemoryBatchSourceBuilder,
 ) -> Result<(), ShardLoomError> {
-    with_batch_columns(schema, rows, |columns| builder.push_columns(columns))
+    let scratch = builder.reserve_scratch(conversion_bytes(schema.len(), rows.len())?)?;
+    append_admitted_batch(schema, rows, builder, &scratch)
+}
+
+pub(crate) fn append_admitted_batch(
+    schema: &[(String, MemoryValueType)],
+    rows: &[MemoryRow],
+    builder: &mut MemoryBatchSourceBuilder,
+    scratch: &MemoryLease,
+) -> Result<(), ShardLoomError> {
+    with_batch_columns(schema, rows, scratch, |columns| {
+        builder.push_columns(columns)
+    })
 }
 
 pub(crate) fn build_batch(
     schema: &[(String, MemoryValueType)],
-    rows: &[MemoryRow<128>],
+    rows: &[MemoryRow],
     session: &ResidentVortexSession,
 ) -> Result<ResidentMemorySource, ShardLoomError> {
-    with_batch_columns(schema, rows, |columns| {
+    let scratch = session.reserve_input_scratch(conversion_bytes(schema.len(), rows.len())?)?;
+    build_admitted_batch(schema, rows, session, &scratch)
+}
+
+pub(crate) fn build_admitted_batch(
+    schema: &[(String, MemoryValueType)],
+    rows: &[MemoryRow],
+    session: &ResidentVortexSession,
+    scratch: &MemoryLease,
+) -> Result<ResidentMemorySource, ShardLoomError> {
+    with_batch_columns(schema, rows, scratch, |columns| {
         ResidentMemorySource::from_batch_columns(session, columns)
     })
 }
 
+/// Temporary typed columns and their descriptor vectors. Three capacities cover
+/// geometric Vec growth with the old allocation still live; UTF8 payloads are
+/// borrowed from the separately admitted input cells rather than copied here.
+pub(crate) fn conversion_bytes(columns: usize, rows: usize) -> Result<u64, ShardLoomError> {
+    let cell = std::mem::size_of::<Option<&str>>()
+        .max(std::mem::size_of::<Option<i64>>())
+        .max(std::mem::size_of::<Option<f64>>())
+        .max(std::mem::size_of::<Option<bool>>());
+    rows.checked_mul(cell)
+        .and_then(|bytes| bytes.checked_add(std::mem::size_of::<TypedColumn<'_>>()))
+        .and_then(|bytes| bytes.checked_add(std::mem::size_of::<MemoryColumn<'_>>()))
+        .and_then(|bytes| bytes.checked_mul(columns))
+        .and_then(|bytes| bytes.checked_mul(3))
+        .and_then(|bytes| bytes.checked_add(4096))
+        .and_then(|bytes| u64::try_from(bytes).ok())
+        .ok_or_else(|| adapter_error("typed input conversion size overflow"))
+}
+
 fn with_batch_columns<T>(
     schema: &[(String, MemoryValueType)],
-    rows: &[MemoryRow<128>],
+    rows: &[MemoryRow],
+    scratch: &MemoryLease,
     consume: impl FnOnce(&[MemoryColumn<'_>]) -> Result<T, ShardLoomError>,
 ) -> Result<T, ShardLoomError> {
+    if scratch.bytes() < conversion_bytes(schema.len(), rows.len())? {
+        return Err(adapter_error(
+            "typed input conversion lacks its scratch reservation",
+        ));
+    }
     validate_batch_rows(schema, rows)?;
     let typed = schema
         .iter()
@@ -81,10 +129,10 @@ enum TypedColumn<'a> {
 }
 
 impl<'a> TypedColumn<'a> {
-    fn from_rows<const WIDTH: usize>(
+    fn from_rows(
         kind: MemoryValueType,
         index: usize,
-        rows: &'a [MemoryRow<WIDTH>],
+        rows: &'a [MemoryRow],
     ) -> Result<Self, ShardLoomError> {
         let values = || rows.iter().map(|row| row.0[index].as_deref());
         match kind {
@@ -126,7 +174,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn invalid_rows_are_rejected_before_native_reservation() {
+    fn invalid_rows_release_conversion_and_native_reservations() {
         let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
         for (kind, values) in [
             (MemoryValueType::Int64, vec![Some("1".into()); 4096]),
@@ -138,7 +186,7 @@ mod tests {
             (MemoryValueType::Bool, vec![Some("1".into())]),
         ] {
             assert!(build(&[("n".into(), kind)], &[MemoryRow(values)], &session).is_err());
-            assert_eq!(session.snapshot().memory.peak_reserved_bytes, 0);
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
         }
     }
 

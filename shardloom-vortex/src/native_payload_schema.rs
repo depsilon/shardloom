@@ -1,6 +1,7 @@
 //! One bounded static payload schema policy for native execution and typed intake.
 
 use shardloom_core::{Result, ShardLoomError};
+use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use vortex::array::{
     dtype::{DType, DecimalDType, PType},
     extension::datetime::{Date, TimeUnit, Timestamp},
@@ -40,6 +41,95 @@ pub(crate) fn admitted_scalar(dtype: &DType) -> bool {
         DType::Extension(_) => temporal_storage(dtype).is_some(),
         _ => false,
     }
+}
+
+/// Admit flat schema containers, name copies and the temporary uniqueness index
+/// before constructing them. Width consumes the caller's grant, not a fixed
+/// column count. The allowance also covers native field/slot wrapper metadata.
+pub(crate) fn reserve_names<'a>(
+    memory: &LiveMemoryPool,
+    count: usize,
+    name_at: impl Fn(usize) -> &'a str,
+) -> Result<MemoryLease> {
+    let bytes = names_bytes(count, &name_at)?;
+    let credit = memory.reserve(bytes)?;
+    unique_names(count, name_at)?;
+    Ok(credit)
+}
+
+/// Size name/container workspace without changing the caller's uniqueness policy.
+pub(crate) fn names_bytes<'a>(count: usize, name_at: impl Fn(usize) -> &'a str) -> Result<u64> {
+    if count == 0 {
+        return Err(failed("schemas require at least one field"));
+    }
+    (0..count).try_fold(4096_u64, |bytes, index| {
+        let name = name_at(index);
+        if name.is_empty() {
+            return Err(failed("field names must be nonempty and distinct"));
+        }
+        u64::try_from(name.len())
+            .ok()
+            .and_then(|len| len.checked_mul(4))
+            .and_then(|len| len.checked_add(4096))
+            .and_then(|field| bytes.checked_add(field))
+            .ok_or_else(|| failed("schema metadata overflow"))
+    })
+}
+
+// Call only while the corresponding names_bytes reservation is held.
+fn unique_names<'a>(count: usize, name_at: impl Fn(usize) -> &'a str) -> Result<()> {
+    let mut names = std::collections::BTreeSet::new();
+    for index in 0..count {
+        if !names.insert(name_at(index)) {
+            return Err(failed("field names must be nonempty and distinct"));
+        }
+    }
+    Ok(())
+}
+
+/// Top-level record width is resource-admitted. Individual nested value schemas
+/// retain their separate depth/node bounds until their traversal is generalized.
+/// Returned credit must outlive every native schema/container it admits.
+pub(crate) fn reserve_schema(dtype: &DType, memory: &LiveMemoryPool) -> Result<MemoryLease> {
+    let credit = memory.reserve(schema_bytes(dtype)?)?;
+    if let DType::Struct(fields, _) = dtype {
+        unique_names(fields.nfields(), |index| fields.names()[index].as_ref())?;
+    }
+    Ok(credit)
+}
+
+/// Whole-record estimate for batching or admission; individual value columns
+/// use `metadata_bytes` and retain the nested schema traversal policy.
+pub(crate) fn schema_bytes(dtype: &DType) -> Result<u64> {
+    let DType::Struct(fields, _) = dtype else {
+        return metadata_bytes(dtype);
+    };
+    fields.fields().try_fold(
+        names_bytes(fields.nfields(), |index| fields.names()[index].as_ref())?,
+        |bytes, child| {
+            bytes
+                .checked_add(metadata_bytes(&child)?)
+                .ok_or_else(|| failed("schema metadata overflow"))
+        },
+    )
+}
+
+/// Reserve before cloning an already-bound field list into a native `DType`.
+pub(crate) fn reserve_fields(
+    fields: &[(String, DType)],
+    memory: &LiveMemoryPool,
+) -> Result<MemoryLease> {
+    let bytes = fields.iter().try_fold(
+        names_bytes(fields.len(), |index| fields[index].0.as_str())?,
+        |bytes, (_, dtype)| {
+            bytes
+                .checked_add(metadata_bytes(dtype)?)
+                .ok_or_else(|| failed("schema metadata overflow"))
+        },
+    )?;
+    let credit = memory.reserve(bytes)?;
+    unique_names(fields.len(), |index| fields[index].0.as_str())?;
+    Ok(credit)
 }
 
 #[derive(Default)]

@@ -145,7 +145,15 @@ fn reopen(path: &std::path::Path, format: Format, dtype: &DType) -> Vec<Value> {
                 _ => panic!("not an admitted nested destination"),
             }
             .unwrap();
-            assert_eq!(table.header, vec!["id", "items", "detail"]);
+            assert_eq!(
+                table.header,
+                dtype
+                    .as_struct_fields()
+                    .names()
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>(),
+            );
             table
                 .rows
                 .into_iter()
@@ -162,18 +170,78 @@ fn reopen(path: &std::path::Path, format: Format, dtype: &DType) -> Vec<Value> {
 }
 
 #[test]
+fn native_nested_wide_schema_preserves_all_fields_values_and_typed_empty_writes() {
+    const WIDTH: usize = 1025;
+    let names = (0..WIDTH)
+        .map(|index| format!("c{index}"))
+        .collect::<Vec<_>>();
+    let items = lists();
+    let fixture = Fixture::new(
+        StructArray::new(
+            FieldNames::from(names.iter().map(String::as_str).collect::<Vec<_>>()),
+            vec![items; WIDTH],
+            4,
+            Validity::NonNullable,
+        )
+        .into_array(),
+        2,
+    );
+    let expected = [json!([9, null]), json!([]), Value::Null, json!([-4])]
+        .into_iter()
+        .map(|value| {
+            Value::Object(
+                names
+                    .iter()
+                    .map(|name| (name.clone(), value.clone()))
+                    .collect(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let denied_path = fixture.0.join("wide-denied.arrow");
+    let before = fs::read_dir(&fixture.0).unwrap().count();
+    let constrained = prepare_relational(&fixture.scan(), policy()).unwrap();
+    let reserved = constrained.snapshot().memory.reserved_bytes;
+    let error = constrained
+        .write(&denied_path, Format::ArrowIpc, false)
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("memory reservation denied"));
+    assert!(!denied_path.exists());
+    assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), before);
+    assert_eq!(constrained.snapshot().memory.reserved_bytes, reserved);
+    drop(constrained);
+    let mut admitted = policy();
+    admitted.resource_envelope.memory_budget_bytes = 64 << 20;
+    check_six_writers(&fixture, &expected, admitted);
+    let prepared = prepare_relational(&fixture.scan(), policy()).unwrap();
+    let path = fixture.0.join("wide-nested.csv");
+    prepared.write(&path, Format::Csv, false).unwrap();
+    let text = fs::read_to_string(&path).unwrap();
+    let mut lines = text.lines();
+    assert_eq!(lines.next().unwrap(), names.join(","));
+    for cell in ["\"[9,null]\"", "\"[]\"", "", "\"[-4]\""] {
+        assert_eq!(lines.next().unwrap(), vec![cell; WIDTH].join(","));
+    }
+    assert!(lines.next().is_none());
+}
+
+#[test]
 fn native_nested_six_writers_preserve_complete_values_and_typed_empty_results() {
     let (fixture, expected) = complex_fixture();
-    check_six_writers(&fixture, &expected);
+    check_six_writers(&fixture, &expected, policy());
 }
 
 #[test]
 fn native_nested_six_writers_preserve_list_struct_and_struct_struct_payloads() {
     let (fixture, expected) = struct_list_fixture();
-    check_six_writers(&fixture, &expected);
+    check_six_writers(&fixture, &expected, policy());
 }
 
-fn check_six_writers(fixture: &Fixture, expected: &[Value]) {
+fn check_six_writers(
+    fixture: &Fixture,
+    expected: &[Value],
+    execution_policy: crate::local_primitives::VortexLocalPrimitiveExecutionPolicy,
+) {
     assert_eq!(collect(&fixture.scan()), expected);
     for count in [4, 0] {
         let plan = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
@@ -181,7 +249,7 @@ fn check_six_writers(fixture: &Fixture, expected: &[Value]) {
             offset: 0,
             count,
         }));
-        let prepared = prepare_relational(&plan, policy()).unwrap();
+        let prepared = prepare_relational(&plan, execution_policy).unwrap();
         for format in [
             Format::Vortex,
             Format::Json,

@@ -222,9 +222,12 @@ request = read()
                 source.encode([invalid])
         with self.assertRaisesRegex(ValueError, "2,048"):
             source.encode([row] * 2049)
-        with self.assertRaises(ValueError):
-            from_batches([], schema={f"c{n}": "int64" for n in range(129)})
-        from_batches([], schema={f"c{n}": "int64" for n in range(128)})
+        declared = {f"c{n}": "int64" for n in range(1025)}
+        wide = from_batches([], schema=declared)
+        self.assertEqual(wide.source.schema, tuple(declared.items()))
+        row = {name: index if index % 2 else None for index, name in enumerate(declared)}
+        self.assertEqual(BatchInput([], tuple(declared.items())).encode([row]),
+                         [[None if value is None else str(value) for value in row.values()]])
         for schema in [{}, {"n": "decimal"}, {"": "int64"}, {"λ" * 129: "utf8"}]:
             with self.assertRaises(ValueError):
                 from_batches([], schema=schema)

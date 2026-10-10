@@ -391,7 +391,7 @@ def run(context, output, guard, accepted, complete, sources, identity, *, spill_
         ("duplicate-cell", pivot_sql(negative_input, aggregate="first_unique"), "multiple values"),
         ("unobserved-column", f"SELECT pivot_missing FROM ({pivot_sql(negative_input)}) AS p", "not present"),
         ("empty-unobserved", f"SELECT pivot_a FROM ({pivot_sql(negative_input + ' LIMIT 0')}) AS p", "not present"),
-        ("margin-collision", pivot_sql(negative_input, margins=True, margins_name="a"), "duplicate"),
+        ("margin-collision", pivot_sql(negative_input, margins=True, margins_name="a"), "field names must be nonempty and distinct"),
     ]:
         destination = output / f"must-not-publish-{label}.vortex"
         report = SqlWorkflow(statement, context.client).write_vortex(destination, check=False, **resources)

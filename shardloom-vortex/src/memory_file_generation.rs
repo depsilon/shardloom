@@ -59,6 +59,8 @@ use crate::{
     resident_session::{PreparedVortexProjection, PreparedVortexSource, ResidentVortexSession},
 };
 
+pub(crate) const GENERATION_INPUT_ROWS: usize = 65_536;
+
 /// Bounds for this immutable generation. Intake already admits at most
 /// 65,536 rows and 64 typed fields. No generic streaming-ingest claim follows.
 #[derive(Debug, Clone, Copy)]
@@ -677,7 +679,7 @@ impl<'a> GenerationBuilder<'a> {
             geometry,
             control,
             GenerationInputBounds {
-                rows: 65_536,
+                rows: GENERATION_INPUT_ROWS,
                 columns: 64,
             },
         )

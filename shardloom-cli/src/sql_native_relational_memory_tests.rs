@@ -225,13 +225,21 @@ fn native_relational_sql_memory_ranges_compose_with_existing_operators() {
 }
 
 #[test]
+fn native_relational_sql_memory_range_grows_beyond_former_length_limit() {
+    verify_memory(
+        "SELECT COUNT(*) AS n, MIN(value) AS first, MAX(value) AS last FROM range(0, 1000017)",
+        &json!([{"n":1_000_017,"first":0,"last":1_000_016}]),
+    );
+}
+
+#[test]
 fn native_relational_sql_memory_rejects_invalid_declarations_before_source_access() {
     for statement in [
         "SELECT unknown",
         "SELECT __shardloom_unit",
         "SELECT *",
         "SELECT value FROM range(1, 5, 0)",
-        "SELECT value FROM range(0, 1000001)",
+        "SELECT value FROM generate_series(-9223372036854775808, 9223372036854775807)",
         "VALUES (1), (2, 3)",
         "VALUES (1), ('a')",
         "VALUES (9007199254740993), (1.5)",

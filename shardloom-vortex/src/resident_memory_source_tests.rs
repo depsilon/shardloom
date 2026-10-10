@@ -382,7 +382,7 @@ fn nullable_native_filter_and_limit_keep_source_order_and_real_array_ownership()
 }
 
 #[test]
-fn invalid_input_fails_before_native_allocation_and_partial_admission_releases_credits() {
+fn invalid_input_releases_validation_and_partial_native_admission() {
     let session = ResidentVortexSession::new(1024 * 1024, 1).unwrap();
     let integers = [Some(1_i64), None];
     let one = MemoryColumn {
@@ -408,7 +408,6 @@ fn invalid_input_fails_before_native_allocation_and_partial_admission_releases_c
                 .is_err()
         );
         assert_eq!(session.snapshot().memory.reserved_bytes, 0);
-        assert_eq!(session.snapshot().memory.peak_reserved_bytes, 0);
     }
     for bounds in [
         MemorySourceBounds {
@@ -421,13 +420,163 @@ fn invalid_input_fails_before_native_allocation_and_partial_admission_releases_c
         },
     ] {
         assert!(ResidentMemorySource::from_columns(&session, &[one], bounds).is_err());
-        assert_eq!(session.snapshot().memory.peak_reserved_bytes, 0);
+        assert_eq!(session.snapshot().memory.reserved_bytes, 0);
     }
     let tight = ResidentVortexSession::new(270, 1).unwrap();
     assert!(
         ResidentMemorySource::from_columns(&tight, &[one], MemorySourceBounds::default()).is_err()
     );
     assert_eq!(tight.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn wide_copied_batch_and_owned_columns_preserve_every_value_and_escaped_metadata() {
+    const WIDTH: usize = 1025;
+    let names = (0..WIDTH)
+        .map(|index| format!("c{index}"))
+        .collect::<Vec<_>>();
+    let integers = [Some(i64::MAX), None, Some(i64::MIN)];
+    let columns = names
+        .iter()
+        .map(|name| MemoryColumn {
+            name,
+            values: MemoryColumnValues::Int64(&integers),
+        })
+        .collect::<Vec<_>>();
+    for route in 0..3 {
+        let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
+        let memory = session.memory().clone();
+        let source = match route {
+            0 => ResidentMemorySource::from_columns(
+                &session,
+                &columns,
+                MemorySourceBounds::default(),
+            ),
+            1 => ResidentMemorySource::from_batch_columns(&session, &columns),
+            _ => {
+                let owned = names
+                    .iter()
+                    .map(|name| {
+                        OwnedMemoryColumn::int64(
+                            &session,
+                            name,
+                            vec![i64::MAX, 0, i64::MIN],
+                            Some(vec![true, false, true]),
+                        )
+                        .unwrap()
+                    })
+                    .collect();
+                ResidentMemorySource::from_owned_columns(
+                    &session,
+                    owned,
+                    MemorySourceBounds::default(),
+                )
+            }
+        }
+        .unwrap();
+        assert_eq!(source.dtype().as_struct_fields().nfields(), WIDTH);
+        assert_eq!(source.is_batch_source(), route == 1);
+        let metadata = source.0.metadata.as_ref().unwrap().bytes();
+        assert!(metadata > WIDTH as u64 * 4096);
+        let escaped_buffer = source.0.array.slots()[WIDTH].as_ref().unwrap().buffers()[0].clone();
+        let selected = names.iter().map(String::as_str).collect::<Vec<_>>();
+        let projection = source.prepare_projection(&selected, None, None).unwrap();
+        let result = projection.execute_arrays().unwrap();
+        assert_wide_json_admission(&result, &names, &memory);
+        let expected = integers
+            .iter()
+            .map(|value| {
+                serde_json::Value::Object(
+                    names
+                        .iter()
+                        .map(|name| (name.clone(), serde_json::json!(value)))
+                        .collect(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let json = result.to_bounded_json(&names, 1 << 20).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Vec<serde_json::Value>>(json.value()).unwrap(),
+            expected,
+        );
+        drop(json);
+        let collected = projection.execute().unwrap();
+        assert_eq!(
+            serde_json::from_str::<Vec<serde_json::Value>>(collected.values_json.value()).unwrap(),
+            expected,
+        );
+        drop(collected);
+        let arrays = result.arrays().to_vec();
+        let mut context = result.create_execution_ctx();
+        for (_, child) in arrays[0].named_children() {
+            for (row, expected) in integers.iter().enumerate() {
+                let scalar = child.execute_scalar(row, &mut context).unwrap();
+                match expected {
+                    Some(expected) => assert_eq!(scalar, (*expected).into()),
+                    None => assert!(scalar.is_null()),
+                }
+            }
+        }
+        drop((context, result, projection, source, session));
+        assert!(memory.snapshot().reserved_bytes >= metadata);
+        drop(arrays);
+        // A raw payload buffer cloned after source admission keeps the schema
+        // reservation, independently of any result or source handles.
+        assert!(memory.snapshot().reserved_bytes >= metadata);
+        drop(escaped_buffer);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+fn assert_wide_json_admission(
+    result: &crate::resident_session::OwnedVortexResultBatch,
+    names: &[String],
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+) {
+    let before = memory.snapshot();
+    let other = memory
+        .reserve(before.limit_bytes - before.reserved_bytes - 1024)
+        .unwrap();
+    let occupied = memory.snapshot().reserved_bytes;
+    let error = result.to_bounded_json(names, 1 << 20).err().unwrap();
+    assert!(error.to_string().contains("memory reservation denied"));
+    assert_eq!(memory.snapshot().reserved_bytes, occupied);
+    drop(other);
+    assert_eq!(memory.snapshot().reserved_bytes, before.reserved_bytes);
+}
+
+#[test]
+fn wide_schema_denial_and_duplicate_validation_preserve_other_owners() {
+    let session = ResidentVortexSession::new(128 << 10, 1).unwrap();
+    let held = session.memory().reserve(8192).unwrap();
+    let names = (0..1025)
+        .map(|index| format!("c{index}"))
+        .collect::<Vec<_>>();
+    let columns = names
+        .iter()
+        .map(|name| MemoryColumn {
+            name,
+            values: MemoryColumnValues::Int64(&[]),
+        })
+        .collect::<Vec<_>>();
+    for batch in [false, true] {
+        let outcome = if batch {
+            ResidentMemorySource::from_batch_columns(&session, &columns)
+        } else {
+            ResidentMemorySource::from_columns(&session, &columns, MemorySourceBounds::default())
+        };
+        assert!(outcome.is_err());
+        assert_eq!(session.memory().snapshot().reserved_bytes, held.bytes());
+    }
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    let mut columns = columns;
+    columns[1024].name = columns[0].name;
+    let error =
+        ResidentMemorySource::from_columns(&session, &columns, MemorySourceBounds::default())
+            .err()
+            .unwrap();
+    assert!(error.to_string().contains("distinct"));
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
 }
 
 #[test]

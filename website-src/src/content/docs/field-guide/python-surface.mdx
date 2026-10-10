@@ -72,13 +72,19 @@ with frame.iter_batches(batch_rows=1024) as batches:
 
 Input admits nullable Int64, finite Float64, booleans and UTF8 strings with an
 explicit schema. Each input batch contains at most 2,048 row mappings and an
-8 MiB frame, with up to 128 fields and 4,096 batches per source. In the default
+8 MiB frame. Current source builds admit growing field and batch metadata through
+the shared query grant, without fixed total field or batch counts. In the default
 resident mode (`streaming=False`), total native input must fit the query memory
 grant. A factory, as above, supplies fresh input for repeated calls; an iterable
 can be consumed once.
+The [input growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
+applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
+their release-time limits. Schema declarations still have an 8 MiB envelope.
+The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
+records wide schemas, cumulative input, generated ranges, resource denial and complete write/reopen checks.
 
 Streaming retains at most one native input batch, so cumulative input may exceed
-the query grant within those finite limits. It supports incremental results,
+the query grant while individual batches remain bounded. It supports incremental results,
 bounded small collection or one native Vortex destination. Retained operator
 state shares the grant; ordering, general aggregation, joins and analytic windows
 support an explicit native spill policy. A single-use batch source can occur on either join side,

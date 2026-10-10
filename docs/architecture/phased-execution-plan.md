@@ -249,6 +249,21 @@ the ledger.
 
 ## Planned
 
+- [ ] `NATIVE-INPUT-GROWTH` complete hosted integration for the
+  finite cumulative-input, top-level schema and generated-range growth unit.
+  - V1 scope classification: `required_for_v1`.
+  - Existing owners: PERF-03/06/07/10/11/12 and CG-3/5/19/20/21.
+  - Local engine acceptance and independent packet inspection pass at
+    `61a813b7`: all 15 source gates, 20 growth cases, five input-pressure
+    controls, 442 streaming cases, 32,497 public cases and all 129 Full43
+    results. The [report](../benchmarks/native-input-growth-2026-10-09.md)
+    preserves exact source/value proof and the failed candidates.
+  - Affected documentation, ten generated-site checks, three native examples,
+    contribution governance and desktop/mobile/search review pass. Complete
+    hosted checks and integration without changing the accepted runtime.
+    Keep 0.5.1 fixed. Richer intake, repeated/multiple producers,
+    streaming sink composition and deeper traversal remain implementation work.
+
 `RELEASE-050` is complete as corrected v0.5.1: all four selected channels and
 the production website are verified. The
 [publication record](../release/v0.5.1-publication-verification.md) and
@@ -981,10 +996,13 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       cancellation and memory/CPU ownership at coarse and fine topology levels.
     - [ ] Verify queue bytes, state growth denial, cancellation and worker reuse
       under mixed load, with explicit exclusions for unobserved provider owners.
-    - [ ] Replace cumulative input and schema-width ceilings with growable,
+    - [x] Replace cumulative input and top-level schema-width ceilings with growable,
       credited metadata and bounded execution units. Preserve per-frame memory,
       cancellation and overflow protections while allowing complete workloads
       to continue for as long as their authorized resource policy permits.
+      The [input growth acceptance](../benchmarks/native-input-growth-2026-10-09.md)
+      proves this finite contract; nested value-schema bounds and remaining
+      allocation owners retain their separate resource/traversal obligations.
   - ShardLoom technique review: capillary units and PulseWeave must control observed
     work and scarcity; configuration comparisons cannot certify queue enforcement.
 
@@ -1173,6 +1191,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     - [ ] Replace fixed plan/expression depth and node ceilings with scalable,
       resource-accounted traversal and lowering. Prove wide/deep composed plans,
       deterministic resource denial and cancellation without stack exhaustion.
+      The input growth unit admits total operator/expression counts through
+      existing metadata credits and verifies 255-node plans. Recursive depth
+      guards and scalable traversal remain open; this combined item is not closed.
   - ShardLoom technique review: native provider selection and work avoidance apply;
     volatile/effectful or floating-sensitive rewrites preserve existing semantics.
 
@@ -1198,9 +1219,11 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     - [ ] Connect automatic compatibility preparation to the transaction's
       cancellation owner, with source identity, provisional output and owned
       cleanup preserved across preparation, execution and publication.
-    - [ ] Execute generated ranges through bounded native units instead of a
+    - [x] Execute generated ranges through bounded native units instead of a
       fixed total-length ceiling; preserve checked arithmetic and complete
       consumption under the shared resource policy.
+      The input growth unit uses compact Vortex Sequence metadata, admitted
+      scan intervals and every-value write/reopen proof beyond one million rows.
     - [ ] Extend measured p50/p95/p99 to the remaining declared bulk-load envelope,
       including validation, intake, queue delay and result delivery.
   - ShardLoom technique review: Vortex normalization and late materialization apply;
@@ -1241,6 +1264,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       schema-width, generated-range and plan-shape ceilings after their owning
       mechanisms are implemented. Include resource exhaustion, late input
       failures, slow consumers, cancellation and exact write/reopen comparisons.
+      Input growth acceptance covers cumulative batches, 4,097 top-level fields,
+      a 1,000,017-row range and total-node growth. Deeper plans and the broader
+      source/type/destination combinations remain uncompleted scope.
     - [ ] Record paired uncertainty, complete outputs, and gains in non-ClickBench families.
   - ShardLoom technique review: correctness, evidence tiers, and no-fallback boundaries
     apply; cross-host ratios and success flags alone are insufficient proof.

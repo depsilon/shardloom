@@ -29,8 +29,9 @@ the original cancelled policy and its clones remain cancelled.
 and nullable grouping keys, derived keys and COUNT/SUM/AVG/MIN/MAX measures.
 The [owned COUNT results](owned-count-results.md) retain their direct finalizers;
 other admitted aggregates construct typed native columns from completed state.
-Owned collection keeps its 65,536-row, 128-field and 8-MiB admission bounds and
-does not admit explicit spill output. These bounds do not limit streaming writes.
+Owned collection keeps its 65,536-row and 8-MiB admission bounds and does not
+admit explicit spill output. Top-level schema metadata uses the shared grant.
+The row and byte bounds do not limit streaming writes.
 See the [current completion evidence](../architecture/native-runtime-completion-2026-09-20.md).
 
 `execute_cancellable(&CancellationToken)` adds cooperative cancellation to ordinary
@@ -50,18 +51,22 @@ after local and hosted checks. Published v0.4.0 predates those adapters. The
 [batch API contract and example](../architecture/native-bounded-adapters-2026-10-06.md)
 define exact types, resource bounds and failure behavior.
 
-Input batches contain up to 2,048 row mappings with an explicit schema of up to
-128 nullable Int64, finite Float64, Boolean or UTF8 fields. An iterable is used
+Input batches contain up to 2,048 row mappings with an explicit schema of
+nullable Int64, finite Float64, Boolean or UTF8 fields. An iterable is used
 once; a factory supplies fresh input on repeated execution. Each frame is at
-most 8 MiB, with at most 4,096 batches per source. In the default resident mode
+most 8 MiB. Current source builds admit growing field and batch metadata through
+the shared grant, without fixed total field or batch counts. In the default resident mode
 (`streaming=False`), total native input must fit the shared grant.
+The [input growth contract](../architecture/native-input-growth-2026-10-09.md)
+applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
+their release-time limits. Schema declarations still have an 8 MiB envelope.
 
 Opt-in `streaming=True` consumes one finite batch source once, retaining at most
 one native input batch. Current source composes Scan/Filter/Project, Sort, Limit,
 Aggregate, Join and Window alongside ordinary file/resident sources. Repeated batch use
 and multiple batch producers reject before consumption. Incremental results,
 bounded small collection and one native Vortex destination are admitted.
-Cumulative input may exceed the query grant within the finite batch/frame limits;
+Cumulative input may exceed the query grant while each batch/frame stays bounded;
 typed intake, retained operator state, output compaction and result/sink owners
 remain charged. Ordering, aggregation, joins and analytic windows admit explicit
 native spill.
@@ -342,15 +347,17 @@ operation and source; their retained buffers keep the corresponding reservations
 `MemoryColumnValues` admits nullable `Int64`, finite `Float64`, `Bool`, and `Utf8`
 slices. All four retain nullable native DTypes, including an all-valid or empty
 column. Duplicate names, names outside 1–256 UTF-8 bytes, mismatched lengths,
-nonfinite floats, and more than 64 columns are rejected before native allocation.
+and nonfinite floats are rejected. Growing schema metadata and its uniqueness
+index reserve shared credit before native construction; admission failures
+release the attempt's owners.
 Rust intake permits empty typed sources. Nested, decimal, binary, and arbitrary
 externally allocated `ArrayRef` intake are outside this interface.
 
 `prepare_projection(columns, filter, limit)` accepts an optional native Vortex
 boolean expression and an optional source-order limit. The provider binds and
 executes the filter; a null predicate excludes the row. Filtering precedes the
-limit. This is the Rust provider boundary; public generated-row collect below
-admits the supplied rows without additional predicates or limits.
+limit. This is the Rust provider boundary; public declared rows below enter the
+same relational execution layer as native file inputs.
 
 `MemorySourceBounds` defaults to 65,536 input/output rows, 32 MiB of validated
 input bytes, and 32 MiB of native output bytes. Callers may choose stricter bounds.
@@ -359,55 +366,48 @@ Exceeding a bound fails the complete request instead of returning a truncated
 preview. Use an explicit admitted export workflow for larger results.
 
 The session pool admits native value, offset, and validity buffers before their
-allocation and retains credits for their lifetime. It also owns completed JSON
-capacity. Caller/parser storage, array metadata, upstream scratch that does not
-use the session allocator, and process RSS are outside this accounting scope.
+allocation and retains credits for their lifetime. Admitted source/projection
+schema metadata follows native aliases, and completed JSON retains its capacity
+credit. Caller declarations and unreviewed upstream scratch that does not use
+the session allocator remain outside this accounting scope; the grant is not
+a process-RSS limit.
 This is an immutable memory snapshot API, not an asynchronous ingestion queue,
 native Python binding, general shared-memory import, or durable write API.
 
 ## Public Generated-Row Collect
 
-The existing public workflow command accepts a bounded supplied-row batch:
+`shardloom.from_rows(...)` and `ShardLoomContext.from_rows(...)` declare supplied
+scalar rows for the shared native relational workflow:
 
-```sh
-shardloom run dataframe \
-  --generated-source-kind user_rows \
-  --generated-schema 'id:int64,label:utf8' \
-  --generated-rows 'id=9223372036854775807,label=%CE%BB;id=-9223372036854775808,label=hello' \
-  --request collect --bounded true \
-  --execution-policy native_vortex --materialization-policy bounded \
-  --memory-gb 1 --max-parallelism 2 --format json
+```python
+import shardloom as sl
+
+ctx = sl.ShardLoomContext()
+frame = ctx.from_rows(
+    [{"id": 9223372036854775807, "label": "λ"}, {"id": None, "label": None}],
+    schema={"id": "int64", "label": "utf8"},
+)
+report = frame.select("label", "id").collect(memory_gb=1, max_parallelism=1)
+print(report.result_rows)
 ```
 
-The complete response reports `generated_rows_memory_collect`,
-`publication_state=visible_in_memory`, `durable=false`, `write_io_performed=false`,
-`fallback_attempted=false`, and `external_engine_invoked=false`. There is no
-intermediate file. A persistent public worker retains the runtime and budget;
-each call validates and constructs a fresh immutable batch from the supplied
-values. Worker request frames are capped at 16 MiB before JSON parsing, excluding
-the newline delimiter. Each request admits at most 4,096 string arguments;
-unknown request metadata is skipped without materializing its JSON tree, and
-duplicate argument lists fail. An oversized frame returns an error and terminates the
-worker; malformed bounded requests clear retained execution context. Starting a
-new worker permits subsequent valid requests.
+Int64, finite Float64, Boolean and UTF8 input preserve nulls. Empty input requires
+an explicit schema; every row must match its declared fields. Declaration is
+inert, and execution constructs native owned input under the query grant.
+The serialized declaration is capped at 8 MiB and 65,536 rows. Schema metadata
+uses the shared grant rather than a fixed field count in current source builds.
+Collection retains its separate complete-result row and byte bounds. For larger
+input, use `from_batches`; for larger results, use `iter_batches` or an admitted
+writer. These workflows use the CLI-backed native engine, not an in-process
+Python execution engine.
 
-This adapter preserves the existing percent-encoded schema and row grammar:
-commas separate fields, semicolons separate rows, and reserved characters inside
-names or values must be percent-encoded. It admits `int64`, finite `float64`,
-`bool`, and `utf8`. The grammar has no null token: `null` in a UTF-8 column is the
-literal string; `null` in a numeric column is invalid. Use typed Rust intake for
-nullable batches. Empty public row payloads are rejected.
-
-The combined raw schema/rows payload is capped at 8 MiB, 64 columns, and 65,536
-rows before parsing. Native and JSON output bounds also apply. Explicit supplied
-`literal_table`, `calendar`, `dataframe_source_free_projection`, and
-`dataframe_generated_with_column` batches use the same path with their existing
-shape constraints. This route rejects input/output paths, SQL, filters, limits,
-other operation payloads, `prepare_once`, and `zero_decode` materialization.
-
-Python can call this public workflow through its existing CLI-backed worker
-transport. This does not add an in-process native Python binding or change every
-`LazyFrame` generated-source route.
+`ctx.range(start, end, step=..., column=...)` declares compact native Int64 input
+with an exclusive end. Current source builds materialize only the bounded scan
+interval needed by the operation, with no one-million-row total-length ceiling.
+Endpoints, lengths and logical-byte counts remain checked. Filters, projections,
+aggregates and writers execute through the same native relational layer.
+These growth changes are part of the [post-release source contract](../architecture/native-input-growth-2026-10-09.md),
+not a change to published 0.5.1 artifacts.
 
 ## Prepared Local File Results
 

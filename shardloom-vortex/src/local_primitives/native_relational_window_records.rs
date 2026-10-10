@@ -265,7 +265,7 @@ impl Layout {
                 .project(&self.payload_names)
                 .map_err(vortex_error)?
                 .into_array();
-            native_payload::take_with_policy(
+            native_payload::take_record_with_policy(
                 &projected,
                 &indices,
                 &self.payload_dtype,

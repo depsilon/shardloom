@@ -192,8 +192,11 @@ Remaining adapters and resource/spill transitions retain their owners.
 | Volume and pressure | Reservations, worker/queue admission, selected COUNT/DISTINCT/numeric-sort spill and cleanup. | One accounted resource envelope through reader, codec, operator, retained state and sink; broader native spill and recovery. | PERF-03/06; existing resource/recovery gates |
 | Acceptance | Full43, renamed-schema checks, public calls and focused ownership/resource tests. | Complete workflows across schemas, formats, result sizes, skew and constrained resources; all public surfaces share execution. | PERF-12; CG-5/6/21 |
 
-The 65,536-row / 128-top-level-field / 8-MiB limits remain on small computed-result
-collection. The [October 1 result-stream unit](native-workflow-streaming-2026-10-01.md)
+The 65,536-row / 8-MiB limits remain on small computed-result collection.
+Current source builds admit top-level field metadata through the shared grant,
+under the [input growth contract](native-input-growth-2026-10-09.md).
+Published 0.5.1 artifacts retain their release-time limits.
+The [October 1 result-stream unit](native-workflow-streaming-2026-10-01.md)
 gives already executable flat-scalar aggregate and ordered local writes a separate
 bounded batch boundary, with complete output above the collection row and byte
 limits. The nested continuation extends admitted fields to bounded static
@@ -261,8 +264,17 @@ Full43 results; hosted window integration completed in PR #1533 after all 39
 hosted checks passed (see [hosted receipt](../benchmarks/evidence/native-window-hosted-2026-10-08.json)).
 Pivot pressure has complete local acceptance in the
 [acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md); hosted
-integration remains pending. Remaining allocations and broader adapters keep
-their existing obligations.
+integration completed in PR #1534 after all 39 checks passed, with the
+[hosted receipt](../benchmarks/evidence/native-pivot-hosted-2026-10-08.json)
+recording preserved runtime and actual production verification.
+The subsequent [input growth acceptance](../benchmarks/native-input-growth-2026-10-09.md)
+replaces cumulative-input, top-level schema and generated-range ceilings with
+shared admission. All 20 growth cases, five input-pressure controls, complete
+public/streaming regressions and 129 Full43 results pass on corrected source
+`61a813b7`; independent packet inspection and support documentation checks pass.
+Hosted integration remains pending. Deeper traversal, richer intake, repeated/multiple producers,
+streaming destination composition and remaining allocation coverage keep their
+existing implementation obligations.
 The [local-engine maturity criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria)
 require operational acceptance of a declared support envelope; package availability is complete,
 and cloud/complete-SQL parity is not a blanket prerequisite for that local promise.

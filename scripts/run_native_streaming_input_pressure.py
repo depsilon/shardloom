@@ -36,15 +36,19 @@ def main():
     parser.add_argument("--input-mode", choices=("streaming", "resident"), required=True)
     parser.add_argument("--output-mode", choices=("batches", "vortex"), required=True)
     parser.add_argument("--memory-gb", type=int, required=True)
+    parser.add_argument("--operation-timeout", type=float, default=120)
     parser.add_argument("--batches", type=int, default=1152)
     parser.add_argument("--expect-denial", action="store_true")
     parser.add_argument("--require-fourfold-input", action="store_true")
     args = parser.parse_args()
+    # Bound this retained-oracle pressure fixture, not the engine's input count.
+    # The separate growth family validates complete input beyond 4,096 batches.
     assert 1 <= args.batches <= 4096 and 1 <= args.memory_gb <= 6
+    assert args.operation_timeout > 0
     binary = args.binary.resolve(strict=True)
     root = require_local_path(args.uat_root, Path.home(), sys.platform)
     assert not root.exists(), "use a new output directory"
-    harness = Harness(binary, root)
+    harness = Harness(binary, root, args.operation_timeout)
     harness.guard()
     harness.logs.mkdir(parents=True)
     harness.output.mkdir()
@@ -68,6 +72,7 @@ def main():
     protocol = {"binary": str(binary), "binary_sha256": sha(binary), "source_hashes": source_hashes,
                 "input_mode": args.input_mode, "output_mode": args.output_mode,
                 "memory_grant_bytes": args.memory_gb * GIB, "max_parallelism": 1,
+                "operation_timeout_seconds": args.operation_timeout,
                 "batches": args.batches, "rows_per_batch": ROWS_PER_BATCH,
                 "input_rows": args.batches * ROWS_PER_BATCH, "input_logical_bytes": logical_bytes,
                 "one_batch_logical_bytes": batch_logical, "payload_bytes_each_value": VALUE_BYTES,
@@ -146,9 +151,12 @@ def main():
             assert envelope.field_int("resident_memory_limit_bytes") == args.memory_gb * GIB
             assert envelope.field_int("resident_peak_reserved_buffer_bytes") <= args.memory_gb * GIB
             if args.output_mode == "vortex":
-                reopened = harness.context.read_vortex(target).collect(check=True, **grant)
-                harness.envelope("reopened", reopened.envelope)
-                observed = list(reopened.result_rows)
+                with harness.context.read_vortex(target).iter_batches(batch_rows=128, **grant) as reopened:
+                    for batch in reopened:
+                        observed.extend(batch.result_rows)
+                    assert reopened.report is not None
+                    harness.envelope("reopened", reopened.report.envelope)
+                report["readback_mode"] = "bounded_native_batches"
                 report["output_artifact"] = harness.artifact(target)
             harness.values("complete", observed, expected)
             report["complete_output_rows_verified"] = len(observed)

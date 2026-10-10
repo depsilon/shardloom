@@ -145,7 +145,7 @@ impl Layout {
                 .project(&self.payload_names)
                 .map_err(vortex_error)?
                 .into_array();
-            native_payload::take(&projected, &indices, &self.payload_dtype, context)?
+            native_payload::take_record(&projected, &indices, &self.payload_dtype, context)?
         };
         columns.values.push(payload);
         records::structure(&self.build.fields, columns, rows)

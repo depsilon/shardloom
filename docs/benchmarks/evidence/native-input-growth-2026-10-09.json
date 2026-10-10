@@ -1,0 +1,992 @@
+{
+  "schema_version": "shardloom.native_input_growth_local_acceptance.v1",
+  "status": "accepted_source_committed_locally_hosted_pending",
+  "units": [
+    "NATIVE-INPUT-GROWTH"
+  ],
+  "runtime_commit": "61a813b71d871e0e7213dcc3740f77c900f50eba",
+  "source_identity_sha256": "326b8e4ac0c371d98149b4e92747ce21c3e4ac0321ef1ea8491cfd631d4e2d1b",
+  "runtime_source_assets_verified_against_commit": 1020,
+  "acceptance": {
+    "status": "passed_local_engine",
+    "source_identity_sha256": "326b8e4ac0c371d98149b4e92747ce21c3e4ac0321ef1ea8491cfd631d4e2d1b",
+    "acceptance_inputs_sha256": "1a1dd8692ddea8c76a25cd0b6eec7a68f4d797d2cdc76486c0477ea9dce1b875",
+    "binary_sha256": "8a4ef90fe0925dbbdedaf5d3a7c1d4e582671de59d823d6b8fa4163fc244b607",
+    "source_assets": 1020,
+    "public_checks": 32497,
+    "public_rows": 18595284,
+    "direct_checks": 202,
+    "direct_rows": 131734,
+    "full43_runs": 129,
+    "raw_public_envelopes": 64741,
+    "raw_direct_envelopes": 367,
+    "source_checks": 15,
+    "batch_checks": 48,
+    "format_checks": 19,
+    "streaming_public_checks": 442,
+    "streaming_raw_envelopes": 420,
+    "streaming_small_value_files": 365,
+    "streaming_complete_pressure_rows_reopened": 517499,
+    "malformed_protocol_traces": 10,
+    "growth_cases": 20,
+    "growth_value_files": 32,
+    "growth_raw_envelopes": 69,
+    "growth_wide_artifacts": 17,
+    "growth_range_values_verified": 1000017,
+    "input_pressure_controls": 5,
+    "input_pressure_raw_envelopes": 6,
+    "retained_native_pivot_pressure_executions": 2,
+    "retained_public_pivot_pressure_checks": 3626,
+    "retained_public_pivot_pressure_rows": 1713893,
+    "retained_window_pressure_checks": 1498,
+    "retained_window_pressure_rows": 1061210,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9,
+    "compacted_archive_members_reopened": 1032,
+    "public_harness_diagnostic_denials_reopened": 110,
+    "public_harness_probe_denials": 108,
+    "runtime_correction_source_assets": 14,
+    "runtime_correction_failure_assets_retained": 13,
+    "all_current_stages_executed_freshly": true,
+    "public_family_executions_fresh": true,
+    "historical_union_repair_used": false,
+    "source_tree_clean": true,
+    "broader_documentation_updates_deferred": true,
+    "packet": "docs/benchmarks/evidence/native-input-growth-2026-10-09.json.xz",
+    "packet_sha256": "1f320c2735b7e9c9ff6d44dc881cb6a9b1fcb3a03dc3bcb6159843a44e93e69c",
+    "packet_compressed_bytes": 54856828,
+    "packet_uncompressed_bytes": 4639818207,
+    "packet_uncompressed_sha256": "9a8d69df4998b994273f5ca9f679f0996ceecf292c0c7e27df0987dcd2cb8b75"
+  },
+  "original_acceptance_sha256": "6cef6ecd77ad1ed1fb1257e6cbb181a79086c5e8ce5ffee507a75db597ac70c7",
+  "portable_inspection": "docs/benchmarks/evidence/native-input-growth-2026-10-09-inspection.json",
+  "original_inspection_sha256": "da4d7608ed113b1424b8f18b701075d5baf02851b8adde77ceda1f7e05ddeda2",
+  "inspector_contract_tests": {
+    "status": "passed",
+    "cases": 311,
+    "inspector_sha256": "a80af2a57ba7fcde21fb592c6b66b1e1661b6b8014a6d2e13fe4a50d30cebb63",
+    "verifier_sha256": "1d5aaab64dca52a371895ff146f619673cffd65cc84cda18ef3dd9a1dbf01bee"
+  },
+  "evidence_inputs_sha256": "1a1dd8692ddea8c76a25cd0b6eec7a68f4d797d2cdc76486c0477ea9dce1b875",
+  "evidence_freeze_boundary": "All eleven stages, the fifteen engine gates, detailed native pressure observations and every readback helper belong to the newly committed corrected source. Every current stage executes freshly; no earlier candidate result or partial public-family union is accepted. Completed inputs and helpers are frozen before independent inspection.",
+  "archive_guards": {
+    "growth-finalize-1": {
+      "receipt_sha256": "94208946b064cf151f039dfe580a8c7ab16a2158c467a90292a2678e7b9f688e",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps:<repo>/python/src:<repo>/scripts",
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<growth-uat>/finalize_growth_acceptance.py",
+          "--attempt",
+          "1",
+          "--supervisor",
+          "growth-finalize-1"
+        ],
+        "cwd": "<repo>",
+        "head": "61a813b71d871e0e7213dcc3740f77c900f50eba",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2631294976,
+            "log_bytes": 0,
+            "free_bytes": 56478961664,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 30268096512,
+            "log_bytes": 0,
+            "free_bytes": 56478945280,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1800.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 4564,
+        "output_bytes": 2354,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 559.9373010410054,
+        "log_sha256": "8ac6a4b4495af49c83584c3aaa1945e849fcfc5c72d846efcb4d76dcf4a68cc4"
+      }
+    },
+    "growth-packet-inspect-1": {
+      "receipt_sha256": "ab64777a0aab6a94fb0d1df39099cf5e0e29492bc605d69b43a695faba717df3",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "<growth-uat>/verify_growth_packet.py",
+          "--attempt",
+          "1"
+        ],
+        "cwd": "<repo>",
+        "head": "61a813b71d871e0e7213dcc3740f77c900f50eba",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2631327744,
+            "log_bytes": 0,
+            "free_bytes": 56464093184,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 30268096512,
+            "log_bytes": 0,
+            "free_bytes": 56464093184,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1800.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 5083,
+        "output_bytes": 5353,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 1711.339667332999,
+        "log_sha256": "a05bd0a6f217faade9566e44b9b4bf34091569aa8e39f36175bdfcf688647fd3"
+      }
+    }
+  },
+  "historical_harness_correction": {
+    "status": "frozen_before_corrected_acceptance",
+    "source_commit": "323b988a11dc44ae7ef57d2d7b85afbbc75881d7",
+    "source_identity_sha256": "f1b8931a462ed5ab963f250f19081cd17c3a76b15171560da7cc022a4c80175c",
+    "build_manifest_sha256": "54dc843be71a3f22663a76075c55b623c582e5d0893f555b5fa96452a786d786",
+    "helper_sha256": "a4a8ce00ce8106bf7fcf87d50ac5548357368c51ed43c86a24457bd41f83a40d",
+    "drivers": {
+      "run_growth_acceptance": {
+        "original_path": "<home>/LocalData/shardloom/native-input-growth-20261009/run_growth_acceptance.py",
+        "original_sha256": "d66e7a6d15d4ca0c547fbfa3942c870757a1887312bb3240d5aa17224c0f1877",
+        "corrected_path": "<home>/LocalData/shardloom/native-input-growth-20261009/run_growth_acceptance_fixed.py",
+        "corrected_sha256": "5ce5ca97417e792ec5a58161a1ff064367a2d610079cbfdfd732a6264eb55edb"
+      },
+      "reuse_growth_adapters": {
+        "original_path": "<home>/LocalData/shardloom/native-input-growth-20261009/reuse_growth_adapters.py",
+        "original_sha256": "e907b541052258cc26ee43a01d887647aa2e1f212d8e573c5dfd03ec0194a296",
+        "corrected_path": "<home>/LocalData/shardloom/native-input-growth-20261009/reuse_growth_adapters_fixed.py",
+        "corrected_sha256": "1e45259cd6ea9345631c241280c448e349f0c8d815f749fb803d1c171e6e7cb9"
+      },
+      "input_batch_smoke_growth": {
+        "original_path": "<home>/LocalData/shardloom/native-input-growth-20261009/input_batch_smoke_growth.py",
+        "original_sha256": "c90793602fe934ba566b153cca41fe9c80e7eb3b9a7189aaa192648de47545d3",
+        "corrected_path": "<home>/LocalData/shardloom/native-input-growth-20261009/input_batch_smoke_growth_fixed.py",
+        "corrected_sha256": "f95a7b6e2a5e7c202ca4de51c9db9f0fa514f55cf20fc4b408bb8c55cc1ef2c0"
+      }
+    },
+    "patch_sha256": "c8a5a7c21162b523d462e8bd0bb101449e333e11b5210cc00f971edd8c276a53",
+    "retained_failure_assets": {
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-acceptance-core-1-results.json": "ef5d196aa89a9bcff0b409928eb50a0ad4b5230ec8d6fcbc19a95a05c73b393e",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-acceptance-core-1-protocol.json": "d093912e1eac87d9934ef002a27ce42f6d7908579940e7704e157da25f3d667c",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-regression-batches-1.json": "c51f69b4a5ff3874caf630bfe3985ce68242205e73e971bdeef074366eaddd84",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-regression-batches-1.log": "09c9b7e1caae881f64494c4f574398e25bec3e00a5602fe5d02242758cdc2c7a",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/input-regression-batches-1/summary.json": "c685682a5f26f110d465ef855b50eb6fb1804326914cdb49135e123d1e96216f",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/input-regression-batches-1/protocol.json": "38bcc12d9c034ed18ca690b1e2794d91f4a25c23444300fc2d474576a2277c6d",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/input-regression-batches-1/driver.py": "c90793602fe934ba566b153cca41fe9c80e7eb3b9a7189aaa192648de47545d3",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/input-regression-batches-1/logs/typed-complete.json.gz": "d3805b102aba9ae672d0fd2f11cf3be4797bb9e93e4c4d31601846dcb2251c1d"
+    },
+    "corrected_expectation": {
+      "native_input_batch_sources": 0,
+      "native_batch_input_peak_scratch_reservation_bytes": 8192
+    },
+    "cause": "The adapter harness retained the pre-change zero-scratch expectation for a file-only batch transaction. Current native transport credits its fixed 8192-byte stdin buffer before execution, including file-only input. All completed type/value checks and the saved native report passed before the harness assertion.",
+    "runtime_source_changed": false,
+    "failed_run_accepted": false,
+    "acceptance_plan": "Execute a complete fresh nine-stage core attempt with this exact expectation correction. Preserve all first-attempt summaries and reports; do not merge partial attempts."
+  },
+  "historical_public_harness_correction": {
+    "status": "frozen_before_public_continuation",
+    "source_commit": "323b988a11dc44ae7ef57d2d7b85afbbc75881d7",
+    "source_identity_sha256": "f1b8931a462ed5ab963f250f19081cd17c3a76b15171560da7cc022a4c80175c",
+    "build_manifest_sha256": "54dc843be71a3f22663a76075c55b623c582e5d0893f555b5fa96452a786d786",
+    "binary_sha256": "b6398db3fde220d4d9b3e821dcca6f4bf92a2a45fce31458511ca13a0ed91034",
+    "helper_sha256": "b47fd0bc0a0bb17341bc35816c12ea82f486044882ecd1eb06cb3c1a8abd21c2",
+    "continuation_driver_sha256": "0154f54f11f8b7b0fc10ee68f53516574538bf957e71b7c3f4ba1c808e626e91",
+    "source_overrides": {
+      "scripts/run_native_relational_suite.py": {
+        "original_path": "<repo>/scripts/run_native_relational_suite.py",
+        "original_sha256": "ed19ad854497f489b75a04949544cc0301a4ed5dbcf5d87589e5dfa0ab82a824",
+        "corrected_path": "<home>/LocalData/shardloom/native-input-growth-20261009/public-harness-2/run_native_relational_suite.py",
+        "corrected_sha256": "5ecd56eceefb5d4ac8b0a498b732c162887a852b1feff48a121f00d2d46d931f"
+      },
+      "scripts/run_native_relational_uat.py": {
+        "original_path": "<repo>/scripts/run_native_relational_uat.py",
+        "original_sha256": "91ab14e3c25246da690b90415dd3be77ce1016197acd43cc30270645d9a23ee6",
+        "corrected_path": "<home>/LocalData/shardloom/native-input-growth-20261009/public-harness-2/run_native_relational_uat.py",
+        "corrected_sha256": "027ee28dd33b40d1f1c83a2ed379eb1664dc9aaf183b650045f361d6a83a56d1"
+      },
+      "scripts/native_dynamic_pivot_cases.py": {
+        "original_path": "<repo>/scripts/native_dynamic_pivot_cases.py",
+        "original_sha256": "ae64ddfc0d6acf7c957bbe2ac2e75a1eaa0b97ca4d82c8bd6ebd40a14664d6b9",
+        "corrected_path": "<home>/LocalData/shardloom/native-input-growth-20261009/public-harness-2/native_dynamic_pivot_cases.py",
+        "corrected_sha256": "aedf3417267b18d3260936d0910e6e7924d9ee8f3e5c1fbce2ca23b966112e75"
+      },
+      "scripts/native_nested_pivot_cases.py": {
+        "original_path": "<repo>/scripts/native_nested_pivot_cases.py",
+        "original_sha256": "149810f33b32460ff0562fe292f7f7878d7d4f795439314de2dfff0e4f86115d",
+        "corrected_path": "<home>/LocalData/shardloom/native-input-growth-20261009/public-harness-2/native_nested_pivot_cases.py",
+        "corrected_sha256": "229847867490d87d8514a2da4fa1e883b2df5aab5576f18dc092920c79c76d0c"
+      }
+    },
+    "patch_sha256": "2aa3b027d0d080e79a13aa7fd7d6382bb88220295770497ebdf17bf7d18a4fe9",
+    "retained_failure_assets": {
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-acceptance-core-2-results.json": "7fe6b813efc69042215d43b3793589af9c9cdd3032cc5d62510779c009a910b8",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-acceptance-core-2-protocol.json": "428762154052a92a5e5a2a6ce07842cf03cf53a77b9fe81ab3d8964f7effb0c0",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-regression-public-all-2.json": "e728c91103bf395b795ae0a71ffbc85cc30744b34cacc482cf63847e5e7488f7",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-regression-public-all-2.log": "6f1b756010d95af9b0f948b03ec25c5fc4ab82286f8d83ad6e58690c5477abc9",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-regression-public-all-2/summary.json": "5a2b4d89c45902a3dbbf1b269b996cd7421b927f7c8992f545d1d62716746eb6",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-regression-public-all-2/pivot/logs/native_relational_20261010T012315853197Z/summary.json": "dbbe70361a747f6a69d9b57362c4b00dd3f9646aacb3698684c71bda200ba075",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-regression-public-all-2/logs/pivot.json": "b935002517b8550a83fdd120f0a7babc102e24a1e73e2c75a6ef8be9c311b0a0",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-regression-public-all-2/logs/pivot.log": "205ad3692a9d66b97c22e889fb3474eb832fd146aff4ddf1da7b933426a02ad7",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-regression-public-all-2/pivot/data/pivot_20261010T012315853197Z/dynamic-pivot-margin-collision-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97"
+    },
+    "diagnostic_proof_assets": {
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/summary.json": "15f571d36e5ec62072b53db0a08c248157ae38564d1bd9f4b00ed52d3b6ea6f5",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/protocol.json": "5cad193da183b42334cd82cc67303455ed3d5c18fe871ffd6b66d60187649724",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2.json": "f9656eba4684315b4f0a2a8a54ccd38706ba9645c43412f3e3d86ea2309ebbfb",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2.log": "1e09d34bae200fc44872535486d6c29f65a86563864ae32a3f6132ab7733ce03",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/probe_growth_schema_denials_fixed.py": "6c3d58b40381169cf0d0858819f157494c1885d706814f739f39ce0c27021d9b",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-resident-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-resident-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-resident-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-resident-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-resident-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-resident-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-resident-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-resident-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-resident-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-resident-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-resident-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-resident-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-resident-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-resident-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-resident-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-resident-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-resident-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-resident-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-resident-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-resident-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-resident-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-resident-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-resident-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-resident-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-resident-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-resident-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-resident-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-resident-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-resident-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-resident-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-resident-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-resident-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-resident-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-resident-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-resident-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-resident-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-resident-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-resident-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-resident-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-resident-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-resident-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-resident-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-resident-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-resident-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-resident-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-resident-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-resident-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-resident-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-resident-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-resident-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-resident-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-resident-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-resident-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-resident-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-spill-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-spill-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-spill-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-spill-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-spill-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-spill-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-spill-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-spill-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-dataframe-spill-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-spill-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-spill-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-spill-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-spill-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-spill-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-spill-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-spill-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-spill-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/scalar-margin-sql-spill-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-spill-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-spill-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-spill-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-spill-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-spill-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-spill-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-spill-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-spill-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-dataframe-spill-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-spill-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-spill-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-spill-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-spill-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-spill-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-spill-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-spill-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-spill-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-margin-sql-spill-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-spill-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-spill-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-spill-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-spill-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-spill-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-spill-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-spill-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-spill-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-dataframe-spill-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-spill-collect-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-spill-vortex-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-spill-parquet-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-spill-arrow_ipc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-spill-avro-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-spill-orc-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-spill-json-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-spill-jsonl-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97",
+      "<home>/LocalData/shardloom/native-input-growth-20261009/growth-schema-denial-probe-2/nested-index-sql-spill-csv-denial.json": "9d9d17b3281f400351f5e3924ae6b21b9c91890ae2a6eb329f17d4fec4e05a97"
+    },
+    "diagnostic_probe_cases": 108,
+    "runtime_source_changed": false,
+    "binary_changed": false,
+    "failed_public_run_accepted": false,
+    "result_oracles_changed": false,
+    "diagnostic_expectation_only": true,
+    "retained_stages": [
+      "streaming",
+      "growth",
+      "pressure",
+      "batches",
+      "formats",
+      "admitted-semantics",
+      "golden-workflows"
+    ],
+    "expected_diagnostic": {
+      "status": "error",
+      "code": "SL_INVALID_INPUT",
+      "detail": "field names must be nonempty and distinct",
+      "fallback_attempted": false,
+      "output_created": false,
+      "success_certificate_created": false
+    },
+    "cause": "The newly credited native schema validator rejects duplicate pivot margin fields before the former duplicate-column validator. The invalid request still fails with SL_INVALID_INPUT, no fallback, no certificates and no output. Only the harness detail substring was stale.",
+    "acceptance_plan": "Revalidate the seven completed independent stage receipts against identical sources and binary; execute all ten public families freshly and the pending direct-unary stage. No completed family from the failed public run receives acceptance credit. Controller copies only relocate source paths and accurately report their own hashes."
+  },
+  "current_candidate_correction": {
+    "status": "frozen_after_source_checks_before_public_acceptance",
+    "predecessor_failure": {
+      "path": "<home>/LocalData/shardloom/native-input-growth-20261009/growth-nested-accounting-failure-3.json",
+      "sha256": "0aa7c6061923da36149c539a3e9a005c768f61a40c9516ea9a099b7154984e8e",
+      "source_commit": "323b988a11dc44ae7ef57d2d7b85afbbc75881d7",
+      "historical_only": true,
+      "current_acceptance_reused": false,
+      "failed_run_accepted": false
+    },
+    "previous_source_commit": "323b988a11dc44ae7ef57d2d7b85afbbc75881d7",
+    "current_source_commit": "61a813b71d871e0e7213dcc3740f77c900f50eba",
+    "previous_source_identity_sha256": "f1b8931a462ed5ab963f250f19081cd17c3a76b15171560da7cc022a4c80175c",
+    "current_source_identity_sha256": "326b8e4ac0c371d98149b4e92747ce21c3e4ac0321ef1ea8491cfd631d4e2d1b",
+    "previous_binary_sha256": "b6398db3fde220d4d9b3e821dcca6f4bf92a2a45fce31458511ca13a0ed91034",
+    "current_binary_sha256": "8a4ef90fe0925dbbdedaf5d3a7c1d4e582671de59d823d6b8fa4163fc244b607",
+    "current_build_manifest_sha256": "0028496d6095e0e8813b643aad93cf905d10e50a2f0418ed68a85bb3f14dcc59",
+    "runtime_source_changed": true,
+    "binary_changed": true,
+    "failed_run_accepted": false,
+    "prior_native_query_results_accepted": false,
+    "current_stage_reuse_allowed": false,
+    "unchanged_source_assets": 1006,
+    "changed_source_assets": {
+      "scripts/native_dynamic_pivot_cases.py": {
+        "before": "ae64ddfc0d6acf7c957bbe2ac2e75a1eaa0b97ca4d82c8bd6ebd40a14664d6b9",
+        "after": "aedf3417267b18d3260936d0910e6e7924d9ee8f3e5c1fbce2ca23b966112e75"
+      },
+      "scripts/native_nested_pivot_cases.py": {
+        "before": "149810f33b32460ff0562fe292f7f7878d7d4f795439314de2dfff0e4f86115d",
+        "after": "229847867490d87d8514a2da4fa1e883b2df5aab5576f18dc092920c79c76d0c"
+      },
+      "shardloom-vortex/src/local_primitive_completed_result.rs": {
+        "before": "8bc02fb915fe4074e5803b5747392805aacb1b81e85d54ccdca179f1c6d2dbae",
+        "after": "c5852fa31767004ee0574a1bf329b642b9d1b2696572750cb53c914e16560902"
+      },
+      "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+        "before": "dabf734f90fa0f7ab7775c7e0b5497eabbfc52d4d98a3c1dde6ac6141e938fed",
+        "after": "1cd4d4eaefe85cee753226fc2029c4b026f36fe7f2248ee34e288f5764f57947"
+      },
+      "shardloom-vortex/src/local_primitive_relational_batch_order_spill_tests.rs": {
+        "before": "9bedd5888d152e9aeaf64cc2ca72c74ffcaad9b6549badb6884cd91676cf8fa1",
+        "after": "363b21b3a69b3fbb285e68214659fd6b0e6f48c11f439ad52541b6c5cf6d59a4"
+      },
+      "shardloom-vortex/src/local_primitives/native_payload.rs": {
+        "before": "5d367aeaffe4c68c2f15885a9932c140ac346f0857e72bb373b8f9f0494aa8c0",
+        "after": "755cb4e20e79f72bdd2303eebc92c93b18046f26c8b543709fd85829cc2007af"
+      },
+      "shardloom-vortex/src/local_primitives/native_payload_storage_tests.rs": {
+        "before": "9693ec0556a90d53bde24efaddfeabc7919d4fc4ef9a1291f16765428ac1bf9e",
+        "after": "6696363ee570c315b055d89c872a1c8b84622363d9c7fa37f45eeb80252d87c5"
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_aggregate_output.rs": {
+        "before": "1ad0a8f86ecd1e2ebc86fa4efa96d94a16904f23dc76a3596916e3f5681f465f",
+        "after": "9296ba7b09fc747195f85ce63e616e41481543f3004f603c7e5e4eadb470d1fe"
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_join_lookup.rs": {
+        "before": "430bb1ca2863f86cc1901c1d909adae723b96977d5868a313da2463703049d6c",
+        "after": "eb9ecfdaccb25647c512d96ff3dc1091c99f09e5bc63f0683e5e57edfe1a37a6"
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_join_records.rs": {
+        "before": "23af6b7d68143d80296647046167fb384b581240a0675efa2487c3de368be44d",
+        "after": "398e84abe73ab4dda6dd30ab3b3b77e5dfa8102425fcb4d35086612e1dcb0830"
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_sort.rs": {
+        "before": "9ecce21a1b416910d771a4bc038ec2b259de14e16cdaf653d84b9a6d300da4cc",
+        "after": "0be423e78302e5052d1d139fb4beb50f9e96ad57cf5b80927d4a753facc81a49"
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_stored_order.rs": {
+        "before": "e2b3ffad1530648cf409a98af6864a397613bf6c5babb36bb8d8d5be1caeca63",
+        "after": "cb4406e3a2dbc0c101326c515cb5040607ceaa5d24ca7b92db0adbe5b3eb269b"
+      },
+      "shardloom-vortex/src/local_primitives/native_relational_window_records.rs": {
+        "before": "08dd8013641701787c7de5843f02c45782e973ff2ed1c76c965199128467c681",
+        "after": "ffb2471ba431a9c6608b6abec34d1422cfa0b0b3d64e2729958c4fb72bc51afb"
+      },
+      "shardloom-vortex/src/native_payload_schema.rs": {
+        "before": "2c2dfa8272b9efa0253855352cc5f2846d38be8478ff49b497e1f8d71ee6d5b6",
+        "after": "dd221391dbbe92ac0a521acf657d79a78df6769b07e7ca4f19b477023cb731de"
+      }
+    },
+    "native_copy_tests": [
+      "native_payload_value_admission_keeps_many_retained_structs_within_the_shared_grant",
+      "native_payload_record_admission_preserves_wide_values_empty_children_and_nested_bounds",
+      "streamed_ordering_small_batches_spill_for_retained_metadata_before_grant_exhaustion"
+    ],
+    "native_copy_test_receipt": "<growth-uat>/input-growth-engine-native-vortex-tests-3.json",
+    "native_copy_test_receipt_sha256": "0fab83b6ecc5c157cfef142cb9d8d92695d2ce28781e231e5b9f1a48cc5f4024",
+    "current_engine_checks": 15,
+    "grant_raised": false,
+    "result_oracles_changed": false,
+    "collection_boundary_relaxed": false,
+    "correction": "Whole native records retain resource-admitted top-level schema width. Individual nested values retain their own bounded metadata policy. Both copy paths carry leases through every child buffer and reject insufficient credit before allocation. Sorting includes retained record metadata when choosing to spill. The two public pivot modules change only three previously proved duplicate-field diagnostic substrings.",
+    "acceptance_plan": "Execute every core stage, all ten public families, direct unary, Full43 and the detailed native pressure observation freshly with the new committed source and release executable. Earlier successful partial stages receive no current-candidate acceptance credit.",
+    "helper_sha256": "a53b4c41271ea63b9d3146ab51b286c402d1c54456e172da7084f39e8eae7a88",
+    "performance_claim": false,
+    "version_bump_performed": false,
+    "patch_sha256": "c42171d36f04f931feaccdb5a1dc693201448627d92c98a1843c827bba925a5e"
+  },
+  "public_family_execution": {
+    "fresh_execution": true,
+    "families": 10,
+    "cases": 32497,
+    "complete_rows": 18595284,
+    "historical_union_repair_used": false
+  },
+  "input_pressure": {
+    "streaming-low": {
+      "summary_sha256": "4357678f865cd06cdd8a752f9c34b70f68b1e6c00ccc419253a908967d807b78",
+      "summary": {
+        "status": "passed",
+        "protocol_sha256": "cb03e4db72965697d3400a65503047b4dc9ccddcdf5626aa4e8941ab09bfe973",
+        "complete_operation_seconds": 12.836810833978234,
+        "complete_output_rows_verified": 1152,
+        "peak_reserved_bytes": 21324175,
+        "generated_input_batches": 1152,
+        "producer_ended": true,
+        "producer_closed": true,
+        "first_provisional_seconds": 0.01852320900070481,
+        "total_check_seconds": 12.887306999997236,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false
+      },
+      "protocol_sha256": "cb03e4db72965697d3400a65503047b4dc9ccddcdf5626aa4e8941ab09bfe973",
+      "protocol": {
+        "binary": "<growth-uat>/shardloom-input-growth-1",
+        "binary_sha256": "8a4ef90fe0925dbbdedaf5d3a7c1d4e582671de59d823d6b8fa4163fc244b607",
+        "source_hashes": {
+          "<repo>/scripts/run_native_streaming_input_pressure.py": "95686aaea48b16268798e246be9a523325ccfa8b260be14c7e9a7562a334b17a",
+          "<repo>/scripts/run_native_streaming_input_uat.py": "f38eebe986416a8f4b7cf887a4a71e4ad237653bb3da9d83b2928bf46b9bef68",
+          "<repo>/python/src/shardloom/query.py": "670d89849dec4289f3bdd01354a7147c547f4ac8b6d7c82ddcc002afeeb5f8df",
+          "<repo>/python/src/shardloom/client.py": "1e94d50348087dcc1664e83c3bc9aa69e0f54f9c7c28bb644764db1cb26d39c9",
+          "<repo>/python/src/shardloom/context.py": "8a063000c8f388d3a5a1a77955969464858733e16446b7e68b4d8cbad2ba2d4f",
+          "<repo>/python/src/shardloom/_batches.py": "292d6589b777e9c4370ddf1909655f08e6c1daa4b7fd6b39b4d747b38599bb1d",
+          "<repo>/python/src/shardloom/_result_schema.py": "5832d533b20b207bd477062a755bf04acde4c3500624db2968965eb6ad907906",
+          "<repo>/python/src/shardloom/models.py": "3e48f8a9db8b61a41d0b4f263dac084aa15eea663dcd3476c3d80d254e7c785b"
+        },
+        "input_mode": "streaming",
+        "output_mode": "batches",
+        "memory_grant_bytes": 1073741824,
+        "max_parallelism": 1,
+        "operation_timeout_seconds": 180.0,
+        "batches": 1152,
+        "rows_per_batch": 1024,
+        "input_rows": 1179648,
+        "input_logical_bytes": 4851019008,
+        "one_batch_logical_bytes": 4210954,
+        "payload_bytes_each_value": 4096,
+        "expected_output_rows": 1152,
+        "oracle_sha256": "c45645af3a94b92ac19893fb1761be92a053919ae48de21564959891f5ab7dca",
+        "expect_denial": false,
+        "require_fourfold_input": true,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false,
+        "timing_scope": "producer generation + typed intake + query + complete output and child exit; excludes oracle generation and output readback"
+      }
+    },
+    "resident-low": {
+      "summary_sha256": "f366f785ae040bd480634cfa82fbe10c364db36db658ae3baa1ed5e449730de7",
+      "summary": {
+        "status": "passed",
+        "protocol_sha256": "1bfd3f161941f1f1388ce474f8f1af64657b009df5bc0b1b20d5978b73f03577",
+        "complete_operation_seconds": 2.5679048330057412,
+        "expected_memory_denial": true,
+        "generated_input_batches": 251,
+        "producer_ended": false,
+        "producer_closed": true,
+        "first_provisional_seconds": null,
+        "total_check_seconds": 2.5945805000083055,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false
+      },
+      "protocol_sha256": "1bfd3f161941f1f1388ce474f8f1af64657b009df5bc0b1b20d5978b73f03577",
+      "protocol": {
+        "binary": "<growth-uat>/shardloom-input-growth-1",
+        "binary_sha256": "8a4ef90fe0925dbbdedaf5d3a7c1d4e582671de59d823d6b8fa4163fc244b607",
+        "source_hashes": {
+          "<repo>/scripts/run_native_streaming_input_pressure.py": "95686aaea48b16268798e246be9a523325ccfa8b260be14c7e9a7562a334b17a",
+          "<repo>/scripts/run_native_streaming_input_uat.py": "f38eebe986416a8f4b7cf887a4a71e4ad237653bb3da9d83b2928bf46b9bef68",
+          "<repo>/python/src/shardloom/query.py": "670d89849dec4289f3bdd01354a7147c547f4ac8b6d7c82ddcc002afeeb5f8df",
+          "<repo>/python/src/shardloom/client.py": "1e94d50348087dcc1664e83c3bc9aa69e0f54f9c7c28bb644764db1cb26d39c9",
+          "<repo>/python/src/shardloom/context.py": "8a063000c8f388d3a5a1a77955969464858733e16446b7e68b4d8cbad2ba2d4f",
+          "<repo>/python/src/shardloom/_batches.py": "292d6589b777e9c4370ddf1909655f08e6c1daa4b7fd6b39b4d747b38599bb1d",
+          "<repo>/python/src/shardloom/_result_schema.py": "5832d533b20b207bd477062a755bf04acde4c3500624db2968965eb6ad907906",
+          "<repo>/python/src/shardloom/models.py": "3e48f8a9db8b61a41d0b4f263dac084aa15eea663dcd3476c3d80d254e7c785b"
+        },
+        "input_mode": "resident",
+        "output_mode": "batches",
+        "memory_grant_bytes": 1073741824,
+        "max_parallelism": 1,
+        "operation_timeout_seconds": 180.0,
+        "batches": 1152,
+        "rows_per_batch": 1024,
+        "input_rows": 1179648,
+        "input_logical_bytes": 4851019008,
+        "one_batch_logical_bytes": 4210954,
+        "payload_bytes_each_value": 4096,
+        "expected_output_rows": 1152,
+        "oracle_sha256": "c45645af3a94b92ac19893fb1761be92a053919ae48de21564959891f5ab7dca",
+        "expect_denial": true,
+        "require_fourfold_input": false,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false,
+        "timing_scope": "producer generation + typed intake + query + complete output and child exit; excludes oracle generation and output readback"
+      }
+    },
+    "streaming-high": {
+      "summary_sha256": "0f7f7b8ab0150edff571cbc313ad84de2c0f26a3936d69ae1d590f9f0352a4b6",
+      "summary": {
+        "status": "passed",
+        "protocol_sha256": "ec9388e6169573fcf31fe61f2039de0bde5fe7c010ebdcc621d101c4044f5bc4",
+        "complete_operation_seconds": 12.790615125006298,
+        "complete_output_rows_verified": 1152,
+        "peak_reserved_bytes": 21324175,
+        "generated_input_batches": 1152,
+        "producer_ended": true,
+        "producer_closed": true,
+        "first_provisional_seconds": 0.01713533399743028,
+        "total_check_seconds": 12.841639666992705,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false
+      },
+      "protocol_sha256": "ec9388e6169573fcf31fe61f2039de0bde5fe7c010ebdcc621d101c4044f5bc4",
+      "protocol": {
+        "binary": "<growth-uat>/shardloom-input-growth-1",
+        "binary_sha256": "8a4ef90fe0925dbbdedaf5d3a7c1d4e582671de59d823d6b8fa4163fc244b607",
+        "source_hashes": {
+          "<repo>/scripts/run_native_streaming_input_pressure.py": "95686aaea48b16268798e246be9a523325ccfa8b260be14c7e9a7562a334b17a",
+          "<repo>/scripts/run_native_streaming_input_uat.py": "f38eebe986416a8f4b7cf887a4a71e4ad237653bb3da9d83b2928bf46b9bef68",
+          "<repo>/python/src/shardloom/query.py": "670d89849dec4289f3bdd01354a7147c547f4ac8b6d7c82ddcc002afeeb5f8df",
+          "<repo>/python/src/shardloom/client.py": "1e94d50348087dcc1664e83c3bc9aa69e0f54f9c7c28bb644764db1cb26d39c9",
+          "<repo>/python/src/shardloom/context.py": "8a063000c8f388d3a5a1a77955969464858733e16446b7e68b4d8cbad2ba2d4f",
+          "<repo>/python/src/shardloom/_batches.py": "292d6589b777e9c4370ddf1909655f08e6c1daa4b7fd6b39b4d747b38599bb1d",
+          "<repo>/python/src/shardloom/_result_schema.py": "5832d533b20b207bd477062a755bf04acde4c3500624db2968965eb6ad907906",
+          "<repo>/python/src/shardloom/models.py": "3e48f8a9db8b61a41d0b4f263dac084aa15eea663dcd3476c3d80d254e7c785b"
+        },
+        "input_mode": "streaming",
+        "output_mode": "batches",
+        "memory_grant_bytes": 6442450944,
+        "max_parallelism": 1,
+        "operation_timeout_seconds": 180.0,
+        "batches": 1152,
+        "rows_per_batch": 1024,
+        "input_rows": 1179648,
+        "input_logical_bytes": 4851019008,
+        "one_batch_logical_bytes": 4210954,
+        "payload_bytes_each_value": 4096,
+        "expected_output_rows": 1152,
+        "oracle_sha256": "c45645af3a94b92ac19893fb1761be92a053919ae48de21564959891f5ab7dca",
+        "expect_denial": false,
+        "require_fourfold_input": false,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false,
+        "timing_scope": "producer generation + typed intake + query + complete output and child exit; excludes oracle generation and output readback"
+      }
+    },
+    "resident-high": {
+      "summary_sha256": "e218107a4036d0e3e3d03d03a48c376358c14657a38b3391cb7f5986ad7f94aa",
+      "summary": {
+        "status": "passed",
+        "protocol_sha256": "e003eda5f6c021a87cd7575c72d494d7d76006243a20faaa3e203134e42b78d8",
+        "complete_operation_seconds": 13.200866458995733,
+        "complete_output_rows_verified": 1152,
+        "peak_reserved_bytes": 4882685031,
+        "generated_input_batches": 1152,
+        "producer_ended": true,
+        "producer_closed": true,
+        "first_provisional_seconds": 12.911913249990903,
+        "total_check_seconds": 13.253483792010229,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false
+      },
+      "protocol_sha256": "e003eda5f6c021a87cd7575c72d494d7d76006243a20faaa3e203134e42b78d8",
+      "protocol": {
+        "binary": "<growth-uat>/shardloom-input-growth-1",
+        "binary_sha256": "8a4ef90fe0925dbbdedaf5d3a7c1d4e582671de59d823d6b8fa4163fc244b607",
+        "source_hashes": {
+          "<repo>/scripts/run_native_streaming_input_pressure.py": "95686aaea48b16268798e246be9a523325ccfa8b260be14c7e9a7562a334b17a",
+          "<repo>/scripts/run_native_streaming_input_uat.py": "f38eebe986416a8f4b7cf887a4a71e4ad237653bb3da9d83b2928bf46b9bef68",
+          "<repo>/python/src/shardloom/query.py": "670d89849dec4289f3bdd01354a7147c547f4ac8b6d7c82ddcc002afeeb5f8df",
+          "<repo>/python/src/shardloom/client.py": "1e94d50348087dcc1664e83c3bc9aa69e0f54f9c7c28bb644764db1cb26d39c9",
+          "<repo>/python/src/shardloom/context.py": "8a063000c8f388d3a5a1a77955969464858733e16446b7e68b4d8cbad2ba2d4f",
+          "<repo>/python/src/shardloom/_batches.py": "292d6589b777e9c4370ddf1909655f08e6c1daa4b7fd6b39b4d747b38599bb1d",
+          "<repo>/python/src/shardloom/_result_schema.py": "5832d533b20b207bd477062a755bf04acde4c3500624db2968965eb6ad907906",
+          "<repo>/python/src/shardloom/models.py": "3e48f8a9db8b61a41d0b4f263dac084aa15eea663dcd3476c3d80d254e7c785b"
+        },
+        "input_mode": "resident",
+        "output_mode": "batches",
+        "memory_grant_bytes": 6442450944,
+        "max_parallelism": 1,
+        "operation_timeout_seconds": 180.0,
+        "batches": 1152,
+        "rows_per_batch": 1024,
+        "input_rows": 1179648,
+        "input_logical_bytes": 4851019008,
+        "one_batch_logical_bytes": 4210954,
+        "payload_bytes_each_value": 4096,
+        "expected_output_rows": 1152,
+        "oracle_sha256": "c45645af3a94b92ac19893fb1761be92a053919ae48de21564959891f5ab7dca",
+        "expect_denial": false,
+        "require_fourfold_input": false,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false,
+        "timing_scope": "producer generation + typed intake + query + complete output and child exit; excludes oracle generation and output readback"
+      }
+    },
+    "streaming-vortex-low": {
+      "summary_sha256": "838132209fd81293d70e82939f1392a5513c418f34552c9a5cbca28f0adba8f3",
+      "summary": {
+        "status": "passed",
+        "protocol_sha256": "bd53c03aaf432bd07ef2699402ccc8fb62129d3afc228ef29eeab68b5b00bd62",
+        "complete_operation_seconds": 11.867513167002471,
+        "readback_mode": "bounded_native_batches",
+        "output_artifact": {
+          "path": "outputs/complete.vortex",
+          "bytes": 5249964,
+          "sha256": "c8dc8d744b1f93c67dd037a703025b653c03b2c665e4ca95539d6790e487c8a7"
+        },
+        "complete_output_rows_verified": 1152,
+        "peak_reserved_bytes": 30952427,
+        "generated_input_batches": 1152,
+        "producer_ended": true,
+        "producer_closed": true,
+        "first_provisional_seconds": null,
+        "total_check_seconds": 11.946407917013858,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false
+      },
+      "protocol_sha256": "bd53c03aaf432bd07ef2699402ccc8fb62129d3afc228ef29eeab68b5b00bd62",
+      "protocol": {
+        "binary": "<growth-uat>/shardloom-input-growth-1",
+        "binary_sha256": "8a4ef90fe0925dbbdedaf5d3a7c1d4e582671de59d823d6b8fa4163fc244b607",
+        "source_hashes": {
+          "<repo>/scripts/run_native_streaming_input_pressure.py": "95686aaea48b16268798e246be9a523325ccfa8b260be14c7e9a7562a334b17a",
+          "<repo>/scripts/run_native_streaming_input_uat.py": "f38eebe986416a8f4b7cf887a4a71e4ad237653bb3da9d83b2928bf46b9bef68",
+          "<repo>/python/src/shardloom/query.py": "670d89849dec4289f3bdd01354a7147c547f4ac8b6d7c82ddcc002afeeb5f8df",
+          "<repo>/python/src/shardloom/client.py": "1e94d50348087dcc1664e83c3bc9aa69e0f54f9c7c28bb644764db1cb26d39c9",
+          "<repo>/python/src/shardloom/context.py": "8a063000c8f388d3a5a1a77955969464858733e16446b7e68b4d8cbad2ba2d4f",
+          "<repo>/python/src/shardloom/_batches.py": "292d6589b777e9c4370ddf1909655f08e6c1daa4b7fd6b39b4d747b38599bb1d",
+          "<repo>/python/src/shardloom/_result_schema.py": "5832d533b20b207bd477062a755bf04acde4c3500624db2968965eb6ad907906",
+          "<repo>/python/src/shardloom/models.py": "3e48f8a9db8b61a41d0b4f263dac084aa15eea663dcd3476c3d80d254e7c785b"
+        },
+        "input_mode": "streaming",
+        "output_mode": "vortex",
+        "memory_grant_bytes": 1073741824,
+        "max_parallelism": 1,
+        "operation_timeout_seconds": 180.0,
+        "batches": 1152,
+        "rows_per_batch": 1024,
+        "input_rows": 1179648,
+        "input_logical_bytes": 4851019008,
+        "one_batch_logical_bytes": 4210954,
+        "payload_bytes_each_value": 4096,
+        "expected_output_rows": 1152,
+        "oracle_sha256": "c45645af3a94b92ac19893fb1761be92a053919ae48de21564959891f5ab7dca",
+        "expect_denial": false,
+        "require_fourfold_input": true,
+        "performance_claim": false,
+        "whole_process_memory_ceiling": false,
+        "timing_scope": "producer generation + typed intake + query + complete output and child exit; excludes oracle generation and output readback"
+      }
+    }
+  },
+  "input_pressure_boundary": "Each successful control consumes all 1,152 batches, representing 4,851,019,008 logical input bytes, and validates every requested result. Streaming succeeds at 1 GiB and 6 GiB, including a 1-GiB native Vortex write/readback. Resident input denies at 1 GiB and completes at 6 GiB. Every producer closes. Native reservations do not bound process RSS; these are correctness and admission controls, not speed comparisons.",
+  "retained_native_pivot_pressure": {
+    "observations": [
+      {
+        "ample_peak_reserved_bytes": 291402941,
+        "call": 1,
+        "cells": 6145,
+        "complete_output_rows": 6145,
+        "domains": 1,
+        "family": "native_sparse_pivot_repeated_floating_updates",
+        "grant": 16777216,
+        "index_rows": 6145,
+        "input_file_bytes": 19342360,
+        "input_rows": 24580,
+        "lookup_blocks": 37896,
+        "merge_passes": 387,
+        "owned_cleanup_completed": true,
+        "peak_disk_bytes": 37324372,
+        "reader_opens": 776,
+        "resident_denial": "memory reservation denied: requested=33824, reserved=16771881, limit=16777216; fallback execution was not attempted",
+        "runs_written": 775,
+        "spilled_peak_reserved_bytes": 15669949
+      },
+      {
+        "ample_peak_reserved_bytes": 291402941,
+        "call": 2,
+        "cells": 6145,
+        "complete_output_rows": 6145,
+        "domains": 1,
+        "family": "native_sparse_pivot_repeated_floating_updates",
+        "grant": 16777216,
+        "index_rows": 6145,
+        "input_file_bytes": 19342360,
+        "input_rows": 24580,
+        "lookup_blocks": 37896,
+        "merge_passes": 387,
+        "owned_cleanup_completed": true,
+        "peak_disk_bytes": 37324372,
+        "reader_opens": 776,
+        "resident_denial": "memory reservation denied: requested=33824, reserved=16771881, limit=16777216; fallback execution was not attempted",
+        "runs_written": 775,
+        "spilled_peak_reserved_bytes": 15669949
+      }
+    ],
+    "observation_receipt": {
+      "sha256": "107e404644a5817fcb0bf56ac8b9998abe5a1bc7fe9c9bbc1862c116582098da",
+      "value": {
+        "status": "passed",
+        "command": [
+          "<home>/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-vortex",
+          "--lib",
+          "--features",
+          "release-user-surfaces",
+          "local_primitives::prepared_relational::tests::pivot_spill_tests::pressure::native_pivot_spill_pressure_denies_resident_and_completes_beyond_the_same_grant",
+          "--",
+          "--exact",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "cwd": "<repo>",
+        "head": "61a813b71d871e0e7213dcc3740f77c900f50eba",
+        "working_tree": "",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2575294464,
+            "log_bytes": 0,
+            "free_bytes": 56491675648,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 30268096512,
+            "log_bytes": 0,
+            "free_bytes": 56513118208,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1200.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 3609,
+        "output_bytes": 1878,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 406.5562396250025,
+        "log_sha256": "25db48055be2d72de82264a49bd8fdf285d4962aa172811a9d8a143d4d534763"
+      }
+    },
+    "observation_protocol": {
+      "sha256": "2979a1c7dfb2774b152050bcdffcab07ca82f55ba57a23e9c6b8fd0c6a40b70b",
+      "value": {
+        "status": "frozen_before_focused_observation",
+        "source_commit": "61a813b71d871e0e7213dcc3740f77c900f50eba",
+        "source_identity_sha256": "326b8e4ac0c371d98149b4e92747ce21c3e4ac0321ef1ea8491cfd631d4e2d1b",
+        "build_manifest_sha256": "0028496d6095e0e8813b643aad93cf905d10e50a2f0418ed68a85bb3f14dcc59",
+        "command": [
+          "<home>/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-vortex",
+          "--lib",
+          "--features",
+          "release-user-surfaces",
+          "local_primitives::prepared_relational::tests::pivot_spill_tests::pressure::native_pivot_spill_pressure_denies_resident_and_completes_beyond_the_same_grant",
+          "--",
+          "--exact",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "helper_sha256": "806d8b325eb55c5e1f4ddd457db068102f6a7a07bfe8e738d4d7f81e87050ce1",
+        "broad_suite_evidence_gap": {
+          "receipt": "<growth-uat>/input-growth-engine-native-vortex-tests-3.json",
+          "receipt_sha256": "0fab83b6ecc5c157cfef142cb9d8d92695d2ce28781e231e5b9f1a48cc5f4024",
+          "log_sha256": "c932a93ece1024882a0512fe0299c241b671ede7ebed9df72f58aca769404d69",
+          "test_passed": true,
+          "detailed_observations_present": false,
+          "engine_failure": false,
+          "reason": "The complete native suite passed this test with default output capture. A focused identical-source execution must retain its two detailed measurements before those measurements receive current acceptance credit."
+        },
+        "new_runtime_changes": false,
+        "performance_claim": false
+      }
+    },
+    "pressure_test_sources": {
+      "shardloom-vortex/src/local_primitive_relational_pivot_pressure_tests.rs": {
+        "sha256": "10ac0f7d29e70bc55d520cf1bd1d8ea0746f5fb135aab06cb68c2398a29600b8",
+        "test": "native_pivot_spill_pressure_denies_resident_and_completes_beyond_the_same_grant"
+      }
+    },
+    "current_source_tests_reconfirmed_by_full_native_suite": true,
+    "measurement_source": "Fresh focused same-source native test with output capture disabled; the broad suite separately passed this exact test.",
+    "claim_boundary": "The focused test compares every value and order for ample resident and two 16-MiB spill executions, plus resident denial and cleanup. The memory grants account native reservations, not total process RSS. This retains an existing pivot family; it does not add execution-resume or one-shot dynamic-pivot support."
+  },
+  "public_complete_workflows": {
+    "growth_cases": 20,
+    "growth_saved_value_files": 32,
+    "growth_wide_artifacts": 17,
+    "growth_range_values_verified": 1000017,
+    "streaming_cases": 442,
+    "streaming_pressure_rows_reopened": 517499,
+    "small_value_files": 365,
+    "malformed_protocol_traces": 10,
+    "ordinary_regression_cases": 32497,
+    "ordinary_complete_rows": 18595284,
+    "retained_pivot_pressure_checks": 3626,
+    "retained_pivot_pressure_rows": 1713893,
+    "retained_window_pressure_checks": 1498,
+    "retained_window_pressure_rows": 1061210,
+    "direct_cases": 202,
+    "direct_complete_rows": 131734,
+    "resident_batch_cases": 48,
+    "format_fidelity_cases": 19,
+    "admitted_semantic_stages": 145,
+    "golden_workflow_stages": 9
+  },
+  "full43_observation": {
+    "summary_sha256": "a910daf2f2131e14e57d2c32105bd7f0780e19936306166549b57b8a0f5455fc",
+    "source_bytes": 15682956489,
+    "memory_policy_gb": 24,
+    "maximum_parallelism": 12,
+    "sum_query_minima_seconds": 72.20725946003222,
+    "sum_query_medians_seconds": 73.8519778320624,
+    "sum_all_calls_seconds": 222.5195470022445,
+    "maximum_native_process_rss_bytes": 5134401536,
+    "boundary": "129 complete native processes use retained Vortex input and preexisting correctness references. No fresh ingest, comparative speedup or enforced RSS claim; ordinary host activity and file cache are uncontrolled."
+  },
+  "original_observations": {
+    "historical_completed_call_members_compacted_and_reopened": 1032,
+    "all_15_engine_gates_passed_on_identical_runtime_source": true,
+    "full43_storage_refusal_retained": true,
+    "failed_core_and_development_observations_retained": true,
+    "partial_public_attempts_combined": false,
+    "passed_independent_core_stages_reused": 0,
+    "all_current_stages_executed_freshly": true,
+    "runtime_correction_failure_assets_retained": 13,
+    "corrected_public_diagnostic_denials_reopened": 110,
+    "focused_diagnostic_denials": 108
+  },
+  "documentation_updates_complete": true,
+  "hosted_acceptance_complete": false,
+  "version_bump_performed": false,
+  "package_publication_performed": false,
+  "performance_claim_allowed": false,
+  "broader_resource_spill_recovery_complete": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "staging_driver_sha256": "d88ddb054d821d0bf5eaaec0fcab12b096f9eb588b730640d78f88878b241545",
+  "portable_inspection_sha256": "da4d7608ed113b1424b8f18b701075d5baf02851b8adde77ceda1f7e05ddeda2",
+  "documentation_acceptance": "docs/benchmarks/evidence/native-input-growth-support-2026-10-09.json",
+  "documentation_acceptance_sha256": "ff2f82cb441529b4b0fae22a85fefc9e2a1f94b04cbfc8f62012d1217ed476c4",
+  "support_alignment_runtime_provenance": {
+    "accepted_runtime_commit": "61a813b71d871e0e7213dcc3740f77c900f50eba",
+    "accepted_source_identity_sha256": "326b8e4ac0c371d98149b4e92747ce21c3e4ac0321ef1ea8491cfd631d4e2d1b",
+    "assets_byte_identical": 1020,
+    "asset_count_unchanged": 1020,
+    "runtime_or_harness_changed": false,
+    "binary_sha256": "8a4ef90fe0925dbbdedaf5d3a7c1d4e582671de59d823d6b8fa4163fc244b607"
+  }
+}

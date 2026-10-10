@@ -627,7 +627,7 @@ fn result_stream_preserves_or_rejects_uint64_boundary_at_each_sink() {
 }
 
 #[test]
-fn completed_finalization_checks_limited_width_and_reserves_before_row_allocation() {
+fn completed_finalization_retains_schema_credit_and_reserves_before_row_allocation() {
     use crate::local_primitives::completed_result::CompletedRows;
     use shardloom_exec::live_memory::LiveMemoryPool;
     let memory = LiveMemoryPool::new(1024 * 1024).unwrap();
@@ -635,6 +635,8 @@ fn completed_finalization_checks_limited_width_and_reserves_before_row_allocatio
         .map(|index| (format!("field{index}"), DType::Utf8(Nullability::Nullable)))
         .collect();
     let output = CompletedRows::new(fields, &memory).unwrap();
+    let schema_credit = memory.snapshot().reserved_bytes;
+    assert!(schema_credit > 65536);
     assert!(output.admit_group_count(Some(65536), 65536).is_err());
     assert_eq!(output.admit_group_count(Some(1), 100_000).unwrap(), 1);
     assert!(output.reserve_finalization(1, 8 * 1024 * 1024).is_err());
@@ -643,9 +645,9 @@ fn completed_finalization_checks_limited_width_and_reserves_before_row_allocatio
     assert!(output.reserve_finalization(100, 1).is_err());
     assert_eq!(memory.snapshot().denied_reservations, 1);
     let lease = output.reserve_finalization(1, 1).unwrap();
-    assert!(memory.snapshot().reserved_bytes > 65536);
+    assert!(memory.snapshot().reserved_bytes > schema_credit);
     drop(lease);
-    assert_eq!(memory.snapshot().reserved_bytes, 65536);
+    assert_eq!(memory.snapshot().reserved_bytes, schema_credit);
     drop(output);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

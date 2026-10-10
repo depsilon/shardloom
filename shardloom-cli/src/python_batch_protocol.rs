@@ -15,13 +15,13 @@ use shardloom_vortex::{
 use std::{
     io::{self, Write as _},
     process::ExitCode,
-    sync::mpsc,
+    sync::{Arc, mpsc},
 };
 
 const MAX_FRAME: usize = 8 * 1024 * 1024;
-// One incoming frame plus deserialized cell vectors, strings and typed conversion
-// scratch. Native payload buffers have their own, independently retained credits.
-const INTAKE_SCRATCH: u64 = 64 * 1024 * 1024;
+
+#[path = "python_batch_frames.rs"]
+mod frames;
 
 type Result<T> = std::result::Result<T, ShardLoomError>;
 
@@ -34,14 +34,11 @@ struct Request {
     batch_rows: usize,
 }
 
-#[derive(serde::Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Incoming {
     Rows {
         uri: String,
         index: u64,
-        #[serde(deserialize_with = "bounded_vec::<_, _, 2048>")]
-        rows: Vec<MemoryRow<128>>,
+        rows: Vec<MemoryRow>,
     },
     End {
         uri: String,
@@ -54,14 +51,15 @@ enum Incoming {
 }
 
 pub(crate) struct Transport {
-    frames: mpsc::Receiver<Result<String>>,
+    frames: mpsc::Receiver<Result<frames::Frame>>,
+    reader: Option<mpsc::SyncSender<Result<frames::Frame>>>,
+    scratch_stats: Arc<frames::ScratchStats>,
     pub(crate) cancellation: CancellationToken,
     pub(crate) stream_results: bool,
     pub(crate) batch_rows: usize,
     pub(crate) input_batches: u64,
     pub(crate) input_sources: u64,
     pub(crate) input_rows: u64,
-    pub(crate) input_scratch_peak_bytes: u64,
     pub(crate) output_batches: u64,
 }
 
@@ -100,25 +98,17 @@ fn start() -> Result<ExitCode> {
         ));
     }
     let token = CancellationToken::default();
-    let cancellation = token.clone();
     let (sender, receiver) = mpsc::sync_channel(0);
-    std::thread::Builder::new()
-        .name("shardloom-batch-control".into())
-        .spawn(move || {
-            let stdin = io::stdin();
-            let mut input = stdin.lock();
-            read_control_frames(&mut input, &sender, &cancellation);
-        })
-        .map_err(failed)?;
     let mut transport = Transport {
         frames: receiver,
+        reader: Some(sender),
+        scratch_stats: Arc::new(frames::ScratchStats::default()),
         cancellation: token,
         stream_results: request.stream_results,
         batch_rows: request.batch_rows,
         input_batches: 0,
         input_sources: 0,
         input_rows: 0,
-        input_scratch_peak_bytes: 0,
         output_batches: 0,
     };
     let code = crate::public_workflow_route::handle_batch_workflow(
@@ -131,15 +121,12 @@ fn start() -> Result<ExitCode> {
 
 fn read_control_frames(
     input: &mut impl io::BufRead,
-    sender: &mpsc::SyncSender<Result<String>>,
+    sender: &mpsc::SyncSender<Result<frames::Frame>>,
     cancellation: &CancellationToken,
+    mut scratch: frames::Scratch,
 ) {
-    #[derive(serde::Deserialize)]
-    struct Header<'a> {
-        kind: &'a str,
-    }
     loop {
-        let frame = match read_bounded_frame(input, MAX_FRAME) {
+        let mut frame = match frames::read(input, &mut scratch, cancellation) {
             Ok(Some(frame)) => frame,
             result => {
                 cancellation.cancel();
@@ -150,10 +137,16 @@ fn read_control_frames(
                 break;
             }
         };
-        if serde_json::from_str::<Header<'_>>(&frame).is_ok_and(|header| header.kind == "cancel") {
-            cancellation.cancel();
-            let _ = sender.send(Err(failed("batch transaction cancelled by consumer")));
-            break;
+        match frame.is_cancel() {
+            Ok(false) => {}
+            result => {
+                cancellation.cancel();
+                let error = result
+                    .err()
+                    .unwrap_or_else(|| failed("batch transaction cancelled by consumer"));
+                let _ = sender.send(Err(error));
+                break;
+            }
         }
         if sender.send(Ok(frame)).is_err() {
             break;
@@ -162,10 +155,46 @@ fn read_control_frames(
 }
 
 impl Transport {
-    fn incoming(&self) -> Result<Incoming> {
+    pub(crate) fn start_reader(
+        &mut self,
+        preparation: &shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
+    ) -> Result<()> {
+        if self.reader.is_none() {
+            return Err(failed("batch control reader already started"));
+        }
+        // Account for stdin's fixed buffer before transferring the reader into
+        // this execution. Each variable-sized frame then acquires its own lease.
+        let scratch = frames::Scratch::new(
+            preparation.reserve_input_scratch(8192)?,
+            Arc::clone(&self.scratch_stats),
+        );
+        let sender = self
+            .reader
+            .take()
+            .ok_or_else(|| failed("batch control reader is absent"))?;
+        let cancellation = self.cancellation.clone();
+        std::thread::Builder::new()
+            .name("shardloom-batch-control".into())
+            .spawn(move || {
+                let stdin = io::stdin();
+                let mut input = stdin.lock();
+                read_control_frames(&mut input, &sender, &cancellation, scratch);
+            })
+            .map_err(failed)?;
+        Ok(())
+    }
+
+    pub(crate) fn input_scratch_peak_bytes(&self) -> u64 {
+        self.scratch_stats.peak()
+    }
+
+    fn incoming(&self, width: Option<usize>) -> Result<frames::Decoded> {
         self.cancellation.check()?;
+        if self.reader.is_some() {
+            return Err(failed("batch control reader lacks native admission"));
+        }
         let frame = self.frames.recv().map_err(failed)??;
-        serde_json::from_str(&frame).map_err(failed)
+        frame.decode(width)
     }
 
     pub(crate) fn build_source(
@@ -181,29 +210,40 @@ impl Transport {
             return crate::native_memory_rows::build_batch(schema, &[], session);
         }
         let mut builder = MemoryBatchSourceBuilder::new(session, self.cancellation.clone())?;
-        self.input_sources += 1;
+        add_count(&mut self.input_sources, 1)?;
         let mut index = 0;
         loop {
-            let _scratch = builder.reserve_scratch(INTAKE_SCRATCH)?;
-            self.input_scratch_peak_bytes = INTAKE_SCRATCH;
             send(
                 &serde_json::json!({"kind":"input", "uri":uri, "index":index, "max_rows":2048, "max_bytes":MAX_FRAME}),
             )?;
-            match self.incoming()? {
+            let mut decoded = self.incoming(Some(schema.len()))?;
+            let conversion_bytes = match &decoded.value {
+                Incoming::Rows { rows, .. } => {
+                    crate::native_memory_rows::conversion_bytes(schema.len(), rows.len())?
+                }
+                _ => 0,
+            };
+            let scratch = decoded.conversion_scratch(conversion_bytes)?;
+            match &decoded.value {
                 Incoming::Rows {
                     uri: actual,
                     index: sequence,
                     rows,
-                } if actual == uri && sequence == index => {
-                    crate::native_memory_rows::append_batch(schema, &rows, &mut builder)?;
-                    self.input_batches += 1;
-                    self.input_rows += rows.len() as u64;
-                    index += 1;
+                } if actual == uri && *sequence == index => {
+                    crate::native_memory_rows::append_admitted_batch(
+                        schema,
+                        rows,
+                        &mut builder,
+                        scratch.lease(),
+                    )?;
+                    add_count(&mut self.input_batches, 1)?;
+                    add_count(&mut self.input_rows, rows.len() as u64)?;
+                    add_count(&mut index, 1)?;
                 }
                 Incoming::End {
                     uri: actual,
                     index: sequence,
-                } if actual == uri && sequence == index => {
+                } if actual == uri && *sequence == index => {
                     if index == 0 {
                         crate::native_memory_rows::append_batch(schema, &[], &mut builder)?;
                     }
@@ -237,32 +277,40 @@ impl Transport {
             ));
         };
         self.cancellation.check()?;
-        let _scratch = session.reserve_input_scratch(INTAKE_SCRATCH)?;
-        self.input_scratch_peak_bytes = INTAKE_SCRATCH;
         let index = self.input_batches;
         send(
             &serde_json::json!({"kind":"input", "uri":uri, "index":index, "max_rows":2048, "max_bytes":MAX_FRAME}),
         )?;
         self.input_sources = 1;
-        match self.incoming()? {
+        let mut decoded = self.incoming(Some(schema.len()))?;
+        let conversion_bytes = match &decoded.value {
+            Incoming::Rows { rows, .. } => {
+                crate::native_memory_rows::conversion_bytes(schema.len(), rows.len())?
+            }
+            _ => 0,
+        };
+        let scratch = decoded.conversion_scratch(conversion_bytes)?;
+        match &decoded.value {
             Incoming::Rows {
                 uri: actual,
                 index: sequence,
                 rows,
-            } if actual == uri && sequence == index => {
-                if index == 4096 {
-                    return Err(failed("streaming source exceeds 4,096 payload batches"));
-                }
-                let source = crate::native_memory_rows::build_batch(schema, &rows, session)?;
+            } if actual == uri && *sequence == index => {
+                let source = crate::native_memory_rows::build_admitted_batch(
+                    schema,
+                    rows,
+                    session,
+                    scratch.lease(),
+                )?;
                 self.cancellation.check()?;
-                self.input_batches += 1;
-                self.input_rows += rows.len() as u64;
+                add_count(&mut self.input_batches, 1)?;
+                add_count(&mut self.input_rows, rows.len() as u64)?;
                 Ok(Some(source))
             }
             Incoming::End {
                 uri: actual,
                 index: sequence,
-            } if actual == uri && sequence == index => Ok(None),
+            } if actual == uri && *sequence == index => Ok(None),
             _ => Err(failed(
                 "input batch kind, source or sequence does not match native demand",
             )),
@@ -290,14 +338,21 @@ impl Transport {
             out.write_all(b"}\n").map_err(failed)?;
             out.flush().map_err(failed)?;
         }
-        match self.incoming()? {
+        match self.incoming(None)?.value {
             Incoming::Ack { index } if index == self.output_batches => {
-                self.output_batches += 1;
+                add_count(&mut self.output_batches, 1)?;
                 self.cancellation.check()
             }
             _ => Err(failed("result batch requires its matching acknowledgement")),
         }
     }
+}
+
+fn add_count(value: &mut u64, additional: u64) -> Result<()> {
+    *value = value
+        .checked_add(additional)
+        .ok_or_else(|| failed("batch transaction counter overflow"))?;
+    Ok(())
 }
 
 fn send(value: &serde_json::Value) -> Result<()> {
@@ -318,6 +373,24 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    fn scratch() -> frames::Scratch {
+        let pool = shardloom_exec::live_memory::LiveMemoryPool::new(32 << 20).unwrap();
+        frames::Scratch::new(
+            pool.reserve(8192).unwrap(),
+            Arc::new(frames::ScratchStats::default()),
+        )
+    }
+
+    fn decode(text: &str, width: Option<usize>) -> Result<frames::Decoded> {
+        frames::read(
+            &mut io::Cursor::new(text.as_bytes()),
+            &mut scratch(),
+            &CancellationToken::default(),
+        )?
+        .ok_or_else(|| failed("test frame missing"))?
+        .decode(width)
+    }
+
     #[test]
     fn batch_frames_reject_bad_sequences_types_widths_and_unknown_fields() {
         for frame in [
@@ -328,13 +401,17 @@ mod tests {
             json!({"kind":"ack","index":0,"extra":1}),
             json!({"kind":"missing","index":0}),
         ] {
-            assert!(serde_json::from_value::<Incoming>(frame).is_err());
+            assert!(decode(&frame.to_string(), Some(128)).is_err());
         }
-        assert!(serde_json::from_str::<Incoming>(r#"{"kind":"ack","index":0,"index":1}"#).is_err());
+        assert!(decode(r#"{"kind":"ack","index":0,"index":1}"#, None).is_err());
         assert!(
-            serde_json::from_value::<Incoming>(json!({
-                "kind":"rows","uri":"memory://x","index":0,"rows":[vec![None::<String>;128]],
-            }))
+            decode(
+                &json!({
+                    "kind":"rows","uri":"memory://x","index":0,"rows":[vec![None::<String>;128]],
+                })
+                .to_string(),
+                Some(128)
+            )
             .is_ok()
         );
         assert!(
@@ -356,7 +433,7 @@ mod tests {
             let (sender, receiver) = mpsc::sync_channel(0);
             let control = token.clone();
             let worker = std::thread::spawn(move || {
-                read_control_frames(&mut io::Cursor::new(input), &sender, &control);
+                read_control_frames(&mut io::Cursor::new(input), &sender, &control, scratch());
             });
             assert!(receiver.recv().unwrap().is_err());
             assert!(token.is_cancelled());
@@ -374,11 +451,12 @@ mod tests {
                 &mut io::Cursor::new(b"{\"kind\":\"ack\",\"index\":0}\n{\"kind\":\"cancel\"}\n"),
                 &sender,
                 &control,
+                scratch(),
             );
         });
         let frame = receiver.recv().unwrap().unwrap();
         assert!(matches!(
-            serde_json::from_str::<Incoming>(&frame).unwrap(),
+            frame.decode(None).unwrap().value,
             Incoming::Ack { index: 0 }
         ));
         assert!(receiver.recv().unwrap().is_err());

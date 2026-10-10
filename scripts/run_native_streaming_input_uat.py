@@ -18,6 +18,7 @@ import time
 
 from local_uat_storage import GIB, MIB, check_budgets, require_local_path
 from native_streaming_input_cases import run as public_cases
+from native_input_growth_cases import run as growth_cases
 from native_streaming_order_cases import run as ordering_cases
 from native_streaming_order_pressure_cases import run as ordering_pressure_cases
 from native_streaming_aggregate_cases import run as aggregate_cases
@@ -29,7 +30,7 @@ from native_streaming_window_pressure_cases import run as window_pressure_cases
 from native_streaming_protocol_cases import run as protocol_cases
 import shardloom as sl
 
-FAMILIES = {"input": public_cases, "ordering": ordering_cases, "ordering-pressure": ordering_pressure_cases,
+FAMILIES = {"input": public_cases, "growth": growth_cases, "ordering": ordering_cases, "ordering-pressure": ordering_pressure_cases,
             "aggregate": aggregate_cases, "aggregate-pressure": aggregate_pressure_cases,
             "join": join_cases, "join-pressure": join_pressure_cases,
             "window": window_cases, "window-pressure": window_pressure_cases, "protocol": protocol_cases}
@@ -127,6 +128,7 @@ def main():
     harness.output.mkdir()
     inputs = [binary, Path(__file__).resolve(),
               Path(__file__).with_name("native_streaming_input_cases.py"),
+              Path(__file__).with_name("native_input_growth_cases.py"),
               Path(__file__).with_name("native_streaming_order_cases.py"),
               Path(__file__).with_name("native_streaming_order_pressure_cases.py"),
               Path(__file__).with_name("native_streaming_aggregate_cases.py"),

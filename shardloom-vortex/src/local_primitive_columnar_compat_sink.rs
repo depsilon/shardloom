@@ -85,6 +85,7 @@ impl CompatibilityLimits {
             source_rows: upper_rows.max(1),
             output_rows: upper_rows.max(1),
             batches: usize::MAX,
+            columns: usize::MAX,
             file_bytes: u64::MAX,
             streaming: true,
             parent_cancellation: Some(cancellation.clone()),
@@ -113,9 +114,9 @@ impl CompatibilityLimits {
         if (!self.streaming
             && (self.source_rows > 65_536
                 || self.output_rows > 65_536
+                || self.columns > 128
                 || self.batches > 256
                 || self.file_bytes > 128 * 1024 * 1024))
-            || self.columns > 128
             || self.batch_rows > 2048
             || self.string_bytes > 64 * 1024
             || self.arrow_batch_bytes > 8 * 1024 * 1024
@@ -211,15 +212,23 @@ pub(super) fn prepare_plan(
             "ORC does not admit nested output: the pinned native ORC writer cannot preserve list/struct fields",
         ));
     }
-    let schema_metadata = if nested {
-        Some(
-            plan.session
-                .memory()
-                .reserve(super::native_payload::metadata_bytes(&plan.dtype)?)?,
-        )
-    } else {
-        None
+    // Check type eligibility without constructing Arrow metadata. Reserve the
+    // growing root schema before its field vectors, names or lookup index.
+    let Some(fields) = plan.dtype.as_struct_fields_opt() else {
+        return Ok(None);
     };
+    if fields.nfields() == 0
+        || fields.nfields() > limits.columns
+        || fields
+            .fields()
+            .any(|dtype| super::native_payload::metadata_bytes(&dtype).is_err())
+    {
+        return Ok(None);
+    }
+    let schema_metadata = Some(crate::native_payload_schema::reserve_schema(
+        &plan.dtype,
+        plan.session.memory(),
+    )?);
     let Some(schema) = schema_for(&plan.dtype, limits.columns) else {
         return Ok(None);
     };
@@ -255,7 +264,6 @@ pub(super) fn prepare_plan(
 }
 
 fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {
-    super::native_payload::metadata_bytes(dtype).ok()?;
     let DType::Struct(fields, Nullability::NonNullable) = dtype else {
         return None;
     };

@@ -26,7 +26,7 @@ impl Binder<'_> {
             .checked_add(window.expressions.len())
             .ok_or_else(|| failed("window schema width overflow"))?;
         validate_width(width)?;
-        self.charge(width * 16_384)?;
+        self.charge_items(width, 16_384)?;
         let input = Box::new(self.bind(&window.input, depth + 1)?);
         let mut fields = Vec::new();
         let mut columns = Vec::new();
@@ -93,7 +93,8 @@ impl Binder<'_> {
         if expression.partition_by.len() > 128 {
             return Err(failed("window partition exceeds 128 columns"));
         }
-        self.charge((expression.partition_by.len() + expression.order_by.len()) * 4096)?;
+        self.charge_fields(expression.partition_by.len())?;
+        self.charge_fields(expression.order_by.len())?;
         let mut partition = Vec::new();
         for column in &expression.partition_by {
             let index = key(spec, fields, column.as_str())?;

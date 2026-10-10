@@ -13,6 +13,12 @@ PERF-02/03/07/10/11/12 and CG-3/5/19/20/21. The expert comparator is a columnar
 engine maintainer reviewing logical types, nested validity, selected-buffer
 ownership and complete output fidelity.
 
+The later [input growth contract](native-input-growth-2026-10-09.md) admits
+top-level record width through the shared grant in source builds after the
+0.5.1 release. The original recursive schema bounds below now apply within each
+value below that record. Historical acceptance and published 0.5.1 artifacts
+retain their release-time contract.
+
 ## Scope and contracts
 
 Admit statically declared lists, fixed-size lists and structs whose leaves are
@@ -33,8 +39,9 @@ The implementation admits schema depth at most 24, at most 4,096 recursive nodes
 and at most 8 MiB of conservatively charged schema metadata. Each nested struct
 has 1–1,024 nonempty, distinct field names. Empty structs are explicitly rejected:
 the compact result contract requires an owned buffer to retain structural credit.
-Top-level results retain the existing 128-column bound. Selected child coordinates
-and buffers reserve against the operation's memory grant before construction.
+The original acceptance retained a 128-column top-level result bound; current
+source builds use shared-grant admission as described above. Selected child
+coordinates and buffers reserve against the operation's memory grant before construction.
 
 Public typed input coverage uses self-describing Arrow IPC lists/structs and their
 native Vortex preparation. CSV/JSON text intake still normalizes nested text to

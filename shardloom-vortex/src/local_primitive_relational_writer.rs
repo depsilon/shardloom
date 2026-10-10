@@ -102,17 +102,14 @@ impl PreparedVortexRelational {
             self.session
                 .with_sources_execution(&self.sources, cancellation, |context| {
                     self.with_bound_root(context, input, |root, metrics| {
-                        let source = if let Some(path) = self.source_paths.first() {
-                            DatasetUri::new(path.display().to_string())?
-                        } else {
-                            self.memory_sources
-                                .first()
-                                .map(|(uri, _)| uri.clone())
-                                .or_else(|| self.batch_source.as_ref().map(|(uri, _)| uri.clone()))
-                                .ok_or_else(|| failed("relational source is absent"))?
-                        };
+                        let source = self.writer_source()?;
                         // This request describes only the terminal adapter's projection of the
                         // completed native columns. The relational tree has its own certificate.
+                        let _declaration_metadata = crate::native_payload_schema::reserve_names(
+                            context.memory(),
+                            root.fields.len(),
+                            |index| root.fields[index].0.as_str(),
+                        )?;
                         let request = VortexQueryPrimitiveRequest::project(
                             source,
                             shardloom_plan::ProjectionRequest::columns(
@@ -195,5 +192,16 @@ impl PreparedVortexRelational {
                 })?;
         written.execution.runtime = self.snapshot();
         Ok(written)
+    }
+
+    fn writer_source(&self) -> Result<DatasetUri> {
+        if let Some(path) = self.source_paths.first() {
+            return DatasetUri::new(path.display().to_string());
+        }
+        self.memory_sources
+            .first()
+            .map(|(uri, _)| uri.clone())
+            .or_else(|| self.batch_source.as_ref().map(|(uri, _)| uri.clone()))
+            .ok_or_else(|| failed("relational source is absent"))
     }
 }

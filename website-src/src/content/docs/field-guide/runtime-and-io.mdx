@@ -174,10 +174,16 @@ Supported owned results retain Vortex arrays, validity, and memory credits. Curr
 stream admitted flat aggregate, ordered, unary, and relational results through all eight local
 writers without rerunning the query or reparsing serialized JSON for binary export. This includes
 admitted native ordering spill. Small computed-result collection remains bounded to
-**65,536 rows, 128 scalar fields, and 8 MiB**; complete writers use bounded native batches and
+**65,536 rows and 8 MiB**; top-level schema metadata uses the shared grant in current
+source builds. Complete writers use bounded native batches and
 can exceed the collection row and byte limits. Type, resource, and write-policy admission still
 apply. Nested and extension results have separate coverage limits. See the
 [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
+The [input growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
+applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
+their release-time limits.
+The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
+binds the exact source and complete values across admitted destinations.
 
 Flat aggregate collection and writes use the same native admission, carrying the complete
 filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.

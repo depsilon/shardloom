@@ -165,8 +165,12 @@ impl<'a, 's> Search<'a, 's> {
                 let indices = index_array(selected.values.len(), false, context, |row| {
                     Ok(Some(selected.values[row]))
                 })?;
-                let compact =
-                    native_payload::take(&payload.array, &indices, payload.array.dtype(), context)?;
+                let compact = native_payload::take_record(
+                    &payload.array,
+                    &indices,
+                    payload.array.dtype(),
+                    context,
+                )?;
                 output.table.push(Batch::new(compact, &[], context)?)?;
             }
         }

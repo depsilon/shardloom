@@ -212,16 +212,12 @@ impl<'consumer> CompletedRows<'consumer> {
         if !Self::needs_native_schema(&fields) {
             return Self::new(fields, memory);
         }
+        let mut ownership = crate::native_payload_schema::reserve_fields(&fields, memory)?;
         validate_names(&fields)?;
-        let mut ownership = memory.reserve(64 * 1024)?;
-        let bytes = super::native_payload::metadata_bytes(&DType::struct_(
-            fields.clone(),
-            Nullability::NonNullable,
-        ))?;
         ownership.resize(
             ownership
                 .bytes()
-                .checked_add(bytes)
+                .checked_add(64 * 1024)
                 .ok_or_else(|| failed("native schema metadata overflow"))?,
         )?;
         Ok(Self {
@@ -280,8 +276,9 @@ impl<'consumer> CompletedRows<'consumer> {
                                 context,
                                 |row| Ok(Some(start + row)),
                             )?;
-                            let batch =
-                                super::native_payload::take(&array, &indices, &dtype, context)?;
+                            let batch = super::native_payload::take_record(
+                                &array, &indices, &dtype, context,
+                            )?;
                             if batch.nbytes() <= MAX_BYTES as u64 {
                                 break batch;
                             }
@@ -309,7 +306,7 @@ impl<'consumer> CompletedRows<'consumer> {
     ) -> Result<()> {
         if Self::needs_native_schema(&self.fields) {
             let dtype = DType::struct_(self.fields.clone(), Nullability::NonNullable);
-            let array = super::native_payload::defaults(&dtype, 0, context)?;
+            let array = super::native_payload::empty_record(&dtype, context)?;
             self.push_native(array, context)
         } else {
             self.push_values(columns, 0, |_, _| {
@@ -330,14 +327,11 @@ impl<'consumer> CompletedRows<'consumer> {
 }
 
 fn validate_names(fields: &[(String, DType)]) -> Result<()> {
-    if fields.is_empty() || fields.len() > 128 {
-        return Err(failed("requires 1..=128 output columns"));
+    if fields.is_empty() {
+        return Err(failed("requires at least one output column"));
     }
-    for (index, (name, _)) in fields.iter().enumerate() {
-        if name.is_empty()
-            || name.len() > 256
-            || fields[..index].iter().any(|(prior, _)| prior == name)
-        {
+    for (name, _) in fields {
+        if name.is_empty() || name.len() > 256 {
             return Err(failed("invalid or duplicate output field name"));
         }
     }
@@ -537,6 +531,10 @@ impl CompletedRows<'_> {
     }
 
     pub(super) fn new(fields: Vec<(String, DType)>, memory: &LiveMemoryPool) -> Result<Self> {
+        let mut ownership =
+            crate::native_payload_schema::reserve_names(memory, fields.len(), |index| {
+                fields[index].0.as_str()
+            })?;
         validate_names(&fields)?;
         for (_, dtype) in &fields {
             if !matches!(
@@ -561,7 +559,12 @@ impl CompletedRows<'_> {
                 return Err(failed("unsupported or duplicate output field"));
             }
         }
-        let ownership = memory.reserve(64 * 1024)?;
+        ownership.resize(
+            ownership
+                .bytes()
+                .checked_add(64 * 1024)
+                .ok_or_else(|| failed("result metadata overflow"))?,
+        )?;
         Ok(Self {
             fields,
             memory: memory.clone(),

@@ -10,6 +10,12 @@ passed. Published v0.4.0 packages predate these additions.
 They extend universal workflow step 2 under the existing PERF and CG-20/21
 owners through one native Vortex plan.
 
+The [October 9 input growth contract](native-input-growth-2026-10-09.md)
+supersedes this initial contract's fixed input field/batch counts and result
+field count in source builds after the 0.5.1 release. Growing metadata consumes
+the shared query grant. Per-frame row/byte limits and complete collection's
+row/byte bounds remain. Published 0.5.1 artifacts retain their release-time limits.
+
 ## Public usage
 
 `shardloom.from_batches(...)` and `ShardLoomContext.from_batches(...)` declare native
@@ -44,6 +50,9 @@ Conversions consume the delivered values; they do not execute another query.
 
 ## Admission and lifecycle
 
+The table below records the original October 6 admission snapshot. Use the
+linked growth contract for current source field and cumulative-input admission.
+
 | Boundary | Contract |
 | --- | --- |
 | Input schema | 1–128 distinct fields, each name 1–256 UTF8 bytes; nullable Int64, finite Float64, Boolean and UTF8 |
@@ -57,14 +66,15 @@ This October 6 table records resident input. A subsequent opt-in
 `from_batches(..., streaming=True)` mode has its own
 [contract](native-input-completion-2026-10-07.md) and
 [local acceptance](../benchmarks/native-input-completion-2026-10-07.md).
-It preserves the finite field, row/frame and total batch-count bounds while
+That initial implementation preserved the field, row/frame and total batch-count bounds while
 retaining at most one native input batch. That mode permits one source used once
 through pure Scan/Filter/Project, with incremental results, bounded small
 collection or one native Vortex destination. Cumulative input may exceed the
 grant. That initial acceptance does not authorize input or general state spill.
 Later [ordering, aggregation, join and analytic-window contracts](../reference/native-query-spill.md)
-extend operator composition and explicit state spill, while preserving these
-intake limits and the absence of a process-RSS bound.
+extend operator composition and explicit state spill. The input growth contract
+then replaces the total field/batch counts; per-frame admission and the absence
+of a process-RSS bound remain.
 Resident mode stays the default, and published v0.4.0 is unchanged.
 
 Resident batch intake is demand-driven, but it does not provide input spill or guarantee

@@ -6,8 +6,9 @@ use shardloom_core::Result;
 use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
-        ArrayRef, IntoArray as _,
-        arrays::{BoolArray, PrimitiveArray, VarBinArray},
+        Array, ArrayRef, ArrayVTable, ArrayView, IntoArray as _,
+        arrays::{Bool, BoolArray, Primitive, PrimitiveArray, Slice, VarBin, VarBinArray},
+        buffer::BufferHandle,
         dtype::{DType, NativePType, Nullability},
         validity::Validity,
     },
@@ -166,6 +167,50 @@ impl OwnedMemoryColumn {
             name: self.name.clone(),
             identity: Arc::clone(&self.identity),
         })
+    }
+}
+
+/// Rebind only the closed set of arrays produced by owned intake. Each native
+/// buffer keeps its original capacity credit and gains the new schema owner;
+/// payload bytes and pointer identity are unchanged. Checked typed reconstruction
+/// preserves validity slots and slices without using erased unsafe rewrites.
+pub(super) fn retain_metadata(array: &ArrayRef, credit: &Arc<MemoryLease>) -> Result<ArrayRef> {
+    fn retain<V: ArrayVTable>(
+        vtable: &V,
+        array: ArrayView<'_, V>,
+        credit: &Arc<MemoryLease>,
+    ) -> Result<ArrayRef> {
+        let buffers = array
+            .as_ref()
+            .buffers()
+            .into_iter()
+            .map(|buffer| {
+                BufferHandle::new_host(crate::owned_buffers::retain_shared_credit(
+                    buffer,
+                    Arc::clone(credit),
+                ))
+            })
+            .collect::<Vec<_>>();
+        let mut parts = vtable.with_buffers(array, &buffers).map_err(native_error)?;
+        for child in parts.slots.iter_mut().flatten() {
+            *child = retain_metadata(child, credit)?;
+        }
+        let retained = Array::<V>::try_from_parts(parts).map_err(native_error)?;
+        retained.statistics().inherit_from(array.statistics());
+        Ok(retained.into_array())
+    }
+    if let Some(array) = array.as_opt::<Primitive>() {
+        retain(&Primitive, array, credit)
+    } else if let Some(array) = array.as_opt::<Bool>() {
+        retain(&Bool, array, credit)
+    } else if let Some(array) = array.as_opt::<VarBin>() {
+        retain(&VarBin, array, credit)
+    } else if let Some(array) = array.as_opt::<Slice>() {
+        retain(&Slice, array, credit)
+    } else {
+        Err(memory_error(
+            "owned intake metadata encountered an unadmitted encoding",
+        ))
     }
 }
 

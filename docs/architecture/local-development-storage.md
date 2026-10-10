@@ -112,6 +112,15 @@ Original failed-run archives and summaries remain unchanged. A guarded check of
 mutation and failed archive/manifest readback preserve all source files. These
 are evidence-storage measurements, not query-performance results; storage
 ceilings remain unchanged.
+On October 9, the input-growth preflight reached the unchanged 252-MiB query-log
+admission threshold before executing queries. Two completed historical Full43
+cohorts were compacted losslessly into `completed-call-logs-input-growth-20261009.tar.xz`
+archives beside their summaries. Original size/hash manifests and exact JSON
+and companion-byte checks were retained before redundant files were removed,
+recovering 4,546,560 accounted log bytes. Final acceptance independently reopens
+all 1,032 archive members. Failed and incomplete observations and all storage
+ceilings remain unchanged. The [input growth report](../benchmarks/native-input-growth-2026-10-09.md)
+links the compaction receipt and the corrected candidate's fresh passing Full43.
 For complete development-folder isolation, relocate the checkout itself to an
 unsynced directory in a separate, coordinated project-path migration.
 

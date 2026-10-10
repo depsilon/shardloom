@@ -159,6 +159,72 @@ fn check_batch(
     }
 }
 
+#[test]
+fn streamed_ordering_small_batches_spill_for_retained_metadata_before_grant_exhaustion() {
+    const ROWS: usize = 1025;
+    const GRANT: u64 = 8 << 20;
+    let fixture = Fixture::new(keyed(&[], &[]), 1);
+    let prepared = prepare(&order_plan(), GRANT)
+        .unwrap()
+        .with_spill(spill(&fixture, 64 << 20))
+        .unwrap();
+    let before = prepared.snapshot().memory.reserved_bytes;
+    let mut generated = 0;
+    let ended = Cell::new(false);
+    let mut prior: Option<Weak<MemoryLease>> = None;
+    let mut provider = |session: &ResidentVortexSession| {
+        assert!(
+            prior
+                .as_ref()
+                .is_none_or(|witness| witness.strong_count() == 0)
+        );
+        if generated == ROWS {
+            ended.set(true);
+            return Ok(None);
+        }
+        let value = i64::try_from(ROWS - generated - 1).unwrap();
+        let batch = source(session, &[Some(value)], &[Some("x")])?;
+        prior = Some(batch.batch_release_witness()?);
+        generated += 1;
+        Ok(Some(batch))
+    };
+    let mut delivered = 0;
+    let execution = prepared
+        .with_batch_input(&mut provider)
+        .unwrap()
+        .for_each_json_batch(&CancellationToken::default(), 127, 64 << 10, |batch| {
+            assert!(ended.get());
+            check_batch(&batch, &mut delivered, "x");
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(generated, ROWS);
+    assert_eq!(delivered, ROWS);
+    let input = execution.input.as_ref().unwrap();
+    assert!(input.end_of_input_observed && input.input_logical_bytes < 1 << 20);
+    assert_eq!(input.ordering_batches_detached, ROWS as u64);
+    assert_eq!(input.max_retained_input_batches, 1);
+    assert!(execution.runtime.memory.peak_reserved_bytes <= GRANT);
+    let report = execution.spill.as_ref().unwrap();
+    assert!(report.runs_written > 3 && report.merge_passes > 1);
+    assert!(report.peak_disk_bytes <= report.quota_bytes && report.owned_cleanup_completed);
+    assert!(
+        execution
+            .native_io_certificate
+            .side_effects
+            .spill_io_performed
+    );
+    assert!(
+        !execution
+            .native_io_certificate
+            .side_effects
+            .fallback_attempted
+    );
+    assert_names(&fixture, &["input.vortex"]);
+    drop(execution);
+    assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+}
+
 fn complete(
     prepared: &PreparedVortexRelational,
     total: usize,

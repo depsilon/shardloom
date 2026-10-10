@@ -46,7 +46,7 @@ impl<'a> Binder<'a> {
                 .dtype()
                 .as_struct_fields_opt()
                 .ok_or_else(|| failed("outer parameter must have a native struct schema"))?;
-            binder.charge(fields.names().len() * 4096)?;
+            binder.charge_fields(fields.names().len())?;
             binder.outer_fields = Some(
                 fields
                     .names()
@@ -107,7 +107,7 @@ impl<'a> Binder<'a> {
             ));
         }
         let node = self.bind(plan, 0)?;
-        self.charge(node.fields.len() * 4096)?;
+        self.charge_fields(node.fields.len())?;
         let columns = node.fields.iter().map(|(name, _)| name.clone()).collect();
         let slot = self.resolved.values.len();
         self.resolved.push(Some(node))?;
@@ -188,12 +188,12 @@ impl<'a> Binder<'a> {
             .record_pivot_spill(result.spill_report())?;
         add(&execution.metrics.schema_discovery_stages, 1)?;
         super::validate_width(result.fields().len())?;
+        self.charge_fields(result.fields().len())?;
         for (name, dtype) in result.fields() {
             super::validate_name(name)?;
             super::validate_key(dtype)?;
         }
         super::validate_unique(result.fields())?;
-        self.charge(result.fields().len() * 4096)?;
         self.charge(std::mem::size_of::<
             RefCell<Option<super::super::CompletedPivot>>,
         >())?;

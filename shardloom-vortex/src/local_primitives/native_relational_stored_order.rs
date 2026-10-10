@@ -4,7 +4,7 @@ use super::{
     Arc, ArrayRef, MemoryLease, NativeExecutionContext, NativeQueryRun, Ordering, QueryRunBlock,
     Reader, Result, State, dtype, failed,
 };
-use crate::local_primitives::{native_payload, vortex_error};
+use crate::local_primitives::vortex_error;
 
 #[allow(clippy::large_enum_variant)] // One bounded stack owner avoids additional heap allocation.
 enum Source<'a> {
@@ -49,11 +49,10 @@ impl<'s> Ordering<'_, 's> {
             // This result is bounded by the admitted resident sort threshold.
             // Charge its parent metadata before gathering; old and new payload
             // owners overlap in the same pool until the sorter is dropped.
-            let metadata = Arc::new(
-                context
-                    .memory()
-                    .reserve(native_payload::metadata_bytes(&dtype(self.spec))?)?,
-            );
+            let metadata = Arc::new(crate::native_payload_schema::reserve_schema(
+                &dtype(self.spec),
+                context.memory(),
+            )?);
             let rows = self.sort.ordered_rows(context)?;
             let array = self.sort.gather_rows(&rows.values, context)?;
             let length = array.len() as u64;

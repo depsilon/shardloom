@@ -48,6 +48,10 @@ impl<'a> Sort<'a> {
     /// Conservative flush estimate, separate from actual shared-pool accounting.
     #[cfg(feature = "vortex-write")]
     pub(super) fn incoming_bytes(&self, array: &ArrayRef) -> Result<u64> {
+        // Compact records retain their schema credit even when the payload is
+        // only one row. Count that owner before choosing when to spill; many
+        // small batches can exhaust the grant below a payload-only threshold.
+        let metadata_bytes = crate::native_payload_schema::schema_bytes(array.dtype())?;
         let row_bytes = (self.spec.names.len() as u64)
             .checked_add(1)
             .and_then(|keys| keys.checked_mul(32))
@@ -56,6 +60,7 @@ impl<'a> Sort<'a> {
         array
             .nbytes()
             .checked_add(row_bytes)
+            .and_then(|bytes| bytes.checked_add(metadata_bytes))
             .ok_or_else(|| failed("sort retained input estimate overflow"))
     }
 

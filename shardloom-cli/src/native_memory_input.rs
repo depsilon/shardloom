@@ -13,15 +13,9 @@ pub(crate) enum MemoryValueType {
     Utf8,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize, serde::Serialize)]
 #[serde(transparent)]
-pub(crate) struct MemoryRow<const MAX: usize = 64>(pub(crate) Vec<Option<String>>);
-
-impl<'de, const MAX: usize> serde::Deserialize<'de> for MemoryRow<MAX> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        bounded_vec::<_, _, MAX>(deserializer).map(Self)
-    }
-}
+pub(crate) struct MemoryRow(pub(crate) Vec<Option<String>>);
 
 pub(crate) fn bounded_vec<'de, D, T, const MAX: usize>(deserializer: D) -> Result<Vec<T>, D::Error>
 where
@@ -42,15 +36,24 @@ where
             self,
             mut sequence: A,
         ) -> Result<Self::Value, A::Error> {
-            let mut values = Vec::new();
-            while let Some(value) = sequence.next_element()? {
-                if values.len() == MAX {
-                    return Err(serde::de::Error::custom(format!(
-                        "native memory array exceeds {MAX} entries"
-                    )));
+            struct Reject;
+            impl<'de> serde::de::DeserializeSeed<'de> for Reject {
+                type Value = ();
+                fn deserialize<D: serde::Deserializer<'de>>(self, _: D) -> Result<(), D::Error> {
+                    Err(serde::de::Error::custom(
+                        "native memory array exceeds its entry bound",
+                    ))
                 }
+            }
+            let mut values = Vec::new();
+            while values.len() < MAX {
+                let Some(value) = sequence.next_element()? else {
+                    return Ok(values);
+                };
                 values.push(value);
             }
+            // Reject the first excess entry before its payload is deserialized.
+            sequence.next_element_seed(Reject)?;
             Ok(values)
         }
     }
@@ -64,13 +67,11 @@ pub(crate) enum MemoryInput {
     #[serde(skip_deserializing)]
     Unit,
     Rows {
-        #[serde(deserialize_with = "bounded_vec::<_, _, 64>")]
         schema: Vec<(String, MemoryValueType)>,
         #[serde(deserialize_with = "bounded_vec::<_, _, 65_536>")]
         rows: Vec<MemoryRow>,
     },
     Batches {
-        #[serde(deserialize_with = "bounded_vec::<_, _, 128>")]
         schema: Vec<(String, MemoryValueType)>,
         #[serde(default)]
         streaming: bool,
@@ -152,32 +153,36 @@ pub(crate) fn validate_rows(
 
 pub(crate) fn validate_batch_rows(
     schema: &[(String, MemoryValueType)],
-    rows: &[MemoryRow<128>],
+    rows: &[MemoryRow],
 ) -> Result<(), ShardLoomError> {
     validate_rows_with_limits(schema, rows, 2048)
 }
 
-fn validate_rows_with_limits<const WIDTH: usize>(
+fn validate_rows_with_limits(
     schema: &[(String, MemoryValueType)],
-    rows: &[MemoryRow<WIDTH>],
+    rows: &[MemoryRow],
     max_rows: usize,
 ) -> Result<(), ShardLoomError> {
-    if schema.is_empty() || schema.len() > WIDTH || rows.len() > max_rows {
+    if schema.is_empty() || rows.len() > max_rows {
         return Err(failed(&format!(
-            "rows require 1..={WIDTH} fields and at most {max_rows} rows"
+            "rows require a declared schema and at most {max_rows} rows"
         )));
     }
     let mut bytes = 0usize;
-    for (index, (name, _)) in schema.iter().enumerate() {
-        if name.is_empty()
-            || name.len() > 256
-            || schema[..index].iter().any(|(prior, _)| prior == name)
-        {
+    // Declarations are separately bounded by the 8-MiB control envelope. The
+    // native source performs grant-backed uniqueness validation before intake;
+    // this inert declaration check uses borrowed names only.
+    let mut names = std::collections::BTreeSet::new();
+    for (name, _) in schema {
+        if name.is_empty() || name.len() > 256 || !names.insert(name) {
             return Err(failed(
                 "row field names must be distinct and contain 1..=256 UTF8 bytes",
             ));
         }
-        bytes += name.len();
+        bytes = bytes
+            .checked_add(name.len())
+            .filter(|bytes| *bytes <= 8 * 1024 * 1024)
+            .ok_or_else(|| failed("row schema exceeds 8 MiB"))?;
     }
     for row in rows {
         if row.0.len() != schema.len() {
@@ -210,10 +215,7 @@ fn range_len(start: i64, end: i64, step: i64, inclusive: bool) -> Result<usize, 
     } else {
         (distance + stride - 1) / stride
     };
-    usize::try_from(rows)
-        .ok()
-        .filter(|rows| *rows <= 1_000_000)
-        .ok_or_else(|| failed("range exceeds one million input rows"))
+    usize::try_from(rows).map_err(|_| failed("range row count exceeds the platform index capacity"))
 }
 
 fn failed(reason: &str) -> ShardLoomError {
@@ -226,6 +228,19 @@ fn failed(reason: &str) -> ShardLoomError {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn generated_range_length_has_no_fixed_total_and_preserves_signed_endpoints() {
+        assert_eq!(range_len(0, 1_000_017, 1, false).unwrap(), 1_000_017);
+        assert_eq!(range_len(1_000_016, 0, -1, true).unwrap(), 1_000_017);
+        assert_eq!(range_len(i64::MIN, i64::MAX, i64::MAX, true).unwrap(), 3);
+        assert_eq!(range_len(i64::MAX, i64::MIN, i64::MIN, true).unwrap(), 2);
+        assert_eq!(range_len(7, 7, 1, false).unwrap(), 0);
+        assert_eq!(range_len(7, 7, -1, true).unwrap(), 1);
+        assert_eq!(range_len(0, 1, -1, true).unwrap(), 0);
+        assert!(range_len(0, 1, 0, false).is_err());
+        assert!(range_len(i64::MIN, i64::MAX, 1, true).is_err());
+    }
 
     #[test]
     fn batch_streaming_mode_is_explicit_and_defaults_to_resident() {
@@ -253,12 +268,37 @@ mod tests {
     #[test]
     fn row_declarations_bound_shape_during_deserialization() {
         for declaration in [
-            json!({"kind":"rows", "schema":vec![("n", "int64"); 65], "rows":[]}),
-            json!({"kind":"rows", "schema":[["n", "int64"]], "rows":[vec![None::<String>; 65]]}),
             json!({"kind":"rows", "schema":[["n", "int64"]], "rows":vec![vec![None::<String>]; 65_537]}),
             json!({"kind":"rows", "schema":"n:int64", "rows":"n=1"}),
         ] {
             assert!(serde_json::from_value::<MemoryInput>(declaration).is_err());
+        }
+    }
+
+    #[test]
+    fn wide_declarations_validate_schema_and_exact_row_shape() {
+        let schema = (0..1025)
+            .map(|index| (format!("c{index}"), "int64"))
+            .collect::<Vec<_>>();
+        for declaration in [
+            json!({"kind":"rows", "schema":schema, "rows":[vec![None::<String>;1025]]}),
+            json!({"kind":"batches", "schema":schema, "streaming":true}),
+        ] {
+            serde_json::from_value::<MemoryInput>(declaration)
+                .unwrap()
+                .validate()
+                .unwrap();
+        }
+        for declaration in [
+            json!({"kind":"rows", "schema":vec![("n", "int64"); 1025], "rows":[]}),
+            json!({"kind":"rows", "schema":schema, "rows":[vec![None::<String>;1024]]}),
+        ] {
+            assert!(
+                serde_json::from_value::<MemoryInput>(declaration)
+                    .unwrap()
+                    .validate()
+                    .is_err()
+            );
         }
     }
 

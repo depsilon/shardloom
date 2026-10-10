@@ -279,6 +279,125 @@ fn native_sink_preserves_source_alias_schema_and_empty_typed_output() {
 }
 
 #[test]
+fn native_sink_admits_wide_source_aliases_and_footer_before_writing() {
+    const WIDTH: usize = 4097;
+    let fixture = Fixture::new();
+    let source = fixture.source(3);
+    let mut request = VortexQueryPrimitiveRequest::expression_project_rows(
+        DatasetUri::new(source.display().to_string()).unwrap(),
+        ProjectionRequest::All,
+        VortexExpressionProjectionRequest::new(Vec::new()),
+    );
+    let names = (0..WIDTH)
+        .map(|index| format!("field{index}"))
+        .collect::<Vec<_>>();
+    request.structured_projection = Some(VortexStructuredProjectionRequest::new(
+        names
+            .iter()
+            .map(|name| {
+                crate::VortexStructuredProjectionColumn::new(
+                    name.clone(),
+                    VortexStructuredProjectionExpr::SourceColumn(
+                        ColumnRef::new("destination").unwrap(),
+                    ),
+                )
+            })
+            .collect(),
+    ));
+    let output = fixture.0.join("wide-aliases.vortex");
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    policy.resource_envelope.memory_budget_bytes = 128 << 20;
+    let report = try_execute(&request, &source, &output, false, policy)
+        .unwrap()
+        .unwrap();
+    assert_eq!(report.rows_written, 3);
+    assert!(
+        report
+            .evidence
+            .native_array_sink
+            .unwrap()
+            .metadata_reserved_bytes
+            > (WIDTH as u64) * 4096
+    );
+    let (dtype, actual) = read_complete(&output);
+    assert_eq!(
+        dtype
+            .as_struct_fields()
+            .names()
+            .iter()
+            .map(AsRef::as_ref)
+            .collect::<Vec<_>>(),
+        names.iter().map(String::as_str).collect::<Vec<_>>()
+    );
+    let expected = (0..3)
+        .map(|index| {
+            serde_json::Value::Object(
+                names
+                    .iter()
+                    .map(|name| {
+                        (
+                            name.clone(),
+                            serde_json::json!((index != 0).then(|| format!("港-{index}"))),
+                        )
+                    })
+                    .collect(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(actual, expected);
+    policy.resource_envelope.memory_budget_bytes = 2 << 20;
+    let denied = fixture.0.join("denied-wide-aliases.vortex");
+    let error = try_execute(&request, &source, &denied, false, policy)
+        .err()
+        .unwrap();
+    assert!(
+        error.to_string().contains("memory reservation denied"),
+        "{error}"
+    );
+    assert!(!denied.exists() && !temporary_output_path(&denied).unwrap().exists());
+}
+
+#[test]
+fn native_sink_schema_admission_preserves_top_level_primitive_files() {
+    let fixture = Fixture::new();
+    let source = fixture.0.join("primitive.vortex");
+    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let array =
+        PrimitiveArray::from_option_iter([Some(i64::MIN), None, Some(i64::MAX)]).into_array();
+    let dtype = array.dtype().clone();
+    session
+        .write_options()
+        .blocking(&runtime)
+        .write(
+            fs::File::create(&source).unwrap(),
+            ArrayIteratorAdapter::new(dtype.clone(), [Ok(array)].into_iter()),
+        )
+        .unwrap();
+    let target = fixture.0.join("primitive-output.vortex");
+    let report = try_execute(
+        &Fixture::request(&source),
+        &source,
+        &target,
+        false,
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(report.rows_written, 3);
+    let (actual_dtype, rows) = read_complete(&target);
+    assert_eq!(actual_dtype, dtype);
+    assert_eq!(
+        rows,
+        [
+            serde_json::json!({"value":i64::MIN}),
+            serde_json::json!({"value":null}),
+            serde_json::json!({"value":i64::MAX})
+        ]
+    );
+}
+
+#[test]
 fn pre_limit_count_is_exact_when_filter_scan_exhausts_or_footer_proves_it() {
     let fixture = Fixture::new();
     let source = fixture.source(37);
