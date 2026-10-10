@@ -28,6 +28,7 @@ pub mod effect_budget;
 pub mod encoded;
 pub mod engine_modes;
 pub mod execution_certificate;
+pub mod execution_resources;
 pub mod expression;
 pub mod extension;
 pub mod feature_footprint;
@@ -165,6 +166,9 @@ pub use execution_certificate::{
     ExecutionCertificateStatus, ExecutionEvidenceArtifactKind,
     ExecutionEvidenceArtifactRequirement, ExecutionEvidenceArtifactStatus,
     plan_execution_certificate_evidence_surface,
+};
+pub use execution_resources::{
+    ExecutionResourceLimits, ExecutionResourceOrigin, ExecutionResourceRequest, ExecutionResources,
 };
 pub use extension::{
     DeterministicEmbeddingVectorFixtureReport, DeterministicScalarUdfFixtureReport,

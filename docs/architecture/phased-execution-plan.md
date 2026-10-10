@@ -280,6 +280,23 @@ the ledger.
     repeated producers, dynamic schemas, streaming sink composition and deeper
     traversal retain their existing owners. Keep version 0.5.1 fixed.
 
+- [ ] `REQUIRED-EXECUTION-RESOURCES` require an explicit allocation before work.
+  - October 10 maintainer priority, immediately after typed-input acceptance;
+    existing PERF-03/06/11/12 and CG-19/20/21/23 owners remain responsible.
+  - Contract: [required execution resources](required-execution-resources-2026-10-10.md).
+    Require memory and maximum parallelism from execution arguments or an
+    explicitly configured context/session/platform. Remove numeric and ambient
+    environment fallback across Python, CLI, workers and native constructors.
+  - Validate before eager conversion, source inspection, preparation, producer
+    demand or output. Preserve one allocation across overlapping stage owners;
+    report declaration, per-field origin, admission and measured usage distinctly.
+  - Complete missing/invalid/inheritance/override and no-consumption conformance
+    tests, exact-byte transport, native ownership proof, source/public acceptance
+    and documentation. Pure lazy construction stays resource-free.
+  - This contract also governs the requested native Python ownership and columnar
+    interface follow-on. Keep version 0.5.1 fixed and all six remaining areas,
+    eight investigations and CG-1 through CG-23 visible.
+
 `NATIVE-INPUT-GROWTH` completed in PR #1539 after all 39 hosted checks passed;
 the [completed ledger](phased-execution-completed-ledger.md) records the accepted
 runtime, unchanged merge tree and actual production verification.
