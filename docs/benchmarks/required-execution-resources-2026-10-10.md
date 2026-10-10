@@ -13,9 +13,9 @@ defines the implementation and compatibility change. The
 [immutable packet](evidence/required-execution-resources-2026-10-10.json.xz),
 [independent inspection](evidence/required-execution-resources-2026-10-10-inspection.json)
 and [inspector review](evidence/required-execution-resources-2026-10-10-inspector-review.json)
-retain exact source, execution, failure and readback evidence. Local engine,
-support and rendered-guide acceptance are complete; hosted integration remains
-pending.
+retain the initial source, execution, failure and readback evidence. The PR review
+corrections described below have separate source and check evidence. Hosted
+integration remains pending.
 Published v0.5.1 packages are unchanged. This unit makes no performance claim.
 
 ## Configuration and ownership
@@ -50,7 +50,7 @@ maximum lanes are permission, not measured utilization. Caller Python objects,
 CLI report formatting, allocator overhead and unreviewed provider allocations
 remain outside the native reservation claim.
 
-## Complete verification
+## Initial complete-workflow verification
 
 The rejection tests cover absent and partial configuration, invalid values,
 overflow, booleans, strict environment loading, inheritance, field overrides and
@@ -83,7 +83,7 @@ measurements are not silently interpreted as zero.
 | Reviewed streaming-inspector controls | 1,379 pass |
 | Full43 retained-input regression | All 129 complete results pass |
 
-All public workflow families execute freshly against the recorded source. The
+All public workflow families execute freshly against the initial recorded source. The
 ignored native tests remain separately gated benchmark, attribution,
 external-fixture or regeneration helpers. Finalization checks complete values,
 types, schemas, output identities, failures and completion certificates as well
@@ -93,7 +93,7 @@ evidence counts must not be added as independent workloads.
 
 ## Provenance and timing
 
-Acceptance tests clean commit
+The initial complete-workflow acceptance tests clean commit
 `868d2b0cf7ae6cfd0c9f194ad522a3873bc77e97` and 1,037 source assets, identified by
 `33757c73b634e1f2292f9ff5030f8c07d29ff49e7fea32f4f1ece26be5d1dd38`.
 The Rust 1.99.0 macOS arm64 release executable uses `release-user-surfaces`, with
@@ -155,6 +155,55 @@ warning/error logs are captured in the successful review tab. Earlier review
 separately covers home-page Python/SQL tabs and the getting-started route. The
 [support receipt](evidence/required-execution-resources-support-2026-10-10.json)
 binds the checks, generated pages and both browser observations.
+
+## PR review corrections
+
+The initial 39 hosted checks passed, but review of PR #1541 found two allocation
+bypasses. Native `.vortex` preparation dropped its resolved resources,
+and three older top-level encoded report paths evaluated kernels without an
+admitted memory owner. Both findings were valid.
+
+Native preparation now forwards the declaration and actual shared pool through
+both public entry points. The existing Vortex allocator charges footer reads to
+that pool. An 8-KiB copy reservation precedes input inspection; copies additionally
+reserve the workspace staging writer's 256-KiB buffer before output creation.
+Pass-through and copy reports preserve exact bytes/origins, distinguish declared
+parallelism from the single admitted lane, and report reservation use and scope.
+Copy and pass-through retain native encoded layouts. Metadata/report objects and
+uninstrumented provider allocations remain outside the reservation claim.
+
+The `PreparedEncoded`, `SourceBackedEncoded` and `ReaderBackedEncoded` facade
+variants now refuse execution with `encoded_facade_resource_admission` and attach
+the declaration without an execution certificate. Their kernels are unbudgeted
+legacy report fixtures; ordinary SQL, Python and CLI operators use the admitted
+native relational/Vortex primitive paths. Capability discovery changes those
+three rows from executable to unsupported: one executable row, six unsupported
+rows, with the other categories unchanged.
+
+Regression cases cover one-byte refusal before inspecting a missing input,
+shared retained owners, footer denial, output-buffer denial before replacing an
+existing destination, exact copied bytes, pass-through, and complete public
+preparation evidence. All three facade variants refuse filter, projection, and
+combined filter/projection at both one-byte and 4-GiB declarations, without kernel
+reports or certificates.
+The capability matrix also checks each blocked row.
+
+All 14 fresh correction gates pass: formatting; default and native workspace
+lint; 3,166 default workspace tests; 1,338 native CLI tests; 2,534 native Vortex
+tests with the existing 24 ignored cases; 17 example tests; lean, write-only,
+native-without-write and all-feature checks; Rust 1.96 lean/native checks; and
+diff validation. The complete native suite includes its spill/pressure cases.
+Python source and dependencies are unchanged by this correction; their original
+checks remain separately recorded rather than counted as freshly rerun checks.
+
+The [review correction evidence](evidence/required-execution-resources-review-2026-10-10.json)
+binds the six changed source files, final source identity, fresh source checks,
+documentation checks, focused observations, and preserved compile/lint failures.
+The original 32,497 public cases and 129 Full43 results remain evidence for their
+original immutable source; they were not rerun for this isolated correction.
+Query kernels, input adapters other than existing-native-file preparation, and
+website content are unchanged. Original timings do not measure the changed copy
+path, and no new performance claim is made.
 
 ## Remaining work
 

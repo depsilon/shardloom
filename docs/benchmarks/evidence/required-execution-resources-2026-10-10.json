@@ -1,6 +1,6 @@
 {
   "schema_version": "shardloom.required_resources_local_acceptance.v1",
-  "status": "passed_local_engine_independent_inspection_and_support_pending_hosted",
+  "status": "passed_initial_workflows_and_review_correction_pending_hosted",
   "units": [
     "REQUIRED-EXECUTION-RESOURCES"
   ],
@@ -851,5 +851,15 @@
   },
   "hosted_acceptance": {
     "status": "pending"
+  },
+  "review_correction": {
+    "path": "required-execution-resources-review-2026-10-10.json",
+    "sha256": "b109fd11a53fa95b45dc8a2e2c192ba7d2f70f893769680268f377d8b207465b",
+    "status": "passed_local_source_and_documentation_checks_pending_hosted",
+    "source_identity_sha256": "27b1b4a05398f07270726db24742733cf1e9c78cc7aaa8b9096d2e65ecc2f9bc",
+    "source_checks": 14,
+    "documentation_checks": 14,
+    "original_complete_workflows_rerun": false,
+    "performance_claim": false
   }
 }

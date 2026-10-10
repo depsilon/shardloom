@@ -282,6 +282,37 @@ impl VortexTopLevelExecutionProvider {
 
 impl ShardLoomExecutionProvider for VortexTopLevelExecutionProvider {
     fn execute_plan(&self, plan: &Plan) -> Result<ShardLoomExecutionResult> {
+        // These historical encoded-batch report kernels clone payloads and
+        // allocate selection vectors without a shared reservation owner. A
+        // declaration alone cannot certify them as resource-admitted execution.
+        // Current SQL/DataFrame work uses the separately admitted native planner.
+        if matches!(
+            &plan.kind,
+            PlanKind::PreparedEncoded(_)
+                | PlanKind::SourceBackedEncoded(_)
+                | PlanKind::ReaderBackedEncoded(_)
+        ) {
+            let mut result = ShardLoomExecutionResult::blocked_unsupported(
+                plan,
+                *unsupported_bridge_diagnostic(
+                    "encoded_facade_resource_admission",
+                    "this encoded-batch report path has no shared memory admission; use the resource-admitted native relational or Vortex primitive path; no payload was evaluated and no fallback execution was attempted",
+                ),
+            );
+            let mut artifact = ShardLoomExecutionInlineArtifact::new(
+                format!("{}.execution-resources", plan.id.as_str()),
+                "execution_resources",
+                "blocked_resource_admission_unimplemented",
+            );
+            for (key, value) in self.resources.evidence_fields() {
+                artifact = artifact.with_field(key, value);
+            }
+            result.add_inline_artifact(artifact.with_field(
+                "execution_resource_admission_status",
+                "blocked_resource_admission_unimplemented",
+            ));
+            return Ok(result);
+        }
         match &plan.kind {
             PlanKind::VortexPrimitive(primitive) => self.execute_vortex_primitive(plan, primitive),
             PlanKind::PreparedEncoded(prepared) => Self::execute_prepared_encoded(plan, prepared),
@@ -1582,7 +1613,7 @@ mod tests {
     }
 
     #[test]
-    fn provider_dispatches_prepared_encoded_filter_with_certificate_refs() {
+    fn prepared_encoded_report_fixture_preserves_certificate_refs() {
         let predicate = PredicateExpr::Compare {
             column: column_ref("metric"),
             op: ComparisonOp::GtEq,
@@ -1599,9 +1630,11 @@ mod tests {
             PlanId::new("plan.prepared.filter").expect("plan id"),
             PreparedEncodedPlan::filter(predicate, vec![batch]),
         );
-        let provider =
-            VortexTopLevelExecutionProvider::new(4, 2).expect("explicit fixture allocation");
-        let result = execute_with_provider(&plan, &provider).expect("execution result");
+        let shardloom_plan::PlanKind::PreparedEncoded(prepared) = &plan.kind else {
+            unreachable!("fixture plan kind");
+        };
+        let result = VortexTopLevelExecutionProvider::execute_prepared_encoded(&plan, prepared)
+            .expect("standalone report fixture");
         assert_eq!(result.status, ShardLoomExecutionStatus::Executed);
         assert_ne!(result.execution_certificate_refs, [] as [String; 0]);
         assert_ne!(result.native_io_certificate_refs, [] as [String; 0]);
@@ -1657,10 +1690,11 @@ mod tests {
                 vec![projection_batch],
             ),
         );
-        let provider =
-            VortexTopLevelExecutionProvider::new(4, 2).expect("explicit fixture allocation");
-
-        let result = execute_with_provider(&plan, &provider).expect("execution result");
+        let shardloom_plan::PlanKind::SourceBackedEncoded(source_backed) = &plan.kind else {
+            unreachable!("fixture plan kind");
+        };
+        let result = VortexTopLevelExecutionProvider::execute_source_backed(&plan, source_backed)
+            .expect("standalone report fixture");
 
         assert_eq!(result.status, ShardLoomExecutionStatus::Executed);
         assert!(result.inline_artifacts.iter().any(|artifact| {
@@ -1728,6 +1762,117 @@ mod tests {
             converted[0].provider_boundary.provider_api_surface,
             "vortex_reader_backed_encoded_projection"
         );
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn provider_blocks_each_unbudgeted_encoded_plan_before_kernel_execution() {
+        use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+        use shardloom_plan::{EncodedExecutionOperation, PlanKind};
+        let uri = DatasetUri::new("file:///definitely/missing-resource-fixture.vortex").unwrap();
+        let source = UniversalInputSource::from_dataset_uri(uri.clone()).unwrap();
+        let predicate = PredicateExpr::Compare {
+            column: column_ref("metric"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(5),
+        };
+        let batch = PreparedEncodedBatch::new(
+            segment("resource-fixture.metric", 4),
+            EncodedValueBatch::Constant {
+                value: Some(StatValue::Int64(9)),
+                row_count: 4,
+            },
+        );
+        let sourced =
+            SourceBackedPreparedEncodedBatch::new(uri.clone(), "split-1", batch.clone()).unwrap();
+        let split = ReaderBackedSplitRef::new(
+            uri,
+            "split-1",
+            "provider-1",
+            ExecutionProviderKind::VortexSource,
+            "vortex_reader_backed_encoded_filter_project",
+            4,
+            "struct(metric=int64)",
+            "vortex.constant",
+            0,
+            1,
+        )
+        .unwrap();
+        let plans = [
+            Plan::prepared_encoded(
+                PlanId::new("resource.prepared").unwrap(),
+                PreparedEncodedPlan::filter_and_project(
+                    predicate.clone(),
+                    vec![column_ref("metric")],
+                    vec![batch.clone()],
+                    vec![batch],
+                ),
+            ),
+            Plan::source_backed_encoded(
+                PlanId::new("resource.source").unwrap(),
+                SourceBackedEncodedPlan::filter_and_project(
+                    source.clone(),
+                    predicate.clone(),
+                    vec![column_ref("metric")],
+                    vec![sourced.clone()],
+                    vec![sourced.clone()],
+                ),
+            ),
+            Plan::reader_backed_encoded(
+                PlanId::new("resource.reader").unwrap(),
+                ReaderBackedEncodedPlan::filter_and_project(
+                    source,
+                    vec![split],
+                    predicate,
+                    vec![column_ref("metric")],
+                    vec![sourced.clone()],
+                    vec![sourced],
+                ),
+            ),
+        ];
+        for plan in plans {
+            for operation in [
+                EncodedExecutionOperation::Filter,
+                EncodedExecutionOperation::Projection,
+                EncodedExecutionOperation::FilterAndProject,
+            ] {
+                let mut plan = plan.clone();
+                match &mut plan.kind {
+                    PlanKind::PreparedEncoded(inner) => inner.operation = operation,
+                    PlanKind::SourceBackedEncoded(inner) => inner.operation = operation,
+                    PlanKind::ReaderBackedEncoded(inner) => inner.operation = operation,
+                    _ => unreachable!("fixture kind"),
+                }
+                for bytes in [1, 4 * 1024 * 1024 * 1024] {
+                    let provider = VortexTopLevelExecutionProvider::with_resources(
+                        ExecutionResources::from_bytes(bytes, 2, ExecutionResourceOrigin::Context)
+                            .unwrap(),
+                    );
+                    let result = execute_with_provider(&plan, &provider).unwrap();
+                    assert_eq!(result.status, ShardLoomExecutionStatus::BlockedUnsupported);
+                    assert_eq!(result.execution_certificate_refs, [] as [String; 0]);
+                    assert_eq!(result.native_io_certificate_refs, [] as [String; 0]);
+                    assert!(!result.fallback_attempted());
+                    assert!(!result.external_engine_invoked);
+                    assert_eq!(result.inline_artifacts.len(), 1);
+                    let allocation = &result.inline_artifacts[0];
+                    assert_eq!(
+                        allocation.status,
+                        "blocked_resource_admission_unimplemented"
+                    );
+                    assert!(allocation.fields.contains(&(
+                        "execution_resource_declared_memory_bytes".into(),
+                        bytes.to_string()
+                    )));
+                    assert!(
+                        allocation.fields.contains(&(
+                            "execution_resource_memory_origin".into(),
+                            "context".into()
+                        ))
+                    );
+                }
+            }
+        }
     }
 
     #[test]

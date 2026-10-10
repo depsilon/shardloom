@@ -274,6 +274,10 @@ the ledger.
       results; complete independent readback verifies 66,055 declarations.
     - [x] Refresh support/guide acceptance: all 14 documentation checks, ten
       site steps and desktop/mobile rendered navigation/search checks pass.
+    - [x] Close both PR allocation-bypass findings with shared native-copy
+      ownership, explicit refusal for unbudgeted legacy facade variants, and
+      all 14 fresh source gates. The correction evidence remains separate from
+      the initial complete-workflow measurements.
     - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations

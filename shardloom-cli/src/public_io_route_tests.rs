@@ -49,6 +49,96 @@ fn qualified_column_inputs() -> Vec<(&'static str, Vec<u8>)> {
 }
 
 #[test]
+fn public_io_native_vortex_preparation_shares_resources_and_reports_admission() {
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+    use shardloom_exec::live_memory::LiveMemoryPool;
+    let fixture = Fixture::new();
+    let csv = fixture.0.join("input.csv");
+    let source = fixture.0.join("prepared.vortex");
+    let target = fixture.0.join("copied.vortex");
+    let resources =
+        |bytes| ExecutionResources::from_bytes(bytes, 3, ExecutionResourceOrigin::Context).unwrap();
+    let error = prepare_local_source_as_vortex_for_public_workflow_with_schema(
+        &source,
+        &target,
+        Some("vortex"),
+        false,
+        resources(1),
+        None,
+        None,
+        None,
+    )
+    .expect_err("one byte cannot admit source inspection");
+    assert!(error.to_string().contains("memory reservation denied"));
+    assert!(!source.exists());
+    assert!(!target.exists());
+    fs::write(&csv, "id\n1\n2\n").unwrap();
+    prepare_local_source_as_vortex_for_public_workflow(
+        &csv,
+        &source,
+        Some("csv"),
+        false,
+        1,
+        Some(1),
+        None,
+    )
+    .unwrap();
+    let pool = LiveMemoryPool::new(1024 * 1024).unwrap();
+    let retained = pool.reserve(1024 * 1024 - 4096).unwrap();
+    let error = prepare_local_source_as_vortex_for_public_workflow_with_schema(
+        &source,
+        &target,
+        Some("vortex"),
+        false,
+        resources(1024 * 1024),
+        Some(&pool),
+        None,
+        None,
+    )
+    .expect_err("existing source ownership must consume shared capacity");
+    assert!(error.to_string().contains("memory reservation denied"));
+    assert!(!target.exists());
+    assert_eq!(pool.snapshot().reserved_bytes, retained.bytes());
+    drop(retained);
+    for output in [&target, &source] {
+        let prepared = prepare_local_source_as_vortex_for_public_workflow_with_schema(
+            &source,
+            output,
+            Some("vortex"),
+            false,
+            resources(1024 * 1024),
+            Some(&pool),
+            None,
+            None,
+        )
+        .unwrap();
+        let fields: BTreeMap<_, _> = prepared.fields.into_iter().collect();
+        assert_eq!(
+            fields["public_workflow_preparation_execution_resource_memory_origin"],
+            "context"
+        );
+        assert_eq!(
+            fields["public_workflow_preparation_execution_resource_declared_memory_bytes"],
+            "1048576"
+        );
+        assert_eq!(
+            fields["public_workflow_preparation_execution_resource_admitted_memory_bytes"],
+            "1048576"
+        );
+        assert_eq!(
+            fields["public_workflow_preparation_execution_resource_declared_max_parallelism"],
+            "3"
+        );
+        assert_eq!(
+            fields["public_workflow_preparation_execution_resource_admitted_max_parallelism"],
+            "1"
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+    }
+    assert_eq!(fs::read(&source).unwrap(), fs::read(&target).unwrap());
+}
+
+#[test]
 #[cfg(feature = "vortex-local-primitives")]
 fn public_io_qualified_column_names_prepare_preserves_native_schema_and_values() {
     let fixture = Fixture::new();

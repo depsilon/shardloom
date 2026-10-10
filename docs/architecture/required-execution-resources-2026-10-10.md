@@ -169,6 +169,23 @@ preparation creates its admitted owner only when needed. Writer refusal precedes
 producer pulls and output creation; the shared-pool tests retain another input
 owner across denial and verify a successful retry after credits are released.
 
+PR review identified two additional admission gaps. Existing native `.vortex`
+preparation now carries the resolved resources and shared pool through both CLI
+and public workflow entry points. It reserves copy scratch before input inspection,
+routes footer buffers through the existing reserved Vortex allocator, and reserves
+the workspace writer's declared buffer capacity before staging output. Copies
+preserve the original bytes and layouts. Pass-through preparation uses the same
+footer admission and reports one admitted lane. Its reservation scope excludes
+report objects and uninstrumented provider metadata; it is not a process-RSS bound.
+
+The older `PreparedEncoded`, `SourceBackedEncoded` and `ReaderBackedEncoded`
+top-level report kernels have no shared resource owner. Their public provider
+dispatch now returns `encoded_facade_resource_admission` without executing a
+kernel or issuing execution certificates. Capability discovery marks those three
+rows unsupported. Ordinary SQL, Python and CLI operations use the separate admitted
+native relational/Vortex primitive paths. The private legacy helpers remain as
+test fixtures; a resource declaration alone does not authorize their execution.
+
 All execution reports attach the declared bytes, lane maximum and origins.
 Resident count, filtered count, unary, aggregate and relational paths attach the
 actual admitted session snapshot after producing their native result buffers.
@@ -185,11 +202,15 @@ measure. `execution_resource_spill_observation_scope` identifies payload-byte
 coverage, an uninstrumented byte count, or observed absence of spill. No whole
 process ceiling, new execution provider or performance improvement is claimed.
 
-Resource rejection, shared ownership, worker reuse and report tests pass, along
-with all 16 fresh source/feature gates, 655 Python tests, 32,497 complete public
+Initial resource rejection, shared ownership, worker reuse and report tests pass,
+along with 16 fresh source/feature gates, 655 Python tests, 32,497 complete public
 cases, retained streaming/type/pressure families and all 129 Full43 results.
 Independent inspection verifies the immutable packet and all 66,055 authoritative
 resource declarations. The report preserves the original reader's projection
 counting failure and its separate correction. Support and rendered-guide checks
-also pass. Hosted acceptance remains required before this implementation unit
-is marked complete.
+also pass. The two subsequent PR admission corrections pass 14 fresh source gates,
+including 3,166 default tests, 1,338 native CLI tests, 2,534 native Vortex tests
+and 17 example tests. Their separate correction evidence preserves the initial
+complete-workflow source identity and does not attribute its timings to the
+changed copy path. Hosted acceptance remains required before this implementation
+unit is marked complete.
