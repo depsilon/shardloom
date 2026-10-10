@@ -63,6 +63,11 @@ into the serial release-readiness tail:
   native CLI bundled into a release wheel compiles. This closes the gap exposed by the
   interrupted v0.5.0 registry build; it does not certify Unix-only spill or streaming
   behavior on Windows.
+  Windows native resource-admission refusal additionally verifies that primitive
+  execution cannot open sources or modify outputs without the shared reservation
+  owner. The CLI must report unavailable admission rather than certifying a
+  numeric declaration. These platform tests run on Windows and compile as ignored
+  tests on Unix.
 - `rust_msrv_validation` derives the Rust MSRV toolchain from root `Cargo.toml` and checks it with
   default features disabled and across all targets with `release-user-surfaces` enabled. This
   covers the native runtime and its test code at the supported minimum, while the existing
@@ -104,6 +109,7 @@ if: ${{ matrix.os == 'windows-latest' }}
 key: windows-release-user-surfaces
 cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces
 ./target/release/shardloom.exe --version
+cargo test --release -p shardloom-cli --test non_unix_resource_admission --features release-user-surfaces
 ```
 
 Workspace version source contract:

@@ -195,6 +195,16 @@ rows unsupported. Ordinary SQL, Python and CLI operations use the separate admit
 native relational/Vortex primitive paths. The private legacy helpers remain as
 test fixtures; a resource declaration alone does not authorize their execution.
 
+Native Vortex primitive execution on non-Unix platforms now refuses with
+`native_vortex_resource_admission` before source access or destination changes.
+Those platforms do not yet implement the shared reservation owner used by the
+Unix provider. This applies to direct, partitioned and row-export entry points,
+including metadata-only count. The CLI retains the declared allocation while
+leaving admission and measured usage unavailable. A numeric grant cannot certify
+an executor without its memory owner. Three platform-specific regression tests
+compile on Unix and run in the Windows compatibility lane; local Unix validation
+does not establish that Windows runtime result.
+
 A further review found that aggregate policy retained a 65,536-item floor even
 for sub-MiB byte declarations. Aggregate item estimates now scale from exact
 bytes; heavy-hitter windows and their route-specific choices can only narrow

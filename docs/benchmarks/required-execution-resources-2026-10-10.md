@@ -265,6 +265,31 @@ checks are retained rather than described as newly executed. No Full43 rerun,
 new performance claim or package publication accompanies this Python correction.
 Fresh hosted acceptance remains required.
 
+## Non-Unix admission follow-up
+
+Review found that the older non-Unix metadata-count path could execute through
+an unbudgeted Vortex session while reporting the numeric declaration as admitted.
+All public primitive entry points now refuse on that platform before opening a
+source or changing a destination. The CLI reports declared resources and
+unavailable admission. Unix execution continues through its existing shared owner.
+
+Fresh local formatting, default workspace lint and all 3,166 default tests pass.
+Native workspace lint and all 1,338 CLI tests pass. Three new non-Unix regression
+tests compile but are explicitly ignored on this Unix host: they cover existing
+and missing inputs, one-byte and larger grants, direct/partitioned APIs, writer
+preservation and the actual CLI envelope. The Windows compatibility lane now
+executes those tests; hosted runtime proof is pending. An initial launcher used
+an older Python without `hashlib.file_digest`, and the first native lint attempt
+caught a test import from the wrong crate. Both failures are retained; the
+corrected invocation and test compile pass.
+
+The supplemental packet in the
+[evidence index](evidence/required-execution-resources-2026-10-10.json) binds this
+source correction, test source, local gate outputs and CI registration. The
+preceding complete workflows and native Vortex suite remain historical evidence;
+they were not rerun for this platform refusal. No new benchmark or package
+publication accompanies the correction.
+
 ## Remaining work
 
 Hosted acceptance remains pending. The next implementation

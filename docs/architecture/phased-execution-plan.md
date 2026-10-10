@@ -287,6 +287,11 @@ the ledger.
       the separate evidence preserves failed intermediate checks and unchanged
       Rust gate coverage. Context, client and session ceilings remain independent
       of job grants and survive lazy plan construction.
+    - [x] Refuse non-Unix primitive execution before source/output access where
+      the shared resource owner is unavailable; do not report a declaration as
+      admitted. Default and native CLI checks pass locally. The three platform
+      regressions compile on Unix and are registered in Windows CI; actual
+      Windows execution remains part of hosted acceptance below.
     - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations

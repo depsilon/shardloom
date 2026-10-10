@@ -883,5 +883,18 @@
     "rust_checks_rerun": false,
     "original_complete_workflows_rerun": false,
     "performance_claim": false
+  },
+  "non_unix_admission_review_correction": {
+    "path": "required-execution-resources-non-unix-admission-2026-10-10.json",
+    "sha256": "191b1d11d06a385a3fbceeb42cad41fcd402d642e718ec4bafb63e0e8a01e1a0",
+    "status": "passed_local_compilation_and_unix_regression_pending_windows_runtime",
+    "source_identity_sha256": "728f3438b9940b1eb4e91c258c242bc987411d560ccd8a9e88c9d83d4e28e039",
+    "default_tests": 3166,
+    "native_cli_tests": 1338,
+    "platform_tests_ignored_on_unix": 3,
+    "windows_runtime_executed_locally": false,
+    "documentation_checks": 14,
+    "ci_registration_passed": true,
+    "performance_claim": false
   }
 }
