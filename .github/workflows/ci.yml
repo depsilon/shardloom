@@ -52,7 +52,7 @@ jobs:
             --mode "$SHARDLOOM_CI_WORK_SHAPING_MODE" \
             --changed-paths-file target/ci-work-shaping-changed-files.txt \
             --format json > target/ci-work-shaping-plan.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: ci-work-shaping-evidence
@@ -153,7 +153,7 @@ jobs:
             --surface rust \
             --rust-toolchain "$SHARDLOOM_RUST_MSRV_TOOLCHAIN" \
             --os-name ubuntu-latest
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: release-compatibility-rust-msrv
@@ -178,7 +178,7 @@ jobs:
           python-version: "3.11"
       - name: Python test shard
         run: python scripts/run_python_test_shard.py --shard ${{ matrix.shard }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: python-test-shard-${{ matrix.shard }}
@@ -198,7 +198,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Reuse Python test shard evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           pattern: python-test-shard-*
           path: target/python-test-shards
@@ -219,7 +219,7 @@ jobs:
         run: python -B -m unittest discover -s scripts -p test_native_relational_suite.py -v
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: python-test-evidence
@@ -283,7 +283,7 @@ jobs:
         run: ./target/release/shardloom.exe --version
       - name: Python compatibility lane report
         run: python scripts/write_release_compatibility_lane_report.py --lane ${{ matrix.lane }} --surface python --python-version ${{ matrix.python-version }} --os-name ${{ matrix.os }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: release-compatibility-${{ matrix.lane }}
@@ -309,7 +309,7 @@ jobs:
         run: python -m build python
       - name: Local package smoke
         run: python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: release-local-smoke-evidence
@@ -346,7 +346,7 @@ jobs:
         run: python scripts/release_provenance_dry_run.py
       - name: Release security gate
         run: python scripts/check_release_security_gate.py
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: dependency-security-evidence
@@ -378,7 +378,7 @@ jobs:
         run: python scripts/check_admitted_semantics_matrix.py
       - name: Architecture tracker
         run: python scripts/check_release_architecture_tracker.py --allow-blocked
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: release-runtime-core-evidence
@@ -403,12 +403,12 @@ jobs:
         with:
           python-version: "3.11"
       - name: Reuse dependency/security evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: dependency-security-evidence
           path: target/downloads/dependency-security-evidence
       - name: Reuse local package smoke evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-local-smoke-evidence
           path: target/downloads/release-local-smoke-evidence
@@ -426,7 +426,7 @@ jobs:
         run: python scripts/check_workspace_version_sources.py
       - name: Package-channel readiness
         run: python scripts/check_package_channel_readiness.py --require-local-evidence
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: release-package-governance-evidence
@@ -449,12 +449,12 @@ jobs:
         with:
           python-version: "3.11"
       - name: Reuse local package smoke evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-local-smoke-evidence
           path: target/downloads/release-local-smoke-evidence
       - name: Reuse runtime core evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-runtime-core-evidence
           path: target/downloads/release-runtime-core-evidence
@@ -496,7 +496,7 @@ jobs:
         run: python scripts/check_runtime_gap_family_burn_down.py
       - name: User route capability report
         run: python scripts/check_user_route_capability_report.py
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: release-user-surface-evidence
@@ -538,47 +538,47 @@ jobs:
         with:
           python-version: "3.11"
       - name: Reuse CI gate matrix evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: ci-gate-matrix-report
           path: target/downloads/ci-gate-matrix-report
       - name: Reuse CI work shaping evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: ci-work-shaping-evidence
           path: target/downloads/ci-work-shaping-evidence
       - name: Reuse dependency/security evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: dependency-security-evidence
           path: target/downloads/dependency-security-evidence
       - name: Reuse local package smoke evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-local-smoke-evidence
           path: target/downloads/release-local-smoke-evidence
       - name: Reuse Python test evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: python-test-evidence
           path: target/downloads/python-test-evidence
       - name: Reuse runtime core evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-runtime-core-evidence
           path: target/downloads/release-runtime-core-evidence
       - name: Reuse package/governance evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-package-governance-evidence
           path: target/downloads/release-package-governance-evidence
       - name: Reuse user-surface evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: release-user-surface-evidence
           path: target/downloads/release-user-surface-evidence
       - name: Reuse website/docs evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: website-docs-evidence
           path: target/downloads/website-docs-evidence
@@ -650,7 +650,7 @@ jobs:
         run: python scripts/check_release_readiness.py
       - name: Finished product readiness gate
         run: python scripts/check_finished_product_readiness.py
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: release-readiness-evidence
@@ -707,7 +707,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # actions/setup-node@v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # actions/setup-node@v7.1.0
         with:
           node-version: "22"
           cache: npm
@@ -735,7 +735,7 @@ jobs:
         run: python scripts/check_website_readiness.py
       - name: Static asset validation
         run: node scripts/validate_static_assets.cjs
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: website-docs-evidence
@@ -755,7 +755,7 @@ jobs:
           python-version: "3.11"
       - name: Validate CI gate matrix
         run: python scripts/check_ci_gate_matrix.py
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: ci-gate-matrix-report
