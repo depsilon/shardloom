@@ -205,6 +205,35 @@ Query kernels, input adapters other than existing-native-file preparation, and
 website content are unchanged. Original timings do not measure the changed copy
 path, and no new performance claim is made.
 
+## Exact-byte aggregate policy follow-up
+
+Review of the corrected source found another valid issue: aggregate policy used
+a 65,536-item lower bound and fixed candidate windows even when the caller's
+exact byte grant was smaller. The new policy removes that floor, caps both
+heavy-hitter families by the byte-derived estimate, prevents physical route
+selection from raising those windows, and removes the transformed dictionary
+cache's 16,384-item floor. Grants below one estimated 128-byte grouped-state item
+fail before source opening and before constructing grouped state.
+
+This changes policy estimates for small grants; it does not turn uninstrumented
+hash-table/tree capacity into a measured reservation or a process-memory bound.
+Whole-GiB benchmark allocations keep their previous policy choices. The initial
+Full43 and public-workflow packet remains immutable and has not been rerun for
+this policy correction; no speed or memory-usage improvement is claimed.
+
+Focused checks cover byte boundaries, string/count-distinct/numeric-string
+candidate routes with and without writers, cache/mirror capacities, early
+refusal and complete grouped values under a 2-MiB declaration. A first broad
+run caught an over-broad guard in runtime setup shared with projection and sort.
+The guard now applies only to aggregate payloads; all 77 affected public workflow
+and preparation tests pass. All 14 fresh source gates pass on the corrected
+source: 3,166 default workspace tests, 2,539 native Vortex tests with 24 explicitly
+ignored cases, 1,338 native CLI tests and 17 example tests. Formatting, strict
+Clippy, feature-isolation and minimum-Rust-version checks also pass. The
+[evidence index](evidence/required-execution-resources-2026-10-10.json) retains a
+separate correction packet binding these checks, the failed first attempt and
+the unchanged original evidence. Hosted checks for this correction remain pending.
+
 ## Remaining work
 
 Hosted acceptance remains pending. The next implementation

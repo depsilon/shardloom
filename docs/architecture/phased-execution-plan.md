@@ -278,6 +278,10 @@ the ledger.
       ownership, explicit refusal for unbudgeted legacy facade variants, and
       all 14 fresh source gates. The correction evidence remains separate from
       the initial complete-workflow measurements.
+    - [x] Correct the further exact-byte aggregate-policy finding: remove candidate
+      and cache floors and preserve nonaggregate preparation. All 14 fresh source
+      gates pass, including 2,539 native Vortex and 1,338 CLI tests; the correction
+      packet preserves the failed first attempt. Hosted acceptance remains below.
     - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations

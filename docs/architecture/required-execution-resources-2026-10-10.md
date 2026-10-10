@@ -186,6 +186,15 @@ rows unsupported. Ordinary SQL, Python and CLI operations use the separate admit
 native relational/Vortex primitive paths. The private legacy helpers remain as
 test fixtures; a resource declaration alone does not authorize their execution.
 
+A further review found that aggregate policy retained a 65,536-item floor even
+for sub-MiB byte declarations. Aggregate item estimates now scale from exact
+bytes; heavy-hitter windows and their route-specific choices can only narrow
+that budget. The transformed dictionary cache also respects the smaller estimate.
+These are policy estimates, not measured reservations for every hash-table or
+tree allocation. A grouped grant below one estimated 128-byte item fails before
+source opening or grouped-state construction. The same runtime-owner constructor
+continues to accept nonaggregate projection/count/sort preparation.
+
 All execution reports attach the declared bytes, lane maximum and origins.
 Resident count, filtered count, unary, aggregate and relational paths attach the
 actual admitted session snapshot after producing their native result buffers.

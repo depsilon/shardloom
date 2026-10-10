@@ -1779,6 +1779,9 @@ impl VortexLocalPrimitiveResourceEnvelope {
     pub const SCHEMA_VERSION: &'static str = "shardloom.local_vortex_resource_envelope.v1";
     pub const DEFAULT_CAPILLARY_UNIT_TARGET_ROWS: usize = 262_144;
     pub const DEFAULT_HEAVY_HITTER_CAPACITY: usize = 65_536;
+    // A policy estimate, not measured allocator usage. Real native buffer
+    // reservations remain separate; no minimum candidate window grants bytes.
+    const AGGREGATE_STATE_ESTIMATED_ITEM_BYTES: u64 = 128;
     pub const COUNT_ONLY_STRING_HEAVY_HITTER_CAPACITY: usize = 32_768;
     pub const DEFAULT_SORT_RETENTION_FLUSH_MULTIPLIER: usize = 64;
     pub const DEFAULT_SORT_RETENTION_FLUSH_SLACK_ROWS: usize = 4096;
@@ -1802,9 +1805,11 @@ impl VortexLocalPrimitiveResourceEnvelope {
     pub fn from_resources(resources: shardloom_core::ExecutionResources) -> Result<Self> {
         let memory_budget_bytes = resources.memory_bytes();
         let max_parallelism = resources.max_parallelism();
-        let group_state_soft_item_budget = usize::try_from(memory_budget_bytes / 128)
-            .unwrap_or(usize::MAX)
-            .max(Self::DEFAULT_HEAVY_HITTER_CAPACITY);
+        let group_state_soft_item_budget =
+            usize::try_from(memory_budget_bytes / Self::AGGREGATE_STATE_ESTIMATED_ITEM_BYTES)
+                .unwrap_or(usize::MAX);
+        let heavy_hitter_capacity =
+            Self::DEFAULT_HEAVY_HITTER_CAPACITY.min(group_state_soft_item_budget);
         let spill_threshold_bytes = memory_budget_bytes / 5 * 4 + memory_budget_bytes % 5 * 4 / 5;
         Ok(Self {
             declared_resources: resources,
@@ -1814,8 +1819,8 @@ impl VortexLocalPrimitiveResourceEnvelope {
             scan_concurrency_per_worker: max_parallelism,
             capillary_unit_target_rows: Self::DEFAULT_CAPILLARY_UNIT_TARGET_ROWS,
             group_state_soft_item_budget,
-            string_topk_heavy_hitter_capacity: Self::DEFAULT_HEAVY_HITTER_CAPACITY,
-            numeric_utf8_topk_heavy_hitter_capacity: Self::DEFAULT_HEAVY_HITTER_CAPACITY,
+            string_topk_heavy_hitter_capacity: heavy_hitter_capacity,
+            numeric_utf8_topk_heavy_hitter_capacity: heavy_hitter_capacity,
             spill_threshold_bytes,
             sort_retention_flush_multiplier: Self::DEFAULT_SORT_RETENTION_FLUSH_MULTIPLIER,
             sort_retention_flush_slack_rows: Self::DEFAULT_SORT_RETENTION_FLUSH_SLACK_ROWS,
@@ -2025,22 +2030,23 @@ impl VortexLocalPrimitiveExecutionPolicy {
                 rejected_alternatives.push("full_payload_materialization_before_topk");
             }
             "string_heavy_hitter_topk" => {
-                envelope.string_topk_heavy_hitter_capacity =
-                    VortexLocalPrimitiveResourceEnvelope::COUNT_ONLY_STRING_HEAVY_HITTER_CAPACITY;
+                envelope.string_topk_heavy_hitter_capacity = envelope
+                    .string_topk_heavy_hitter_capacity
+                    .min(VortexLocalPrimitiveResourceEnvelope::COUNT_ONLY_STRING_HEAVY_HITTER_CAPACITY);
                 rejected_alternatives.push("oversized_count_only_string_heavy_hitter_window");
                 rejected_alternatives.push("near_input_cardinality_numeric_pair_late_measure");
             }
             "string_count_distinct_heavy_hitter_topk" => {
                 envelope.string_topk_heavy_hitter_capacity = envelope
                     .string_topk_heavy_hitter_capacity
-                    .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
+                    .min(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
                 rejected_alternatives.push("generic_count_distinct_group_state");
                 rejected_alternatives.push("full_string_distinct_state_before_topk");
             }
             "numeric_utf8_heavy_hitter_topk" => {
                 envelope.numeric_utf8_topk_heavy_hitter_capacity = envelope
                     .numeric_utf8_topk_heavy_hitter_capacity
-                    .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
+                    .min(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
                 rejected_alternatives.push("string_only_candidate_state");
             }
             "near_input_cardinality_numeric_pair_aggregate" => {
@@ -2052,7 +2058,7 @@ impl VortexLocalPrimitiveExecutionPolicy {
             "transformed_dictionary_aggregate" => {
                 envelope.string_topk_heavy_hitter_capacity = envelope
                     .string_topk_heavy_hitter_capacity
-                    .max(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
+                    .min(VortexLocalPrimitiveResourceEnvelope::DEFAULT_HEAVY_HITTER_CAPACITY);
                 rejected_alternatives
                     .push("per_row_string_transform_when_embedded_metadata_exists");
             }
@@ -20251,6 +20257,25 @@ fn read_local_vortex_rolling_window_scan(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn admit_aggregate_state_policy(
+    aggregate: &VortexSimpleAggregateRequest,
+    envelope: VortexLocalPrimitiveResourceEnvelope,
+) -> Result<()> {
+    if (!aggregate.group_by.is_empty() || !aggregate.group_expressions.is_empty())
+        && (envelope.group_state_soft_item_budget == 0
+            || envelope.memory_budget_bytes
+                < VortexLocalPrimitiveResourceEnvelope::AGGREGATE_STATE_ESTIMATED_ITEM_BYTES)
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "grouped aggregate state admission requires at least {} bytes for one estimated state item; declared memory_bytes={}; no fallback execution was attempted",
+            VortexLocalPrimitiveResourceEnvelope::AGGREGATE_STATE_ESTIMATED_ITEM_BYTES,
+            envelope.memory_budget_bytes,
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::too_many_lines)]
 fn read_local_vortex_simple_aggregate_scan(
     source_uri: &DatasetUri,
@@ -20258,6 +20283,10 @@ fn read_local_vortex_simple_aggregate_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexAggregateScan> {
+    admit_aggregate_state_policy(
+        required_simple_aggregate(request)?,
+        policy.resource_envelope(),
+    )?;
     #[cfg(unix)]
     {
         #[cfg(feature = "vortex-write")]
@@ -28708,6 +28737,7 @@ impl<'a> GroupedAggregateStates<'a> {
         string_count_topk_heavy_hitter_enabled: bool,
         resource_envelope: VortexLocalPrimitiveResourceEnvelope,
     ) -> Result<Self> {
+        admit_aggregate_state_policy(request, resource_envelope)?;
         let mut group_columns = request
             .group_by
             .iter()
@@ -30648,7 +30678,7 @@ impl<'a> GroupedAggregateStates<'a> {
     fn transformed_dictionary_key_cache_cap(&self) -> usize {
         self.resource_envelope
             .group_state_soft_item_budget
-            .clamp(16_384, 1_048_576)
+            .min(1_048_576)
     }
 
     fn enable_string_count_topk_first_pass_exact_histogram(&mut self) -> Result<()> {
