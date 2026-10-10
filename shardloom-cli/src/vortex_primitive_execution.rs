@@ -7760,7 +7760,9 @@ fn append_vortex_run_local_primitive_resource_envelope_fields(
             fields,
             local.resource_envelope.declared_resources,
         );
-        if local.status == shardloom_vortex::VortexLocalPrimitiveExecutionStatus::Executed {
+        if cfg!(unix)
+            && local.status == shardloom_vortex::VortexLocalPrimitiveExecutionStatus::Executed
+        {
             crate::execution_resources::append_admission_fields(
                 fields,
                 local.resource_envelope.memory_budget_bytes,

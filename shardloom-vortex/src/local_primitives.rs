@@ -4389,6 +4389,15 @@ pub fn execute_vortex_local_primitive_with_policy(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
+    #[cfg(feature = "vortex-local-primitives")]
+    if let Some(diagnostic) = native_resource_owner_diagnostic() {
+        return Ok(VortexLocalPrimitiveExecutionReport::blocked(
+            request.kind,
+            policy.resource_envelope(),
+            VortexLocalPrimitiveExecutionStatus::BlockedByUnsupportedPrimitive,
+            diagnostic,
+        ));
+    }
     if let Some(spill) = request
         .simple_aggregate
         .as_ref()
@@ -4478,6 +4487,15 @@ pub fn execute_vortex_local_partitioned_primitive_with_policy(
     source_uris: &[DatasetUri],
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
+    #[cfg(feature = "vortex-local-primitives")]
+    if let Some(diagnostic) = native_resource_owner_diagnostic() {
+        return Ok(VortexLocalPrimitiveExecutionReport::blocked(
+            request.kind,
+            policy.resource_envelope(),
+            VortexLocalPrimitiveExecutionStatus::BlockedByUnsupportedPrimitive,
+            diagnostic,
+        ));
+    }
     if request
         .simple_aggregate
         .as_ref()
@@ -4527,6 +4545,16 @@ pub fn execute_vortex_local_primitive_row_export_with_policy(
     allow_overwrite: bool,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveRowExportReport> {
+    #[cfg(feature = "vortex-local-primitives")]
+    if let Some(diagnostic) = native_resource_owner_diagnostic() {
+        return Ok(VortexLocalPrimitiveRowExportReport::blocked(
+            request.kind,
+            policy.resource_envelope(),
+            output_path,
+            output_format,
+            diagnostic,
+        ));
+    }
     #[cfg(not(all(feature = "vortex-local-primitives", feature = "vortex-write", unix)))]
     if request
         .simple_aggregate
@@ -4565,6 +4593,16 @@ pub fn execute_vortex_local_primitive_row_export_with_policy(
             output_format,
         ))
     }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn native_resource_owner_diagnostic() -> Option<Diagnostic> {
+    (!cfg!(unix)).then(|| Diagnostic::unsupported(
+        DiagnosticCode::NotImplemented,
+        "native_vortex_resource_admission",
+        "native Vortex primitive execution requires the shared reservation owner, which is not implemented on this platform; no source was opened, no output was written and no fallback execution was attempted",
+        Some("Use a Unix build with native resource ownership; a numeric allocation alone does not admit this platform's legacy primitive executor.".into()),
+    ))
 }
 
 #[cfg(feature = "vortex-local-primitives")]

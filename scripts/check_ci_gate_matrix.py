@@ -162,6 +162,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python -m build python",
             "cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces",
             "./target/release/shardloom.exe --version",
+            "cargo test --release -p shardloom-cli --test non_unix_resource_admission --features release-user-surfaces",
             "python scripts/write_release_compatibility_lane_report.py --lane ${{ matrix.lane }} --surface python --python-version ${{ matrix.python-version }} --os-name ${{ matrix.os }}",
         ),
         artifact_refs=(
@@ -172,6 +173,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "Python 3.10 through 3.13 compatibility",
             "OS matrix",
             "Windows bundled native CLI compilation",
+            "Windows native resource-admission refusal",
         ),
         workflow_markers=(
             "fail-fast: false",
