@@ -51,15 +51,23 @@ after local and hosted checks. Published v0.4.0 predates those adapters. The
 [batch API contract and example](../architecture/native-bounded-adapters-2026-10-06.md)
 define exact types, resource bounds and failure behavior.
 
-Input batches contain up to 2,048 row mappings with an explicit schema of
-nullable Int64, finite Float64, Boolean or UTF8 fields. An iterable is used
-once; a factory supplies fresh input on repeated execution. Each frame is at
-most 8 MiB. Current source builds admit growing field and batch metadata through
-the shared grant, without fixed total field or batch counts. In the default resident mode
-(`streaming=False`), total native input must fit the shared grant.
+Current source builds after v0.5.1 admit explicit exact-width signed and unsigned
+integers, finite Float32/Float64, Boolean, UTF8, binary, Decimal128, Date32,
+timezone-free microsecond timestamps, lists, fixed-size lists and ordered structs
+in native memory input. The original four scalar declarations, aliases and
+inference remain compatible; rich types require an explicit schema. Published
+v0.5.1 artifacts retain their release-time input types and limits. Input batches
+contain up to 2,048 row mappings; each frame is at most 8 MiB. An iterable is used
+once; a factory supplies fresh input on repeated execution. Current source builds
+admit growing field and batch metadata through the shared grant, without fixed
+total field or batch counts. In default resident mode (`streaming=False`), total
+native input must fit the shared grant.
 The [input growth contract](../architecture/native-input-growth-2026-10-09.md)
 applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
 their release-time limits. Schema declarations still have an 8 MiB envelope.
+See the [typed native input contract](../architecture/native-typed-input-2026-10-10.md)
+for schema syntax, value conversion, nullability and the exact admitted recursive
+types.
 
 Opt-in `streaming=True` consumes one finite batch source once, retaining at most
 one native input batch. Current source composes Scan/Filter/Project, Sort, Limit,
@@ -377,7 +385,10 @@ native Python binding, general shared-memory import, or durable write API.
 ## Public Generated-Row Collect
 
 `shardloom.from_rows(...)` and `ShardLoomContext.from_rows(...)` declare supplied
-scalar rows for the shared native relational workflow:
+typed native rows for the shared native relational workflow. Current source
+schemas admit scalar and nested values through this native memory-input path; see
+the [typed native input contract](../architecture/native-typed-input-2026-10-10.md)
+for the exact type and schema rules:
 
 ```python
 import shardloom as sl
@@ -391,9 +402,9 @@ report = frame.select("label", "id").collect(memory_gb=1, max_parallelism=1)
 print(report.result_rows)
 ```
 
-Int64, finite Float64, Boolean and UTF8 input preserve nulls. Empty input requires
-an explicit schema; every row must match its declared fields. Declaration is
-inert, and execution constructs native owned input under the query grant.
+The original Int64, finite Float64, Boolean and UTF8 declarations preserve nulls.
+Empty input requires an explicit schema; every row must match its declared fields.
+Declaration is inert, and execution constructs native owned input under the query grant.
 The serialized declaration is capped at 8 MiB and 65,536 rows. Schema metadata
 uses the shared grant rather than a fixed field count in current source builds.
 Collection retains its separate complete-result row and byte bounds. For larger

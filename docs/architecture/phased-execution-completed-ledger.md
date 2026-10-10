@@ -17,9 +17,9 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
-- [x] `NATIVE-INPUT-GROWTH` — finite local engine and documentation acceptance under
-  PERF-03/06/07/10/11/12 and CG-3/5/19/20/21; hosted integration
-  remains in the phase plan. Runtime `61a813b7` admits cumulative input and
+- [x] `NATIVE-INPUT-GROWTH` — finite engine, documentation and hosted acceptance
+  under PERF-03/06/07/10/11/12 and CG-3/5/19/20/21. Runtime `61a813b7`
+  admits cumulative input and
   top-level field metadata through the shared grant, retains capacity/schema
   credits through aliases, and scans compact Vortex Sequence ranges in bounded
   native intervals. Existing ChunkedArray composition, resource policy and
@@ -33,6 +33,14 @@ phase plan first.
     source/executable identities, unchanged grants/oracles and earlier failures.
     Documentation validators, ten generated-site checks, three native examples,
     contribution governance and desktop/mobile/search review also pass.
+  - [PR #1539](https://github.com/depsilon/shardloom/pull/1539) merged at
+    `7d8230b2` after all 39 checks passed on `bdb6ec33`. The
+    [hosted receipt](../benchmarks/evidence/native-input-growth-hosted-2026-10-09.json)
+    binds identical accepted/merged trees, all 1,020 runtime assets unchanged,
+    primary source review, successful preview/production deployments and actual
+    desktop/mobile/search/report-link checks. Hosted automated review was
+    unavailable because of account quota; no independent review or submitted
+    approval is inferred.
   - Complete workloads include 4,099 nonempty and 8,193 empty batches, 4,097
     fields and every value of a 1,000,017-row range. Streaming completes more
     than 4.8 GB of logical input under 1 GiB; resident intake denies that grant

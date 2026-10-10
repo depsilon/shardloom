@@ -236,8 +236,8 @@ def build_report(
 
     docs_to_markers = {
         "README.md": [
-            "selected local/source/package v1 release track",
-            "GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for",
+            "https://shardloom.io/field-guide/start-local-proof/",
+            "docs/release/public-status-matrix.md",
         ],
         "docs/getting-started/package-user-install.md": [
             "selected_publication_channels=github_prerelease,testpypi,pypi,homebrew_tap",

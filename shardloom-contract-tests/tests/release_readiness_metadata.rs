@@ -794,15 +794,23 @@ fn release_package_docs_workflow_and_examples_are_present() {
 }
 
 #[test]
-fn readme_links_website_and_first_user_docs() {
+fn readme_links_website_field_guide_and_support_matrix() {
     let readme = read_repo_file("README.md");
-    assert!(readme.contains("https://shardloom.io"));
-    assert!(readme.contains("docs/getting-started/install.md"));
-    assert!(readme.contains("docs/getting-started/first-10-minutes.md"));
-    assert!(readme.contains("docs/getting-started/examples.md"));
-    assert!(readme.contains("docs/getting-started/certified-local-workload.md"));
-    assert!(readme.contains("docs/benchmarks/local-taxonomy-benchmark.md"));
-    assert!(readme.contains("docs/benchmarks/baseline-comparison-boundary.md"));
+    // The README is the landing page; the field guide owns first-use detail.
+    for target in [
+        "https://shardloom.io/",
+        "https://shardloom.io/field-guide/",
+        "https://shardloom.io/field-guide/start-local-proof/",
+        "https://shardloom.io/field-guide/python-surface/",
+        "https://shardloom.io/field-guide/benchmark-methodology/",
+        "https://shardloom.io/field-guide/limitations/",
+        "docs/release/public-status-matrix.md",
+    ] {
+        assert!(
+            readme.contains(target),
+            "missing README entry point: {target}"
+        );
+    }
 }
 
 #[test]

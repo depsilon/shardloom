@@ -287,11 +287,8 @@ REQUIRED_FUTURE_CONTRACT_BLOCKERS = {
 
 REQUIRED_DOC_MARKERS = {
     "README.md": [
-        "ctx.prepare_vortex(",
-        "orders = ctx.read_vortex(",
-        "result.result_rows",
-        "written.rows_written, written.output_commit_status",
-        "fallback_attempted, result.external_engine_invoked",
+        "https://shardloom.io/field-guide/python-surface/",
+        "docs/reference/shardloom-user-surface-index.md",
     ],
     "python/README.md": [
         "DataFrame-style surface",

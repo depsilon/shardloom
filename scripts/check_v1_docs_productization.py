@@ -30,10 +30,9 @@ SCHEMA_VERSION = "shardloom.v1_docs_productization_report.v1"
 
 DOC_MARKERS: dict[str, tuple[str, ...]] = {
     "README.md": (
-        "docs/getting-started/source-checkout-install.md",
-        "docs/getting-started/package-user-install.md",
-        "docs/getting-started/troubleshooting-support.md",
-        "docs/getting-started/v1-supported-unsupported.md",
+        "https://shardloom.io/field-guide/start-local-proof/",
+        "https://shardloom.io/field-guide/python-surface/",
+        "https://shardloom.io/field-guide/limitations/",
     ),
     "docs/getting-started/install.md": (
         "Source Checkout Install",

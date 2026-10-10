@@ -5470,8 +5470,8 @@ class ReleaseScriptTests(unittest.TestCase):
         )
 
         (root / "README.md").write_text(
-            "production_claim_allowed\n"
-            "Must remain false unless a later production gate authorizes the specific workload.\n",
+            "docs/release/public-status-matrix.md\n"
+            "performance superiority are not claimed.\n",
             encoding="utf-8",
         )
         (root / "docs" / "release").mkdir(parents=True, exist_ok=True)
@@ -8238,10 +8238,9 @@ jobs:
     def _write_production_usability_docs(self, repo_root: Path) -> None:
         docs = {
             "README.md": (
-                "docs/getting-started/install.md\n"
-                "docs/getting-started/first-10-minutes.md\n"
-                "scripts/release_dry_run_proof.py\n"
-                "selected local/source/package v1 release track\n"
+                "https://shardloom.io/field-guide/start-local-proof/\n"
+                "https://shardloom.io/field-guide/python-surface/\n"
+                "docs/release/public-status-matrix.md\n"
             ),
             "docs/getting-started/install.md": (
                 "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1\n"

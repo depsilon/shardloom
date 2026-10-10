@@ -1,6 +1,6 @@
 {
   "schema_version": "shardloom.native_input_growth_local_acceptance.v1",
-  "status": "accepted_source_committed_locally_hosted_pending",
+  "status": "accepted_and_integrated_finite_unit",
   "units": [
     "NATIVE-INPUT-GROWTH"
   ],
@@ -970,7 +970,13 @@
     "focused_diagnostic_denials": 108
   },
   "documentation_updates_complete": true,
-  "hosted_acceptance_complete": false,
+  "hosted_acceptance_complete": true,
+  "hosted_acceptance": "docs/benchmarks/evidence/native-input-growth-hosted-2026-10-09.json",
+  "hosted_acceptance_sha256": "9c3b9ddbec137dd295a30197c28133fc701bb881062fec867fbb4519cc184074",
+  "hosted_pr": "https://github.com/depsilon/shardloom/pull/1539",
+  "hosted_head": "bdb6ec334e8a790734f9b1964ddaae7d6254d3df",
+  "hosted_merge_commit": "7d8230b2e69c23073c329ff07d75e3e5658decdd",
+  "hosted_successful_pr_checks": 39,
   "version_bump_performed": false,
   "package_publication_performed": false,
   "performance_claim_allowed": false,

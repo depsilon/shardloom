@@ -70,18 +70,25 @@ with frame.iter_batches(batch_rows=1024) as batches:
     assert batches.report is not None
 ```
 
-Input admits nullable Int64, finite Float64, booleans and UTF8 strings with an
-explicit schema. Each input batch contains at most 2,048 row mappings and an
-8 MiB frame. Current source builds admit growing field and batch metadata through
-the shared query grant, without fixed total field or batch counts. In the default
-resident mode (`streaming=False`), total native input must fit the query memory
-grant. A factory, as above, supplies fresh input for repeated calls; an iterable
-can be consumed once.
+Current source builds after v0.5.1 admit explicit exact-width signed and unsigned
+integers, finite Float32/Float64, Boolean, UTF8, binary, Decimal128, Date32,
+timezone-free microsecond timestamps, lists, fixed-size lists and ordered structs.
+The original four scalar declarations, aliases and inference remain compatible;
+rich types require an explicit schema. Published v0.5.1 artifacts retain their
+release-time input types and limits. Each input batch contains at most 2,048 row
+mappings and an 8 MiB frame. Current source builds admit growing field and batch
+metadata through the shared query grant, without fixed total field or batch
+counts. In default resident mode (`streaming=False`), total native input must fit
+the query memory grant. A factory, as above, supplies fresh input for repeated
+calls; an iterable can be consumed once.
 The [input growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
 applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
 their release-time limits. Schema declarations still have an 8 MiB envelope.
 The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
 records wide schemas, cumulative input, generated ranges, resource denial and complete write/reopen checks.
+The [typed native input contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-input-2026-10-10.md)
+defines schema syntax, value conversion, nullability and admitted recursive types
+for both `from_rows` and `from_batches`.
 
 Streaming retains at most one native input batch, so cumulative input may exceed
 the query grant while individual batches remain bounded. It supports incremental results,

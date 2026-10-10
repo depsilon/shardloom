@@ -140,6 +140,23 @@ impl<L> AsRef<[u8]> for ReservedBufferOwner<L> {
     }
 }
 
+/// Keep the admitted backing owner even for a zero-row Boolean/validity array.
+/// Pinned `BoolArray::try_new` shrinks the `BitBuffer` through an empty slice,
+/// discarding its owner. The checked handle constructor preserves that owner.
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) fn bool_array_with_retained_buffer(
+    bits: vortex::buffer::BitBuffer,
+    validity: vortex::array::validity::Validity,
+) -> VortexResult<vortex::array::arrays::BoolArray> {
+    let (offset, len, buffer) = bits.into_inner();
+    vortex::array::arrays::BoolArray::try_new_from_handle(
+        vortex::array::buffer::BufferHandle::new_host(buffer),
+        offset,
+        len,
+        validity,
+    )
+}
+
 /// Attach structural metadata credit to every buffer in a native result tree.
 /// A surviving child, slice or clone keeps the shared credit alive independently
 /// of the producer and of the allocator used while constructing the tree.

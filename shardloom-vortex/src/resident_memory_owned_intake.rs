@@ -7,7 +7,7 @@ use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
         Array, ArrayRef, ArrayVTable, ArrayView, IntoArray as _,
-        arrays::{Bool, BoolArray, Primitive, PrimitiveArray, Slice, VarBin, VarBinArray},
+        arrays::{Bool, Primitive, PrimitiveArray, Slice, VarBin, VarBinArray},
         buffer::BufferHandle,
         dtype::{DType, NativePType, Nullability},
         validity::Validity,
@@ -90,7 +90,13 @@ impl OwnedMemoryColumn {
         let validity = consume_validity(session, values.len(), valid)?;
         let bits = packed_bits(&session.native_allocator(), values.len(), |row| values[row])?;
         drop(values);
-        Self::new(session, name, BoolArray::new(bits, validity).into_array())
+        Self::new(
+            session,
+            name,
+            crate::owned_buffers::bool_array_with_retained_buffer(bits, validity)
+                .map_err(native_error)?
+                .into_array(),
+        )
     }
 
     /// Consume contiguous UTF8 bytes and u64 offsets without copying either
@@ -242,10 +248,11 @@ fn make_validity(
         return Ok(Validity::AllInvalid);
     }
     Ok(Validity::Array(
-        BoolArray::new(
+        crate::owned_buffers::bool_array_with_retained_buffer(
             packed_bits(&session.native_allocator(), rows, |row| valid[row])?,
             Validity::NonNullable,
         )
+        .map_err(native_error)?
         .into_array(),
     ))
 }

@@ -132,8 +132,8 @@ LOCAL_TABLE_REQUIRED_SECURITY_EVIDENCE_REFS = {
 
 CLAIM_SURFACE_REFS = {
     "README.md": (
-        "production_claim_allowed",
-        "Must remain false unless a later production gate authorizes the specific workload.",
+        "docs/release/public-status-matrix.md",
+        "performance superiority are not claimed.",
     ),
     "docs/release/public-status-matrix.md": (
         "production_claim_allowed=false",

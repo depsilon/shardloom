@@ -14042,7 +14042,10 @@ impl LocalVortexWriteContext {
         dtype: &vortex::array::dtype::DType,
     ) -> vortex::file::VortexWriteOptions {
         use vortex::file::WriteOptionsSessionExt as _;
-        let options = self.session.write_options();
+        let options = nested_layout::file_statistics(self.session.write_options(), dtype);
+        if let Some(writer) = nested_layout::root_writer(dtype, &self.session) {
+            return options.with_strategy(writer);
+        }
         if vortex_layout_write_strategy_applies(layout_write_decision)
             || nested_layout::has_fields(dtype)
         {
@@ -14069,6 +14072,9 @@ impl LocalVortexWriteContext {
         use vortex::compressor::BtrBlocksCompressorBuilder;
         use vortex::file::WriteStrategyBuilder;
 
+        if let Some(writer) = nested_layout::root_writer(dtype, writer_session) {
+            return writer;
+        }
         let nested_fields = nested_layout::field_writers(dtype, writer_session);
         let mut builder = WriteStrategyBuilder::default();
         for (field, writer) in &nested_fields {

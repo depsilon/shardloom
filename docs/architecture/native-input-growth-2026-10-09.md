@@ -1,7 +1,7 @@
 # Native input growth under shared admission
 
-Status: complete local engine, documentation and independent packet acceptance;
-hosted integration is pending. This work belongs to the
+Status: complete local engine, documentation, independent packet acceptance and
+hosted integration in PR #1539. This work belongs to the
 existing PERF-03/06/07/10/11/12 checklists. The version remains 0.5.1; this unit
 does not close the remaining local-workflow scope or authorize a release.
 
@@ -118,6 +118,11 @@ Streaming completes 4,851,019,008 logical input bytes under a 1-GiB grant, while
 resident intake denies that grant and completes under 6 GiB. Every producer closes.
 The [acceptance report](../benchmarks/native-input-growth-2026-10-09.md) binds
 the independently inspected packet, unchanged oracles and grants, all retained
-failures, and exact source/executable identities. Hosted integration remains
-pending. This finite unit does not close the broader implementation obligations
-above or authorize another version bump.
+failures, and exact source/executable identities. PR #1539 merged at `7d8230b2`
+after all 39 checks passed on `bdb6ec33`, with an identical accepted/merged tree.
+The [hosted receipt](../benchmarks/evidence/native-input-growth-hosted-2026-10-09.json)
+binds primary review, unchanged runtime assets and actual preview/production
+search, layout and report-link checks. Hosted automated review was unavailable
+because of account quota; no independent review or approval is inferred.
+This finite unit does not close the broader implementation obligations above
+or authorize another version bump.

@@ -14,14 +14,18 @@ from native_streaming_input_cases import declaration
 
 
 class Peer:
-    def __init__(self, harness, name, *, write=False):
+    def __init__(self, harness, name, *, write=False, source=None, memory_input=None):
         self.harness, self.name = harness, name
-        source = harness.context.from_batches([], schema={"n": "int64"}, streaming=True)
+        source = source if source is not None else harness.context.from_batches(
+            [], schema={"n": "int64"}, streaming=True)
         self.uri = source.source.uri
         self.target = harness.output / (name + ".vortex")
         kwargs = declaration(source)
         del kwargs["input_batches"]
-        kwargs.update(sql_statement=f"SELECT n FROM '{self.uri}'", bounded=True,
+        if memory_input is not None:
+            kwargs["source_bindings"][self.uri]["memory_input"] = memory_input
+        names = [name for name, _ in dict(source.source.memory_input)["schema"]]
+        kwargs.update(sql_statement=f"SELECT {','.join(names)} FROM '{self.uri}'", bounded=True,
                       requested_output="write_vortex" if write else "collect")
         if write:
             kwargs["output_ref"] = self.target

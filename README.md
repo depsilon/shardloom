@@ -1,373 +1,86 @@
 # ShardLoom
 
-[![CI](https://github.com/depsilon/shardloom/actions/workflows/ci.yml/badge.svg)](https://github.com/depsilon/shardloom/actions/workflows/ci.yml)
+[![CI](https://github.com/depsilon/shardloom/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/depsilon/shardloom/actions/workflows/ci.yml?query=branch%3Amain)
 [![Release](https://img.shields.io/github/v/release/depsilon/shardloom?include_prereleases&label=release)](https://github.com/depsilon/shardloom/releases)
 [![PyPI](https://img.shields.io/pypi/v/shardloom?label=PyPI)](https://pypi.org/project/shardloom/)
+[![Python client versions](https://img.shields.io/pypi/pyversions/shardloom?label=Python%20client)](https://shardloom.io/field-guide/start-local-proof/)
 [![Homebrew](https://img.shields.io/badge/Homebrew-depsilon%2Ftap%2Fshardloom-2f4f4f)](https://github.com/depsilon/homebrew-tap)
-[![Runtime](https://img.shields.io/badge/runtime-Vortex--native-0f766e)](#core-contract)
-[![No Fallback](https://img.shields.io/badge/policy-no%20external%20fallback-991b1b)](#core-contract)
+[![Website](https://img.shields.io/badge/website-shardloom.io-0f766e)](https://shardloom.io/)
+[![Field Guide](https://img.shields.io/badge/docs-field_guide-2563eb)](https://shardloom.io/field-guide/)
+[![Runtime](https://img.shields.io/badge/runtime-Vortex--native-0f766e)](#what-makes-shardloom-different)
+[![No Fallback](https://img.shields.io/badge/policy-no%20external%20fallback-991b1b)](#what-makes-shardloom-different)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Patent Pending](https://img.shields.io/badge/patent--pending-designs-7c3aed)](#what-makes-shardloom-different)
+[![Patent Pending](https://img.shields.io/badge/patent--pending-designs-7c3aed)](#license)
 
-ShardLoom is a local encoded-columnar compute engine built around Vortex. Its public Python, SQL, and CLI front
-doors lower admitted work into ShardLoom-native and Vortex-native routes, emit machine-readable
-evidence about what ran, and fail closed instead of using hidden pandas, Polars, DuckDB,
-DataFusion, Spark, or other execution fallback.
+**Vortex-native compute. Make less work.**
 
-[shardloom.io](https://shardloom.io) is the public interpretation layer. This repository remains
-the source of truth for code, architecture, release evidence, benchmark artifacts, and support
-boundaries.
+ShardLoom is an encoded-columnar compute engine for reading, transforming, querying,
+and writing data through one native pipeline. Python, SQL, DataFrame-style calls, and
+the CLI provide familiar interfaces; Vortex supplies the native data representation.
+Today's published engine supports local analytical workflows, with broader data-processing
+capabilities under active development.
 
-ShardLoom is not an official Vortex project and is not Vortex-endorsed.
-
-[Get started](https://shardloom.io/start) · [Runtime and I/O](https://shardloom.io/field-guide/runtime-and-io) · [Architecture](https://shardloom.io/compute-engine-flow)
+**[Explore the website](https://shardloom.io/) · [Read the field guide](https://shardloom.io/field-guide/) · [Install and run](https://shardloom.io/field-guide/start-local-proof/)**
 
 ## What Makes ShardLoom Different
 
-ShardLoom combines encoded execution, reusable preparation, exact aggregation, and owned native
-results in one published local engine. Operational hardening is in progress; each linked
-contract defines the supported operations, types, and resource limits.
+- **[Metadata-first work avoidance](https://shardloom.io/field-guide/execution-model/#avoid-work-first).**
+  Answer from metadata, prune segments, and defer decoding and payload materialization.
+- **[Encoded aggregation](https://shardloom.io/field-guide/runtime-and-io/#native-execution).**
+  Use dictionary codes and repetition counts, exact DISTINCT, and late measure evaluation
+  on supported routes.
+- **[One Vortex-native middle](https://shardloom.io/field-guide/execution-model/#one-native-pipeline).**
+  User interfaces, native operators, and format adapters share one execution pipeline.
+  Vortex remains the highest-fidelity input and persistence format.
+- **[Reusable intelligence in the artifact](https://shardloom.io/field-guide/execution-routes/#prepare-once).**
+  Keep layouts, statistics, and derived metadata in one `.vortex` artifact; validate source,
+  schema, and artifact identities before reuse.
+- **[Native result ownership](https://shardloom.io/field-guide/runtime-and-io/#preparation-and-result-handoffs).**
+  Supported results retain Vortex arrays, validity, and memory credits through further
+  execution or output, avoiding a row/JSON reconstruction roundtrip.
+- **[PulseWeave](https://shardloom.io/field-guide/compute-flow/#where-the-differentiators-apply).**
+  Connect work inventory, resource pressure, and run-local feedback to explicit policy
+  decisions. Evidence distinguishes applied control from readiness-only reporting.
+- **[Capillary work units](https://shardloom.io/field-guide/compute-flow/#where-the-differentiators-apply).**
+  Represent admitted work as bounded, typed units with source ranges, ownership, and
+  execution evidence.
+- **[Native execution under pressure](https://shardloom.io/field-guide/runtime-and-io/#resources-and-recovery).**
+  Supported stateful operators share memory admission and explicit native spill policies,
+  with quota, cancellation, and owned-cleanup contracts.
+- **[Inspectable execution certificates](https://shardloom.io/field-guide/execution-model/#execution-evidence).**
+  Connect source identity, execution, materialization, and output evidence for developers
+  and agents. Correctness and performance claims retain separate proof requirements.
+- **[No hidden execution fallback](https://shardloom.io/field-guide/execution-model/#no-fallback).**
+  Unsupported requests fail with deterministic diagnostics. ShardLoom never delegates
+  them to Spark, DataFusion, DuckDB, Polars, or another query engine.
 
-- **One native execution contract across Python, SQL, and CLI.** Compatibility inputs enter through
-  source adapters and Vortex preparation; native Vortex inputs stay native.
-  Unsupported work must emit deterministic diagnostics with no hidden external-engine execution.
-  Filters, projections, aggregates, sort/Top-K, and selected join workflows reuse the same native
-  families across front doors. v0.5.1 also admits
-  [scalar-value subqueries](docs/architecture/native-scalar-subqueries-2026-10-05.md)
-  in SQL and Python expressions.
-  General joins, set operations, windows, and broader subquery shapes still have
-  [remaining native coverage gaps](docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
-  See the [front-door contract](docs/architecture/v1-front-door-runtime-scope.md) and
-  [user-surface index](docs/reference/shardloom-user-surface-index.md).
-- **Avoid data work before adding compute.** Supported routes answer from exact metadata, prune
-  segments, consume encoded values, and defer payload materialization until the result needs it.
-  Constant and run-end numeric reductions can work on values and repetition counts; bounded
-  top-N projections retain row references and order keys before fetching final payloads.
-  Runtime evidence distinguishes native dictionary access, dictionaries built from decoded UTF-8,
-  typed numeric decode, and materialized access. Sparse text selections take only referenced
-  dictionary values before decoding, and reader certificates reuse the existing source envelope.
-  See the [handoff repairs](docs/architecture/public-io-route-repair-2026-09-27.md),
-  [encoded numeric consumers](docs/architecture/perf-encoded-numeric-reductions-2026-09-06.md) and
-  [runtime scope](docs/architecture/v1-vortex-runtime-scope.md).
-- **Exact aggregation that uses repetition and delays expensive measures.** Admitted kernels
-  aggregate dictionary codes and weighted values, fuse repeated numeric SUM/AVG expressions,
-  and preserve exact DISTINCT and complete grouping-key equality. Selected grouped top-K routes
-  finish from complete exact key partitions or identify candidates before exact recount or late
-  measure evaluation; ordering, ties, NULLs, and floating accumulation retain their route's declared
-  semantics. See the [filtered-count and derived-key evidence](docs/architecture/performance-ship-drop-2026-09-19.md)
-  and [complete triple-key count partitions](docs/architecture/q19-complete-key-partitions-2026-09-19.md).
-  Near-unique integer pairs can use [exact partition sorting and reduction](docs/architecture/q33-exact-partition-reduction-2026-09-19.md)
-  to avoid a nearly one-entry-per-row hash directory before evaluating retained measures.
-  Text grouping can retain input-backed dictionary strings and compact exact-count state;
-  serial and bounded worker routes share partial construction and ownership through reduction.
-  See the [source-backed dictionaries](docs/architecture/source-backed-dictionary-screen-2026-09-29.md),
-  [shared partials](docs/architecture/mixed-distinct-worker-screen-2026-09-29.md), and
-  [dense string-count state](docs/architecture/dense-string-count-screen-2026-09-30.md).
-  The [performance plan](docs/architecture/phased-execution-plan.md) records both retained
-  implementations and experiments that did not earn retention.
-- **Reusable structure stays with the data.** Prepared local OLAP workflows use a single `.vortex`
-  artifact containing data, native layouts, statistics, and admitted derived metadata. Consumers
-  can reuse embedded string-length or time-bucket helpers without exposing implementation fields
-  in ordinary `select *` output. Vortex remains the highest-fidelity persistence target;
-  compatibility export reports its own fidelity and materialization boundary.
-  See the [source/prepared-state scope](docs/architecture/v1-source-prepared-state-scope.md).
-- **Reuse preparation without trusting stale data.** Automatic compatibility-input preparation
-  reuses an existing local Vortex artifact only when source, schema, and artifact identities match.
-  A held artifact generation spans execution and evidence construction; detected mutation or
-  replacement fails explicitly. Native Vortex preparation preserves its existing layout—it does
-  not automatically re-encode every input into the same optimized physical artifact.
-  Resident sessions retain source handles,
-  generation identity, and prepared lowering for supported operations. Python contexts can reuse
-  a local worker to avoid per-call process startup. Ordinary native aggregates retain the same
-  lowering across text, numeric and nullable schemas, derived keys, transformed measures, and wide
-  measure sets. Explicit COUNT/DISTINCT spill reuses the source and creates fresh run state on each
-  call. Source-generation checks reject detected replacement or mutation. See the
-  [runtime completion scope and evidence](docs/architecture/native-runtime-completion-2026-09-20.md).
-- **Results remain executable native data.** Admitted source and computed aggregate results own
-  Vortex arrays, validity, and memory credits. Supported owned COUNT and grouped DISTINCT results
-  can reach native Vortex, Arrow IPC, or Parquet sinks without a row/JSON reconstruction roundtrip;
-  owned payloads can outlive the input source. Bounded Rust workflows can pass owned arrays
-  directly into the existing prepared aggregate family without serializing an intermediate file.
-  See the
-  [result ownership contract](docs/reference/resident-native-results.md) and
-  [local sink scope](docs/architecture/v1-local-output-sink-scope.md).
-- **Choose a format at the boundary.** Local I/O covers Vortex, Parquet, Arrow IPC, Avro, ORC,
-  CSV, JSON, and JSONL through the enabled adapters and writers. Completed flat aggregate and
-  sorted results reach the shared writers without rerunning the query or serializing and
-  reparsing JSON as the binary export substrate. Small owned collection is bounded to
-  65,536 rows and 8 MiB; schema width uses the shared memory grant in current source builds.
-  Complete admitted native file writes can exceed that row bound through bounded batches,
-  with format-specific type restrictions. The [input growth contract](docs/architecture/native-input-growth-2026-10-09.md)
-  applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain their release-time limits.
-  Vortex preserves the most native structure; compatibility outputs report their
-  fidelity boundary. This is scoped format support, not every-operator/every-sink parity.
-  See the [0.3.2 integration contract](docs/architecture/public-io-route-repair-2026-09-27.md)
-  and [output methods and limits](docs/architecture/v1-local-output-sink-scope.md).
-- **Resource ownership follows the work.** Shared workers, bounded queues, reservations, and
-  cancellation cleanup govern admitted native operations. An explicit resident serving policy
-  bounds concurrent calls, CPU grants and positional I/O, with a reserved metadata lane when
-  enabled. See the [serving contract and bounded load evidence](docs/architecture/concurrent-native-serving-2026-09-20.md).
-  Native file operations drain admitted I/O and reader ownership before completion; metadata-only
-  aggregates avoid payload and worker admission. Admitted transformed text grouping can overlap
-  bounded dictionary preparation with the shared native provider and ordered consumer. See the
-  [dictionary preparation and lifetime evidence](docs/architecture/dictionary-preparation-screen-2026-09-30.md).
-  The non-null UTF8 COUNT worker path
-  can transfer committed state into native temporary runs under memory pressure. Spill support
-  remains operator-specific, and reservations do not cover every provider allocation or establish
-  a process RSS ceiling. See the [resource contract](docs/rfcs/0044-resident-runtime-resource-ownership.md)
-  and [implemented spill boundary](docs/benchmarks/native-completion-boundaries-2026-09-12.md).
-  Explicit COUNT/DISTINCT spill and
-  [selected numeric sort spill](docs/reference/native-query-spill.md) have separate
-  admission, recovery, and cleanup contracts. Composed relational ordering can also
-  spill stable multi-key native rows under an explicit workspace/quota policy and
-  deliver complete results through all eight local writers. SQL and DataFrame
-  collection and writers carry the same memory, parallelism and spill request.
-  See the [relational resource contract](docs/architecture/native-relational-resources-2026-10-02.md).
-  Other relational state spill and broader provider accounting remain incomplete.
-- **PulseWeave and capillary work units make control decisions inspectable.** Typed units carry
-  source ranges, projection/filter and artifact references, ownership, and execution evidence.
-  PulseWeave combines `FlowInventory`, `ScarcityLedger`, `EndoPulse`, and `ProofBound` to describe
-  bounded work, pressure, feedback, and permission to apply a policy. Dynamic work shaping is
-  scoped to admitted preparation and native batch routes; a policy report alone does not prove
-  that execution changed. Broader topology/coalescing experiments remain parked after regressions.
-  See the [control model](docs/architecture/pulseweave-runtime-control.md) and
-  [current execution priorities](docs/architecture/phased-execution-plan.md#planned).
-- **Evidence that developers and agents can inspect.** Route certificates connect source
-  admission, provider/feature selection, execution, and output artifacts. Structured diagnostics
-  explain rejected work and expose `fallback_attempted=false` and
-  `external_engine_invoked=false`. The
-  [user-surface index](docs/reference/shardloom-user-surface-index.md) provides a shared entry point
-  for humans and automation. `hot_runtime`, `full_replay_proof`, and `publication_proof` name
-  separate timing surfaces; benchmarks must also state whether startup, transport, and complete
-  output are included.
+## Explore the Field Guide
 
-The local engine retains preview support while its operational acceptance is completed.
-Performance superiority and production support require their own evidence. Consult the
-[public support matrix](docs/release/public-status-matrix.md) for release scope and the
-[canonical terminology](docs/architecture/canonical-terminology.md) for deeper definitions.
-
-**Patent-pending design notice:** PulseWeave, capillary work units, dynamic work shaping, and
-related route/evidence/certificate machinery include patent-pending design elements. ShardLoom
-remains distributed under Apache-2.0; this informational notice does not expand its support claims.
-
-## Quick Start
-
-Install from PyPI or Homebrew:
-
-```sh
-python -m pip install shardloom
-brew install depsilon/tap/shardloom
-```
-
-Source checkout release proof is available through `python scripts/release_dry_run_proof.py --rows 64 --iterations 1`.
-
-Normal Python use starts with `sl.context()` and `ctx.read(...)`. For a local `orders.csv`
-with a `status` column, `run()` returns a shared execution report; its envelope contains result
-fields and readable output:
-
-```python
-import shardloom as sl
-
-ctx = sl.context()
-result = (
-    ctx.read("orders.csv")
-       .filter(sl.col("status") == "paid")
-       .limit(10)
-       .run()
-)
-
-print(result.envelope.field_int("output_row_count"))
-print(result.envelope.human_text)
-print(result.fallback_attempted, result.external_engine_invoked)
-```
-
-`ctx.read(path)` infers local `.csv`, `.json`, `.jsonl`, `.ndjson`, `.parquet`, `.arrow`, `.ipc`,
-`.feather`, `.avro`, `.orc`, `.vortex`, and `.vortex-manifest` adapters. Native Vortex routes can
-also bind local directories of `.vortex` parts when the route requests native Vortex input.
-Format-specific helpers such as
-`read_csv(...)` and explicit schemas remain available for benchmark, CI, and reproducibility flows.
-Normal Python contexts reuse a local ShardLoom worker transport when available, so repeated admitted
-queries avoid per-call CLI process startup while preserving the same route/evidence envelopes.
-Set `SHARDLOOM_PERSISTENT_WORKER=0` only when you need one-shot subprocess diagnostics.
-Public local workflows default to `SHARDLOOM_MAX_PARALLELISM=2` and `SHARDLOOM_MEMORY_GB=4`; set
-those environment variables or pass explicit `max_parallelism` / `memory_gb` values when a larger
-local resource envelope is appropriate.
-SQL workflows can also bind a declared input when the query uses a logical table name:
-
-```python
-ctx.sql("SELECT COUNT(*) FROM hits WHERE URL LIKE '%google%'", input="hits.vortex").run(bounded=True)
-```
-
-## Core Contract
-
-ShardLoom's route model is:
-
-```text
-front door
--> input adapter / SourceState
--> Vortex preparation / VortexPreparedState
--> ShardLoom-native or Vortex-native execution
--> OutputPlan / SinkArtifact
--> evidence
--> claim gate
-```
-
-Compatibility formats are input/output boundaries. They are not execution fallbacks. Public local
-CSV/JSONL/Parquet-style workflows prepare into Vortex or fail with deterministic diagnostics.
-Native Vortex input stays native.
-
-Every ShardLoom execution claim must preserve:
-
-```text
-fallback_attempted=false
-external_engine_invoked=false
-```
+| Start with | What you will find |
+| --- | --- |
+| [Install and run](https://shardloom.io/field-guide/start-local-proof/) | Packages, source setup, and your first local query |
+| [Python](https://shardloom.io/field-guide/python-surface/) | Queries, preparation reuse, batch input, and result delivery |
+| [Execution model](https://shardloom.io/field-guide/execution-model/) | How the engine avoids work and preserves native data |
+| [Compute flow](https://shardloom.io/field-guide/compute-flow/) | The architecture from source to result |
+| [Runtime and I/O](https://shardloom.io/field-guide/runtime-and-io/) | Supported operators, formats, writers, and resource contracts |
+| [Benchmarks](https://shardloom.io/field-guide/benchmark-methodology/) | Workload evidence and timing boundaries |
+| [Support and limitations](https://shardloom.io/field-guide/limitations/) | Current coverage and remaining work |
 
 ## Current Support Posture
 
-**Published local engine; operational hardening in progress.** ShardLoom has a reusable local
-Vortex runtime for admitted operations. Technical preview describes support maturity: the
-remaining work is a declared local support envelope, complete resource accounting and accepted
-workflow-wide pressure/failure/recovery evidence. See the
-[preview exit criteria](docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).
-Verified package access is already available. It does not claim broad pandas/Polars/DataFrame parity, broad ANSI SQL
-compliance, production object-store or lakehouse support, production Foundry support, Spark
-replacement, or public performance superiority.
-`production_claim_allowed`: Must remain false unless a later production gate authorizes the specific workload.
+**Published local engine; operational hardening in progress.** Package availability,
+supported workflows, and newer source changes are tracked in the
+[public support matrix](docs/release/public-status-matrix.md). Production support, broad
+SQL/DataFrame parity, and performance superiority are not claimed.
 
-Use these canonical references instead of reading support claims out of README prose:
-
-| Need | Canonical source |
-| --- | --- |
-| Install paths | [docs/getting-started/install.md](docs/getting-started/install.md) |
-| Source checkout install | [docs/getting-started/source-checkout-install.md](docs/getting-started/source-checkout-install.md) |
-| Package user install | [docs/getting-started/package-user-install.md](docs/getting-started/package-user-install.md) |
-| First 10 minutes | [docs/getting-started/first-10-minutes.md](docs/getting-started/first-10-minutes.md) |
-| User examples | [docs/getting-started/examples.md](docs/getting-started/examples.md) |
-| Certified local workload details | [docs/getting-started/certified-local-workload.md](docs/getting-started/certified-local-workload.md) |
-| Troubleshooting and support bundles | [docs/getting-started/troubleshooting-support.md](docs/getting-started/troubleshooting-support.md) |
-| V1 supported/unsupported surface | [docs/getting-started/v1-supported-unsupported.md](docs/getting-started/v1-supported-unsupported.md) |
-| Current public support status | [docs/release/public-status-matrix.md](docs/release/public-status-matrix.md) |
-| Finished product scope | [docs/release/finished-product-scope.md](docs/release/finished-product-scope.md) |
-| Python, SQL, CLI, and agent-facing surfaces | [human](docs/reference/shardloom-user-surface-index.md), [agent JSON](docs/reference/shardloom-user-surface-index.json) |
-| V1 front-door runtime scope | [docs/architecture/v1-front-door-runtime-scope.md](docs/architecture/v1-front-door-runtime-scope.md) |
-| v1 Vortex runtime scope | [docs/architecture/v1-vortex-runtime-scope.md](docs/architecture/v1-vortex-runtime-scope.md) |
-| Source/prepared-state scope | [docs/architecture/v1-source-prepared-state-scope.md](docs/architecture/v1-source-prepared-state-scope.md) |
-| Local output/sink scope | [docs/architecture/v1-local-output-sink-scope.md](docs/architecture/v1-local-output-sink-scope.md) |
-| Compute-flow model | [docs/architecture/compute-engine-flow-reference.md](docs/architecture/compute-engine-flow-reference.md) |
-| Benchmark comparison boundary | [docs/benchmarks/baseline-comparison-boundary.md](docs/benchmarks/baseline-comparison-boundary.md) |
-| Release/package channel state | [docs/release/v1-local-source-package-release.md](docs/release/v1-local-source-package-release.md) |
-| Planned and completed work | [docs/architecture/phased-execution-plan.md](docs/architecture/phased-execution-plan.md) |
-
-The user surface graduation posture is reported with the vocabulary `high_level_context`,
-`client_only`, `diagnostic_only`, `feature_gated`, and `not_user_facing`. The feature-gated local Vortex
-runtime and output paths include explicit evidence; `write_vortex(...)` is the highest fidelity
-local sink when admitted. Benchmark scenario examples live at
-`examples/local-python-benchmark-scenarios/run.py`.
-
-Replay the local Python examples from a source checkout:
-
-```sh
-python examples/local-python-smoke/run.py --repo-root .
-python examples/local-python-benchmark-scenarios/run.py --repo-root .
-python examples/local-python-benchmark-scenarios/timing_review.py --repo-root .
-```
-
-The selected local/source/package v1 release track is proof-backed for package access only.
-GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for v0.5.1; that
-does not authorize production, broad compatibility, or performance-superiority claims.
-
-Persisted preparation and subsequent queries use the same native engine:
-
-```python
-import shardloom as sl
-
-ctx = sl.context()
-ctx.prepare_vortex(
-    "target/orders.csv",
-    "target/orders.vortex",
-    allow_overwrite=True,
-)
-orders = ctx.read_vortex("target/orders.vortex")
-result = orders.filter("amount >= 10").select("id", "amount").limit(100).collect()
-written = orders.filter("amount >= 10").select("id", "amount").write_jsonl(
-    "target/selected-orders.jsonl", allow_overwrite=True,
-)
-print(result.result_rows, result.fallback_attempted, result.external_engine_invoked)
-print(written.rows_written, written.output_commit_status)
-```
-
-Collection carries complete bounded values and their native result schema. A write carries
-the declared destination, row count, commit status and native I/O certificate.
-
-## Benchmarks
-
-Benchmarks are evidence, not leaderboard claims. Route lanes, timing surfaces, stage attribution,
-and claim gates must be read together.
-
-- Public comparison destination: [ClickBench](https://benchmark.clickhouse.com/)
-- Local taxonomy: [docs/benchmarks/local-taxonomy-benchmark.md](docs/benchmarks/local-taxonomy-benchmark.md)
-- ClickBench coverage map: [benchmarks/clickbench/README.md](benchmarks/clickbench/README.md)
-- ClickBench 100M local UAT burndown:
-  [docs/benchmarks/clickbench-100m-uat-burndown.json](docs/benchmarks/clickbench-100m-uat-burndown.json)
-- Source-bound local correctness and timing evidence:
-  [combined performance UAT](docs/benchmarks/combined-performance-uat-2026-09-12.md)
-- Current profiling hypotheses and material ship/drop gates:
-  [performance research](docs/architecture/performance-domain-transfer-2026-09-19.md)
-
-Check ClickBench OLAP route coverage locally:
-
-```sh
-python3 scripts/check_clickbench_olap_runtime_coverage.py
-```
-
-No performance, superiority, or Spark-replacement claim is allowed unless a promoted benchmark
-artifact explicitly permits it.
-
-## Development
-
-Focused checks should run before broad gates. Use the focused runner for exact local checks:
-
-```sh
-python3 scripts/run_focused_checks.py --list
-python3 scripts/run_focused_checks.py --profile rust-cli-bin --filter route_infers_vortex_manifest_as_native_vortex_input
-python3 scripts/run_focused_checks.py --profile rust-cli-test --target public_workflow_route --filter partitioned
-python3 scripts/run_focused_checks.py --profile python-unittest --filter python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_sql_vortex_manifest_source_binds_native_vortex_collect
-```
-
-For Rust unit filters, target the exact crate surface: `--bin <name>` for binary crates and
-`--lib` for library crates. For integration filters, use
-`cargo test -p <crate> --test <target> <filter>`. Avoid bare package-level filters for focused
-checks because Cargo still enumerates every integration target.
-
-The full workspace gate for substantial implementation work is:
-
-```sh
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace --all-targets
-```
-
-Useful targeted checks:
-
-```sh
-python3 scripts/check_workspace_version_sources.py
-python3 scripts/check_v1_local_source_package_release.py
-python3 scripts/check_website_readiness.py
-```
-
-The website is generated from `website-src/`; do not hand-edit generated website output
-independently.
-
-## Release Notes
-
-Published local-engine packages are proof-backed through GitHub release assets, PyPI,
-TestPyPI, and Homebrew channel transcripts under `docs/release/channel-proofs/`.
-
-Release channel proof records the tag ref type, target commit, and commit verification state.
-Release trains should prefer a signed annotated tag when a maintainer signing key is configured;
-until then, tags should point at GitHub-verified merge commits.
+For repository work, see [contributing](CONTRIBUTING.md), [agent and development instructions](AGENTS.md),
+the [phase plan](docs/architecture/phased-execution-plan.md), and the
+[API index](docs/reference/shardloom-user-surface-index.md) ([machine-readable](docs/reference/shardloom-user-surface-index.json)).
 
 ## License
 
-ShardLoom is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
+ShardLoom is licensed under [Apache-2.0](LICENSE). PulseWeave, capillary work units, dynamic
+work shaping, and related route/evidence/certificate machinery include patent-pending designs.
+This notice does not expand the project's support claims.
+
+ShardLoom is independent of, and not endorsed by, Vortex.

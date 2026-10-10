@@ -93,8 +93,10 @@ ownership, source-change behavior, and examples. This is a bounded native Rust a
 CLI-backed transport surface; it does not add a native Python binding or establish
 performance claims.
 
-`ShardLoomContext.from_rows` declares nullable scalar rows, and `range` declares
-compact native Int64 input. The [input growth contract](../architecture/native-input-growth-2026-10-09.md)
+`ShardLoomContext.from_rows` declares typed native rows, including the scalar
+and nested values admitted by the current source input contract; `range` declares
+compact native Int64 input. See the [typed native input contract](../architecture/native-typed-input-2026-10-10.md)
+for exact types and schema rules. The [input growth contract](../architecture/native-input-growth-2026-10-09.md)
 admits top-level schemas, cumulative batch input and generated range lengths
 through shared resources and checked arithmetic rather than fixed total counts.
 It applies to source builds after the 0.5.1 release; published 0.5.1 artifacts

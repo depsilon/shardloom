@@ -169,7 +169,9 @@ impl MemoryBatchSourceBuilder {
                 max_input_rows: self.rows.max(1),
                 max_input_bytes: self.bytes.max(1),
                 max_output_rows: self.rows.max(1),
-                max_output_bytes: self.bytes.max(1),
+                // Completed native/JSON output has its own boundary. A narrow
+                // input may expand into chunk metadata and JSON syntax.
+                max_output_bytes: MemorySourceBounds::default().max_output_bytes,
             },
             input_logical_bytes: self.bytes,
             intake_payload_bytes_copied: self.copied,

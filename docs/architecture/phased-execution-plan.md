@@ -249,20 +249,40 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-INPUT-GROWTH` complete hosted integration for the
-  finite cumulative-input, top-level schema and generated-range growth unit.
+- [ ] `NATIVE-TYPED-INPUT` extend exact typed values through the shared native
+  resident and finite batch source.
   - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-03/06/07/10/11/12 and CG-3/5/19/20/21.
-  - Local engine acceptance and independent packet inspection pass at
-    `61a813b7`: all 15 source gates, 20 growth cases, five input-pressure
-    controls, 442 streaming cases, 32,497 public cases and all 129 Full43
-    results. The [report](../benchmarks/native-input-growth-2026-10-09.md)
-    preserves exact source/value proof and the failed candidates.
-  - Affected documentation, ten generated-site checks, three native examples,
-    contribution governance and desktop/mobile/search review pass. Complete
-    hosted checks and integration without changing the accepted runtime.
-    Keep 0.5.1 fixed. Richer intake, repeated/multiple producers,
-    streaming sink composition and deeper traversal remain implementation work.
+  - Existing owners: PERF-03/07/11/12 and CG-19/20/21; this extends the current
+    local implementation phase, without changing the CG-1 through CG-23 queue.
+  - Contract: [typed native input](native-typed-input-2026-10-10.md).
+    Preserve the existing four scalar declarations and add explicit exact
+    widths, decimal, binary, temporal and nested schemas to ordinary rows,
+    buffered batches and the existing finite single-use stream.
+  - Shared family: normalize all declarations into the existing native source,
+    resource pool, relational binder and sinks. Reuse Vortex DType and native
+    arrays inside shardloom-vortex; no new execution provider or fallback.
+  - ShardLoom technique review: dynamic shared-grant admission owns schema,
+    conversion and native-buffer overlap; capillary demand bounds each input
+    frame; PulseWeave retains the same resource policy; metadata-first binding
+    checks typed empty schemas before demand. Separate wrapper conversion from
+    execution timing and require complete values and certificates at the same
+    evidence tier. No speedup claim accompanies this capability unit.
+  - Execution checklist:
+    - [x] Finalize the provider reuse and exact schema/value wire contract.
+    - [x] Implement native typed construction, retained credits and source reuse.
+    - [x] Add Python declarations/conversion and preserve legacy wire identities.
+    - [ ] Verify every admitted type through resident/buffered/streamed workflows,
+      native write/reopen, compatibility contracts and resource/failure controls.
+    - [ ] Complete source/public regression acceptance, independent packet
+      inspection, affected documentation and hosted integration.
+  - Preserve finite completion, per-frame and small-result boundaries, explicit
+    `fallback_attempted=false` and `external_engine_invoked=false`. Multiple or
+    repeated producers, dynamic schemas, streaming sink composition and deeper
+    traversal retain their existing owners. Keep version 0.5.1 fixed.
+
+`NATIVE-INPUT-GROWTH` completed in PR #1539 after all 39 hosted checks passed;
+the [completed ledger](phased-execution-completed-ledger.md) records the accepted
+runtime, unchanged merge tree and actual production verification.
 
 `RELEASE-050` is complete as corrected v0.5.1: all four selected channels and
 the production website are verified. The

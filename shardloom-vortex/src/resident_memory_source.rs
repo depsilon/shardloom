@@ -40,7 +40,7 @@ pub use batches::MemoryBatchSourceBuilder;
 #[path = "resident_memory_range.rs"]
 mod generated_range;
 
-/// Explicit flat-scalar input. Slices are borrowed only for intake;
+/// Explicit typed input. Slices are borrowed only for intake;
 /// published Vortex buffers retain no references into caller memory.
 #[derive(Clone, Copy)]
 pub enum MemoryColumnValues<'a> {
@@ -50,6 +50,13 @@ pub enum MemoryColumnValues<'a> {
     Float64(&'a [Option<f64>]),
     Bool(&'a [Option<bool>]),
     Utf8(&'a [Option<&'a str>]),
+    /// Exact scalar or nested values in the pinned native DType/JSON transport.
+    /// This closed conversion boundary validates and copies into owned buffers;
+    /// it never accepts an arbitrary externally allocated native array.
+    TypedJson {
+        dtype_json: &'a str,
+        values: &'a [Option<&'a str>],
+    },
 }
 
 /// A named typed column in one immutable snapshot.
@@ -59,7 +66,7 @@ pub struct MemoryColumn<'a> {
     pub values: MemoryColumnValues<'a>,
 }
 
-/// Hard input and result bounds for this admitted flat-scalar source.
+/// Hard input and result bounds for this admitted native source.
 #[derive(Debug, Clone, Copy)]
 pub struct MemorySourceBounds {
     pub max_input_rows: usize,
@@ -252,16 +259,35 @@ impl ResidentMemorySource {
         session: &ResidentVortexSession,
         columns: &[MemoryColumn<'_>],
         bounds: MemorySourceBounds,
-        input_logical_bytes: usize,
+        mut input_logical_bytes: usize,
         allocator: &HostAllocatorRef,
         metadata: Arc<MemoryLease>,
         is_batch: bool,
     ) -> Result<Self> {
         let rows = columns[0].values.len();
-        let mut intake_payload_bytes_copied = 0;
+        let mut intake_payload_bytes_copied = 0_u64;
         let fields = columns
             .iter()
-            .map(|column| build_column(column.values, allocator, &mut intake_payload_bytes_copied))
+            .map(|column| {
+                if let MemoryColumnValues::TypedJson { dtype_json, values } = column.values {
+                    let built = crate::local_primitives::native_typed_input::build(
+                        dtype_json,
+                        values,
+                        session.memory(),
+                        allocator,
+                        bounds.max_input_bytes - input_logical_bytes,
+                    )?;
+                    input_logical_bytes = input_logical_bytes
+                        .checked_add(built.logical_bytes)
+                        .ok_or_else(|| memory_error("typed input byte count overflow"))?;
+                    intake_payload_bytes_copied = intake_payload_bytes_copied
+                        .checked_add(built.copied_payload_bytes)
+                        .ok_or_else(|| memory_error("typed input copy count overflow"))?;
+                    Ok(built.array)
+                } else {
+                    build_column(column.values, allocator, &mut intake_payload_bytes_copied)
+                }
+            })
             .collect::<Result<Vec<_>>>()?;
         let names = FieldNames::from(columns.iter().map(|column| column.name).collect::<Vec<_>>());
         let array = StructArray::try_new(names, fields, rows, Validity::NonNullable)
@@ -652,7 +678,7 @@ impl MemoryColumnValues<'_> {
             Self::Int64NonNullable(values) => values.len(),
             Self::Float64(values) => values.len(),
             Self::Bool(values) => values.len(),
-            Self::Utf8(values) => values.len(),
+            Self::Utf8(values) | Self::TypedJson { values, .. } => values.len(),
         }
     }
 
@@ -662,7 +688,7 @@ impl MemoryColumnValues<'_> {
             Self::Int64NonNullable(_) => true,
             Self::Float64(values) => values[row].is_some(),
             Self::Bool(values) => values[row].is_some(),
-            Self::Utf8(values) => values[row].is_some(),
+            Self::Utf8(values) | Self::TypedJson { values, .. } => values[row].is_some(),
         }
     }
 }
@@ -688,6 +714,7 @@ fn validate_columns(
         return Err(memory_error("input row bound exceeded"));
     }
     let mut bytes = 0_usize;
+    let mut typed_json_bytes = 0_usize;
     for column in columns {
         if column.name.is_empty() || column.name.len() > 256 {
             return Err(memory_error(
@@ -714,9 +741,26 @@ fn validate_columns(
                 rows.checked_add(1).and_then(|rows| rows.checked_mul(8)),
                 |total, value| total.and_then(|total| total.checked_add(value.len())),
             ),
+            MemoryColumnValues::TypedJson { dtype_json, values } => {
+                if dtype_json.len() > 8 * 1024 * 1024 {
+                    return Err(memory_error("typed input schema exceeds 8 MiB"));
+                }
+                for value in values {
+                    typed_json_bytes = typed_json_bytes
+                        .checked_add(value.map_or(4, str::len))
+                        .filter(|bytes| *bytes <= bounds.max_input_bytes)
+                        .ok_or_else(|| memory_error("typed input JSON byte bound exceeded"))?;
+                }
+                // Exact native bytes are preflighted after admitted JSON parsing,
+                // before any native payload construction.
+                Some(0)
+            }
         }
         .ok_or_else(|| memory_error("typed memory byte count overflow"))?;
-        let validity_bytes = if matches!(column.values, MemoryColumnValues::Int64NonNullable(_)) {
+        let validity_bytes = if matches!(
+            column.values,
+            MemoryColumnValues::Int64NonNullable(_) | MemoryColumnValues::TypedJson { .. }
+        ) {
             0
         } else {
             rows.div_ceil(8)
@@ -781,10 +825,11 @@ fn column_validity(
             Validity::AllInvalid
         } else {
             Validity::Array(
-                BoolArray::new(
+                crate::owned_buffers::bool_array_with_retained_buffer(
                     packed_bits(allocator, rows, |row| values.present(row))?,
                     Validity::NonNullable,
                 )
+                .map_err(native_error)?
                 .into_array(),
             )
         },
@@ -809,6 +854,11 @@ fn build_column(
             .map(|value| value.len() as u64)
             .sum(),
         MemoryColumnValues::Bool(_) => 0,
+        MemoryColumnValues::TypedJson { .. } => {
+            return Err(memory_error(
+                "typed JSON input requires its admitted conversion builder",
+            ));
+        }
     };
     let validity = column_validity(values, allocator)?;
     match values {
@@ -833,11 +883,14 @@ fn build_column(
             validity,
         )
         .into_array()),
-        MemoryColumnValues::Bool(values) => Ok(BoolArray::new(
-            packed_bits(allocator, rows, |row| values[row].unwrap_or_default())?,
-            validity,
-        )
-        .into_array()),
+        MemoryColumnValues::Bool(values) => {
+            Ok(crate::owned_buffers::bool_array_with_retained_buffer(
+                packed_bits(allocator, rows, |row| values[row].unwrap_or_default())?,
+                validity,
+            )
+            .map_err(native_error)?
+            .into_array())
+        }
         MemoryColumnValues::Utf8(values) => {
             let total = values.iter().flatten().map(|value| value.len()).sum();
             let mut bytes = allocator
@@ -869,6 +922,9 @@ fn build_column(
             .map(vortex::array::IntoArray::into_array)
             .map_err(native_error)
         }
+        MemoryColumnValues::TypedJson { .. } => Err(memory_error(
+            "typed JSON input requires its admitted conversion builder",
+        )),
     }
 }
 
@@ -883,3 +939,7 @@ fn native_error(error: impl std::fmt::Display) -> ShardLoomError {
 #[cfg(test)]
 #[path = "resident_memory_source_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "resident_memory_typed_tests.rs"]
+mod typed_tests;

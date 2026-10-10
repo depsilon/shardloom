@@ -2,15 +2,14 @@
 
 use shardloom_core::ShardLoomError;
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize, serde::Serialize,
-)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub(crate) enum MemoryValueType {
     Int64,
     Float64,
     Bool,
     Utf8,
+    Native { encoding: String, dtype: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize, serde::Serialize)]
@@ -173,7 +172,7 @@ fn validate_rows_with_limits(
     // native source performs grant-backed uniqueness validation before intake;
     // this inert declaration check uses borrowed names only.
     let mut names = std::collections::BTreeSet::new();
-    for (name, _) in schema {
+    for (name, kind) in schema {
         if name.is_empty() || name.len() > 256 || !names.insert(name) {
             return Err(failed(
                 "row field names must be distinct and contain 1..=256 UTF8 bytes",
@@ -183,6 +182,16 @@ fn validate_rows_with_limits(
             .checked_add(name.len())
             .filter(|bytes| *bytes <= 8 * 1024 * 1024)
             .ok_or_else(|| failed("row schema exceeds 8 MiB"))?;
+        if let MemoryValueType::Native { encoding, dtype } = kind {
+            if encoding != "vortex.dtype.serde.v1" {
+                return Err(failed("unsupported native input schema encoding"));
+            }
+            bytes = bytes
+                .checked_add(encoding.len())
+                .and_then(|bytes| bytes.checked_add(dtype.len()))
+                .filter(|bytes| *bytes <= 8 * 1024 * 1024)
+                .ok_or_else(|| failed("row schema exceeds 8 MiB"))?;
+        }
     }
     for row in rows {
         if row.0.len() != schema.len() {
@@ -228,6 +237,56 @@ fn failed(reason: &str) -> ShardLoomError {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn rich_memory_schema_round_trips_without_changing_legacy_wire_tokens() {
+        let schema = json!([
+            ["legacy", "int64"],
+            ["exact", {"native":{"encoding":"vortex.dtype.serde.v1",
+                "dtype":"{\"Primitive\":[\"u64\",false]}"}}],
+        ]);
+        for declaration in [
+            json!({"kind":"rows","schema":schema,"rows":[["1","18446744073709551615"]]}),
+            json!({"kind":"batches","schema":schema,"streaming":true}),
+        ] {
+            let input: MemoryInput = serde_json::from_value(declaration.clone()).unwrap();
+            input.validate().unwrap();
+            assert_eq!(serde_json::to_value(input).unwrap(), declaration);
+        }
+    }
+
+    #[test]
+    fn rich_memory_schema_rejects_unknown_transport_fields_and_encoding() {
+        for kind in [
+            json!({"native":{"encoding":"vortex.dtype.serde.v1","dtype":"{}","extra":true}}),
+            json!({"native":{"encoding":"vortex.dtype.serde.v1"}}),
+            json!({"native":{"encoding":"vortex.dtype.serde.v1","dtype":{}}}),
+            json!({"native":{"encoding":"vortex.dtype.serde.v1","dtype":"{}"},"bool":true}),
+        ] {
+            assert!(
+                serde_json::from_value::<MemoryInput>(json!({
+                    "kind":"rows","schema":[["v",kind]],"rows":[],
+                }))
+                .is_err()
+            );
+        }
+        for (encoding, dtype) in [
+            ("vortex.dtype.serde.v2", "{}".into()),
+            ("vortex.dtype.serde.v1", "x".repeat(8 * 1024 * 1024)),
+        ] {
+            let input = MemoryInput::Batches {
+                schema: vec![(
+                    "v".into(),
+                    MemoryValueType::Native {
+                        encoding: encoding.into(),
+                        dtype,
+                    },
+                )],
+                streaming: true,
+            };
+            assert!(input.validate().is_err());
+        }
+    }
 
     #[test]
     fn generated_range_length_has_no_fixed_total_and_preserves_signed_endpoints() {

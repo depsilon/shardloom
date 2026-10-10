@@ -98,7 +98,11 @@ has complete local engine acceptance and independent packet inspection at
 ranges grow under the shared grant. Complete workflows exceed the former
 batch/field/range bounds, and native plan checks exceed the former total-node
 count. All source/public/streaming/pressure and Full43 regressions pass.
-Support documentation and browser checks pass; hosted integration remains pending.
+Support documentation and browser checks pass. Hosted integration completed in
+[PR #1539](https://github.com/depsilon/shardloom/pull/1539), merged at `7d8230b2`
+after all 39 checks passed. The
+[hosted receipt](../benchmarks/evidence/native-input-growth-hosted-2026-10-09.json)
+records unchanged runtime/tree identity and actual production verification.
 Nested value-schema bounds,
 deep traversal, richer intake and source/destination composition stay open;
 this finite acceptance does not close the six-area/eight-investigation contract.

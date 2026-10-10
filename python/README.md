@@ -469,19 +469,37 @@ with workflow.iter_batches(batch_rows=1024) as batches:
 `sl.from_batches(producer, schema={"id": "int64", "label": "utf8"})` and
 `ctx.from_batches(...)` declare resident input from sequences of row mappings.
 Pass a factory returning fresh batches for repeated execution, or an iterable
-for one execution. Declaration does not call the producer. Nullable Int64,
-finite Float64, Boolean and UTF8 are admitted; each batch has at most 2,048 rows
-and an 8 MiB frame. Current source builds admit field and retained batch metadata
-through the shared memory grant, with no fixed total field or batch count. In the
-default resident mode (`streaming=False`), accumulated native input must fit the
-shared memory grant. Output supports the existing
-admitted typed/nested schemas, with the same 2,048-row / 8-MiB payload ceiling.
+for one execution. Declaration does not call the producer. Current source builds
+after v0.5.1 admit explicit exact-width signed and unsigned integers, finite
+Float32/Float64, Boolean, UTF8, binary, Decimal128, Date32, timezone-free
+microsecond timestamps, lists, fixed-size lists and ordered structs. The original
+four scalar declarations, aliases and inference remain compatible; rich types
+require an explicit schema. Each batch has at most 2,048 rows and an 8 MiB frame.
+Current source builds admit field and retained batch metadata through the shared
+memory grant, with no fixed total field or batch count. In default resident mode
+(`streaming=False`), accumulated native input must fit that grant. Published
+v0.5.1 artifacts retain their release-time input types and limits. Output supports
+the existing admitted typed/nested schemas, with the same 2,048-row / 8-MiB payload ceiling.
 Prepare compatibility file input explicitly to Vortex before batch consumption.
 See the [complete batch contract and example](../docs/architecture/native-bounded-adapters-2026-10-06.md)
 for backpressure, conversions, timeout scope and final-validation semantics.
 The [input growth contract](../docs/architecture/native-input-growth-2026-10-09.md)
 applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
 their release-time limits. Schema declarations still have an 8 MiB envelope.
+
+`from_rows` and `from_batches` share the native memory-input schema. For example,
+an explicit schema can preserve a full-width unsigned identifier and binary bytes:
+
+```python
+frame = sl.from_rows(
+    [{"id": 2**64 - 1, "payload": b"\x00"}],
+    schema={"id": {"type": "uint64", "nullable": False}, "payload": "binary"},
+)
+```
+
+The [typed native input contract](../docs/architecture/native-typed-input-2026-10-10.md)
+defines schema syntax, value conversion, nullability and the admitted recursive types.
+This source capability does not change the published v0.5.1 packages.
 
 Current source builds also accept `streaming=True` for one finite batch source used
 once through scan/filter/project, global sorting, aggregation, joins, windows and limits,
