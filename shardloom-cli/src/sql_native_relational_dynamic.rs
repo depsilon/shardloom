@@ -4,7 +4,8 @@
 use super::{
     BTreeMap, BTreeSet, DatasetUri, Lowerer, NativeResult, ParsedPredicate, ParsedRelationLeaf,
     ParsedRelationQuery, ParsedRelationSource, ParsedSqlLocalSource, PreparedVortexRelational,
-    VortexLocalPrimitiveExecutionPolicy, declared_query_sources, unsupported_sql_error,
+    SourceResolver, VortexLocalPrimitiveExecutionPolicy, declared_query_sources,
+    unsupported_sql_error,
 };
 use shardloom_vortex::local_primitives::prepared_relational::{
     VortexRelationalPreparation, prepare_relational_with_dynamic_inputs,
@@ -83,7 +84,7 @@ pub(super) fn prepare(
     parsed: ParsedRelationQuery,
     policy: VortexLocalPrimitiveExecutionPolicy,
     inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
-    resolve_source: &mut dyn FnMut(&ParsedRelationLeaf) -> NativeResult<Vec<DatasetUri>>,
+    resolve_source: &mut SourceResolver<'_>,
 ) -> NativeResult<PreparedVortexRelational> {
     let mut leaves = BTreeSet::new();
     declared_query_sources(&parsed, &mut leaves);
@@ -100,7 +101,9 @@ pub(super) fn prepare(
         let uris = if leaf.memory_input.is_some() {
             vec![DatasetUri::new(leaf.path.to_string_lossy())?]
         } else {
-            resolve_source(&leaf)?
+            // Compatibility preparation completes before this dynamic plan
+            // creates its native session or retains any memory inputs.
+            resolve_source(&leaf, None)?
         };
         let uri_bytes = uris
             .iter()
@@ -132,11 +135,13 @@ pub(super) fn prepare(
             inputs(schemas)
         },
         move |schemas| {
-            let mut resolver = |leaf: &ParsedRelationLeaf| {
-                declaration.sources.get(leaf).cloned().ok_or_else(|| {
-                    unsupported_sql_error("dynamic SQL referenced an undeclared source")
-                })
-            };
+            let mut resolver =
+                |leaf: &ParsedRelationLeaf,
+                 _: Option<&shardloom_exec::live_memory::LiveMemoryPool>| {
+                    declaration.sources.get(leaf).cloned().ok_or_else(|| {
+                        unsupported_sql_error("dynamic SQL referenced an undeclared source")
+                    })
+                };
             let mut lowerer = Lowerer {
                 schemas,
                 serial: 0,

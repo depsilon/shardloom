@@ -27,7 +27,7 @@ fn execute(
     request: &VortexQueryPrimitiveRequest,
     requested: usize,
 ) -> (LocalVortexAggregateScan, serde_json::Value) {
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::new(requested).unwrap();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(requested, 4).unwrap();
     policy.resource_envelope.memory_budget_bytes = 16 << 20;
     let scan = read_local_vortex_simple_aggregate_scan(
         request.source_uri.as_ref().unwrap(),
@@ -63,7 +63,11 @@ fn ordinary_aggregate_caps_source_scan_grant_without_changing_scalar_values() {
         measure("min", Some("metric"), "min_alias"),
         measure("max", Some("metric"), "max_alias"),
     ]));
-    assert!(!aggregate_count_workers::request_may_be_admitted(&request));
+    assert!(!aggregate_count_workers::request_may_be_admitted(
+        &request,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
+    ));
     let available = std::thread::available_parallelism().unwrap().get();
     for requested in [1, available + 2] {
         let (scan, payload) = execute(&request, requested);
@@ -86,7 +90,11 @@ fn ordinary_aggregate_source_cap_preserves_exact_distinct_worker_admission() {
         .with_order_by(vec![VortexAggregateOrderExpr::new("distinct_alias", true)]),
     )
     .with_source_order_limit(2);
-    assert!(aggregate_count_workers::request_may_be_admitted(&request));
+    assert!(aggregate_count_workers::request_may_be_admitted(
+        &request,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
+    ));
     let available = std::thread::available_parallelism().unwrap().get();
     for requested in [1, available + 2] {
         let (_, payload) = execute(&request, requested);
@@ -121,7 +129,11 @@ fn ordinary_aggregate_restored_driver_count_matches_typed_and_json_evidence() {
         ],
         vec![measure("count", None, "count_alias")],
     ));
-    assert!(aggregate_count_workers::request_may_be_admitted(&request));
+    assert!(aggregate_count_workers::request_may_be_admitted(
+        &request,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
+    ));
     let available = std::thread::available_parallelism().unwrap().get();
     for requested in [1, available + 2] {
         let (scan, payload) = execute(&request, requested);

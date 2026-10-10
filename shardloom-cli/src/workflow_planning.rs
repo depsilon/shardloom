@@ -475,9 +475,18 @@ pub(crate) fn handle_catalog_metadata_gate(
 }
 
 pub(crate) fn handle_local_table_metadata_read_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "local-table-metadata-read-smoke",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-table-metadata-read-smoke",
@@ -509,7 +518,10 @@ pub(crate) fn handle_local_table_metadata_read_smoke(
         "local manifest-backed table metadata read smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        local_table_metadata_read_smoke_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            local_table_metadata_read_smoke_fields(&report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -522,6 +534,20 @@ pub(crate) fn handle_iceberg_metadata_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "iceberg-metadata-read-smoke",
+        &[
+            "--snapshot-id",
+            "--as-of-timestamp-ms",
+            "--manifest-list",
+            "--manifest",
+        ],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let request = match parse_iceberg_metadata_read_smoke_args(args) {
         Ok(request) => request,
         Err(error) => {
@@ -556,7 +582,10 @@ pub(crate) fn handle_iceberg_metadata_read_smoke(
         "source-reviewed Iceberg metadata JSON read smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        iceberg_metadata_read_smoke_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            iceberg_metadata_read_smoke_fields(&report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -569,6 +598,15 @@ pub(crate) fn handle_delta_log_metadata_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "delta-log-metadata-read-smoke",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let request = match parse_delta_log_metadata_read_smoke_args(args) {
         Ok(request) => request,
         Err(error) => {
@@ -603,7 +641,10 @@ pub(crate) fn handle_delta_log_metadata_read_smoke(
         "source-reviewed Delta transaction log metadata smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        delta_log_metadata_read_smoke_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            delta_log_metadata_read_smoke_fields(&report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -616,6 +657,15 @@ pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "hudi-timeline-metadata-read-smoke",
+        &["--metadata-json"],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let request = match parse_hudi_timeline_metadata_read_smoke_args(args) {
         Ok(request) => request,
         Err(error) => {
@@ -650,7 +700,10 @@ pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
         "source-reviewed Hudi timeline metadata smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        hudi_timeline_metadata_read_smoke_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            hudi_timeline_metadata_read_smoke_fields(&report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -660,9 +713,18 @@ pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
 }
 
 pub(crate) fn handle_local_delete_tombstone_read_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "local-delete-tombstone-read-smoke",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-delete-tombstone-read-smoke",
@@ -694,7 +756,10 @@ pub(crate) fn handle_local_delete_tombstone_read_smoke(
         "local manifest-backed delete/tombstone read smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        local_delete_tombstone_read_smoke_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            local_delete_tombstone_read_smoke_fields(&report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -704,9 +769,18 @@ pub(crate) fn handle_local_delete_tombstone_read_smoke(
 }
 
 pub(crate) fn handle_local_append_only_cdc_overlay_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "local-append-only-cdc-overlay-smoke",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-append-only-cdc-overlay-smoke",
@@ -738,7 +812,10 @@ pub(crate) fn handle_local_append_only_cdc_overlay_smoke(
         "local append-only CDC overlay smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        local_append_only_cdc_overlay_smoke_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            local_append_only_cdc_overlay_smoke_fields(&report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)

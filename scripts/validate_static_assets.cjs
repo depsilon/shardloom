@@ -350,7 +350,7 @@ const pythonSurface = read("field-guide/python-surface/index.html");
 for (const required of [
   "Python",
   "Run a local query",
-  "ctx = sl.context()",
+  "ctx = sl.context(memory_gb=16, max_parallelism=8)",
   "ctx.read(path)",
   "result.envelope",
   "fallback_attempted",

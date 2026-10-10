@@ -129,11 +129,18 @@ impl NativeIngestMemory {
         limit_bytes: u64,
         runtime: Option<&crate::ingest_runtime::IngestRuntime>,
     ) -> Result<Self> {
+        Ok(Self::with_pool(LiveMemoryPool::new(limit_bytes)?, runtime))
+    }
+
+    fn with_pool(
+        pool: LiveMemoryPool,
+        runtime: Option<&crate::ingest_runtime::IngestRuntime>,
+    ) -> Self {
         use vortex::{
             VortexSessionDefault as _, array::memory::MemorySessionExt as _,
             io::runtime::BlockingRuntime as _, io::session::RuntimeSessionExt as _,
         };
-        let pool = LiveMemoryPool::new(limit_bytes)?;
+        let limit_bytes = pool.snapshot().limit_bytes;
         let handle = runtime.map_or_else(
             || LOCAL_VORTEX_WRITE_CONTEXT.with(|context| context.borrow().runtime.handle()),
             |runtime| runtime.runtime().handle(),
@@ -145,7 +152,7 @@ impl NativeIngestMemory {
             .with_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
                 pool.clone(),
             )));
-        Ok(Self {
+        Self {
             pool,
             session,
             max_chunks: usize::try_from(
@@ -154,7 +161,7 @@ impl NativeIngestMemory {
                         .unwrap_or(u64::MAX),
             )
             .unwrap_or(usize::MAX),
-        })
+        }
     }
 
     fn reserve_input(&self, slots: usize) -> Result<MemoryLease> {
@@ -4842,6 +4849,7 @@ fn invalid_manifest_escape() -> ShardLoomError {
 /// Request to write one flat scalar local source into a local Vortex artifact.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexPreparedStateWriteRequest {
+    pub resources: shardloom_core::ExecutionResources,
     pub target_path: PathBuf,
     pub columns: Vec<String>,
     pub column_dtypes: Vec<Option<LogicalDType>>,
@@ -4858,6 +4866,7 @@ pub struct VortexPreparedStateWriteRequest {
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexPreparedStateColumnarWriteRequest {
+    pub resources: shardloom_core::ExecutionResources,
     pub target_path: PathBuf,
     pub source: FlatLocalColumnarSource,
     pub allow_overwrite: bool,
@@ -4869,6 +4878,7 @@ pub struct VortexPreparedStateColumnarWriteRequest {
 /// Request to stream one flat columnar local source into a Vortex artifact.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 pub struct VortexPreparedStateColumnarStreamWriteRequest {
+    pub resources: shardloom_core::ExecutionResources,
     pub target_path: PathBuf,
     pub source: FlatLocalColumnarStreamSource,
     pub allow_overwrite: bool,
@@ -4879,6 +4889,7 @@ pub struct VortexPreparedStateColumnarStreamWriteRequest {
     /// Source-reader internals and native allocations bypassing that allocator
     /// remain outside the admitted scope.
     pub shared_native_memory_budget_bytes: Option<u64>,
+    shared_native_memory_pool: Option<LiveMemoryPool>,
     /// Optional single-artifact preparation provenance, validated before commit.
     pub prepared_source_binding: Option<String>,
 }
@@ -4887,8 +4898,13 @@ pub struct VortexPreparedStateColumnarStreamWriteRequest {
 impl VortexPreparedStateColumnarWriteRequest {
     /// Create a request for a columnar local `VortexPreparedState` artifact write.
     #[must_use]
-    pub fn new(target_path: impl Into<PathBuf>, source: FlatLocalColumnarSource) -> Self {
+    pub fn new(
+        target_path: impl Into<PathBuf>,
+        source: FlatLocalColumnarSource,
+        resources: shardloom_core::ExecutionResources,
+    ) -> Self {
         Self {
+            resources,
             target_path: target_path.into(),
             source,
             allow_overwrite: false,
@@ -4936,8 +4952,13 @@ impl VortexPreparedStateColumnarStreamWriteRequest {
     /// Create a request for a streaming columnar local `VortexPreparedState`
     /// artifact write.
     #[must_use]
-    pub fn new(target_path: impl Into<PathBuf>, source: FlatLocalColumnarStreamSource) -> Self {
+    pub fn new(
+        target_path: impl Into<PathBuf>,
+        source: FlatLocalColumnarStreamSource,
+        resources: shardloom_core::ExecutionResources,
+    ) -> Self {
         Self {
+            resources,
             target_path: target_path.into(),
             source,
             allow_overwrite: false,
@@ -4945,6 +4966,7 @@ impl VortexPreparedStateColumnarStreamWriteRequest {
             layout_write_advisor: None,
             capillary_prewrite_input: None,
             shared_native_memory_budget_bytes: None,
+            shared_native_memory_pool: None,
             prepared_source_binding: None,
         }
     }
@@ -4957,6 +4979,15 @@ impl VortexPreparedStateColumnarStreamWriteRequest {
     #[must_use]
     pub const fn shared_native_memory_budget_bytes(mut self, bytes: u64) -> Self {
         self.shared_native_memory_budget_bytes = Some(bytes);
+        self
+    }
+
+    /// Retain an existing native reservation owner instead of creating a new
+    /// memory grant. Retained inputs and writer buffers share its capacity.
+    #[must_use]
+    pub fn shared_native_memory_pool(mut self, pool: LiveMemoryPool) -> Self {
+        self.shared_native_memory_budget_bytes = Some(pool.snapshot().limit_bytes);
+        self.shared_native_memory_pool = Some(pool);
         self
     }
 
@@ -5000,11 +5031,13 @@ impl VortexPreparedStateWriteRequest {
         target_path: impl Into<PathBuf>,
         columns: Vec<String>,
         rows: Vec<Vec<(String, ScalarValue)>>,
+        resources: shardloom_core::ExecutionResources,
     ) -> Self {
         let column_dtypes = vec![None; columns.len()];
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         let column_arrow_dtypes = vec![None; columns.len()];
         Self {
+            resources,
             target_path: target_path.into(),
             columns,
             column_dtypes,
@@ -6279,7 +6312,7 @@ impl VortexWriterPhysicalDesignSourceInput {
             }
             _ => 0,
         };
-        let requested = source.ingest_executor_requested_parallelism.max(1);
+        let requested = source.ingest_executor_requested_parallelism;
         let cpu_lanes = if let Some(runtime) = &source.ingest_runtime {
             if runtime.requested_parallelism() != requested || source_workers > 0 {
                 return Err(ShardLoomError::InvalidOperation(
@@ -7361,7 +7394,7 @@ fn admitted_layout_writer_runtime_requested_parallelism(
     advisor: &VortexLayoutWriteAdvisorReport,
 ) -> usize {
     if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
-        advisor.writer_parallelism_budget.max(1)
+        advisor.writer_parallelism_budget
     } else {
         1
     }
@@ -7822,7 +7855,7 @@ pub fn evaluate_vortex_layout_write_advisor(
     } else {
         input.unsupported_diagnostic_code.clone()
     };
-    let writer_parallelism_budget = input.writer_parallelism_budget.max(1);
+    let writer_parallelism_budget = input.writer_parallelism_budget;
     let strategy_decision_digest = fnv64_digest_text(&format!(
         "layout_write_advisor_evaluation|{}|{}|{}|{}|{}|{}|{}",
         input.source_state_digest,
@@ -7883,7 +7916,9 @@ pub fn evaluate_vortex_layout_write_advisor(
 }
 
 fn layout_write_advisor_status(input: &VortexLayoutWriteAdvisorInput) -> &'static str {
-    if input.unsupported_diagnostic_code == "vortex_ingest.requires_vortex_write_feature" {
+    if input.writer_parallelism_budget == 0 {
+        "blocked_resource_configuration"
+    } else if input.unsupported_diagnostic_code == "vortex_ingest.requires_vortex_write_feature" {
         "blocked_feature_gate"
     } else if input.writer_admission_policy
         != VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY
@@ -9592,8 +9627,8 @@ fn capillary_pulseweave_report(
         "vortex_cold_preparation_local_capillary_io",
         format!("vortex_ingest:{}", input.source_state_digest),
         task_shapes,
-        input.memory_budget_bytes.max(1),
-        input.max_parallelism.max(1),
+        input.memory_budget_bytes,
+        input.max_parallelism,
         target_task_bytes,
     )?
     .with_task_byte_limits(4 * 1024, target_task_bytes.saturating_mul(4).max(4 * 1024))
@@ -9765,6 +9800,7 @@ fn capillary_role_list_contains(roles: &str, role: &str) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexPreparedStateWriteReport {
+    pub resources: shardloom_core::ExecutionResources,
     pub target_path: PathBuf,
     pub row_count: u64,
     pub column_count: usize,
@@ -9845,7 +9881,7 @@ impl VortexIngestMemoryOwnershipReport {
     #[must_use]
     pub fn evidence_fields(&self) -> Vec<(String, String)> {
         vec![
-            ("vortex_shared_native_memory_scope".into(), "copied_native_input_buffers;prefetch_admission;native_host_allocator;root_layout_references".into()),
+            ("vortex_shared_native_memory_scope".into(), "shared_pool_lifetime_including_other_retained_native_owners;copied_native_input_buffers;prefetch_admission;native_host_allocator;root_layout_references".into()),
             ("vortex_shared_native_memory_exclusions".into(), "original_source_and_arrow_input_owners_until_conversion;source_reader_internals;codec_and_metadata_allocations_bypassing_host_allocator;process_rss".into()),
             ("vortex_shared_native_memory_limit_bytes".into(), self.limit_bytes.to_string()),
             ("vortex_shared_native_memory_peak_reserved_bytes".into(), self.peak_reserved_bytes.to_string()),
@@ -10048,6 +10084,33 @@ pub const fn vortex_ingest_write_feature_enabled() -> bool {
     cfg!(feature = "vortex-write")
 }
 
+#[cfg(feature = "vortex-write")]
+fn validate_declared_ingest_resources(
+    resources: shardloom_core::ExecutionResources,
+    capillary: Option<&VortexCapillaryPreparationInput>,
+    advisor: Option<&VortexLayoutWriteAdvisorReport>,
+) -> Result<()> {
+    if capillary.is_some_and(|input| {
+        input.memory_budget_bytes == 0
+            || input.memory_budget_bytes > resources.memory_bytes()
+            || input.max_parallelism == 0
+            || input.max_parallelism > resources.max_parallelism()
+    }) {
+        return Err(ShardLoomError::new(
+            "capillary preparation resources must be positive and within the declared execution allocation",
+        ));
+    }
+    if advisor.is_some_and(|report| {
+        report.writer_parallelism_budget == 0
+            || report.writer_parallelism_budget > resources.max_parallelism()
+    }) {
+        return Err(ShardLoomError::new(
+            "writer parallelism must be positive and within the declared execution allocation",
+        ));
+    }
+    Ok(())
+}
+
 /// Write flat scalar rows into a local Vortex artifact and reopen it for row-count proof.
 ///
 /// # Errors
@@ -10075,6 +10138,11 @@ pub fn write_flat_scalar_vortex_prepared_state(
 pub fn write_flat_scalar_vortex_prepared_state(
     request: VortexPreparedStateWriteRequest,
 ) -> Result<VortexPreparedStateWriteReport> {
+    validate_declared_ingest_resources(
+        request.resources,
+        request.capillary_prewrite_input.as_ref(),
+        request.layout_write_advisor.as_ref(),
+    )?;
     if request.certification_level == VortexIngestCertificationLevel::IngestFullReplay {
         return Err(ShardLoomError::InvalidOperation(
             "local vortex_ingest ingest_full_replay requires downstream result replay/output evidence; use ingest_certified for prepare-once proof or run an output/replay workflow; no fallback execution was attempted"
@@ -10117,6 +10185,7 @@ pub fn write_flat_scalar_vortex_prepared_state(
     )?;
     let array_build_micros = array_build_start.elapsed().as_micros();
     finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
+        resources: request.resources,
         target_path: request.target_path,
         column_count: request.columns.len(),
         column_families,
@@ -10159,6 +10228,11 @@ pub fn write_flat_scalar_vortex_prepared_state(
 pub fn write_flat_columnar_vortex_prepared_state(
     request: VortexPreparedStateColumnarWriteRequest,
 ) -> Result<VortexPreparedStateWriteReport> {
+    validate_declared_ingest_resources(
+        request.resources,
+        request.capillary_prewrite_input.as_ref(),
+        request.layout_write_advisor.as_ref(),
+    )?;
     if request.certification_level == VortexIngestCertificationLevel::IngestFullReplay {
         return Err(ShardLoomError::InvalidOperation(
             "local vortex_ingest ingest_full_replay requires downstream result replay/output evidence; use ingest_certified for prepare-once proof or run an output/replay workflow; no fallback execution was attempted"
@@ -10215,6 +10289,7 @@ pub fn write_flat_columnar_vortex_prepared_state(
             )
         };
     finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
+        resources: request.resources,
         target_path: request.target_path,
         column_count: request.source.materialized_columns.len(),
         column_families: array_build.column_families,
@@ -10258,6 +10333,46 @@ pub fn write_flat_columnar_vortex_prepared_state(
 pub fn write_flat_columnar_vortex_prepared_state_streaming(
     request: VortexPreparedStateColumnarStreamWriteRequest,
 ) -> Result<VortexPreparedStateWriteReport> {
+    validate_declared_ingest_resources(
+        request.resources,
+        request.capillary_prewrite_input.as_ref(),
+        request.layout_write_advisor.as_ref(),
+    )?;
+    if request
+        .shared_native_memory_budget_bytes
+        .is_some_and(|bytes| bytes == 0 || bytes > request.resources.memory_bytes())
+    {
+        return Err(ShardLoomError::new(
+            "native writer memory admission must be positive and within the declared execution allocation",
+        ));
+    }
+    if request.source.ingest_executor_requested_parallelism == 0
+        || request.source.ingest_executor_requested_parallelism
+            > request.resources.max_parallelism()
+    {
+        return Err(ShardLoomError::new(
+            "native source parallelism must be positive and within the declared execution allocation",
+        ));
+    }
+    if let Some(pool) = &request.shared_native_memory_pool
+        && Some(pool.snapshot().limit_bytes) != request.shared_native_memory_budget_bytes
+    {
+        return Err(ShardLoomError::new(
+            "native writer memory owner differs from its admitted allocation",
+        ));
+    }
+    if request
+        .source
+        .ingest_runtime
+        .as_ref()
+        .is_some_and(|runtime| {
+            runtime.requested_parallelism() > request.resources.max_parallelism()
+        })
+    {
+        return Err(ShardLoomError::new(
+            "existing source runtime exceeds or differs from the requested grant; configure the source and writer with the same allocation",
+        ));
+    }
     if let Some(binding) = &request.prepared_source_binding {
         #[cfg(unix)]
         crate::prepared_source_binding::validate(binding)?;
@@ -10279,17 +10394,31 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     let mut writer_physical_design_source =
         VortexWriterPhysicalDesignSourceInput::streaming_columnar(&request.source)?;
     let ingest_runtime = request.source.ingest_runtime.clone();
-    let _drivers = ingest_runtime
+    let native_memory = if let Some(pool) = request.shared_native_memory_pool.clone() {
+        Some(NativeIngestMemory::with_pool(pool, ingest_runtime.as_ref()))
+    } else {
+        request
+            .shared_native_memory_budget_bytes
+            .map(|bytes| NativeIngestMemory::with_runtime(bytes, ingest_runtime.as_ref()))
+            .transpose()?
+    };
+    let prefetch_memory_bytes = native_memory
         .as_ref()
-        .map(crate::ingest_runtime::IngestRuntime::start_drivers)
-        .transpose()?;
-    let native_memory = request
-        .shared_native_memory_budget_bytes
-        .map(|bytes| NativeIngestMemory::with_runtime(bytes, ingest_runtime.as_ref()))
-        .transpose()?;
+        .map_or(request.resources.memory_bytes() / 4, |memory| {
+            memory.pool.snapshot().limit_bytes / 4
+        });
+    if prefetch_memory_bytes == 0 {
+        return Err(ShardLoomError::new(
+            "native writer allocation cannot admit a positive prefetch budget",
+        ));
+    }
     let mut first_input_lease = native_memory
         .as_ref()
         .map(|memory| memory.reserve_input(1))
+        .transpose()?;
+    let _drivers = ingest_runtime
+        .as_ref()
+        .map(crate::ingest_runtime::IngestRuntime::start_drivers)
         .transpose()?;
     let mut capillary_prewrite_control =
         plan_capillary_prewrite_control(request.capillary_prewrite_input.as_ref())?;
@@ -10342,6 +10471,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
                 let mut empty_request = VortexPreparedStateColumnarWriteRequest::new(
                     &request.target_path,
                     empty_source,
+                    request.resources,
                 )
                 .allow_overwrite(request.allow_overwrite)
                 .certification_level(request.certification_level);
@@ -10355,17 +10485,6 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
             }
         };
     stream_timing.add_source_pull_elapsed(first_source_pull_start.elapsed());
-    let prefetch_memory_bytes = native_memory.as_ref().map_or_else(
-        || {
-            request
-                .capillary_prewrite_input
-                .as_ref()
-                .map_or(1024 * 1024 * 1024, |input| {
-                    (input.memory_budget_bytes / 4).max(1)
-                })
-        },
-        |memory| (memory.pool.snapshot().limit_bytes / 4).max(1),
-    );
     if let Some(lanes) = writer_physical_design_source.cpu_lanes.as_mut() {
         lanes.admit_conversion_memory(
             prefetch_memory_bytes,
@@ -10452,6 +10571,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
             "full_projection"
         };
     finalize_vortex_prepared_state_stream_write(VortexPreparedStateStreamFinalizeInput {
+        resources: request.resources,
         target_path: request.target_path,
         prepared_source_binding: request.prepared_source_binding,
         column_count: request.source.materialized_columns.len(),
@@ -10722,6 +10842,7 @@ fn validate_flat_columnar_stream_source_shape(
 
 #[cfg(feature = "vortex-write")]
 struct VortexPreparedStateFinalizeInput<'a> {
+    resources: shardloom_core::ExecutionResources,
     target_path: PathBuf,
     column_count: usize,
     column_families: Vec<(String, String)>,
@@ -10751,6 +10872,7 @@ where
         + Send
         + 'static,
 {
+    resources: shardloom_core::ExecutionResources,
     target_path: PathBuf,
     prepared_source_binding: Option<String>,
     column_count: usize,
@@ -11824,6 +11946,7 @@ fn finalize_vortex_prepared_state_write(
     );
 
     Ok(VortexPreparedStateWriteReport {
+        resources: input.resources,
         target_path: input.target_path,
         shared_native_memory: None,
         row_count: input.row_count,
@@ -12005,6 +12128,7 @@ where
     );
 
     Ok(VortexPreparedStateWriteReport {
+        resources: input.resources,
         target_path,
         shared_native_memory: input.native_memory.as_ref().map(|memory| {
             let snapshot = memory.pool.snapshot();
@@ -15278,6 +15402,12 @@ mod tests {
                 ("id".into(), ScalarValue::Int64(1)),
                 ("payload".into(), ScalarValue::Utf8("alpha".into())),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
         write_flat_scalar_vortex_prepared_state(request).unwrap();
         let first = read_prepared_vortex_artifact_layout_inventory(&path).unwrap();
@@ -15399,6 +15529,12 @@ mod tests {
                     ("metric".to_string(), ScalarValue::Float64(seed_f64 + 1.5)),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .allow_overwrite(true);
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write test vortex");
@@ -15577,6 +15713,12 @@ mod tests {
                     ("active".to_string(), ScalarValue::Boolean(false)),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -15749,6 +15891,12 @@ mod tests {
                     ("label".to_string(), ScalarValue::Utf8("omega".to_string())),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -15807,6 +15955,12 @@ mod tests {
                 vec![("id".to_string(), ScalarValue::Null)],
                 vec![("id".to_string(), ScalarValue::Int64(42))],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -15830,6 +15984,12 @@ mod tests {
             &path,
             vec!["value".to_string()],
             vec![vec![("value".to_string(), ScalarValue::Null)]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -15857,6 +16017,12 @@ mod tests {
                 vec![("metric".to_string(), ScalarValue::Float64(2.5))],
                 vec![("metric".to_string(), ScalarValue::UInt64(3))],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -15887,6 +16053,12 @@ mod tests {
                 vec![("payload".to_string(), ScalarValue::Null)],
                 vec![("payload".to_string(), ScalarValue::Null)],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .column_dtypes(vec![Some(LogicalDType::Binary)]);
 
@@ -15952,17 +16124,26 @@ mod tests {
                 ("event_ts".to_string(), ScalarValue::Null),
             ]
         };
-        let request =
-            VortexPreparedStateWriteRequest::new(&path, columns, vec![null_row(), null_row()])
-                .column_dtypes(vec![
-                    Some(LogicalDType::Boolean),
-                    Some(LogicalDType::Int64),
-                    Some(LogicalDType::UInt64),
-                    Some(LogicalDType::Float64),
-                    Some(LogicalDType::Utf8),
-                    Some(LogicalDType::Date32),
-                    Some(LogicalDType::TimestampMicros),
-                ]);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            columns,
+            vec![null_row(), null_row()],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .column_dtypes(vec![
+            Some(LogicalDType::Boolean),
+            Some(LogicalDType::Int64),
+            Some(LogicalDType::UInt64),
+            Some(LogicalDType::Float64),
+            Some(LogicalDType::Utf8),
+            Some(LogicalDType::Date32),
+            Some(LogicalDType::TimestampMicros),
+        ]);
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
 
@@ -16128,6 +16309,12 @@ mod tests {
                     ),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -16264,6 +16451,12 @@ mod tests {
                     ),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -16324,6 +16517,12 @@ mod tests {
                 vec![("amount".to_string(), ScalarValue::Null)],
                 vec![("amount".to_string(), ScalarValue::Null)],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .column_dtypes(vec![Some(LogicalDType::Extension(
             "decimal128(10,2)".to_string(),
@@ -16388,6 +16587,12 @@ mod tests {
                     },
                 )],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let error = write_flat_scalar_vortex_prepared_state(request)
@@ -16418,6 +16623,12 @@ mod tests {
                 ("id".to_string(), ScalarValue::Int64(1)),
                 ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .layout_write_advisor(advisor);
 
@@ -16715,6 +16926,12 @@ mod tests {
                     ScalarValue::Utf8("alpha".to_string()),
                 ),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .layout_write_advisor(advisor);
 
@@ -16820,6 +17037,12 @@ mod tests {
                     ScalarValue::Utf8("https://example.test".to_string()),
                 ),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .layout_write_advisor(advisor);
 
@@ -16888,6 +17111,12 @@ mod tests {
                 ("id".to_string(), ScalarValue::Int64(1)),
                 ("metric".to_string(), ScalarValue::Float64(2.5)),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .layout_write_advisor(advisor);
 
@@ -16950,6 +17179,12 @@ mod tests {
                 ("id".to_string(), ScalarValue::Int64(1)),
                 ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .layout_write_advisor(advisor);
 
@@ -16981,6 +17216,12 @@ mod tests {
                 ("id".to_string(), ScalarValue::Int64(1)),
                 ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .certification_level(VortexIngestCertificationLevel::IngestMinimal);
 
@@ -17040,6 +17281,12 @@ mod tests {
                     ("label".to_string(), ScalarValue::Utf8("beta".to_string())),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 2));
 
@@ -17117,8 +17364,17 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 4));
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 4));
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -17288,8 +17544,17 @@ mod tests {
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
         };
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 3, 2));
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 3, 2));
 
         let report =
             write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
@@ -17469,8 +17734,17 @@ mod tests {
                 batches: VecDeque::from([batch_1, batch_2]),
             }),
         };
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 3, 2));
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 3, 2));
 
         let report =
             write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
@@ -17615,8 +17889,17 @@ mod tests {
                 .data_type(),
             &DataType::Int64
         );
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 1));
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 1));
 
         let report =
             write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
@@ -17789,8 +18072,17 @@ mod tests {
                 .data_type(),
             &DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8))
         );
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 1));
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 1));
 
         let report =
             write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
@@ -17918,9 +18210,18 @@ mod tests {
         advisor_input.decode_boundary_status =
             "no_scalar_row_decode_for_empty_columnar_source".to_string();
         let advisor = evaluate_vortex_layout_write_advisor(advisor_input);
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-            .layout_write_advisor(advisor)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 0, 0));
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .layout_write_advisor(advisor)
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 0, 0));
 
         let report =
             write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
@@ -17982,7 +18283,16 @@ mod tests {
             batches: vec![batch],
             row_count: 3,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18084,7 +18394,16 @@ mod tests {
             batches: vec![batch],
             row_count: 3,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18209,7 +18528,16 @@ mod tests {
             batches: vec![batch],
             row_count: 4,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18336,7 +18664,16 @@ mod tests {
             batches: Vec::new(),
             row_count: 0,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18465,7 +18802,16 @@ mod tests {
             batches: vec![batch],
             row_count: 4,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18581,12 +18927,22 @@ mod tests {
                 ),
             ],
         ];
-        let request = VortexPreparedStateWriteRequest::new(&path, columns.clone(), rows)
-            .column_dtypes(vec![
-                Some(LogicalDType::Int64),
-                Some(LogicalDType::List),
-                Some(LogicalDType::Struct),
-            ]);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            columns.clone(),
+            rows,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .column_dtypes(vec![
+            Some(LogicalDType::Int64),
+            Some(LogicalDType::List),
+            Some(LogicalDType::Struct),
+        ]);
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
 
@@ -18758,7 +19114,16 @@ mod tests {
             batches: vec![batch],
             row_count: 4,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18855,7 +19220,16 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state(request).expect_err("blocked");
 
@@ -18910,7 +19284,16 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state(request)
             .expect_err("boolean dictionary blocked")
@@ -18957,7 +19340,16 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state(request)
             .expect_err("non-finite float should be rejected");
@@ -19043,7 +19435,16 @@ mod tests {
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
         };
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state_streaming(request)
             .expect_err("non-finite streaming float should be rejected");
@@ -19088,7 +19489,16 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state(request)
             .expect_err("short batch must be rejected before column access");
@@ -19142,7 +19552,16 @@ mod tests {
             batches: vec![batch],
             row_count: 3,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state(request)
             .expect_err("row count mismatch must be rejected");
@@ -19175,6 +19594,12 @@ mod tests {
                 ("id".to_string(), ScalarValue::Int64(1)),
                 ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .certification_level(VortexIngestCertificationLevel::IngestFullReplay);
 

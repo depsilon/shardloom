@@ -24,8 +24,8 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Also run the certified local Vortex primitive fixture smoke.",
     )
-    parser.add_argument("--memory-gb", type=int, default=1)
-    parser.add_argument("--max-parallelism", type=int, default=2)
+    parser.add_argument("--memory-gb", type=int)
+    parser.add_argument("--max-parallelism", type=int)
     parser.add_argument(
         "--profile-order",
         default="debug,release",

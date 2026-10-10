@@ -97,7 +97,10 @@ impl Fixture {
     }
     fn source_with_padding(&self, rows: usize, padding: usize) -> PathBuf {
         let path = self.0.join("source.vortex");
-        let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+        let runtime = local_vortex_runtime(
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
+        );
         let session = VortexSession::default().with_handle(runtime.handle());
         let suffix = "x".repeat(padding);
         let array = StructArray::new(
@@ -144,7 +147,10 @@ impl Drop for Fixture {
 }
 
 fn read_complete(path: &Path) -> (DType, Vec<serde_json::Value>) {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(session.open_options().open_path(path))
@@ -198,7 +204,8 @@ fn public_native_sink_streams_nullable_filter_projection_and_ordered_limit_exact
         &output,
         VortexLocalPrimitiveRowExportFormat::Vortex,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
@@ -251,7 +258,8 @@ fn native_sink_preserves_source_alias_schema_and_empty_typed_output() {
             &output,
             VortexLocalPrimitiveRowExportFormat::Vortex,
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         assert!(report.evidence.native_array_sink.is_some());
@@ -305,7 +313,8 @@ fn native_sink_admits_wide_source_aliases_and_footer_before_writing() {
             .collect(),
     ));
     let output = fixture.0.join("wide-aliases.vortex");
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     policy.resource_envelope.memory_budget_bytes = 128 << 20;
     let report = try_execute(&request, &source, &output, false, policy)
         .unwrap()
@@ -361,7 +370,10 @@ fn native_sink_admits_wide_source_aliases_and_footer_before_writing() {
 fn native_sink_schema_admission_preserves_top_level_primitive_files() {
     let fixture = Fixture::new();
     let source = fixture.0.join("primitive.vortex");
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let array =
         PrimitiveArray::from_option_iter([Some(i64::MIN), None, Some(i64::MAX)]).into_array();
@@ -380,7 +392,8 @@ fn native_sink_schema_admission_preserves_top_level_primitive_files() {
         &source,
         &target,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap()
     .unwrap();
@@ -424,7 +437,8 @@ fn pre_limit_count_is_exact_when_filter_scan_exhausts_or_footer_proves_it() {
             &source,
             &fixture.0.join(format!("{name}.vortex")),
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap()
         .unwrap();
@@ -440,7 +454,8 @@ fn source_generation_failure_and_output_failures_preserve_destination() {
     let fixture = Fixture::new();
     let source = fixture.source(37);
     let request = Fixture::request(&source);
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let prepared = prepare(&request, &source, policy).unwrap().unwrap();
     let output = fixture.0.join("existing.vortex");
     fs::write(&output, b"existing destination").unwrap();
@@ -525,7 +540,8 @@ fn source_read_reservation_failure_cleans_staging_after_writer_admission() {
     let fixture = Fixture::new();
     let source = fixture.source(40_000);
     let request = Fixture::request(&source);
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let prepared = prepare(&request, &source, policy).unwrap().unwrap();
     let metadata = 40_000_u64.div_ceil(SCAN_ROWS as u64) * METADATA_BYTES_PER_CHUNK + 128 * 1024;
     let available = policy.resource_envelope().memory_budget_bytes
@@ -559,7 +575,8 @@ fn false_filter_sink_writes_typed_empty_output_without_data_arrays() {
         &source,
         &output,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap()
     .unwrap();
@@ -606,7 +623,8 @@ fn empty_completed_result_writes_native_schema_after_source_owner_drops() {
             &Fixture::request(&source_path),
             &output,
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     assert_eq!(report.rows_written, 0);
@@ -668,7 +686,8 @@ fn native_source_alias_export_filters_source_fields_before_projection_and_limit(
             &output,
             VortexLocalPrimitiveRowExportFormat::Vortex,
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         assert!(report.evidence.native_array_sink.is_some());
@@ -710,7 +729,8 @@ fn native_sink_declines_complex_structured_expressions_without_effects() {
             &source,
             &output,
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded()
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation")
         )
         .unwrap()
         .is_none()
@@ -722,7 +742,8 @@ fn native_sink_declines_complex_structured_expressions_without_effects() {
         &source,
         &output,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .err()
     .unwrap();

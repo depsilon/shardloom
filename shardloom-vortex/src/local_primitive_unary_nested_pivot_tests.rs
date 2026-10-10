@@ -263,7 +263,8 @@ fn unary_nested_pivot_null_fill_dropna_empty_and_binding_denials_preserve_contra
         for aggregate in ["sum", "mean"] {
             let error = prepare_unary(
                 &request(&fixture, aggregate),
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
             )
             .err()
             .unwrap();
@@ -276,7 +277,8 @@ fn unary_nested_pivot_null_fill_dropna_empty_and_binding_denials_preserve_contra
         request.pivot_projection.as_mut().unwrap().margins = true;
         let error = prepare_unary(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .err()
         .unwrap();
@@ -290,7 +292,8 @@ fn unary_nested_pivot_null_fill_dropna_empty_and_binding_denials_preserve_contra
         projection.fill_value = Some(shardloom_core::ScalarValue::Int64(0));
         let error = prepare_unary(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .err()
         .unwrap();

@@ -105,6 +105,8 @@ pub struct ResidentSessionSnapshot {
     pub prepared_source_opens: u64,
     pub completed_executions: u64,
     pub provider_background_workers: usize,
+    /// Actual executor grant, not measured concurrent lane utilization.
+    pub admitted_max_parallelism: usize,
     pub memory: LiveMemorySnapshot,
 }
 
@@ -498,6 +500,7 @@ impl ResidentVortexSession {
             prepared_source_opens: self.0.opens.load(Ordering::Relaxed),
             completed_executions: self.0.executions.load(Ordering::Relaxed),
             provider_background_workers: self.0.provider_background_workers,
+            admitted_max_parallelism: self.0.parallelism,
             memory: self.0.memory.snapshot(),
         }
     }

@@ -8,19 +8,19 @@
   "recipes": [
     {
       "id": "no-dataset-smoke",
-      "title": "No-Dataset Smoke",
+      "title": "Local CSV and Generated-Output Smoke",
       "status": "ready_local",
       "use_case_id": "first-10-minutes-local-smoke",
-      "user_goal": "Confirm the local CLI and Python wrapper can report status without reading data.",
-      "command": "python examples\\local-python-smoke\\run.py --repo-root .",
-      "expected_output": "Status, smoke, and capabilities JSON.",
+      "user_goal": "Confirm local discovery, execute a bounded CSV query, and write generated JSONL output.",
+      "command": "python examples\\local-python-smoke\\run.py --repo-root . --memory-gb 16 --max-parallelism 8",
+      "expected_output": "Status, smoke, capabilities, bounded CSV results, and generated JSONL output.",
       "evidence_fields": [
         "fallback_attempted=false",
         "external_engine_invoked=false",
         "protocol_version",
         "resolved_cli_path"
       ],
-      "claim_boundary": "No dataset execution and no generated-output claim.",
+      "claim_boundary": "Local source-checkout smoke. The caller-declared 16 GiB / 8-lane allocation is illustrative, not a default or a measured usage claim.",
       "references": [
         "docs/getting-started/first-10-minutes.md",
         "examples/local-python-smoke/README.md"
@@ -122,7 +122,7 @@
       "status": "smoke_supported",
       "use_case_id": "source-free-generated-output-boundary",
       "user_goal": "Create a reference table without an input dataset.",
-      "command": "$env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import context; ctx=context(repo_root='.'); r=ctx.from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).write('target/generated-reference.jsonl', allow_overwrite=True); s=ctx.sql('SELECT * FROM generate_series(0, 4)').write('target/generated-sql-series.jsonl', allow_overwrite=True); p=ctx.sql('SELECT value AS id, value + 1 AS next FROM range(0, 4)').write('target/generated-sql-range-projection.jsonl', allow_overwrite=True); print(r.claim_gate_status, s.generated_source_kind, s.generated_source_range_end_inclusive, p.sql_source_free_projection_columns)\"",
+      "command": "$env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import context; ctx=context(repo_root='.', memory_gb=16, max_parallelism=8); r=ctx.from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).write('target/generated-reference.jsonl', allow_overwrite=True); s=ctx.sql('SELECT * FROM generate_series(0, 4)').write('target/generated-sql-series.jsonl', allow_overwrite=True); p=ctx.sql('SELECT value AS id, value + 1 AS next FROM range(0, 4)').write('target/generated-sql-range-projection.jsonl', allow_overwrite=True); print(r.claim_gate_status, s.generated_source_kind, s.generated_source_range_end_inclusive, p.sql_source_free_projection_columns)\"",
       "expected_output": "Local JSONL output plus a generated-source/output evidence envelope.",
       "evidence_fields": [
         "input_dataset_count=0",
@@ -133,7 +133,7 @@
         "fallback_attempted=false",
         "external_engine_invoked=false"
       ],
-      "claim_boundary": "Scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, SQL generate_series/range, and scoped SQL range-projection JSONL/CSV fixture smokes only; broad SQL/DataFrame runtime, object-store writes, and Foundry generated-output runtime remain gated.",
+      "claim_boundary": "Current source-build example with illustrative caller-declared limits of 16 GiB and 8 lanes, not defaults or recommendations; published v0.5.1 packages retain release-time behavior. Scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, SQL generate_series/range, and scoped SQL range-projection JSONL/CSV fixture smokes only; broad SQL/DataFrame runtime, object-store writes, and Foundry generated-output runtime remain gated.",
       "references": [
         "docs/foundry/proof-of-use-certification.md",
         "docs/architecture/compute-engine-flow-reference.md",

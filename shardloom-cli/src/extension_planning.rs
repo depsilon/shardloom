@@ -1078,6 +1078,15 @@ pub(crate) fn handle_udf_local_scalar_fixture_smoke(
             ),
         );
     };
+    let (_, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "udf-local-scalar-fixture-smoke",
+        &[],
+    ) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
     let values = match parse_nullable_i64_values(&values_raw) {
         Ok(values) => values,
         Err(error) => {
@@ -1107,7 +1116,10 @@ pub(crate) fn handle_udf_local_scalar_fixture_smoke(
         "deterministic scalar UDF fixture smoke".to_string(),
         report.to_human_text(),
         vec![],
-        udf_local_scalar_fixture_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            udf_local_scalar_fixture_fields(&report),
+            resources,
+        ),
     );
     ExitCode::SUCCESS
 }
@@ -1125,6 +1137,15 @@ pub(crate) fn handle_embedding_vector_local_fixture_smoke(
                 "missing semicolon-separated text values".to_string(),
             ),
         );
+    };
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "embedding-vector-local-fixture-smoke",
+        &["--query"],
+    ) {
+        Ok(value) => value,
+        Err(code) => return code,
     };
     let mut query_text = None;
     while let Some(arg) = args.next() {
@@ -1182,7 +1203,10 @@ pub(crate) fn handle_embedding_vector_local_fixture_smoke(
         "deterministic embedding/vector fixture smoke".to_string(),
         report.to_human_text(),
         vec![],
-        embedding_vector_local_fixture_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            embedding_vector_local_fixture_fields(&report),
+            resources,
+        ),
     );
     ExitCode::SUCCESS
 }

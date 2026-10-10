@@ -4,9 +4,7 @@
 
 use std::fmt::Write as _;
 
-use shardloom_core::{
-    Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId, ShardLoomError,
-};
+use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId};
 use shardloom_exec::recovery::{
     RecoveryArtifactRef, ShardLoomRecoveryIntegrationReport, ShardLoomRecoveryIntegrationRequest,
     plan_recovery_integration,
@@ -133,29 +131,44 @@ pub struct VortexBoundedExecutionPolicy {
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexBoundedExecutionPolicy {
-    pub fn new(memory_budget: MemoryBudget) -> Self {
-        Self {
+    /// Use the complete explicit allocation for bounded native work.
+    ///
+    /// # Errors
+    /// Rejects an invalid memory policy without changing the declared allocation.
+    pub fn from_resources(resources: shardloom_core::ExecutionResources) -> Result<Self> {
+        let budget = MemoryBudget::new(shardloom_exec::ByteSize::from_bytes(
+            resources.memory_bytes(),
+        ))?;
+        Self::new(budget, resources.max_parallelism())
+    }
+
+    /// Construct a planning policy with an explicit execution-lane allocation.
+    ///
+    /// # Errors
+    /// Rejects missing capacity instead of silently selecting one lane.
+    pub fn new(memory_budget: MemoryBudget, max_parallelism: usize) -> Result<Self> {
+        shardloom_core::ExecutionResources::from_bytes(
+            memory_budget.total.as_bytes(),
+            max_parallelism,
+            shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+        )?;
+        Ok(Self {
             memory_budget,
-            max_parallelism: 1,
+            max_parallelism,
             allow_metadata_tasks: true,
             allow_noop_tasks: true,
             allow_encoded_read_tasks: false,
             diagnostics: vec![],
-        }
+        })
     }
     /// # Errors
     /// Returns an error when `memory_gb` is zero, `max_parallelism` is zero, or budget construction fails.
     pub fn memory_limited(memory_gb: u64, max_parallelism: usize) -> Result<Self> {
-        if max_parallelism == 0 {
-            return Err(ShardLoomError::InvalidOperation(
-                "max_parallelism must be >= 1".to_string(),
-            ));
-        }
-        Ok(Self::new(MemoryBudget::from_gib(memory_gb)?).with_max_parallelism(max_parallelism))
-    }
-    pub fn with_max_parallelism(mut self, v: usize) -> Self {
-        self.max_parallelism = v.max(1);
-        self
+        Self::from_resources(shardloom_core::ExecutionResources::from_gib(
+            memory_gb,
+            max_parallelism,
+            shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+        )?)
     }
     pub fn allow_metadata_tasks(mut self, v: bool) -> Self {
         self.allow_metadata_tasks = v;
@@ -1324,7 +1337,8 @@ mod tests {
             "test",
             "unsupported",
         );
-        let policy = VortexBoundedExecutionPolicy::new(MemoryBudget::from_gib(1).expect("budget"));
+        let policy = VortexBoundedExecutionPolicy::memory_limited(1, 1)
+            .expect("explicit fixture allocation");
         VortexBoundedExecutionReport::unsupported(
             VortexBoundedExecutionInput::new(local, policy),
             "test",
@@ -1333,7 +1347,8 @@ mod tests {
     }
     #[test]
     fn bounded_metadata_tasks_execute_without_data_work() {
-        let policy = VortexBoundedExecutionPolicy::new(MemoryBudget::from_gib(1).expect("budget"));
+        let policy = VortexBoundedExecutionPolicy::memory_limited(1, 1)
+            .expect("explicit fixture allocation");
         let report = execute_vortex_bounded_local_query(metadata_local_execution_report(), policy)
             .expect("bounded report");
 
@@ -1359,7 +1374,8 @@ mod tests {
     }
     #[test]
     fn bounded_noop_tasks_execute_without_data_work() {
-        let policy = VortexBoundedExecutionPolicy::new(MemoryBudget::from_gib(1).expect("budget"));
+        let policy = VortexBoundedExecutionPolicy::memory_limited(1, 1)
+            .expect("explicit fixture allocation");
         let report = execute_vortex_bounded_local_query(noop_local_execution_report(), policy)
             .expect("bounded report");
 
@@ -1385,7 +1401,8 @@ mod tests {
     }
     #[test]
     fn bounded_policy_can_disable_metadata_task_execution() {
-        let policy = VortexBoundedExecutionPolicy::new(MemoryBudget::from_gib(1).expect("budget"))
+        let policy = VortexBoundedExecutionPolicy::memory_limited(1, 1)
+            .expect("explicit fixture allocation")
             .allow_metadata_tasks(false);
         let report = execute_vortex_bounded_local_query(metadata_local_execution_report(), policy)
             .expect("bounded report");

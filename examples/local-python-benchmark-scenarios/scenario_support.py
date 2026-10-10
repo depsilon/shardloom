@@ -180,10 +180,11 @@ def run_scenarios(
     *,
     repo_root: Path,
     run_dir: Path,
+    memory_gb: int,
+    max_parallelism: int,
     binary: str | os.PathLike[str] | Sequence[str] | None = None,
     profile_order: Sequence[str] = ("release", "debug"),
 ) -> dict[str, Any]:
-    write_fixture_data(run_dir)
     context = load_local_shardloom(repo_root)
     workloads = load_workload_declarations(repo_root)
     resolved_binary = binary
@@ -193,7 +194,10 @@ def run_scenarios(
         repo_root=repo_root,
         binary=resolved_binary,
         profile_order=tuple(profile_order),
+        memory_gb=memory_gb,
+        max_parallelism=max_parallelism,
     )
+    write_fixture_data(run_dir)
     sources = {
         "fact": quote_sql_path(run_dir / "data" / "fact.csv"),
         "dim": quote_sql_path(run_dir / "data" / "dim.csv"),

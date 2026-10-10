@@ -28,10 +28,16 @@ pub(super) fn validate_request(request: &VortexQueryPrimitiveRequest) -> Result<
     }
 }
 
-pub(super) fn validate_schema(request: &VortexQueryPrimitiveRequest, dtype: &DType) -> Result<()> {
+pub(super) fn validate_schema(
+    request: &VortexQueryPrimitiveRequest,
+    dtype: &DType,
+    envelope: crate::VortexLocalPrimitiveResourceEnvelope,
+) -> Result<()> {
     if weighted_count_spill_admission::request_admitted(request) {
         weighted_count_spill_admission::admit(request, dtype).map(|_| ())
-    } else if exact_distinct_pairs::workers::request_schema_may_be_admitted(request, dtype) {
+    } else if exact_distinct_pairs::workers::request_schema_may_be_admitted(
+        request, dtype, envelope,
+    ) {
         Ok(())
     } else {
         Err(failed(

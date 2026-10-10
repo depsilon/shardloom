@@ -193,7 +193,8 @@ fn unary_expression_rejects_overflow_and_reserves_string_growth_before_building(
     let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
     let prepared = prepare_unary_in_session(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &session,
     )
     .unwrap();

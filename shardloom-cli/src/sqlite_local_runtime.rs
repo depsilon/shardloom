@@ -18,7 +18,7 @@ use rusqlite::{
     types::{Value, ValueRef},
 };
 use shardloom_core::{
-    CommandStatus, OutputFormat, ShardLoomError, WorkspaceSafeLocalWritePlan,
+    CommandStatus, ExecutionResources, OutputFormat, ShardLoomError, WorkspaceSafeLocalWritePlan,
     WorkspaceSafeLocalWriteReport,
 };
 
@@ -33,6 +33,7 @@ const MAX_SQLITE_EXPORT_JSONL_BYTES: usize = 128 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
 struct SqliteSmokeOptions {
+    resources: ExecutionResources,
     source_db: PathBuf,
     table: String,
     export_jsonl: PathBuf,
@@ -181,14 +182,27 @@ pub(crate) fn handle_sqlite_local_import_export_smoke(
         "SQLite local import/export fixture smoke".to_string(),
         report.to_human_text(),
         vec![],
-        sqlite_local_import_export_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            sqlite_local_import_export_fields(&report),
+            options.resources,
+        ),
     );
     ExitCode::SUCCESS
 }
 
 fn parse_sqlite_smoke_options(
-    mut args: std::vec::IntoIter<String>,
+    args: std::vec::IntoIter<String>,
 ) -> Result<SqliteSmokeOptions, ShardLoomError> {
+    let (mut args, resources) = crate::execution_resources::ResourceArguments::take_required(
+        args,
+        &[
+            "--table",
+            "--export-jsonl",
+            "--roundtrip-db",
+            "--order-by",
+            "--format",
+        ],
+    )?;
     let Some(source_db) = args.next() else {
         return Err(ShardLoomError::InvalidOperation(
             "usage: sqlite-local-import-export-smoke <db.sqlite> --table <table> --export-jsonl <path> --roundtrip-db <path> [--order-by <column>] [--allow-overwrite]".to_string(),
@@ -224,6 +238,7 @@ fn parse_sqlite_smoke_options(
         validate_identifier("SQLite order-by column", order_by)?;
     }
     Ok(SqliteSmokeOptions {
+        resources,
         source_db: PathBuf::from(source_db),
         table,
         export_jsonl: export_jsonl.ok_or_else(|| {

@@ -2,7 +2,15 @@ use std::process::Command;
 
 fn run_local_append_only_cdc_overlay_smoke_json() -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["local-append-only-cdc-overlay-smoke", "--format", "json"])
+        .args([
+            "local-append-only-cdc-overlay-smoke",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
+            "--format",
+            "json",
+        ])
         .output()
         .expect("local-append-only-cdc-overlay-smoke command runs");
 

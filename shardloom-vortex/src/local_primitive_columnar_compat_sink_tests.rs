@@ -87,7 +87,8 @@ impl Drop for Fixture {
     }
 }
 fn policy() -> VortexLocalPrimitiveExecutionPolicy {
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     policy.resource_envelope.memory_budget_bytes = 256 * 1024 * 1024;
     policy
 }

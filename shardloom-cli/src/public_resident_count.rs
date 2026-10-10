@@ -71,6 +71,8 @@ pub(super) fn execute_native_vortex_resident_count(
         &mut fields,
         None,
     );
+    crate::execution_resources::append_resident_snapshot_fields(&mut fields, &snapshot);
+    crate::execution_resources::append_spill_observation_fields(&mut fields, false, Some(0));
     emit(
         "run",
         format,

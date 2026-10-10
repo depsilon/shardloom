@@ -150,7 +150,8 @@ fn completed_mixed_aggregate_preserves_scalar_grouped_empty_schema_and_native_ow
             let columns = query.simple_aggregate.as_ref().unwrap().output_columns();
             let prepared = prepare_aggregate(
                 &query,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
             )
             .unwrap();
             let memory = prepared.session.memory().clone();
@@ -220,7 +221,8 @@ fn completed_general_result_clones_keep_buffer_credit_after_all_producer_owners_
     let query = mixed_request(&path, true);
     let prepared = prepare_aggregate(
         &query,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     let memory = prepared.session.memory().clone();
@@ -254,7 +256,8 @@ fn completed_mixed_aggregate_exports_all_binary_formats_and_preserves_existing_f
         let output = fixture.0.join(format!("mixed.{}", format.as_str()));
         let prepared = prepare_aggregate(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         let report = prepared
@@ -301,7 +304,8 @@ fn completed_grouped_output_without_limit_rejects_excess_cardinality() {
     query.source_order_limit = None;
     let prepared = prepare_aggregate(
         &query,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     let Err(error) = prepared.execute_owned() else {
@@ -317,7 +321,8 @@ fn completed_grouped_output_without_limit_rejects_excess_cardinality() {
     query.source_order_limit = Some(2);
     let prepared = prepare_aggregate(
         &query,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert_eq!(prepared.execute_owned().unwrap().result.row_count(), 2);
@@ -335,7 +340,8 @@ fn result_stream_aggregate_exports_every_format_above_collect_limit() {
     let fixture = Fixture::new();
     let path = fixture.0.join("large-stream-source.vortex");
     let runtime = super::super::super::local_vortex_runtime(
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     );
     let session = VortexSession::default().with_handle(runtime.handle());
     let keys = PrimitiveArray::new(
@@ -395,7 +401,8 @@ fn result_stream_aggregate_exports_every_format_above_collect_limit() {
         let output = fixture.0.join(format!("stream.{}", format.as_str()));
         let prepared = prepare_aggregate(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         let report = prepared.write(&output, format, false).unwrap();
@@ -454,7 +461,8 @@ fn result_stream_text_preserves_nullable_utf8_and_escaping() {
     let fixture = Fixture::new();
     let path = fixture.0.join("nullable-utf8-source.vortex");
     let runtime = super::super::super::local_vortex_runtime(
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     );
     let session = VortexSession::default().with_handle(runtime.handle());
     let keys = VarBinViewArray::from_iter_nullable_str([
@@ -491,7 +499,8 @@ fn result_stream_text_preserves_nullable_utf8_and_escaping() {
         let output = fixture.0.join(format!("nullable.{}", format.as_str()));
         let report = prepare_aggregate(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap()
         .write(&output, format, false)
@@ -521,6 +530,7 @@ fn result_stream_text_preserves_nullable_utf8_and_escaping() {
 
 #[cfg(all(feature = "universal-format-io", feature = "vortex-write"))]
 #[test]
+#[allow(clippy::too_many_lines)]
 fn result_stream_preserves_or_rejects_uint64_boundary_at_each_sink() {
     use crate::VortexLocalPrimitiveRowExportFormat as Format;
 
@@ -563,7 +573,8 @@ fn result_stream_preserves_or_rejects_uint64_boundary_at_each_sink() {
             .join(format!("uint64-boundary.{}", format.as_str()));
         let prepared = prepare_aggregate(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         let report = prepared.write(&output, format, false).unwrap();
@@ -603,7 +614,8 @@ fn result_stream_preserves_or_rejects_uint64_boundary_at_each_sink() {
             .collect::<std::collections::BTreeSet<_>>();
         let prepared = prepare_aggregate(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         let Err(error) = prepared.write(&output, format, false) else {
@@ -863,7 +875,8 @@ fn completed_scalar_and_grouped_minmax_reject_oversized_text_before_finalization
         let query = mixed_request(&path, grouped);
         let prepared = prepare_aggregate(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         let memory = prepared.session.memory().clone();
@@ -890,7 +903,8 @@ fn result_stream_wide_ordered_output_exceeds_eight_mib_in_every_format() {
     let fixture = Fixture::new();
     let path = fixture.0.join("wide-sort-source.vortex");
     let runtime = super::super::super::local_vortex_runtime(
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     );
     let session = VortexSession::default().with_handle(runtime.handle());
     let keys = PrimitiveArray::new(
@@ -980,7 +994,8 @@ fn result_stream_wide_ordered_output_exceeds_eight_mib_in_every_format() {
             &output,
             format,
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         assert_eq!(
@@ -1061,7 +1076,8 @@ fn completed_sorted_and_empty_results_export_every_format_without_losing_values(
                 &output,
                 format,
                 false,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
             )
             .unwrap();
             assert!(!report.has_errors(), "{format:?}: {report:?}");

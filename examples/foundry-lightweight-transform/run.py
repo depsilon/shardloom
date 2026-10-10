@@ -16,6 +16,8 @@ def parse_args() -> argparse.Namespace:
         description="Run a local Foundry-style ShardLoom transform smoke."
     )
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    parser.add_argument("--memory-gb", type=int, required=True)
+    parser.add_argument("--max-parallelism", type=int, required=True)
     parser.add_argument("--shardloom-bin")
     parser.add_argument(
         "--input",
@@ -144,14 +146,15 @@ def main() -> int:
     evidence_dataset_path = resolve(repo_root, args.evidence_dataset)
     sys.path.insert(0, str(repo_root / "python" / "src"))
 
-    from shardloom import ShardLoomClient, context
+    from shardloom import ExecutionResources, ShardLoomClient, context
 
+    resources = ExecutionResources.from_gib(args.memory_gb, args.max_parallelism)
     client = (
-        ShardLoomClient(binary=args.shardloom_bin)
+        ShardLoomClient(binary=args.shardloom_bin, resources=resources)
         if args.shardloom_bin
-        else ShardLoomClient.from_repo(repo_root)
+        else ShardLoomClient.from_repo(repo_root, resources=resources)
     )
-    ctx = context(repo_root=repo_root, binary=args.shardloom_bin)
+    ctx = context(repo_root=repo_root, binary=args.shardloom_bin, resources=resources)
     smoke = client.smoke_check()
     capabilities = client.capabilities()
     generated = (

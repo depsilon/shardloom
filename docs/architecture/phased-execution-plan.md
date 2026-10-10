@@ -249,38 +249,6 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-TYPED-INPUT` extend exact typed values through the shared native
-  resident and finite batch source.
-  - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-03/07/11/12 and CG-19/20/21; this extends the current
-    local implementation phase, without changing the CG-1 through CG-23 queue.
-  - Contract: [typed native input](native-typed-input-2026-10-10.md).
-    Preserve the existing four scalar declarations and add explicit exact
-    widths, decimal, binary, temporal and nested schemas to ordinary rows,
-    buffered batches and the existing finite single-use stream.
-  - Shared family: normalize all declarations into the existing native source,
-    resource pool, relational binder and sinks. Reuse Vortex DType and native
-    arrays inside shardloom-vortex; no new execution provider or fallback.
-  - ShardLoom technique review: dynamic shared-grant admission owns schema,
-    conversion and native-buffer overlap; capillary demand bounds each input
-    frame; PulseWeave retains the same resource policy; metadata-first binding
-    checks typed empty schemas before demand. Separate wrapper conversion from
-    execution timing and require complete values and certificates at the same
-    evidence tier. No speedup claim accompanies this capability unit.
-  - Execution checklist:
-    - [x] Finalize the provider reuse and exact schema/value wire contract.
-    - [x] Implement native typed construction, retained credits and source reuse.
-    - [x] Add Python declarations/conversion and preserve legacy wire identities.
-    - [x] Verify every admitted type through resident/buffered/streamed workflows,
-      native write/reopen, compatibility contracts and resource/failure controls.
-    - [x] Complete source/public regression acceptance, independent packet
-      inspection and affected documentation with rendered guide checks.
-    - [ ] Complete hosted integration against the final reviewed PR head.
-  - Preserve finite completion, per-frame and small-result boundaries, explicit
-    `fallback_attempted=false` and `external_engine_invoked=false`. Multiple or
-    repeated producers, dynamic schemas, streaming sink composition and deeper
-    traversal retain their existing owners. Keep version 0.5.1 fixed.
-
 - [ ] `REQUIRED-EXECUTION-RESOURCES` require an explicit shared allocation before
   any data inspection, preparation, producer consumption or execution.
   - V1 scope classification: `required_for_v1`.
@@ -297,8 +265,8 @@ the ledger.
     operate inside explicit permission; metadata-first descriptions stay inert.
     Preserve timing-surface and evidence-tier distinctions for observed usage.
   - Execution checklist:
-    - [ ] Implement shared resource resolution, origin and authorization limits.
-    - [ ] Wire all Python, SQL, CLI, worker and native execution boundaries.
+    - [x] Implement shared resource resolution, origin and authorization limits.
+    - [x] Wire all Python, SQL, CLI, worker and native execution boundaries.
     - [ ] Prove no-consumption rejection, inherited/overridden configuration,
       ownership, reports and complete workflows; update guides and hosted checks.
 
@@ -328,6 +296,9 @@ the ledger.
   - Both units preserve all six remaining areas, eight investigations and
     CG-1 through CG-23 under their existing owners. Keep version 0.5.1 fixed.
 
+`NATIVE-TYPED-INPUT` completed in PR #1540 after all 39 hosted checks passed;
+its accepted source, merge and production verification are recorded in the
+[completed ledger](phased-execution-completed-ledger.md).
 `NATIVE-INPUT-GROWTH` completed in PR #1539 after all 39 hosted checks passed;
 the [completed ledger](phased-execution-completed-ledger.md) records the accepted
 runtime, unchanged merge tree and actual production verification.

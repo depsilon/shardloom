@@ -1,8 +1,10 @@
 # Exact typed input into the shared native source
 
-Status: local engine, Python review correction and independent packet acceptance
-complete under PERF-11, with PERF-03/07/12 and CG-19/20/21 obligations. Refreshed
-support and rendered guide checks pass; hosted integration remains pending in PR #1540. The
+Status: local engine, Python review correction, independent packet acceptance
+and hosted integration complete under PERF-11, with PERF-03/07/12 and
+CG-19/20/21 obligations. PR #1540 merged at `316f52de` after all 39 hosted
+checks passed; the [hosted receipt](../benchmarks/evidence/native-typed-input-hosted-2026-10-10.json)
+records identical reviewed/merged trees and production verification. The
 [acceptance report](../benchmarks/native-typed-input-2026-10-10.md) binds the
 tested sources, complete results and remaining boundaries. Keep version 0.5.1
 fixed and preserve the six remaining areas, eight investigations and CG-1 through

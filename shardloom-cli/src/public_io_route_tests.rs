@@ -73,7 +73,8 @@ fn public_io_qualified_column_names_prepare_preserves_native_schema_and_values()
                     "SELECT * FROM (SELECT * FROM '{}') AS reopened{suffix}",
                     target.display()
                 ),
-                shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 |path| shardloom_core::DatasetUri::new(path.path.to_string_lossy().into_owned()),
             )
             .unwrap();
@@ -112,8 +113,13 @@ fn public_io_declared_schema_is_bound_to_cold_warm_and_held_generations() {
                 &target,
                 Some("csv"),
                 overwrite,
-                1,
-                Some(1),
+                shardloom_core::ExecutionResources::from_gib(
+                    1,
+                    1,
+                    shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                )
+                .expect("explicit fixture allocation"),
+                None,
                 Some(policy),
                 Some(schema),
             )
@@ -139,8 +145,13 @@ fn public_io_declared_schema_is_bound_to_cold_warm_and_held_generations() {
             &absent,
             Some("csv"),
             false,
-            1,
-            Some(1),
+            shardloom_core::ExecutionResources::from_gib(
+                1,
+                1,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall
+            )
+            .expect("explicit fixture allocation"),
+            None,
             None,
             Some("invalid"),
         )

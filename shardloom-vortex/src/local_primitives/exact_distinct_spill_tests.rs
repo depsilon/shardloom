@@ -56,7 +56,10 @@ impl Drop for Workspace {
 }
 
 fn runtime() -> (LocalVortexRuntime, VortexSession) {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     (runtime, session)
 }

@@ -1,8 +1,21 @@
 use std::{fs, process::Command};
 
 fn run_json(args: &[&str], success: bool) -> String {
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
+    let mut command = Command::new(env!("CARGO_BIN_EXE_shardloom"));
+    command.args(args);
+    if matches!(
+        args.first().copied(),
+        Some(
+            "live-fixture-run"
+                | "hybrid-overlay-run"
+                | "live-hybrid-state-transition-smoke"
+                | "live-hybrid-durable-checkpoint-smoke"
+                | "distributed-local-fixture-run"
+        )
+    ) {
+        command.args(["--memory-gb", "4", "--max-parallelism", "2"]);
+    }
+    let output = command
         .args(["--format", "json"])
         .output()
         .expect("shardloom command runs");
@@ -17,8 +30,21 @@ fn run_json(args: &[&str], success: bool) -> String {
 }
 
 fn run_json_owned(args: &[String], success: bool) -> String {
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
+    let mut command = Command::new(env!("CARGO_BIN_EXE_shardloom"));
+    command.args(args);
+    if matches!(
+        args.first().map(String::as_str),
+        Some(
+            "live-fixture-run"
+                | "hybrid-overlay-run"
+                | "live-hybrid-state-transition-smoke"
+                | "live-hybrid-durable-checkpoint-smoke"
+                | "distributed-local-fixture-run"
+        )
+    ) {
+        command.args(["--memory-gb", "4", "--max-parallelism", "2"]);
+    }
+    let output = command
         .args(["--format", "json"])
         .output()
         .expect("shardloom command runs");

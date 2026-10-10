@@ -50,10 +50,15 @@ fn create_blob_sqlite_fixture(path: &Path) {
 }
 
 fn run_json(args: &[String]) -> String {
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
-        .output()
-        .expect("command runs");
+    let mut command = Command::new(env!("CARGO_BIN_EXE_shardloom"));
+    command.args(args);
+    if matches!(
+        args.first().map(String::as_str),
+        Some("sqlite-local-import-export-smoke")
+    ) {
+        command.args(["--memory-gb", "4", "--max-parallelism", "2"]);
+    }
+    let output = command.output().expect("command runs");
     assert!(
         output.status.success(),
         "stdout={} stderr={}",
@@ -69,10 +74,15 @@ fn run_json(args: &[String]) -> String {
 }
 
 fn run_json_error(args: &[String]) -> String {
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
-        .output()
-        .expect("command runs");
+    let mut command = Command::new(env!("CARGO_BIN_EXE_shardloom"));
+    command.args(args);
+    if matches!(
+        args.first().map(String::as_str),
+        Some("sqlite-local-import-export-smoke")
+    ) {
+        command.args(["--memory-gb", "4", "--max-parallelism", "2"]);
+    }
+    let output = command.output().expect("command runs");
     assert!(
         !output.status.success(),
         "stdout={} stderr={}",

@@ -6,7 +6,7 @@ const selectedPackageReleaseTag = release.selected_v0_1_0_release_tag;
 
 const pythonFrontDoorSnippet = `import shardloom as sl
 
-ctx = sl.context()
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 result = (
     ctx.read("data/orders.csv")
        .filter(sl.col("status") == "paid")
@@ -30,6 +30,7 @@ print(result.fallback_attempted, result.external_engine_invoked)`;
     <div>
       <h2>1. Install a package</h2>
       <p class="narrow">Choose PyPI for Python or Homebrew for the CLI. Check <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md">package installation</a> for platform requirements, bundled CLI support, and exact release commands.</p>
+      <p class="narrow">The resource-configured examples below use the current <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md">source build</a>. Published v0.5.1 packages retain their release-time API and have not been replaced.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">Terminal</div>
@@ -55,7 +56,7 @@ brew install depsilon/tap/shardloom</code></pre>
   <section class="section-grid">
     <div>
       <h2>3. Run and inspect</h2>
-      <p class="narrow">Compatibility inputs prepare through Vortex. Unchanged sources can reuse their prepared artifact; each call still executes its query. Inspect row count and no-fallback evidence, then try the <a href="/field-guide/python-surface">Python guide</a> or <a href="/field-guide/runtime-and-io">input/output reference</a>.</p>
+      <p class="narrow">Compatibility inputs prepare through Vortex. Unchanged sources can reuse their prepared artifact; each call still executes its query. This example uses illustrative caller-declared limits of 16 GiB and 8 lanes; they are not defaults or recommendations. Inspect row count and no-fallback evidence, then try the <a href="/field-guide/python-surface">Python guide</a> or <a href="/field-guide/runtime-and-io">input/output reference</a>.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">Python</div>
@@ -70,7 +71,7 @@ brew install depsilon/tap/shardloom</code></pre>
     </div>
     <div class="code-panel">
       <div class="panel-label">Terminal · Homebrew</div>
-      <pre><code>shardloom run sql --input data/orders.csv --sql "SELECT * FROM 'data/orders.csv' WHERE status = 'paid' LIMIT 10" --request collect --format json</code></pre>
+      <pre><code>shardloom run sql --input data/orders.csv --sql "SELECT * FROM 'data/orders.csv' WHERE status = 'paid' LIMIT 10" --request collect --memory-gb 16 --max-parallelism 8 --format json</code></pre>
     </div>
   </section>
   <section>
@@ -80,7 +81,7 @@ brew install depsilon/tap/shardloom</code></pre>
       <summary>Maintainer checks from a source checkout</summary>
       <p>Follow <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md">source checkout installation</a> first. The selected local/source/package v1 release track is GitHub prerelease + TestPyPI/PyPI + Homebrew; source checks and publication proofs are separate.</p>
       <pre><code>python scripts\release_dry_run_proof.py --rows 64 --iterations 1
-python examples\local-python-smoke\run.py --repo-root .
+python examples\local-python-smoke\run.py --repo-root . --memory-gb 16 --max-parallelism 8
 python scripts\check_python_user_surface_completion.py
 python scripts\check_production_usability_gate.py</code></pre>
     </details>

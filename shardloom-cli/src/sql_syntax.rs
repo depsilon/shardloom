@@ -12145,8 +12145,13 @@ mod tests {
             allow_overwrite,
             certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
-            memory_gb: 4,
-            max_parallelism: 2,
+            resources: shardloom_core::ExecutionResources::from_gib(
+                4,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+            shared_memory_pool: None,
             source_fingerprint_policy: SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE,
             delta: None,
             prepared_source_binding: None,
@@ -12453,8 +12458,12 @@ mod tests {
         fs::write(&source, "id,label\n1,alpha\n2,beta\n").expect("write csv source");
 
         let mut request = vortex_ingest_reuse_request(source, target, false);
-        request.memory_gb = 6;
-        request.max_parallelism = 4;
+        request.resources = shardloom_core::ExecutionResources::from_gib(
+            6,
+            4,
+            shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+        )
+        .expect("explicit fixture allocation");
 
         let outcome = run_vortex_prepare(request)
             .expect("csv source writes Vortex artifact with explicit max parallelism");
@@ -12753,8 +12762,7 @@ mod tests {
         writer.write(&batch).expect("write parquet batch");
         writer.close().expect("close parquet writer");
 
-        let mut request = vortex_ingest_reuse_request(source, target, false);
-        request.max_parallelism = 2;
+        let request = vortex_ingest_reuse_request(source, target, false);
         let outcome = run_vortex_prepare(request)
             .expect("parquet source writes Vortex artifact through public prepare");
         let report = prepared_vortex_ingest_report(outcome);

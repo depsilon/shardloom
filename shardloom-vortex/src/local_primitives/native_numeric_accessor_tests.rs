@@ -1087,7 +1087,8 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
         let error = crate::local_primitives::read_prepared_vortex_simple_aggregate_scan(
             request.source_uri.as_ref().unwrap(),
             request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             &file,
             &denied_session,
             &runtime,
@@ -1108,7 +1109,8 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
     assert_query_denied(&request);
     let report = execute_vortex_local_primitive_with_policy(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert!(!report.fallback_execution_allowed);
@@ -1161,7 +1163,8 @@ fn persisted_numeric_utf8_grouping_uses_typed_native_decode_and_exact_reference(
     assert_query_denied(&scalar);
     let report = execute_vortex_local_primitive_with_policy(
         &scalar,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     let (_, payload) = report

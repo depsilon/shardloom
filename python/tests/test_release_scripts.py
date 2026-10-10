@@ -7782,7 +7782,7 @@ jobs:
             stdout = io.StringIO()
             with contextlib.redirect_stdout(stdout):
                 returncode = module.main(
-                    ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli)]
+                    ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli), "--memory-gb", "4", "--max-parallelism", "2"]
                 )
 
             output = stdout.getvalue()
@@ -7815,7 +7815,8 @@ jobs:
             repeated_stdout = io.StringIO()
             with contextlib.redirect_stdout(repeated_stdout):
                 self.assertEqual(module.main(
-                    ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli)]
+                    ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli),
+                     "--memory-gb", "4", "--max-parallelism", "2"]
                 ), 0)
             repeated_path = Path(next(
                 line.split("=", 1)[1] for line in repeated_stdout.getvalue().splitlines()
@@ -7892,7 +7893,11 @@ jobs:
                     stdout = io.StringIO()
                     with contextlib.redirect_stdout(stdout):
                         returncode = module.main(
-                            ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli)]
+                            [
+                                "--repo-root", str(repo_root),
+                                "--shardloom-bin", str(fake_cli),
+                                "--memory-gb", "4", "--max-parallelism", "2",
+                            ]
                         )
                     self.assertEqual(returncode, 1, stdout.getvalue())
                     self.assertIn("quickstart_user_surface_status=failed", stdout.getvalue())

@@ -240,7 +240,10 @@ impl CountWorkers {
 
 /// A source-shape precheck only. Schema and existing physical state gates below
 /// still decide admission before any worker contributes to an aggregate.
-pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+pub(super) fn request_may_be_admitted(
+    request: &VortexQueryPrimitiveRequest,
+    envelope: super::VortexLocalPrimitiveResourceEnvelope,
+) -> bool {
     if super::scalar_distinct_workers::request_may_be_admitted(request) {
         return true;
     }
@@ -250,7 +253,7 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
     if super::mixed_distinct_workers::request_may_be_admitted(request) {
         return true;
     }
-    if super::pair_partition_workers::request_may_be_admitted(request) {
+    if super::pair_partition_workers::request_may_be_admitted(request, envelope) {
         return true;
     }
     if super::triple_count_workers::request_may_be_admitted(request) {
@@ -277,9 +280,6 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
     // The request precheck must not discard the physical-key proof before
     // schema admission. Construct the same lowering state, without any source
     // access or worker allocation. Actual admission still checks native dtype.
-    let Ok(envelope) = super::VortexLocalPrimitiveResourceEnvelope::new(1, 1) else {
-        return false;
-    };
     GroupedAggregateStates::new_with_resource_envelope(
         aggregate,
         request.source_order_limit,
@@ -296,20 +296,27 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
 pub(super) fn restore_provider_drivers(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
+    envelope: super::VortexLocalPrimitiveResourceEnvelope,
 ) -> bool {
-    if super::pair_partition_workers::request_may_be_admitted(request) {
-        return !super::pair_partition_workers::request_schema_may_be_admitted(request, dtype);
+    if super::pair_partition_workers::request_may_be_admitted(request, envelope) {
+        return !super::pair_partition_workers::request_schema_may_be_admitted(
+            request, dtype, envelope,
+        );
     }
     if super::triple_count_workers::request_may_be_admitted(request) {
-        return !super::triple_count_workers::request_schema_may_be_admitted(request, dtype);
+        return !super::triple_count_workers::request_schema_may_be_admitted(
+            request, dtype, envelope,
+        );
     }
     if super::exact_distinct_pairs::workers::request_may_be_admitted(request) {
         return !super::exact_distinct_pairs::workers::request_schema_may_be_admitted(
-            request, dtype,
-        ) && !super::compound_count_workers::request_schema_may_be_admitted(request, dtype);
+            request, dtype, envelope,
+        ) && !super::compound_count_workers::request_schema_may_be_admitted(
+            request, dtype, envelope,
+        );
     }
     super::required_simple_aggregate(request).is_ok_and(|aggregate| aggregate.group_by.len() == 2)
-        && !super::compound_count_workers::request_schema_may_be_admitted(request, dtype)
+        && !super::compound_count_workers::request_schema_may_be_admitted(request, dtype, envelope)
 }
 
 pub(super) struct SingleCountWorkers {

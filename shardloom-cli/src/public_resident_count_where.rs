@@ -62,8 +62,7 @@ pub(super) fn run_with_source(
         ("output_row_count".into(), "1".into()),
     ]);
     let local = vortex_primitive_execution::VortexLocalPrimitiveCliExecutionEvidence {
-        memory_gb: executed.report.resource_envelope.memory_budget_bytes / (1024 * 1024 * 1024),
-        max_parallelism: executed.report.max_parallelism_requested,
+        resources: executed.report.resource_envelope.declared_resources,
         report: executed.report,
         native_io_certificate: executed.native_io_certificate,
         // This call executes the source, not an independent correctness oracle.
@@ -76,6 +75,7 @@ pub(super) fn run_with_source(
         &mut fields,
         Some(&local),
     );
+    crate::execution_resources::append_resident_snapshot_fields(&mut fields, &executed.runtime);
     emit(
         "run",
         format,

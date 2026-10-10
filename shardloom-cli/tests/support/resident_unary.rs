@@ -19,9 +19,10 @@ impl Worker {
             primitive,
             "--memory-gb",
             "1",
-            "--max-parallelism",
-            "2",
         ];
+        if !extra.contains(&"--max-parallelism") {
+            args.extend(["--max-parallelism", "2"]);
+        }
         args.extend_from_slice(extra);
         self.request(&args)
     }

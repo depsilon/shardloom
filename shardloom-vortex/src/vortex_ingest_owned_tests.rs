@@ -95,6 +95,148 @@ fn path(label: &str) -> PathBuf {
     ))
 }
 
+struct ResourceObservedReader {
+    inner: Box<dyn arrow_array::RecordBatchReader + Send>,
+    pulls: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl Iterator for ResourceObservedReader {
+    type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.pulls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.inner.next()
+    }
+}
+
+impl arrow_array::RecordBatchReader for ResourceObservedReader {
+    fn schema(&self) -> arrow_schema::SchemaRef {
+        self.inner.schema()
+    }
+}
+
+fn resource_observed_source() -> (
+    FlatLocalColumnarStreamSource,
+    Arc<std::sync::atomic::AtomicUsize>,
+) {
+    let mut source = source(vec![batch(0)], false);
+    let pulls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    source.reader = Box::new(ResourceObservedReader {
+        inner: source.reader,
+        pulls: Arc::clone(&pulls),
+    });
+    (source, pulls)
+}
+
+#[test]
+fn source_adapters_reject_zero_parallelism_before_pull_or_open() {
+    let (source, pulls) = resource_observed_source();
+    let error =
+        crate::universal_format_io::with_capillary_prefetch_columnar_stream_source(source, 0)
+            .err()
+            .expect("zero must not create an executor");
+    assert_eq!(
+        error.to_diagnostic().code,
+        shardloom_core::DiagnosticCode::ConfigurationError
+    );
+    assert_eq!(pulls.load(std::sync::atomic::Ordering::Relaxed), 0);
+    let absent = path("absent-parquet");
+    let error = crate::universal_format_io::stream_flat_parquet_columnar_source_with_parallelism(
+        &absent, 1, 0,
+    )
+    .err()
+    .expect("zero must fail before opening the source");
+    assert_eq!(
+        error.to_diagnostic().code,
+        shardloom_core::DiagnosticCode::ConfigurationError
+    );
+    assert!(!absent.exists());
+}
+
+#[test]
+fn explicit_writer_allocation_rejects_mismatches_before_input_or_output() {
+    use shardloom_core::{DiagnosticCode, ExecutionResourceOrigin, ExecutionResources};
+    for case in ["memory", "parallelism", "prefetch"] {
+        let output = path(case);
+        let (mut source, pulls) = resource_observed_source();
+        if case == "parallelism" {
+            source.ingest_executor_requested_parallelism = 2;
+        }
+        let memory_bytes = if case == "prefetch" { 1 } else { 1 << 20 };
+        let mut request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &output,
+            source,
+            ExecutionResources::from_bytes(memory_bytes, 1, ExecutionResourceOrigin::ExecutionCall)
+                .unwrap(),
+        );
+        if case == "memory" {
+            request = request.shared_native_memory_pool(LiveMemoryPool::new(2 << 20).unwrap());
+        }
+        let error = write_flat_columnar_vortex_prepared_state_streaming(request).unwrap_err();
+        assert_eq!(
+            error.to_diagnostic().code,
+            DiagnosticCode::ConfigurationError,
+            "{case}: {error}"
+        );
+        assert!(!error.to_diagnostic().fallback.attempted);
+        assert_eq!(
+            pulls.load(std::sync::atomic::Ordering::Relaxed),
+            0,
+            "{case}"
+        );
+        assert!(!output.exists(), "{case}");
+    }
+}
+
+#[test]
+fn writer_shares_retained_input_credits_and_recovers_after_admission_denial() {
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+    let memory_bytes = 16 << 20;
+    let resources =
+        ExecutionResources::from_bytes(memory_bytes, 1, ExecutionResourceOrigin::Context).unwrap();
+    let memory = LiveMemoryPool::new(memory_bytes).unwrap();
+    let mut retained = memory.reserve(15 << 20).unwrap();
+    let output = path("shared-retained-owner");
+    let (source, pulls) = resource_observed_source();
+    let error = write_flat_columnar_vortex_prepared_state_streaming(
+        VortexPreparedStateColumnarStreamWriteRequest::new(&output, source, resources)
+            .shared_native_memory_pool(memory.clone()),
+    )
+    .unwrap_err();
+    assert!(
+        error.to_string().contains("memory reservation denied"),
+        "{error}"
+    );
+    assert_eq!(pulls.load(std::sync::atomic::Ordering::Relaxed), 0);
+    assert!(!output.exists());
+    assert_eq!(memory.snapshot().reserved_bytes, retained.bytes());
+    assert!(memory.snapshot().denied_reservations > 0);
+
+    retained.resize(64 << 10).unwrap();
+    let (source, pulls) = resource_observed_source();
+    let report = write_flat_columnar_vortex_prepared_state_streaming(
+        VortexPreparedStateColumnarStreamWriteRequest::new(&output, source, resources)
+            .shared_native_memory_pool(memory.clone()),
+    )
+    .unwrap();
+    assert_eq!(report.row_count, 3);
+    assert_eq!(report.resources, resources);
+    assert!(pulls.load(std::sync::atomic::Ordering::Relaxed) > 0);
+    let observed = report.shared_native_memory.unwrap();
+    assert_eq!(observed.limit_bytes, memory_bytes);
+    assert_eq!(observed.final_reserved_bytes, retained.bytes());
+    assert_eq!(
+        observed.peak_reserved_bytes,
+        memory.snapshot().peak_reserved_bytes
+    );
+    assert!(observed.peak_reserved_bytes <= memory_bytes);
+    assert_eq!(memory.snapshot().reserved_bytes, retained.bytes());
+    drop(retained);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    fs::remove_file(output).unwrap();
+}
+
 #[test]
 fn bounded_table_subtrees_round_trip_values_and_release_shared_memory() {
     // A timeout detects regressions in child EOF ordering. The source is tiny;
@@ -108,8 +250,17 @@ fn bounded_table_subtrees_round_trip_values_and_release_shared_memory() {
             .map(|batch| arrow_record_batch_to_vortex_array(batch.clone()).unwrap())
             .collect::<Vec<_>>();
         let report = write_flat_columnar_vortex_prepared_state_streaming(
-            VortexPreparedStateColumnarStreamWriteRequest::new(&path, source(batches, false))
-                .shared_native_memory_budget_bytes(32 << 20),
+            VortexPreparedStateColumnarStreamWriteRequest::new(
+                &path,
+                source(batches, false),
+                shardloom_core::ExecutionResources::from_gib(
+                    4,
+                    8,
+                    shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                )
+                .expect("explicit fixture allocation"),
+            )
+            .shared_native_memory_budget_bytes(32 << 20),
         )
         .unwrap();
         assert_eq!(report.row_count, 18);
@@ -137,7 +288,7 @@ fn bounded_table_subtrees_round_trip_values_and_release_shared_memory() {
             .collect::<BTreeMap<_, _>>();
         assert_eq!(
             evidence["vortex_shared_native_memory_scope"],
-            "copied_native_input_buffers;prefetch_admission;native_host_allocator;root_layout_references"
+            "shared_pool_lifetime_including_other_retained_native_owners;copied_native_input_buffers;prefetch_admission;native_host_allocator;root_layout_references"
         );
         assert!(
             evidence["vortex_shared_native_memory_exclusions"]
@@ -187,8 +338,17 @@ fn bounded_table_subtrees_round_trip_values_and_release_shared_memory() {
 fn owned_empty_stream_and_failures_preserve_output_atomicity() {
     let empty = path("empty");
     let report = write_flat_columnar_vortex_prepared_state_streaming(
-        VortexPreparedStateColumnarStreamWriteRequest::new(&empty, source(Vec::new(), false))
-            .shared_native_memory_budget_bytes(1 << 20),
+        VortexPreparedStateColumnarStreamWriteRequest::new(
+            &empty,
+            source(Vec::new(), false),
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .shared_native_memory_budget_bytes(1 << 20),
     )
     .unwrap();
     assert_eq!(report.row_count, 0);
@@ -200,6 +360,12 @@ fn owned_empty_stream_and_failures_preserve_output_atomicity() {
             VortexPreparedStateColumnarStreamWriteRequest::new(
                 &output,
                 source(vec![batch(0)], error),
+                shardloom_core::ExecutionResources::from_gib(
+                    4,
+                    8,
+                    shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                )
+                .expect("explicit fixture allocation"),
             )
             .shared_native_memory_budget_bytes(budget),
         );
@@ -295,8 +461,17 @@ fn check_owned_batch_hints(
     input.row_count_hint = row_hint;
     input.record_batch_count_hint = batch_hint;
     let report = write_flat_columnar_vortex_prepared_state_streaming(
-        VortexPreparedStateColumnarStreamWriteRequest::new(&output, input)
-            .shared_native_memory_budget_bytes(32 << 20),
+        VortexPreparedStateColumnarStreamWriteRequest::new(
+            &output,
+            input,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .shared_native_memory_budget_bytes(32 << 20),
     )
     .unwrap();
     assert_eq!(report.row_count, u64::try_from(expected_rows).unwrap());
@@ -507,7 +682,7 @@ fn shared_stream_poll_yields_without_driving_conversion_and_retains_teardown_own
 
     // No background driver: a poll must report Pending, rather than entering
     // the executor recursively to complete the conversion it is waiting for.
-    let runtime = crate::ingest_runtime::IngestRuntime::new(1);
+    let runtime = crate::ingest_runtime::IngestRuntime::new(1).unwrap();
     let input = source(vec![batch(1)], false);
     let shape = validate_flat_columnar_stream_source_shape(&input).unwrap();
     let first = arrow_record_batch_to_vortex_array(batch(0)).unwrap();
@@ -611,7 +786,8 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
         });
         let mut input = crate::universal_format_io::with_capillary_prefetch_columnar_stream_source(
             input, grant,
-        );
+        )
+        .unwrap();
         let shape = validate_flat_columnar_stream_source_shape(&input).unwrap();
         let advisor = parallel_codec.then(|| {
             // Select the existing large-source codec policy on this tiny

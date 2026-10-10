@@ -38,8 +38,10 @@ fn strings(values: &[&str]) -> ArrayRef {
 
 fn text_source(fixture: &Fixture, batches: Vec<ArrayRef>) -> PathBuf {
     let path = fixture.0.join("source.vortex");
-    let runtime =
-        runtime::local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = runtime::local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let dtype = DType::struct_(
         [(KEY, batches[0].dtype().clone())],
@@ -192,7 +194,8 @@ fn owned_utf8_count_complete_dictionary_domains_ties_offsets_and_native_pressure
                 let query = text_request(&path, offset, 5, explicit_tie);
                 let prepared = prepare_aggregate(
                     &query,
-                    VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+                    VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4)
+                        .unwrap(),
                 )
                 .unwrap();
                 let memory = prepared.session.memory().clone();
@@ -320,8 +323,11 @@ fn owned_utf8_count_cloned_children_and_slices_outlive_source_and_result() {
     let fixture = Fixture::new();
     let path = text_source(&fixture, vec![strings(&["東京", "é", "東京", "", "é"])]);
     let query = text_request(&path, 0, 3, false);
-    let prepared =
-        prepare_aggregate(&query, VortexLocalPrimitiveExecutionPolicy::new(4).unwrap()).unwrap();
+    let prepared = prepare_aggregate(
+        &query,
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
+    )
+    .unwrap();
     let memory = prepared.session.memory().clone();
     let result = prepared.execute_owned().unwrap();
     let array = result.result.arrays()[0].clone();
@@ -369,7 +375,7 @@ fn prepared_utf8_count_reuses_one_source_and_invalidates_filtered_and_empty_resu
         });
         let disposition = prepare_aggregate_for_optional_reuse(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap()
         .unwrap();
@@ -410,9 +416,11 @@ fn owned_utf8_count_empty_native_sink_retains_utf8_schema_and_zero_offset() {
         let fixture = Fixture::new();
         let path = text_source(&fixture, vec![strings(&values)]);
         let query = text_request(&path, 0, 3, false);
-        let prepared =
-            prepare_aggregate(&query, VortexLocalPrimitiveExecutionPolicy::new(2).unwrap())
-                .unwrap();
+        let prepared = prepare_aggregate(
+            &query,
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
+        )
+        .unwrap();
         let result = prepared.execute_owned().unwrap();
         assert_eq!(
             native_rows(&result.result.arrays()[0], KEY, COUNT),
@@ -524,7 +532,7 @@ fn owned_utf8_count_admission_rejects_nullable_wrong_shape_and_unbounded_outputs
                 .is_err()
         );
         assert!(!runtime::aggregate_owned::utf8_count_admitted(
-            &invalid, &dtype
+            &invalid, &dtype, &session
         ));
         assert_eq!(session.memory().snapshot().reserved_bytes, 0);
     }
@@ -577,7 +585,7 @@ fn prepared_utf8_count_retains_nullable_schema_without_reopening() {
     let query = text_request(&path, 0, 3, false);
     let disposition = prepare_aggregate_for_optional_reuse(
         &query,
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap()
     .unwrap();
@@ -632,7 +640,7 @@ fn owned_utf8_count_native_constant_and_sliced_view_sources_preserve_logical_val
         let path = text_source(&fixture, vec![keys]);
         let prepared = prepare_aggregate(
             &text_request(&path, 0, 3, false),
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         let result = prepared.execute_owned().unwrap();
@@ -662,8 +670,11 @@ fn check_large_complete_output(repeats: u64) {
     // Both must produce every requested native output without JSON construction.
     let path = text_source(&fixture, (0..repeats).map(|_| strings(&refs)).collect());
     let query = text_request(&path, 0, keys.len(), false);
-    let prepared =
-        prepare_aggregate(&query, VortexLocalPrimitiveExecutionPolicy::new(4).unwrap()).unwrap();
+    let prepared = prepare_aggregate(
+        &query,
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
+    )
+    .unwrap();
     let memory = prepared.session.memory().clone();
     let baseline = memory.snapshot().reserved_bytes;
     let result = prepared.execute_owned().unwrap();
@@ -735,7 +746,7 @@ fn owned_utf8_count_global_winner_and_typed_source_replay_preserve_complete_resu
         );
         let prepared = prepare_aggregate(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::new(PARALLELISM).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(PARALLELISM, 4).unwrap(),
         )
         .unwrap();
         let memory = prepared.session.memory().clone();
@@ -810,9 +821,11 @@ fn owned_utf8_count_compatibility_sinks_keep_native_schema_and_all_values() {
                 })],
             );
             let query = text_request(&path, 0, 3, false);
-            let prepared =
-                prepare_aggregate(&query, VortexLocalPrimitiveExecutionPolicy::new(2).unwrap())
-                    .unwrap();
+            let prepared = prepare_aggregate(
+                &query,
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
+            )
+            .unwrap();
             let result = prepared.execute_owned().unwrap();
             let session = prepared.session.clone();
             drop(prepared);

@@ -168,7 +168,8 @@ pub use execution_certificate::{
     plan_execution_certificate_evidence_surface,
 };
 pub use execution_resources::{
-    ExecutionResourceLimits, ExecutionResourceOrigin, ExecutionResourceRequest, ExecutionResources,
+    BYTES_PER_GIB, ExecutionResourceLimits, ExecutionResourceOrigin, ExecutionResourceRequest,
+    ExecutionResources,
 };
 pub use extension::{
     DeterministicEmbeddingVectorFixtureReport, DeterministicScalarUdfFixtureReport,

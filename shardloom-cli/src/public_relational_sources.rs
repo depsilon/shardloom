@@ -80,7 +80,7 @@ pub(super) fn prepare_with_input_adapter(
                 initialize(schemas)?;
                 register_memory_inputs(schemas, request, &mut build)
             },
-            |path| sources.resolve(path, request),
+            |path, memory| sources.resolve(path, request, memory),
         )?
     } else {
         native_relational::prepare_with_inputs(
@@ -90,7 +90,7 @@ pub(super) fn prepare_with_input_adapter(
                 initialize(schemas)?;
                 register_memory_inputs(schemas, request, &mut build)
             },
-            |path| sources.resolve(path, request),
+            |path, memory| sources.resolve(path, request, memory),
         )?
     };
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -309,6 +309,7 @@ impl Sources {
         &mut self,
         leaf: &native_relational::ParsedRelationLeaf,
         request: &PublicWorkflowRouteRequest,
+        memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     ) -> Result<Vec<DatasetUri>, ShardLoomError> {
         let path = declared_path(leaf, request)?;
         if let Some(uri) = self.bound.get(&path) {
@@ -331,7 +332,7 @@ impl Sources {
         } else if format == "memory" {
             vec![DatasetUri::new(raw)?]
         } else {
-            vec![self.prepare_compatibility(raw, format, request)?]
+            vec![self.prepare_compatibility(raw, format, request, memory)?]
         };
         if self.bound.values().map(Vec::len).sum::<usize>() + uris.len() > 128 {
             return Err(failed("SQL exceeds 128 source files"));
@@ -346,6 +347,7 @@ impl Sources {
         source: &str,
         format: &str,
         request: &PublicWorkflowRouteRequest,
+        memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     ) -> Result<DatasetUri, ShardLoomError> {
         let schema = request
             .source_bindings
@@ -357,14 +359,14 @@ impl Sources {
                     .flatten()
             });
         let target = auto_prepared_vortex_target_path_with_schema(source, format, schema);
-        let (memory, parallelism) = public_workflow_effective_resource_envelope(request)?;
+        let resources = public_workflow_effective_resource_envelope(request)?;
         let preparation = prepare_local_source_for_public_workflow(
             source,
             format,
             &target,
             false,
+            resources,
             memory,
-            parallelism,
             request.source_fingerprint_policy.as_deref(),
             schema,
         )
@@ -390,6 +392,7 @@ impl Sources {
         _source: &str,
         _format: &str,
         _request: &PublicWorkflowRouteRequest,
+        _memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     ) -> Result<DatasetUri, ShardLoomError> {
         Err(failed(
             "compatibility normalization requires vortex-write and universal-format-io",
@@ -408,6 +411,132 @@ mod tests {
     use super::super::super::PublicSourceBinding;
     use super::*;
 
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn compatibility_preparation_competes_with_retained_native_inputs() {
+        use shardloom_exec::compute_pool::CancellationToken;
+        struct Directory(PathBuf);
+        impl Drop for Directory {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let fixture = Directory(std::env::temp_dir().join(format!(
+            "shardloom-shared-prepare-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+        )));
+        std::fs::create_dir(&fixture.0).unwrap();
+        let source = fixture.0.join("input.csv");
+        std::fs::write(&source, "value\n1\n2\n").unwrap();
+        let source_uri = source.to_str().unwrap();
+        let target =
+            auto_prepared_vortex_target_path_with_schema(source_uri, "csv", Some("value:int64"));
+        let mut request = PublicWorkflowRouteRequest::new("sql".into());
+        request.resources.memory_bytes = Some((8_u64 << 20).to_string());
+        request.resources.max_parallelism = Some("1".into());
+        request.input_uri = Some("memory://held".into());
+        request.input_format = Some("memory".into());
+        request.bounded = true;
+        request.source_bindings = super::super::super::parse_public_source_bindings(&serde_json::json!({
+            "memory://held":{"input_format":"memory","memory_input":{"kind":"range","start":1,"end":2,"step":1,"column":"n"}},
+            source_uri:{"input_format":"csv","source_schema":"value:int64"},
+        }).to_string()).unwrap();
+        let sql = format!(
+            "SELECT r.n AS n,c.value AS value FROM 'memory://held' AS r JOIN '{source_uri}' AS c ON r.n = c.value"
+        );
+        request.sql_statement = Some(sql.clone());
+        let mut retained = None;
+        let mut shared_memory = None;
+        let error = prepare_with_input_adapter(
+            &sql,
+            &request,
+            None,
+            PublicSourcePreparations::default(),
+            |schemas| {
+                retained = Some(schemas.reserve_input_scratch(7 << 20)?);
+                shared_memory = Some(schemas.shared_memory_pool());
+                Ok(())
+            },
+            |_, input, session| input.build(session),
+        )
+        .err()
+        .expect("retained native state must reduce available preparation memory");
+        assert!(
+            error.to_string().contains("memory reservation denied"),
+            "{error}"
+        );
+        assert!(!target.exists());
+        let memory = shared_memory.unwrap();
+        assert_eq!(
+            memory.snapshot().reserved_bytes,
+            retained.as_ref().unwrap().bytes()
+        );
+        drop(retained);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+        let (operation, normalized) =
+            prepare_with_source(&sql, &request, None, PublicSourcePreparations::default()).unwrap();
+        assert_eq!(normalized, 2);
+        assert_eq!(operation.snapshot().memory.limit_bytes, 8 << 20);
+        let result = operation
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(result.result_jsonl.value(), "{\"n\":1,\"value\":1}\n");
+        assert!(
+            !result
+                .execution
+                .native_io_certificate
+                .source_capability_report
+                .fallback_attempted
+        );
+        assert!(target.exists());
+        let mut fields = Vec::new();
+        super::super::append_execution(&mut fields, &result.execution, false);
+        let evidence = fields
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(
+            evidence["execution_resource_declared_memory_bytes"],
+            (8_u64 << 20).to_string()
+        );
+        assert_eq!(
+            evidence["execution_resource_declared_memory_gb"],
+            "unavailable"
+        );
+        assert_eq!(
+            evidence["execution_resource_memory_origin"],
+            "execution_call"
+        );
+        assert_eq!(
+            evidence["execution_resource_admitted_memory_bytes"],
+            (8_u64 << 20).to_string()
+        );
+        assert_eq!(evidence["execution_resource_admitted_max_parallelism"], "1");
+        assert_eq!(
+            evidence["execution_resource_observed_native_peak_reserved_bytes"],
+            result
+                .execution
+                .runtime
+                .memory
+                .peak_reserved_bytes
+                .to_string()
+        );
+        assert!(
+            evidence["execution_resource_memory_observation_scope"]
+                .contains("session_pool_lifetime")
+        );
+        assert_eq!(
+            evidence["execution_resource_observed_peak_active_lanes"],
+            "unavailable"
+        );
+        assert_eq!(
+            evidence["execution_resource_whole_process_memory_limit_enforced"],
+            "false"
+        );
+    }
+
     #[test]
     fn native_streaming_join_source_admission_allows_resident_on_either_side() {
         use crate::native_memory_input::{MemoryInput, MemoryRow};
@@ -416,6 +545,8 @@ mod tests {
             serde_json::json!({"kind":"batches","schema":[["n","int64"]],"streaming":true});
         for stream_right in [false, true] {
             let mut request = PublicWorkflowRouteRequest::new("sql".into());
+            request.resources.memory_gb = Some("4".into());
+            request.resources.max_parallelism = Some("2".into());
             request.input_uri = Some("memory://stream".into());
             request.input_format = Some("memory".into());
             request.bounded = true;
@@ -494,6 +625,8 @@ mod tests {
             serde_json::json!({"kind":"batches","schema":[["n","int64"]],"streaming":true});
         for second_streams in [false, true] {
             let mut request = PublicWorkflowRouteRequest::new("sql".into());
+            request.resources.memory_gb = Some("4".into());
+            request.resources.max_parallelism = Some("2".into());
             request.input_uri = Some("memory://stream".into());
             request.input_format = Some("memory".into());
             request.bounded = true;
@@ -532,6 +665,8 @@ mod tests {
             serde_json::json!({"kind":"range","start":1,"end":4,"step":1,"column":"n"}),
         ] {
             let mut request = PublicWorkflowRouteRequest::new("sql".into());
+            request.resources.memory_gb = Some("4".into());
+            request.resources.max_parallelism = Some("2".into());
             request.input_uri = Some("memory://rows".into());
             request.input_format = Some("memory".into());
             request.bounded = true;

@@ -14,16 +14,13 @@ use std::{
 
 use shardloom_core::{
     CommandStatus, DatasetUri, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
-    FallbackStatus, OutputFormat, ShardLoomError,
+    ExecutionResources, FallbackStatus, OutputFormat, ShardLoomError,
 };
 
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
-    runtime_defaults::{
-        MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM, default_public_local_runtime_max_parallelism,
-        default_public_local_runtime_memory_gb,
-    },
+    execution_resources::ResourceArguments,
     sql_local_source_runtime, vortex_planning, vortex_primitive_execution,
 };
 
@@ -47,6 +44,7 @@ struct PublicWorkflowRouteRequest {
     input_format: Option<String>,
     source_schema: Option<String>,
     source_bindings: std::collections::BTreeMap<String, PublicSourceBinding>,
+    raw_source_bindings: Option<String>,
     sql_statement: Option<String>,
     plan_summary: Option<String>,
     requested_output: String,
@@ -77,8 +75,7 @@ struct PublicWorkflowRouteRequest {
     vortex_rolling_window: Option<String>,
     vortex_aggregate: Option<String>,
     vortex_sort_rows: Option<String>,
-    memory_gb: Option<String>,
-    max_parallelism: Option<String>,
+    resources: ResourceArguments,
     spill: Option<spill::Options>,
 }
 
@@ -306,7 +303,7 @@ pub(crate) fn handle_public_workflow_run(
     format: OutputFormat,
     execution_session: &mut PublicExecutionSession,
 ) -> ExitCode {
-    let request = match PublicWorkflowRouteRequest::parse(args) {
+    let request = match PublicWorkflowRouteRequest::parse_execution(args) {
         Ok(request) => request,
         Err(error) => {
             execution_session.clear();
@@ -374,7 +371,7 @@ pub(crate) fn handle_batch_workflow(
     args: impl Iterator<Item = String>,
     transport: &mut crate::python_batch_protocol::Transport,
 ) -> ExitCode {
-    let request = match PublicWorkflowRouteRequest::parse(args) {
+    let request = match PublicWorkflowRouteRequest::parse_execution(args) {
         Ok(request) => effective_public_workflow_request(&request),
         Err(error) => {
             return emit_error(
@@ -1029,6 +1026,23 @@ fn append_native_vortex_primitive_row_export_fields(
     report: &shardloom_vortex::VortexLocalPrimitiveRowExportReport,
 ) {
     append_hot_runtime_timing_surface_fields(fields);
+    if report.status == shardloom_vortex::VortexLocalPrimitiveExecutionStatus::Executed {
+        crate::execution_resources::append_admission_fields(
+            fields,
+            report.resource_envelope.memory_budget_bytes,
+            report.resource_envelope.max_parallelism,
+            "native_operator_policy_ceiling;runtime_may_use_fewer_lanes",
+        );
+        crate::execution_resources::append_spill_observation_fields(
+            fields,
+            report.evidence.side_effects.spill_io_performed,
+            report
+                .state_budget
+                .native_weighted_count_spill
+                .as_ref()
+                .map(|spill| spill.native_bytes_written),
+        );
+    }
     push_field(fields, "mode", "native_vortex_primitive_row_export");
     push_field(
         fields,
@@ -1140,6 +1154,12 @@ fn append_native_array_sink_fields(
     fields: &mut Vec<(String, String)>,
     evidence: &shardloom_vortex::VortexNativeArraySinkEvidence,
 ) {
+    crate::execution_resources::append_memory_observation_fields(
+        fields,
+        None,
+        evidence.peak_reserved_bytes,
+        "session_pool_lifetime_including_retained_owners;excludes_provider_bypass_allocations_and_process_rss",
+    );
     for (name, value) in [
         (
             "arrays_submitted",
@@ -1253,6 +1273,10 @@ fn append_local_primitive_resource_envelope_fields(
     fields: &mut Vec<(String, String)>,
     resource_envelope: &shardloom_vortex::VortexLocalPrimitiveResourceEnvelope,
 ) {
+    crate::execution_resources::append_declaration_fields(
+        fields,
+        resource_envelope.declared_resources,
+    );
     push_field(
         fields,
         "local_primitive_resource_envelope_schema_version",
@@ -1266,7 +1290,9 @@ fn append_local_primitive_resource_envelope_fields(
     push_field(
         fields,
         "local_primitive_resource_memory_gb",
-        resource_envelope.memory_gb.to_string(),
+        resource_envelope
+            .memory_gb
+            .map_or_else(|| "unavailable".into(), |value| value.to_string()),
     );
     push_field(
         fields,
@@ -1751,7 +1777,9 @@ fn append_local_primitive_memory_admission_fields(
         return;
     }
 
-    let Ok(budget) = shardloom_exec::MemoryBudget::from_gib(resource_envelope.memory_gb) else {
+    let Ok(budget) = shardloom_exec::MemoryBudget::new(shardloom_exec::ByteSize::from_bytes(
+        resource_envelope.memory_budget_bytes,
+    )) else {
         append_local_primitive_memory_admission_error_fields(fields, "invalid_budget");
         return;
     };
@@ -3348,61 +3376,36 @@ fn native_vortex_bound_request_and_arg(
 fn native_vortex_materializing_policy(
     request: &PublicWorkflowRouteRequest,
 ) -> Result<shardloom_vortex::VortexLocalPrimitiveExecutionPolicy, ShardLoomError> {
-    let max_parallelism = public_workflow_effective_max_parallelism(request)?;
-    let memory_gb = public_workflow_effective_memory_gb(request)?;
-    shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(
-        max_parallelism,
-        memory_gb,
+    shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::from_resources(
+        request.resources.resolve()?,
     )
 }
 
-fn public_workflow_effective_memory_gb(
-    request: &PublicWorkflowRouteRequest,
-) -> Result<u64, ShardLoomError> {
-    match request.memory_gb.as_deref() {
-        Some(value) => positive_u64_arg("memory_gb", value),
-        None => Ok(default_public_local_runtime_memory_gb()),
-    }
-}
-
 fn public_workflow_effective_memory_gb_label(request: &PublicWorkflowRouteRequest) -> String {
-    public_workflow_effective_memory_gb(request)
-        .map_or_else(|_| "invalid".to_string(), |value| value.to_string())
+    request.resources.optional().map_or_else(
+        |_| "invalid".into(),
+        |resources| {
+            resources
+                .and_then(ExecutionResources::whole_gib)
+                .map_or_else(|| "unavailable".into(), |value| value.to_string())
+        },
+    )
 }
 
-fn public_workflow_requested_max_parallelism(request: &PublicWorkflowRouteRequest) -> usize {
-    request
-        .max_parallelism
-        .as_deref()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or_else(default_public_local_runtime_max_parallelism)
-}
-
-fn public_workflow_effective_max_parallelism(
-    request: &PublicWorkflowRouteRequest,
-) -> Result<usize, ShardLoomError> {
-    let requested = match request.max_parallelism.as_deref() {
-        Some(value) => positive_usize_arg("max_parallelism", value)?,
-        None => default_public_local_runtime_max_parallelism(),
-    };
-    // The built-in default is two. An explicit positive maximum is a
-    // ceiling, including a single caller-driven native execution lane.
-    Ok(requested)
+fn public_workflow_requested_max_parallelism(request: &PublicWorkflowRouteRequest) -> String {
+    public_workflow_effective_max_parallelism_label(request)
 }
 
 fn public_workflow_effective_resource_envelope(
     request: &PublicWorkflowRouteRequest,
-) -> Result<(u64, usize), ShardLoomError> {
-    Ok((
-        public_workflow_effective_memory_gb(request)?,
-        public_workflow_effective_max_parallelism(request)?,
-    ))
+) -> Result<ExecutionResources, ShardLoomError> {
+    request.resources.resolve()
 }
 
-fn public_workflow_dynamic_parallelism_floor_applied(request: &PublicWorkflowRouteRequest) -> bool {
-    request.max_parallelism.is_none()
-        && public_workflow_requested_max_parallelism(request)
-            < MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
+fn public_workflow_dynamic_parallelism_floor_applied(
+    _request: &PublicWorkflowRouteRequest,
+) -> bool {
+    false
 }
 
 fn native_vortex_materializing_execution_certificate(
@@ -3427,6 +3430,23 @@ fn append_native_vortex_materializing_primitive_fields(
     execution_certificate: Option<&shardloom_core::ExecutionCertificate>,
 ) {
     append_hot_runtime_timing_surface_fields(fields);
+    if report.status == shardloom_vortex::VortexLocalPrimitiveExecutionStatus::Executed {
+        crate::execution_resources::append_admission_fields(
+            fields,
+            report.resource_envelope.memory_budget_bytes,
+            report.resource_envelope.max_parallelism,
+            "native_operator_policy_ceiling;runtime_may_use_fewer_lanes",
+        );
+        crate::execution_resources::append_spill_observation_fields(
+            fields,
+            report.spill_io_performed,
+            report
+                .state_budget
+                .native_weighted_count_spill
+                .as_ref()
+                .map(|spill| spill.native_bytes_written),
+        );
+    }
     append_native_vortex_materializing_identity_fields(fields, report, primitive_arg);
     append_native_vortex_materializing_row_fields(fields, report);
     append_native_vortex_materializing_side_effect_fields(fields, report);
@@ -4410,7 +4430,7 @@ fn execute_local_file_prepare_once_first_query_run(
         Ok(prepared_run) => prepared_run,
         Err(blocked) => return emit_blocked_facade("run", format, request, &blocked),
     };
-    let (memory_gb, max_parallelism) = match public_workflow_effective_resource_envelope(request) {
+    let resources = match public_workflow_effective_resource_envelope(request) {
         Ok(values) => values,
         Err(error) => {
             return emit_error(
@@ -4435,11 +4455,7 @@ fn execute_local_file_prepare_once_first_query_run(
         error_title: "public local Vortex preparation failed",
     };
     let left_preparation = match prepare_local_source_for_public_workflow_or_emit(
-        left_input,
-        request,
-        format,
-        memory_gb,
-        max_parallelism,
+        left_input, request, format, resources,
     ) {
         Ok(preparation) => preparation,
         Err(exit) => return exit,
@@ -4463,8 +4479,7 @@ fn execute_local_file_prepare_once_first_query_run(
             right_input,
             request,
             format,
-            memory_gb,
-            max_parallelism,
+            resources,
         ) {
             Ok(preparation) => preparation,
             Err(exit) => return exit,
@@ -4621,16 +4636,15 @@ fn prepare_local_source_for_public_workflow_or_emit(
     input: PublicWorkflowPreparationInput<'_>,
     request: &PublicWorkflowRouteRequest,
     format: OutputFormat,
-    memory_gb: u64,
-    max_parallelism: usize,
+    resources: ExecutionResources,
 ) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, ExitCode> {
     match prepare_local_source_for_public_workflow(
         input.source_uri,
         input.source_format,
         input.target,
         false,
-        memory_gb,
-        max_parallelism,
+        resources,
+        None,
         request.source_fingerprint_policy.as_deref(),
         input.source_schema,
     ) {
@@ -4651,8 +4665,8 @@ fn prepare_local_source_for_public_workflow(
     source_format: &str,
     target: &Path,
     allow_overwrite: bool,
-    memory_gb: u64,
-    max_parallelism: usize,
+    resources: ExecutionResources,
+    shared_memory_pool: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     source_fingerprint_policy: Option<&str>,
     source_schema: Option<&str>,
 ) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, PreparationFacadeError> {
@@ -4661,8 +4675,8 @@ fn prepare_local_source_for_public_workflow(
         target,
         Some(source_format),
         allow_overwrite,
-        max_parallelism,
-        Some(memory_gb),
+        resources,
+        shared_memory_pool,
         source_fingerprint_policy,
         source_schema,
     )
@@ -4690,7 +4704,6 @@ fn prepare_profile_runtime_requested(request: &PublicWorkflowRouteRequest) -> bo
 fn prepared_profile_native_runtime_request(
     request: &PublicWorkflowRouteRequest,
     prepared_target: &Path,
-    max_parallelism: usize,
 ) -> Result<PublicWorkflowRouteRequest, Box<PublicWorkflowRoutePlan>> {
     let mut native_request = request.clone();
     if let Some(plan_summary) = prepared_local_workflow_plan_summary(request, prepared_target, None)
@@ -4721,7 +4734,6 @@ fn prepared_profile_native_runtime_request(
     native_request
         .materialization_policy
         .clone_from(&request.materialization_policy);
-    native_request.max_parallelism = Some(max_parallelism.to_string());
     native_request.bounded = true;
     Ok(effective_public_workflow_request(&native_request))
 }
@@ -4730,7 +4742,6 @@ fn prepared_profile_native_runtime_request(
 fn prepared_profile_runtime_plan_fields(
     request: &PublicWorkflowRouteRequest,
     preparation: &sql_local_source_runtime::PublicWorkflowVortexPreparation,
-    max_parallelism: usize,
 ) -> Vec<(String, String)> {
     let mut fields = vec![
         (
@@ -4763,37 +4774,34 @@ fn prepared_profile_runtime_plan_fields(
         return fields;
     }
 
-    let native_request = match prepared_profile_native_runtime_request(
-        request,
-        &preparation.target_path,
-        max_parallelism,
-    ) {
-        Ok(native_request) => native_request,
-        Err(blocked) => {
-            fields.extend([
-                (
-                    "public_workflow_preparation_profile_runtime_plan_status".to_string(),
-                    "not_admitted".to_string(),
-                ),
-                (
-                    "public_workflow_preparation_profile_runtime_blocker_id".to_string(),
-                    blocked.blocker_id.to_string(),
-                ),
-                (
-                    "public_workflow_preparation_profile_runtime_next_action".to_string(),
-                    blocked
-                        .diagnostics
-                        .first()
-                        .and_then(|diagnostic| diagnostic.suggested_next_step.clone())
-                        .unwrap_or_else(|| {
-                            "use an admitted native Vortex aggregate or bounded sort profile"
-                                .to_string()
-                        }),
-                ),
-            ]);
-            return fields;
-        }
-    };
+    let native_request =
+        match prepared_profile_native_runtime_request(request, &preparation.target_path) {
+            Ok(native_request) => native_request,
+            Err(blocked) => {
+                fields.extend([
+                    (
+                        "public_workflow_preparation_profile_runtime_plan_status".to_string(),
+                        "not_admitted".to_string(),
+                    ),
+                    (
+                        "public_workflow_preparation_profile_runtime_blocker_id".to_string(),
+                        blocked.blocker_id.to_string(),
+                    ),
+                    (
+                        "public_workflow_preparation_profile_runtime_next_action".to_string(),
+                        blocked
+                            .diagnostics
+                            .first()
+                            .and_then(|diagnostic| diagnostic.suggested_next_step.clone())
+                            .unwrap_or_else(|| {
+                                "use an admitted native Vortex aggregate or bounded sort profile"
+                                    .to_string()
+                            }),
+                    ),
+                ]);
+                return fields;
+            }
+        };
     let native_plan = plan_public_workflow_route(&native_request);
     fields.extend([
         (
@@ -5472,7 +5480,7 @@ pub(crate) fn handle_public_workflow_prepare(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
-    let mut request = match PublicWorkflowRouteRequest::parse(args) {
+    let mut request = match PublicWorkflowRouteRequest::parse_execution(args) {
         Ok(request) => request,
         Err(error) => {
             return emit_error("prepare", format, "public workflow prepare failed", &error);
@@ -5498,7 +5506,7 @@ pub(crate) fn handle_public_workflow_prepare(
         .input_format
         .clone()
         .unwrap_or_else(|| "csv".to_string());
-    let (memory_gb, max_parallelism) = match public_workflow_effective_resource_envelope(&request) {
+    let resources = match public_workflow_effective_resource_envelope(&request) {
         Ok(values) => values,
         Err(error) => {
             return emit_error(
@@ -5514,8 +5522,8 @@ pub(crate) fn handle_public_workflow_prepare(
         &source_format,
         Path::new(&output_ref),
         request.allow_overwrite,
-        memory_gb,
-        max_parallelism,
+        resources,
+        None,
         request.source_fingerprint_policy.as_deref(),
         request.source_schema.as_deref(),
     ) {
@@ -5551,8 +5559,7 @@ pub(crate) fn handle_public_workflow_prepare(
             preparation.target_path.display().to_string(),
         ),
     ]);
-    let profile_runtime_fields =
-        prepared_profile_runtime_plan_fields(&request, &preparation, max_parallelism);
+    let profile_runtime_fields = prepared_profile_runtime_plan_fields(&request, &preparation);
     if let Err(error) = preparation.validate_generation() {
         return emit_error(
             "prepare",
@@ -5577,6 +5584,17 @@ pub(crate) fn handle_public_workflow_prepare(
 
 impl PublicWorkflowRouteRequest {
     fn parse(args: impl Iterator<Item = String>) -> Result<Self, ShardLoomError> {
+        Self::parse_with_resource_requirement(args, false)
+    }
+
+    fn parse_execution(args: impl Iterator<Item = String>) -> Result<Self, ShardLoomError> {
+        Self::parse_with_resource_requirement(args, true)
+    }
+
+    fn parse_with_resource_requirement(
+        args: impl Iterator<Item = String>,
+        required: bool,
+    ) -> Result<Self, ShardLoomError> {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
@@ -5593,6 +5611,16 @@ impl PublicWorkflowRouteRequest {
                 || flag.starts_with("--native-vortex-")
                 || matches!(flag.as_str(), "--operation-family" | "--right-input");
             request.parse_flag(&flag, &mut args)?;
+        }
+
+        // Resolve before decoding caller-owned input cells or preparing a source.
+        if required {
+            request.resources.resolve()?;
+        } else {
+            request.resources.optional()?;
+        }
+        if let Some(raw) = request.raw_source_bindings.take() {
+            request.source_bindings = parse_public_source_bindings(&raw)?;
         }
 
         if native_operator_options
@@ -5678,6 +5706,7 @@ impl PublicWorkflowRouteRequest {
             input_format: None,
             source_schema: None,
             source_bindings: std::collections::BTreeMap::new(),
+            raw_source_bindings: None,
             sql_statement: None,
             plan_summary: None,
             requested_output: "collect".to_string(),
@@ -5708,8 +5737,7 @@ impl PublicWorkflowRouteRequest {
             vortex_rolling_window: None,
             vortex_aggregate: None,
             vortex_sort_rows: None,
-            memory_gb: None,
-            max_parallelism: None,
+            resources: ResourceArguments::default(),
             spill: None,
         }
     }
@@ -5720,6 +5748,9 @@ impl PublicWorkflowRouteRequest {
         flag: &str,
         args: &mut std::iter::Peekable<impl Iterator<Item = String>>,
     ) -> Result<(), ShardLoomError> {
+        if self.resources.parse_flag(flag, args)? {
+            return Ok(());
+        }
         match flag {
             "--spill" => {
                 if self.spill.is_some() {
@@ -5743,7 +5774,12 @@ impl PublicWorkflowRouteRequest {
                 self.source_schema = Some(value);
             }
             "--source-bindings" => {
-                self.source_bindings = parse_public_source_bindings(&required_value(args, flag)?)?;
+                if self.raw_source_bindings.is_some() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "--source-bindings may be declared only once".into(),
+                    ));
+                }
+                self.raw_source_bindings = Some(required_value(args, flag)?);
             }
             "--sql" => {
                 if self.sql_statement.is_some() {
@@ -5852,12 +5888,6 @@ impl PublicWorkflowRouteRequest {
             }
             "--vortex-sort-rows" => {
                 self.vortex_sort_rows = Some(required_value(args, "--vortex-sort-rows")?);
-            }
-            "--memory-gb" => {
-                self.memory_gb = Some(required_value(args, "--memory-gb")?);
-            }
-            "--max-parallelism" => {
-                self.max_parallelism = Some(required_value(args, "--max-parallelism")?);
             }
             extra => return Err(cli_unknown_arg_error("route", extra)),
         }
@@ -7348,20 +7378,11 @@ fn profile_projection_columns_from_summary(
 fn native_vortex_resource_hint_blocker(
     request: &PublicWorkflowRouteRequest,
 ) -> Option<PublicWorkflowRoutePlan> {
-    if let Some(error) = positive_u64_option_error("--memory-gb", request.memory_gb.as_deref()) {
-        return Some(native_vortex_payload_blocked_route(
-            "public_workflow_route.memory_gb",
-            error,
-            "pass --memory-gb with an integer >= 1",
-        ));
-    }
-    if let Some(error) =
-        positive_usize_option_error("--max-parallelism", request.max_parallelism.as_deref())
-    {
-        return Some(native_vortex_payload_blocked_route(
-            "public_workflow_route.max_parallelism",
-            error,
-            "pass --max-parallelism with an integer >= 1",
+    if let Err(error) = request.resources.optional() {
+        return Some(blocked_route(
+            "cg21.route.execution_resources_invalid",
+            "the execution resource declaration is invalid",
+            error.to_diagnostic(),
         ));
     }
     if let Some(error) = positive_usize_option_error(
@@ -10246,21 +10267,6 @@ fn is_summary_identifier(value: &str) -> bool {
         && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
 }
 
-fn positive_u64_option_error<'a>(flag: &str, value: Option<&str>) -> Option<&'a str> {
-    let value = value?;
-    match value.parse::<u64>() {
-        Ok(parsed) if parsed >= 1 => None,
-        Ok(_) => Some(match flag {
-            "--memory-gb" => "memory_gb must be >= 1",
-            _ => "value must be >= 1",
-        }),
-        Err(_) => Some(match flag {
-            "--memory-gb" => "memory_gb must be an unsigned integer",
-            _ => "value must be an unsigned integer",
-        }),
-    }
-}
-
 fn positive_usize_option_error<'a>(flag: &str, value: Option<&str>) -> Option<&'a str> {
     let value = value?;
     match value.parse::<usize>() {
@@ -10939,6 +10945,9 @@ fn add_route_native_vortex_resource_fields(
     fields: &mut Vec<(String, String)>,
     request: &PublicWorkflowRouteRequest,
 ) {
+    if let Ok(Some(resources)) = request.resources.optional() {
+        crate::execution_resources::append_declaration_fields(fields, resources);
+    }
     spill::append_request_fields(fields, request);
     push_field(
         fields,
@@ -10953,7 +10962,7 @@ fn add_route_native_vortex_resource_fields(
     push_field(
         fields,
         "requested_max_parallelism",
-        public_workflow_requested_max_parallelism(request).to_string(),
+        public_workflow_requested_max_parallelism(request),
     );
     push_field(
         fields,
@@ -10963,8 +10972,15 @@ fn add_route_native_vortex_resource_fields(
 }
 
 fn public_workflow_effective_max_parallelism_label(request: &PublicWorkflowRouteRequest) -> String {
-    public_workflow_effective_max_parallelism(request)
-        .map_or_else(|_| "invalid".to_owned(), |value| value.to_string())
+    request.resources.optional().map_or_else(
+        |_| "invalid".into(),
+        |resources| {
+            resources.map_or_else(
+                || "unavailable".into(),
+                |value| value.max_parallelism().to_string(),
+            )
+        },
+    )
 }
 
 fn push_native_vortex_contract_fields(
@@ -12255,7 +12271,7 @@ fn execution_attachment_fields(
         ),
         (
             "public_workflow_requested_max_parallelism".to_string(),
-            public_workflow_requested_max_parallelism(&effective_request).to_string(),
+            public_workflow_requested_max_parallelism(&effective_request),
         ),
         (
             "public_workflow_dynamic_parallelism_floor_applied".to_string(),
@@ -12288,6 +12304,9 @@ fn execution_attachment_fields(
     ];
     push_native_vortex_contract_fields(&mut fields, "public_workflow_", &effective_request, plan);
     spill::append_request_fields(&mut fields, &effective_request);
+    if let Ok(Some(resources)) = effective_request.resources.optional() {
+        crate::execution_resources::append_declaration_fields(&mut fields, resources);
+    }
     fields
 }
 
@@ -12364,21 +12383,13 @@ fn native_vortex_primitive_runtime_args(
             "public native Vortex run requires --input with a Vortex dataset".to_string(),
         )
     })?;
-    let memory_gb = public_workflow_effective_memory_gb(request)?;
-    let max_parallelism = public_workflow_effective_max_parallelism(request)?;
+    let resources = request.resources.resolve()?;
     let mut args = match primitive {
-        PublicVortexPrimitive::Count => vec![
-            input_uri,
-            "count".to_string(),
-            memory_gb.to_string(),
-            max_parallelism.to_string(),
-        ],
+        PublicVortexPrimitive::Count => vec![input_uri, "count".to_string()],
         PublicVortexPrimitive::CountWhere => vec![
             input_uri,
             required_native_vortex_payload(request.vortex_predicate.as_ref(), "vortex predicate")?,
             "--execute-local-primitive".to_string(),
-            memory_gb.to_string(),
-            max_parallelism.to_string(),
         ],
         PublicVortexPrimitive::Filter => vec![
             input_uri,
@@ -12422,12 +12433,9 @@ fn native_vortex_primitive_runtime_args(
         primitive,
         PublicVortexPrimitive::Count | PublicVortexPrimitive::CountWhere
     ) {
-        args.extend([
-            "--execute-local-primitive".to_string(),
-            memory_gb.to_string(),
-            max_parallelism.to_string(),
-        ]);
+        args.push("--execute-local-primitive".to_string());
     }
+    args.extend(crate::execution_resources::command_args(resources));
     Ok(args)
 }
 
@@ -12443,18 +12451,6 @@ fn required_native_vortex_payload(
                 "public native Vortex run requires {label}; fallback execution was not attempted"
             ))
         })
-}
-
-fn positive_u64_arg(label: &str, value: &str) -> Result<u64, ShardLoomError> {
-    let parsed = value.parse::<u64>().map_err(|_| {
-        ShardLoomError::InvalidOperation(format!("{label} must be an unsigned integer"))
-    })?;
-    if parsed == 0 {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "{label} must be >= 1"
-        )));
-    }
-    Ok(parsed)
 }
 
 fn non_negative_u64_arg(label: &str, value: &str) -> Result<u64, ShardLoomError> {
@@ -14857,6 +14853,8 @@ mod tests {
                 "100",
                 "--max-parallelism",
                 "1",
+                "--memory-gb",
+                "4",
             ]
             .into_iter()
             .map(str::to_string),
@@ -14886,24 +14884,20 @@ mod tests {
         assert_eq!(
             public_workflow_effective_resource_envelope(&request)
                 .unwrap()
-                .1,
+                .max_parallelism(),
             1
         );
         let mut invalid = request.clone();
-        invalid.max_parallelism = Some("0".into());
+        invalid.resources.max_parallelism = Some("0".into());
         assert!(public_workflow_effective_resource_envelope(&invalid).is_err());
         assert_eq!(
             public_workflow_effective_max_parallelism_label(&invalid),
             "invalid"
         );
-        let mut automatic = request;
-        automatic.max_parallelism = None;
-        assert!(
-            public_workflow_effective_resource_envelope(&automatic)
-                .unwrap()
-                .1
-                >= MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
-        );
+        let mut incomplete = request;
+        incomplete.resources.max_parallelism = None;
+        let error = public_workflow_effective_resource_envelope(&incomplete).unwrap_err();
+        assert!(error.to_string().contains("max_parallelism"));
     }
 
     #[test]
@@ -15723,6 +15717,10 @@ mod tests {
                 "--vortex-predicate",
                 "gte:filter_only:3",
                 "--vortex-source-order-limit",
+                "2",
+                "--memory-gb",
+                "4",
+                "--max-parallelism",
                 "2",
             ]
             .into_iter()
@@ -17021,6 +17019,14 @@ mod tests {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
+                "--memory-bytes",
+                "1500000001",
+                "--max-parallelism",
+                "2",
+                "--memory-origin",
+                "platform",
+                "--parallelism-origin",
+                "environment",
                 "--input",
                 "target/hits.parquet",
                 "--input-format",
@@ -17042,8 +17048,12 @@ mod tests {
         .expect("prepare SQL count profile route request");
 
         let native =
-            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"), 2)
+            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"))
                 .expect("prepared profile native request");
+        assert_eq!(
+            native.resources.resolve().unwrap(),
+            request.resources.resolve().unwrap()
+        );
         let plan = plan_public_workflow_route(&native);
         let fields = route_fields(&native, &plan);
 
@@ -17051,7 +17061,7 @@ mod tests {
         assert_eq!(native.input_uri.as_deref(), Some("target/hits.vortex"));
         assert_eq!(native.requested_output, "collect");
         assert_eq!(native.execution_policy, "native_vortex");
-        assert_eq!(native.max_parallelism.as_deref(), Some("2"));
+        assert_eq!(native.resources.max_parallelism.as_deref(), Some("2"));
         assert_eq!(
             plan.status,
             CommandStatus::Success,
@@ -17070,6 +17080,7 @@ mod tests {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
+                "--memory-gb", "4", "--max-parallelism", "2",
                 "--input",
                 "target/hits.parquet",
                 "--input-format",
@@ -17091,7 +17102,7 @@ mod tests {
         .expect("prepare SQL profile route request");
 
         let native =
-            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"), 2)
+            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"))
                 .expect("prepared profile native request");
         let plan = plan_public_workflow_route(&native);
         let fields = route_fields(&native, &plan);
@@ -17100,7 +17111,7 @@ mod tests {
         assert_eq!(native.input_uri.as_deref(), Some("target/hits.vortex"));
         assert_eq!(native.requested_output, "collect");
         assert_eq!(native.execution_policy, "native_vortex");
-        assert_eq!(native.max_parallelism.as_deref(), Some("2"));
+        assert_eq!(native.resources.max_parallelism.as_deref(), Some("2"));
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(
                 plan.status,
@@ -17126,6 +17137,7 @@ mod tests {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "dataframe",
+                "--memory-gb", "4", "--max-parallelism", "2",
                 "--input",
                 "target/hits.parquet",
                 "--input-format",
@@ -17147,7 +17159,7 @@ mod tests {
         .expect("prepare DataFrame profile route request");
 
         let native =
-            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"), 2)
+            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"))
                 .expect("prepared profile native request");
         let plan = plan_public_workflow_route(&native);
         let fields = route_fields(&native, &plan);

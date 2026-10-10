@@ -322,10 +322,24 @@ impl LocalTableAppendCommitReport {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        COMMAND,
+        &[
+            "--profile",
+            "--idempotency-key",
+            "--expected-current-manifest-digest",
+        ],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(target) = args.next() else {
         return emit_error(
             COMMAND,
@@ -427,13 +441,22 @@ pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
         allow_overwrite,
         rollback_after_commit,
     );
-    emit_local_table_append_commit_rehearsal_report(format, &report)
+    emit_local_table_append_commit_rehearsal_report(format, &report, resources)
 }
 
 pub(crate) fn handle_local_table_commit_recovery_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        RECOVERY_COMMAND,
+        &["--profile", "--idempotency-key"],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(target) = args.next() else {
         return emit_error(
             RECOVERY_COMMAND,
@@ -503,7 +526,7 @@ pub(crate) fn handle_local_table_commit_recovery_smoke(
         &profile,
         expected_idempotency_key.as_deref(),
     );
-    emit_local_table_commit_recovery_report(format, &report)
+    emit_local_table_commit_recovery_report(format, &report, resources)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -932,6 +955,7 @@ fn execute_local_table_commit_recovery_smoke(
 fn emit_local_table_append_commit_rehearsal_report(
     format: OutputFormat,
     report: &LocalTableAppendCommitReport,
+    resources: shardloom_core::ExecutionResources,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     emit(
@@ -945,7 +969,10 @@ fn emit_local_table_append_commit_rehearsal_report(
         "local table append commit rehearsal smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        local_table_append_commit_rehearsal_fields(report),
+        crate::execution_resources::with_declaration_fields(
+            local_table_append_commit_rehearsal_fields(report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -957,6 +984,7 @@ fn emit_local_table_append_commit_rehearsal_report(
 fn emit_local_table_commit_recovery_report(
     format: OutputFormat,
     report: &LocalTableCommitRecoveryReport,
+    resources: shardloom_core::ExecutionResources,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     emit(
@@ -970,7 +998,10 @@ fn emit_local_table_commit_recovery_report(
         "local table commit recovery smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        local_table_commit_recovery_fields(report),
+        crate::execution_resources::with_declaration_fields(
+            local_table_commit_recovery_fields(report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)

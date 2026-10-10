@@ -65,7 +65,8 @@ fn count_plan(
 #[test]
 fn resident_count_scan_preserves_exact_count_pruning_and_native_certificate() {
     let fixture = Fixture::new();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     // The checked fixture contains exactly value=1..5 and metric=10..50.
     for (predicate, expected, pruned) in [(greater_than(2), 3, false), (greater_than(99), 0, true)]
     {
@@ -103,7 +104,8 @@ fn resident_count_scan_preserves_exact_count_pruning_and_native_certificate() {
 #[test]
 fn resident_projection_preserves_filter_limit_and_prelimit_row_evidence() {
     let fixture = Fixture::new();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let kind = VortexQueryPrimitiveKind::FilterAndProject;
     let scan = read(&fixture.uri(), &fixture.path(), kind, policy, |dtype| {
         let mut plan = projection_scan_plan(
@@ -133,7 +135,8 @@ fn resident_scan_preserves_declared_residual_evaluation_before_limit() {
         &fixture.uri(),
         &fixture.path(),
         kind,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         |dtype| {
             let mut plan = projection_scan_plan(
                 dtype,
@@ -171,7 +174,8 @@ fn resident_scan_rejects_replaced_generation_before_execution_and_keeps_new_dest
         &fixture.uri(),
         &path,
         VortexQueryPrimitiveKind::ProjectColumns,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         |dtype| {
             let plan = projection_scan_plan(
                 dtype,
@@ -193,7 +197,8 @@ fn resident_scan_rejects_replaced_generation_before_execution_and_keeps_new_dest
 #[test]
 fn resident_scan_releases_native_payload_after_success_and_rejects_zero_limit() {
     let fixture = Fixture::new();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let resident = ResidentVortexSession::new(8 << 20, 1).unwrap();
     let source = resident.prepare_file(fixture.path()).unwrap();
     for limit in [None, Some(0)] {
@@ -224,7 +229,8 @@ fn resident_scan_releases_native_payload_after_success_and_rejects_zero_limit() 
 #[test]
 fn retained_scan_reexecutes_exact_counts_including_pruning_without_reopening() {
     let fixture = Fixture::new();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let resident = ResidentVortexSession::new(8 << 20, 1).unwrap();
     let source = resident.prepare_file(fixture.path()).unwrap();
     for (index, threshold) in [2, 99, 0, 4, 99, 2].into_iter().enumerate() {
@@ -252,7 +258,8 @@ fn retained_scan_reexecutes_exact_counts_including_pruning_without_reopening() {
 #[test]
 fn retained_scan_rejects_changed_source_even_when_predicate_would_prune() {
     let fixture = Fixture::new();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let resident = ResidentVortexSession::new(8 << 20, 1).unwrap();
     let source = resident.prepare_file(fixture.path()).unwrap();
     let predicate = greater_than(99);
@@ -295,7 +302,8 @@ fn retained_scan_cannot_claim_tighter_resources_than_its_source_owner() {
     let fixture = Fixture::new();
     let resident = ResidentVortexSession::new(8 << 20, 1).unwrap();
     let source = resident.prepare_file(fixture.path()).unwrap();
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     policy.resource_envelope.memory_budget_bytes = 8 << 20;
     for smaller_memory in [true, false] {
         let mut rejected = policy;

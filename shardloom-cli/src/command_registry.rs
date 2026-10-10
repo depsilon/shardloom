@@ -852,12 +852,12 @@ pub(crate) fn append_command_registry_capability_fields(fields: &mut Vec<(String
 
 #[allow(clippy::too_many_lines)]
 fn command_usage_fragment(command: &str) -> String {
-    match command {
+    let mut usage = match command {
         "help" => "help [command]".to_string(),
         "evidence-schema" => "evidence-schema [surface]".to_string(),
         "route" => "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>]".to_string(),
         "run" => "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl>] [--output <ref>]".to_string(),
-        "prepare" => "prepare <sql|python|dataframe|cli> --input <uri> [--input-format <format>] --output <target.vortex> [--max-parallelism <n>]".to_string(),
+        "prepare" => "prepare <sql|python|dataframe|cli> --input <uri> [--input-format <format>] --output <target.vortex>".to_string(),
         "python-worker" => "python-worker".to_string(),
         "capabilities" => format!("{command} [{}]", capability_scopes().join("|")),
         "support-bundle" => format!("{command} [--note <redacted-text>] [--include-defaults]"),
@@ -963,7 +963,41 @@ fn command_usage_fragment(command: &str) -> String {
         }
         "retry-gate-plan" | "cancellation-gate-plan" => format!("{command} <signals>"),
         _ => command.to_string(),
+    };
+    if matches!(
+        command,
+        "run"
+            | "prepare"
+            | "vortex-prepare"
+            | "vortex-run"
+            | "vortex-count"
+            | "vortex-file-metadata-open"
+            | "vortex-bounded-local-exec"
+            | "sqlite-local-import-export-smoke"
+            | "udf-local-scalar-fixture-smoke"
+            | "embedding-vector-local-fixture-smoke"
+            | "object-store-read-smoke"
+            | "object-store-write-smoke"
+            | "object-store-write-recovery-smoke"
+            | "object-store-partition-discovery-smoke"
+            | "local-table-metadata-read-smoke"
+            | "local-table-append-commit-rehearsal-smoke"
+            | "local-table-commit-recovery-smoke"
+            | "iceberg-metadata-read-smoke"
+            | "delta-log-metadata-read-smoke"
+            | "hudi-timeline-metadata-read-smoke"
+            | "local-delete-tombstone-read-smoke"
+            | "local-append-only-cdc-overlay-smoke"
+            | "live-fixture-run"
+            | "hybrid-overlay-run"
+            | "live-hybrid-state-transition-smoke"
+            | "live-hybrid-durable-checkpoint-smoke"
+            | "distributed-local-fixture-run"
+            | "spill-payload-roundtrip"
+    ) {
+        usage.push_str(" (--resources-from-env | (--memory-gb <GiB> | --memory-bytes <bytes>) --max-parallelism <n>)");
     }
+    usage
 }
 
 fn command_field_id(command: &str) -> String {

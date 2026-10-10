@@ -56,11 +56,11 @@ target\debug\shardloom status --format json
 
 On Unix-like shells, use `target/debug/shardloom`.
 
-For Python examples from the source tree:
+For Python examples from the source tree, the smoke uses an illustrative caller allocation of 16 GiB / 8 lanes; these are not recommended defaults or measured usage:
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python examples\local-python-smoke\run.py --repo-root .
+python examples\local-python-smoke\run.py --repo-root . --memory-gb 16 --max-parallelism 8
 ```
 
 Set `SHARDLOOM_BIN` when the CLI binary is not on `PATH`:

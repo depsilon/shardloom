@@ -450,7 +450,7 @@ impl Lowerer<'_, '_> {
             let kind = kind.clone();
             self.schemas
                 .defer_subquery(declaration.bytes, move |schemas| {
-                    let mut resolver = |leaf: &super::ParsedRelationLeaf| {
+                    let mut resolver = |leaf: &super::ParsedRelationLeaf, _: Option<&shardloom_exec::live_memory::LiveMemoryPool>| {
                         declaration.sources.get(leaf).cloned().ok_or_else(|| {
                             unsupported_sql_error(
                                 "dynamic subquery referenced an undeclared source",

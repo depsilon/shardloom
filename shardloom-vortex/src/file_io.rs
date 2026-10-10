@@ -2,7 +2,9 @@
 
 use std::fmt::Write as _;
 
-use shardloom_core::{DatasetUri, Diagnostic, DiagnosticCode, Result, UriScheme};
+use shardloom_core::{
+    DatasetUri, Diagnostic, DiagnosticCode, ExecutionResources, Result, ShardLoomError, UriScheme,
+};
 
 use crate::VortexMetadataSummaryReport;
 
@@ -105,6 +107,7 @@ impl VortexMetadataOpenStatus {
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexMetadataOpenRequest {
     pub uri: DatasetUri,
+    pub resources: Option<ExecutionResources>,
     pub allow_file_io: bool,
     pub allow_data_io: bool,
     pub allow_object_store_io: bool,
@@ -112,9 +115,10 @@ pub struct VortexMetadataOpenRequest {
 }
 impl VortexMetadataOpenRequest {
     #[must_use]
-    pub fn metadata_only(uri: DatasetUri) -> Self {
+    pub fn metadata_only(uri: DatasetUri, resources: ExecutionResources) -> Self {
         Self {
             uri,
+            resources: Some(resources),
             allow_file_io: true,
             allow_data_io: false,
             allow_object_store_io: false,
@@ -125,6 +129,7 @@ impl VortexMetadataOpenRequest {
     pub fn report_only(uri: DatasetUri) -> Self {
         Self {
             uri,
+            resources: None,
             allow_file_io: false,
             allow_data_io: false,
             allow_object_store_io: false,
@@ -324,6 +329,11 @@ pub const fn vortex_file_io_feature_enabled() -> bool {
 pub fn open_vortex_metadata_only(
     request: VortexMetadataOpenRequest,
 ) -> Result<VortexMetadataOpenReport> {
+    if request.allow_file_io && request.resources.is_none() {
+        return Err(ShardLoomError::new(
+            "metadata inspection requires explicit memory_gb (or memory_bytes) and max_parallelism",
+        ));
+    }
     if !request.uri.looks_like_vortex() {
         return Ok(VortexMetadataOpenReport::invalid_target(
             request,
@@ -340,7 +350,16 @@ pub fn open_vortex_metadata_only(
         }
         UriScheme::LocalPath | UriScheme::File => {}
     }
-    Ok(open_local_only(request))
+    if request.allow_file_io {
+        Ok(open_local_only(request))
+    } else {
+        let mut report = VortexMetadataOpenReport::feature_disabled(request);
+        report.open_status = VortexMetadataOpenStatus::Planned;
+        if vortex_file_io_feature_enabled() {
+            report.feature_status = VortexFileIoFeatureStatus::Enabled;
+        }
+        Ok(report)
+    }
 }
 
 fn open_local_only(request: VortexMetadataOpenRequest) -> VortexMetadataOpenReport {
@@ -372,10 +391,16 @@ fn open_local_only(request: VortexMetadataOpenRequest) -> VortexMetadataOpenRepo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn resources() -> ExecutionResources {
+        ExecutionResources::from_gib(4, 1, shardloom_core::ExecutionResourceOrigin::ExecutionCall)
+            .expect("explicit fixture allocation")
+    }
+
     #[test]
     fn request_modes() {
         let uri = DatasetUri::new("file://tmp/test.vortex").expect("uri");
-        let m = VortexMetadataOpenRequest::metadata_only(uri.clone());
+        let m = VortexMetadataOpenRequest::metadata_only(uri.clone(), resources());
         assert!(
             m.allow_file_io
                 && !m.allow_data_io
@@ -395,10 +420,29 @@ mod tests {
         #[cfg(not(feature = "vortex-file-io"))]
         assert!(!vortex_file_io_feature_enabled());
     }
+
+    #[test]
+    fn report_only_does_not_inspect_paths_and_file_inspection_requires_resources() {
+        let mut request = VortexMetadataOpenRequest::report_only(
+            DatasetUri::new("/dev/null/never-inspect.vortex").unwrap(),
+        );
+        let report = open_vortex_metadata_only(request.clone()).unwrap();
+        assert_eq!(report.open_status, VortexMetadataOpenStatus::Planned);
+        assert_eq!(report.mode, VortexMetadataOpenMode::ReportOnly);
+        assert!(!report.file_io_performed);
+        assert_eq!(report.diagnostics, []);
+
+        request.allow_file_io = true;
+        let diagnostic = open_vortex_metadata_only(request)
+            .unwrap_err()
+            .to_diagnostic();
+        assert_eq!(diagnostic.code.as_str(), "SL_CONFIGURATION_ERROR");
+        assert!(!diagnostic.fallback.attempted);
+    }
     #[test]
     fn report_invariants() {
         let uri = DatasetUri::new("file://tmp/test.vortex").expect("uri");
-        let req = VortexMetadataOpenRequest::metadata_only(uri);
+        let req = VortexMetadataOpenRequest::metadata_only(uri, resources());
         let fd = VortexMetadataOpenReport::feature_disabled(req.clone());
         assert!(
             !fd.file_io_performed
@@ -433,6 +477,7 @@ mod tests {
     fn open_non_vortex_invalid_target() {
         let req = VortexMetadataOpenRequest::metadata_only(
             DatasetUri::new("file://tmp/not.parquet").expect("uri"),
+            resources(),
         );
         let report = open_vortex_metadata_only(req).expect("report");
         assert!(matches!(
@@ -445,6 +490,7 @@ mod tests {
     fn open_object_store_unsupported() {
         let req = VortexMetadataOpenRequest::metadata_only(
             DatasetUri::new("s3://b/a.vortex").expect("uri"),
+            resources(),
         );
         let report = open_vortex_metadata_only(req).expect("report");
         assert!(matches!(
@@ -458,6 +504,7 @@ mod tests {
     fn open_vortex_with_feature_disabled() {
         let req = VortexMetadataOpenRequest::metadata_only(
             DatasetUri::new("file://tmp/a.vortex").expect("uri"),
+            resources(),
         );
         let report = open_vortex_metadata_only(req).expect("report");
         assert_eq!(
@@ -470,6 +517,7 @@ mod tests {
     fn open_missing_local_vortex_safe() {
         let req = VortexMetadataOpenRequest::metadata_only(
             DatasetUri::new("file:///tmp/does-not-exist-shardloom.vortex").expect("uri"),
+            resources(),
         );
         let report = open_vortex_metadata_only(req).expect("report");
         assert!(matches!(

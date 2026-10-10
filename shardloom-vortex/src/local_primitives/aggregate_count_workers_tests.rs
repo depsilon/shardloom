@@ -56,7 +56,7 @@ fn run(
         &states,
         chunks[0].dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(workers).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap(),
         &session,
         &memory,
     )
@@ -204,7 +204,7 @@ fn coordinator_chunked_logical_projection_and_nullable_admission_remain_exact() 
             &states,
             chunks[0].dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(4).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
             &VortexSession::default(),
             &memory
         )
@@ -245,7 +245,7 @@ fn coordinator_partial_denial_releases_all_queued_ownership() {
         &states,
         input.dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(4).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
         &VortexSession::default(),
         &memory,
     )
@@ -344,7 +344,7 @@ fn partition_pressure_preserves_native_exact_refinement_and_total_weight() {
             &states,
             chunks[0].dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(workers).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap(),
             &session,
             &memory,
         )
@@ -406,7 +406,7 @@ fn complete_partition_proof_does_not_claim_sketch_updates_or_no_eviction() {
         &states,
         input.dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         &session,
         &memory,
     )

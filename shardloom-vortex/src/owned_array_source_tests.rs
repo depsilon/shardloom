@@ -103,7 +103,8 @@ fn nullable_filtered_multi_measure_uses_shared_exact_semantics() {
     let prepared = source
         .prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     let result = prepared.execute().unwrap();
@@ -170,7 +171,7 @@ fn owned_numeric_exact_distinct_crosses_scan_splits_and_reuses_worker_policy() {
     let prepared = source
         .prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(3).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
         )
         .unwrap();
     drop((source, projection, input, session));

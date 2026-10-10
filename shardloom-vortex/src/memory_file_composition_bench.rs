@@ -524,7 +524,8 @@ fn run(
     let prepared = generation
         .prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     let executed = prepared.execute().unwrap();

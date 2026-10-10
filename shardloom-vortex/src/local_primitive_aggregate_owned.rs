@@ -77,7 +77,7 @@ impl AggregateOutput<'_> {
         dtype: &DType,
         session: &crate::resident_session::ResidentVortexSession,
     ) -> Result<Self> {
-        if admitted_key_kind(request, dtype).is_ok() {
+        if admitted_key_kind(request, dtype, session).is_ok() {
             return OwnedAggregateFinalizer::new(request, dtype, session)
                 .map(Box::new)
                 .map(Self::Direct);
@@ -327,7 +327,7 @@ impl OwnedAggregateFinalizer {
         dtype: &DType,
         session: &crate::resident_session::ResidentVortexSession,
     ) -> Result<Self> {
-        let key_kind = admitted_key_kind(request, dtype)?;
+        let key_kind = admitted_key_kind(request, dtype, session)?;
         let aggregate = required_simple_aggregate(request)?;
         let limit = request
             .source_order_limit
@@ -563,21 +563,41 @@ impl OwnedAggregateFinalizer {
 }
 
 #[cfg(all(test, feature = "vortex-write", unix))]
-pub(super) fn utf8_count_admitted(request: &VortexQueryPrimitiveRequest, dtype: &DType) -> bool {
-    matches!(admitted_key_kind(request, dtype), Ok(KeyKind::Utf8))
+pub(super) fn utf8_count_admitted(
+    request: &VortexQueryPrimitiveRequest,
+    dtype: &DType,
+    session: &crate::resident_session::ResidentVortexSession,
+) -> bool {
+    matches!(
+        admitted_key_kind(request, dtype, session),
+        Ok(KeyKind::Utf8)
+    )
 }
 
 #[cfg(unix)]
-fn admitted_key_kind(request: &VortexQueryPrimitiveRequest, dtype: &DType) -> Result<KeyKind> {
+fn admitted_key_kind(
+    request: &VortexQueryPrimitiveRequest,
+    dtype: &DType,
+    session: &crate::resident_session::ResidentVortexSession,
+) -> Result<KeyKind> {
     // A nonnullable child cannot prove a nullable Struct row has a key. Keep
     // COUNT's new output admission within the existing worker schema boundary.
     if dtype.is_nullable() {
         return Err(failed("requires a nonnullable Struct source"));
     }
+    // Admission uses the retained owner's allocation; this descriptor grants no
+    // additional memory and does not replace the session's live reservations.
+    let envelope = crate::VortexLocalPrimitiveResourceEnvelope::from_resources(
+        shardloom_core::ExecutionResources::from_bytes(
+            session.memory().snapshot().limit_bytes,
+            session.parallelism(),
+            shardloom_core::ExecutionResourceOrigin::Session,
+        )?,
+    )?;
     let count = count_star_admitted(request);
     if !(count
         || (workers::request_may_be_admitted(request)
-            && workers::request_schema_may_be_admitted(request, dtype)))
+            && workers::request_schema_may_be_admitted(request, dtype, envelope)))
     {
         return Err(failed(
             "requires one non-null identity key with integer COUNT(*)/COUNT DISTINCT or UTF8 COUNT(*), ordered by count descending and optional key ascending",

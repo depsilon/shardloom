@@ -194,7 +194,7 @@ fn observed_prepare(
     parallelism: usize,
 ) -> (PreparedVortexAggregate, ObservedFileReadAt) {
     canonical(request).unwrap();
-    let policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
     validate_policy(policy).unwrap();
     let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     let session = ResidentVortexSession::new(16 << 20, parallelism).unwrap();
@@ -205,7 +205,8 @@ fn observed_prepare(
         .unwrap();
     let (_, source_parallelism) = source.resource_limits();
     let (policy, physical_policy) = cap_session_cpu(policy, physical_policy, source_parallelism);
-    let lowering = AggregateLowering::new(request, source.dtype()).unwrap();
+    let lowering =
+        AggregateLowering::new(request, source.dtype(), policy.resource_envelope()).unwrap();
     assert!(lowering.residual.is_none());
     drop(
         SimpleAggregateStates::new(
@@ -431,7 +432,8 @@ fn footer_aggregate_native_empty_all_null_and_missing_statistic_match_full_scan(
         let fixture = Fixture::new(rows, all_null);
         for profile in ["complete", "disabled", "missing-max"] {
             let request = fixture.request(profile);
-            let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+            let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation");
             let ordinary =
                 runtime::execute_vortex_local_primitive_with_policy(&request, policy).unwrap();
             assert_eq!(payload(&ordinary)["values"], fixture.oracle());
@@ -477,7 +479,7 @@ fn footer_aggregate_native_aliases_having_and_text_exports_share_scalar_contract
         } else {
             json!({"hi":u64::MAX,"n":19})
         };
-        let policy = VortexLocalPrimitiveExecutionPolicy::new(2).unwrap();
+        let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap();
         let ordinary =
             runtime::execute_vortex_local_primitive_with_policy(&request, policy).unwrap();
         assert_metadata(&ordinary, 19, 2);

@@ -96,7 +96,8 @@ fn native_relational_sql_unary_column_resolution_matches_derived_scope() {
     ] {
         let error = prepare(
             &format!("SELECT * FROM DISTINCT_ROWS(({source}), 'value') AS u"),
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |leaf| DatasetUri::new(leaf.path.to_string_lossy().into_owned()),
         )
         .err()
@@ -212,7 +213,8 @@ fn native_relational_sql_unary_malformed_arguments_fail_before_source_resolution
         assert!(
             prepare(
                 &statement,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 |_| panic!("malformed operation opened input: {statement}")
             )
             .is_err(),
@@ -250,6 +252,12 @@ fn native_relational_sql_explode_repeats_over_ordered_renamed_nested_payloads() 
                     ("items".into(), S::List(vec![item(vec![S::Int64(-4)])])),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         ),
     )
     .unwrap();
@@ -289,7 +297,8 @@ fn native_relational_sql_unary_mixed_melt_does_not_widen_scalar_admission() {
     let payload = r#"{"id_columns":[],"value_columns":["value","metric"],"variable_column":"field","value_column":"amount"}"#;
     let error = prepare(
         &format!("SELECT * FROM MELT((SELECT * FROM '{path}'), '{payload}') AS u"),
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         |leaf| DatasetUri::new(leaf.path.to_string_lossy().into_owned()),
     )
     .err()

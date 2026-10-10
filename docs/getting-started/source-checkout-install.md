@@ -4,16 +4,17 @@
 
 Status marker: `source_checkout_install_v1=true`.
 
-Use this path when working from the repository before public package channels are live. This is the
-active v1 local proof path; it is not a package publication, production, performance, Spark
-replacement, or broad SQL/DataFrame claim.
+Use this path to run the current repository revision, including changes made
+after the published v0.5.1 packages. Build the CLI and use the Python package
+from the same checkout. This local proof does not establish production readiness,
+performance superiority, Spark replacement, or broad SQL/DataFrame support.
 
 ## Build
 
 ```powershell
 git clone https://github.com/depsilon/shardloom.git
 cd shardloom
-cargo build -p shardloom-cli --bin shardloom
+cargo build -p shardloom-cli --bin shardloom --features release-user-surfaces
 ```
 
 Run the local CLI:
@@ -27,11 +28,13 @@ On Unix-like shells, use `target/debug/shardloom`.
 
 ## Python Source Checkout
 
-For source-tree Python examples, prefer `PYTHONPATH` first so no environment is modified:
+For source-tree Python examples, prefer `PYTHONPATH` first so no environment is modified.
+The example supplies an illustrative allocation of 16 GiB and 8 execution lanes;
+choose both values for your workload:
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python examples\local-python-smoke\run.py --repo-root .
+python examples\local-python-smoke\run.py --repo-root . --memory-gb 16 --max-parallelism 8
 ```
 
 Editable source installs are allowed for local development:

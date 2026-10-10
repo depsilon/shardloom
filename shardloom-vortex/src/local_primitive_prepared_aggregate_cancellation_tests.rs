@@ -113,7 +113,8 @@ fn prepared_parent_cancellation_during_memory_scan_releases_attempt_and_allows_f
     let mut prepared = generation
         .prepare_aggregate(
             &request(&generation, false),
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     assert!(prepared.worker_pool);
@@ -176,7 +177,8 @@ fn prepared_cache_pressure_replay_does_not_cancel_the_live_parent_scope() {
     let prepared = generation
         .prepare_aggregate(
             &request(&generation, true),
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     assert!(prepared.worker_pool);

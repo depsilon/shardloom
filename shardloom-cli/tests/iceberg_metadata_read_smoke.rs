@@ -6,8 +6,15 @@ use std::{
 };
 
 fn run_iceberg_metadata_read_smoke_json(args: &[String]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
+    let mut command = Command::new(env!("CARGO_BIN_EXE_shardloom"));
+    command.args(args);
+    if matches!(
+        args.first().map(String::as_str),
+        Some("iceberg-metadata-read-smoke")
+    ) {
+        command.args(["--memory-gb", "4", "--max-parallelism", "2"]);
+    }
+    command
         .output()
         .expect("iceberg-metadata-read-smoke command runs")
 }

@@ -14,7 +14,7 @@ from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext, from_arrow_t
 
 class NativeMemoryInputTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.client = ShardLoomClient(binary="unused")
+        self.client = ShardLoomClient(binary="unused", memory_gb=4, max_parallelism=2)
         self.context = ShardLoomContext(self.client)
 
     def declaration(self, frame: LazyFrame) -> dict[str, object]:

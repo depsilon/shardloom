@@ -15,7 +15,7 @@ from shardloom.models import OutputEnvelope
 
 class ScalarSubqueryDeclarationTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.client = sl.ShardLoomClient(binary="unused-shardloom")
+        self.client = sl.ShardLoomClient(binary="unused-shardloom", memory_gb=4, max_parallelism=2)
         self.context = sl.ShardLoomContext(self.client)
         self.outer = self.context.read_vortex("outer.vortex")
         self.inner = self.context.read_csv("inner.data", schema={"value": "int64"})

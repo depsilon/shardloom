@@ -2813,11 +2813,15 @@ fn parse_timestamp_minute(value: &str) -> Option<u8> {
 /// This does not introduce a new execution engine. It only overlaps the
 /// admitted source adapter's `RecordBatch` production with the Vortex writer's
 /// consumption and preserves source order through a bounded channel.
-#[must_use]
+/// # Errors
+/// Rejects zero parallelism before pulling the source or starting its executor.
 pub fn with_capillary_prefetch_columnar_stream_source(
     mut source: FlatLocalColumnarStreamSource,
     requested_max_parallelism: usize,
-) -> FlatLocalColumnarStreamSource {
+) -> Result<FlatLocalColumnarStreamSource> {
+    if requested_max_parallelism == 0 {
+        return Err(ShardLoomError::new("max_parallelism must be positive"));
+    }
     #[cfg(feature = "vortex-write")]
     if requested_max_parallelism > 1
         && source
@@ -2837,8 +2841,8 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         source.ingest_executor_requested_parallelism = source
             .ingest_executor_requested_parallelism
             .max(1)
-            .min(requested_max_parallelism.max(1));
-        return source;
+            .min(requested_max_parallelism);
+        return Ok(source);
     }
     #[cfg(feature = "vortex-write")]
     {
@@ -2846,7 +2850,10 @@ pub fn with_capillary_prefetch_columnar_stream_source(
     }
     #[cfg(not(feature = "vortex-write"))]
     {
-        with_dedicated_source_prefetch(source, requested_max_parallelism)
+        Ok(with_dedicated_source_prefetch(
+            source,
+            requested_max_parallelism,
+        ))
     }
 }
 
@@ -2855,7 +2862,6 @@ fn with_dedicated_source_prefetch(
     source: FlatLocalColumnarStreamSource,
     requested_max_parallelism: usize,
 ) -> FlatLocalColumnarStreamSource {
-    let requested_max_parallelism = requested_max_parallelism.max(1);
     let FlatLocalColumnarStreamSource {
         header,
         column_dtypes,
@@ -2947,8 +2953,8 @@ fn with_dedicated_source_prefetch(
 fn with_shared_runtime_columnar_source(
     mut source: FlatLocalColumnarStreamSource,
     requested: usize,
-) -> FlatLocalColumnarStreamSource {
-    let runtime = IngestRuntime::new(requested);
+) -> Result<FlatLocalColumnarStreamSource> {
+    let runtime = IngestRuntime::new(requested)?;
     if runtime.parallelism() > 1 {
         let schema = source.reader.schema();
         let reader = source.reader;
@@ -2968,7 +2974,7 @@ fn with_shared_runtime_columnar_source(
         .ingest_executor_unit_count_hint
         .or(source.record_batch_count_hint);
     source.ingest_runtime = Some(runtime);
-    source
+    Ok(source)
 }
 
 fn columnar_stream_source_already_has_capillary_executor(
@@ -3219,6 +3225,9 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
     requested_max_parallelism: usize,
     batch_budget_bytes: Option<u64>,
 ) -> Result<FlatLocalColumnarStreamSource> {
+    if requested_max_parallelism == 0 {
+        return Err(ShardLoomError::new("max_parallelism must be positive"));
+    }
     if batch_budget_bytes == Some(0) {
         return Err(ShardLoomError::InvalidOperation(
             "Parquet batch byte budget must be positive; no fallback execution was attempted"
@@ -3283,12 +3292,11 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
     stream_plan
         .source_unit_row_ranges
         .clone_from(&row_group_metadata.ranges);
-    let requested_max_parallelism = requested_max_parallelism.max(1);
     #[cfg(not(feature = "vortex-write"))]
     let source_parallelism_budget =
         parquet_row_group_source_parallelism_budget(requested_max_parallelism);
     #[cfg(feature = "vortex-write")]
-    let runtime = IngestRuntime::new(requested_max_parallelism);
+    let runtime = IngestRuntime::new(requested_max_parallelism)?;
     #[cfg(feature = "vortex-write")]
     let source_parallelism_budget = runtime.parallelism();
     if requested_max_parallelism > 1 && row_group_count > 1 && source_parallelism_budget > 0 {
@@ -3406,7 +3414,7 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
                 row_group_byte_ranges.as_deref(),
             ),
             requested_max_parallelism,
-        ),
+        )?,
         source_identity,
     ))
 }
@@ -7603,7 +7611,7 @@ mod tests {
             }),
         };
 
-        let mut source = with_capillary_prefetch_columnar_stream_source(source, 4);
+        let mut source = with_capillary_prefetch_columnar_stream_source(source, 4).unwrap();
 
         #[cfg(feature = "vortex-write")]
         {
@@ -7703,7 +7711,7 @@ mod tests {
             }),
         };
 
-        let mut source = with_capillary_prefetch_columnar_stream_source(source, 2);
+        let mut source = with_capillary_prefetch_columnar_stream_source(source, 2).unwrap();
 
         #[cfg(feature = "vortex-write")]
         {
@@ -7775,7 +7783,7 @@ mod tests {
             }),
         };
 
-        let mut source = with_capillary_prefetch_columnar_stream_source(source, 8);
+        let mut source = with_capillary_prefetch_columnar_stream_source(source, 8).unwrap();
 
         assert_eq!(
             source.ingest_executor_status,

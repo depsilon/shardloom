@@ -81,13 +81,15 @@ _EXPORT_GROUPS: dict[str, tuple[str, ...]] = {
         "WorkflowReadinessPlan",
         "WorkflowReadinessSmokeReport",
     ),
+    "execution_resources": (
+        "ExecutionResources",
+        "ExecutionResourceLimits",
+        "ShardLoomResourceConfigurationError",
+    ),
     "runtime_defaults": (
-        "DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM",
-        "DEFAULT_INTERNAL_SMOKE_MEMORY_GB",
-        "DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM",
-        "DEFAULT_LOCAL_RUNTIME_MEMORY_GB",
         "SHARDLOOM_MAX_PARALLELISM_ENV",
         "SHARDLOOM_MEMORY_GB_ENV",
+        "SHARDLOOM_MEMORY_BYTES_ENV",
     ),
     "context": (
         "CapabilityPosture",

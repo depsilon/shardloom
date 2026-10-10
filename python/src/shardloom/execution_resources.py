@@ -150,6 +150,7 @@ class ExecutionResources:
 def resolve_resources(
     *, memory_gb: int | None = None, memory_bytes: int | None = None,
     max_parallelism: int | None = None, inherited: ExecutionResources | None = None,
+    resources: ExecutionResources | None = None,
     origin: str = "execution_call", limits: ExecutionResourceLimits | None = None,
 ) -> ExecutionResources:
     """Resolve supplied overrides against an explicit allocation, never a default.
@@ -162,6 +163,17 @@ def resolve_resources(
     origin = _origin(origin)
     if inherited is not None and not isinstance(inherited, ExecutionResources):
         raise ShardLoomResourceConfigurationError("inherited allocation must be ExecutionResources")
+    if resources is not None:
+        if not isinstance(resources, ExecutionResources):
+            raise ShardLoomResourceConfigurationError("resources must be ExecutionResources")
+        resource_limits = resources.limits
+        if inherited is not None and inherited.limits is not None:
+            resource_limits = (inherited.limits if resource_limits is None
+                               else inherited.limits.intersect(resource_limits))
+        inherited = ExecutionResources(
+            resources.memory_bytes, resources.max_parallelism,
+            resources.memory_origin, resources.parallelism_origin, resource_limits,
+        )
     if limits is not None and not isinstance(limits, ExecutionResourceLimits):
         raise ShardLoomResourceConfigurationError("limits must be ExecutionResourceLimits")
     if memory_gb is not None and memory_bytes is not None:
@@ -190,3 +202,40 @@ def resolve_resources(
     if inherited is not None and inherited.limits is not None:
         limits = inherited.limits if limits is None else inherited.limits.intersect(limits)
     return ExecutionResources(memory_bytes, max_parallelism, memory_origin, parallelism_origin, limits)
+
+
+def optional_resources(
+    *, memory_gb: int | None = None, memory_bytes: int | None = None,
+    max_parallelism: int | None = None, inherited: ExecutionResources | None = None,
+    resources: ExecutionResources | None = None, origin: str = "execution_call",
+    limits: ExecutionResourceLimits | None = None,
+) -> ExecutionResources | None:
+    """Permit a wholly unconfigured lazy declaration, but never a partial one."""
+
+    if all(value is None for value in (
+        memory_gb, memory_bytes, max_parallelism, inherited, resources, limits,
+    )):
+        return None
+    return resolve_resources(
+        memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+        inherited=inherited, resources=resources, origin=origin, limits=limits,
+    )
+
+
+def resource_command_args(resources: ExecutionResources | None) -> list[str]:
+    """Transport a validated declaration without rounding bytes or losing origin."""
+
+    if resources is None:
+        return []
+    args = [
+        "--memory-bytes", str(resources.memory_bytes),
+        "--max-parallelism", str(resources.max_parallelism),
+        "--memory-origin", resources.memory_origin,
+        "--parallelism-origin", resources.parallelism_origin,
+    ]
+    if resources.limits is not None:
+        if resources.limits.memory_bytes is not None:
+            args.extend(["--memory-limit-bytes", str(resources.limits.memory_bytes)])
+        if resources.limits.max_parallelism is not None:
+            args.extend(["--parallelism-limit", str(resources.limits.max_parallelism)])
+    return args

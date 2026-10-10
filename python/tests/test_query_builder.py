@@ -23,10 +23,6 @@ from shardloom.query import (
     _rewrite_predicate_with_computed_columns,
     _vortex_expression_scalar_payload,
 )
-from shardloom.runtime_defaults import (
-    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-    DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-)
 
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     """
@@ -91,7 +87,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[args.index("--evidence-level") + 1] == "production_admitted_local_workflow", sys.argv
                 assert args[args.index("--bounded") + 1] == "true", sys.argv
                 assert "--allow-overwrite" in args, sys.argv
-                assert args[args.index("--max-parallelism") + 1] == {str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM)!r}, sys.argv
+                assert args[args.index("--max-parallelism") + 1] == "2", sys.argv
                 assert args[-2:] == ["--format", "json"], sys.argv
                 fields = [
                     ["public_workflow_facade_command", "run"],
@@ -418,10 +414,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "production_admitted_local_workflow",
                     "--bounded",
                     "false",
-                    "--memory-gb",
-                    "__PUBLIC_MEMORY_GB__",
-                    "--max-parallelism",
-                    "__PUBLIC_MAX_PARALLELISM__",
                     "--format",
                     "json",
                 ], sys.argv
@@ -452,12 +444,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fields": [{"key": key, "value": value} for key, value in fields],
                 }))
                 """
-            ).replace(
-                "__PUBLIC_MEMORY_GB__",
-                str(DEFAULT_LOCAL_RUNTIME_MEMORY_GB),
-            ).replace(
-                "__PUBLIC_MAX_PARALLELISM__",
-                str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
             )
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
@@ -499,10 +485,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "production_admitted_local_workflow",
                     "--bounded",
                     "true",
-                    "--memory-gb",
-                    "4",
+                    "--memory-bytes",
+                    "4294967296",
                     "--max-parallelism",
                     "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -536,7 +526,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
             )
         )
-        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
         execution = ctx.read_csv("target/input.csv").prepare("target/input.vortex")
 
@@ -550,7 +540,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(execution.external_engine_invoked)
 
     def test_workflow_prepare_forwards_schema_hints_only_for_text_adapters(self) -> None:
-        client = ShardLoomClient(binary="unused-shardloom")
+        client = ShardLoomClient(binary="unused-shardloom", memory_gb=4, max_parallelism=2)
         schema = {"code": "utf8"}
         for format_name, read in (
             ("csv", sl.read_csv), ("json", sl.read_json),
@@ -605,7 +595,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             BufferReader = bytes
             ipc = FakeArrowIpc
 
-        client = ShardLoomClient(binary=["definitely-missing-shardloom"])
+        client = ShardLoomClient(binary=["definitely-missing-shardloom"], memory_gb=4, max_parallelism=2)
 
         pandas_source = sl.from_pandas(FakeDataFrame(), client=client)
         arrow_source = sl.from_arrow_table(
@@ -655,7 +645,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with mock.patch.dict(sys.modules, {"pyarrow": FakePyArrowModule}):
             ipc_source = sl.from_arrow_ipc(
                 b"fake-file-ipc",
-                client=ShardLoomClient(binary=["definitely-missing-shardloom"]),
+                client=ShardLoomClient(binary=["definitely-missing-shardloom"], memory_gb=4, max_parallelism=2),
             )
 
         self.assertEqual(ipc_source.source.schema, (("id", "int64"), ("label", "utf8")))
@@ -711,7 +701,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             )
         )
         workflow = (
-            ShardLoomContext(ShardLoomClient(binary=binary))
+            ShardLoomContext(ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
             .read_csv("target/input.csv")
             .select("id", "label")
         )
@@ -1608,7 +1598,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             output_path="target/out-public.csv",
             output_format="csv",
         )
-        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
         report = (
             ctx.read_csv("target/input.csv")
@@ -1689,7 +1679,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     output_path=output_path,
                     output_format=cli_format,
                 )
-                ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+                ctx = ShardLoomContext(ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
                 report = writer()
                 self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
                 self.assertEqual(
@@ -1710,7 +1700,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             output_path="target/nested.parquet",
             output_format="parquet",
         )
-        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
         report = (
                 ctx.read_csv("target/input.csv")
@@ -1740,7 +1730,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             output_path="target/out.vortex",
             output_format="vortex",
         )
-        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
         report = (
             ctx.read_csv("target/input.csv")
@@ -1803,7 +1793,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
             ),
         )
-        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
         with self.assertRaises(sl.ShardLoomCommandError):
             (
@@ -1816,29 +1806,30 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
 
     def test_from_rows_validates_scoped_generated_source_inputs(self) -> None:
+        client = ShardLoomClient(binary=["definitely-missing-shardloom"], memory_gb=4, max_parallelism=2)
         with self.assertRaises(ValueError):
-            sl.from_rows([], binary=["definitely-missing-shardloom"])
+            sl.from_rows([], client=client)
         with self.assertRaises(TypeError):
-            sl.from_rows([object()], binary=["definitely-missing-shardloom"])  # type: ignore[list-item]
+            sl.from_rows([object()], client=client)  # type: ignore[list-item]
         with self.assertRaises(ValueError):
             sl.from_rows(
                 [{"id": 1}, {"id": 2, "label": "extra"}],
-                binary=["definitely-missing-shardloom"],
+                client=client,
             )
         with self.assertRaises(TypeError):
             sl.from_rows(
                 [{"id": 1}, {"id": "two"}],
-                binary=["definitely-missing-shardloom"],
+                client=client,
             )
         with self.assertRaises(ValueError):
-            sl.literal_table([], binary=["definitely-missing-shardloom"])
+            sl.literal_table([], client=client)
         with self.assertRaises(ValueError):
             sl.calendar(
                 "2026-05-20",
                 "2026-05-18",
-                binary=["definitely-missing-shardloom"],
+                client=client,
             )
-        source = sl.from_rows([{"id": 1}], binary=["definitely-missing-shardloom"])
+        source = sl.from_rows([{"id": 1}], client=client)
         self.assertIn("SELECT missing", source.select("missing")._relation_statement())
         self.assertIn("id + 1 AS bad", source.with_column("bad", sl.col("id") + 1)._relation_statement())
         self.assertIn("NULL AS bad", source.with_column("bad", "lit(null)")._relation_statement())
@@ -1901,10 +1892,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "production_admitted_local_workflow",
                     "--bounded",
                     "true",
-                    "--memory-gb",
-                    "4",
+                    "--memory-bytes",
+                    "4294967296",
                     "--max-parallelism",
                     "1",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -1946,7 +1941,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
 
     def test_sql_without_limit_preserves_native_collection_budget_denial(self) -> None:
-        client = ShardLoomClient(binary="unused")
+        client = ShardLoomClient(binary="unused", memory_gb=4, max_parallelism=2)
         failure = OutputEnvelope.from_field_mapping(
             {"reason": "native admission denied the declared query", "fallback_attempted": "false",
              "external_engine_invoked": "false"}, command="run", status="error")
@@ -1965,7 +1960,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
 
     def test_source_free_sql_collect_returns_the_native_payload(self) -> None:
-        client = ShardLoomClient(binary="unused")
+        client = ShardLoomClient(binary="unused", memory_gb=4, max_parallelism=2)
         reply = OutputEnvelope.from_field_mapping({
             "result_jsonl": '{"column_1":1,"column_2":"alpha"}\n',
             "result_schema_format": "vortex.dtype.serde.v1",
@@ -1980,7 +1975,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             self.assertEqual(report.python_objects, ({"column_1": 1, "column_2": "alpha"},))
 
     def test_sql_table_admission_errors_are_owned_by_the_native_engine(self) -> None:
-        client = ShardLoomClient(binary="unused")
+        client = ShardLoomClient(binary="unused", memory_gb=4, max_parallelism=2)
         failure = OutputEnvelope.from_field_mapping(
             {"reason": "native admission denied the declared query", "fallback_attempted": "false",
              "external_engine_invoked": "false"}, command="run", status="error")
@@ -1998,7 +1993,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 self.assertIs(report.envelope, failure)
 
     def test_projected_file_literal_never_becomes_a_source_binding(self) -> None:
-        client = ShardLoomClient(binary="unused")
+        client = ShardLoomClient(binary="unused", memory_gb=4, max_parallelism=2)
         failure = OutputEnvelope.from_field_mapping(
             {"reason": "native admission denied the declared query", "fallback_attempted": "false",
              "external_engine_invoked": "false"}, command="run", status="error")
@@ -2351,16 +2346,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             )
         )
         workflow = (
-            sl.read_csv("events.csv", client=ShardLoomClient(binary=binary))
+            sl.read_csv("events.csv", client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
             .filter("id > 0")
             .select("id", "amount")
         )
-        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
         reports = (
-            sl.from_pandas(object(), client=ShardLoomClient(binary=binary)),
-            sl.from_arrow_table(object(), client=ShardLoomClient(binary=binary)),
-            sl.from_arrow_ipc("events.arrow", client=ShardLoomClient(binary=binary)),
+            sl.from_pandas(object(), client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)),
+            sl.from_arrow_table(object(), client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)),
+            sl.from_arrow_ipc("events.arrow", client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)),
             workflow.with_column("date", "to_date(ts)"),
             workflow.sort("amount", "amount", descending=True),
             workflow.dropna(axis=1),
@@ -2368,10 +2363,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.sample(random_state="seed"),
             workflow.explode("items.payload.deep"),
             workflow.merge(
-                sl.read_csv("other.csv", client=ShardLoomClient(binary=binary)),
+                sl.read_csv("other.csv", client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)),
                 how="left",
             ),
-            workflow.concat([sl.read_csv("other.csv", client=ShardLoomClient(binary=binary))]),
+            workflow.concat([sl.read_csv("other.csv", client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))]),
             workflow.pivot(index=["id", "customer_id"], columns="label", values="amount"),
             workflow.pivot_table(
                 index="id",
@@ -3605,7 +3600,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "runtime_execution", "value": "false"},
                         {"key": "fallback_attempted", "value": "false"},
                     ]
-                elif args == ["live-fixture-run", "group-count", "metric", "--format", "json"]:
+                elif args == [
+                    "live-fixture-run", "group-count", "metric",
+                    "--memory-bytes", "4294967296", "--max-parallelism", "2",
+                    "--memory-origin", "context", "--parallelism-origin", "context",
+                    "--format", "json",
+                ]:
                     command = "live-fixture-run"
                     fields = [
                         {"key": "fixture_operator", "value": "group_count"},
@@ -3624,7 +3624,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "fallback_attempted", "value": "false"},
                     ]
-                elif args == ["hybrid-overlay-run", "group-count", "metric", "--format", "json"]:
+                elif args == [
+                    "hybrid-overlay-run", "group-count", "metric",
+                    "--memory-bytes", "4294967296", "--max-parallelism", "2",
+                    "--memory-origin", "context", "--parallelism-origin", "context",
+                    "--format", "json",
+                ]:
                     command = "hybrid-overlay-run"
                     fields = [
                         {"key": "fixture_operator", "value": "group_count"},
@@ -3659,7 +3664,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
             )
         )
-        ctx = ShardLoomContext(ShardLoomClient(binary=binary), engine="live")
+        ctx = ShardLoomContext(
+            ShardLoomClient(binary=binary), engine="live", memory_gb=4, max_parallelism=2
+        )
 
         contract = ctx.live_change_contract_plan()
         fixture = ctx.live_fixture_run("group-count", "metric")
@@ -3883,8 +3890,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                             assert option("--input-format") == {source_format!r}, args
                             assert option("--sql") == {expected_sql!r}, args
                             assert option("--request") == {request!r}, args
-                            assert option("--memory-gb") == "3", args
+                            assert option("--memory-bytes") == "3221225472", args
                             assert option("--max-parallelism") == "2", args
+                            assert option("--memory-origin") == "execution_call", args
+                            assert option("--parallelism-origin") == "execution_call", args
                             assert json.loads(option("--spill")) == {spill!r}, args
                             if {output_path!r} is None:
                                 assert "--output" not in args, args
@@ -4000,8 +4009,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                                 return args[args.index(name) + 1]
                             assert option("--sql") == {expected_sql!r}, args
                             assert option("--request") == {request!r}, args
-                            assert option("--memory-gb") == "3", args
+                            assert option("--memory-bytes") == "3221225472", args
                             assert option("--max-parallelism") == "2", args
+                            assert option("--memory-origin") == "execution_call", args
+                            assert option("--parallelism-origin") == "execution_call", args
                             assert json.loads(option("--spill")) == {spill!r}, args
                             assert json.loads(option("--source-bindings")) == {expected_bindings!r}, args
                             assert "--input" not in args and "--input-format" not in args, args

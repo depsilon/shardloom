@@ -32,6 +32,23 @@ impl ExecutionResourceOrigin {
     }
 }
 
+impl std::str::FromStr for ExecutionResourceOrigin {
+    type Err = ShardLoomError;
+
+    fn from_str(value: &str) -> Result<Self> {
+        match value {
+            "execution_call" => Ok(Self::ExecutionCall),
+            "context" => Ok(Self::Context),
+            "session" => Ok(Self::Session),
+            "environment" => Ok(Self::Environment),
+            "platform" => Ok(Self::Platform),
+            _ => Err(configuration_error(format!(
+                "invalid execution resource origin {value:?}; expected execution_call, context, session, environment or platform"
+            ))),
+        }
+    }
+}
+
 /// Optional declarations for resolution against an explicit inherited allocation.
 ///
 /// Both memory spellings in one declaration conflict, even when numerically equal.
@@ -115,6 +132,34 @@ pub struct ExecutionResources {
 }
 
 impl ExecutionResources {
+    /// Restore a declaration crossing a transport boundary, validating its grant.
+    ///
+    /// Origins describe caller-supplied provenance. They do not authenticate a
+    /// platform or authorize an increase beyond the supplied deployment ceilings.
+    ///
+    /// # Errors
+    /// Rejects zero resources or allocations above an explicit ceiling.
+    pub fn from_declaration(
+        memory_bytes: u64,
+        max_parallelism: usize,
+        memory_origin: ExecutionResourceOrigin,
+        parallelism_origin: ExecutionResourceOrigin,
+        limits: Option<ExecutionResourceLimits>,
+    ) -> Result<Self> {
+        let mut resources = Self::resolve(
+            ExecutionResourceRequest {
+                memory_bytes: Some(memory_bytes),
+                max_parallelism: Some(max_parallelism),
+                ..ExecutionResourceRequest::new(ExecutionResourceOrigin::ExecutionCall)
+            },
+            None,
+            limits,
+        )?;
+        resources.memory_origin = memory_origin;
+        resources.parallelism_origin = parallelism_origin;
+        Ok(resources)
+    }
+
     /// Resolve explicit call/context declarations and preserve inherited ceilings.
     ///
     /// Supplied fields override inherited fields. New ceilings may tighten an
@@ -269,6 +314,57 @@ impl ExecutionResources {
     #[must_use]
     pub const fn limits(self) -> Option<ExecutionResourceLimits> {
         self.limits
+    }
+
+    /// Configuration evidence only: permission is not admission or measured use.
+    /// Runtime reports append their actual admission, ownership and spill evidence.
+    #[must_use]
+    pub fn evidence_fields(self) -> Vec<(String, String)> {
+        [
+            ("schema_version", "shardloom.execution_resources.v1".into()),
+            ("configuration_status", "explicit_validated".into()),
+            ("declared_memory_bytes", self.memory_bytes.to_string()),
+            (
+                "declared_memory_gb",
+                self.whole_gib()
+                    .map_or_else(|| "unavailable".into(), |value| value.to_string()),
+            ),
+            ("declared_max_parallelism", self.max_parallelism.to_string()),
+            ("memory_origin", self.memory_origin.as_str().into()),
+            (
+                "parallelism_origin",
+                self.parallelism_origin.as_str().into(),
+            ),
+            (
+                "authorized_memory_limit_bytes",
+                self.limits
+                    .and_then(ExecutionResourceLimits::memory_bytes)
+                    .map_or_else(|| "not_supplied".into(), |value| value.to_string()),
+            ),
+            (
+                "authorized_parallelism_limit",
+                self.limits
+                    .and_then(ExecutionResourceLimits::max_parallelism)
+                    .map_or_else(|| "not_supplied".into(), |value| value.to_string()),
+            ),
+            ("memory_gb_unit", "GiB=1073741824_bytes".into()),
+            (
+                "allocation_semantics",
+                "permission_not_preallocated_memory_or_measured_usage".into(),
+            ),
+            (
+                "parallelism_semantics",
+                "integer_execution_lane_ceiling_not_cpu_quota_or_utilization".into(),
+            ),
+            (
+                "origin_scope",
+                "caller_supplied_provenance_not_platform_authentication".into(),
+            ),
+            ("whole_process_memory_limit_enforced", "false".into()),
+        ]
+        .into_iter()
+        .map(|(key, value)| (format!("execution_resource_{key}"), value))
+        .collect()
     }
 }
 

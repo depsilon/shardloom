@@ -1040,7 +1040,7 @@ mod tests {
         );
         let result = collect_rows(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         assert_eq!(result.rows, 3);
@@ -1316,7 +1316,7 @@ mod tests {
             .with_source_order_limit(2);
             let result = collect_rows(
                 &request,
-                VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
             )
             .unwrap();
             let values: serde_json::Value =
@@ -1380,7 +1380,7 @@ mod tests {
         );
         let result = collect_rows(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
         )
         .unwrap();
         let values: serde_json::Value = serde_json::from_str(result.values_json.value()).unwrap();
@@ -1416,7 +1416,7 @@ mod tests {
         );
         let result = collect_rows(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
         );
         assert!(result.err().unwrap().to_string().contains("65,536 rows"));
         std::fs::remove_file(&path).unwrap();

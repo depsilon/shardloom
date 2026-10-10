@@ -821,9 +821,18 @@ impl ObjectStoreReadSmokeReport {
 }
 
 pub(crate) fn handle_object_store_read_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "object-store-read-smoke",
+        &["--profile", "--public-fixture-path", "--range"],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(source) = args.next() else {
         return emit_error(
             OBJECT_STORE_READ_SMOKE_COMMAND,
@@ -882,7 +891,9 @@ pub(crate) fn handle_object_store_read_smoke(
                 requested_range = match parse_requested_range(&value) {
                     Ok(range) => Some(range),
                     Err(error) => {
-                        return emit_blocked_range_parse(format, &source, &profile, &error);
+                        return emit_blocked_range_parse(
+                            format, &source, &profile, &error, resources,
+                        );
                     }
                 };
             }
@@ -904,13 +915,22 @@ pub(crate) fn handle_object_store_read_smoke(
         public_fixture_path.as_deref(),
         fixture_listing_requested,
     );
-    emit_object_store_read_smoke_report(format, &report)
+    emit_object_store_read_smoke_report(format, &report, resources)
 }
 
 pub(crate) fn handle_object_store_write_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "object-store-write-smoke",
+        &["--profile", "--idempotency-key"],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(source) = args.next() else {
         return emit_error(
             OBJECT_STORE_WRITE_SMOKE_COMMAND,
@@ -998,13 +1018,22 @@ pub(crate) fn handle_object_store_write_smoke(
         allow_overwrite,
         rollback_after_commit,
     );
-    emit_object_store_write_smoke_report(format, &report)
+    emit_object_store_write_smoke_report(format, &report, resources)
 }
 
 pub(crate) fn handle_object_store_write_recovery_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "object-store-write-recovery-smoke",
+        &["--profile", "--idempotency-key"],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(target) = args.next() else {
         return emit_error(
             OBJECT_STORE_WRITE_RECOVERY_SMOKE_COMMAND,
@@ -1070,13 +1099,22 @@ pub(crate) fn handle_object_store_write_recovery_smoke(
 
     let report =
         execute_object_store_write_recovery_smoke(&target, &profile, idempotency_key.as_deref());
-    emit_object_store_write_recovery_smoke_report(format, &report)
+    emit_object_store_write_recovery_smoke_report(format, &report, resources)
 }
 
 pub(crate) fn handle_object_store_partition_discovery_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "object-store-partition-discovery-smoke",
+        &["--profile", "--partition-columns"],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(root) = args.next() else {
         return emit_error(
             OBJECT_STORE_PARTITION_DISCOVERY_SMOKE_COMMAND,
@@ -1141,7 +1179,7 @@ pub(crate) fn handle_object_store_partition_discovery_smoke(
     }
 
     let report = execute_object_store_partition_discovery_smoke(&root, &profile, partition_columns);
-    emit_object_store_partition_discovery_smoke_report(format, &report)
+    emit_object_store_partition_discovery_smoke_report(format, &report, resources)
 }
 
 fn emit_blocked_range_parse(
@@ -1149,6 +1187,7 @@ fn emit_blocked_range_parse(
     source: &str,
     profile: &str,
     error: &ShardLoomError,
+    resources: shardloom_core::ExecutionResources,
 ) -> ExitCode {
     let report = ObjectStoreReadSmokeReport::blocked(
         ObjectStoreReadSmokeStatus::BlockedInvalidRange,
@@ -1159,12 +1198,13 @@ fn emit_blocked_range_parse(
             "Use --range offset:length with a positive length.",
         ),
     );
-    emit_object_store_read_smoke_report(format, &report)
+    emit_object_store_read_smoke_report(format, &report, resources)
 }
 
 fn emit_object_store_read_smoke_report(
     format: OutputFormat,
     report: &ObjectStoreReadSmokeReport,
+    resources: shardloom_core::ExecutionResources,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     let status = if has_errors {
@@ -1179,7 +1219,10 @@ fn emit_object_store_read_smoke_report(
         object_store_read_summary(&report.provider_profile).to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        object_store_read_smoke_fields(report),
+        crate::execution_resources::with_declaration_fields(
+            object_store_read_smoke_fields(report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -1191,6 +1234,7 @@ fn emit_object_store_read_smoke_report(
 fn emit_object_store_write_smoke_report(
     format: OutputFormat,
     report: &ObjectStoreWriteSmokeReport,
+    resources: shardloom_core::ExecutionResources,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     let status = if has_errors {
@@ -1205,7 +1249,10 @@ fn emit_object_store_write_smoke_report(
         "object-store local-emulator write smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        object_store_write_smoke_fields(report),
+        crate::execution_resources::with_declaration_fields(
+            object_store_write_smoke_fields(report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -1217,6 +1264,7 @@ fn emit_object_store_write_smoke_report(
 fn emit_object_store_write_recovery_smoke_report(
     format: OutputFormat,
     report: &ObjectStoreWriteRecoveryReport,
+    resources: shardloom_core::ExecutionResources,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     let status = if has_errors {
@@ -1231,7 +1279,10 @@ fn emit_object_store_write_recovery_smoke_report(
         "object-store local-emulator write recovery smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        object_store_write_recovery_smoke_fields(report),
+        crate::execution_resources::with_declaration_fields(
+            object_store_write_recovery_smoke_fields(report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -1243,6 +1294,7 @@ fn emit_object_store_write_recovery_smoke_report(
 fn emit_object_store_partition_discovery_smoke_report(
     format: OutputFormat,
     report: &ObjectStorePartitionDiscoveryReport,
+    resources: shardloom_core::ExecutionResources,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     let status = if has_errors {
@@ -1257,7 +1309,10 @@ fn emit_object_store_partition_discovery_smoke_report(
         "object-store local-emulator partition discovery smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        object_store_partition_discovery_smoke_fields(report),
+        crate::execution_resources::with_declaration_fields(
+            object_store_partition_discovery_smoke_fields(report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)

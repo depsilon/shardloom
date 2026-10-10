@@ -86,6 +86,8 @@ whole-process RSS bound or complete provider accounting without separate proof.
 
 ## Grounded implementation boundaries
 
+The initial inventory below describes the source before this change.
+
 - `python/src/shardloom/runtime_defaults.py` currently resolves environment values
   at import and replaces missing/invalid values with 4 GiB and two lanes.
 - Python terminal signatures embed those constants. `_terminal_resource_kwargs`
@@ -146,3 +148,40 @@ it before admitting a changed operation; preserve that behavior. Correct the
 local-engine primitive path that currently forwards parallelism into a constructor
 which replaces the request's memory budget with 4 GiB. Remove the ingest stream's
 implicit 1-GiB prefetch allocation when no explicit native memory owner is supplied.
+
+## Implemented source contract, pending complete acceptance
+
+The shared Rust and Python `ExecutionResources` declarations now validate exact
+bytes, origins and intersected authorization ceilings without numeric defaults.
+Python contexts, sessions and terminal calls resolve through that declaration;
+CLI commands and persistent-worker requests validate it before data access.
+`--resources-from-env` and `ExecutionResources.from_env()` deliberately load the
+existing environment variables. Ordinary imports and requests do not consult
+ambient resource settings. SQL text remains independent of the allocation.
+
+Native session, policy and writer constructors require an allocation. Relational
+compatibility preparation receives the existing session's `LiveMemoryPool`, so
+retained input and preparation compete for the same credits. Sequential standalone
+preparation creates its admitted owner only when needed. Writer refusal precedes
+producer pulls and output creation; the shared-pool tests retain another input
+owner across denial and verify a successful retry after credits are released.
+
+All execution reports attach the declared bytes, lane maximum and origins.
+Resident count, filtered count, unary, aggregate and relational paths attach the
+actual admitted session snapshot after producing their native result buffers.
+The memory scope is the session pool lifetime, including preparation and retained
+owners; CLI envelope formatting, provider bypass allocations and process RSS are
+outside that counter. Actual peak active lanes remain unavailable because there
+is no measured lane-use counter. Legacy or uninstrumented paths retain explicit
+unavailable admission/usage fields instead of presenting permission as measurement.
+
+Spill evidence records actual activity. Weighted grouped count also records
+cumulative native payload bytes written. Its disk quota separately includes
+reserved workspace metadata, so those quantities cannot be compared as the same
+measure. `execution_resource_spill_observation_scope` identifies payload-byte
+coverage, an uninstrumented byte count, or observed absence of spill. No whole
+process ceiling, new execution provider or performance improvement is claimed.
+
+Focused resource rejection, shared ownership, worker reuse and report tests pass.
+Complete source, feature, public workflow and hosted acceptance remain required
+before this implementation unit is marked complete.

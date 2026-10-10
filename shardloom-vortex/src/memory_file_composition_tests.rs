@@ -227,7 +227,8 @@ fn owned_array_source_reuses_exact_native_aggregate_and_retains_owner() {
     let prepared = source
         .prepare_aggregate(
             &owned_request(&uri, true),
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     drop(source);
@@ -280,7 +281,8 @@ fn owned_array_source_typed_empty_aggregate_keeps_schema_and_payload_owner() {
     .unwrap();
     assert_eq!(source.dtype(), &schema());
     let uri = source.source_uri().clone();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let scalar = source
         .prepare_aggregate(&owned_request(&uri, false), policy)
         .unwrap();
@@ -373,7 +375,8 @@ fn owned_array_source_rejections_cancellation_and_borrowed_context_release_credi
     )
     .unwrap();
     let uri = source.source_uri().clone();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let mut mismatched = owned_request(&uri, true);
     mismatched.source_uri = Some(DatasetUri::new("memory://wrong/owned-array.vortex").unwrap());
     rejected(
@@ -419,7 +422,8 @@ fn owned_array_source_rejections_cancellation_and_borrowed_context_release_credi
     let prepared = source
         .prepare_aggregate(
             &owned_request(&uri, true),
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     assert_eq!(owner.snapshot().completed_executions, 0);
@@ -464,7 +468,8 @@ fn composition_multiple_owned_batches_feed_repeated_exact_native_aggregation() {
     assert_eq!(generation.evidence().source_file_opens, 0);
     assert_eq!(session.snapshot().completed_executions, 0);
     let uri = generation.source_uri().clone();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let good = request(&generation, true);
     let mut mismatched = good.clone();
     mismatched.source_uri = Some(DatasetUri::new("memory://wrong/0.vortex").unwrap());
@@ -516,7 +521,8 @@ fn composition_prepared_distinct_spill_retains_memory_source_and_cleans_each_cal
     let mut prepared = generation
         .prepare_aggregate(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     drop(generation);
@@ -584,7 +590,8 @@ fn composition_typed_empty_result_aggregates_and_native_sink_preserve_schema() {
     )
     .unwrap();
     assert_eq!(generation.dtype(), &schema());
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let scalar = generation
         .prepare_aggregate(&request(&generation, false), policy)
         .unwrap();
@@ -683,7 +690,8 @@ fn composition_p1_borrows_one_context_and_rejects_foreign_or_metadata_grants() {
             ]));
             let prepared = prepare_memory_aggregate(
                 &filtered,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 &generation,
                 Some(context),
             )?;
@@ -702,7 +710,8 @@ fn composition_p1_borrows_one_context_and_rejects_foreign_or_metadata_grants() {
         session.admission_snapshot().unwrap().admitted_calls,
         before + 1
     );
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let request = request(&generation, true);
     let prepared = generation.prepare_aggregate(&request, policy).unwrap();
     let reads = generation.evidence().memory_segment_requests;
@@ -949,7 +958,8 @@ fn composition_nullable_struct_batches_preserve_logical_fields_and_mixed_widths(
     let prepared = owned
         .prepare_aggregate(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     assert_eq!(
@@ -1110,7 +1120,8 @@ fn composition_dictionary_domain_obeys_serialized_cap_and_retains_native_values(
     let prepared = owned
         .prepare_aggregate(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     assert_eq!(

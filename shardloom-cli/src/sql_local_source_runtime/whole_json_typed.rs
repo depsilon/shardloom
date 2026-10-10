@@ -110,8 +110,8 @@ pub(super) fn prepare(
         );
     let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
         columnar_source,
-        request.max_parallelism,
-    );
+        request.resources.max_parallelism(),
+    )?;
     let mut source = VortexIngestSourceData::from_columnar_stream_source(
         source_adapter,
         &columnar_source,

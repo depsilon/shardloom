@@ -82,8 +82,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE)
     parser.add_argument("--predicate", default="gte:value:3")
     parser.add_argument("--columns", default="metric")
-    parser.add_argument("--memory-gb", type=int, default=1)
-    parser.add_argument("--max-parallelism", type=int, default=2)
+    parser.add_argument("--memory-gb", type=int, required=True)
+    parser.add_argument("--max-parallelism", type=int, required=True)
     parser.add_argument(
         "--profile-order",
         default="debug,release",

@@ -59,7 +59,13 @@ fn filtered_histogram_admission_survives_the_native_embedded_length_rewrite() {
         ),
         Nullability::NonNullable,
     );
-    let lowering = AggregateLowering::new(&request, &dtype).unwrap();
+    let lowering = AggregateLowering::new(
+        &request,
+        &dtype,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation"),
+    )
+    .unwrap();
     assert!(
         matches!(lowering.pushdown.as_ref(), Some(PredicateExpr::Compare { column, op: ComparisonOp::Gt, value: StatValue::UInt64(0) }) if column.as_str() == hidden)
     );
@@ -115,7 +121,7 @@ fn run_filtered(chunks: &[ArrayRef], memory_bytes: usize) -> serde_json::Value {
         &states,
         chunks[0].dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(4).expect("policy"),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).expect("policy"),
         &session,
         &memory,
     )
@@ -200,7 +206,7 @@ fn filtered_exact_histogram_budget_pressure_preserves_exact_refinement() {
         &states,
         chunks[0].dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(4).expect("policy"),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).expect("policy"),
         &session,
         &memory,
     )
