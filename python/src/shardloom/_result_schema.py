@@ -149,10 +149,15 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool) -> Any:
             bits = 32 if dtype.name == "date32" else 64
             if type(value) is not int or not -(1 << (bits - 1)) <= value < (1 << (bits - 1)):
                 raise ValueError("temporal result requires an integer in its declared domain")
-        if dtype.name == "date32" and temporal:
-            return dt.date(1970, 1, 1) + dt.timedelta(days=value)
-        if dtype.name == "timestamp_micros" and temporal:
-            return dt.datetime(1970, 1, 1) + dt.timedelta(microseconds=value)
+            if temporal:
+                try:
+                    if dtype.name == "date32":
+                        return dt.date(1970, 1, 1) + dt.timedelta(days=value)
+                    return dt.datetime(1970, 1, 1) + dt.timedelta(microseconds=value)
+                except OverflowError:
+                    # Python's calendar is narrower than validated native storage.
+                    # Preserve exact epoch days/microseconds outside that calendar.
+                    return value
         if dtype.name in {"list", "fixed_size_list"}:
             if not isinstance(value, list) or (dtype.name == "fixed_size_list" and len(value) != dtype.parameters[1]):
                 raise ValueError("invalid native list payload")

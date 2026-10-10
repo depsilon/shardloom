@@ -9,12 +9,29 @@ import math
 import struct
 import time
 
-from native_typed_input_fixtures import rich_fixture
+from native_typed_input_fixtures import rich_fixture, rich_python_values
 from native_streaming_protocol_cases import Peer
 from native_workflow_outputs import LOCAL_FORMATS, write_outputs
 from shardloom._result_schema import ResultType as T
 from shardloom.errors import ShardLoomCommandError
 from shardloom.query import SqlWorkflow
+
+
+def assert_python_values(actual, expected):
+    """Check exact object types as well as equality at the explicit output boundary."""
+    def exact(value, wanted):
+        assert type(value) is type(wanted), (type(value), type(wanted))
+        assert value == wanted, (value, wanted)
+        if isinstance(wanted, dict):
+            assert tuple(value) == tuple(wanted)
+            for name in wanted:
+                exact(value[name], wanted[name])
+        elif isinstance(wanted, list):
+            for item, expected_item in zip(value, wanted):
+                exact(item, expected_item)
+    assert len(actual) == len(expected)
+    for row, wanted in zip(actual, expected):
+        exact(row, wanted)
 
 
 def run(harness):
@@ -24,6 +41,7 @@ def run(harness):
     columns = tuple(reversed(schema))
     fields = tuple(reversed(fields))
     expected = [{name: row[name] for name in columns} for row in expected]
+    python_expected = [{name: row[name] for name in columns} for row in rich_python_values()]
 
     def source(mode, supplied, declaration=schema):
         # An input factory deliberately permits each complete workflow to replay.
@@ -55,27 +73,31 @@ def run(harness):
         assert message in json.dumps(report.envelope.raw), report.envelope.raw
         assert not destination.exists()
 
-    profiles = (("values", rows, expected), ("empty", [], []),
-                ("all-null", [dict.fromkeys(schema)], [dict.fromkeys(columns)]))
-    for profile, supplied, wanted in profiles:
+    profiles = (("values", rows, expected, python_expected), ("empty", [], [], []),
+                ("all-null", [dict.fromkeys(schema)], [dict.fromkeys(columns)], [dict.fromkeys(columns)]))
+    for profile, supplied, wanted, wanted_python in profiles:
         for mode in ("rows", "resident", "streaming"):
             for front in ("dataframe", "sql"):
                 name = f"typed-{profile}-{mode}-{front}"
 
-                def collect(name=name, mode=mode, front=front, supplied=supplied, wanted=wanted):
+                def collect(name=name, mode=mode, front=front, supplied=supplied, wanted=wanted,
+                            wanted_python=wanted_python):
                     with localcontext() as decimal_context:
                         decimal_context.prec = 2
                         report = query(mode, front, supplied).collect(check=True, **policy)
                     exact_schema(report)
                     harness.values(name + "-collect", report.result_rows, wanted)
+                    assert_python_values(report.python_objects, wanted_python)
                     if mode == "streaming":
                         harness.completed(name + "-collect", report.envelope, batches=5, rows=len(supplied))
                     else:
                         harness.envelope(name + "-collect", report.envelope)
-                    return {"complete_rows_verified": len(wanted), "exact_recursive_schema": True}
+                    return {"complete_rows_verified": len(wanted), "exact_recursive_schema": True,
+                            "python_objects_verified": True}
                 harness.case(name + "-collect", collect)
 
-                def incremental(name=name, mode=mode, front=front, supplied=supplied, wanted=wanted):
+                def incremental(name=name, mode=mode, front=front, supplied=supplied, wanted=wanted,
+                                wanted_python=wanted_python):
                     with query(mode, front, supplied).iter_batches(batch_rows=1, **policy) as iterator:
                         retained = []
                         for batch in iterator:
@@ -85,14 +107,17 @@ def run(harness):
                         assert iterator.report is not None and iterator._process.poll() == 0
                         assert iterator._schema == fields
                         harness.values(name + "-iter", [row for batch in retained for row in batch.result_rows], wanted)
+                        assert_python_values([row for batch in retained for row in batch.python_objects], wanted_python)
                         if mode == "streaming":
                             harness.completed(name + "-iter", iterator.report.envelope, batches=5, rows=len(supplied))
                         else:
                             harness.envelope(name + "-iter", iterator.report.envelope)
-                    return {"retained_python_batches": len(retained), "exact_recursive_schema": True}
+                    return {"retained_python_batches": len(retained), "exact_recursive_schema": True,
+                            "python_objects_verified": True}
                 harness.case(name + "-iter", incremental)
 
-                def outputs(name=name, mode=mode, front=front, supplied=supplied, wanted=wanted, profile=profile):
+                def outputs(name=name, mode=mode, front=front, supplied=supplied, wanted=wanted, profile=profile,
+                            wanted_python=wanted_python):
                     formats = ("vortex",) if mode == "streaming" else LOCAL_FORMATS
                     denials = {"orc": "ORC does not admit nested output"}
                     if profile == "values":
@@ -121,8 +146,10 @@ def run(harness):
                     accepted(name + "-vortex-exact-schema", reopened)
                     exact_schema(reopened)
                     harness.values(name + "-vortex-exact-schema", reopened.result_rows, wanted)
+                    assert_python_values(reopened.python_objects, wanted_python)
                     return {"artifacts": [harness.artifact(path) for path in destinations.values()],
-                            "denied_formats": {key: value for key, value in denials.items() if key in formats}}
+                            "denied_formats": {key: value for key, value in denials.items() if key in formats},
+                            "python_objects_verified": True}
                 harness.case(name + "-outputs", outputs)
 
     def operators(mode, front):
