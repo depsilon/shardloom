@@ -111,6 +111,11 @@ jobs:
             command: cargo check -p shardloom-vortex --features release-user-surfaces
           - lane: native_vortex_tests
             command: cargo test -p shardloom-vortex --lib --features release-user-surfaces
+          - lane: synthetic_spill_resources
+            command: |
+              cargo test -p shardloom-exec --lib --features spill-payload-fs spill_payload::tests -- --test-threads=1
+              cargo test -p shardloom-vortex --lib --features shardloom-exec/spill-payload-fs bounded_execution::tests -- --test-threads=1
+              cargo test -p shardloom-cli --test required_execution_resources --features shardloom-exec/spill-payload-fs -- --test-threads=1
           - lane: native_public_surface_tests
             command: cargo test -p shardloom-cli --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces
           - lane: preparation_resource_profile

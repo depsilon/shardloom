@@ -413,6 +413,49 @@ was qualified, and incremental tests explicitly reopened native Vortex input as
 required by the existing batch interface. These were not resource admission
 failures. Hosted checks remain required for the final correction.
 
+## Synthetic fixture ownership follow-up
+
+Two later review findings identified declaration-only execution in text UDF
+fixtures and synthetic spill roundtrips. UDF and embedding commands now reserve
+their input/output and summary workspace before parsing. The estimate grows with
+row count and UTF-8 text/query size, and its lease remains attached to the returned
+report. Adjacent fixed live, hybrid, distributed and local-table examples admit
+their bounded state and argument expansion before execution. Reports identify
+these conservative reservations as estimates rather than measured heap use.
+
+Synthetic spill APIs now require the caller's memory pool. Roundtrip admission
+covers the retained payload's capacity, expected readback extent and staging
+writer before filesystem effects. Readback uses fixed admitted capacity and
+rejects changed extents. Retained reports keep their payload credits; dropping
+them permits reuse. The older bounded-spill planner cannot execute without an
+explicit owner, and an owner does not bypass its existing missing-estimate block.
+This remains synthetic payload I/O, not permission for query-data spill.
+
+All 16 fresh source/feature gates pass: 3,191 default workspace tests, 1,362
+native CLI tests, 2,553 native Vortex tests, 1,125 reduced writer-profile tests
+and 17 examples, plus formatting, strict Clippy, feature isolation, Rust 1.96
+and diff checks. The Vortex suite retains 24 existing ignored cases and the CLI
+suite retains three platform-specific cases ignored on this host. A fresh
+Python run with optional dependencies passes all 667 tests with no skips. The three commands
+in the new serialized synthetic-spill CI lane also pass, with 35 executor,
+13 bounded-planner and six real CLI tests. These scopes overlap the broad gates;
+their counts are not additional independent workflows.
+
+Regressions verify refusal before parsing or filesystem effects, full UDF and
+Unicode embedding results, overlapping owners, output preservation, fixed-extent
+readback, released-credit reuse and honest admission/usage fields. The separate
+supplement in the [evidence index](evidence/required-execution-resources-2026-10-10.json)
+binds the final source, all check receipts and logs, CI registration and
+documentation checks. It preserves compile/lint failures and corrected test
+assumptions about the disabled feature and existing spill-planning block.
+The initial packet checker expected an earlier Python run's five skips; its
+corrected check verifies this run's complete no-skip result without changing
+engine source or rerunning tests. Both observations remain preserved.
+Caller arguments, envelope serialization, allocator overhead and process RSS
+remain outside this accounting scope. Original complete-workflow and Full43
+evidence retains its original identity; it was not rerun or retimed for this
+correction. Hosted checks remain required, with no new performance or package claim.
+
 ## Remaining work
 
 Hosted acceptance remains pending. The next implementation

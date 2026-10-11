@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, ShardLoomError};
 
 const MAX_SYNTHETIC_SPILL_PAYLOAD_BYTES: usize = 1024 * 1024;
@@ -510,6 +511,12 @@ impl SyntheticSpillPayload {
     #[must_use]
     pub fn len(&self) -> usize {
         self.bytes.len()
+    }
+
+    /// Owned buffer capacity to retain when admitting an existing payload.
+    #[must_use]
+    pub fn capacity(&self) -> usize {
+        self.bytes.capacity()
     }
 
     #[must_use]
@@ -1092,8 +1099,18 @@ impl SpillPayloadWriteReport {
     /// Builds a `SpillPayloadWriteReport` and performs gated synthetic local writes.
     ///
     /// # Errors
-    /// Returns an error for invalid requests or filesystem operation failures.
-    pub fn from_request(request: SpillPayloadWriteRequest) -> Result<Self> {
+    /// Returns an error for admission, invalid requests or filesystem failures.
+    /// Retained payload capacity stays charged for the returned report's lifetime.
+    pub fn from_request(
+        request: SpillPayloadWriteRequest,
+        memory: &LiveMemoryPool,
+    ) -> Result<Budgeted<Self>> {
+        let retained = memory.reserve(payload_capacity_bytes(&request.payload)?)?;
+        let report = Self::execute_request(request, memory)?;
+        Ok(Budgeted::new(report, retained))
+    }
+
+    fn execute_request(request: SpillPayloadWriteRequest, memory: &LiveMemoryPool) -> Result<Self> {
         if request.payload.is_empty() {
             return Err(ShardLoomError::InvalidOperation(
                 "spill payload write request contains empty payload".to_string(),
@@ -1102,6 +1119,9 @@ impl SpillPayloadWriteReport {
         if !spill_payload_fs_feature_enabled() {
             return Ok(Self::feature_disabled(request));
         }
+        // Admit the staging buffer before workspace creation or target changes.
+        let _writer = memory
+            .reserve(shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes())?;
         let workspace = spill_payload_workspace_path(&request.fs_ref);
         if !workspace.exists() {
             if request.has_option(SpillPayloadWriteOption::CreateWorkspace) {
@@ -1141,10 +1161,11 @@ impl SpillPayloadWriteReport {
             "synthetic spill payload",
             &request.payload.bytes,
         )?;
+        let checksum = request.payload.checksum_u64();
         Ok(Self::written(
-            request.clone(),
+            request,
             usize::try_from(workspace_write_report.bytes_written).unwrap_or(usize::MAX),
-            request.payload.checksum_u64(),
+            checksum,
         ))
     }
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
@@ -1332,7 +1353,15 @@ impl SpillPayloadReadReport {
     ///
     /// # Errors
     /// Returns an error when read operations fail.
-    pub fn from_request(request: SpillPayloadReadRequest) -> Result<Self> {
+    pub fn from_request(request: SpillPayloadReadRequest, memory: &LiveMemoryPool) -> Result<Self> {
+        let readback = memory.reserve(
+            u64::try_from(request.expected_len.unwrap_or(0))
+                .map_err(|_| spill_memory_error("read extent overflow"))?,
+        )?;
+        Self::read_reserved(request, readback)
+    }
+
+    fn read_reserved(request: SpillPayloadReadRequest, mut readback: MemoryLease) -> Result<Self> {
         if !spill_payload_fs_feature_enabled() {
             return Ok(Self::feature_disabled(request));
         }
@@ -1356,14 +1385,31 @@ impl SpillPayloadReadReport {
                 ),
             ));
         }
-        let bytes = fs::read(&target_path).map_err(|e| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to read spill payload '{}': {e}",
-                target_path.display()
-            ))
-        })?;
+        let length = fs::metadata(&target_path)
+            .map_err(|error| spill_memory_error(&format!("payload metadata: {error}")))?
+            .len();
+        let length =
+            usize::try_from(length).map_err(|_| spill_memory_error("read extent overflow"))?;
+        if length > MAX_SYNTHETIC_SPILL_PAYLOAD_BYTES {
+            return Err(spill_memory_error(
+                "read extent exceeds the synthetic payload contract",
+            ));
+        }
+        if let Some(expected) = request.expected_len
+            && expected != length
+        {
+            return Ok(Self::verification_failed(
+                request,
+                format!("expected length {expected} but observed {length}"),
+            ));
+        }
+        readback.resize(
+            u64::try_from(length).map_err(|_| spill_memory_error("read extent overflow"))?,
+        )?;
+        let bytes = read_reserved_payload(&target_path, length, readback)?;
+        let bytes = bytes.value();
         let bytes_read = bytes.len();
-        let checksum = checksum_bytes_u64(&bytes);
+        let checksum = checksum_bytes_u64(bytes);
         if let Some(expected_len) = request.expected_len
             && expected_len != bytes_read
         {
@@ -1573,48 +1619,72 @@ impl SpillPayloadRoundTripReport {
     ///
     /// # Errors
     /// Returns an error when write/read operations fail or cleanup file removal fails.
-    pub fn from_request(request: SpillPayloadRoundTripRequest) -> Result<Self> {
+    pub fn from_request(
+        request: SpillPayloadRoundTripRequest,
+        memory: &LiveMemoryPool,
+    ) -> Result<Budgeted<Self>> {
+        // Keep readback admission throughout writing so a completed write cannot
+        // be followed by an admission failure for its expected verification data.
+        let readback = memory.reserve(
+            u64::try_from(request.write_request.payload.len())
+                .map_err(|_| spill_memory_error("payload extent overflow"))?,
+        )?;
+        let (report, retained) = Self::execute_request(request, memory, readback)?;
+        Ok(Budgeted::new(report, retained))
+    }
+
+    fn execute_request(
+        request: SpillPayloadRoundTripRequest,
+        memory: &LiveMemoryPool,
+        readback: MemoryLease,
+    ) -> Result<(Self, MemoryLease)> {
         let request_summary = request.summary();
         let SpillPayloadRoundTripRequest {
             write_request,
             options,
             diagnostics: request_diagnostics,
         } = request;
-        let write_report = write_spill_payload(write_request)?;
+        let (write_report, retained) = write_spill_payload(write_request, memory)?.into_parts();
         if !spill_payload_fs_feature_enabled() {
-            return Ok(Self {
-                status: SpillPayloadStatus::FeatureDisabled,
-                mode: SpillPayloadMode::ReportOnly,
-                request_summary,
-                write_report,
-                read_report: None,
-                cleanup_performed: false,
-                effects_performed: Vec::new(),
-                diagnostics: Vec::new(),
-            });
+            return Ok((
+                Self {
+                    status: SpillPayloadStatus::FeatureDisabled,
+                    mode: SpillPayloadMode::ReportOnly,
+                    request_summary,
+                    write_report,
+                    read_report: None,
+                    cleanup_performed: false,
+                    effects_performed: Vec::new(),
+                    diagnostics: Vec::new(),
+                },
+                retained,
+            ));
         }
         let mut effects = Vec::new();
         if write_report.payload_written() {
             effects.push(SpillPayloadEffect::PayloadWritten);
         }
         if write_report.has_errors() || !write_report.payload_written() {
-            return Ok(Self {
-                status: write_report.status,
-                mode: write_report.mode,
-                request_summary,
-                write_report,
-                read_report: None,
-                cleanup_performed: false,
-                effects_performed: effects,
-                diagnostics: Vec::new(),
-            });
+            return Ok((
+                Self {
+                    status: write_report.status,
+                    mode: write_report.mode,
+                    request_summary,
+                    write_report,
+                    read_report: None,
+                    cleanup_performed: false,
+                    effects_performed: effects,
+                    diagnostics: Vec::new(),
+                },
+                retained,
+            ));
         }
         let mut read_request = SpillPayloadReadRequest::new(write_report.request.fs_ref.clone())
             .with_expected_len(write_report.bytes_written);
         if let Some(checksum) = write_report.checksum {
             read_request = read_request.with_expected_checksum(checksum);
         }
-        let read_report = read_spill_payload(read_request)?;
+        let read_report = SpillPayloadReadReport::read_reserved(read_request, readback)?;
         if read_report.payload_read() {
             effects.push(SpillPayloadEffect::PayloadRead);
         }
@@ -1645,16 +1715,19 @@ impl SpillPayloadRoundTripReport {
                 "Inspect write/read diagnostics for details.",
             ));
         }
-        Ok(Self {
-            status,
-            mode: SpillPayloadMode::SyntheticPayloadPlan,
-            request_summary,
-            write_report,
-            read_report: Some(read_report),
-            cleanup_performed,
-            effects_performed: effects,
-            diagnostics: request_diagnostics.into_iter().chain(diagnostics).collect(),
-        })
+        Ok((
+            Self {
+                status,
+                mode: SpillPayloadMode::SyntheticPayloadPlan,
+                request_summary,
+                write_report,
+                read_report: Some(read_report),
+                cleanup_performed,
+                effects_performed: effects,
+                diagnostics: request_diagnostics.into_iter().chain(diagnostics).collect(),
+            },
+            retained,
+        ))
     }
 
     #[must_use]
@@ -1784,8 +1857,9 @@ impl SpillPayloadRoundTripReport {
 /// Returns an error when write/read operations fail or cleanup deletion fails.
 pub fn roundtrip_spill_payload(
     request: SpillPayloadRoundTripRequest,
-) -> Result<SpillPayloadRoundTripReport> {
-    SpillPayloadRoundTripReport::from_request(request)
+    memory: &LiveMemoryPool,
+) -> Result<Budgeted<SpillPayloadRoundTripReport>> {
+    SpillPayloadRoundTripReport::from_request(request, memory)
 }
 
 /// Plans a report-only spill payload contract response.
@@ -1800,16 +1874,73 @@ pub fn plan_spill_payload(request: SpillPayloadPlanRequest) -> Result<SpillPaylo
 ///
 /// # Errors
 /// Returns an error when request invariants fail or filesystem write operations fail.
-pub fn write_spill_payload(request: SpillPayloadWriteRequest) -> Result<SpillPayloadWriteReport> {
-    SpillPayloadWriteReport::from_request(request)
+pub fn write_spill_payload(
+    request: SpillPayloadWriteRequest,
+    memory: &LiveMemoryPool,
+) -> Result<Budgeted<SpillPayloadWriteReport>> {
+    SpillPayloadWriteReport::from_request(request, memory)
 }
 
 /// Reads a synthetic spill payload behind the `spill-payload-fs` feature gate.
 ///
 /// # Errors
 /// Returns an error when filesystem read operations fail.
-pub fn read_spill_payload(request: SpillPayloadReadRequest) -> Result<SpillPayloadReadReport> {
-    SpillPayloadReadReport::from_request(request)
+pub fn read_spill_payload(
+    request: SpillPayloadReadRequest,
+    memory: &LiveMemoryPool,
+) -> Result<SpillPayloadReadReport> {
+    SpillPayloadReadReport::from_request(request, memory)
+}
+
+fn payload_capacity_bytes(payload: &SyntheticSpillPayload) -> Result<u64> {
+    u64::try_from(payload.bytes.capacity())
+        .map_err(|_| spill_memory_error("payload capacity overflow"))
+}
+
+fn spill_memory_error(message: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "synthetic spill payload: {message}; no fallback execution was attempted"
+    ))
+}
+
+fn read_reserved_payload(
+    path: &Path,
+    length: usize,
+    lease: MemoryLease,
+) -> Result<Budgeted<Vec<u8>>> {
+    use std::io::Read as _;
+    let mut bytes = Vec::new();
+    bytes
+        .try_reserve_exact(length)
+        .map_err(|error| spill_memory_error(&format!("readback allocation: {error}")))?;
+    if bytes.capacity() as u64 > lease.bytes() {
+        return Err(spill_memory_error("readback capacity exceeded admission"));
+    }
+    bytes.resize(length, 0);
+    let mut file = fs::File::open(path)
+        .map_err(|error| spill_memory_error(&format!("open payload: {error}")))?;
+    let original = file
+        .metadata()
+        .map_err(|error| spill_memory_error(&format!("opened payload metadata: {error}")))?;
+    if !original.is_file() || original.len() != length as u64 {
+        return Err(spill_memory_error("payload extent changed before readback"));
+    }
+    file.read_exact(&mut bytes)
+        .map_err(|error| spill_memory_error(&format!("readback: {error}")))?;
+    let mut extra = [0_u8; 1];
+    if file
+        .read(&mut extra)
+        .map_err(|error| spill_memory_error(&format!("readback extent: {error}")))?
+        != 0
+        || file
+            .metadata()
+            .map_err(|error| spill_memory_error(&format!("readback metadata: {error}")))?
+            .len()
+            != length as u64
+    {
+        return Err(spill_memory_error("payload extent changed during readback"));
+    }
+    Ok(Budgeted::new(bytes, lease))
 }
 
 #[must_use]
@@ -1823,12 +1954,178 @@ mod tests {
 
     use super::*;
 
+    // Existing semantic fixtures each choose an explicit test allocation. The
+    // reservation regressions call `super` with their own competing owners.
+    #[derive(Debug)]
+    struct FixtureReport<T>(Budgeted<T>);
+
+    impl<T> std::ops::Deref for FixtureReport<T> {
+        type Target = T;
+        fn deref(&self) -> &Self::Target {
+            self.0.value()
+        }
+    }
+
+    fn write_spill_payload(
+        request: SpillPayloadWriteRequest,
+    ) -> Result<FixtureReport<SpillPayloadWriteReport>> {
+        super::write_spill_payload(request, &LiveMemoryPool::new(4 * 1024 * 1024)?)
+            .map(FixtureReport)
+    }
+
+    fn roundtrip_spill_payload(
+        request: SpillPayloadRoundTripRequest,
+    ) -> Result<FixtureReport<SpillPayloadRoundTripReport>> {
+        super::roundtrip_spill_payload(request, &LiveMemoryPool::new(4 * 1024 * 1024)?)
+            .map(FixtureReport)
+    }
+
+    fn read_spill_payload(request: SpillPayloadReadRequest) -> Result<SpillPayloadReadReport> {
+        super::read_spill_payload(request, &LiveMemoryPool::new(4 * 1024 * 1024)?)
+    }
+
     fn sample_request() -> SpillPayloadPlanRequest {
         let payload_id = SpillPayloadId::new("payload-1").expect("valid payload id");
         let payload_ref =
             SpillPayloadRef::new(payload_id, "workspace-a").expect("valid payload ref");
         let payload = SyntheticSpillPayload::from_text("abc123").expect("valid payload");
         SpillPayloadPlanRequest::new(payload_ref, payload)
+    }
+
+    #[test]
+    fn spill_read_reservation_refuses_before_opening_a_missing_payload() {
+        let pool = LiveMemoryPool::new(1).unwrap();
+        let error = super::read_spill_payload(sample_read_request().with_expected_len(2), &pool)
+            .unwrap_err();
+        assert!(error.to_string().contains("memory reservation denied"));
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+    }
+
+    #[cfg(feature = "spill-payload-fs")]
+    #[test]
+    fn spill_roundtrip_admits_payload_writer_and_readback_before_filesystem_effects() {
+        let workspace = std::env::temp_dir().join(format!("spill-budget-{}", std::process::id()));
+        assert!(!workspace.exists());
+        let fs_ref = SpillPayloadFsRef::new(
+            SpillPayloadRef::new(SpillPayloadId::new("owned").unwrap(), "budget-test").unwrap(),
+            SpillPayloadPath::new(workspace.to_string_lossy().into_owned()).unwrap(),
+        );
+        let request = || {
+            let mut bytes = Vec::with_capacity(128);
+            bytes.extend_from_slice(b"payload");
+            SpillPayloadRoundTripRequest::new(
+                SpillPayloadWriteRequest::new(
+                    fs_ref.clone(),
+                    SyntheticSpillPayload::from_bytes(bytes).unwrap(),
+                )
+                .create_workspace(true)
+                .allow_overwrite(true),
+            )
+        };
+        let payload_capacity = request().write_request.payload.bytes.capacity() as u64;
+        let writer_bytes = shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes();
+        let required = payload_capacity + 7 + writer_bytes;
+        let tiny = LiveMemoryPool::new(1).unwrap();
+        assert!(
+            super::roundtrip_spill_payload(request(), &tiny)
+                .unwrap_err()
+                .to_string()
+                .contains("memory reservation denied")
+        );
+        assert!(!workspace.exists());
+        assert_eq!(tiny.snapshot().reserved_bytes, 0);
+
+        let pool = LiveMemoryPool::new(required).unwrap();
+        let competing = pool.reserve(1).unwrap();
+        assert!(super::roundtrip_spill_payload(request(), &pool).is_err());
+        assert!(!workspace.exists());
+        assert_eq!(pool.snapshot().reserved_bytes, 1);
+        drop(competing);
+        let report = super::roundtrip_spill_payload(request(), &pool).unwrap();
+        assert_eq!(report.reserved_bytes(), payload_capacity);
+        assert!(report.value().payload_written());
+        assert!(report.value().payload_read());
+        assert!(
+            report
+                .value()
+                .read_report
+                .as_ref()
+                .unwrap()
+                .verification_passed
+        );
+        assert_eq!(pool.snapshot().peak_reserved_bytes, required);
+        assert_eq!(pool.snapshot().reserved_bytes, payload_capacity);
+        let target = workspace.join(fs_ref.file_name());
+        assert_eq!(fs::read(&target).unwrap(), b"payload");
+        assert!(super::roundtrip_spill_payload(request(), &pool).is_err());
+        assert_eq!(fs::read(&target).unwrap(), b"payload");
+        drop(report);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        let cleaned = super::roundtrip_spill_payload(request().cleanup_after(true), &pool).unwrap();
+        assert!(cleaned.value().cleanup_performed());
+        assert!(!target.exists());
+        drop(cleaned);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir(workspace).unwrap();
+    }
+
+    #[cfg(feature = "spill-payload-fs")]
+    #[test]
+    fn spill_readback_reserves_exact_extent_and_never_grows_to_a_changed_file() {
+        let workspace =
+            std::env::temp_dir().join(format!("spill-read-budget-{}", std::process::id()));
+        fs::create_dir(&workspace).unwrap();
+        let fs_ref = SpillPayloadFsRef::new(
+            SpillPayloadRef::new(SpillPayloadId::new("read").unwrap(), "budget-test").unwrap(),
+            SpillPayloadPath::new(workspace.to_string_lossy().into_owned()).unwrap(),
+        );
+        let target = workspace.join(fs_ref.file_name());
+        fs::write(&target, b"abcdef").unwrap();
+        let pool = LiveMemoryPool::new(6).unwrap();
+        let held = pool.reserve(1).unwrap();
+        assert!(
+            super::read_spill_payload(SpillPayloadReadRequest::new(fs_ref.clone()), &pool)
+                .unwrap_err()
+                .to_string()
+                .contains("memory reservation denied")
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 1);
+        drop(held);
+        let report = super::read_spill_payload(
+            SpillPayloadReadRequest::new(fs_ref.clone()).with_expected_len(6),
+            &pool,
+        )
+        .unwrap();
+        assert_eq!(report.bytes_read, 6);
+        assert_eq!(pool.snapshot().peak_reserved_bytes, 6);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        let mismatch = super::read_spill_payload(
+            SpillPayloadReadRequest::new(fs_ref.clone()).with_expected_len(5),
+            &pool,
+        )
+        .unwrap();
+        assert!(!mismatch.verification_passed);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert!(
+            read_reserved_payload(&target, 5, pool.reserve(5).unwrap())
+                .unwrap_err()
+                .to_string()
+                .contains("extent changed")
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::File::create(&target)
+            .unwrap()
+            .set_len(MAX_SYNTHETIC_SPILL_PAYLOAD_BYTES as u64 + 1)
+            .unwrap();
+        assert!(
+            super::read_spill_payload(SpillPayloadReadRequest::new(fs_ref), &pool)
+                .unwrap_err()
+                .to_string()
+                .contains("synthetic payload contract")
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_file(target).unwrap();
+        fs::remove_dir(workspace).unwrap();
     }
 
     #[test]

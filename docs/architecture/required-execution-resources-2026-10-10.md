@@ -140,6 +140,28 @@ estimate is not an allocation measurement or permission for general query spill.
 Success and post-admission error envelopes retain the declaration, admission,
 live/peak reservations, denied-reservation count and explicit observation scope.
 
+The text-based UDF and embedding fixtures reserve a conservative workspace before
+parsing values. Its size grows with input rows and, for embeddings, UTF-8 input
+and query bytes. It covers the input/output containers and overlapping numeric
+summary construction; the lease remains attached to the returned report. The
+fixed live, hybrid, distributed and local-table examples likewise admit their
+bounded state and argument expansion before parsing or executing the fixture.
+These reservations are explicitly identified as estimates, not measured heap
+usage. Caller arguments, envelope serialization, allocator overhead and process
+RSS remain excluded. They introduce no production job allocation or workload cap.
+
+Synthetic spill write/read/roundtrip APIs require the caller's `LiveMemoryPool`.
+Roundtrip admission covers retained payload capacity, expected readback extent
+and the staging writer before filesystem effects. Readback allocates a fixed
+admitted extent and rejects size changes; it cannot grow through `fs::read`.
+Retained payloads keep their credits until the owning report drops. The older
+bounded-spill planning API remains inert without resources; execution requires
+its explicit owner-taking entry point and transfers the payload into its nested
+report instead of cloning it. This is the existing synthetic payload contract,
+not permission for query-data spill or a new Vortex persistence format. No new
+provider is introduced: reuse ShardLoom's established reservation and staged I/O
+boundary, with no external engine execution.
+
 Preserve existing public evidence while distinguishing requested memory bytes
 and maximum execution lanes, per-field configuration origin, admitted allocation
 and policy reasons, measured live/peak native reservations, actual lane use when

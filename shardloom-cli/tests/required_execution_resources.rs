@@ -48,6 +48,178 @@ fn run(args: &[&str]) -> (bool, String) {
     )
 }
 
+fn field<'a>(report: &'a serde_json::Value, key: &str) -> &'a str {
+    let matches = report["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|entry| entry["key"] == key)
+        .collect::<Vec<_>>();
+    assert_eq!(matches.len(), 1, "{key}: {report}");
+    matches[0]["value"].as_str().unwrap()
+}
+
+#[test]
+fn executing_text_and_fixed_fixtures_refuse_tiny_grants_and_report_owned_workspaces() {
+    let commands: &[&[&str]] = &[
+        &["live-fixture-run", "group-count", "metric"],
+        &["hybrid-overlay-run", "group-count", "metric"],
+        &["live-hybrid-state-transition-smoke"],
+        &["distributed-local-fixture-run", "2", "fault-injection"],
+        &["local-table-metadata-read-smoke"],
+        &["local-delete-tombstone-read-smoke"],
+        &["local-append-only-cdc-overlay-smoke"],
+        &["udf-local-scalar-fixture-smoke", "3,null,-4"],
+        &[
+            "embedding-vector-local-fixture-smoke",
+            "alpha;beta;gamma",
+            "--query",
+            "beta",
+        ],
+    ];
+    for command in commands {
+        let (success, text) =
+            run(&[*command, &["--memory-bytes", "1", "--max-parallelism", "1"]].concat());
+        assert!(!success, "{command:?}: {text}");
+        assert!(
+            text.contains("memory reservation denied"),
+            "{command:?}: {text}"
+        );
+        let denied: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(
+            field(&denied, "execution_resource_observed_native_reserved_bytes"),
+            "0"
+        );
+        assert_eq!(field(&denied, "fixture_io_denied_reservations"), "1");
+
+        let (success, text) = run(&[
+            *command,
+            &["--memory-bytes", "8388608", "--max-parallelism", "3"],
+        ]
+        .concat());
+        assert!(success, "{command:?}: {text}");
+        let report: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(
+            field(&report, "execution_resource_declared_memory_bytes"),
+            "8388608"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_admitted_memory_bytes"),
+            "8388608"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_admitted_max_parallelism"),
+            "1"
+        );
+        let live = field(&report, "execution_resource_observed_native_reserved_bytes")
+            .parse::<u64>()
+            .unwrap();
+        let peak = field(
+            &report,
+            "execution_resource_observed_native_peak_reserved_bytes",
+        )
+        .parse::<u64>()
+        .unwrap();
+        assert!(
+            live > 1 && live <= peak && peak <= 8_388_608,
+            "{command:?}: {text}"
+        );
+        assert!(
+            field(&report, "execution_resource_memory_observation_scope")
+                .contains("conservative_reservation_not_measured_heap")
+        );
+        assert_eq!(
+            field(
+                &report,
+                "execution_resource_whole_process_memory_limit_enforced"
+            ),
+            "false"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_observed_spill_io_performed"),
+            "false"
+        );
+        assert_eq!(field(&report, "fallback_attempted"), "false");
+    }
+}
+
+#[test]
+fn synthetic_spill_admission_precedes_creation_and_reports_its_actual_scope() {
+    let directory = TestDirectory::new();
+    let target = directory.0.join("spill-workspace");
+    let command = [
+        "spill-payload-roundtrip",
+        target.to_str().unwrap(),
+        "payload-1",
+        "hello",
+    ];
+    let (success, text) = run(&[
+        &command[..],
+        &["--memory-bytes", "1", "--max-parallelism", "1"],
+    ]
+    .concat());
+    assert!(!success, "{text}");
+    assert!(text.contains("memory reservation denied"), "{text}");
+    assert!(!target.exists());
+    let denied: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        field(&denied, "execution_resource_observed_native_reserved_bytes"),
+        "0"
+    );
+
+    // The CLI requires an existing caller-owned workspace. The core roundtrip
+    // tests separately exercise its explicit CreateWorkspace option.
+    if shardloom_exec::spill_payload_fs_feature_enabled() {
+        fs::create_dir(&target).unwrap();
+    }
+    let (success, text) = run(&[
+        &command[..],
+        &["--memory-bytes", "1048576", "--max-parallelism", "2"],
+    ]
+    .concat());
+    let report: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let peak = field(
+        &report,
+        "execution_resource_observed_native_peak_reserved_bytes",
+    )
+    .parse::<u64>()
+    .unwrap();
+    assert!((10..=1_048_576).contains(&peak), "{text}");
+    assert!(
+        field(&report, "execution_resource_memory_observation_scope")
+            .contains("retained_capacity_readback_and_staging_writer")
+    );
+    assert_eq!(
+        field(&report, "execution_resource_spill_observation_scope"),
+        "synthetic_payload_only;query_spill_not_implied"
+    );
+    if shardloom_exec::spill_payload_fs_feature_enabled() {
+        assert!(success, "{text}");
+        assert!(target.is_dir());
+        assert_eq!(field(&report, "bytes_read"), "5");
+        assert_eq!(field(&report, "verification_passed"), "true");
+        assert_eq!(
+            field(&report, "execution_resource_observed_spill_io_performed"),
+            "true"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_observed_spill_bytes"),
+            "5"
+        );
+    } else {
+        assert!(success, "{text}");
+        assert!(!target.exists());
+        assert_eq!(
+            field(&report, "execution_resource_observed_spill_io_performed"),
+            "false"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_observed_spill_bytes"),
+            "0"
+        );
+    }
+}
+
 #[test]
 fn durable_checkpoint_workspace_is_admitted_before_directory_creation() {
     let directory = TestDirectory::new();

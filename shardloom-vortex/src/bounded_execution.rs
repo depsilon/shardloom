@@ -4,7 +4,10 @@
 
 use std::fmt::Write as _;
 
-use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId};
+use shardloom_core::{
+    Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId, ShardLoomError,
+};
+use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 use shardloom_exec::recovery::{
     RecoveryArtifactRef, ShardLoomRecoveryIntegrationReport, ShardLoomRecoveryIntegrationRequest,
     plan_recovery_integration,
@@ -986,8 +989,46 @@ impl VortexBoundedSpillIntegrationReport {
         }
     }
     /// # Errors
-    /// Returns an error if reservation or synthetic payload roundtrip planning fails.
+    /// Returns an error if planning fails or execution is requested without an owner.
     pub fn from_request(request: VortexBoundedSpillIntegrationRequest) -> Result<Self> {
+        if request.allow_synthetic_payload_roundtrip {
+            return Err(ShardLoomError::new(
+                "synthetic spill execution requires an admitted memory owner; use from_request_with_memory",
+            ));
+        }
+        Self::build(request, None).map(|(report, _)| report)
+    }
+
+    /// Plan or execute a synthetic roundtrip under the supplied allocation.
+    /// The returned report retains its payload credits until it is dropped.
+    ///
+    /// # Errors
+    /// Refuses insufficient memory and propagates planning or filesystem errors.
+    pub fn from_request_with_memory(
+        request: VortexBoundedSpillIntegrationRequest,
+        memory: &LiveMemoryPool,
+    ) -> Result<Budgeted<Self>> {
+        let (report, retained) = Self::build(request, Some(memory))?;
+        let retained = match retained {
+            Some(retained) => retained,
+            None => memory.reserve(
+                u64::try_from(
+                    report
+                        .request
+                        .synthetic_payload
+                        .as_ref()
+                        .map_or(0, SyntheticSpillPayload::capacity),
+                )
+                .map_err(|_| ShardLoomError::new("synthetic spill payload capacity overflow"))?,
+            )?,
+        };
+        Ok(Budgeted::new(report, retained))
+    }
+
+    fn build(
+        request: VortexBoundedSpillIntegrationRequest,
+        memory: Option<&LiveMemoryPool>,
+    ) -> Result<(Self, Option<MemoryLease>)> {
         let blocked_by_memory = request
             .bounded_report
             .decisions
@@ -1007,9 +1048,10 @@ impl VortexBoundedSpillIntegrationReport {
             )
         });
         if !needs_spill {
-            return Ok(Self::not_required(request));
+            return Ok((Self::not_required(request), None));
         }
         let mut out = Self::planned(request);
+        let mut retained = None;
         out.reservation_required = true;
         out.mode = VortexBoundedSpillIntegrationMode::ReservationPlanning;
         out.status = VortexBoundedSpillIntegrationStatus::ReservationRequired;
@@ -1046,13 +1088,25 @@ impl VortexBoundedSpillIntegrationReport {
         }
         if out.request.allow_synthetic_payload_roundtrip {
             match (&out.request.payload_fs_ref, &out.request.synthetic_payload) {
-                (Some(fs), Some(payload)) if !out.status.is_error() => {
+                (Some(fs), Some(_)) if !out.status.is_error() => {
+                    let memory = memory.ok_or_else(|| {
+                        ShardLoomError::new(
+                            "synthetic spill execution requires an admitted memory owner",
+                        )
+                    })?;
+                    let fs = fs.clone();
+                    // Transfer the payload into the nested owned report instead
+                    // of keeping duplicate bytes in the planning request.
+                    let payload =
+                        out.request.synthetic_payload.take().ok_or_else(|| {
+                            ShardLoomError::new("synthetic spill payload is missing")
+                        })?;
                     out.payload_write_allowed = true;
                     let req = SpillPayloadRoundTripRequest::new(SpillPayloadWriteRequest::new(
-                        fs.clone(),
-                        payload.clone(),
+                        fs, payload,
                     ));
-                    let rep = roundtrip_spill_payload(req)?;
+                    let (rep, lease) = roundtrip_spill_payload(req, memory)?.into_parts();
+                    retained = Some(lease);
                     out.payload_written = rep.payload_written();
                     out.payload_read = rep.payload_read();
                     out.cleanup_performed = rep.cleanup_performed();
@@ -1105,7 +1159,7 @@ impl VortexBoundedSpillIntegrationReport {
                 }
             }
         }
-        Ok(out)
+        Ok((out, retained))
     }
     pub fn not_required(request: VortexBoundedSpillIntegrationRequest) -> Self {
         Self::base(
@@ -1250,13 +1304,14 @@ pub fn plan_bounded_execution_spill_payload_roundtrip(
     lifecycle_request: Option<SpillLifecycleRequest>,
     payload_fs_ref: Option<SpillPayloadFsRef>,
     synthetic_payload: Option<SyntheticSpillPayload>,
-) -> Result<VortexBoundedSpillIntegrationReport> {
+    memory: &LiveMemoryPool,
+) -> Result<Budgeted<VortexBoundedSpillIntegrationReport>> {
     let request = VortexBoundedSpillIntegrationRequest::new(bounded_report)
         .with_lifecycle_request_opt(lifecycle_request)
         .with_payload_fs_ref_opt(payload_fs_ref)
         .with_synthetic_payload_opt(synthetic_payload)
         .allow_synthetic_payload_roundtrip(true);
-    VortexBoundedSpillIntegrationReport::from_request(request)
+    VortexBoundedSpillIntegrationReport::from_request_with_memory(request, memory)
 }
 
 /// # Errors
@@ -1480,8 +1535,10 @@ mod tests {
             None,
             Some(sample_payload_fs_ref()),
             Some(SyntheticSpillPayload::from_text("abc").expect("payload")),
+            &LiveMemoryPool::new(4 * 1024 * 1024).unwrap(),
         )
         .expect("report");
+        let report = report.value();
         assert_ne!(
             report.status,
             VortexBoundedSpillIntegrationStatus::PayloadRoundTripAvailable
@@ -1505,8 +1562,10 @@ mod tests {
             Some(lifecycle_request_with_error()),
             None,
             None,
+            &LiveMemoryPool::new(4 * 1024 * 1024).unwrap(),
         )
         .expect("report");
+        let report = report.value();
         assert_ne!(
             report.status,
             VortexBoundedSpillIntegrationStatus::PayloadPlanReady
@@ -1521,14 +1580,85 @@ mod tests {
             None,
             None,
             None,
+            &LiveMemoryPool::new(4 * 1024 * 1024).unwrap(),
         )
         .expect("report");
+        let report = report.value();
         assert_ne!(
             report.status,
             VortexBoundedSpillIntegrationStatus::PayloadRoundTripAvailable
         );
         assert!(!report.payload_written);
         assert!(!report.payload_read);
+    }
+
+    #[test]
+    fn synthetic_spill_planning_cannot_execute_without_a_live_owner() {
+        let request = VortexBoundedSpillIntegrationRequest::new(blocked_spill_bounded())
+            .with_payload_fs_ref(sample_payload_fs_ref())
+            .with_synthetic_payload(SyntheticSpillPayload::from_text("abc").unwrap())
+            .allow_synthetic_payload_roundtrip(true);
+        assert!(
+            VortexBoundedSpillIntegrationReport::from_request(request)
+                .unwrap_err()
+                .to_string()
+                .contains("requires an admitted memory owner")
+        );
+        let inert = VortexBoundedSpillIntegrationRequest::new(sample_bounded());
+        assert!(
+            VortexBoundedSpillIntegrationReport::from_request(inert)
+                .unwrap()
+                .is_side_effect_free()
+        );
+    }
+
+    #[test]
+    fn synthetic_spill_blocked_plan_retains_capacity_and_releases_credit() {
+        let workspace = std::env::temp_dir().join(format!(
+            "shardloom-bounded-spill-owner-{}",
+            std::process::id()
+        ));
+        assert!(!workspace.exists());
+        let mut bounded = blocked_spill_bounded();
+        bounded.diagnostics.clear();
+        let request = || {
+            let mut bytes = Vec::with_capacity(128);
+            bytes.extend_from_slice(b"abc");
+            VortexBoundedSpillIntegrationRequest::new(bounded.clone())
+                .with_payload_fs_ref(SpillPayloadFsRef::new(
+                    SpillPayloadRef::new(SpillPayloadId::new("owned").unwrap(), "ownership-test")
+                        .unwrap(),
+                    SpillPayloadPath::new(workspace.to_string_lossy().into_owned()).unwrap(),
+                ))
+                .with_synthetic_payload(SyntheticSpillPayload::from_bytes(bytes).unwrap())
+                .allow_synthetic_payload_roundtrip(true)
+        };
+        let tiny = LiveMemoryPool::new(1).unwrap();
+        assert!(
+            VortexBoundedSpillIntegrationReport::from_request_with_memory(request(), &tiny)
+                .is_err()
+        );
+        assert!(!workspace.exists());
+        assert_eq!(tiny.snapshot().reserved_bytes, 0);
+        let pool = LiveMemoryPool::new(1024 * 1024).unwrap();
+        let report =
+            VortexBoundedSpillIntegrationReport::from_request_with_memory(request(), &pool)
+                .unwrap();
+        assert_eq!(report.reserved_bytes(), 128);
+        assert_eq!(pool.snapshot().reserved_bytes, 128);
+        // A memory grant does not bypass the existing planning requirement for
+        // a spill estimate. Even this blocked report owns its supplied payload.
+        assert_eq!(
+            report.value().status,
+            VortexBoundedSpillIntegrationStatus::BlockedByMissingEstimate
+        );
+        assert!(report.value().request.synthetic_payload.is_some());
+        assert!(report.value().payload_roundtrip_report.is_none());
+        assert!(!report.value().query_spill_data_written);
+        assert!(!report.value().payload_written);
+        drop(report);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert!(!workspace.exists());
     }
     #[test]
     fn bounded_spill_recovery_no_payload_written_is_cleanup_not_required() {

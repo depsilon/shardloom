@@ -394,6 +394,11 @@ pub(crate) fn handle_spill_payload_roundtrip(
             );
         }
     }
+    let pool =
+        match crate::fixture_io::owner_for_command(resources, "spill-payload-roundtrip", format) {
+            Ok(pool) => pool,
+            Err(code) => return code,
+        };
     let workspace_path = match SpillPayloadPath::new(workspace_path_text) {
         Ok(v) => v,
         Err(error) => {
@@ -441,18 +446,19 @@ pub(crate) fn handle_spill_payload_roundtrip(
     let fs_ref = SpillPayloadFsRef::new(payload_ref, workspace_path);
     let write_request = SpillPayloadWriteRequest::new(fs_ref, payload);
     let request = SpillPayloadRoundTripRequest::new(write_request).cleanup_after(cleanup_after);
-    let report = match roundtrip_spill_payload(request) {
+    let report = match roundtrip_spill_payload(request, &pool) {
         Ok(v) => v,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "spill-payload-roundtrip",
                 format,
                 "spill payload roundtrip failed",
                 &error,
+                spill_payload_resource_fields(Vec::new(), resources, &pool, None),
             );
         }
     };
-    emit_spill_payload_roundtrip(format, &report, resources)
+    emit_spill_payload_roundtrip(format, report.value(), resources, &pool)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -966,6 +972,7 @@ fn emit_spill_payload_roundtrip(
     format: OutputFormat,
     report: &SpillPayloadRoundTripReport,
     resources: shardloom_core::ExecutionResources,
+    pool: &shardloom_exec::live_memory::LiveMemoryPool,
 ) -> ExitCode {
     let bytes_read = report.read_report.as_ref().map_or(0, |v| v.bytes_read);
     let verification_passed = report
@@ -983,7 +990,7 @@ fn emit_spill_payload_roundtrip(
         "spill payload roundtrip report".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        crate::execution_resources::with_declaration_fields(
+        spill_payload_resource_fields(
             vec![
                 (
                     "fallback_execution_allowed".to_string(),
@@ -1029,9 +1036,52 @@ fn emit_spill_payload_roundtrip(
                 ),
             ],
             resources,
+            pool,
+            Some(report),
         ),
     );
     exit_for_errors(report.has_errors())
+}
+
+fn spill_payload_resource_fields(
+    fields: Vec<(String, String)>,
+    resources: shardloom_core::ExecutionResources,
+    pool: &shardloom_exec::live_memory::LiveMemoryPool,
+    report: Option<&SpillPayloadRoundTripReport>,
+) -> Vec<(String, String)> {
+    let mut fields = crate::fixture_io::with_observation_fields(fields, resources, pool);
+    let snapshot = pool.snapshot();
+    crate::execution_resources::append_memory_observation_fields(
+        &mut fields,
+        Some(snapshot.reserved_bytes),
+        snapshot.peak_reserved_bytes,
+        "synthetic_payload_retained_capacity_readback_and_staging_writer;excludes_paths_diagnostics_reports_and_process_rss",
+    );
+    fields.retain(|(key, _)| {
+        !key.starts_with("execution_resource_observed_spill_")
+            && key != "execution_resource_spill_observation_scope"
+    });
+    fields.extend([
+        (
+            "execution_resource_observed_spill_io_performed".into(),
+            report.map_or_else(
+                || "unavailable".into(),
+                |report| (report.payload_written() || report.payload_read()).to_string(),
+            ),
+        ),
+        (
+            "execution_resource_observed_spill_bytes".into(),
+            report.map_or_else(
+                || "unavailable".into(),
+                |report| report.write_report.bytes_written.to_string(),
+            ),
+        ),
+        (
+            "execution_resource_spill_observation_scope".into(),
+            "synthetic_payload_only;query_spill_not_implied".into(),
+        ),
+    ]);
+    fields
 }
 
 fn emit_operator_memory_spill_declarations(

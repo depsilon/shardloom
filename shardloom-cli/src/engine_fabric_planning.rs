@@ -139,6 +139,21 @@ pub(crate) fn handle_live_fixture_run(args: IntoIter<String>, format: OutputForm
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
+    let pool =
+        match crate::fixture_io::owner_for_command(resources, LIVE_FIXTURE_RUN_COMMAND, format) {
+            Ok(pool) => pool,
+            Err(code) => return code,
+        };
+    let _workspace = match crate::fixture_io::reserve_fixed_fixture_workspace(
+        args.as_slice(),
+        resources,
+        &pool,
+        LIVE_FIXTURE_RUN_COMMAND,
+        format,
+    ) {
+        Ok(workspace) => workspace,
+        Err(code) => return code,
+    };
     let input = match parse_live_fixture_run_args(args, format) {
         Ok(input) => input,
         Err(exit_code) => return exit_code,
@@ -165,9 +180,11 @@ pub(crate) fn handle_live_fixture_run(args: IntoIter<String>, format: OutputForm
         "live fixture run".to_string(),
         report.to_human_text(),
         vec![],
-        crate::execution_resources::with_declaration_fields(
+        crate::fixture_io::with_estimated_fixture_fields(
             live_fixture_run_fields(&report),
             resources,
+            &pool,
+            "fixed_fixture_state_and_argument_expansion_workspace_estimate",
         ),
     );
     if report.has_errors() {
@@ -185,6 +202,21 @@ pub(crate) fn handle_hybrid_overlay_run(args: IntoIter<String>, format: OutputFo
         &[],
     ) {
         Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
+    let pool =
+        match crate::fixture_io::owner_for_command(resources, HYBRID_FIXTURE_RUN_COMMAND, format) {
+            Ok(pool) => pool,
+            Err(code) => return code,
+        };
+    let _workspace = match crate::fixture_io::reserve_fixed_fixture_workspace(
+        args.as_slice(),
+        resources,
+        &pool,
+        HYBRID_FIXTURE_RUN_COMMAND,
+        format,
+    ) {
+        Ok(workspace) => workspace,
         Err(code) => return code,
     };
     let input = match parse_hybrid_fixture_run_args(args, format) {
@@ -213,9 +245,11 @@ pub(crate) fn handle_hybrid_overlay_run(args: IntoIter<String>, format: OutputFo
         "hybrid overlay run".to_string(),
         report.to_human_text(),
         vec![],
-        crate::execution_resources::with_declaration_fields(
+        crate::fixture_io::with_estimated_fixture_fields(
             hybrid_fixture_run_fields(&report),
             resources,
+            &pool,
+            "fixed_fixture_state_and_argument_expansion_workspace_estimate",
         ),
     );
     if report.has_errors() {
@@ -236,6 +270,24 @@ pub(crate) fn handle_live_hybrid_state_transition_smoke(
         &[],
     ) {
         Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        LIVE_HYBRID_STATE_TRANSITION_COMMAND,
+        format,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let _workspace = match crate::fixture_io::reserve_fixed_fixture_workspace(
+        args.as_slice(),
+        resources,
+        &pool,
+        LIVE_HYBRID_STATE_TRANSITION_COMMAND,
+        format,
+    ) {
+        Ok(workspace) => workspace,
         Err(code) => return code,
     };
     if let Some(extra) = args.next() {
@@ -268,9 +320,11 @@ pub(crate) fn handle_live_hybrid_state_transition_smoke(
         "live/hybrid state transition fixture smoke".to_string(),
         report.to_human_text(),
         vec![],
-        crate::execution_resources::with_declaration_fields(
+        crate::fixture_io::with_estimated_fixture_fields(
             live_hybrid_state_transition_fields(&report),
             resources,
+            &pool,
+            "fixed_fixture_state_and_argument_expansion_workspace_estimate",
         ),
     );
     if report.has_errors() {
@@ -384,6 +438,24 @@ pub(crate) fn handle_distributed_local_fixture_run(
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
+        format,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let _workspace = match crate::fixture_io::reserve_fixed_fixture_workspace(
+        args.as_slice(),
+        resources,
+        &pool,
+        DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
+        format,
+    ) {
+        Ok(workspace) => workspace,
+        Err(code) => return code,
+    };
     let input = match parse_distributed_local_fixture_run_args(args, format) {
         Ok(input) => input,
         Err(exit_code) => return exit_code,
@@ -410,9 +482,11 @@ pub(crate) fn handle_distributed_local_fixture_run(
         "distributed local fixture run".to_string(),
         report.to_human_text(),
         vec![],
-        crate::execution_resources::with_declaration_fields(
+        crate::fixture_io::with_estimated_fixture_fields(
             distributed_local_fixture_run_fields(&report),
             resources,
+            &pool,
+            "fixed_fixture_state_and_argument_expansion_workspace_estimate",
         ),
     );
     if report.has_errors() {

@@ -316,6 +316,12 @@ the ledger.
       grant and reject incompatible allocations before input or output. Focused
       regressions and complete native wrapper checks cover this correction;
       its original Rust and Full43 evidence keeps separate source identities.
+    - [x] Close synthetic UDF/spill fixture ownership findings and adjacent
+      embedding, live/hybrid/distributed and local-table fixture gaps. Retain
+      explicit conservative-estimate scopes, payload/readback/staging credits,
+      pre-effect denial, output preservation and released-credit reuse. Fresh
+      source gates and the dedicated synthetic-spill CI commands pass; original
+      complete-workflow and Full43 evidence keeps its own source identity.
     - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations

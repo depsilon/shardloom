@@ -986,5 +986,52 @@
     "ci_registration_passed": true,
     "original_complete_workflows_rerun": false,
     "performance_claim": false
+  },
+  "synthetic_fixture_review_correction": {
+    "path": "required-execution-resources-synthetic-fixtures-2026-10-11.json",
+    "sha256": "263b2408da3235dc370fb4e1d0efe2f865d22776c538a847d072245da240b9a1",
+    "status": "passed_local_checks_pending_hosted",
+    "source_identity_sha256": "7872302cf9a974ba8501e0a33d6c3ac2c594a799cc31124a0ecc4e2296d37504",
+    "source_checks": 16,
+    "python_tests": 667,
+    "python_existing_skips": 0,
+    "optional_synthetic_spill_ci_commands": 3,
+    "optional_synthetic_spill_tests": 54,
+    "documentation_checks": 14,
+    "ci_registration_passed": true,
+    "original_complete_workflows_rerun": false,
+    "performance_claim": false,
+    "rust_test_totals": {
+      "default-tests": {
+        "passed": 3191,
+        "failed": 0,
+        "ignored": 0
+      },
+      "reduced-writer-tests": {
+        "passed": 1125,
+        "failed": 0,
+        "ignored": 0
+      },
+      "native-examples": {
+        "passed": 17,
+        "failed": 0,
+        "ignored": 0
+      },
+      "native-cli-tests": {
+        "passed": 1362,
+        "failed": 0,
+        "ignored": 3
+      },
+      "native-vortex-tests": {
+        "passed": 2553,
+        "failed": 0,
+        "ignored": 24
+      }
+    },
+    "independent_readback": {
+      "path": "required-execution-resources-synthetic-fixtures-2026-10-11-inspection.json",
+      "sha256": "f094d91ec0fc05f174ebe8357ac22eb6bbb55956e3f450a0f72142e831f05f37",
+      "status": "passed"
+    }
   }
 }
