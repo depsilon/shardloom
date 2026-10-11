@@ -4,6 +4,7 @@
 use crate::source_identity::SourceIdentity;
 use sha2::{Digest as _, Sha256};
 use shardloom_core::{Result, ShardLoomError};
+use shardloom_exec::compute_pool::CancellationToken;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -16,12 +17,18 @@ fn error(message: impl std::fmt::Display) -> ShardLoomError {
     ))
 }
 
-fn source_paths(source: &Path, format: &str) -> Result<Vec<PathBuf>> {
+fn source_paths(
+    source: &Path,
+    format: &str,
+    cancellation: &CancellationToken,
+) -> Result<Vec<PathBuf>> {
+    cancellation.check()?;
     if !source.is_dir() {
         return Ok(vec![source.to_owned()]);
     }
     let mut paths = Vec::new();
     for entry in std::fs::read_dir(source).map_err(error)? {
+        cancellation.check()?;
         let entry = entry.map_err(error)?;
         let path = entry.path();
         if !entry.metadata().map_err(error)?.is_file() {
@@ -42,6 +49,7 @@ fn source_paths(source: &Path, format: &str) -> Result<Vec<PathBuf>> {
         }
     }
     paths.sort();
+    cancellation.check()?;
     if paths.is_empty() {
         return Err(error("source directory has no admitted files"));
     }
@@ -66,16 +74,37 @@ pub fn local_preparation_binding_with_schema(
     fingerprint: &str,
     source_schema: Option<&str>,
 ) -> Result<String> {
+    local_preparation_binding_with_schema_controlled(
+        source,
+        format,
+        fingerprint,
+        source_schema,
+        &CancellationToken::default(),
+    )
+}
+
+/// Capture preparation provenance with cooperative cancellation between local files.
+/// # Errors
+/// Rejects cancellation and the same invalid inventories as the uncontrolled entry point.
+pub fn local_preparation_binding_with_schema_controlled(
+    source: &Path,
+    format: &str,
+    fingerprint: &str,
+    source_schema: Option<&str>,
+    cancellation: &CancellationToken,
+) -> Result<String> {
+    cancellation.check()?;
     if source_schema.is_some_and(|schema| schema.len() > MAX_BYTES) {
         return Err(error("schema metadata exceeds 64 KiB"));
     }
     let source = std::path::absolute(source).map_err(error)?;
-    let files = source_paths(&source, format)?;
+    let files = source_paths(&source, format, cancellation)?;
     // Bound the embedded metadata independently of partition count. Hash each
     // sorted generation with an explicit length delimiter; this fingerprints
     // the inventory, not file contents or artifact authenticity.
     let mut generations = Sha256::new();
     for path in &files {
+        cancellation.check()?;
         let generation = SourceIdentity::capture(path)?
             .preparation_binding()?
             .to_string();
@@ -100,10 +129,12 @@ pub fn local_preparation_binding_with_schema(
     if binding.len() > MAX_BYTES {
         return Err(error("metadata exceeds 64 KiB"));
     }
+    cancellation.check()?;
     Ok(binding)
 }
 
-pub(crate) fn validate(binding: &str) -> Result<()> {
+pub(crate) fn validate_controlled(binding: &str, cancellation: &CancellationToken) -> Result<()> {
+    cancellation.check()?;
     if binding.len() > MAX_BYTES {
         return Err(error("metadata exceeds 64 KiB"));
     }
@@ -121,8 +152,13 @@ pub(crate) fn validate(binding: &str) -> Result<()> {
         .get("source_schema")
         .map(|value| value.as_str().ok_or_else(|| error("invalid source schema")))
         .transpose()?;
-    if local_preparation_binding_with_schema(Path::new(source), format, fingerprint, source_schema)?
-        != binding
+    if local_preparation_binding_with_schema_controlled(
+        Path::new(source),
+        format,
+        fingerprint,
+        source_schema,
+        cancellation,
+    )? != binding
     {
         return Err(error("source generation changed during preparation"));
     }
@@ -160,9 +196,18 @@ impl LocalPreparationIdentity {
     /// # Errors
     /// Rejects changed or invalidated local source and artifact generations.
     pub fn validate_generation(&self) -> Result<()> {
+        self.validate_generation_controlled(&CancellationToken::default())
+    }
+
+    /// Revalidate source and artifact generations using the operation's cancellation owner.
+    /// # Errors
+    /// Rejects cancellation, changed or invalidated local generations.
+    pub fn validate_generation_controlled(&self, cancellation: &CancellationToken) -> Result<()> {
+        cancellation.check()?;
         self.artifact.validate()?;
-        validate(&self.source_binding)?;
-        self.artifact.validate()
+        validate_controlled(&self.source_binding, cancellation)?;
+        self.artifact.validate()?;
+        cancellation.check()
     }
 
     /// Reject output aliases of the prepared artifact or any compatibility input.
@@ -170,8 +215,19 @@ impl LocalPreparationIdentity {
     /// # Errors
     /// Rejects changed generations, unreadable identities and conflicting outputs.
     pub fn validate_destination(&self, path: &Path) -> Result<()> {
+        self.validate_destination_controlled(path, &CancellationToken::default())
+    }
+
+    /// Check output aliases with the operation's cancellation owner.
+    /// # Errors
+    /// Rejects cancellation, changed generations and conflicting outputs.
+    pub fn validate_destination_controlled(
+        &self,
+        path: &Path,
+        cancellation: &CancellationToken,
+    ) -> Result<()> {
         use std::os::unix::fs::MetadataExt as _;
-        self.validate_generation()?;
+        self.validate_generation_controlled(cancellation)?;
         let fields: serde_json::Value =
             serde_json::from_str(&self.source_binding).map_err(error)?;
         let source = Path::new(
@@ -194,7 +250,9 @@ impl LocalPreparationIdentity {
         }
         let target = match std::fs::metadata(path) {
             Ok(target) => target,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return cancellation.check();
+            }
             Err(failure) => return Err(error(failure)),
         };
         if (target.dev(), target.ino())
@@ -205,13 +263,14 @@ impl LocalPreparationIdentity {
         {
             return Err(error("source and output must be different files"));
         }
-        for source in source_paths(source, format)? {
+        for source in source_paths(source, format, cancellation)? {
+            cancellation.check()?;
             let metadata = std::fs::metadata(source).map_err(error)?;
             if (target.dev(), target.ino()) == (metadata.dev(), metadata.ino()) {
                 return Err(error("source and output must be different files"));
             }
         }
-        Ok(())
+        cancellation.check()
     }
 }
 
@@ -236,6 +295,47 @@ fn preparation_identity_reserves_before_binding_validation_or_source_access() {
     assert_eq!(memory.snapshot().denied_reservations, 1);
 }
 
+#[test]
+fn controlled_preparation_binding_and_identity_refuse_before_source_access() {
+    let memory = shardloom_exec::live_memory::LiveMemoryPool::new(4096).unwrap();
+    let retained = memory.reserve(17).unwrap();
+    let parent = CancellationToken::default();
+    for token in [
+        {
+            let token = CancellationToken::default();
+            token.cancel();
+            token
+        },
+        parent.with_deadline(std::time::Instant::now()),
+    ] {
+        let source = Path::new("must-not-be-opened");
+        let error = local_preparation_binding_with_schema_controlled(
+            source,
+            "csv",
+            "metadata_only",
+            None,
+            &token,
+        )
+        .unwrap_err();
+        assert!(
+            error.to_string().contains("cancel") || error.to_string().contains("deadline"),
+            "{error}"
+        );
+        let error =
+            local_preparation_identity_controlled(source, "invalid binding", &memory, &token)
+                .unwrap_err();
+        assert!(
+            error.to_string().contains("cancel") || error.to_string().contains("deadline"),
+            "{error}"
+        );
+        assert_eq!(memory.snapshot().reserved_bytes, 17);
+        assert_eq!(memory.snapshot().peak_reserved_bytes, 17);
+        parent.check().unwrap();
+    }
+    drop(retained);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 /// Resolve the same public identity after creation and on subsequent reuse.
 /// Only the footer and bounded source-binding metadata are read.
 /// # Errors
@@ -245,12 +345,25 @@ pub fn local_preparation_identity(
     expected: &str,
     memory: &shardloom_exec::live_memory::LiveMemoryPool,
 ) -> Result<LocalPreparationIdentity> {
+    local_preparation_identity_controlled(path, expected, memory, &CancellationToken::default())
+}
+
+/// Read bounded preparation metadata using the operation's cancellation owner.
+/// # Errors
+/// Rejects cancellation, changed generations, missing bindings and invalid Vortex files.
+pub fn local_preparation_identity_controlled(
+    path: &Path,
+    expected: &str,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    cancellation: &CancellationToken,
+) -> Result<LocalPreparationIdentity> {
     use vortex::{
         VortexSessionDefault as _,
         array::memory::MemorySessionExt as _,
         file::OpenOptionsSessionExt as _,
         io::{runtime::BlockingRuntime as _, session::RuntimeSessionExt as _},
     };
+    cancellation.check()?;
     if expected.len() > MAX_BYTES {
         return Err(error("metadata exceeds 64 KiB"));
     }
@@ -261,7 +374,7 @@ pub fn local_preparation_identity(
             .and_then(|bytes| bytes.checked_add(4096))
             .ok_or_else(|| error("metadata reservation overflow"))?,
     )?;
-    validate(expected)?;
+    validate_controlled(expected, cancellation)?;
     let identity = SourceIdentity::capture(path)?;
     let runtime = vortex::io::runtime::current::CurrentThreadRuntime::new();
     let session = vortex::session::VortexSession::default()
@@ -272,6 +385,7 @@ pub fn local_preparation_identity(
     let file = runtime
         .block_on(session.open_options().open_path(path))
         .map_err(error)?;
+    cancellation.check()?;
     // OpenOptions intentionally omits user metadata by default. Resolve only
     // our bounded segment through the provider footer instead of loading every
     // arbitrary user metadata segment with include_metadata().
@@ -287,13 +401,14 @@ pub fn local_preparation_identity(
     let mut bytes = vec![0; usize::try_from(segment.length).map_err(error)?];
     std::os::unix::fs::FileExt::read_exact_at(&identity.file, &mut bytes, segment.offset)
         .map_err(error)?;
+    cancellation.check()?;
     if bytes != expected.as_bytes() {
         return Err(error(
             "existing target has no matching source binding; preserve it or explicitly prepare a new target",
         ));
     }
     identity.validate()?;
-    validate(expected)?;
+    validate_controlled(expected, cancellation)?;
     let source_digest = identity_digest(expected.as_bytes())?;
     let generation = identity.preparation_binding()?;
     let prepared_binding = serde_json::json!({

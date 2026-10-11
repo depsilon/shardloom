@@ -341,6 +341,7 @@ fn write_observed(
         options.memory_bytes / 4,
         Some(memory.clone()),
         runtime.clone(),
+        CancellationToken::default(),
     )
     .unwrap();
     let writer_input_lookahead = options
@@ -374,6 +375,7 @@ fn write_observed(
         writer_input_lookahead,
         None,
         runtime.as_ref(),
+        &CancellationToken::default(),
     );
     drop(drivers);
     let snapshot = memory.pool.snapshot();

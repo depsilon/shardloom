@@ -51,6 +51,7 @@ use arrow_array::{
 };
 use arrow_schema::{ArrowError, DataType, Field, Fields, Schema, SchemaRef, TimeUnit};
 use shardloom_core::{LogicalDType, Result, ScalarValue, ShardLoomError};
+use shardloom_exec::compute_pool::CancellationToken;
 
 pub use crate::source_identity::SourceIdentity;
 
@@ -2822,12 +2823,34 @@ fn parse_timestamp_minute(value: &str) -> Option<u8> {
 /// # Errors
 /// Rejects zero parallelism before pulling the source or starting its executor.
 pub fn with_capillary_prefetch_columnar_stream_source(
-    mut source: FlatLocalColumnarStreamSource,
+    source: FlatLocalColumnarStreamSource,
     requested_max_parallelism: usize,
 ) -> Result<FlatLocalColumnarStreamSource> {
+    with_capillary_prefetch_columnar_stream_source_controlled(
+        source,
+        requested_max_parallelism,
+        &CancellationToken::default(),
+    )
+}
+
+/// Apply the same prefetch policy with cooperative cancellation at each source
+/// batch and in its shared native workers. Child teardown preserves the caller.
+/// # Errors
+/// Rejects zero parallelism or cancellation before source demand.
+pub fn with_capillary_prefetch_columnar_stream_source_controlled(
+    mut source: FlatLocalColumnarStreamSource,
+    requested_max_parallelism: usize,
+    cancellation: &CancellationToken,
+) -> Result<FlatLocalColumnarStreamSource> {
+    cancellation.check()?;
     if requested_max_parallelism == 0 {
         return Err(ShardLoomError::new("max_parallelism must be positive"));
     }
+    source.reader = Box::new(ControlledColumnarReader {
+        schema: source.reader.schema(),
+        reader: Some(source.reader),
+        cancellation: cancellation.clone(),
+    });
     #[cfg(feature = "vortex-write")]
     if requested_max_parallelism > 1
         && source
@@ -2838,7 +2861,11 @@ pub fn with_capillary_prefetch_columnar_stream_source(
         // P1 is a direct pull reader with no queued source tasks or drivers.
         // The common adapter may safely admit this drained source at its final
         // public grant (including partition readers initially opened at P1).
-        return with_shared_runtime_columnar_source(source, requested_max_parallelism);
+        return with_shared_runtime_columnar_source(
+            source,
+            requested_max_parallelism,
+            cancellation,
+        );
     }
     if columnar_stream_source_already_has_capillary_executor(&source) {
         // Keep the existing owner, never wrap it in another source thread. A
@@ -2852,7 +2879,7 @@ pub fn with_capillary_prefetch_columnar_stream_source(
     }
     #[cfg(feature = "vortex-write")]
     {
-        with_shared_runtime_columnar_source(source, requested_max_parallelism)
+        with_shared_runtime_columnar_source(source, requested_max_parallelism, cancellation)
     }
     #[cfg(not(feature = "vortex-write"))]
     {
@@ -2860,6 +2887,39 @@ pub fn with_capillary_prefetch_columnar_stream_source(
             source,
             requested_max_parallelism,
         ))
+    }
+}
+
+struct ControlledColumnarReader {
+    schema: SchemaRef,
+    reader: Option<Box<dyn RecordBatchReader + Send>>,
+    cancellation: CancellationToken,
+}
+
+impl Iterator for ControlledColumnarReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.reader.as_ref()?;
+        if let Err(error) = self.cancellation.check() {
+            self.reader.take();
+            return Some(Err(ArrowError::ExternalError(Box::new(error))));
+        }
+        let result = self.reader.as_mut()?.next();
+        if let Err(error) = self.cancellation.check() {
+            self.reader.take();
+            return Some(Err(ArrowError::ExternalError(Box::new(error))));
+        }
+        if result.as_ref().is_none_or(std::result::Result::is_err) {
+            self.reader.take();
+        }
+        result
+    }
+}
+
+impl RecordBatchReader for ControlledColumnarReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
     }
 }
 
@@ -2959,16 +3019,18 @@ fn with_dedicated_source_prefetch(
 fn with_shared_runtime_columnar_source(
     mut source: FlatLocalColumnarStreamSource,
     requested: usize,
+    cancellation: &CancellationToken,
 ) -> Result<FlatLocalColumnarStreamSource> {
     let runtime = IngestRuntime::new(requested)?;
     if runtime.parallelism() > 1 {
         let schema = source.reader.schema();
         let reader = source.reader;
-        source.reader = Box::new(crate::ingest_source::IngestSourceReader::new(
+        source.reader = Box::new(crate::ingest_source::IngestSourceReader::new_controlled(
             schema,
             runtime.clone(),
             vec![Box::new(move || Ok(reader))],
             1,
+            cancellation,
         ));
     }
     source.ingest_executor_status = "bounded_shared_runtime_source".to_string();
@@ -3231,6 +3293,26 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
     requested_max_parallelism: usize,
     batch_budget_bytes: Option<u64>,
 ) -> Result<FlatLocalColumnarStreamSource> {
+    stream_flat_parquet_columnar_source_with_batch_budget_controlled(
+        path,
+        max_rows,
+        requested_max_parallelism,
+        batch_budget_bytes,
+        &CancellationToken::default(),
+    )
+}
+
+/// Open the same Parquet source under an existing cancellation owner.
+/// # Errors
+/// Returns source/admission errors or cancellation before opening or demanding data.
+pub fn stream_flat_parquet_columnar_source_with_batch_budget_controlled(
+    path: &Path,
+    max_rows: usize,
+    requested_max_parallelism: usize,
+    batch_budget_bytes: Option<u64>,
+    cancellation: &CancellationToken,
+) -> Result<FlatLocalColumnarStreamSource> {
+    cancellation.check()?;
     if requested_max_parallelism == 0 {
         return Err(ShardLoomError::new("max_parallelism must be positive"));
     }
@@ -3258,6 +3340,7 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
             ))
         })?;
     let schema = Arc::clone(builder.schema());
+    cancellation.check()?;
     let header = source_schema_header(path, "Parquet", schema.as_ref())?;
     let row_group_metadata = parquet_row_group_stream_metadata(builder.metadata());
     let extent_plan = ParquetExtentPlan::from_metadata(builder.metadata());
@@ -3340,11 +3423,12 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
                     }) as crate::ingest_source::ReaderFactory
                 })
                 .collect();
-            Box::new(crate::ingest_source::IngestSourceReader::new(
+            Box::new(crate::ingest_source::IngestSourceReader::new_controlled(
                 Arc::clone(&schema_plan.stream_schema),
                 runtime.clone(),
                 factories,
                 applied_parallelism,
+                cancellation,
             )) as Box<dyn RecordBatchReader + Send>
         };
         #[cfg(not(feature = "vortex-write"))]
@@ -3413,13 +3497,14 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
         reader,
     );
     Ok(generation_checked_parquet_source(
-        with_capillary_prefetch_columnar_stream_source(
+        with_capillary_prefetch_columnar_stream_source_controlled(
             annotate_parquet_extent_plan_source(
                 source,
                 &extent_plan,
                 row_group_byte_ranges.as_deref(),
             ),
             requested_max_parallelism,
+            cancellation,
         )?,
         source_identity,
     ))

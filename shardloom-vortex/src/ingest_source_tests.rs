@@ -3,6 +3,7 @@ use arrow_array::{Int64Array, RecordBatchIterator};
 use arrow_schema::{DataType, Field, Schema};
 use futures::channel::oneshot;
 use std::{
+    sync::mpsc,
     sync::{
         Condvar, Mutex,
         atomic::{AtomicUsize, Ordering},
@@ -227,4 +228,296 @@ fn empty_shared_source_never_creates_work() {
     let mut reader = IngestSourceReader::new(schema(), runtime, vec![], 8);
     assert!(reader.next().is_none());
     assert!(reader.tasks.is_empty());
+}
+
+#[test]
+fn pre_cancelled_parent_skips_factories_and_is_a_single_terminal_error() {
+    for requested in [1, 3] {
+        let runtime = IngestRuntime::new(requested).unwrap();
+        let grant = runtime.parallelism();
+        let _drivers = runtime.start_drivers().unwrap();
+        let parent = shardloom_exec::compute_pool::CancellationToken::default();
+        parent.cancel();
+        let factory_calls = Arc::new(AtomicUsize::new(0));
+        let factories = (0..grant)
+            .map(|_| {
+                let factory_calls = Arc::clone(&factory_calls);
+                Box::new(move || {
+                    factory_calls.fetch_add(1, Ordering::SeqCst);
+                    Ok(
+                        Box::new(RecordBatchIterator::new(vec![Ok(batch(1))], schema()))
+                            as Box<dyn RecordBatchReader + Send>,
+                    )
+                }) as ReaderFactory
+            })
+            .collect();
+        let mut reader =
+            IngestSourceReader::new_controlled(schema(), runtime, factories, requested, &parent);
+
+        let error = reader
+            .next()
+            .expect("cancellation is reported once")
+            .unwrap_err();
+        assert!(error.to_string().contains("cancelled"), "{error}");
+        assert!(reader.next().is_none(), "cancellation is terminal");
+        assert_eq!(factory_calls.load(Ordering::SeqCst), 0);
+        assert!(parent.is_cancelled());
+    }
+}
+
+/// A bounded gate lets the test cancel while one cooperative source read is
+/// still in progress, then release that read so the producer can drain.
+struct ReadReleaseGate {
+    state: Mutex<(bool, bool)>,
+    changed: Condvar,
+}
+
+impl ReadReleaseGate {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            state: Mutex::new((false, false)),
+            changed: Condvar::new(),
+        })
+    }
+
+    fn wait_until_entered(&self) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut state = self.state.lock().unwrap();
+        while !state.0 {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return false;
+            }
+            state = self.changed.wait_timeout(state, remaining).unwrap().0;
+        }
+        true
+    }
+
+    fn enter_and_wait(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.0 = true;
+        self.changed.notify_all();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !state.1 {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            assert!(!remaining.is_zero(), "test did not release the source read");
+            state = self.changed.wait_timeout(state, remaining).unwrap().0;
+        }
+    }
+
+    fn release(&self) {
+        self.state.lock().unwrap().1 = true;
+        self.changed.notify_all();
+    }
+}
+
+struct CancellableObservedReader {
+    index: usize,
+    produced: usize,
+    gate: Arc<ReadReleaseGate>,
+    dropped: Arc<AtomicUsize>,
+}
+
+impl Iterator for CancellableObservedReader {
+    type Item = Batch;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.produced == 8 {
+            return None;
+        }
+        self.produced += 1;
+        if self.index == 0 && self.produced == 5 {
+            self.gate.enter_and_wait();
+        }
+        Some(Ok(batch(
+            i64::try_from(self.index * 100 + self.produced).unwrap(),
+        )))
+    }
+}
+
+impl RecordBatchReader for CancellableObservedReader {
+    fn schema(&self) -> SchemaRef {
+        schema()
+    }
+}
+
+impl Drop for CancellableObservedReader {
+    fn drop(&mut self) {
+        self.dropped.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+#[test]
+fn parent_cancel_stops_delivery_and_drains_active_source_owners_once() {
+    for requested in [1, 3] {
+        let runtime = IngestRuntime::new(requested).unwrap();
+        let grant = runtime.parallelism();
+        let parent = shardloom_exec::compute_pool::CancellationToken::default();
+        let factory_gate = Rendezvous::new(grant);
+        let read_gate = ReadReleaseGate::new();
+        let dropped = (0..grant)
+            .map(|_| Arc::new(AtomicUsize::new(0)))
+            .collect::<Vec<_>>();
+        let factories = dropped
+            .iter()
+            .enumerate()
+            .map(|(index, dropped)| {
+                let factory_gate = Arc::clone(&factory_gate);
+                let gate = Arc::clone(&read_gate);
+                let dropped = Arc::clone(dropped);
+                Box::new(move || {
+                    let reader = CancellableObservedReader {
+                        index,
+                        produced: 0,
+                        gate,
+                        dropped,
+                    };
+                    // Ensure every owner exists before the consumer starts.
+                    factory_gate.arrive();
+                    Ok(Box::new(reader) as Box<dyn RecordBatchReader + Send>)
+                }) as ReaderFactory
+            })
+            .collect();
+        let worker_parent = parent.clone();
+        let (events_tx, events_rx) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let _drivers = runtime.start_drivers().unwrap();
+            let mut reader = IngestSourceReader::new_controlled(
+                schema(),
+                runtime,
+                factories,
+                requested,
+                &worker_parent,
+            );
+            let child = reader.cancellation.clone();
+            while let Some(item) = reader.next() {
+                let event = match item {
+                    Ok(batch) => Event::Value(
+                        batch
+                            .column(0)
+                            .as_any()
+                            .downcast_ref::<Int64Array>()
+                            .unwrap()
+                            .value(0),
+                    ),
+                    Err(error) => Event::Error(error.to_string()),
+                };
+                events_tx.send(event).unwrap();
+            }
+            events_tx.send(Event::End).unwrap();
+            child
+        });
+
+        let first = events_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("worker delivers a batch before cancellation");
+        assert!(matches!(&first, Event::Value(1)), "{first:?}");
+        let entered = read_gate.wait_until_entered();
+        let mut pre_cancel_events = vec![first];
+        let mut observed_another_batch = false;
+        if entered {
+            if let Ok(event) = events_rx.recv_timeout(Duration::from_secs(10)) {
+                observed_another_batch = matches!(event, Event::Value(_));
+                pre_cancel_events.push(event);
+            }
+        }
+        parent.cancel();
+        read_gate.release();
+        let mut remaining = pre_cancel_events;
+        while !matches!(remaining.last(), Some(Event::End)) {
+            let event = events_rx
+                .recv_timeout(Duration::from_secs(10))
+                .expect("finite source worker terminates after cancellation");
+            remaining.push(event);
+        }
+        remaining.pop(); // Remove the worker's terminal End marker.
+        let child = worker.join().expect("source worker joins after drain");
+        assert!(entered, "source did not enter the gated read");
+        let errors = remaining
+            .iter()
+            .filter_map(|event| match event {
+                Event::Error(error) => Some(error),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(errors.len(), 1, "cancellation must be reported once");
+        assert!(errors[0].contains("cancelled"), "{}", errors[0]);
+        assert!(matches!(remaining.last(), Some(Event::Error(_))));
+        assert!(
+            observed_another_batch,
+            "a second batch must be delivered before cancellation"
+        );
+        assert!(child.is_cancelled());
+        assert!(parent.is_cancelled());
+        for drops in dropped {
+            assert_eq!(drops.load(Ordering::SeqCst), 1);
+        }
+    }
+}
+
+#[derive(Debug)]
+enum Event {
+    Value(i64),
+    Error(String),
+    End,
+}
+
+#[test]
+fn normal_exhaustion_and_early_drop_cancel_only_the_child() {
+    for requested in [1, 3] {
+        let runtime = IngestRuntime::new(requested).unwrap();
+        let grant = runtime.parallelism();
+        let _drivers = runtime.start_drivers().unwrap();
+        let parent = shardloom_exec::compute_pool::CancellationToken::default();
+        let factories = (0..grant)
+            .map(|index| {
+                Box::new(move || {
+                    let start = i64::try_from(index * 10).unwrap();
+                    Ok(Box::new(RecordBatchIterator::new(
+                        [Ok(batch(start)), Ok(batch(start + 1))],
+                        schema(),
+                    )) as Box<dyn RecordBatchReader + Send>)
+                }) as ReaderFactory
+            })
+            .collect();
+        let mut exhausted =
+            IngestSourceReader::new_controlled(schema(), runtime, factories, requested, &parent);
+        let exhausted_child = exhausted.cancellation.clone();
+        let mut exhausted_count = 0;
+        for item in exhausted.by_ref() {
+            let batch = item.unwrap();
+            let _value = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap()
+                .value(0);
+            exhausted_count += 1;
+        }
+        assert_eq!(exhausted_count, grant * 2);
+        assert!(!exhausted_child.is_cancelled());
+        drop(exhausted);
+        assert!(exhausted_child.is_cancelled());
+        assert!(parent.check().is_ok());
+
+        let runtime = IngestRuntime::new(requested).unwrap();
+        let _drivers = runtime.start_drivers().unwrap();
+        let parent = shardloom_exec::compute_pool::CancellationToken::default();
+        let early = IngestSourceReader::new_controlled(
+            schema(),
+            runtime,
+            vec![Box::new(|| {
+                Ok(Box::new(RecordBatchIterator::new(
+                    (0..100).map(|value| Ok(batch(value))),
+                    schema(),
+                )) as Box<dyn RecordBatchReader + Send>)
+            })],
+            1,
+            &parent,
+        );
+        let early_child = early.cancellation.clone();
+        drop(early);
+        assert!(early_child.is_cancelled());
+        assert!(parent.check().is_ok());
+    }
 }

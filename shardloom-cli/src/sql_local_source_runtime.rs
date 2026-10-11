@@ -35,6 +35,7 @@ use shardloom_core::{
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use shardloom_core::{parse_iso_date32, parse_iso_timestamp_micros};
+use shardloom_exec::compute_pool::CancellationToken;
 
 use crate::{
     cli_output::{emit, emit_error},
@@ -1070,13 +1071,15 @@ struct SchemaDeclaredTextRecordBatchReader {
     max_input_rows: Option<usize>,
     next_row_number: usize,
     context: String,
+    cancellation: CancellationToken,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct TextRecordBatchReaderConfig {
     max_input_rows: Option<usize>,
     batch_size: usize,
+    cancellation: CancellationToken,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -1112,16 +1115,19 @@ impl SchemaDeclaredTextRecordBatchReader {
             max_input_rows: config.max_input_rows,
             next_row_number: 0,
             context,
+            cancellation: config.cancellation,
         }
     }
 
     fn next_record_batch(&mut self) -> Result<Option<RecordBatch>, ShardLoomError> {
+        self.cancellation.check()?;
         if self.source_format == LocalSourceFormat::JsonLines {
             return self.next_jsonl_record_batch();
         }
         let mut rows = Vec::<Vec<(String, ScalarValue)>>::with_capacity(self.batch_size.min(1024));
         let mut line = String::new();
         while rows.len() < self.batch_size {
+            self.cancellation.check()?;
             line.clear();
             let bytes_read = read_csv_record(&mut self.reader, &mut line).map_err(|error| {
                 ShardLoomError::InvalidOperation(format!(
@@ -1208,11 +1214,13 @@ impl SchemaDeclaredTextRecordBatchReader {
     }
 
     fn next_jsonl_record_batch(&mut self) -> Result<Option<RecordBatch>, ShardLoomError> {
+        self.cancellation.check()?;
         let mut builder = None;
         let mut values = vec![ScalarValue::Null; self.header.len()];
         let mut line = String::new();
         let mut row_count = 0;
         while row_count < self.batch_size {
+            self.cancellation.check()?;
             line.clear();
             let bytes_read = self.reader.read_line(&mut line).map_err(|error| {
                 ShardLoomError::InvalidOperation(format!(
@@ -1266,11 +1274,16 @@ impl SchemaDeclaredTextRecordBatchReader {
             line
         };
         values.fill(ScalarValue::Null);
-        visit_flat_json_object_with_plan(line.trim(), &self.read_plan, |column, value| {
-            if let Some(&index) = self.column_indices.get(&column) {
-                values[index] = value;
-            }
-        })
+        visit_flat_json_object_with_plan_controlled(
+            line.trim(),
+            &self.read_plan,
+            &self.cancellation,
+            |column, value| {
+                if let Some(&index) = self.column_indices.get(&column) {
+                    values[index] = value;
+                }
+            },
+        )
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "{} JSONL row {} is not admitted: {error}; no fallback execution was attempted",
@@ -1337,7 +1350,9 @@ fn schema_declared_text_stream_contract(
     source_format: LocalSourceFormat,
     source_schema_hints: &[(String, LogicalDType)],
     max_input_rows: Option<usize>,
+    cancellation: &CancellationToken,
 ) -> Result<Option<SchemaDeclaredTextStreamContract>, ShardLoomError> {
+    cancellation.check()?;
     if source_schema_hints.is_empty()
         || !matches!(
             source_format,
@@ -1397,6 +1412,7 @@ fn schema_declared_text_stream_contract(
                     source_format,
                     max_input_rows,
                     source_schema_hints,
+                    cancellation,
                 );
             }
             Ok(Some(SchemaDeclaredTextStreamContract {
@@ -1417,6 +1433,7 @@ fn schema_declared_text_stream_contract(
             source_format,
             max_input_rows,
             source_schema_hints,
+            cancellation,
         ),
         LocalSourceFormat::Json
         | LocalSourceFormat::Parquet
@@ -1432,9 +1449,10 @@ fn schema_hinted_inferred_text_stream_contract(
     source_format: LocalSourceFormat,
     max_input_rows: Option<usize>,
     source_schema_hints: &[(String, LogicalDType)],
+    cancellation: &CancellationToken,
 ) -> Result<Option<SchemaDeclaredTextStreamContract>, ShardLoomError> {
     let Some(mut contract) =
-        inferred_text_stream_contract(source_path, source_format, max_input_rows)?
+        inferred_text_stream_contract(source_path, source_format, max_input_rows, cancellation)?
     else {
         return Ok(None);
     };
@@ -1561,7 +1579,9 @@ fn inferred_text_stream_contract(
     source_path: &Path,
     source_format: LocalSourceFormat,
     max_input_rows: Option<usize>,
+    cancellation: &CancellationToken,
 ) -> Result<Option<SchemaDeclaredTextStreamContract>, ShardLoomError> {
+    cancellation.check()?;
     if !matches!(
         source_format,
         LocalSourceFormat::Csv | LocalSourceFormat::JsonLines
@@ -1573,9 +1593,11 @@ fn inferred_text_stream_contract(
         source_format.row_label()
     );
     let (header, inferred) = match source_format {
-        LocalSourceFormat::Csv => infer_csv_text_stream_schema(source_path, max_input_rows)?,
+        LocalSourceFormat::Csv => {
+            infer_csv_text_stream_schema(source_path, max_input_rows, cancellation)?
+        }
         LocalSourceFormat::JsonLines => {
-            infer_jsonl_text_stream_schema(source_path, max_input_rows)?
+            infer_jsonl_text_stream_schema(source_path, max_input_rows, cancellation)?
         }
         LocalSourceFormat::Json
         | LocalSourceFormat::Parquet
@@ -1625,7 +1647,9 @@ fn inferred_text_stream_contract(
 fn infer_csv_text_stream_schema(
     source_path: &Path,
     max_input_rows: Option<usize>,
+    cancellation: &CancellationToken,
 ) -> Result<(Vec<String>, Vec<InferredTextColumnKind>), ShardLoomError> {
+    cancellation.check()?;
     let context = "CSV inferred-schema Universal Ingest stream";
     let file = fs::File::open(source_path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -1658,6 +1682,7 @@ fn infer_csv_text_stream_schema(
     let mut row_count = 0_usize;
     let mut line = String::new();
     loop {
+        cancellation.check()?;
         line.clear();
         let bytes_read = read_csv_record(&mut reader, &mut line).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -1690,7 +1715,9 @@ fn infer_csv_text_stream_schema(
 fn infer_jsonl_text_stream_schema(
     source_path: &Path,
     max_input_rows: Option<usize>,
+    cancellation: &CancellationToken,
 ) -> Result<(Vec<String>, Vec<InferredTextColumnKind>), ShardLoomError> {
+    cancellation.check()?;
     let context = "JSONL inferred-schema Universal Ingest stream";
     let file = fs::File::open(source_path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -1704,6 +1731,7 @@ fn infer_jsonl_text_stream_schema(
     let mut inferred = Vec::<InferredTextColumnKind>::new();
     let mut row_count = 0_usize;
     for line in reader.lines() {
+        cancellation.check()?;
         let line = line.map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "{context} failed to read JSONL row {}: {error}; no fallback execution was attempted",
@@ -1918,7 +1946,7 @@ struct VortexIngestRequest {
     runtime_profile: SqlLocalSourceRuntimeProfile,
     resources: ExecutionResources,
     shared_memory_pool: Option<shardloom_exec::live_memory::LiveMemoryPool>,
-    cancellation: shardloom_exec::compute_pool::CancellationToken,
+    cancellation: CancellationToken,
     source_fingerprint_policy: SourceFingerprintPolicy,
     delta: Option<VortexIngestDeltaRequest>,
     // Retained by the request in every build; only the native writer consumes it.
@@ -2579,7 +2607,8 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     )
 }
 
-#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
     source_path: impl AsRef<Path>,
     target_path: impl AsRef<Path>,
@@ -2613,7 +2642,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_controlled(
     shared_memory_pool: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     source_fingerprint_policy: Option<&str>,
     source_schema: Option<&str>,
-    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    cancellation: &CancellationToken,
 ) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
     cancellation.check()?;
     if shared_memory_pool.is_some_and(|pool| pool.snapshot().limit_bytes > resources.memory_bytes())
@@ -2694,6 +2723,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_controlled(
         source_format_override,
         source_fingerprint_policy,
         source_schema,
+        cancellation,
     )?);
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     drop(binding_control);
@@ -2706,11 +2736,13 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_controlled(
         let binding = prepared_source_binding
             .as_deref()
             .expect("feature-admitted binding");
-        let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
-            &target_path,
-            binding,
-            &preparation_memory,
-        )?;
+        let identity =
+            shardloom_vortex::prepared_source_binding::local_preparation_identity_controlled(
+                &target_path,
+                binding,
+                &preparation_memory,
+                cancellation,
+            )?;
         return Ok(public_workflow_reused_preparation(
             target_path,
             source_fingerprint_policy,
@@ -2756,6 +2788,8 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_controlled(
     let (raw_fields, identity) = {
         let mut fields = raw_fields;
         let identity = if let Some(binding) = prepared_source_binding {
+            // Publication has completed. Finish its identity evidence instead
+            // of reporting cancellation after the output is already committed.
             let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
                 &target_path,
                 &binding,
@@ -2885,27 +2919,38 @@ fn public_preparation_source_binding(
     format: Option<LocalSourceFormat>,
     policy: SourceFingerprintPolicy,
     source_schema: Option<&str>,
+    cancellation: &CancellationToken,
 ) -> Result<String, ShardLoomError> {
+    cancellation.check()?;
     let format = LocalInputAdapterSelection::select(path, format)?.source_format;
-    let initial = shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema(
+    let initial = shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema_controlled(
         path,
         format.as_str(),
         policy.as_str(),
         source_schema,
+        cancellation,
     )?;
     if policy == SourceFingerprintPolicy::MetadataOnly {
         return Ok(initial);
     }
     let scout = if path.is_dir() {
-        scout_local_source_partition_files_with_budget(path, format, None, policy)?.evidence
+        scout_local_source_partition_files_with_budget(path, format, None, policy, cancellation)?
+            .evidence
     } else {
-        fingerprint_local_source_file_with_budget_report(path, format.row_label(), None, policy)?
+        fingerprint_local_source_file_with_budget_report(
+            path,
+            format.row_label(),
+            None,
+            policy,
+            cancellation,
+        )?
     };
-    if shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema(
+    if shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema_controlled(
         path,
         format.as_str(),
         policy.as_str(),
         source_schema,
+        cancellation,
     )? != initial
     {
         return Err(ShardLoomError::InvalidOperation(
@@ -2913,11 +2958,12 @@ fn public_preparation_source_binding(
                 .into(),
         ));
     }
-    shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema(
+    shardloom_vortex::prepared_source_binding::local_preparation_binding_with_schema_controlled(
         path,
         format.as_str(),
         &scout.digest,
         source_schema,
+        cancellation,
     )
 }
 
@@ -4598,6 +4644,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         source_format.row_label(),
         read_limits.source_bytes,
         request.source_fingerprint_policy,
+        &request.cancellation,
     )?;
     let read_millis = read_start.elapsed().as_millis();
     let source_to_columnar_start = Instant::now();
@@ -4606,6 +4653,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         source_format,
         source_schema_hints,
         read_limits.input_rows,
+        &request.cancellation,
     )?
     else {
         return Ok(None);
@@ -4632,6 +4680,7 @@ fn try_run_schema_declared_text_vortex_prepare(
     let reader_config = TextRecordBatchReaderConfig {
         max_input_rows: read_limits.input_rows,
         batch_size: text_stream_record_batch_size(read_limits.input_rows),
+        cancellation: request.cancellation.clone(),
     };
     let batch_reader = SchemaDeclaredTextRecordBatchReader::new(
         contract.source_format,
@@ -4639,7 +4688,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         contract.header.clone(),
         contract.column_dtypes.clone(),
         contract.reader,
-        reader_config,
+        reader_config.clone(),
         context,
     );
     let columnar_source = shardloom_vortex::FlatLocalColumnarStreamSource {
@@ -4673,9 +4722,10 @@ fn try_run_schema_declared_text_vortex_prepare(
         shardloom_vortex::universal_format_io::with_embedded_derived_columns_columnar_stream_source(
             columnar_source,
         );
-    let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
+    let columnar_source = shardloom_vortex::universal_format_io::with_capillary_prefetch_columnar_stream_source_controlled(
         columnar_source,
         request.resources.max_parallelism(),
+        &request.cancellation,
     )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     let mut prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
@@ -4734,7 +4784,10 @@ fn try_run_schema_declared_text_vortex_prepare(
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
     let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_controlled(
+            vortex_request,
+            &request.cancellation,
+        )?;
     let source = prewrite_source.with_observed_streaming_write(
         vortex_report.row_count,
         vortex_report.array_build_record_batch_count,
@@ -4831,11 +4884,16 @@ fn try_run_inferred_text_vortex_prepare(
         source_format.row_label(),
         read_limits.source_bytes,
         request.source_fingerprint_policy,
+        &request.cancellation,
     )?;
     let read_millis = read_start.elapsed().as_millis();
     let source_to_columnar_start = Instant::now();
-    let Some(contract) =
-        inferred_text_stream_contract(&request.source_path, source_format, read_limits.input_rows)?
+    let Some(contract) = inferred_text_stream_contract(
+        &request.source_path,
+        source_format,
+        read_limits.input_rows,
+        &request.cancellation,
+    )?
     else {
         return Ok(None);
     };
@@ -4861,6 +4919,7 @@ fn try_run_inferred_text_vortex_prepare(
     let reader_config = TextRecordBatchReaderConfig {
         max_input_rows: read_limits.input_rows,
         batch_size: text_stream_record_batch_size(read_limits.input_rows),
+        cancellation: request.cancellation.clone(),
     };
     let batch_reader = SchemaDeclaredTextRecordBatchReader::new(
         contract.source_format,
@@ -4868,7 +4927,7 @@ fn try_run_inferred_text_vortex_prepare(
         contract.header.clone(),
         contract.column_dtypes.clone(),
         contract.reader,
-        reader_config,
+        reader_config.clone(),
         context,
     );
     let columnar_source = shardloom_vortex::FlatLocalColumnarStreamSource {
@@ -4902,9 +4961,10 @@ fn try_run_inferred_text_vortex_prepare(
         shardloom_vortex::universal_format_io::with_embedded_derived_columns_columnar_stream_source(
             columnar_source,
         );
-    let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
+    let columnar_source = shardloom_vortex::universal_format_io::with_capillary_prefetch_columnar_stream_source_controlled(
         columnar_source,
         request.resources.max_parallelism(),
+        &request.cancellation,
     )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     let mut prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
@@ -4963,7 +5023,10 @@ fn try_run_inferred_text_vortex_prepare(
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
     let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_controlled(
+            vortex_request,
+            &request.cancellation,
+        )?;
     let source = prewrite_source.with_observed_streaming_write(
         vortex_report.row_count,
         vortex_report.array_build_record_batch_count,
@@ -5087,9 +5150,10 @@ fn run_text_streaming_vortex_prepare(
             text_stream_record_batch_size(request.runtime_profile.read_limits().input_rows),
             source.source_format.row_label(),
         )?;
-    let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
+    let columnar_source = shardloom_vortex::universal_format_io::with_capillary_prefetch_columnar_stream_source_controlled(
         columnar_source,
         request.resources.max_parallelism(),
+        &request.cancellation,
     )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     let mut prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
@@ -5161,7 +5225,10 @@ fn finish_text_streaming_vortex_prepare(
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
     let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_controlled(
+            vortex_request,
+            &request.cancellation,
+        )?;
     let source = prewrite_source.with_observed_streaming_write(
         vortex_report.row_count,
         vortex_report.array_build_record_batch_count,
@@ -5258,6 +5325,7 @@ fn run_columnar_vortex_prepare(
             source_format,
             read_limits.source_bytes,
             request.source_fingerprint_policy,
+            &request.cancellation,
         )?;
         partitions.evidence
     } else {
@@ -5266,6 +5334,7 @@ fn run_columnar_vortex_prepare(
             source_format.row_label(),
             read_limits.source_bytes,
             request.source_fingerprint_policy,
+            &request.cancellation,
         )?
     };
     let read_millis = read_start.elapsed().as_millis();
@@ -5284,6 +5353,7 @@ fn run_columnar_vortex_prepare(
                 request.resources.max_parallelism(),
             ))
             .unwrap_or(u64::MAX),
+        &request.cancellation,
     )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     // Embedded field names are already validated by the shared columnar source
@@ -5330,7 +5400,10 @@ fn run_columnar_vortex_prepare(
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
     let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming(vortex_request)?;
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_controlled(
+            vortex_request,
+            &request.cancellation,
+        )?;
     let source = prewrite_source.with_observed_streaming_write(
         vortex_report.row_count,
         vortex_report.array_build_record_batch_count,
@@ -5404,6 +5477,7 @@ fn run_columnar_vortex_prepare(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_arguments)]
 fn stream_columnar_vortex_ingest_source(
     source_format: LocalSourceFormat,
     path: &Path,
@@ -5412,7 +5486,9 @@ fn stream_columnar_vortex_ingest_source(
     max_parallelism: usize,
     source_fingerprint_policy: SourceFingerprintPolicy,
     batch_budget_bytes: u64,
+    cancellation: &CancellationToken,
 ) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
+    cancellation.check()?;
     if path.is_dir() {
         return stream_columnar_vortex_ingest_partition_source(
             source_format,
@@ -5422,6 +5498,7 @@ fn stream_columnar_vortex_ingest_source(
             max_parallelism,
             source_fingerprint_policy,
             batch_budget_bytes,
+            cancellation,
         );
     }
     let source = stream_columnar_vortex_ingest_file_source(
@@ -5430,9 +5507,14 @@ fn stream_columnar_vortex_ingest_source(
         max_rows,
         max_parallelism,
         batch_budget_bytes,
+        cancellation,
     )?;
     let source = with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
-    shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism)
+    shardloom_vortex::universal_format_io::with_capillary_prefetch_columnar_stream_source_controlled(
+        source,
+        max_parallelism,
+        cancellation,
+    )
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -5580,14 +5662,17 @@ fn stream_columnar_vortex_ingest_file_source(
     max_rows: usize,
     max_parallelism: usize,
     batch_budget_bytes: u64,
+    cancellation: &CancellationToken,
 ) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
-    match source_format {
+    cancellation.check()?;
+    let source = match source_format {
         LocalSourceFormat::Parquet => {
-            shardloom_vortex::universal_format_io::stream_flat_parquet_columnar_source_with_batch_budget(
+            shardloom_vortex::universal_format_io::stream_flat_parquet_columnar_source_with_batch_budget_controlled(
                 path,
                 max_rows,
                 max_parallelism,
                 Some(batch_budget_bytes.max(1)),
+                cancellation,
             )
         }
         LocalSourceFormat::ArrowIpc => {
@@ -5603,7 +5688,9 @@ fn stream_columnar_vortex_ingest_file_source(
                 source_format.row_label()
             )))
         }
-    }
+    }?;
+    cancellation.check()?;
+    Ok(source)
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -5615,6 +5702,7 @@ struct PartitionedColumnarStreamReader {
     source_label: &'static str,
     path: String,
     failed: bool,
+    cancellation: CancellationToken,
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -5626,6 +5714,11 @@ impl Iterator for PartitionedColumnarStreamReader {
             return None;
         }
         loop {
+            if let Err(error) = self.cancellation.check() {
+                self.failed = true;
+                self.readers.clear();
+                return Some(Err(ArrowError::ExternalError(Box::new(error))));
+            }
             let reader = self.readers.front_mut()?;
             match reader.next() {
                 Some(Ok(batch)) => {
@@ -5665,7 +5758,7 @@ impl RecordBatchReader for PartitionedColumnarStreamReader {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 fn stream_columnar_vortex_ingest_partition_source(
     source_format: LocalSourceFormat,
     path: &Path,
@@ -5674,12 +5767,14 @@ fn stream_columnar_vortex_ingest_partition_source(
     max_parallelism: usize,
     source_fingerprint_policy: SourceFingerprintPolicy,
     batch_budget_bytes: u64,
+    cancellation: &CancellationToken,
 ) -> Result<shardloom_vortex::FlatLocalColumnarStreamSource, ShardLoomError> {
     let partition_files = scout_local_source_partition_files_with_budget(
         path,
         source_format,
         source_byte_budget,
         source_fingerprint_policy,
+        cancellation,
     )?;
     let Some(first_file) = partition_files.files.first() else {
         return Err(unsupported_sql_error(&format!(
@@ -5695,6 +5790,7 @@ fn stream_columnar_vortex_ingest_partition_source(
         max_rows,
         1,
         batch_budget_bytes,
+        cancellation,
     )?;
     let shardloom_vortex::FlatLocalColumnarStreamSource {
         header,
@@ -5727,12 +5823,14 @@ fn stream_columnar_vortex_ingest_partition_source(
     let mut combined_record_batch_count_hint = record_batch_count_hint;
     let mut combined_source_stream_unit_count_hint = source_stream_unit_count_hint;
     for file_path in partition_files.files.iter().skip(1) {
+        cancellation.check()?;
         let source = stream_columnar_vortex_ingest_file_source(
             source_format,
             file_path,
             max_rows,
             1,
             batch_budget_bytes,
+            cancellation,
         )?;
         validate_columnar_stream_partition_schema(
             &header,
@@ -5809,10 +5907,15 @@ fn stream_columnar_vortex_ingest_partition_source(
             source_label: source_format.row_label(),
             path: path.display().to_string(),
             failed: false,
+            cancellation: cancellation.clone(),
         }),
     };
     let source = with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
-    shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism)
+    shardloom_vortex::universal_format_io::with_capillary_prefetch_columnar_stream_source_controlled(
+        source,
+        max_parallelism,
+        cancellation,
+    )
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -8978,21 +9081,41 @@ fn parse_json_source_content_with_plan(
 fn visit_json_source_rows_with_plan(
     content: &str,
     read_plan: &LocalSourceReadPlan,
+    visitor: impl FnMut(Vec<(String, ScalarValue)>) -> Result<(), ShardLoomError>,
+) -> Result<(), ShardLoomError> {
+    visit_json_source_rows_with_plan_controlled(
+        content,
+        read_plan,
+        &CancellationToken::default(),
+        visitor,
+    )
+}
+
+fn visit_json_source_rows_with_plan_controlled(
+    content: &str,
+    read_plan: &LocalSourceReadPlan,
+    cancellation: &CancellationToken,
     mut visitor: impl FnMut(Vec<(String, ScalarValue)>) -> Result<(), ShardLoomError>,
 ) -> Result<(), ShardLoomError> {
+    cancellation.check()?;
     let trimmed = content.trim_start_matches('\u{feff}').trim();
     if trimmed.is_empty() {
         return Err(unsupported_sql_error(
             "JSON source must include one flat object or an array of flat object rows",
         ));
     }
-    let chars = trimmed.chars().collect::<Vec<_>>();
-    let mut index = skip_json_ws(&chars, 0);
+    let chars = json_source_chars(trimmed, cancellation)?;
+    let mut index = skip_json_ws(&chars, 0, cancellation)?;
     match chars.get(index) {
         Some('{') => {
-            let (fields, next_index) =
-                parse_flat_json_object_at_with_plan(&chars, index, "JSON", read_plan)?;
-            index = skip_json_ws(&chars, next_index);
+            let (fields, next_index) = parse_flat_json_object_at_with_plan(
+                &chars,
+                index,
+                "JSON",
+                read_plan,
+                cancellation,
+            )?;
+            index = skip_json_ws(&chars, next_index, cancellation)?;
             if index != chars.len() {
                 return Err(unsupported_sql_error(
                     "JSON source must contain exactly one flat object or one array of flat objects",
@@ -9003,15 +9126,21 @@ fn visit_json_source_rows_with_plan(
         Some('[') => {
             index += 1;
             loop {
-                index = skip_json_ws(&chars, index);
+                cancellation.check()?;
+                index = skip_json_ws(&chars, index, cancellation)?;
                 if chars.get(index) == Some(&']') {
                     index += 1;
                     break;
                 }
-                let (fields, next_index) =
-                    parse_flat_json_object_at_with_plan(&chars, index, "JSON", read_plan)?;
+                let (fields, next_index) = parse_flat_json_object_at_with_plan(
+                    &chars,
+                    index,
+                    "JSON",
+                    read_plan,
+                    cancellation,
+                )?;
                 visitor(fields)?;
-                index = skip_json_ws(&chars, next_index);
+                index = skip_json_ws(&chars, next_index, cancellation)?;
                 match chars.get(index) {
                     Some(',') => index += 1,
                     Some(']') => {
@@ -9025,7 +9154,7 @@ fn visit_json_source_rows_with_plan(
                     }
                 }
             }
-            if skip_json_ws(&chars, index) != chars.len() {
+            if skip_json_ws(&chars, index, cancellation)? != chars.len() {
                 return Err(unsupported_sql_error(
                     "JSON source array must be the only top-level value",
                 ));
@@ -9037,7 +9166,7 @@ fn visit_json_source_rows_with_plan(
             ));
         }
     }
-    Ok(())
+    cancellation.check()
 }
 
 fn materialize_flat_json_rows(
@@ -9143,22 +9272,38 @@ fn parse_flat_json_object_with_plan(
 fn visit_flat_json_object_with_plan(
     raw: &str,
     read_plan: &LocalSourceReadPlan,
+    visitor: impl FnMut(String, ScalarValue),
+) -> Result<(), ShardLoomError> {
+    visit_flat_json_object_with_plan_controlled(
+        raw,
+        read_plan,
+        &CancellationToken::default(),
+        visitor,
+    )
+}
+
+fn visit_flat_json_object_with_plan_controlled(
+    raw: &str,
+    read_plan: &LocalSourceReadPlan,
+    cancellation: &CancellationToken,
     mut visitor: impl FnMut(String, ScalarValue),
 ) -> Result<(), ShardLoomError> {
-    let chars = raw.trim().chars().collect::<Vec<_>>();
+    cancellation.check()?;
+    let chars = json_source_chars(raw.trim(), cancellation)?;
     let index = visit_flat_json_object_at_with_plan(
         &chars,
-        skip_json_ws(&chars, 0),
+        skip_json_ws(&chars, 0, cancellation)?,
         "JSONL",
         read_plan,
+        cancellation,
         &mut visitor,
     )?;
-    if skip_json_ws(&chars, index) != chars.len() {
+    if skip_json_ws(&chars, index, cancellation)? != chars.len() {
         return Err(unsupported_sql_error(
             "JSONL rows must contain exactly one JSON object per line",
         ));
     }
-    Ok(())
+    cancellation.check()
 }
 
 fn parse_flat_json_object_at_with_plan(
@@ -9166,6 +9311,7 @@ fn parse_flat_json_object_at_with_plan(
     index: usize,
     source_label: &str,
     read_plan: &LocalSourceReadPlan,
+    cancellation: &CancellationToken,
 ) -> Result<(Vec<(String, ScalarValue)>, usize), ShardLoomError> {
     let mut fields = Vec::new();
     let index = visit_flat_json_object_at_with_plan(
@@ -9173,6 +9319,7 @@ fn parse_flat_json_object_at_with_plan(
         index,
         source_label,
         read_plan,
+        cancellation,
         &mut |key, value| fields.push((key, value)),
     )?;
     Ok((fields, index))
@@ -9183,6 +9330,7 @@ fn visit_flat_json_object_at_with_plan(
     mut index: usize,
     source_label: &str,
     read_plan: &LocalSourceReadPlan,
+    cancellation: &CancellationToken,
     visitor: &mut impl FnMut(String, ScalarValue),
 ) -> Result<usize, ShardLoomError> {
     if chars.get(index) != Some(&'{') {
@@ -9193,14 +9341,15 @@ fn visit_flat_json_object_at_with_plan(
     index += 1;
     let mut has_fields = false;
     loop {
-        index = skip_json_ws(chars, index);
+        cancellation.check()?;
+        index = skip_json_ws(chars, index, cancellation)?;
         if chars.get(index) == Some(&'}') {
             index += 1;
             break;
         }
-        let (key, next_index) = parse_json_string(chars, index)?;
+        let (key, next_index) = parse_json_string(chars, index, cancellation)?;
         validate_sql_identifier(&key)?;
-        index = skip_json_ws(chars, next_index);
+        index = skip_json_ws(chars, next_index, cancellation)?;
         if chars.get(index) != Some(&':') {
             return Err(unsupported_sql_error(
                 "JSON object fields must use ':' between key and value",
@@ -9208,15 +9357,15 @@ fn visit_flat_json_object_at_with_plan(
         }
         index += 1;
         if read_plan.should_materialize(&key) {
-            let (value, next_index) = parse_json_value(chars, index)?;
+            let (value, next_index) = parse_json_value(chars, index, cancellation)?;
             visitor(key, value);
             index = next_index;
         } else {
-            index = skip_json_value(chars, index)?;
+            index = skip_json_value(chars, index, cancellation)?;
             visitor(key, ScalarValue::Null);
         }
         has_fields = true;
-        index = skip_json_ws(chars, index);
+        index = skip_json_ws(chars, index, cancellation)?;
         match chars.get(index) {
             Some(',') => index += 1,
             Some('}') => {
@@ -9241,15 +9390,17 @@ fn visit_flat_json_object_at_with_plan(
 fn parse_json_value(
     chars: &[char],
     mut index: usize,
+    cancellation: &CancellationToken,
 ) -> Result<(ScalarValue, usize), ShardLoomError> {
-    index = skip_json_ws(chars, index);
+    cancellation.check()?;
+    index = skip_json_ws(chars, index, cancellation)?;
     match chars.get(index) {
         Some('"') => {
-            let (value, next_index) = parse_json_string(chars, index)?;
+            let (value, next_index) = parse_json_string(chars, index, cancellation)?;
             Ok((ScalarValue::Utf8(value), next_index))
         }
         Some('{' | '[') => {
-            let next_index = skip_json_value(chars, index)?;
+            let next_index = skip_json_value(chars, index, cancellation)?;
             let raw = chars[index..next_index].iter().collect::<String>();
             let value = serde_json::from_str::<serde_json::Value>(&raw).map_err(|error| {
                 unsupported_sql_error(&format!(
@@ -9261,11 +9412,13 @@ fn parse_json_value(
                     "JSON nested object/array value could not be normalized as UTF-8 JSON payload: {error}"
                 ))
             })?;
+            cancellation.check()?;
             Ok((ScalarValue::Utf8(canonical), next_index))
         }
         Some(_) => {
             let start = index;
             while let Some(ch) = chars.get(index) {
+                json_scan_checkpoint(index, cancellation)?;
                 if *ch == ',' || *ch == '}' {
                     break;
                 }
@@ -9282,21 +9435,28 @@ fn parse_json_value(
                 ));
             }
             let value = parse_json_bare_scalar(&token)?;
+            cancellation.check()?;
             Ok((value, index))
         }
         None => Err(unsupported_sql_error("JSONL object value is missing")),
     }
 }
 
-fn skip_json_value(chars: &[char], mut index: usize) -> Result<usize, ShardLoomError> {
-    index = skip_json_ws(chars, index);
+fn skip_json_value(
+    chars: &[char],
+    mut index: usize,
+    cancellation: &CancellationToken,
+) -> Result<usize, ShardLoomError> {
+    cancellation.check()?;
+    index = skip_json_ws(chars, index, cancellation)?;
     match chars.get(index) {
-        Some('"') => skip_json_string_value(chars, index),
-        Some('{') => skip_json_object_value(chars, index),
-        Some('[') => skip_json_array_value(chars, index),
+        Some('"') => skip_json_string_value(chars, index, cancellation),
+        Some('{') => skip_json_object_value(chars, index, cancellation),
+        Some('[') => skip_json_array_value(chars, index, cancellation),
         Some(_) => {
             let start = index;
             while let Some(ch) = chars.get(index) {
+                json_scan_checkpoint(index, cancellation)?;
                 if *ch == ',' || *ch == '}' || *ch == ']' {
                     break;
                 }
@@ -9319,7 +9479,12 @@ fn skip_json_value(chars: &[char], mut index: usize) -> Result<usize, ShardLoomE
     }
 }
 
-fn skip_json_string_value(chars: &[char], mut index: usize) -> Result<usize, ShardLoomError> {
+fn skip_json_string_value(
+    chars: &[char],
+    mut index: usize,
+    cancellation: &CancellationToken,
+) -> Result<usize, ShardLoomError> {
+    cancellation.check()?;
     if chars.get(index) != Some(&'"') {
         return Err(unsupported_sql_error(
             "JSON object keys and string values must be quoted strings",
@@ -9327,6 +9492,7 @@ fn skip_json_string_value(chars: &[char], mut index: usize) -> Result<usize, Sha
     }
     index += 1;
     while let Some(ch) = chars.get(index).copied() {
+        json_scan_checkpoint(index, cancellation)?;
         index += 1;
         match ch {
             '"' => return Ok(index),
@@ -9365,7 +9531,11 @@ fn skip_json_string_value(chars: &[char], mut index: usize) -> Result<usize, Sha
     Err(unsupported_sql_error("JSON string is not closed"))
 }
 
-fn skip_json_object_value(chars: &[char], mut index: usize) -> Result<usize, ShardLoomError> {
+fn skip_json_object_value(
+    chars: &[char],
+    mut index: usize,
+    cancellation: &CancellationToken,
+) -> Result<usize, ShardLoomError> {
     if chars.get(index) != Some(&'{') {
         return Err(unsupported_sql_error(
             "JSON object value must start with '{'",
@@ -9373,19 +9543,20 @@ fn skip_json_object_value(chars: &[char], mut index: usize) -> Result<usize, Sha
     }
     index += 1;
     loop {
-        index = skip_json_ws(chars, index);
+        cancellation.check()?;
+        index = skip_json_ws(chars, index, cancellation)?;
         if chars.get(index) == Some(&'}') {
             return Ok(index + 1);
         }
-        index = skip_json_string_value(chars, index)?;
-        index = skip_json_ws(chars, index);
+        index = skip_json_string_value(chars, index, cancellation)?;
+        index = skip_json_ws(chars, index, cancellation)?;
         if chars.get(index) != Some(&':') {
             return Err(unsupported_sql_error(
                 "JSON object fields must use ':' between key and value",
             ));
         }
-        index = skip_json_value(chars, index + 1)?;
-        index = skip_json_ws(chars, index);
+        index = skip_json_value(chars, index + 1, cancellation)?;
+        index = skip_json_ws(chars, index, cancellation)?;
         match chars.get(index) {
             Some(',') => index += 1,
             Some('}') => return Ok(index + 1),
@@ -9398,7 +9569,11 @@ fn skip_json_object_value(chars: &[char], mut index: usize) -> Result<usize, Sha
     }
 }
 
-fn skip_json_array_value(chars: &[char], mut index: usize) -> Result<usize, ShardLoomError> {
+fn skip_json_array_value(
+    chars: &[char],
+    mut index: usize,
+    cancellation: &CancellationToken,
+) -> Result<usize, ShardLoomError> {
     if chars.get(index) != Some(&'[') {
         return Err(unsupported_sql_error(
             "JSON array value must start with '['",
@@ -9406,12 +9581,13 @@ fn skip_json_array_value(chars: &[char], mut index: usize) -> Result<usize, Shar
     }
     index += 1;
     loop {
-        index = skip_json_ws(chars, index);
+        cancellation.check()?;
+        index = skip_json_ws(chars, index, cancellation)?;
         if chars.get(index) == Some(&']') {
             return Ok(index + 1);
         }
-        index = skip_json_value(chars, index)?;
-        index = skip_json_ws(chars, index);
+        index = skip_json_value(chars, index, cancellation)?;
+        index = skip_json_ws(chars, index, cancellation)?;
         match chars.get(index) {
             Some(',') => index += 1,
             Some(']') => return Ok(index + 1),
@@ -9448,27 +9624,60 @@ fn parse_json_bare_scalar(token: &str) -> Result<ScalarValue, ShardLoomError> {
     }
 }
 
-fn parse_json_string(chars: &[char], index: usize) -> Result<(String, usize), ShardLoomError> {
+fn parse_json_string(
+    chars: &[char],
+    index: usize,
+    cancellation: &CancellationToken,
+) -> Result<(String, usize), ShardLoomError> {
     if chars.get(index) != Some(&'"') {
         return Err(unsupported_sql_error(
             "JSON object keys and string values must be quoted strings",
         ));
     }
-    let next_index = skip_json_string_value(chars, index)?;
+    let next_index = skip_json_string_value(chars, index, cancellation)?;
     let raw = chars[index..next_index].iter().collect::<String>();
     let value = serde_json::from_str::<String>(&raw).map_err(|error| {
         unsupported_sql_error(&format!(
             "JSON string value is not valid JSON text: {error}"
         ))
     })?;
+    cancellation.check()?;
     Ok((value, next_index))
 }
 
-fn skip_json_ws(chars: &[char], mut index: usize) -> usize {
+fn skip_json_ws(
+    chars: &[char],
+    mut index: usize,
+    cancellation: &CancellationToken,
+) -> Result<usize, ShardLoomError> {
     while chars.get(index).is_some_and(|ch| ch.is_whitespace()) {
+        json_scan_checkpoint(index, cancellation)?;
         index += 1;
     }
-    index
+    Ok(index)
+}
+
+fn json_source_chars(
+    raw: &str,
+    cancellation: &CancellationToken,
+) -> Result<Vec<char>, ShardLoomError> {
+    raw.chars()
+        .enumerate()
+        .map(|(index, ch)| {
+            json_scan_checkpoint(index, cancellation)?;
+            Ok(ch)
+        })
+        .collect()
+}
+
+fn json_scan_checkpoint(
+    index: usize,
+    cancellation: &CancellationToken,
+) -> Result<(), ShardLoomError> {
+    if index.is_multiple_of(4096) {
+        cancellation.check()?;
+    }
+    Ok(())
 }
 
 fn normalize_local_output_path(value: &str) -> Result<PathBuf, ShardLoomError> {
@@ -9628,6 +9837,21 @@ fn read_local_source_bytes_with_budget_report(
     source_label: &str,
     max_source_bytes: Option<u64>,
 ) -> Result<LocalSourceByteRead, ShardLoomError> {
+    read_local_source_bytes_with_budget_report_controlled(
+        path,
+        source_label,
+        max_source_bytes,
+        &CancellationToken::default(),
+    )
+}
+
+fn read_local_source_bytes_with_budget_report_controlled(
+    path: &Path,
+    source_label: &str,
+    max_source_bytes: Option<u64>,
+    cancellation: &CancellationToken,
+) -> Result<LocalSourceByteRead, ShardLoomError> {
+    cancellation.check()?;
     reject_remote_source_path(path)?;
     let scout_start = Instant::now();
     let metadata = fs::metadata(path).map_err(|error| {
@@ -9652,12 +9876,40 @@ fn read_local_source_bytes_with_budget_report(
     }
     let source_metadata_scout_millis = scout_start.elapsed().as_millis();
     let read_start = Instant::now();
-    let bytes = fs::read(path).map_err(|error| {
+    cancellation.check()?;
+    let read_error = |error: std::io::Error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to read local {source_label} source {}: {error}",
             path.display()
         ))
-    })?;
+    };
+    let mut file = fs::File::open(path).map_err(read_error)?;
+    let mut bytes = Vec::new();
+    let mut buffer = [0; 8192];
+    loop {
+        cancellation.check()?;
+        let count = match std::io::Read::read(&mut file, &mut buffer) {
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            result => result.map_err(read_error)?,
+        };
+        cancellation.check()?;
+        if count == 0 {
+            break;
+        }
+        let next_len = bytes
+            .len()
+            .checked_add(count)
+            .ok_or_else(|| unsupported_sql_error("local source byte length overflow"))?;
+        if max_source_bytes
+            .is_some_and(|limit| u64::try_from(next_len).map_or(true, |len| len > limit))
+        {
+            return Err(unsupported_sql_error(&format!(
+                "local {source_label} source {} exceeded the scoped local-source evidence byte budget during read",
+                path.display()
+            )));
+        }
+        bytes.extend_from_slice(&buffer[..count]);
+    }
     let source_byte_acquisition_millis = read_start.elapsed().as_millis();
     let read_len = u64::try_from(bytes.len()).map_err(|_| {
         ShardLoomError::InvalidOperation(format!(
@@ -9685,7 +9937,9 @@ fn fingerprint_local_source_file_with_budget_report(
     source_label: &str,
     max_source_bytes: Option<u64>,
     policy: SourceFingerprintPolicy,
+    cancellation: &CancellationToken,
 ) -> Result<ColumnarSourceScoutEvidence, ShardLoomError> {
+    cancellation.check()?;
     reject_remote_source_path(path)?;
     let scout_start = Instant::now();
     let metadata = fs::metadata(path).map_err(|error| {
@@ -9734,12 +9988,14 @@ fn fingerprint_local_source_file_with_budget_report(
     let mut total = 0_u64;
     let mut buffer = vec![0_u8; SOURCE_FINGERPRINT_BUFFER_BYTES].into_boxed_slice();
     loop {
+        cancellation.check()?;
         let read = file.read(&mut buffer).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to fingerprint local {source_label} source {}: {error}",
                 path.display()
             ))
         })?;
+        cancellation.check()?;
         if read == 0 {
             break;
         }
@@ -9932,7 +10188,9 @@ fn scout_local_source_partition_files_with_budget(
     source_format: LocalSourceFormat,
     max_source_bytes: Option<u64>,
     policy: SourceFingerprintPolicy,
+    cancellation: &CancellationToken,
 ) -> Result<LocalSourcePartitionScout, ShardLoomError> {
+    cancellation.check()?;
     reject_remote_source_path(path)?;
     let total_start = Instant::now();
     let metadata = fs::metadata(path).map_err(|error| {
@@ -9956,6 +10214,7 @@ fn scout_local_source_partition_files_with_budget(
     let mut total_bytes = 0_u64;
     let mut byte_acquisition_millis = 0_u128;
     for entry in entries {
+        cancellation.check()?;
         let file_path = entry.path();
         let metadata = entry.metadata().map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -9985,6 +10244,7 @@ fn scout_local_source_partition_files_with_budget(
             source_format.row_label(),
             None,
             policy,
+            cancellation,
         )?;
         byte_acquisition_millis =
             byte_acquisition_millis.saturating_add(file_fingerprint.byte_acquisition_millis);
@@ -10280,6 +10540,21 @@ fn fnv64_digest(value: &str) -> String {
 fn fnv64_digest_bytes(value: &[u8]) -> String {
     let hash = update_fnv64_hash(0xcbf2_9ce4_8422_2325_u64, value);
     format!("fnv64:{hash:016x}")
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn fnv64_digest_bytes_controlled(
+    value: &[u8],
+    cancellation: &CancellationToken,
+) -> Result<String, ShardLoomError> {
+    cancellation.check()?;
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for chunk in value.chunks(8192) {
+        cancellation.check()?;
+        hash = update_fnv64_hash(hash, chunk);
+    }
+    cancellation.check()?;
+    Ok(format!("fnv64:{hash:016x}"))
 }
 
 fn update_fnv64_hash(mut hash: u64, value: &[u8]) -> u64 {

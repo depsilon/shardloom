@@ -10559,10 +10559,29 @@ pub fn write_flat_columnar_vortex_prepared_state(
 /// the scoped contract, the target already exists without overwrite
 /// permission, or upstream Vortex write/reopen APIs fail.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-#[allow(clippy::too_many_lines)]
 pub fn write_flat_columnar_vortex_prepared_state_streaming(
     request: VortexPreparedStateColumnarStreamWriteRequest,
 ) -> Result<VortexPreparedStateWriteReport> {
+    write_flat_columnar_vortex_prepared_state_streaming_controlled(
+        request,
+        &CancellationToken::default(),
+    )
+}
+
+/// Stream through the existing native writer under the caller's cancellation
+/// owner. Refusal precedes source demand; cancellation before publication cleans
+/// staged output. Dropping internal workers never cancels the caller's token.
+///
+/// # Errors
+/// Returns the existing source, admission and writer errors, or cooperative
+/// cancellation before the publication boundary.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
+pub fn write_flat_columnar_vortex_prepared_state_streaming_controlled(
+    request: VortexPreparedStateColumnarStreamWriteRequest,
+    cancellation: &CancellationToken,
+) -> Result<VortexPreparedStateWriteReport> {
+    cancellation.check()?;
     validate_declared_ingest_resources(
         request.resources,
         request.capillary_prewrite_input.as_ref(),
@@ -10605,7 +10624,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     }
     if let Some(binding) = &request.prepared_source_binding {
         #[cfg(unix)]
-        crate::prepared_source_binding::validate(binding)?;
+        crate::prepared_source_binding::validate_controlled(binding, cancellation)?;
         #[cfg(not(unix))]
         return Err(ShardLoomError::InvalidOperation(format!(
             "prepared source binding requires Unix generation admission ({} bytes); no fallback execution was attempted",
@@ -10664,6 +10683,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     let embedded_derived_build_micros = Arc::clone(&request.source.embedded_derived_build_micros);
     let source_identities = request.source.source_identities;
     for identity in &source_identities {
+        cancellation.check()?;
         identity.validate()?;
     }
     let mut reader = request.source.reader;
@@ -10674,9 +10694,11 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     let first_source_pull_start = Instant::now();
     // Empty input keeps its schema, native provider and the same admitted owner.
     // It must not create an independent buffered-writer allocation.
+    cancellation.check()?;
     let first_batch =
         next_streaming_record_batch(reader.as_mut(), "streaming local columnar source")?
             .unwrap_or_else(|| RecordBatch::new_empty(reader.schema()));
+    cancellation.check()?;
     stream_timing.add_source_pull_elapsed(first_source_pull_start.elapsed());
     if let Some(lanes) = writer_physical_design_source.cpu_lanes.as_mut() {
         lanes.admit_conversion_memory(
@@ -10727,6 +10749,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         &stream_timing.stages,
         native_memory.as_ref().zip(first_input_lease.as_mut()),
     )?;
+    cancellation.check()?;
     drop(first_batch);
     drop(first_input_lease);
     stream_timing.add_array_convert_elapsed(first_array_convert_start.elapsed());
@@ -10753,6 +10776,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         prefetch_memory_bytes,
         native_memory.clone(),
         ingest_runtime.clone(),
+        cancellation.clone(),
     )?;
     let writer_input_lookahead = stream_iter.share_input_slot_with_writer(&layout_write_decision);
     let array_build_micros = array_build_start.elapsed().as_micros();
@@ -10763,6 +10787,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
             "full_projection"
         };
     finalize_vortex_prepared_state_stream_write(VortexPreparedStateStreamFinalizeInput {
+        cancellation: cancellation.clone(),
         resources: request.resources,
         target_path: request.target_path,
         prepared_source_binding: request.prepared_source_binding,
@@ -11065,6 +11090,7 @@ where
         + Send
         + 'static,
 {
+    cancellation: CancellationToken,
     resources: shardloom_core::ExecutionResources,
     target_path: PathBuf,
     prepared_source_binding: Option<String>,
@@ -11197,6 +11223,7 @@ struct StreamingColumnarVortexArrayIterator {
     stream_timing: VortexStreamingIngestTiming,
     next_batch_index: usize,
     native_memory: Option<NativeIngestMemory>,
+    cancellation: CancellationToken,
     stream_finished: bool,
 }
 
@@ -11237,6 +11264,7 @@ impl StreamingColumnarVortexArrayIterator {
             prefetch_memory_bytes,
             native_memory,
             None,
+            CancellationToken::default(),
         )
     }
 
@@ -11255,7 +11283,9 @@ impl StreamingColumnarVortexArrayIterator {
         prefetch_memory_bytes: u64,
         native_memory: Option<NativeIngestMemory>,
         runtime: Option<crate::ingest_runtime::IngestRuntime>,
+        cancellation: CancellationToken,
     ) -> Result<Self> {
+        cancellation.check()?;
         let max_window = runtime
             .as_ref()
             .map_or(VORTEX_STREAM_ARRAY_PREFETCH_MAX_WINDOW, |runtime| {
@@ -11312,7 +11342,10 @@ impl StreamingColumnarVortexArrayIterator {
                 context,
                 tasks: std::collections::VecDeque::new(),
                 pending: BTreeMap::new(),
-                cancellation: CancellationToken::default(),
+                cancellation: CancellationToken::from_shared_flag_with_parent(
+                    Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    &cancellation,
+                ),
                 window,
                 task_bytes,
                 exhausted: false,
@@ -11335,6 +11368,7 @@ impl StreamingColumnarVortexArrayIterator {
             stream_timing,
             next_batch_index,
             native_memory,
+            cancellation,
             stream_finished: false,
         })
     }
@@ -11368,6 +11402,16 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
     type Item = vortex::error::VortexResult<vortex::array::ArrayRef>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.stream_finished {
+            return None;
+        }
+        if let Err(error) = self.cancellation.check() {
+            self.stream_finished = true;
+            self.first_array.take();
+            self.reader.take();
+            self.prefetch.take();
+            return Some(Err(vortex_stream_error(error)));
+        }
         if let Some(array) = self.first_array.take() {
             return Some(Ok(array));
         }
@@ -11398,6 +11442,11 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
         let batch = reader.next();
         self.stream_timing
             .add_source_pull_elapsed(source_pull_start.elapsed());
+        if let Err(error) = self.cancellation.check() {
+            self.reader.take();
+            self.stream_finished = true;
+            return Some(Err(vortex_stream_error(error)));
+        }
         let batch = match batch? {
             Ok(batch) => batch,
             Err(error) => {
@@ -11420,6 +11469,7 @@ impl Iterator for StreamingColumnarVortexArrayIterator {
             self.native_memory.as_ref().zip(input_lease.as_mut()),
         ))
         .and_then(|array| {
+            self.cancellation.check()?;
             if array.dtype() != &self.dtype {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "streaming local vortex_ingest batch {batch_index} produced dtype {}, expected {}; no fallback execution was attempted",
@@ -11456,6 +11506,12 @@ impl futures::Stream for StreamingColumnarVortexArrayIterator {
         let this = self.get_mut();
         if this.stream_finished {
             return std::task::Poll::Ready(None);
+        }
+        if let Err(error) = this.cancellation.check() {
+            // Teardown stays with the outer owner: joining a shared conversion
+            // task from its provider poll could deadlock the runtime driver.
+            this.stream_finished = true;
+            return std::task::Poll::Ready(Some(Err(vortex_stream_error(error))));
         }
         if !this.prefetch.as_ref().is_some_and(|prefetch| {
             matches!(
@@ -12221,6 +12277,7 @@ where
         + Send
         + 'static,
 {
+    input.cancellation.check()?;
     let mut capillary_prewrite_control = input.capillary_prewrite_control.clone();
     capillary_prewrite_control.apply_task_role_gate("vortex_segment_write", "write")?;
     let target_path = input.target_path.clone();
@@ -12240,6 +12297,7 @@ where
         input.writer_input_lookahead,
         input.prepared_source_binding.as_deref(),
         input.ingest_runtime.as_ref(),
+        &input.cancellation,
     )?;
     cleanup_legacy_prepared_olap_state_sidecars(&target_path)?;
     if let Some(expected_rows) = row_count_hint
@@ -14215,6 +14273,7 @@ impl LocalVortexWriteContext {
         source_identities: &[Arc<SourceIdentity>],
         writer_input_lookahead: Option<WriterInputLookahead>,
         prepared_source_binding: Option<&str>,
+        cancellation: &CancellationToken,
     ) -> Result<LocalVortexWriteResult>
     where
         I: vortex::array::iter::ArrayIterator
@@ -14223,6 +14282,7 @@ impl LocalVortexWriteContext {
             + Send
             + 'static,
     {
+        cancellation.check()?;
         let _writer_memory = native_memory
             .map(|memory| {
                 memory.pool.reserve(
@@ -14282,6 +14342,7 @@ impl LocalVortexWriteContext {
         #[cfg(not(unix))]
         let _ = prepared_source_binding;
         prepare_vortex_target(path, allow_overwrite)?;
+        cancellation.check()?;
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -14289,6 +14350,7 @@ impl LocalVortexWriteContext {
                 allow_overwrite,
                 "streaming local vortex_ingest artifact",
                 |writer| {
+                    cancellation.check()?;
                     let segment_write_start = Instant::now();
                     let result = if self.shared_ingest_drivers {
                         shared_stream::write(&self.runtime, write_options, writer, iter)
@@ -14300,6 +14362,7 @@ impl LocalVortexWriteContext {
                     result
                 },
                 |summary| {
+                    cancellation.check()?;
                     if let Some(expected_rows) = expected_rows
                         && summary.row_count() != expected_rows
                     {
@@ -14309,13 +14372,14 @@ impl LocalVortexWriteContext {
                         )));
                     }
                     for identity in source_identities {
+                        cancellation.check()?;
                         identity.validate()?;
                     }
                     #[cfg(unix)]
                     if let Some(binding) = prepared_source_binding {
-                        crate::prepared_source_binding::validate(binding)?;
+                        crate::prepared_source_binding::validate_controlled(binding, cancellation)?;
                     }
-                    Ok(())
+                    cancellation.check()
                 },
             )?;
         footer_layout_evidence.append_to(&mut writer_layout_strategy_applied);
@@ -15043,6 +15107,7 @@ fn write_vortex_array_iterator<I>(
     writer_input_lookahead: Option<WriterInputLookahead>,
     prepared_source_binding: Option<&str>,
     ingest_runtime: Option<&crate::ingest_runtime::IngestRuntime>,
+    cancellation: &CancellationToken,
 ) -> Result<LocalVortexWriteResult>
 where
     I: vortex::array::iter::ArrayIterator
@@ -15062,6 +15127,7 @@ where
             source_identities,
             writer_input_lookahead,
             prepared_source_binding,
+            cancellation,
         )
     };
     if let Some(runtime) = ingest_runtime {

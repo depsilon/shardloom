@@ -10766,6 +10766,7 @@ mod tests {
             "Parquet",
             None,
             SourceFingerprintPolicy::MetadataOnly,
+            &CancellationToken::default(),
         )
         .expect("fingerprint first source");
         fs::write(&path, b"same-sized content variant two").expect("rewrite source");
@@ -10774,6 +10775,7 @@ mod tests {
             "Parquet",
             None,
             SourceFingerprintPolicy::MetadataOnly,
+            &CancellationToken::default(),
         )
         .expect("fingerprint second source");
 
@@ -10806,6 +10808,7 @@ mod tests {
             "Parquet",
             None,
             SourceFingerprintPolicy::ContentDigest,
+            &CancellationToken::default(),
         )
         .expect("fingerprint first source");
         fs::write(&path, b"same-sized content variant two").expect("rewrite source");
@@ -10814,6 +10817,7 @@ mod tests {
             "Parquet",
             None,
             SourceFingerprintPolicy::ContentDigest,
+            &CancellationToken::default(),
         )
         .expect("fingerprint second source");
 
@@ -12099,6 +12103,7 @@ mod tests {
             source_label: "Parquet",
             path: "target/parts".to_string(),
             failed: false,
+            cancellation: CancellationToken::default(),
         };
 
         let first = reader
@@ -12152,6 +12157,7 @@ mod tests {
             )
             .expect("explicit fixture allocation"),
             shared_memory_pool: None,
+            cancellation: CancellationToken::default(),
             source_fingerprint_policy: SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE,
             delta: None,
             prepared_source_binding: None,
@@ -12936,6 +12942,7 @@ mod tests {
             TextRecordBatchReaderConfig {
                 max_input_rows,
                 batch_size,
+                cancellation: CancellationToken::default(),
             },
             "direct JSONL test".into(),
         );

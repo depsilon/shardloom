@@ -200,6 +200,189 @@ fn resource_observed_source() -> (
     (source, pulls)
 }
 
+struct ControlledObservedReader {
+    inner: Box<dyn arrow_array::RecordBatchReader + Send>,
+    cancellation: CancellationToken,
+    cancel_on_pull: usize,
+    pulls: Arc<AtomicUsize>,
+    dropped: Arc<AtomicUsize>,
+}
+
+impl Iterator for ControlledObservedReader {
+    type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let pull = self.pulls.fetch_add(1, Ordering::SeqCst) + 1;
+        if pull == self.cancel_on_pull {
+            self.cancellation.cancel();
+        }
+        self.inner.next()
+    }
+}
+
+impl arrow_array::RecordBatchReader for ControlledObservedReader {
+    fn schema(&self) -> arrow_schema::SchemaRef {
+        self.inner.schema()
+    }
+}
+
+impl Drop for ControlledObservedReader {
+    fn drop(&mut self) {
+        self.dropped.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+fn controlled_observed_source(
+    cancellation: &CancellationToken,
+    cancel_on_pull: usize,
+) -> (
+    FlatLocalColumnarStreamSource,
+    Arc<AtomicUsize>,
+    Arc<AtomicUsize>,
+) {
+    let mut source = source((0..3).map(batch).collect(), false);
+    let pulls = Arc::new(AtomicUsize::new(0));
+    let dropped = Arc::new(AtomicUsize::new(0));
+    source.reader = Box::new(ControlledObservedReader {
+        inner: source.reader,
+        cancellation: cancellation.clone(),
+        cancel_on_pull,
+        pulls: Arc::clone(&pulls),
+        dropped: Arc::clone(&dropped),
+    });
+    (source, pulls, dropped)
+}
+
+#[test]
+fn controlled_preparation_cancellation_drains_input_and_preserves_destination_and_retained_credit()
+{
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+    for parallelism in [1, 3] {
+        for cancel_on_pull in [0, 1, 2, 4] {
+            let root = path("controlled-cancel");
+            fs::create_dir(&root).unwrap();
+            let output = root.join("existing.vortex");
+            fs::write(&output, b"preserve existing output").unwrap();
+            let parent = CancellationToken::default();
+            let cancellation = CancellationToken::from_shared_flag_with_parent(
+                Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                &parent,
+            );
+            let (input, pulls, dropped) = controlled_observed_source(&cancellation, cancel_on_pull);
+            let input = crate::universal_format_io::with_capillary_prefetch_columnar_stream_source_controlled(
+                input, parallelism, &cancellation,
+            ).unwrap();
+            if cancel_on_pull == 0 {
+                cancellation.cancel();
+            }
+            let memory = LiveMemoryPool::new(32 << 20).unwrap();
+            let retained = memory.reserve(17).unwrap();
+            let error = write_flat_columnar_vortex_prepared_state_streaming_controlled(
+                VortexPreparedStateColumnarStreamWriteRequest::new(
+                    &output,
+                    input,
+                    ExecutionResources::from_bytes(
+                        32 << 20,
+                        parallelism,
+                        ExecutionResourceOrigin::Context,
+                    )
+                    .unwrap(),
+                )
+                .shared_native_memory_pool(memory.clone())
+                .allow_overwrite(true),
+                &cancellation,
+            )
+            .unwrap_err();
+            assert!(
+                error.to_string().contains("cancel"),
+                "P{parallelism} pull{cancel_on_pull}: {error}"
+            );
+            assert_eq!(pulls.load(Ordering::SeqCst), cancel_on_pull);
+            assert_eq!(dropped.load(Ordering::SeqCst), 1);
+            assert_eq!(fs::read(&output).unwrap(), b"preserve existing output");
+            assert_eq!(
+                fs::read_dir(&root).unwrap().count(),
+                1,
+                "staging must be removed"
+            );
+            assert_eq!(memory.snapshot().reserved_bytes, retained.bytes());
+            assert!(memory.snapshot().peak_reserved_bytes <= memory.snapshot().limit_bytes);
+            parent.check().unwrap();
+            drop(retained);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+}
+
+#[test]
+fn controlled_preparation_completion_preserves_parent_and_all_values() {
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+    for parallelism in [1, 3] {
+        let output = path("controlled-completion");
+        let cancellation = CancellationToken::default();
+        let (input, pulls, dropped) = controlled_observed_source(&cancellation, usize::MAX);
+        let input =
+            crate::universal_format_io::with_capillary_prefetch_columnar_stream_source_controlled(
+                input,
+                parallelism,
+                &cancellation,
+            )
+            .unwrap();
+        let report = write_flat_columnar_vortex_prepared_state_streaming_controlled(
+            VortexPreparedStateColumnarStreamWriteRequest::new(
+                &output,
+                input,
+                ExecutionResources::from_bytes(
+                    32 << 20,
+                    parallelism,
+                    ExecutionResourceOrigin::Context,
+                )
+                .unwrap(),
+            ),
+            &cancellation,
+        )
+        .unwrap();
+        assert_eq!(report.row_count, 9);
+        assert_eq!(report.reopen_row_count, 9);
+        assert_eq!(report.shared_native_memory.unwrap().final_reserved_bytes, 0);
+        assert_eq!(pulls.load(Ordering::SeqCst), 4);
+        assert_eq!(dropped.load(Ordering::SeqCst), 1);
+        cancellation.check().unwrap();
+        let runtime = vortex::io::runtime::current::CurrentThreadRuntime::new();
+        let session = vortex::session::VortexSession::default().with_handle(runtime.handle());
+        let file = runtime
+            .block_on(session.open_options().open_path(&output))
+            .unwrap();
+        let expected = (0..3)
+            .map(|index| arrow_record_batch_to_vortex_array(batch(index)).unwrap())
+            .collect::<Vec<_>>();
+        let mut count = 0;
+        for array in file
+            .scan()
+            .unwrap()
+            .with_ordered(true)
+            .into_array_iter(&runtime)
+            .unwrap()
+        {
+            let array = array.unwrap();
+            for row in 0..array.len() {
+                assert_eq!(
+                    array
+                        .execute_scalar(row, &mut session.create_execution_ctx())
+                        .unwrap(),
+                    expected[count / 3]
+                        .execute_scalar(count % 3, &mut session.create_execution_ctx())
+                        .unwrap(),
+                );
+                count += 1;
+            }
+        }
+        assert_eq!(count, 9);
+        fs::remove_file(output).unwrap();
+    }
+}
+
 #[test]
 fn source_adapters_reject_zero_parallelism_before_pull_or_open() {
     let (source, pulls) = resource_observed_source();
@@ -796,6 +979,7 @@ fn shared_stream_poll_yields_without_driving_conversion_and_retains_teardown_own
         8 << 20,
         None,
         Some(runtime.clone()),
+        CancellationToken::default(),
     )
     .unwrap();
     let owner = Arc::downgrade(&input.prefetch.as_ref().unwrap().context);
@@ -947,6 +1131,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             8 << 20,
             Some(memory.clone()),
             runtime.clone(),
+            CancellationToken::default(),
         )
         .unwrap();
         let writer_input_lookahead = iterator.share_input_slot_with_writer(&decision);
@@ -982,6 +1167,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             writer_input_lookahead,
             None,
             runtime.as_ref(),
+            &CancellationToken::default(),
         );
         drop(drivers);
         let snapshot = memory.pool.snapshot();
