@@ -305,6 +305,17 @@ failures and the quickstart transcript. Every archive member is reopened and
 verified. The archive is 290,444 bytes with SHA-256
 `1324469b592c5afcbe88f9edb6226a49e5fd618a479c385d6edee18a12d89e8e`.
 
+Hosted run `38148616502` passes the corrected Windows refusal checks and package
+smoke. All three native-wheel jobs stop before integration because the Rust cache
+restores their previous proof directory. The CI correction allocates a fresh
+temporary root for each attempt, outside the build cache, and uploads only that
+attempt's build identity and proof. The existing-output refusal is retained.
+Its regression executes the allocator twice with cached proof data present,
+verifies distinct fresh destinations and preserves both earlier reports. All
+163 release-script tests, all 16 CI contract lanes and workflow YAML parsing pass.
+Runtime sources and the earlier measured executable identities are unchanged;
+the corrected hosted wheel matrix still must pass before acceptance.
+
 ## Portable evidence and replay
 
 The [portable packet](evidence/native-python-surface-2026-10-11.tar.xz) and

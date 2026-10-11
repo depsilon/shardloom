@@ -35,20 +35,25 @@ Zero tests or any skipped native test fails the proof. `release-readiness` requi
 this job to succeed. Windows extension support and portable Linux wheel certification
 remain unclaimed. Linux native wheels use a host platform tag until a separate
 shared-library audit establishes manylinux compliance.
+Each attempt reserves a fresh `SHARDLOOM_NATIVE_WHEEL_ROOT` inside `RUNNER_TEMP`.
+The extension staging, dependency wheels and installation proof remain outside
+the Cargo cache, so restored build outputs cannot reuse an earlier proof or its
+uploaded results. The proof still rejects an existing destination.
 
 ```text
+root = tempfile.mkdtemp(prefix="native-python-", dir=os.environ["RUNNER_TEMP"])
 python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
-python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest target/native-python-wheelhouse
+python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse"
 python -B -m unittest discover -s scripts -p 'test_*native_python*.py' -v
 python -B -m unittest discover -s scripts -p test_python_license_bundle.py -v
 cargo build --locked --release -p shardloom-cli --bin shardloom --features release-user-surfaces
-python scripts/build_native_python.py --output-dir target/native-python-extension --release
-python scripts/prove_native_python_wheel.py --output-dir target/native-python-proof --native-library target/native-python-extension/_native.abi3.so --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse target/native-python-wheelhouse
-target/native-python-build.json
-target/native-python-proof/report.json
-target/native-python-proof/integration.json
-target/native-python-proof/*.log
-target/native-python-proof/dist/*.whl
+python scripts/build_native_python.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension" --release
+python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse"
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/build.json
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/report.json
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/integration.json
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/*.log
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/dist/*.whl
 if-no-files-found: error
 ```
 

@@ -329,11 +329,19 @@ jobs:
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # Swatinem/rust-cache@v2
         with:
           key: native-python-${{ matrix.lane }}
+      - name: Reserve fresh native wheel directory outside the build cache
+        run: |
+          python - <<'PY'
+          import os, tempfile
+          root = tempfile.mkdtemp(prefix="native-python-", dir=os.environ["RUNNER_TEMP"])
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              output.write("SHARDLOOM_NATIVE_WHEEL_ROOT=" + root + "\n")
+          PY
       - name: Install pinned native wheel build tooling
         run: python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
       - name: Download pinned optional Arrow consumer
         run: |
-          python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest target/native-python-wheelhouse
+          python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse"
       - name: Native packaging integrity tests
         run: python -B -m unittest discover -s scripts -p 'test_*native_python*.py' -v
       - name: Native dependency notice tests
@@ -349,19 +357,19 @@ jobs:
       - name: Build bundled native CLI
         run: cargo build --locked --release -p shardloom-cli --bin shardloom --features release-user-surfaces
       - name: Build optional native Python extension
-        run: python scripts/build_native_python.py --output-dir target/native-python-extension --release > target/native-python-build.json
+        run: python scripts/build_native_python.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension" --release > "$SHARDLOOM_NATIVE_WHEEL_ROOT/build.json"
       - name: Prove native wheel installation and complete binding tests
-        run: python scripts/prove_native_python_wheel.py --output-dir target/native-python-proof --native-library target/native-python-extension/_native.abi3.so --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse target/native-python-wheelhouse
+        run: python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
         if: always()
         with:
           name: native-python-wheel-${{ matrix.lane }}
           path: |
-            target/native-python-build.json
-            target/native-python-proof/report.json
-            target/native-python-proof/integration.json
-            target/native-python-proof/*.log
-            target/native-python-proof/dist/*.whl
+            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/build.json
+            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/report.json
+            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/integration.json
+            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/*.log
+            ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/dist/*.whl
           if-no-files-found: error
           retention-days: 14
 
