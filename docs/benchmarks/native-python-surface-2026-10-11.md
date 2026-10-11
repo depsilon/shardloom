@@ -43,15 +43,17 @@ zero-copy or process-RSS-limit claim.
 
 ## Frozen build and package identity
 
-The accepted build manifest is `native-release-artifacts-300.json`, SHA-256
+The initial accepted build manifest is `native-release-artifacts-300.json`, SHA-256
 `b26431edeeb81496488b4d561c3537c0ddf80d38c452234cf08365a2223f2fe2`.
 It freezes all 1,318 selected Rust/Python/Cargo/provider/license source files from
 the implementation based on `b0436a00ef886e97af0824898fc6f65b1d005405`, including
 then-uncommitted native changes. The packet retains their exact bytes and hashes;
 the parent commit alone is not the accepted implementation identity. Subsequent
-documentation edits do not change those frozen runtime sources. The final CI
-review separately updates two validation scripts to select the extracted CLI
-library's tests; the supplement below records those exact non-runtime changes.
+documentation edits did not change those frozen runtime sources. The CI review
+separately updated two validation scripts to select the extracted CLI library's
+tests. The later integration corrections below change failure/reporting code
+and have their own source and validation record. The paired workflow timings
+remain observations of the original build.
 
 | Artifact | Exact identity |
 | --- | --- |
@@ -60,7 +62,7 @@ library's tests; the supplement below records those exact non-runtime changes.
 | Installed local wheel | 48,638,265 bytes; SHA-256 `80a3b8abf9156e0ca47a2df93eddfdb89f946a6fc94f6c83ea52c13dd230202b` |
 | Wheel tag | `cp310-abi3-macosx_27_0_arm64`; actual local load on CPython 3.12.14 |
 
-The final wheel proof is `native-wheel-proof-300b`. It verifies all RECORD
+The original complete local wheel proof is `native-wheel-proof-300b`. It verifies all RECORD
 entries, exact native/CLI/Python contents, bundled notices and isolated imports,
 then passes all 63 native integration tests without skips. The static integrity
 record's `load_verified=false` predates installation; the separate successful
@@ -93,7 +95,7 @@ a 4,097-row columnar batch, two complete retained 4,097-field outputs and a
 new product limits or independent performance observations. The actual README
 example exports all 90 expected values after session close.
 
-| Final-source gate | Result |
+| Initial accepted source gate | Result |
 | --- | --- |
 | Formatting and default workspace Clippy | Pass; warnings denied |
 | Default workspace, all targets | 3,213 passed, no failed or ignored tests |
@@ -231,8 +233,8 @@ Unicode, duplicate entries, cycles and credit release.
 Review also corrected the hosted native test selection after the CLI entry point
 was extracted into `shardloom_runtime`: the CI command, local release validator
 and required-lane check now explicitly include `--lib`. The completed local
-`--all-targets` run already exercised those tests. Only CI selection metadata and
-documentation changed after that runtime acceptance; the final supplemental
+`--all-targets` run already exercised those tests. At that stage, only CI selection
+metadata and documentation changed after runtime acceptance; the supplemental
 checks verify the exact two-script delta and run the affected validation tests.
 This primary review is not an independent security audit or hosted acceptance.
 The [documentation/review index](evidence/native-python-documentation-2026-10-11.json)
@@ -246,6 +248,62 @@ that original parser failure and verifies all 16 jobs and three native wheel
 lanes after changing only the command's YAML representation. The required-lane
 validator passes; runtime/package sources remain unchanged. Actual hosted
 execution must still pass on the corrected commit.
+
+## Native failure and hosted-integration corrections
+
+Review of `9b730d45` found that the Python transport discarded resource fields
+when native preparation, execution or writing failed. The binding now freezes
+the allocation and pool snapshot inside the operation's admission guard. Native
+and input-conversion failures retain declaration, admission, live/peak reservation
+and denial-count evidence. A rejected admission keeps observations unavailable;
+it cannot borrow a preceding operation's counters. Public returned and raised
+error envelopes retain these fields, failed streams retain no completion report,
+and original producer exceptions keep their identity.
+
+The first corrected test run exposed two test mistakes: low-level writer labels
+omitted their `write_` prefix, and the test read only legacy envelope fields.
+Corrected tests exercise admitted writes and typed result fields. All six new
+regression methods fail against the original release extension with missing
+resource fields, then pass against the corrected extension. They cover all five
+plan terminal paths, public error/stream propagation, memory denial, evidence
+immutability after a later success, pre-admission refusal and producer exceptions.
+
+Two hosted failures also required corrections. The quickstart expected a fresh
+file-open counter for generated input, although both operations now retain the
+same session. It checks the counter delta and rejects both counter resets and
+extra file opens. The unchanged original release CLI reproduces the assertion
+failure and passes the corrected example. On Windows, the output renderer filled
+unavailable native-admission fields from an enclosing generic command workspace.
+An explicit native-owner refusal now keeps its declaration-only evidence. A
+portable renderer test also verifies that ordinary admitted command observations
+remain available; actual non-Unix execution still belongs to the Windows CI test.
+
+| Corrected-source check | Result |
+| --- | --- |
+| Required formatting and default workspace Clippy | Pass; warnings denied |
+| Default workspace, all targets | 3,214 passed, none failed or ignored |
+| Reduced writer-profile CLI, all targets | 1,145 passed, none failed or ignored |
+| Native workspace Clippy, all targets | Pass; warnings denied |
+| Native CLI, all targets | 1,398 passed; three non-Unix tests explicitly deferred to Windows CI |
+| Complete Python suite with the actual corrected extension | 739 passed, no failures, errors or skips; includes all 69 native integration tests |
+| Six new native failure regressions | Pass; the original extension fails the same corrected tests |
+| Quickstart regression tests and actual unchanged-CLI replay | Pass; reset/extra-open negative fixtures remain rejected |
+
+These suites overlap. The correction freezes 1,319 selected source files.
+Compared with the initial acceptance, 1,306 files are unchanged, twelve existing
+files change and `shardloom-python/src/failure.rs` is added. All Vortex source and
+dependency-graph hashes remain unchanged. The corrected local extension uses the
+debug profile; fresh release-wheel installation and all native tests remain
+required in each hosted matrix job. Prior installed-wheel and complete-workflow
+timings keep their original identities. No new ingest, Full43 or Python speedup
+is asserted from these reporting fixes.
+
+The [correction index](evidence/native-python-integration-corrections-2026-10-11.json)
+and [58-member packet](evidence/native-python-integration-corrections-2026-10-11.tar.xz)
+retain source hashes, changed source bytes, regression/gate logs, original hosted
+failures and the quickstart transcript. Every archive member is reopened and
+verified. The archive is 290,444 bytes with SHA-256
+`1324469b592c5afcbe88f9edb6226a49e5fd618a479c385d6edee18a12d89e8e`.
 
 ## Portable evidence and replay
 

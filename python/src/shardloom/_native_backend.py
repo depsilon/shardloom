@@ -100,8 +100,10 @@ def _failure(error, *, check):
     diagnostic = getattr(error, "diagnostic", None)
     if diagnostic is None:
         raise error
+    fields = dict(getattr(error, "resource_fields", {}))
+    fields["python_execution_transport"] = "native"
     envelope = OutputEnvelope.from_field_mapping(
-        {"python_execution_transport": "native"}, command="run", status="error",
+        fields, command="run", status="error",
         summary=str(error), human_text=str(error),
     )
     raw = dict(envelope.raw)
@@ -441,8 +443,14 @@ class NativeBatchIterator:
             result = NativeResultBatch(batch, self._index)
             self._index += 1
             return result
-        except BaseException:
-            self.close()
+        except BaseException as error:
+            try:
+                self.close()
+            except BaseException:
+                # Preserve the original producer/native failure after draining.
+                pass
+            if getattr(error, "diagnostic", None) is not None:
+                _failure(error, check=True)
             raise
 
     def close(self):

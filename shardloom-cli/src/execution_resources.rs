@@ -290,6 +290,7 @@ pub(crate) fn append_declaration_fields(
         ("admission_policy", "not_observed"),
         ("observed_native_reserved_bytes", "unavailable"),
         ("observed_native_peak_reserved_bytes", "unavailable"),
+        ("observed_native_denied_reservations", "unavailable"),
         ("memory_observation_scope", "not_instrumented"),
         ("observed_peak_active_lanes", "unavailable"),
         ("observed_spill_io_performed", "unavailable"),
@@ -346,6 +347,13 @@ pub(crate) fn append_resident_snapshot_fields(
         Some(snapshot.memory.reserved_bytes),
         snapshot.memory.peak_reserved_bytes,
         "session_pool_lifetime_including_preparation_and_retained_owners;excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss",
+    );
+    replace_fields(
+        fields,
+        [(
+            "execution_resource_observed_native_denied_reservations".into(),
+            snapshot.memory.denied_reservations.to_string(),
+        )],
     );
 }
 

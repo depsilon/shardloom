@@ -124,11 +124,11 @@ impl PlanCore {
         execute: impl FnOnce(&PreparedNativeOperation, bool, Option<&mut BatchReader<'_>>) -> Result<T>,
     ) -> PyResult<T> {
         let errors = Arc::new(Mutex::new(None));
-        self.session
-            .runtime
-            .controller(resources, cancellation)
-            .map_err(native_error)?
-            .with_resources(resources, cancellation, |session, resources| {
+        super::failure::with_resources(
+            &self.session.runtime,
+            resources,
+            cancellation,
+            |session, resources, _controller| {
                 cancellation.check()?;
                 native::validate_sql_spill(self.spill.as_deref(), resources)?;
                 preflight()?;
@@ -211,8 +211,9 @@ impl PlanCore {
                     .as_ref()
                     .ok_or_else(|| failed("prepared operation was not retained"))?;
                 execute(&entry.operation, reused, streaming.as_mut())
-            })
-            .map_err(|error| batch_input::map_failure(&errors, error))
+            },
+        )
+        .map_err(|error| error.into_python(|error| batch_input::map_failure(&errors, error)))
     }
 
     pub(super) fn controller(

@@ -1,0 +1,392 @@
+{
+  "schema_version": "shardloom.native_python_integration_corrections.v1",
+  "status": "local_corrections_verified_hosted_pending",
+  "base_commit": "9b730d4502eee0a7609ee67483978e2a4fd5bd6f",
+  "selected_source_files": 1319,
+  "source_manifest_sha256": "8e505314623bb9c711a2f7a00daacadc855951703faa5382b29808ce27465e91",
+  "changed_from_initial_acceptance": [
+    "examples/local-python-smoke/run.py",
+    "python/src/shardloom/_native_backend.py",
+    "python/tests/test_native_binding.py",
+    "python/tests/test_release_scripts.py",
+    "scripts/check_ci_gate_matrix.py",
+    "scripts/run_release_validation_evidence.py",
+    "shardloom-cli/src/cli_output.rs",
+    "shardloom-cli/src/execution_resources.rs",
+    "shardloom-cli/src/native_runtime.rs",
+    "shardloom-python/src/binding.rs",
+    "shardloom-python/src/failure.rs",
+    "shardloom-python/src/plan.rs",
+    "shardloom-python/src/session.rs"
+  ],
+  "unchanged_selected_initial_files": 1306,
+  "debug_library": {
+    "schema_version": "shardloom.native_python_build.v1",
+    "status": "passed",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "-p",
+      "shardloom-python",
+      "--features",
+      "python-native",
+      "--message-format=json-render-diagnostics",
+      "--offline"
+    ],
+    "target_directory": "/Users/dylan/.cache/shardloom/cargo-target",
+    "cargo_artifact": "/Users/dylan/.cache/shardloom/cargo-target/debug/lib_native.dylib",
+    "library": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-305/_native.abi3.so",
+    "library_bytes": 357347264,
+    "library_sha256": "bfe3aeefd3df4ce4c501a735bcd0b9a040212ac5aa07bf8068e65d860972359d",
+    "python_abi": "cp310-abi3",
+    "package_version": "0.5.1",
+    "installed": false,
+    "published": false
+  },
+  "receipts": {
+    "native-quickstart-counter-before-304": {
+      "receipt": {
+        "bytes": 1475,
+        "sha256": "d475a9469055227a8c9d221fb2118140303cd4fa1f72cf0d16cedcd8af0255e9"
+      },
+      "log": {
+        "bytes": 3020,
+        "sha256": "fcc9b24b2d09e2b3dd10a680bd77873eb4c5f12bd0e7451dc4b35daf3192adfc"
+      },
+      "status": "passed",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/prove_quickstart_counter_304.py",
+        "--phase",
+        "before"
+      ],
+      "seconds": 0.806852167006582
+    },
+    "native-quickstart-counter-after-304": {
+      "receipt": {
+        "bytes": 1555,
+        "sha256": "905a47adfa5b753227d0c6807905b407ea74500ca40509fd449b89b7d997ba89"
+      },
+      "log": {
+        "bytes": 3017,
+        "sha256": "902ac118e4f7583c50529d5fd3dd934f5d65f0be150b595e0ef6450e4f6932f7"
+      },
+      "status": "passed",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/prove_quickstart_counter_304.py",
+        "--phase",
+        "after"
+      ],
+      "seconds": 0.2737316670245491
+    },
+    "native-quickstart-release-tests-304": {
+      "receipt": {
+        "bytes": 1694,
+        "sha256": "a40d908bd1834309944df039d9d97a58768b4386cf48dbd23e1e1413d3e4b88c"
+      },
+      "log": {
+        "bytes": 206,
+        "sha256": "c053c4e230d355848ca3c7e7cd2f3832ee903cec93bcf70f8d8f42f64d5dedff"
+      },
+      "status": "passed",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "unittest",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_local_python_smoke_runs_user_surface_quickstart",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_release_dry_run_transcript_records_user_surface_quickstart_markers"
+      ],
+      "seconds": 1.7177813340094872
+    },
+    "native-failure-evidence-red-304": {
+      "receipt": {
+        "bytes": 2345,
+        "sha256": "d786985681418f79168954348685d75e313d84f5bc672062d2639d8b99bd5695"
+      },
+      "log": {
+        "bytes": 4369,
+        "sha256": "03d1e183992ed889f9654045fb8e6f8dca7f5c6e7df470c814014abd89dab290"
+      },
+      "status": "failed",
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-release-300/_native.abi3.so",
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "unittest",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_plan_failures_retain_admitted_resources_for_every_terminal",
+        "python.tests.test_native_binding.NativeBindingTests.test_public_native_failure_envelopes_keep_observations_and_stream_errors",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_memory_denial_evidence_is_frozen_before_later_success",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_failed_admission_does_not_borrow_previous_operation_observations",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_input_failures_keep_original_exception_and_resource_observations"
+      ],
+      "seconds": 0.2727070830296725
+    },
+    "native-failure-evidence-green-304": {
+      "receipt": {
+        "bytes": 2613,
+        "sha256": "782344cf113969fc0e8dd6b6d31ffd38b9b0e977c11ac74edfc07630f7d4eecc"
+      },
+      "log": {
+        "bytes": 2020,
+        "sha256": "de80b767b7cca3466ad25709148de1b2549376a9d557790e4336e1303883057b"
+      },
+      "status": "failed",
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-304/_native.abi3.so",
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "unittest",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_plan_failures_retain_admitted_resources_for_every_terminal",
+        "python.tests.test_native_binding.NativeBindingTests.test_public_native_failure_envelopes_keep_observations_and_stream_errors",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_memory_denial_evidence_is_frozen_before_later_success",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_failed_admission_does_not_borrow_previous_operation_observations",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_input_failures_keep_original_exception_and_resource_observations"
+      ],
+      "seconds": 2.3862124999868684
+    },
+    "native-failure-binding-build-304": {
+      "receipt": {
+        "bytes": 1916,
+        "sha256": "d431d7360b9707515fe2abbbea2ad9ed667be433770acd10222517237b5ad5d3"
+      },
+      "log": {
+        "bytes": 1723,
+        "sha256": "dcbe6857fe2b7acc44d38535ee3cdaa1b079c2b3b8359f8ab6e66b429d0bd7b4"
+      },
+      "status": "passed",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "scripts/build_native_python.py",
+        "--offline",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-304"
+      ],
+      "seconds": 22.823718166036997
+    },
+    "native-failure-binding-build-305": {
+      "receipt": {
+        "bytes": 1950,
+        "sha256": "0bf9c527fe42bfdf8fecf84e5f362ba7d8b82eb13b6ce6724567058dac37c19e"
+      },
+      "log": {
+        "bytes": 1398,
+        "sha256": "67d400aa8c2482882820171cef9c8d6bb56ab06cedba187c004082cd8d77d495"
+      },
+      "status": "passed",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "scripts/build_native_python.py",
+        "--offline",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-305"
+      ],
+      "seconds": 8.24717754201265
+    },
+    "native-failure-red-305": {
+      "receipt": {
+        "bytes": 2795,
+        "sha256": "3e21f7f99eceb8ccd98f9495ce74b78bd5cf0ab4cda938a8c17b2ceb2f41160e"
+      },
+      "log": {
+        "bytes": 8618,
+        "sha256": "ceb09a40ce5630ca8caf16fe7c8431ff0b24d17376153f56635b52d84c70eb49"
+      },
+      "status": "failed",
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-release-300/_native.abi3.so",
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "unittest",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_plan_failures_retain_admitted_resources_for_every_terminal",
+        "python.tests.test_native_binding.NativeBindingTests.test_public_native_failure_envelopes_keep_observations_and_stream_errors",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_memory_denial_evidence_is_frozen_before_later_success",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_failed_admission_does_not_borrow_previous_operation_observations",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_input_failures_keep_original_exception_and_resource_observations",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_failure_observations_preserve_producer_with_custom_attribute_assignment"
+      ],
+      "seconds": 0.22408658399945125
+    },
+    "native-failure-green-305": {
+      "receipt": {
+        "bytes": 2790,
+        "sha256": "42a4769625c5cf1943c002de8c2fa8f4bcacc1094ae605d5875078c4aca97731"
+      },
+      "log": {
+        "bytes": 104,
+        "sha256": "715ad4c636b619d194ad77261b23433271c5f0769052fdd262b03f7e4235bbae"
+      },
+      "status": "passed",
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-305/_native.abi3.so",
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "unittest",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_plan_failures_retain_admitted_resources_for_every_terminal",
+        "python.tests.test_native_binding.NativeBindingTests.test_public_native_failure_envelopes_keep_observations_and_stream_errors",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_memory_denial_evidence_is_frozen_before_later_success",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_failed_admission_does_not_borrow_previous_operation_observations",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_input_failures_keep_original_exception_and_resource_observations",
+        "python.tests.test_native_binding.NativeBindingTests.test_native_failure_observations_preserve_producer_with_custom_attribute_assignment"
+      ],
+      "seconds": 2.407929791021161
+    },
+    "native-final-source-gates-305": {
+      "receipt": {
+        "bytes": 1901,
+        "sha256": "a52405c8ecf971a497b32a6c0029698d8ac4581aef327569e1c57ea69069b51d"
+      },
+      "log": {
+        "bytes": 787670,
+        "sha256": "c3fa499884074d3ce3c5587d0c17a01f2edf1ce46f43b7d2219b5a5541154403"
+      },
+      "status": "passed",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_native_final_gates_298.py",
+        "--run-id",
+        "305"
+      ],
+      "seconds": 61.235481666983105
+    },
+    "native-final-clippy-305": {
+      "receipt": {
+        "bytes": 1913,
+        "sha256": "69e2b3080c5a75e347ed02e0e2efd3ce3444971e585354fff7c90bff78c0f53e"
+      },
+      "log": {
+        "bytes": 523,
+        "sha256": "6ea8aa05ffb8869f5601d8e0ad7eb70da52b1691e6c36540f1fb9f091b30123a"
+      },
+      "status": "passed",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "seconds": 7.29166124999756
+    },
+    "native-final-cli-tests-305": {
+      "receipt": {
+        "bytes": 1892,
+        "sha256": "ec4aee0a80fc08659afbe36e4931e40569c35e86aef562e1560bb6252a675dc6"
+      },
+      "log": {
+        "bytes": 573944,
+        "sha256": "69118077a5782f111aea84d2542d72dc2b0e6d2cc32032a380344c1c061e998d"
+      },
+      "status": "passed",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "seconds": 44.983395709015895
+    },
+    "native-final-python-tests-305": {
+      "receipt": {
+        "bytes": 2301,
+        "sha256": "947446db8e6f714b99d7ec9dc2e602259e3857d1bae187fc4d678330fe324fdf"
+      },
+      "log": {
+        "bytes": 1210,
+        "sha256": "60d6dc11df52e3b7d7d3752d603e56681bdcba480124420cda5e26d5cc12728b"
+      },
+      "status": "passed",
+      "command": [
+        "env",
+        "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+        "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-305/_native.abi3.so",
+        "PYTHONPATH=/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/python-deps:python/src:scripts",
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_*.py"
+      ],
+      "seconds": 24.70675258297706
+    }
+  },
+  "test_counts": {
+    "default-tests": {
+      "passed": 3214,
+      "failed": 0,
+      "ignored": 0,
+      "suites": 106
+    },
+    "reduced-writer-tests": {
+      "passed": 1145,
+      "failed": 0,
+      "ignored": 0,
+      "suites": 79
+    },
+    "native-final-cli-tests-305": {
+      "passed": 1398,
+      "failed": 0,
+      "ignored": 3,
+      "suites": 79
+    },
+    "python-all": {
+      "passed": 739,
+      "failed": 0,
+      "skipped": 0
+    },
+    "new-native-failure-regressions": {
+      "passed": 6,
+      "failed": 0
+    }
+  },
+  "corrections": [
+    "Freeze native plan/input failure resource snapshots inside the admitted operation; keep declaration-only fields on admission refusal.",
+    "Carry native resource fields into public returned/raised errors and stream failures; preserve producer exception identity.",
+    "Keep explicit native-owner refusal authoritative over an enclosing generic command workspace observation.",
+    "Compute quickstart generated-input file opens as a delta of the retained session counter; reject reset and extra-open fixtures."
+  ],
+  "preserved_failures": [
+    "Hosted package quickstart and Windows native-admission tests failed on 9b730d45; original logs and package transcript are retained.",
+    "The first new test run used invalid low-level writer format labels and a legacy-only envelope accessor. Corrected tests use write_jsonl/write_vortex and typed result fields.",
+    "All six corrected regression methods fail against the original release extension with missing resource fields, then pass against the corrected debug extension.",
+    "Initial archive preflight stopped on debug-7 with six hardlinks before writing or removing anything; that shared file remains preserved."
+  ],
+  "scope": {
+    "current_native_integration": "Included in the 739-test suite; native extension required and no skips.",
+    "windows_execution": "Not simulated on macOS; actual hosted Windows regression remains required.",
+    "installed_release_wheel": "Original installed wheel remains historical; corrected native release wheel proof is required in all three hosted matrix jobs.",
+    "unchanged_engine": "All original Vortex source hashes and the dependency graph remain identical; prior full native Vortex and paired-workflow evidence keeps its original source identity.",
+    "timings": "No new Full43, ingestion or Python-workflow timing claim; original 300c measurements remain bound to their original build.",
+    "published": false,
+    "version": "0.5.1"
+  },
+  "archive_bytes": 290444,
+  "archive_sha256": "1324469b592c5afcbe88f9edb6226a49e5fd618a479c385d6edee18a12d89e8e",
+  "index_sha256": "cfc666ffa865309d306b7d1e85b3d0b3c19d4de2670e96ed7433e8c2f816870a",
+  "verified_members": 58
+}

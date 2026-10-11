@@ -1306,6 +1306,148 @@ assert later.row_count == 2
         self.assertEqual(client._native_backend.session.snapshot()["completed_executions"], 0)
         client.close()
 
+    def assert_failed_native_resources(self, fields, memory_bytes, snapshot):
+        self.assertEqual(fields["execution_resource_declared_memory_bytes"], str(memory_bytes))
+        self.assertEqual(fields["execution_resource_admission_status"], "admitted")
+        self.assertEqual(fields["execution_resource_admitted_memory_bytes"], str(memory_bytes))
+        self.assertEqual(fields["execution_resource_admitted_max_parallelism"],
+                         str(snapshot["admitted_max_parallelism"]))
+        self.assertEqual(fields["execution_resource_observed_native_reserved_bytes"],
+                         str(snapshot["reserved_bytes"]))
+        self.assertEqual(fields["execution_resource_observed_native_peak_reserved_bytes"],
+                         str(snapshot["peak_reserved_bytes"]))
+        self.assertEqual(fields["execution_resource_observed_native_denied_reservations"],
+                         str(snapshot["denied_reservations"]))
+        self.assertIn("session_pool_lifetime", fields["execution_resource_memory_observation_scope"])
+        self.assertEqual(fields["execution_resource_observed_process_peak_rss_bytes"], "unavailable")
+        self.assertEqual(fields["execution_resource_observed_spill_bytes"], "unavailable")
+
+    def test_native_plan_failures_retain_admitted_resources_for_every_terminal(self):
+        allocation = 32 << 20
+        resources = self.resources(allocation, 2, memory_origin="platform", parallelism_origin="context")
+        session = self.native.Session(resources)
+        source = session.from_rows([{"n": 1}, {"n": 2}])
+        plan = session.sql("SELECT missing FROM 'memory://failure'", sources=[("memory://failure", source)])
+        with tempfile.TemporaryDirectory(prefix="shardloom-native-failure-fields-") as directory:
+            target = Path(directory) / "result.jsonl"
+            fanout = Path(directory) / "result.vortex"
+            operations = (
+                ("prepare", plan.prepare),
+                ("collect", plan.collect),
+                ("write", lambda: plan.write(target, "write_jsonl")),
+                ("fanout", lambda: plan.write_many([(target, "write_jsonl"), (fanout, "write_vortex")])),
+                ("stream", lambda: next(plan.iter_batches())),
+            )
+            for name, operation in operations:
+                with self.subTest(operation=name):
+                    with self.assertRaises(RuntimeError) as raised:
+                        operation()
+                    error = raised.exception
+                    self.assertFalse(error.diagnostic["fallback"]["attempted"])
+                    self.assert_failed_native_resources(error.resource_fields, allocation, session.snapshot())
+                    self.assertEqual(error.resource_fields["execution_resource_memory_origin"], "platform")
+                    self.assertEqual(error.resource_fields["execution_resource_parallelism_origin"], "context")
+                    self.assertFalse(target.exists())
+                    self.assertFalse(fanout.exists())
+        session.close()
+
+    def test_public_native_failure_envelopes_keep_observations_and_stream_errors(self):
+        import shardloom as sl
+
+        allocation = 32 << 20
+        client = sl.ShardLoomClient(transport="native", memory_bytes=allocation, max_parallelism=2)
+        self.addCleanup(client.close)
+        frame = sl.from_rows([{"n": 1}, {"n": 2}], client=client).select("missing")
+        with tempfile.TemporaryDirectory(prefix="shardloom-public-native-failure-") as directory:
+            target = Path(directory) / "result.jsonl"
+            operations = (frame.collect, lambda **kwargs: frame.write_jsonl(target, **kwargs))
+            for operation in operations:
+                report = operation(check=False)
+                self.assertEqual(report.envelope.status, "error")
+                fields = self.command_fields(report.envelope.raw)
+                self.assert_failed_native_resources(fields, allocation, client._native_backend.session.snapshot())
+                self.assertEqual(fields["python_execution_transport"], "native")
+                self.assertFalse(report.envelope.fallback.attempted)
+                with self.assertRaises(sl.ShardLoomCommandError) as raised:
+                    operation(check=True)
+                self.assertEqual(raised.exception.envelope.status, "error")
+                fields = self.command_fields(raised.exception.envelope.raw)
+                self.assert_failed_native_resources(fields, allocation, client._native_backend.session.snapshot())
+            with frame.iter_batches() as stream:
+                with self.assertRaises(sl.ShardLoomCommandError) as raised:
+                    next(stream)
+                self.assertIsNone(stream.report)
+                fields = self.command_fields(raised.exception.envelope.raw)
+                self.assert_failed_native_resources(fields, allocation, client._native_backend.session.snapshot())
+            self.assertFalse(target.exists())
+
+    def test_native_memory_denial_evidence_is_frozen_before_later_success(self):
+        session = self.native.Session()
+        plan = session.sql("SELECT 1 AS n")
+        with self.assertRaises(RuntimeError) as raised:
+            plan.collect(resources=self.resources(1, 1))
+        fields = raised.exception.resource_fields
+        frozen = dict(fields)
+        self.assert_failed_native_resources(fields, 1, session.snapshot())
+        self.assertGreater(int(fields["execution_resource_observed_native_denied_reservations"]), 0)
+        result = plan.collect(resources=self.resources(32 << 20, 2))
+        self.assertEqual(result.row_export()[0], [{"n": 1}])
+        self.assertEqual(fields, frozen)
+        session.close()
+
+    def test_native_failed_admission_does_not_borrow_previous_operation_observations(self):
+        session = self.session(32 << 20, 2)
+        source = session.from_rows([{"n": 1}, {"n": 2}])
+        plan = session.sql("SELECT n FROM 'memory://retained'", sources=[("memory://retained", source)])
+        self.assertGreater(session.snapshot()["reserved_bytes"], 1)
+        with self.assertRaises(RuntimeError) as raised:
+            plan.collect(resources=self.resources(1, 1))
+        fields = raised.exception.resource_fields
+        self.assertEqual(fields["execution_resource_declared_memory_bytes"], "1")
+        self.assertEqual(fields["execution_resource_admission_status"], "not_observed")
+        for name in ("admitted_memory_bytes", "admitted_max_parallelism", "observed_native_reserved_bytes",
+                     "observed_native_peak_reserved_bytes", "observed_native_denied_reservations"):
+            self.assertEqual(fields[f"execution_resource_{name}"], "unavailable")
+        self.assertEqual(session.snapshot()["memory_limit_bytes"], 32 << 20)
+        self.assertEqual(plan.collect().row_export()[0], [{"n": 1}, {"n": 2}])
+        session.close()
+
+    def test_native_input_failures_keep_original_exception_and_resource_observations(self):
+        session = self.session(32 << 20, 2)
+        failure = LookupError("original columnar producer failure")
+
+        class BrokenProducer:
+            def __arrow_c_stream__(self, requested_schema=None):
+                raise failure
+
+        with self.assertRaises(LookupError) as raised:
+            session.from_arrow(BrokenProducer())
+        self.assertIs(raised.exception, failure)
+        self.assert_failed_native_resources(failure.resource_fields, 32 << 20, session.snapshot())
+        with self.assertRaises(TypeError) as raised:
+            session.from_rows(42)
+        self.assert_failed_native_resources(raised.exception.resource_fields, 32 << 20, session.snapshot())
+        session.close()
+
+    def test_native_failure_observations_preserve_producer_with_custom_attribute_assignment(self):
+        session = self.session(32 << 20, 2)
+
+        class ProducerError(Exception):
+            def __setattr__(self, name, value):
+                raise AssertionError("producer exception attributes are managed by the producer")
+
+        failure = ProducerError("original producer error")
+
+        class BrokenProducer:
+            def __arrow_c_stream__(self, requested_schema=None):
+                raise failure
+
+        with self.assertRaises(ProducerError) as raised:
+            session.from_arrow(BrokenProducer())
+        self.assertIs(raised.exception, failure)
+        self.assert_failed_native_resources(failure.resource_fields, 32 << 20, session.snapshot())
+        session.close()
+
     def test_session_command_uses_the_configured_native_owner_for_generated_vortex_inputs(self):
         rows = [{"value": value, "metric": value * 10} for value in range(1, 6)]
         session = self.session(64 << 20, 2)

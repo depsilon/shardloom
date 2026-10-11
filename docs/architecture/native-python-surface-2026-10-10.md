@@ -99,6 +99,17 @@ No external engine, Arrow evaluator, new semantic engine or hidden row bridge.
 
 ## Optional binding dependencies
 
+Supporting dependencies must improve native capability, complete-workflow
+efficiency or safe interoperability. Evaluate their actual ownership, conversion,
+scheduling and allocation behavior, including the final enabled feature graph.
+Native-to-native composition retains existing owners; no compatibility library
+may become a compulsory intermediate representation. Bindings depend on the
+engine, and optional adapters initialize only when their boundary is requested.
+Providers must cooperate with shared resource and cancellation policy. A valid
+workload outside a provider's current capability remains implementation work:
+extend, patch or replace the provider where justified. The adjacent timestamp
+work below applies this criterion without narrowing the accepted storage domain.
+
 The native binding crate is feature-gated; the lean workspace does not link
 Python. The binding uses `arrow-pyarrow` 58.3.0, matching the existing Arrow
 graph, PyO3 and its four support crates at 0.29.3, and `target-lexicon` 0.13.5.
@@ -355,6 +366,15 @@ results. Cancellation, interrupted iteration and downstream exceptions must drai
 admitted work, stop input demand and release the exact owners. Sharing external
 buffers must retain the producer and account honestly; copy mutable/incompatible
 input when required. Never borrow merely because an object exposes a capsule.
+
+Native plan and input failures freeze resource evidence while their operation
+still holds the admission guard. Error metadata contains the declared and
+admitted allocation, retained/peak native reservations and denied-reservation
+count, with the existing session-lifetime observation scope. A rejected
+admission records the requested declaration and unavailable observations; it
+cannot borrow a preceding operation's counters. The public client retains these
+fields in returned or raised error envelopes, and failed streams never publish
+a completed report. Input-producer exceptions retain their original identity.
 
 Encoded Vortex layouts may require decoding/materialization for Arrow. Share
 compatible buffers when sound and convert required representations once at the

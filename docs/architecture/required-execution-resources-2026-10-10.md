@@ -145,6 +145,14 @@ the workspace lease remains alive while the error report captures its fields.
 Synthetic spill constructor failures report zero payload I/O; failures after
 entering the I/O operation leave unmeasured activity unavailable.
 
+A native provider's explicit resource-owner refusal remains authoritative in
+the output renderer. An enclosing command workspace does not establish native
+execution admission. Such a refusal retains the requested declaration and
+unavailable native admission/usage fields; ordinary admitted command failures
+still retain their actual workspace observations. The Windows platform test
+exercises the provider refusal, and a portable renderer regression verifies
+both cases under a live enclosing command allocation.
+
 Generated object commit manifests and table sidecar records also retain their
 text capacity in the command's pool. JSON escaping writes directly into the
 admitted builder, including caller-controlled keys and paths. The shared writer

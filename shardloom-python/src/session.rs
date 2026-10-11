@@ -234,24 +234,18 @@ impl NativeSession {
     ) -> PyResult<NativeSource> {
         let cancellation = self.owner.begin_operation(timeout)?;
         let resources = self.owner.resources(resources).map_err(native_error)?;
-        let controller = py
-            .detach(|| {
-                self.owner
-                    .runtime
-                    .controller(resources, &cancellation)
-                    .cloned()
-            })
-            .map_err(native_error)?;
-        let native_result = producer
-            .bind(py)
-            .extract::<PyRef<'_, NativeResult>>()
-            .ok()
-            .and_then(|result| result.retained_for(&controller));
         py.detach(move || {
             let mut python_error = None;
-            let source = controller.with_resources(resources, &cancellation, |session, _| {
+            let source = super::failure::with_resources(&self.owner.runtime, resources, &cancellation, |session, _, controller| {
+                let native_result = Python::attach(|py| {
+                    producer.bind(py).extract::<PyRef<'_, NativeResult>>()
+                        .ok().and_then(|result| result.retained_for(controller))
+                });
                 if let Some(result) = &native_result {
-                    return ResidentMemorySource::from_completed_result(result, &cancellation);
+                    return Ok(NativeSource {
+                        source: ResidentMemorySource::from_completed_result(result, &cancellation)?,
+                        _controller: controller.clone(),
+                    });
                 }
                 let mut builder = MemoryBatchSourceBuilder::new(session, cancellation.clone())?;
                 let imported = Python::attach(|py| {
@@ -287,12 +281,9 @@ impl NativeSession {
                     builder.push_arrow(RecordBatch::new_empty(schema))?;
                 }
                 cancellation.check()?;
-                builder.finish()
+                Ok(NativeSource { source: builder.finish()?, _controller: controller.clone() })
             });
-            match source {
-                Ok(source) => Ok(NativeSource { source, _controller: controller }),
-                Err(error) => Err(python_error.unwrap_or_else(|| native_error(error))),
-            }
+            source.map_err(|failure| failure.into_python(|error| python_error.unwrap_or_else(|| native_error(error))))
         })
     }
 
@@ -310,24 +301,21 @@ impl NativeSession {
     ) -> PyResult<NativeSource> {
         let cancellation = self.owner.begin_operation(timeout)?;
         let resources = self.owner.resources(resources).map_err(native_error)?;
-        let controller = py
-            .detach(|| {
-                self.owner
-                    .runtime
-                    .controller(resources, &cancellation)
-                    .cloned()
-            })
-            .map_err(native_error)?;
         py.detach(move || {
-            let source = controller
-                .with_resources(resources, &cancellation, |session, _| {
-                    ResidentMemorySource::from_int64_range(session, &name, start, step, rows)
-                })
-                .map_err(native_error)?;
-            Ok(NativeSource {
-                source,
-                _controller: controller,
-            })
+            super::failure::with_resources(
+                &self.owner.runtime,
+                resources,
+                &cancellation,
+                |session, _, controller| {
+                    Ok(NativeSource {
+                        source: ResidentMemorySource::from_int64_range(
+                            session, &name, start, step, rows,
+                        )?,
+                        _controller: controller.clone(),
+                    })
+                },
+            )
+            .map_err(|failure| failure.into_python(native_error))
         })
     }
 
@@ -344,37 +332,33 @@ impl NativeSession {
     ) -> PyResult<NativeSource> {
         let cancellation = self.owner.begin_operation(timeout)?;
         let resources = self.owner.resources(resources).map_err(native_error)?;
-        let controller = py
-            .detach(|| {
-                self.owner
-                    .runtime
-                    .controller(resources, &cancellation)
-                    .cloned()
-            })
-            .map_err(native_error)?;
         py.detach(move || {
             let mut python_error = None;
-            let source = controller.with_resources(resources, &cancellation, |session, _| {
-                let mut builder = MemoryBatchSourceBuilder::new(session, cancellation.clone())?;
-                let converted = super::object_input::import_rows(
-                    &rows,
-                    fields.as_deref(),
-                    &mut builder,
-                    &cancellation,
-                );
-                if let Err(error) = converted {
-                    python_error = Some(error);
-                    return Err(failed("Python object input conversion failed"));
-                }
-                builder.finish()
-            });
-            match source {
-                Ok(source) => Ok(NativeSource {
-                    source,
-                    _controller: controller,
-                }),
-                Err(error) => Err(python_error.unwrap_or_else(|| native_error(error))),
-            }
+            let source = super::failure::with_resources(
+                &self.owner.runtime,
+                resources,
+                &cancellation,
+                |session, _, controller| {
+                    let mut builder = MemoryBatchSourceBuilder::new(session, cancellation.clone())?;
+                    let converted = super::object_input::import_rows(
+                        &rows,
+                        fields.as_deref(),
+                        &mut builder,
+                        &cancellation,
+                    );
+                    if let Err(error) = converted {
+                        python_error = Some(error);
+                        return Err(failed("Python object input conversion failed"));
+                    }
+                    Ok(NativeSource {
+                        source: builder.finish()?,
+                        _controller: controller.clone(),
+                    })
+                },
+            );
+            source.map_err(|failure| {
+                failure.into_python(|error| python_error.unwrap_or_else(|| native_error(error)))
+            })
         })
     }
 

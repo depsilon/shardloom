@@ -75,10 +75,17 @@ impl Drop for AdmittedOutput {
     }
 }
 
-fn append_admitted_observation(fields: &mut Vec<(String, String)>) {
+fn append_admitted_observation(fields: &mut Vec<(String, String)>, diagnostics: &[Diagnostic]) {
     ADMITTED_OUTPUT.with_borrow(|observations| {
         let Some(observation) = observations.last() else { return; };
         crate::execution_resources::append_declaration_fields(fields, observation.resources);
+        // A command's parsing/workspace owner cannot certify a native provider
+        // that explicitly refused admission because its owner is unavailable.
+        if diagnostics.iter().any(|diagnostic| {
+            diagnostic.feature.as_deref() == Some("native_vortex_resource_admission")
+        }) {
+            return;
+        }
         let mut observed = Vec::new();
         #[cfg(all(feature = "vortex-local-primitives", unix))]
         if let Some(native) = &observation.native {
@@ -203,7 +210,7 @@ fn envelope_from_fields(
     diagnostics: Vec<Diagnostic>,
     mut fields: Vec<(String, String)>,
 ) -> OutputEnvelope {
-    append_admitted_observation(&mut fields);
+    append_admitted_observation(&mut fields, &diagnostics);
     let envelope = base_envelope_from_fields(command, status, summary, text, diagnostics);
     apply_typed_envelope_fields(envelope, command, fields)
 }
@@ -237,9 +244,9 @@ pub(crate) fn emit_error_with_fields(
     error: &ShardLoomError,
     mut fields: Vec<(String, String)>,
 ) -> ExitCode {
-    append_admitted_observation(&mut fields);
     let envelope = OutputEnvelope::from_error(command, summary, error)
         .with_lifecycle_field("command_family", classify_command(command).as_str());
+    append_admitted_observation(&mut fields, &envelope.diagnostics);
     let envelope = apply_typed_envelope_fields(envelope, command, fields);
     match format {
         OutputFormat::Text => write_output_line(PendingLine::Stderr {
@@ -289,6 +296,65 @@ mod tests {
     use std::cell::Cell;
 
     use shardloom_core::{CommandStatus, OutputFormat, ShardLoomError};
+
+    #[test]
+    fn native_admission_refusal_does_not_borrow_enclosing_command_observations() {
+        use shardloom_core::{
+            Diagnostic, DiagnosticCode, ExecutionResourceOrigin, ExecutionResources,
+        };
+
+        let resources =
+            ExecutionResources::from_bytes(1024, 1, ExecutionResourceOrigin::ExecutionCall)
+                .unwrap();
+        let memory = shardloom_exec::live_memory::LiveMemoryPool::new(1024).unwrap();
+        let _workspace = memory.reserve(32).unwrap();
+        let _admitted = super::AdmittedOutput::new(
+            resources,
+            &memory,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            None,
+        );
+        let refusal = Diagnostic::unsupported(
+            DiagnosticCode::NotImplemented,
+            "native_vortex_resource_admission",
+            "native provider has no supported resource owner",
+            None,
+        );
+        let refused = super::envelope_from_fields(
+            "vortex-run",
+            CommandStatus::Unsupported,
+            "refused".into(),
+            "refused".into(),
+            vec![refusal],
+            Vec::new(),
+        );
+        let refused: serde_json::Value = serde_json::from_str(&refused.to_json()).unwrap();
+        let fields = refused["fields"].as_array().unwrap();
+        for (key, value) in [
+            ("declared_memory_bytes", "1024"),
+            ("admission_status", "not_observed"),
+            ("admitted_memory_bytes", "unavailable"),
+            ("admitted_max_parallelism", "unavailable"),
+            ("observed_native_reserved_bytes", "unavailable"),
+            ("observed_native_peak_reserved_bytes", "unavailable"),
+        ] {
+            assert!(
+                fields.iter().any(|field| {
+                    field["key"] == format!("execution_resource_{key}") && field["value"] == value
+                }),
+                "{key}: {refused}"
+            );
+        }
+        let mut ordinary = Vec::new();
+        super::append_admitted_observation(&mut ordinary, &[]);
+        for (key, value) in [
+            ("admission_status", "admitted"),
+            ("admitted_memory_bytes", "1024"),
+            ("observed_native_reserved_bytes", "32"),
+        ] {
+            assert!(ordinary.contains(&(format!("execution_resource_{key}"), value.into())));
+        }
+    }
 
     #[test]
     fn generation_failure_discards_every_response_style() {

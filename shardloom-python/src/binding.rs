@@ -6,6 +6,8 @@ mod batch_input;
 mod capsules;
 #[path = "expression.rs"]
 mod expression;
+#[path = "failure.rs"]
+mod failure;
 #[path = "object_input.rs"]
 mod object_input;
 #[path = "plan.rs"]

@@ -1,0 +1,67 @@
+{
+  "schema_version": "shardloom.native_python_correction_verification.v1",
+  "status": "passed",
+  "archive_sha256": "1324469b592c5afcbe88f9edb6226a49e5fd618a479c385d6edee18a12d89e8e",
+  "verified_members": 58,
+  "native_test_methods": 69,
+  "source_manifest_sha256": "8e505314623bb9c711a2f7a00daacadc855951703faa5382b29808ce27465e91",
+  "checks": [
+    {
+      "name": "user-surface-index",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "scripts/check_user_surface_reference.py"
+      ],
+      "returncode": 0,
+      "seconds": 0.020333874970674515,
+      "stdout": "{\n  \"blockers\": [],\n  \"checked_files\": [\n    \"docs/reference/shardloom-user-surface-index.md\",\n    \"docs/reference/shardloom-user-surface-index.json\",\n    \"shardloom-cli/src/command_registry.rs\",\n    \"README.md\",\n    \"python/README.md\",\n    \"docs/architecture/agent-contract-pack.md\",\n    \"docs/architecture/v1-front-door-runtime-scope.md\",\n    \"docs/skills/developer-agent-experience.md\"\n  ],\n  \"external_engine_invoked\": false,\n  \"fallback_attempted\": false,\n  \"registered_command_count\": 203,\n  \"schema_version\": \"shardloom.user_surface_index_gate.v1\",\n  \"status\": \"passed\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "name": "public-status",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "scripts/check_public_status_docs.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-correction-public-status-305.json"
+      ],
+      "returncode": 0,
+      "seconds": 0.23535412503406405,
+      "stdout": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-correction-public-status-305.json\n",
+      "stderr": ""
+    },
+    {
+      "name": "use-case-backlinks",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "scripts/check_use_case_backlinks.py"
+      ],
+      "returncode": 0,
+      "seconds": 0.07515883300220594,
+      "stdout": "use-case backlinks ok\n",
+      "stderr": ""
+    },
+    {
+      "name": "diff",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0,
+      "seconds": 0.014048042008653283,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "docs_sha256": {
+    "docs/architecture/native-python-surface-2026-10-10.md": "25dd902fd0c04fcd6132a4e157ce5c8a657d02acac6fc4bdee377e6c30b223f1",
+    "docs/architecture/required-execution-resources-2026-10-10.md": "b3aff9a6b10cd091cc951b2e14d9d440257760f344d16c7e38b30be3f512a2d8",
+    "docs/benchmarks/native-python-surface-2026-10-11.md": "a930eaff35d4da74977339a348a51109c35c7292d32e0f47b5d28f5137a581b8"
+  },
+  "claim_scope": "local corrected source and packet verification; hosted Windows and installed native release wheel remain required",
+  "source_unchanged": true
+}

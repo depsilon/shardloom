@@ -128,6 +128,23 @@ pub fn execution_fields(
     fields
 }
 
+/// Shared resource evidence for an operation that failed. An observed snapshot
+/// must be captured while that operation still holds its admission guard. A
+/// declaration without a snapshot does not claim admission or reuse another
+/// operation's memory observations. No result values or provider work are read.
+#[must_use]
+pub fn failure_resource_fields(
+    resources: ExecutionResources,
+    admitted: Option<&shardloom_vortex::resident_session::ResidentSessionSnapshot>,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    crate::execution_resources::append_declaration_fields(&mut fields, resources);
+    if let Some(snapshot) = admitted {
+        crate::execution_resources::append_resident_snapshot_fields(&mut fields, snapshot);
+    }
+    fields
+}
+
 /// Resolve the existing public local writer format vocabulary without executing
 /// a query or inspecting a destination.
 /// # Errors

@@ -7812,6 +7812,7 @@ jobs:
                             {"Primitive": ["i64", False]}, {"Utf8": False}, {"Primitive": ["i64", False]},
                         ]}, False]}
                         output_rows = [{"id": 1, "label": "alpha", "batch_id": 1}]
+                        generated_session_source_opens = 1
                         emit("run", [
                             {"key": "result_schema_json", "value": json.dumps(output_schema)},
                             {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
@@ -7821,7 +7822,7 @@ jobs:
                             {"key": "native_vortex_result_export_rows_written", "value": "1"},
                             {"key": "native_vortex_result_export_all_targets_committed", "value": "true"},
                             {"key": "public_workflow_native_vortex_plan_route_family", "value": "native_vortex_unified_plan"},
-                            {"key": "resident_source_opens", "value": "0"},
+                            {"key": "resident_source_opens", "value": str(generated_session_source_opens)},
                             {"key": "output_row_count", "value": "1"},
                             {"key": "output_io_performed", "value": "true"},
                             {"key": "runtime_execution", "value": "true"},
@@ -7960,7 +7961,8 @@ jobs:
                 ('"public_workflow_native_vortex_plan_route_family"', '"missing_plan_family"'),
                 ('"native_vortex_unified_plan"', '"unadmitted_plan_family"'),
                 ('"resident_source_opens", "value": "1"', '"resident_source_opens", "value": "2"'),
-                ('"resident_source_opens", "value": "0"', '"resident_source_opens", "value": "1"'),
+                ("generated_session_source_opens = 1", "generated_session_source_opens = 0"),
+                ("generated_session_source_opens = 1", "generated_session_source_opens = 2"),
             ):
                 with self.subTest(missing_or_invalid_evidence=original):
                     self.assertIn(original, original_cli)

@@ -97,7 +97,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     generated_native_plan_family = generated.envelope.field(
         "public_workflow_native_vortex_plan_route_family"
     )
-    generated_source_opens = generated.envelope.field_int("resident_source_opens")
+    generated_session_source_opens = generated.envelope.field_int("resident_source_opens")
+    # Both operations retain the same native runtime. Its opening counter is
+    # cumulative, so memory input must add zero file opens after the CSV read.
+    generated_source_opens = (
+        generated_session_source_opens - local_file_source_opens
+        if generated_session_source_opens is not None and local_file_source_opens is not None
+        else None
+    )
     local_file_route_passed = (
         local_file_blocker_id is None
         and local_file_runtime_execution
