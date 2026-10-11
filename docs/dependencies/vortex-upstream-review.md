@@ -1,5 +1,27 @@
 # Vortex Upstream Dependency Review
 
+## October 11, 2026 full-domain timestamp provider review
+
+The timestamp follow-up reviews an Apache-2.0 patch of the published
+`vortex-array` 0.85.0 archive, SHA-256
+`e9cf8cf4f7f2fe72b14866ead164a6366933545289fd8f9cf9ce53c47f094393`.
+The normalized manifest declares Apache-2.0, the source retains Vortex copyright
+headers, and the [upstream license at its recorded VCS revision](https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE)
+matches SHA-256 `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`.
+Its dirty VCS marker makes the registry archive authoritative. Retain its original
+member hashes and `Cargo.toml.orig`; the crate-local lockfile is recorded but
+excluded because workspace resolution owns the dependency graph.
+
+The patch keeps the existing timestamp extension identity, Int64 storage,
+metadata format and native provider APIs. It admits timezone-free microsecond
+scalars over their full storage domain and formats values outside the calendar
+as exact epoch microseconds. Other units, timezone policy and storage validation
+retain their existing boundaries. The crate remains optional behind existing
+Vortex features; no query engine, compatibility intermediate or dependency
+upgrade is introduced. The [implementation contract](../architecture/native-timestamp-provider-2026-10-11.md)
+requires endpoint, statistics, compression, pruning, resource and complete-workflow
+proof before acceptance. This entry records reviewed intake, not completed proof.
+
 ## October 7, 2026 FSST admission correction
 
 The input-completion integration retains Vortex 0.85.0 and `fsst-rs` 0.6.0.
