@@ -508,21 +508,25 @@ pub(crate) fn handle_local_table_metadata_read_smoke(
         Err(code) => return code,
     };
     if let Some(extra) = args.next() {
-        return emit_error(
+        return crate::fixture_io::emit_fixed_fixture_error(
             "local-table-metadata-read-smoke",
             format,
             "local table metadata read smoke failed",
             &cli_unknown_arg_error("local-table-metadata-read-smoke", &extra),
+            resources,
+            &pool,
         );
     }
     let report = match run_local_table_metadata_read_smoke() {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::fixture_io::emit_fixed_fixture_error(
                 "local-table-metadata-read-smoke",
                 format,
                 "local table metadata read smoke failed",
                 &error,
+                resources,
+                &pool,
             );
         }
     };
@@ -808,21 +812,25 @@ pub(crate) fn handle_local_delete_tombstone_read_smoke(
         Err(code) => return code,
     };
     if let Some(extra) = args.next() {
-        return emit_error(
+        return crate::fixture_io::emit_fixed_fixture_error(
             "local-delete-tombstone-read-smoke",
             format,
             "local delete/tombstone read smoke failed",
             &cli_unknown_arg_error("local-delete-tombstone-read-smoke", &extra),
+            resources,
+            &pool,
         );
     }
     let report = match run_local_delete_tombstone_read_smoke() {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::fixture_io::emit_fixed_fixture_error(
                 "local-delete-tombstone-read-smoke",
                 format,
                 "local delete/tombstone read smoke failed",
                 &error,
+                resources,
+                &pool,
             );
         }
     };
@@ -887,21 +895,25 @@ pub(crate) fn handle_local_append_only_cdc_overlay_smoke(
         Err(code) => return code,
     };
     if let Some(extra) = args.next() {
-        return emit_error(
+        return crate::fixture_io::emit_fixed_fixture_error(
             "local-append-only-cdc-overlay-smoke",
             format,
             "local append-only CDC overlay smoke failed",
             &cli_unknown_arg_error("local-append-only-cdc-overlay-smoke", &extra),
+            resources,
+            &pool,
         );
     }
     let report = match run_local_append_only_cdc_overlay_smoke() {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::fixture_io::emit_fixed_fixture_error(
                 "local-append-only-cdc-overlay-smoke",
                 format,
                 "local append-only CDC overlay smoke failed",
                 &error,
+                resources,
+                &pool,
             );
         }
     };

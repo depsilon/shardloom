@@ -144,6 +144,154 @@ fn executing_text_and_fixed_fixtures_refuse_tiny_grants_and_report_owned_workspa
 }
 
 #[test]
+fn admitted_fixture_parse_and_runtime_errors_retain_live_workspace_evidence() {
+    let commands: &[&[&str]] = &[
+        &["live-fixture-run", "unknown"],
+        &["live-fixture-run", "count", "unexpected"],
+        &["live-fixture-run", "count", "unexpected", "extra"],
+        &["live-fixture-run", "filter", "not-a-predicate"],
+        &["hybrid-overlay-run", "unknown"],
+        &["hybrid-overlay-run", "count", "unexpected"],
+        &["hybrid-overlay-run", "count", "unexpected", "extra"],
+        &["hybrid-overlay-run", "filter", "not-a-predicate"],
+        &["live-hybrid-state-transition-smoke", "extra"],
+        &["distributed-local-fixture-run", "many"],
+        &["distributed-local-fixture-run", "0"],
+        &["distributed-local-fixture-run", "2", "unknown"],
+        &["distributed-local-fixture-run", "2", "none", "extra"],
+        &["local-table-metadata-read-smoke", "extra"],
+        &["local-delete-tombstone-read-smoke", "extra"],
+        &["local-append-only-cdc-overlay-smoke", "extra"],
+    ];
+    for command in commands {
+        let (success, text) = run(&[
+            *command,
+            &["--memory-bytes", "8388608", "--max-parallelism", "3"],
+        ]
+        .concat());
+        assert!(!success, "{command:?}: {text}");
+        // One complete envelope, with the lease still alive during emission.
+        let report: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(report["diagnostics"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            field(&report, "execution_resource_declared_memory_bytes"),
+            "8388608"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_admitted_memory_bytes"),
+            "8388608"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_declared_max_parallelism"),
+            "3"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_admitted_max_parallelism"),
+            "1"
+        );
+        let live = field(&report, "execution_resource_observed_native_reserved_bytes")
+            .parse::<u64>()
+            .unwrap();
+        let peak = field(
+            &report,
+            "execution_resource_observed_native_peak_reserved_bytes",
+        )
+        .parse::<u64>()
+        .unwrap();
+        assert!(
+            live > 0 && live <= peak && peak <= 8_388_608,
+            "{command:?}: {text}"
+        );
+        assert_eq!(field(&report, "fixture_io_denied_reservations"), "0");
+        assert!(
+            field(&report, "execution_resource_memory_observation_scope")
+                .contains("conservative_reservation_not_measured_heap")
+        );
+        assert_eq!(
+            field(
+                &report,
+                "execution_resource_whole_process_memory_limit_enforced"
+            ),
+            "false"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_observed_spill_io_performed"),
+            "false"
+        );
+        assert_eq!(report["fallback"]["attempted"], false);
+    }
+}
+
+#[test]
+fn admitted_spill_constructor_errors_report_zero_io_without_creating_a_workspace() {
+    let directory = TestDirectory::new();
+    let target = directory.0.join("not-created");
+    let commands: &[&[&str]] = &[
+        &["spill-payload-roundtrip", "", "payload-1", "hello"],
+        &[
+            "spill-payload-roundtrip",
+            target.to_str().unwrap(),
+            "../bad",
+            "hello",
+        ],
+        &[
+            "spill-payload-roundtrip",
+            target.to_str().unwrap(),
+            "payload-1",
+            "",
+        ],
+    ];
+    for command in commands {
+        let (success, text) = run(&[
+            *command,
+            &["--memory-bytes", "8388608", "--max-parallelism", "2"],
+        ]
+        .concat());
+        assert!(!success, "{command:?}: {text}");
+        let report: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(report["diagnostics"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            field(&report, "execution_resource_declared_memory_bytes"),
+            "8388608"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_admitted_memory_bytes"),
+            "8388608"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_admitted_max_parallelism"),
+            "1"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_observed_native_reserved_bytes"),
+            "0"
+        );
+        assert_eq!(
+            field(
+                &report,
+                "execution_resource_observed_native_peak_reserved_bytes"
+            ),
+            "0"
+        );
+        assert_eq!(field(&report, "fixture_io_denied_reservations"), "0");
+        assert_eq!(
+            field(&report, "execution_resource_observed_spill_io_performed"),
+            "false"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_observed_spill_bytes"),
+            "0"
+        );
+        assert_eq!(
+            field(&report, "execution_resource_spill_observation_scope"),
+            "synthetic_payload_only;query_spill_not_implied"
+        );
+        assert_eq!(report["fallback"]["attempted"], false);
+        assert!(!target.exists());
+    }
+}
+
+#[test]
 fn synthetic_spill_admission_precedes_creation_and_reports_its_actual_scope() {
     let directory = TestDirectory::new();
     let target = directory.0.join("spill-workspace");

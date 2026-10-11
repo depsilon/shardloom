@@ -1,0 +1,331 @@
+{
+  "schema_version": "shardloom.required_resources_generated_manifest_inspection.v1",
+  "status": "passed",
+  "report": {
+    "ancestor_packet": {
+      "path": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/required-execution-resources-fixture-errors-2026-10-11.json",
+      "sha256": "04d282bc7b1444f1c7e6eacbd748ba1d141aa44d264384598e40f71a65640da7",
+      "source_identity_sha256": "a49aaaaaea932f2da6fed45298d79c99c0d4cebee3a5b98a3941e46da564c56c"
+    },
+    "changed_file_hashes": {
+      "docs/architecture/phased-execution-plan.md": {
+        "after_sha256": "aaa3634a635d1fb9b708e2fd31aa8f2e4b4b946cd2ed087f2a28e3a30ef47779",
+        "before_sha256": "446c500af373ad6ed151322d0eff739d462820059b4e3157c75aef05c32e89a1"
+      },
+      "docs/architecture/required-execution-resources-2026-10-10.md": {
+        "after_sha256": "acba23986c7aca0478c11a6bdc8c5236f46fe1818f62696f50a9c44470b796a1",
+        "before_sha256": "8bd6bd7f9ce2dade6e639ccfad5929b7986d34f287919f810a1ea46c70c003d8"
+      },
+      "docs/benchmarks/required-execution-resources-2026-10-10.md": {
+        "after_sha256": "e57ab53a93b25ed55deaffc3f33655af81179c7b6a49aedf060206be1e0b14c9",
+        "before_sha256": "dc70e0846623c78e3c4c87f88f73c70f3aa036f028095b34c510843464ef0533"
+      },
+      "shardloom-cli/src/fixture_io.rs": {
+        "after_sha256": "297c3ab6fb9f278d04940b5d1d8e1ab4d6233116f348056872887752a2c3fe6f",
+        "before_sha256": "c2e67d7e0909b0763ed13e97ebc31d726cc53b13febcd4d1120c0e5ae6ee0bae"
+      },
+      "shardloom-cli/src/object_store_runtime.rs": {
+        "after_sha256": "0c298ea177764e7b3a7a91f52e8dd205c2f969b6ff1335581095e283f32f53cc",
+        "before_sha256": "37291ea36c6bdfdeaaedf8cc999536dad751e095334a6c554d701c741c8a58a2"
+      },
+      "shardloom-cli/src/sqlite_local_runtime.rs": {
+        "after_sha256": "a8f2446166aa49894388376b588caaf0c4ee3cdd6848af0ebf58c6170c99476f",
+        "before_sha256": "466fed4b5a88b3a0359e1957d353f156d438cf3aa9cacffb1d235b0bab4b09d1"
+      },
+      "shardloom-cli/src/table_lakehouse_runtime.rs": {
+        "after_sha256": "e67a7fb32cd10a4ebadf6986a52eee7ea90579172f404defe693e68d818edc78",
+        "before_sha256": "7f2ceeb77e3cb732e5a0083b9906061237da817bfe570a4c198b1c0602c5309b"
+      },
+      "shardloom-exec/src/live_memory.rs": {
+        "after_sha256": "9fefb045a98c72e8f3c6ad54da772b70061873bf20462048808609986d5f2200",
+        "before_sha256": "ec0bedd43c74c61e4fe6b05d38922a6c4b143aeaa010ad281bbf7be99d761a9a"
+      }
+    },
+    "documentation_hashes": {
+      "docs/architecture/phased-execution-plan.md": "aaa3634a635d1fb9b708e2fd31aa8f2e4b4b946cd2ed087f2a28e3a30ef47779",
+      "docs/architecture/required-execution-resources-2026-10-10.md": "acba23986c7aca0478c11a6bdc8c5236f46fe1818f62696f50a9c44470b796a1",
+      "docs/benchmarks/required-execution-resources-2026-10-10.md": "e57ab53a93b25ed55deaffc3f33655af81179c7b6a49aedf060206be1e0b14c9"
+    },
+    "documentation_patch_match": true,
+    "failed_finalizer": {
+      "log_sha256": "968693b54e35ef9e5f3c3729de2cf06f307a4891a5879808a97d734858de5128",
+      "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/generated-manifest-evidence-finalize-281.json",
+      "receipt_sha256": "af44ceb20953934458ca77f329bff40cccbb50c6243e6f4a79c5d676cdd39aa5",
+      "source_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/finalize_generated_manifest_evidence_281_failed.py",
+      "source_sha256": "538ba2d005588e649ea3ce033d5ff2d7a1252cea2bddfa600e99085a961fa79e"
+    },
+    "failures": [],
+    "focused_receipts": {
+      "generated-manifest-focused-280": {
+        "log_sha256": "149dd73400943f989fe40a3eeb915c39c847d67d740e3fa7a00ed4a63ba8bb7a",
+        "receipt_sha256": "016a4959c69905e1f6117c69a9e4076717f0dfca21da12023bb35ec50784d64b",
+        "status": "failed"
+      },
+      "generated-manifest-focused-280b": {
+        "log_sha256": "781acf2f7560124d03e6a57f0281eb8b4f38251251577c37870a997045c2e029",
+        "receipt_sha256": "ea949fdaf2b02f439b9ca9a4545da582a959e28f0f8cbc20e97db9113c007a7d",
+        "status": "failed"
+      },
+      "generated-manifest-focused-280c": {
+        "log_sha256": "fadfd87b38cadf6f3595708e3c35717ca4252dbedba8c5f344afcef2d68c88d0",
+        "receipt_sha256": "d5c44f4b7535c76f5952e95d3451e26ba048b051441d5f9588df6bbceb82cbf2",
+        "status": "passed"
+      },
+      "generated-manifest-helper-280": {
+        "log_sha256": "c302f6542a687cbc2e6b74b86bf90366c3ce974a3db4c4caddbdefed44b3c52f",
+        "receipt_sha256": "cf874c59db6cc48f62656a111edf9b4c6471a426ea2d06e1a86cc5e1fd38d871",
+        "status": "passed"
+      }
+    },
+    "fresh_gate_count": 14,
+    "fresh_gate_receipts": {
+      "all-features": {
+        "log_sha256": "1acc2e392425199e19ecf4f4b8d2215d020a2e64b5505c117e63fca85e008c8c",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-all-features-26.json",
+        "receipt_sha256": "b756cad513c3dc19f987e947ba34dc6216238e62cd7c67d07be02be6917a7e2c",
+        "rust_test_totals": null
+      },
+      "default-clippy": {
+        "log_sha256": "b488efaafe4e8a269b528b98dd4a3c8621dc123e617a68a9b3e7d055d4dd11df",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-default-clippy-26.json",
+        "receipt_sha256": "390fef5d468177c4a51a689813d5de293ede54179302241f7cbef71d80658e20",
+        "rust_test_totals": null
+      },
+      "default-tests": {
+        "log_sha256": "2cfe3aa100e1a11ec22b5d8fe8c15d79093b06eed634f1798bf7c94d31819c4b",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-default-tests-26.json",
+        "receipt_sha256": "d266928f1e4ac83489d7b3e055b77829bcdae320042efbb70ec1734838eb2eb8",
+        "rust_test_totals": {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3201
+        }
+      },
+      "diff": {
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-diff-26.json",
+        "receipt_sha256": "83fb54273cb077126384ceb5a409359b7fc65cca679c50be7ed2b19878c81388",
+        "rust_test_totals": null
+      },
+      "fmt": {
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-fmt-26.json",
+        "receipt_sha256": "5c29116e43162fa4d09b60e33ce7d2081fdfd2065fc8a4314fc2ff8ba545a4c4",
+        "rust_test_totals": null
+      },
+      "lean-workspace": {
+        "log_sha256": "1d401cc05fe9db7414001cd84877628d329004a954e9e8bbae93267fc363b760",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-lean-workspace-26.json",
+        "receipt_sha256": "e17827aab8dcf736acffc47096fd42ca66bda7c4babd0ac575a06fbe0b972f61",
+        "rust_test_totals": null
+      },
+      "msrv-lean": {
+        "log_sha256": "9020c4cb5df1efb1ac0bfb4b91d8ec5705d9d1432e230d0d0cfc58a739701d70",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-msrv-lean-26.json",
+        "receipt_sha256": "b4bc0289dcdd315f64ccf596db463a1a47c24fbfb78a2875c0efa46b72b3cdea",
+        "rust_test_totals": null
+      },
+      "msrv-native": {
+        "log_sha256": "bb09965a1bc19c7ad596517d29e1b095ef7ff3627e614ede1d6dec9f8f2c81f9",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-msrv-native-26.json",
+        "receipt_sha256": "17f204076a68a8ea90641fae0c9097f5d06e8b50c7dbef677f9b82d79469ae2e",
+        "rust_test_totals": null
+      },
+      "native-cli-tests": {
+        "log_sha256": "54114e2d5a428f5746dcdf8e4060de96c031f0f80631760479bc07b758cb0089",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-native-cli-tests-26.json",
+        "receipt_sha256": "7754300818cc09a3b834ff76f74ae8aa6ab006fd2081ee1784423212f4b2c273",
+        "rust_test_totals": {
+          "failed": 0,
+          "ignored": 3,
+          "passed": 1372
+        }
+      },
+      "native-clippy": {
+        "log_sha256": "1f2f9ac7d3ef235ae682fcef5f47eff02a0b23aeff65d5e7fbe88adf70248002",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-native-clippy-26.json",
+        "receipt_sha256": "d12df515651494db5d7af465836c56428ddcd112d0e1a55e7f416fe4fe25e0e6",
+        "rust_test_totals": null
+      },
+      "native-without-write": {
+        "log_sha256": "82538a0f8bc773f932983a08b2e00bf468ea2789326661190b941071c07a17b2",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-native-without-write-26.json",
+        "receipt_sha256": "894dc89b30375fef047cc7f9ee4265800d2c2a821676d5b3377cd6d2dc5ba064",
+        "rust_test_totals": null
+      },
+      "native-write-only": {
+        "log_sha256": "5335211d09dec0ebdd08990454e39f874a052aabd66c10bd179b4b5d714cf0b9",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-native-write-only-26.json",
+        "receipt_sha256": "d56fb143c2f33e3a6dcef8152bfa16e7960905325068905306dc62a27be41b16",
+        "rust_test_totals": null
+      },
+      "reduced-writer-clippy": {
+        "log_sha256": "0f1fde56929a1e86868144de856b48010001c67b029cb22a5cfecc9a1f37002b",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-reduced-writer-clippy-26.json",
+        "receipt_sha256": "8ea1dae550888b790727cec3928209a834e4f6dcb2b6e0a8eb09af09ebbff9a3",
+        "rust_test_totals": null
+      },
+      "reduced-writer-tests": {
+        "log_sha256": "2812e81f06be81f8ed26dcba37f1a9a00f88299d0c5867ce5f9868932d380319",
+        "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-engine-reduced-writer-tests-26.json",
+        "receipt_sha256": "b0f21f495f1d487b35c39fedb0ac9bc2174cc10b70b1b507d7637aa85ed15589",
+        "rust_test_totals": {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1135
+        }
+      }
+    },
+    "head": "45e911f4fa84e5afaa8bd35683b45faefc5fc178",
+    "index_path": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/required-execution-resources-2026-10-10.json",
+    "index_sha256": "42f0c5ab8368b42c992b0a00a3dd43accb90b5b2cebeeb0906adeda6e8fc85a8",
+    "new_regressions": [
+      "table_lakehouse_runtime::tests::generated_table_record_keeps_escaped_capacity_charged_through_write",
+      "object_store_runtime::tests::generated_object_manifest_reports_escaped_owned_capacity_and_recovers",
+      "table_lakehouse_runtime::tests::generated_table_record_denial_precedes_manifest_replacement",
+      "object_store_runtime::tests::generated_object_manifest_denial_restores_prior_objects_and_sidecars",
+      "fixture_io::tests::write_rejects_vec_and_string_capacity_beyond_their_leases",
+      "fixture_io::tests::write_rejects_foreign_payload_before_filesystem_effects",
+      "fixture_io::tests::write_staging_competes_with_retained_credit_and_static_text_is_unowned",
+      "fixture_io::tests::json_escaped_formats_into_text_and_releases_on_admission_failure"
+    ],
+    "packet_path": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/required-execution-resources-generated-manifests-2026-10-11.json",
+    "packet_sha256": "c54efb527919c4ca31802b3ed4094a790c613631fb722c2b9b3b7ebd1e83c201",
+    "preserved_artifact_count": 16,
+    "preserved_artifact_hashes": {
+      "docs/benchmarks/evidence/required-execution-resources-2026-10-10-inspection.json": "083e4efc4cd092cdce218a29657e4c78b23a20f1f9bd2b55c4392f9b4ae78754",
+      "docs/benchmarks/evidence/required-execution-resources-2026-10-10-inspector-review.json": "2e4f893962fb60ac4da4a75a01657a3f8a00dff7f5ce08a6bf2e1a352fc22aed",
+      "docs/benchmarks/evidence/required-execution-resources-2026-10-10-inspector.jq": "e74636756f6379ead5c34f13ad69febf25d8c492a6853e13df50210e9b26f178",
+      "docs/benchmarks/evidence/required-execution-resources-2026-10-10.json.xz": "f40cb7c3442242f1783a0e98f2963151880ab321e7a795f1c7ebe70133f2f389",
+      "docs/benchmarks/evidence/required-execution-resources-aggregate-policy-2026-10-10.json": "8b019916cb424ffe70ab3cf5b06d4dc5a625cfd2c0a540403be3d33bb4649d49",
+      "docs/benchmarks/evidence/required-execution-resources-composition-2026-10-10.json": "de631b4baca1fe55893810048ab2e913b77f730b824f07cc286e987d6e6a5a1b",
+      "docs/benchmarks/evidence/required-execution-resources-fixture-errors-2026-10-11-inspection.json": "f816e8b95a8b13d23a15110f10215cd6d28a1a708b64b2e850a6b9752741ea70",
+      "docs/benchmarks/evidence/required-execution-resources-fixture-errors-2026-10-11.json": "04d282bc7b1444f1c7e6eacbd748ba1d141aa44d264384598e40f71a65640da7",
+      "docs/benchmarks/evidence/required-execution-resources-fixture-io-2026-10-10.json": "9fbd82002f462186f4022bc578e066137c8e558bc15c6f91d9a493b875fab165",
+      "docs/benchmarks/evidence/required-execution-resources-non-unix-admission-2026-10-10.json": "191b1d11d06a385a3fbceeb42cad41fcd402d642e718ec4bafb63e0e8a01e1a0",
+      "docs/benchmarks/evidence/required-execution-resources-python-inheritance-2026-10-10.json": "4426f77581c79b561251e1ca7aceebf983a5bc9f5672701d788a88ceb3704eb2",
+      "docs/benchmarks/evidence/required-execution-resources-review-2026-10-10.json": "b109fd11a53fa95b45dc8a2e2c192ba7d2f70f893769680268f377d8b207465b",
+      "docs/benchmarks/evidence/required-execution-resources-shared-writers-2026-10-10.json": "be02d72260a7f5aaf4948274bfd092dba030f8db13ff75340a19c4949196dcb5",
+      "docs/benchmarks/evidence/required-execution-resources-support-2026-10-10.json": "bb199e05076f56965cdb28f063ea802acb6c697ea1d19e54fcec5dc761900e38",
+      "docs/benchmarks/evidence/required-execution-resources-synthetic-fixtures-2026-10-11-inspection.json": "f094d91ec0fc05f174ebe8357ac22eb6bbb55956e3f450a0f72142e831f05f37",
+      "docs/benchmarks/evidence/required-execution-resources-synthetic-fixtures-2026-10-11.json": "263b2408da3235dc370fb4e1d0efe2f865d22776c538a847d072245da240b9a1"
+    },
+    "regression_logs": {
+      "default-tests": {
+        "missing_names": [],
+        "passed_names": [
+          "table_lakehouse_runtime::tests::generated_table_record_keeps_escaped_capacity_charged_through_write",
+          "object_store_runtime::tests::generated_object_manifest_reports_escaped_owned_capacity_and_recovers",
+          "table_lakehouse_runtime::tests::generated_table_record_denial_precedes_manifest_replacement",
+          "object_store_runtime::tests::generated_object_manifest_denial_restores_prior_objects_and_sidecars",
+          "fixture_io::tests::write_rejects_vec_and_string_capacity_beyond_their_leases",
+          "fixture_io::tests::write_rejects_foreign_payload_before_filesystem_effects",
+          "fixture_io::tests::write_staging_competes_with_retained_credit_and_static_text_is_unowned",
+          "fixture_io::tests::json_escaped_formats_into_text_and_releases_on_admission_failure"
+        ]
+      },
+      "native-cli-tests": {
+        "missing_names": [],
+        "passed_names": [
+          "table_lakehouse_runtime::tests::generated_table_record_keeps_escaped_capacity_charged_through_write",
+          "object_store_runtime::tests::generated_object_manifest_reports_escaped_owned_capacity_and_recovers",
+          "table_lakehouse_runtime::tests::generated_table_record_denial_precedes_manifest_replacement",
+          "object_store_runtime::tests::generated_object_manifest_denial_restores_prior_objects_and_sidecars",
+          "fixture_io::tests::write_rejects_vec_and_string_capacity_beyond_their_leases",
+          "fixture_io::tests::write_rejects_foreign_payload_before_filesystem_effects",
+          "fixture_io::tests::write_staging_competes_with_retained_credit_and_static_text_is_unowned",
+          "fixture_io::tests::json_escaped_formats_into_text_and_releases_on_admission_failure"
+        ]
+      }
+    },
+    "runtime_changed_files": [
+      "shardloom-cli/src/fixture_io.rs",
+      "shardloom-cli/src/object_store_runtime.rs",
+      "shardloom-cli/src/sqlite_local_runtime.rs",
+      "shardloom-cli/src/table_lakehouse_runtime.rs",
+      "shardloom-exec/src/live_memory.rs"
+    ],
+    "source_count": 1042,
+    "source_differences_from_fixture_error_ancestor": [
+      "shardloom-cli/src/fixture_io.rs",
+      "shardloom-cli/src/object_store_runtime.rs",
+      "shardloom-cli/src/sqlite_local_runtime.rs",
+      "shardloom-cli/src/table_lakehouse_runtime.rs",
+      "shardloom-exec/src/live_memory.rs"
+    ],
+    "source_identity_sha256": "8b2264d2206004d879de0f28b2ad0a2997f7e387441f9cae35686d469500f5a9",
+    "source_patch_match": true,
+    "status": "passed",
+    "successful_finalizer": {
+      "log_sha256": "3eef2d7341a2f9de581b70f2129ea00b4548815748f880d1fd7e29eb548df0e9",
+      "receipt_path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/generated-manifest-evidence-finalize-281b.json",
+      "receipt_sha256": "a30c7a5720f5a7bd8d94e216379340b0bd04afda7fe3cb1d8a15a48ba96dc4e5"
+    },
+    "support_report_count": 14,
+    "support_reports": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_public_status_docs-15.json",
+        "sha256": "1da00f8e3c7f9dab59271b2a3ff3733869ee6896ce163d453a0bc5b83eaf474f"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_public_claim_language-15.json",
+        "sha256": "8220e5112a266020825478fe3cf8540fa5884708e8f12f2686079796a396455f"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_v1_docs_productization-15.json",
+        "sha256": "b5077ff2565440ef04854554e3e5a43125145f571180c8bdc57bc65b5f2fd2ca"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_v1_front_door_runtime_scope-15.json",
+        "sha256": "c26dfeeb60f9f4d1e691c9bfd0a71ce4bb35f67ea22f1d165f01a9b4edbb8fa9"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_v1_vortex_runtime_scope-15.json",
+        "sha256": "c8606c0c994a1cd82d7618f9aa13f1f3cc28f647691958c9046f36a04df4e702"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_v1_local_output_sink_scope-15.json",
+        "sha256": "3c6ce3d6a072732d79ac98091946f10eb87990dbcf8cd068391497a4edd33d27"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_user_surface_reference-15.json",
+        "sha256": "ede6c855e3a0afe431cbb7e52a1d81394321a74317b12787e509ee4c245fa90e"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_user_surface_graduation_matrix-15.json",
+        "sha256": "ff478a832d06767d3a406c69fec22a0c329885743e1cdaa30dfa88e228255023"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_v1_inclusion_scope-15.json",
+        "sha256": "40c8b1df7e0e4c3e9cc47e454ee3fb790924a12d465662d5476243d912b1464c"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_runtime_gap_family_burn_down-15.json",
+        "sha256": "0778324686452fca2eb9541b5acf340e33d184a88e7c14b321f7c99caa2c84fa"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_workflow_recipes-15.json",
+        "sha256": "b38d7317d7fb6b1addfb89d3015d8657e70af635b09a2ded8f88873ea253689d"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/resource-support-check_website_readiness-15.json",
+        "sha256": "d194a88af711b22e50bb090e56ecfa7b786c05de29f0e71dca15fb805edc7804"
+      },
+      {
+        "inline": true,
+        "name": "check_use_case_index"
+      },
+      {
+        "inline": true,
+        "name": "check_use_case_backlinks"
+      }
+    ]
+  },
+  "original_report_sha256": "35fdd05c973e099890d8d52ea92fcad7667042b5f363d3131fb540b7b4c8e540",
+  "inspector": {
+    "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/generated-manifest-independent-281.py",
+    "sha256": "cc1a2f1006e4eff34c45167972a0aeb3f621caad7b59fd8832575dd130c75d66",
+    "text": "#!/usr/bin/env python3\n\"\"\"Independent readback of the generated-manifest evidence packet.\"\"\"\nfrom __future__ import annotations\n\nimport hashlib\nimport json\nimport re\nimport subprocess\nfrom pathlib import Path\n\nROOT = Path('/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo')\nOUT = Path('/Users/dylan/LocalData/shardloom/required-execution-resources-20261010')\nPACKET = ROOT / 'docs/benchmarks/evidence/required-execution-resources-generated-manifests-2026-10-11.json'\nINDEX = ROOT / 'docs/benchmarks/evidence/required-execution-resources-2026-10-10.json'\nANCESTOR = ROOT / 'docs/benchmarks/evidence/required-execution-resources-fixture-errors-2026-10-11.json'\nHEAD = '45e911f4fa84e5afaa8bd35683b45faefc5fc178'\nREPORT = OUT / 'generated-manifest-independent-281-report.json'\nEXPECTED_RUNTIME = {\n    'shardloom-cli/src/fixture_io.rs',\n    'shardloom-cli/src/object_store_runtime.rs',\n    'shardloom-cli/src/sqlite_local_runtime.rs',\n    'shardloom-cli/src/table_lakehouse_runtime.rs',\n    'shardloom-exec/src/live_memory.rs',\n}\nEXPECTED_DOCS = {\n    'docs/architecture/phased-execution-plan.md',\n    'docs/architecture/required-execution-resources-2026-10-10.md',\n    'docs/benchmarks/required-execution-resources-2026-10-10.md',\n}\nGATES = {\n    'fmt', 'default-clippy', 'default-tests', 'native-without-write',\n    'native-write-only', 'reduced-writer-clippy', 'reduced-writer-tests',\n    'lean-workspace', 'all-features', 'msrv-lean', 'msrv-native',\n    'native-clippy', 'native-cli-tests', 'diff',\n}\nREGRESSIONS = [\n    'table_lakehouse_runtime::tests::generated_table_record_keeps_escaped_capacity_charged_through_write',\n    'object_store_runtime::tests::generated_object_manifest_reports_escaped_owned_capacity_and_recovers',\n    'table_lakehouse_runtime::tests::generated_table_record_denial_precedes_manifest_replacement',\n    'object_store_runtime::tests::generated_object_manifest_denial_restores_prior_objects_and_sidecars',\n    'fixture_io::tests::write_rejects_vec_and_string_capacity_beyond_their_leases',\n    'fixture_io::tests::write_rejects_foreign_payload_before_filesystem_effects',\n    'fixture_io::tests::write_staging_competes_with_retained_credit_and_static_text_is_unowned',\n    'fixture_io::tests::json_escaped_formats_into_text_and_releases_on_admission_failure',\n]\n\n\ndef sha(path: Path) -> str:\n    digest = hashlib.sha256()\n    with Path(path).open('rb') as stream:\n        for chunk in iter(lambda: stream.read(1024 * 1024), b''):\n            digest.update(chunk)\n    return digest.hexdigest()\n\n\ndef read(path: Path):\n    return json.loads(Path(path).read_text())\n\n\ndef git(*args: str) -> str:\n    return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()\n\n\ndef source_hashes() -> dict[str, str]:\n    names = git('ls-files', '--cached', '--others', '--exclude-standard', '-z').split('\\0')\n    result = {}\n    for name in sorted(set(names)):\n        path = ROOT / name\n        if name and path.is_file() and (\n            name.endswith(('.rs', '.py'))\n            or path.name in ('Cargo.toml', 'Cargo.lock')\n            or name.startswith('vendor/')\n        ):\n            result[name] = sha(path)\n    return result\n\n\ndef identity(sources: dict[str, str]) -> str:\n    return hashlib.sha256(json.dumps(sources, sort_keys=True).encode()).hexdigest()\n\n\ndef check(condition: bool, message: str, failures: list[str]) -> None:\n    if not condition:\n        failures.append(message)\n\n\ndef check_receipt(path: Path, expected_status: str, failures: list[str]) -> dict:\n    record = read(path)\n    check(record.get('head') == HEAD, f'wrong HEAD in {path.name}', failures)\n    check(record.get('status') == expected_status, f'wrong status in {path.name}', failures)\n    check((record.get('returncode') == 0) == (record.get('status') == 'passed'),\n          f'status/returncode mismatch in {path.name}', failures)\n    check(record.get('direct_child_reaped') is True, f'child not reaped in {path.name}', failures)\n    check(record.get('process_group_drained') is True, f'process group not drained in {path.name}', failures)\n    check(record.get('timed_out') is False, f'timeout in {path.name}', failures)\n    check(record.get('group_absence_unproved_at_cleanup') is False,\n          f'process cleanup uncertain in {path.name}', failures)\n    log_path = path.with_suffix('.log')\n    log_hash = sha(log_path)\n    check(record.get('log_sha256') == log_hash, f'log hash mismatch in {path.name}', failures)\n    return {'receipt': record, 'receipt_sha256': sha(path), 'log_path': str(log_path),\n            'log_sha256': log_hash, 'log_text': log_path.read_text()}\n\n\ndef check_embedded_record(item: dict, label: str, expected_status: str | None,\n                          failures: list[str]) -> dict:\n    path = Path(item['path'])\n    embedded = item.get('receipt', {})\n    status = embedded.get('status') if expected_status is None else expected_status\n    inspected = check_receipt(path, status, failures)\n    check(item.get('sha256') == inspected['receipt_sha256'], f'{label} receipt digest differs', failures)\n    check(embedded == inspected['receipt'], f'{label} embedded receipt differs from file', failures)\n    log = item.get('log', {})\n    check(log.get('sha256') == inspected['log_sha256'], f'{label} embedded log digest differs', failures)\n    check(log.get('text') == inspected['log_text'], f'{label} embedded log differs from file', failures)\n    return inspected\n\n\ndef main() -> int:\n    failures: list[str] = []\n    packet = read(PACKET)\n    packet_hash = sha(PACKET)\n    index = read(INDEX)\n    index_link = index.get('generated_manifest_review_correction', {})\n    check(git('rev-parse', 'HEAD') == HEAD, 'unexpected repository HEAD', failures)\n    check(packet.get('reviewed_head') == HEAD, 'packet reviewed_head differs', failures)\n    check(index_link.get('path') == PACKET.name, 'index packet path differs', failures)\n    check(index_link.get('sha256') == packet_hash, 'index packet digest differs', failures)\n    check(index_link.get('status') == packet.get('status'), 'index packet status differs', failures)\n    check(packet.get('review_comment_ids') == [4240506962], 'review comment identity differs', failures)\n\n    current_sources = source_hashes()\n    source_identity = identity(current_sources)\n    check(len(current_sources) == 1042, 'current source count is not 1,042', failures)\n    check(packet.get('source_count') == 1042, 'packet source count is not 1,042', failures)\n    check(packet.get('source_hashes') == current_sources, 'packet source map differs from current files', failures)\n    check(packet.get('source_identity_sha256') == source_identity, 'packet source identity differs', failures)\n    protocol = packet.get('protocol', {})\n    results = packet.get('results', {})\n    check(protocol.get('head') == HEAD and protocol.get('source_hashes') == current_sources,\n          'frozen protocol source identity differs', failures)\n    check(protocol.get('source_identity_sha256') == source_identity,\n          'frozen protocol source digest differs', failures)\n    check(set(protocol.get('commands', {})) == GATES, 'protocol does not contain exact 14 gates', failures)\n    check(results.get('status') == 'passed', 'final source results are not passed', failures)\n    check(results.get('protocol_sha256') == sha(OUT / 'resource-engine-26-protocol.json'),\n          'protocol file digest differs from results', failures)\n    checks = packet.get('checks', [])\n    result_checks = results.get('checks', [])\n    check(len(checks) == 14 and len(result_checks) == 14, 'final source receipt count is not 14', failures)\n    check({item.get('name') for item in checks} == GATES, 'packet gate names differ', failures)\n    check({item.get('name') for item in result_checks} == GATES, 'results gate names differ', failures)\n    check({item.get('name') for item in checks} == {item.get('name') for item in result_checks},\n          'packet and result gate sets differ', failures)\n    source_receipt_evidence = {}\n    for item in checks:\n        receipt_path = Path(item['path'])\n        inspected = check_receipt(receipt_path, 'passed', failures)\n        check(item.get('sha256') == inspected['receipt_sha256'],\n              f'receipt hash mismatch for gate {item.get(\"name\")}', failures)\n        check(item.get('receipt') == inspected['receipt'],\n              f'embedded receipt mismatch for gate {item.get(\"name\")}', failures)\n        log = item.get('log', {})\n        check(log.get('sha256') == inspected['log_sha256'],\n              f'embedded log hash mismatch for gate {item.get(\"name\")}', failures)\n        check(log.get('text') == inspected['log_text'],\n              f'embedded log differs for gate {item.get(\"name\")}', failures)\n        gate = item.get('name')\n        check(inspected['receipt'].get('command') == protocol.get('commands', {}).get(gate),\n              f'command mismatch for gate {gate}', failures)\n        result_row = next((row for row in result_checks if row.get('name') == gate), {})\n        check(result_row.get('receipt') == str(receipt_path), f'results receipt path mismatch for {gate}', failures)\n        check(result_row.get('receipt_sha256') == inspected['receipt_sha256'],\n              f'results receipt hash mismatch for {gate}', failures)\n        check(result_row.get('log_sha256') == inspected['log_sha256'],\n              f'results log hash mismatch for {gate}', failures)\n        totals = item.get('rust_test_totals')\n        if totals is not None:\n            rows = re.findall(r'test result: ok\\. (\\d+) passed; (\\d+) failed; (\\d+) ignored;',\n                              inspected['log_text'])\n            actual = {key: sum(int(row[i]) for row in rows)\n                      for i, key in enumerate(('passed', 'failed', 'ignored'))}\n            check(totals == actual, f'Rust test totals mismatch for {gate}', failures)\n            check(result_row.get('rust_test_totals') == actual, f'results totals mismatch for {gate}', failures)\n            check(actual['passed'] > 0 and actual['failed'] == 0,\n                  f'Rust tests did not pass for {gate}', failures)\n        source_receipt_evidence[gate] = {\n            'receipt_path': str(receipt_path),\n            'receipt_sha256': inspected['receipt_sha256'],\n            'log_sha256': inspected['log_sha256'],\n            'rust_test_totals': totals,\n        }\n\n    check(packet.get('verified_regressions') == [name.split('::')[-1] for name in REGRESSIONS],\n          'regression list differs from eight expected tests', failures)\n    check(packet.get('new_regression_count') == 8, 'regression count is not eight', failures)\n    regression_logs = {}\n    for gate in ('default-tests', 'native-cli-tests'):\n        text = next((item['log']['text'] for item in checks if item['name'] == gate), '')\n        missing = [name for name in REGRESSIONS if f'test {name} ... ok' not in text]\n        check(not missing, f'{gate} missing passing regressions: {missing}', failures)\n        regression_logs[gate] = {'passed_names': [name for name in REGRESSIONS if f'test {name} ... ok' in text],\n                                 'missing_names': missing}\n\n    focused = packet.get('focused_manifest_checks', {})\n    expected_focused = {\n        'generated-manifest-focused-280': 'failed',\n        'generated-manifest-focused-280b': 'failed',\n        'generated-manifest-focused-280c': 'passed',\n        'generated-manifest-helper-280': 'passed',\n    }\n    check(set(focused) == set(expected_focused), 'focused check set differs', failures)\n    focused_evidence = {}\n    for name, status in expected_focused.items():\n        item = focused.get(name, {})\n        inspected = check_embedded_record(item, name, status, failures)\n        focused_evidence[name] = {'status': status, 'receipt_sha256': inspected['receipt_sha256'],\n                                  'log_sha256': inspected['log_sha256']}\n    log_280 = focused['generated-manifest-focused-280']['log']['text']\n    check('no library targets found' in log_280 and 'running ' not in log_280,\n          'initial focused attempt did not preserve no-library/no-test explanation', failures)\n    check(re.findall(r'test result: ok\\. (\\d+) passed; (\\d+) failed; (\\d+) ignored;',\n                     focused['generated-manifest-focused-280c']['log']['text']) == [('5', '0', '0')],\n          'corrected focused test totals are not 5/0/0', failures)\n    check(re.findall(r'test result: ok\\. (\\d+) passed; (\\d+) failed; (\\d+) ignored;',\n                     focused['generated-manifest-helper-280']['log']['text']) == [('8', '0', '0')],\n          'fixture_io helper test totals are not 8/0/0', failures)\n    retry_log = focused['generated-manifest-focused-280b']['log']['text']\n    check(re.findall(r'test result: FAILED\\. (\\d+) passed; (\\d+) failed; (\\d+) ignored;',\n                     retry_log) == [('3', '2', '0')],\n          'preserved failed retry does not show 3 passed / 2 assertion failures', failures)\n    check(len(re.findall(r'^test .* \\.\\.\\. FAILED$', retry_log, re.M)) == 2,\n          'preserved failed retry does not contain exactly two test failures', failures)\n    for name in REGRESSIONS[:2]:\n        check(f'test {name} ... FAILED' in retry_log,\n              f'preserved failed retry lacks expected assertion case {name}', failures)\n    explanations = packet.get('failed_attempt_explanations', {})\n    check('no library target' in explanations.get('generated-manifest-focused-280', '').lower(),\n          'first focused failure explanation was not preserved', failures)\n    check('trimmed idempotency keys' in explanations.get('generated-manifest-focused-280b', '').lower(),\n          'retry assertion explanation was not preserved', failures)\n    for name in REGRESSIONS[:4]:\n        test_name = name.split('::')[-1]\n        check(f'test {name} ... ok' in focused['generated-manifest-focused-280c']['log']['text'],\n              f'focused corrected log lacks {name}', failures)\n    for name in REGRESSIONS[4:]:\n        check(f'test {name} ... ok' in focused['generated-manifest-helper-280']['log']['text'],\n              f'helper log lacks {name}', failures)\n\n    failed_finalizer = packet.get('failed_finalizer_attempt', {})\n    failed_record = failed_finalizer.get('record', {})\n    failed_evidence = check_embedded_record(failed_record, 'failed initial finalizer', 'failed', failures)\n    check('AssertionError' in failed_evidence['log_text'], 'failed finalizer traceback was not preserved', failures)\n    failed_generator = failed_finalizer.get('generator', {})\n    failed_generator_path = Path(failed_generator.get('path', ''))\n    check(failed_generator_path.is_file(), 'failed finalizer source was not preserved', failures)\n    if failed_generator_path.is_file():\n        check(sha(failed_generator_path) == failed_generator.get('sha256'),\n              'failed finalizer source hash mismatch', failures)\n        check(failed_generator_path.read_text() == failed_generator.get('text'),\n              'failed finalizer embedded source differs', failures)\n    check('module path' in failed_finalizer.get('reason', '').lower(),\n          'failed-finalizer correction reason is missing', failures)\n    finalizer_path = OUT / 'generated-manifest-evidence-finalize-281b.json'\n    finalizer = check_receipt(finalizer_path, 'passed', failures)\n    finalizer_log = finalizer['log_text']\n    check(finalizer['receipt'].get('command', [])[-1:] == [\n        '/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/finalize_generated_manifest_evidence.py'],\n        'successful finalizer command differs', failures)\n    check('\"status\": \"passed\"' in finalizer_log, 'successful finalizer output is absent', failures)\n    original_helper = focused.get('generated-manifest-helper-280', {})\n    check(original_helper.get('receipt', {}).get('status') == 'passed',\n          'original helper test receipt was not retained', failures)\n    intermediate = packet.get('preserved_intermediate_checks', {})\n    check(set(intermediate) == set(expected_focused),\n          'preserved intermediate receipt set differs from focused receipts', failures)\n    for name, status in expected_focused.items():\n        preserved_item = intermediate.get(name, {})\n        check_embedded_record(preserved_item, f'preserved intermediate {name}', status, failures)\n        check(preserved_item.get('sha256') == focused.get(name, {}).get('sha256'),\n              f'preserved intermediate receipt differs from focused item {name}', failures)\n        check(preserved_item.get('log', {}).get('sha256') == focused.get(name, {}).get('log', {}).get('sha256'),\n              f'preserved intermediate log differs from focused item {name}', failures)\n    packet_generator = packet.get('generator', {})\n    packet_generator_path = Path(packet_generator.get('path', ''))\n    check(packet_generator_path.is_file(), 'finalizer generator source is missing', failures)\n    if packet_generator_path.is_file():\n        check(sha(packet_generator_path) == packet_generator.get('sha256'),\n              'finalizer generator source hash differs', failures)\n        check(packet_generator_path.read_text() == packet_generator.get('text'),\n              'finalizer generator source text differs', failures)\n\n    support = packet.get('support', {})\n    support_result = support.get('results', {})\n    support_rows = support.get('reports', [])\n    raw_support_rows = support_result.get('reports', [])\n    check(support_result.get('status') == 'passed', 'support suite is not passed', failures)\n    check(len(raw_support_rows) == 14 and len(support_rows) == 14, 'support report count is not 14', failures)\n    check(support_result.get('source_identity_sha256') == source_identity,\n          'support result source identity differs', failures)\n    check(len({row.get('name') for row in raw_support_rows}) == 14, 'support report names are not unique', failures)\n    support_evidence = []\n    for item in support_rows:\n        if 'path' in item:\n            path = Path(item['path'])\n            actual_hash = sha(path)\n            check(item.get('sha256') == actual_hash, f'support report hash mismatch: {path.name}', failures)\n            raw_item = next((row for row in raw_support_rows if row.get('path') == item['path']), {})\n            check(raw_item.get('sha256') == actual_hash, f'raw support report hash mismatch: {path.name}', failures)\n            check(item.get('text') == path.read_text(), f'embedded support report differs: {path.name}', failures)\n            report_data = read(path)\n            check(report_data.get('status', 'passed') == 'passed', f'support report not passed: {path.name}', failures)\n            support_evidence.append({'path': str(path), 'sha256': actual_hash})\n        else:\n            check(item in raw_support_rows, 'inline support report differs from result', failures)\n            check(bool(item.get('stdout')) and not item.get('stderr'), 'inline support report unsuccessful', failures)\n            support_evidence.append({'name': item.get('name'), 'inline': True})\n\n    changed = packet.get('changed_files', {})\n    file_hashes = {}\n    for name, entry in changed.items():\n        before = subprocess.check_output(['git', 'show', f'{HEAD}:{name}'], cwd=ROOT)\n        before_hash = hashlib.sha256(before).hexdigest()\n        after_hash = sha(ROOT / name)\n        check(entry.get('before_sha256') == before_hash, f'pre-change file hash mismatch: {name}', failures)\n        check(entry.get('after_sha256') == after_hash, f'post-change file hash mismatch: {name}', failures)\n        file_hashes[name] = {'before_sha256': before_hash, 'after_sha256': after_hash}\n    runtime_changed = sorted(name for name in changed if name in current_sources)\n    docs_changed = {name for name in changed if name.startswith('docs/')}\n    check(set(runtime_changed) == EXPECTED_RUNTIME, 'changed runtime set is not exact five', failures)\n    check(docs_changed == EXPECTED_DOCS, 'changed documentation set differs', failures)\n    actual_diff_names = set(git('diff', '--name-only', HEAD).splitlines())\n    index_name = str(INDEX.relative_to(ROOT))\n    check(actual_diff_names == set(changed) | {index_name},\n          'repository diff contains omitted or unexpected files', failures)\n    source_patch = subprocess.check_output(['git', 'diff', HEAD, '--', *sorted(EXPECTED_RUNTIME)], cwd=ROOT, text=True)\n    check(source_patch == packet.get('source_patch'), 'packet source patch differs from exact diff', failures)\n    docs_patch = subprocess.check_output(['git', 'diff', HEAD, '--', *sorted(EXPECTED_DOCS)], cwd=ROOT, text=True)\n    check(docs_patch == packet.get('documentation_patch'), 'packet documentation patch differs', failures)\n    doc_content = packet.get('documentation_content', {})\n    documentation_hashes = {}\n    for name in EXPECTED_DOCS:\n        current = ROOT / name\n        captured = doc_content.get(name, {})\n        digest = sha(current)\n        check(captured.get('sha256') == digest and captured.get('text') == current.read_text(),\n              f'documented file capture differs: {name}', failures)\n        check(changed.get(name, {}).get('after_sha256') == digest,\n              f'documented file after hash differs: {name}', failures)\n        documentation_hashes[name] = digest\n\n    ancestor = packet.get('ancestor_evidence', {})\n    ancestor_entry = index.get('fixture_error_review_correction', {})\n    check(ancestor.get('key') == 'fixture_error_review_correction', 'ancestor key is not fixture_error_review_correction', failures)\n    check(ancestor_entry.get('path') == ANCESTOR.name, 'main index ancestor path differs', failures)\n    check(ancestor.get('path') == str(ANCESTOR), 'packet ancestor path differs', failures)\n    ancestor_hash = sha(ANCESTOR)\n    check(ancestor.get('sha256') == ancestor_hash == ancestor_entry.get('sha256'),\n          'ancestor packet digest chain differs', failures)\n    ancestor_packet = read(ANCESTOR)\n    check(ancestor_packet.get('source_identity_sha256') == ancestor.get('source_identity_sha256'),\n          'ancestor source identity differs', failures)\n    check(set(current_sources) == set(ancestor_packet.get('source_hashes', {})),\n          'ancestor/current source path sets differ', failures)\n    source_differences = sorted(name for name, digest in current_sources.items()\n                                if digest != ancestor_packet['source_hashes'][name])\n    check(source_differences == sorted(EXPECTED_RUNTIME), 'ancestor source differences not exactly five runtime files', failures)\n    prior_independent = ancestor_entry.get('independent_readback', {})\n    if prior_independent:\n        prior_readback_path = ROOT / 'docs/benchmarks/evidence' / prior_independent['path']\n        check(sha(prior_readback_path) == prior_independent.get('sha256'),\n              'fixture-error independent readback hash differs', failures)\n    else:\n        check(False, 'fixture-error independent readback link is absent', failures)\n\n    preserved = packet.get('preserved_artifact_sha256', {})\n    preserved_hashes = {}\n    for name, expected_hash in preserved.items():\n        path = ROOT / name\n        actual_hash = sha(path)\n        check(actual_hash == expected_hash, f'preserved evidence changed: {name}', failures)\n        preserved_hashes[name] = actual_hash\n    check(bool(preserved_hashes), 'preserved artifact map is empty', failures)\n\n    check(packet.get('original_complete_workflows_rerun') is False,\n          'packet claims complete workflows were rerun', failures)\n    check(packet.get('performance_claim') is False, 'packet makes a performance claim', failures)\n    check(packet.get('whole_process_memory_limit_enforced') is False,\n          'packet claims whole-process limit enforcement', failures)\n    check(packet.get('fallback_attempted') is False and packet.get('external_engine_invoked') is False,\n          'packet external engine flags are not false', failures)\n    check(packet.get('intermediate_checks_establish_final_source_acceptance') is False,\n          'packet overstates intermediate checks', failures)\n\n    report = {\n        'status': 'passed' if not failures else 'failed',\n        'packet_path': str(PACKET),\n        'packet_sha256': packet_hash,\n        'index_path': str(INDEX),\n        'index_sha256': sha(INDEX),\n        'head': HEAD,\n        'source_count': len(current_sources),\n        'source_identity_sha256': source_identity,\n        'runtime_changed_files': runtime_changed,\n        'source_differences_from_fixture_error_ancestor': source_differences,\n        'changed_file_hashes': file_hashes,\n        'source_patch_match': source_patch == packet.get('source_patch'),\n        'documentation_hashes': documentation_hashes,\n        'documentation_patch_match': docs_patch == packet.get('documentation_patch'),\n        'fresh_gate_count': len(checks),\n        'fresh_gate_receipts': source_receipt_evidence,\n        'new_regressions': REGRESSIONS,\n        'regression_logs': regression_logs,\n        'focused_receipts': focused_evidence,\n        'failed_finalizer': {\n            'receipt_path': failed_record.get('path'),\n            'receipt_sha256': failed_evidence['receipt_sha256'],\n            'log_sha256': failed_evidence['log_sha256'],\n            'source_path': str(failed_generator_path),\n            'source_sha256': sha(failed_generator_path) if failed_generator_path.is_file() else None,\n        },\n        'successful_finalizer': {\n            'receipt_path': str(finalizer_path),\n            'receipt_sha256': finalizer['receipt_sha256'],\n            'log_sha256': finalizer['log_sha256'],\n        },\n        'support_report_count': len(support_evidence),\n        'support_reports': support_evidence,\n        'ancestor_packet': {'path': str(ANCESTOR), 'sha256': ancestor_hash,\n                            'source_identity_sha256': ancestor_packet.get('source_identity_sha256')},\n        'preserved_artifact_count': len(preserved_hashes),\n        'preserved_artifact_hashes': preserved_hashes,\n        'failures': failures,\n    }\n    REPORT.write_text(json.dumps(report, indent=2, sort_keys=True) + '\\n')\n    print(json.dumps({'status': report['status'], 'report': str(REPORT),\n                      'failures': failures}, indent=2))\n    return 0 if not failures else 1\n\n\nif __name__ == '__main__':\n    raise SystemExit(main())\n"
+  },
+  "hosted_integration": "pending"
+}

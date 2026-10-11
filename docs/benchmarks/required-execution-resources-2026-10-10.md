@@ -456,6 +456,67 @@ remain outside this accounting scope. Original complete-workflow and Full43
 evidence retains its original identity; it was not rerun or retimed for this
 correction. Hosted checks remain required, with no new performance or package claim.
 
+## Post-admission fixture error evidence
+
+A subsequent review found that fixed-fixture parse and runtime failures dropped
+resource observations after admission. Their parsers now return typed errors to
+the handler, which retains its workspace lease while capturing the complete
+error envelope. The same correction covers local-table fixture failures and
+synthetic spill constructor errors. Constructor failures report zero payload I/O;
+failures inside the I/O operation retain unavailable observations where activity
+was not measured.
+
+All 14 applicable fresh source/feature gates pass: 3,193 default workspace tests,
+1,364 native CLI tests and 1,127 reduced writer-profile tests, plus formatting,
+strict Clippy, feature isolation, Rust 1.96 and diff checks. The native CLI suite
+retains its three platform-specific ignored cases. The real CLI resource suite
+also passes all eight tests with synthetic filesystem spill enabled, including
+19 new failure cases spanning malformed arguments, runtime predicate failures
+and invalid spill constructors. Checks compare the complete single error
+envelope and declaration/admission fields, live/peak estimates, denial counts,
+no-fallback status and absence of premature output effects.
+
+Only CLI sources and their tests changed. The unchanged Vortex, example and
+Python scopes retain the preceding 2,553 native Vortex tests, 17 examples and
+667 Python tests with no skips; those are separate earlier observations, not
+fresh executions of this correction. The supplemental packet in the
+[evidence index](evidence/required-execution-resources-2026-10-10.json) binds the
+final sources, all fresh checks and documentation validation. It preserves the
+initial compile error, an incorrect test lookup for the canonical fallback
+field, and a strict-lint failure corrected before final acceptance. Original
+complete-workflow and Full43 evidence retains its original identity. Hosted
+acceptance remains required; no performance, RSS-limit or package claim changes.
+
+## Generated commit payload ownership
+
+A later review identified unaccounted generated object manifests: the writer
+reserved staging capacity but accepted an ordinary byte slice, while formatting
+and escaping a caller-controlled idempotency key allocated separately. Object
+manifests and table sidecar records now use the existing admitted text builder.
+Escaping writes directly into that builder, including path displays. The shared
+writer accepts an owned payload and verifies both its pool identity and actual
+capacity before admitting staging. Static fixture literals carry no heap charge.
+
+Eight new regressions cover foreign-pool and under-reserved payload refusal,
+competing retained credit, released-credit reuse, exact output, escaping,
+oversized generated text and successful object/table recovery. An object commit
+denied during manifest construction or staging restores its prior object and
+sidecar; fresh targets are removed. Table records are constructed before any
+manifest replacement, so the same denials leave prior files untouched. The
+existing one-MiB object test still uses only source capacity plus staging and
+reuses the source credits for readback.
+
+All 14 fresh applicable source/feature gates pass, including 3,201 default
+workspace tests, 1,372 native CLI tests and 1,135 reduced writer-profile tests.
+The separate evidence supplement binds all 1,042 source hashes, commands and
+logs. It preserves a test-target invocation error and two incorrect new test
+expectations that trimmed a key the existing contract preserves verbatim.
+Both were corrected before final acceptance. Four CLI source files and a
+read-only reservation accessor changed; Vortex execution, Python, examples and
+dependencies remain unchanged. Their prior validation retains its original
+identity, as do the complete-workflow and Full43 observations. No performance
+or whole-process memory claim is added. Hosted acceptance remains required.
+
 ## Remaining work
 
 Hosted acceptance remains pending. The next implementation

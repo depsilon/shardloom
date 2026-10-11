@@ -1033,5 +1033,74 @@
       "sha256": "f094d91ec0fc05f174ebe8357ac22eb6bbb55956e3f450a0f72142e831f05f37",
       "status": "passed"
     }
+  },
+  "fixture_error_review_correction": {
+    "path": "required-execution-resources-fixture-errors-2026-10-11.json",
+    "sha256": "04d282bc7b1444f1c7e6eacbd748ba1d141aa44d264384598e40f71a65640da7",
+    "status": "passed_local_checks_pending_hosted",
+    "source_identity_sha256": "a49aaaaaea932f2da6fed45298d79c99c0d4cebee3a5b98a3941e46da564c56c",
+    "fresh_source_checks": 14,
+    "synthetic_spill_cli_tests": 8,
+    "new_failure_cases": 19,
+    "documentation_checks": 14,
+    "original_complete_workflows_rerun": false,
+    "performance_claim": false,
+    "rust_test_totals": {
+      "default-tests": {
+        "passed": 3193,
+        "failed": 0,
+        "ignored": 0
+      },
+      "reduced-writer-tests": {
+        "passed": 1127,
+        "failed": 0,
+        "ignored": 0
+      },
+      "native-cli-tests": {
+        "passed": 1364,
+        "failed": 0,
+        "ignored": 3
+      }
+    },
+    "independent_readback": {
+      "path": "required-execution-resources-fixture-errors-2026-10-11-inspection.json",
+      "sha256": "f816e8b95a8b13d23a15110f10215cd6d28a1a708b64b2e850a6b9752741ea70",
+      "status": "passed"
+    }
+  },
+  "generated_manifest_review_correction": {
+    "path": "required-execution-resources-generated-manifests-2026-10-11.json",
+    "sha256": "c54efb527919c4ca31802b3ed4094a790c613631fb722c2b9b3b7ebd1e83c201",
+    "status": "passed_local_checks_pending_hosted",
+    "source_identity_sha256": "8b2264d2206004d879de0f28b2ad0a2997f7e387441f9cae35686d469500f5a9",
+    "fresh_source_checks": 14,
+    "support_documentation_checks": 14,
+    "focused_generated_manifest_tests": 5,
+    "fixture_io_helper_tests": 8,
+    "new_regressions": 8,
+    "original_complete_workflows_rerun": false,
+    "performance_claim": false,
+    "rust_test_totals": {
+      "default-tests": {
+        "passed": 3201,
+        "failed": 0,
+        "ignored": 0
+      },
+      "reduced-writer-tests": {
+        "passed": 1135,
+        "failed": 0,
+        "ignored": 0
+      },
+      "native-cli-tests": {
+        "passed": 1372,
+        "failed": 0,
+        "ignored": 3
+      }
+    },
+    "independent_readback": {
+      "path": "required-execution-resources-generated-manifests-2026-10-11-inspection.json",
+      "sha256": "df7fea7d7f3ef8dc8abc754bb38fed70025817aea98678117d6fd27b074d38a1",
+      "status": "passed"
+    }
   }
 }

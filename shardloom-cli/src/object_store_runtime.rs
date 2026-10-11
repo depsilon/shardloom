@@ -25,6 +25,7 @@ use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
+    fixture_io::JsonEscaped,
 };
 
 const OBJECT_STORE_READ_SMOKE_COMMAND: &str = "object-store-read-smoke";
@@ -2820,7 +2821,7 @@ fn perform_local_emulator_write_commit(
             staging_path,
             true,
             "object-store local-emulator staged object",
-            payload.value(),
+            &payload,
             pool,
         )?;
         let backups = prepare_local_emulator_write_backups(
@@ -2841,7 +2842,7 @@ fn perform_local_emulator_write_commit(
             target_path,
             false,
             "object-store local-emulator object",
-            payload.value(),
+            &payload,
             pool,
         )?;
         (
@@ -2869,7 +2870,7 @@ fn perform_local_emulator_write_commit(
     };
     let target_content_digest = fnv64_digest_bytes(target_bytes.value());
     drop(target_bytes);
-    let manifest = build_commit_manifest(
+    let manifest = match build_commit_manifest(
         source_uri,
         target_uri,
         source_path,
@@ -2878,15 +2879,23 @@ fn perform_local_emulator_write_commit(
         payload_bytes,
         payload_digest,
         &target_content_digest,
-    );
-    let commit_manifest_digest = fnv64_digest(&manifest);
-    let commit_manifest_bytes = manifest.len();
+        pool,
+    ) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
+            backups.restore(target_path, commit_manifest_path);
+            return Err(error);
+        }
+    };
+    let commit_manifest_digest = fnv64_digest(manifest.value());
+    let commit_manifest_bytes = manifest.value().len();
     if let Err(error) = crate::fixture_io::write_bytes(
         &workspace_root,
         commit_manifest_path,
         true,
         "object-store local-emulator commit manifest",
-        manifest.as_bytes(),
+        &manifest,
         pool,
     ) {
         let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
@@ -2966,8 +2975,11 @@ fn build_commit_manifest(
     payload_bytes: usize,
     payload_digest: &str,
     target_content_digest: &str,
-) -> String {
-    format!(
+    pool: &LiveMemoryPool,
+) -> std::io::Result<Budgeted<String>> {
+    let mut manifest = crate::fixture_io::Text::new(pool).map_err(shardloom_error_to_io_error)?;
+    let _ = write!(
+        manifest,
         concat!(
             "{{\n",
             "  \"schema_version\": \"shardloom.object_store_write_commit_manifest.v1\",\n",
@@ -2985,33 +2997,16 @@ fn build_commit_manifest(
             "  \"external_engine_invoked\": false\n",
             "}}\n"
         ),
-        escape_json(source_uri),
-        escape_json(target_uri),
-        escape_json(&source_path.to_string_lossy()),
-        escape_json(&target_path.to_string_lossy()),
-        escape_json(idempotency_key),
+        JsonEscaped(source_uri),
+        JsonEscaped(target_uri),
+        JsonEscaped(source_path.display()),
+        JsonEscaped(target_path.display()),
+        JsonEscaped(idempotency_key),
         payload_bytes,
-        escape_json(payload_digest),
-        escape_json(target_content_digest),
-    )
-}
-
-fn escape_json(value: &str) -> String {
-    let mut escaped = String::new();
-    for character in value.chars() {
-        match character {
-            '"' => escaped.push_str("\\\""),
-            '\\' => escaped.push_str("\\\\"),
-            '\n' => escaped.push_str("\\n"),
-            '\r' => escaped.push_str("\\r"),
-            '\t' => escaped.push_str("\\t"),
-            value if value.is_control() => {
-                let _ = write!(escaped, "\\u{:04x}", value as u32);
-            }
-            value => escaped.push(value),
-        }
-    }
-    escaped
+        JsonEscaped(payload_digest),
+        JsonEscaped(target_content_digest),
+    );
+    manifest.finish().map_err(shardloom_error_to_io_error)
 }
 
 fn extract_json_string_field(source: &str, field: &str) -> Option<String> {
@@ -5359,6 +5354,106 @@ mod tests {
         );
         assert!(!recovered.has_errors());
         assert_eq!(fs::read(&target).unwrap(), b"new-payload");
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn generated_object_manifest_denial_restores_prior_objects_and_sidecars() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-object-manifest-admission-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let source = root.join("source.bin");
+        fs::write(&source, b"x").unwrap();
+        let limit = shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes() + 1;
+        // Small text fits on its own but not beside staging. Escaped control
+        // text exceeds the grant during construction, before any manifest write.
+        for (index, key) in ["small".to_string(), "\u{0001}".repeat(65_536)]
+            .iter()
+            .enumerate()
+        {
+            for overwrite in [false, true] {
+                let target = root.join(format!("target-{index}-{overwrite}.bin"));
+                let sidecar = commit_manifest_sidecar_path(&target);
+                if overwrite {
+                    fs::write(&target, b"prior-object").unwrap();
+                    fs::write(&sidecar, b"prior-manifest").unwrap();
+                }
+                let pool = LiveMemoryPool::new(limit).unwrap();
+                let report = super::execute_object_store_write_smoke(
+                    source.to_str().unwrap(),
+                    target.to_str().unwrap(),
+                    LOCAL_EMULATOR_PROFILE,
+                    Some(key),
+                    overwrite,
+                    false,
+                    &pool,
+                );
+                assert_eq!(
+                    report.status,
+                    ObjectStoreWriteSmokeStatus::BlockedWriteError
+                );
+                assert!(format!("{:?}", report.diagnostics).contains("memory reservation denied"));
+                assert_eq!(pool.snapshot().reserved_bytes, 0);
+                assert_eq!(pool.snapshot().denied_reservations, 1);
+                assert!(pool.snapshot().peak_reserved_bytes <= limit);
+                if overwrite {
+                    assert_eq!(fs::read(&target).unwrap(), b"prior-object");
+                    assert_eq!(fs::read(&sidecar).unwrap(), b"prior-manifest");
+                } else {
+                    assert!(!target.exists());
+                    assert!(!sidecar.exists());
+                }
+                assert!(!staging_object_path(&target, key).exists());
+                assert!(!backup_object_path(&target, key).exists());
+                assert!(!backup_object_path(&sidecar, key).exists());
+            }
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn generated_object_manifest_reports_escaped_owned_capacity_and_recovers() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-object-manifest-accounted-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let source = root.join("source.bin");
+        let target = root.join("target.bin");
+        fs::write(&source, b"x").unwrap();
+        let key = "Unicode-λ-quote\"-slash\\-line\n".repeat(256);
+        let pool = LiveMemoryPool::new(2 << 20).unwrap();
+        let report = super::execute_object_store_write_smoke(
+            source.to_str().unwrap(),
+            target.to_str().unwrap(),
+            LOCAL_EMULATOR_PROFILE,
+            Some(&key),
+            false,
+            false,
+            &pool,
+        );
+        assert!(!report.has_errors(), "{report:?}");
+        let sidecar = fs::read(commit_manifest_sidecar_path(&target)).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&sidecar).unwrap();
+        assert_eq!(json["idempotency_key"], key);
+        assert_eq!(report.commit_manifest_bytes, sidecar.len());
+        assert!(
+            pool.snapshot().peak_reserved_bytes
+                >= sidecar.len() as u64
+                    + shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes()
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert_eq!(pool.snapshot().denied_reservations, 0);
+        let recovered = super::execute_object_store_write_recovery_smoke(
+            target.to_str().unwrap(),
+            LOCAL_EMULATOR_PROFILE,
+            Some(&key),
+            &pool,
+        );
+        assert!(!recovered.has_errors(), "{recovered:?}");
         assert_eq!(pool.snapshot().reserved_bytes, 0);
         fs::remove_dir_all(root).unwrap();
     }

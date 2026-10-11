@@ -306,7 +306,7 @@ fn run_sqlite_local_import_export_smoke(
         &options.export_jsonl,
         options.allow_overwrite,
         "local SQLite table export JSONL",
-        jsonl.value().as_bytes(),
+        &jsonl,
         pool,
     )
     .map_err(fixture_io_error)?;

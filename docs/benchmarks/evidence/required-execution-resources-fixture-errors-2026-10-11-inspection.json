@@ -1,0 +1,454 @@
+{
+  "schema_version": "shardloom.required_resources_fixture_error_inspection.v1",
+  "status": "passed",
+  "report": {
+    "changed_file_hashes": {
+      "docs/architecture/phased-execution-plan.md": {
+        "after_sha256": "446c500af373ad6ed151322d0eff739d462820059b4e3157c75aef05c32e89a1",
+        "before_sha256": "6d8610fd696841fa80bcd61f3e3f421b4c829ff3c83a2782be13d4f0a6bf70e0"
+      },
+      "docs/architecture/required-execution-resources-2026-10-10.md": {
+        "after_sha256": "8bd6bd7f9ce2dade6e639ccfad5929b7986d34f287919f810a1ea46c70c003d8",
+        "before_sha256": "ae5c89a8cc14a966dfa73d20518f805106fff6a54f2d9ccff69090bf0c03e0c6"
+      },
+      "docs/benchmarks/required-execution-resources-2026-10-10.md": {
+        "after_sha256": "dc70e0846623c78e3c4c87f88f73c70f3aa036f028095b34c510843464ef0533",
+        "before_sha256": "627f0c427b527c2886316982c340db9970edcc7127db5528e7f128c15d8809e1"
+      },
+      "shardloom-cli/src/engine_fabric_planning.rs": {
+        "after_sha256": "352df7abea5db60c11750b7985536eda8d964b7db3b96b2e559858190ae5412b",
+        "before_sha256": "e5a82d90136b0d2ed87655ce93886b65d256f41920276cecc03fce208964b6a8"
+      },
+      "shardloom-cli/src/fixture_io.rs": {
+        "after_sha256": "c2e67d7e0909b0763ed13e97ebc31d726cc53b13febcd4d1120c0e5ae6ee0bae",
+        "before_sha256": "711f63f9f3a239f35b809ff3b2f94d723fa152cc0b0f0159001b0a3ba40639cd"
+      },
+      "shardloom-cli/src/operational_hardening.rs": {
+        "after_sha256": "8832dead36f0c8a807e63dca0015b8a85da533eae82d76e2eb1472c47b59edfa",
+        "before_sha256": "5bc50b8577f3cf07a1fb2b671c06a343c2f0b7c6fc33317eccda05e95004c7ed"
+      },
+      "shardloom-cli/src/workflow_planning.rs": {
+        "after_sha256": "961ea9cff315d14791f75e6c488ff908862527abb7efab442aeb8f7975f04cf1",
+        "before_sha256": "e150638e16fea20d2c19207ea3a34553178c32982c6ccf9d596aa476b8cca795"
+      },
+      "shardloom-cli/tests/required_execution_resources.rs": {
+        "after_sha256": "1d2c41bebb2a28878314a203be2460b5765281d480d9fd41e87bd126d0a7d193",
+        "before_sha256": "01726dbf652e73a30682c58c0f2314dc54bf7972efd7d447da222e1c69bded28"
+      }
+    },
+    "exact_patch_match": true,
+    "failure_case_counts": {
+      "fixture_parse_and_runtime": 16,
+      "spill_constructor": 3
+    },
+    "failures": [],
+    "fresh_check_commands_and_totals": [
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "name": "fmt",
+        "rust_test_totals": null
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "clippy",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "name": "default-clippy",
+        "rust_test_totals": null
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets",
+          "--no-fail-fast"
+        ],
+        "name": "default-tests",
+        "rust_test_totals": {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 3193
+        }
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "clippy",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-cli",
+          "-p",
+          "shardloom-vortex",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "shardloom-cli/vortex-local-primitives",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "name": "native-without-write",
+        "rust_test_totals": null
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "check",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-vortex",
+          "--lib",
+          "--no-default-features",
+          "--features",
+          "vortex-write"
+        ],
+        "name": "native-write-only",
+        "rust_test_totals": null
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "clippy",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-cli",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "vortex-write",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "name": "reduced-writer-clippy",
+        "rust_test_totals": null
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-cli",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "vortex-write",
+          "--no-fail-fast",
+          "--",
+          "--test-threads=1"
+        ],
+        "name": "reduced-writer-tests",
+        "rust_test_totals": {
+          "failed": 0,
+          "ignored": 0,
+          "passed": 1127
+        }
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "check",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--no-default-features"
+        ],
+        "name": "lean-workspace",
+        "rust_test_totals": null
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "check",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-features"
+        ],
+        "name": "all-features",
+        "rust_test_totals": null
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.96.0",
+          "cargo",
+          "check",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--no-default-features"
+        ],
+        "name": "msrv-lean",
+        "rust_test_totals": null
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.96.0",
+          "cargo",
+          "check",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets",
+          "--features",
+          "release-user-surfaces"
+        ],
+        "name": "msrv-native",
+        "rust_test_totals": null
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "clippy",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets",
+          "--features",
+          "release-user-surfaces",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "name": "native-clippy",
+        "rust_test_totals": null
+      },
+      {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-cli",
+          "--all-targets",
+          "--no-fail-fast",
+          "--features",
+          "release-user-surfaces",
+          "--",
+          "--test-threads=1"
+        ],
+        "name": "native-cli-tests",
+        "rust_test_totals": {
+          "failed": 0,
+          "ignored": 3,
+          "passed": 1364
+        }
+      },
+      {
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "name": "diff",
+        "rust_test_totals": null
+      }
+    ],
+    "fresh_check_count": 14,
+    "fresh_commands_contain_full43_or_complete_public_rerun": false,
+    "head": "ea2265efb6d18a9692d5fe5cf1f013b42e3f61f5",
+    "historical_full43_runs_in_reused_prior_evidence": 129,
+    "original_complete_workflows_rerun": false,
+    "packet": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/required-execution-resources-fixture-errors-2026-10-11.json",
+    "packet_sha256": "04d282bc7b1444f1c7e6eacbd748ba1d141aa44d264384598e40f71a65640da7",
+    "performance_claim": false,
+    "post_packet_index_link_change": {
+      "current_sha256": "c2dbe82c7182725f40ef76ff98085d991d596cbd0dd6cbf9278b8fb3419a24a6",
+      "diff": "diff --git a/docs/benchmarks/evidence/required-execution-resources-2026-10-10.json b/docs/benchmarks/evidence/required-execution-resources-2026-10-10.json\nindex c687b7e4..9d7f13d7 100644\n--- a/docs/benchmarks/evidence/required-execution-resources-2026-10-10.json\n+++ b/docs/benchmarks/evidence/required-execution-resources-2026-10-10.json\n@@ -1033,5 +1033,34 @@\n       \"sha256\": \"f094d91ec0fc05f174ebe8357ac22eb6bbb55956e3f450a0f72142e831f05f37\",\n       \"status\": \"passed\"\n     }\n+  },\n+  \"fixture_error_review_correction\": {\n+    \"path\": \"required-execution-resources-fixture-errors-2026-10-11.json\",\n+    \"sha256\": \"04d282bc7b1444f1c7e6eacbd748ba1d141aa44d264384598e40f71a65640da7\",\n+    \"status\": \"passed_local_checks_pending_hosted\",\n+    \"source_identity_sha256\": \"a49aaaaaea932f2da6fed45298d79c99c0d4cebee3a5b98a3941e46da564c56c\",\n+    \"fresh_source_checks\": 14,\n+    \"synthetic_spill_cli_tests\": 8,\n+    \"new_failure_cases\": 19,\n+    \"documentation_checks\": 14,\n+    \"original_complete_workflows_rerun\": false,\n+    \"performance_claim\": false,\n+    \"rust_test_totals\": {\n+      \"default-tests\": {\n+        \"passed\": 3193,\n+        \"failed\": 0,\n+        \"ignored\": 0\n+      },\n+      \"reduced-writer-tests\": {\n+        \"passed\": 1127,\n+        \"failed\": 0,\n+        \"ignored\": 0\n+      },\n+      \"native-cli-tests\": {\n+        \"passed\": 1364,\n+        \"failed\": 0,\n+        \"ignored\": 3\n+      }\n+    }\n   }\n }\n",
+      "head_sha256": "46e6de573c832c908684a3327f369a82a825478a5dbc4f0f0e608d994cb2854b",
+      "packet_path_untracked": "docs/benchmarks/evidence/required-execution-resources-fixture-errors-2026-10-11.json",
+      "path": "docs/benchmarks/evidence/required-execution-resources-2026-10-10.json"
+    },
+    "preserved_artifact_count": 14,
+    "preserved_intermediate_checks": {
+      "fixture-error-evidence-focused-278": {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-cli",
+          "--test",
+          "required_execution_resources",
+          "--features",
+          "shardloom-exec/spill-payload-fs",
+          "--",
+          "--test-threads=1"
+        ],
+        "log_sha256": "f16698ddc6dc96b191ef0cb329583141e71ee4c7a222d87a3dff1c76ce535a07",
+        "receipt_sha256": "76338ecd5a0200fbc5fb4019baaf8c59d74c5872889b8ccb24f58da798d0bbee",
+        "status": "failed"
+      },
+      "fixture-error-evidence-focused-278b": {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-cli",
+          "--test",
+          "required_execution_resources",
+          "--features",
+          "shardloom-exec/spill-payload-fs",
+          "--",
+          "--test-threads=1"
+        ],
+        "log_sha256": "9095c2c30d2efcf093f7b008aca27de309d6b04f2d61df8228926fd2427d0a97",
+        "receipt_sha256": "5abdc927264ad32d0f0e84606ec3b351bc3b5466e6d38eb2aedf34180400d63c",
+        "status": "failed"
+      },
+      "fixture-error-evidence-focused-278c": {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-cli",
+          "--test",
+          "required_execution_resources",
+          "--features",
+          "shardloom-exec/spill-payload-fs",
+          "--",
+          "--test-threads=1"
+        ],
+        "log_sha256": "bef3634fccb72ea628d3e3096dce0ca883302da309d99163ca978b4bba9c4ce5",
+        "receipt_sha256": "c37341e974d9b5c789b4e7251b3804ab55914a861704a1a4f22443a29382e73d",
+        "status": "passed"
+      },
+      "resource-engine-default-clippy-24": {
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "clippy",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "log_sha256": "61c75ec13725ddc6231c68fd39a0f53e9729ce58ae3dbaa936f29a3f3d9baee6",
+        "receipt_sha256": "b53daa298c724f284d1e93e93701ffe15728aae9ee1c3fbd57ad9572bad0c31f",
+        "status": "failed"
+      }
+    },
+    "previous_source_differences": [
+      "shardloom-cli/src/engine_fabric_planning.rs",
+      "shardloom-cli/src/fixture_io.rs",
+      "shardloom-cli/src/operational_hardening.rs",
+      "shardloom-cli/src/workflow_planning.rs",
+      "shardloom-cli/tests/required_execution_resources.rs"
+    ],
+    "regressions": [
+      "admitted_fixture_parse_and_runtime_errors_retain_live_workspace_evidence",
+      "admitted_spill_constructor_errors_report_zero_io_without_creating_a_workspace"
+    ],
+    "source_count": 1042,
+    "source_identity_sha256": "a49aaaaaea932f2da6fed45298d79c99c0d4cebee3a5b98a3941e46da564c56c",
+    "spill_cli_command": [
+      "/Users/dylan/.cargo/bin/rustup",
+      "run",
+      "1.99.0",
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "-p",
+      "shardloom-cli",
+      "--test",
+      "required_execution_resources",
+      "--features",
+      "shardloom-exec/spill-payload-fs",
+      "--",
+      "--test-threads=1"
+    ],
+    "spill_test_totals": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 8
+    },
+    "status": "passed",
+    "support_record_count": 14
+  },
+  "original_report_sha256": "9d1c218a8b45cd052b20844309439bfcb64640a9b5d399e83c542c4c74689677",
+  "inspector": {
+    "path": "/Users/dylan/LocalData/shardloom/required-execution-resources-20261010/fixture-error-independent-279.py",
+    "sha256": "36b7b76c7f745632bc3147db2d8f0dc0dab933ccbef0b3df76253eec31538c98",
+    "text": "#!/usr/bin/env python3\n\"\"\"Independently verify the fixture-error evidence packet without running its checks.\"\"\"\n\nfrom __future__ import annotations\n\nimport hashlib\nimport json\nimport re\nimport subprocess\nfrom pathlib import Path\n\nROOT = Path(\"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo\")\nOUT = Path(\"/Users/dylan/LocalData/shardloom/required-execution-resources-20261010\")\nPACKET = ROOT / \"docs/benchmarks/evidence/required-execution-resources-fixture-errors-2026-10-11.json\"\nINDEX = ROOT / \"docs/benchmarks/evidence/required-execution-resources-2026-10-10.json\"\nHEAD = \"ea2265efb6d18a9692d5fe5cf1f013b42e3f61f5\"\nREPORT = OUT / \"fixture-error-independent-279-report.json\"\n\n\ndef sha(path: Path) -> str:\n    digest = hashlib.sha256()\n    with path.open(\"rb\") as stream:\n        for chunk in iter(lambda: stream.read(1024 * 1024), b\"\"):\n            digest.update(chunk)\n    return digest.hexdigest()\n\n\ndef read(path: Path):\n    return json.loads(path.read_text())\n\n\ndef git(*args: str) -> str:\n    return subprocess.check_output([\"git\", *args], cwd=ROOT, text=True).strip()\n\n\ndef source_hashes() -> dict[str, str]:\n    names = git(\"ls-files\", \"--cached\", \"--others\", \"--exclude-standard\", \"-z\").split(\"\\0\")\n    result = {}\n    for name in sorted(set(names)):\n        path = ROOT / name\n        if name and path.is_file() and (\n            name.endswith((\".rs\", \".py\"))\n            or path.name in (\"Cargo.toml\", \"Cargo.lock\")\n            or name.startswith(\"vendor/\")\n        ):\n            result[name] = sha(path)\n    return result\n\n\ndef source_identity(sources: dict[str, str]) -> str:\n    payload = json.dumps(sources, sort_keys=True).encode()\n    return hashlib.sha256(payload).hexdigest()\n\n\ndef check(condition: bool, message: str, failures: list[str]) -> None:\n    if not condition:\n        failures.append(message)\n\n\ndef receipt_record(path: Path, expected_status: str | None, failures: list[str]) -> dict:\n    record = read(path)\n    check(record.get(\"head\") == HEAD, f\"receipt head mismatch: {path.name}\", failures)\n    if expected_status:\n        check(record.get(\"status\") == expected_status, f\"receipt status mismatch: {path.name}\", failures)\n    check(\n        (record.get(\"returncode\") == 0) == (record.get(\"status\") == \"passed\"),\n        f\"receipt status/returncode mismatch: {path.name}\",\n        failures,\n    )\n    check(record.get(\"direct_child_reaped\") is True, f\"child not reaped: {path.name}\", failures)\n    check(record.get(\"process_group_drained\") is True, f\"process group not drained: {path.name}\", failures)\n    log_path = path.with_suffix(\".log\")\n    log_hash = sha(log_path)\n    check(record.get(\"log_sha256\") == log_hash, f\"log hash mismatch: {log_path.name}\", failures)\n    return {\"receipt\": record, \"log_path\": str(log_path), \"log_sha256\": log_hash, \"log_text\": log_path.read_text()}\n\n\ndef main() -> int:\n    failures: list[str] = []\n    packet = read(PACKET)\n    packet_hash = sha(PACKET)\n    index = read(INDEX)\n    link = index.get(\"fixture_error_review_correction\", {})\n    check(git(\"rev-parse\", \"HEAD\") == HEAD, \"unexpected HEAD\", failures)\n    check(packet.get(\"reviewed_head\") == HEAD, \"packet reviewed_head mismatch\", failures)\n    check(link.get(\"path\") == PACKET.name, \"evidence-index path mismatch\", failures)\n    check(link.get(\"sha256\") == packet_hash, \"evidence-index packet SHA mismatch\", failures)\n    check(packet.get(\"review_comment_ids\") == [4240436097], \"review comment mismatch\", failures)\n    generator = packet.get(\"generator\", {})\n    generator_path = Path(generator.get(\"path\", \"\"))\n    check(generator_path.is_file(), \"packet generator file missing\", failures)\n    if generator_path.is_file():\n        check(sha(generator_path) == generator.get(\"sha256\"), \"packet generator hash mismatch\", failures)\n        check(generator_path.read_text() == generator.get(\"text\"), \"embedded generator text mismatch\", failures)\n\n    current_sources = source_hashes()\n    check(len(packet[\"source_hashes\"]) == 1042, \"packet source count is not 1042\", failures)\n    check(current_sources == packet[\"source_hashes\"], \"current source hashes differ from packet\", failures)\n    identity = source_identity(current_sources)\n    check(identity == packet.get(\"source_identity_sha256\"), \"packet source identity mismatch\", failures)\n    check(packet.get(\"protocol\", {}).get(\"source_hashes\") == current_sources, \"protocol source hashes mismatch\", failures)\n    check(packet.get(\"protocol\", {}).get(\"source_identity_sha256\") == identity, \"protocol identity mismatch\", failures)\n\n    changed = packet.get(\"changed_files\", {})\n    before_after = {}\n    for name, entry in changed.items():\n        before = subprocess.check_output([\"git\", \"show\", f\"{HEAD}:{name}\"], cwd=ROOT)\n        before_hash = hashlib.sha256(before).hexdigest()\n        after_hash = sha(ROOT / name)\n        check(entry.get(\"before_sha256\") == before_hash, f\"original HEAD hash mismatch: {name}\", failures)\n        check(entry.get(\"after_sha256\") == after_hash, f\"current file hash mismatch: {name}\", failures)\n        before_after[name] = {\"before_sha256\": before_hash, \"after_sha256\": after_hash}\n    exact_diff = subprocess.check_output([\"git\", \"diff\", HEAD, \"--\", *changed], cwd=ROOT, text=True)\n    check(exact_diff == packet.get(\"source_patch\"), \"embedded source patch differs from current exact diff\", failures)\n    actual_diff_names = set(git(\"diff\", \"--name-only\", HEAD).splitlines())\n    omitted_diff_names = sorted(actual_diff_names - set(changed))\n    expected_meta_path = str(INDEX.relative_to(ROOT))\n    check(omitted_diff_names == [expected_meta_path], \"unexpected files omitted from packet source patch\", failures)\n    meta_head = subprocess.check_output([\"git\", \"show\", f\"{HEAD}:{expected_meta_path}\"], cwd=ROOT)\n    meta_diff = subprocess.check_output([\"git\", \"diff\", HEAD, \"--\", expected_meta_path], cwd=ROOT, text=True)\n    untracked_packet = PACKET.relative_to(ROOT).as_posix()\n    untracked_names = set(git(\"ls-files\", \"--others\", \"--exclude-standard\").splitlines())\n    check(untracked_packet in untracked_names, \"new packet is not the expected untracked evidence artifact\", failures)\n    runtime = sorted(name for name in changed if name in current_sources)\n    check(runtime == packet.get(\"runtime_changed_files\"), \"runtime changed-file list mismatch\", failures)\n    check(len(runtime) == 5 and all(name.startswith(\"shardloom-cli/\") for name in runtime), \"runtime scope is not the five CLI files\", failures)\n\n    protocol = packet[\"protocol\"]\n    results = packet[\"results\"]\n    check(len(packet.get(\"checks\", [])) == 14, \"fresh source check count is not 14\", failures)\n    check(len(protocol.get(\"commands\", {})) == 14, \"protocol command count is not 14\", failures)\n    check(len(results.get(\"checks\", [])) == 14, \"result receipt count is not 14\", failures)\n    check(results.get(\"status\") == \"passed\", \"fresh results status is not passed\", failures)\n    protocol_path = OUT / \"resource-engine-25-protocol.json\"\n    check(results.get(\"protocol_sha256\") == sha(protocol_path), \"results/protocol hash mismatch\", failures)\n    for item in packet[\"checks\"]:\n        receipt_path = Path(item[\"path\"])\n        inspected = receipt_record(receipt_path, \"passed\", failures)\n        check(sha(receipt_path) == item.get(\"sha256\"), f\"receipt file hash mismatch: {receipt_path.name}\", failures)\n        check(item[\"receipt\"] == inspected[\"receipt\"], f\"embedded receipt differs: {receipt_path.name}\", failures)\n        check(item[\"log\"][\"sha256\"] == inspected[\"log_sha256\"], f\"embedded log hash mismatch: {receipt_path.name}\", failures)\n        check(item[\"log\"][\"text\"] == inspected[\"log_text\"], f\"embedded log differs: {receipt_path.name}\", failures)\n        check(item[\"receipt\"].get(\"command\") == protocol[\"commands\"].get(item[\"name\"]), f\"command mismatch: {item['name']}\", failures)\n        totals = item.get(\"rust_test_totals\")\n        if totals is not None:\n            rows = re.findall(r\"test result: ok\\. (\\d+) passed; (\\d+) failed; (\\d+) ignored;\", inspected[\"log_text\"])\n            observed = {key: sum(int(row[i]) for row in rows) for i, key in enumerate((\"passed\", \"failed\", \"ignored\"))}\n            check(totals == observed, f\"test totals mismatch: {item['name']}\", failures)\n            check(observed[\"passed\"] > 0 and observed[\"failed\"] == 0, f\"non-passing test totals: {item['name']}\", failures)\n\n    spill_item = packet[\"synthetic_spill_cli_suite\"]\n    spill_path = Path(spill_item[\"path\"])\n    spill = receipt_record(spill_path, \"passed\", failures)\n    check(sha(spill_path) == spill_item.get(\"sha256\"), \"spill suite receipt hash mismatch\", failures)\n    check(spill_item[\"receipt\"] == spill[\"receipt\"], \"embedded spill receipt differs\", failures)\n    check(spill_item[\"log\"][\"sha256\"] == spill[\"log_sha256\"], \"spill log hash mismatch\", failures)\n    check(spill_item[\"log\"][\"text\"] == spill[\"log_text\"], \"embedded spill log differs\", failures)\n    check(\"spill-payload-fs\" in \" \".join(spill[\"receipt\"].get(\"command\", [])), \"spill feature absent from focused command\", failures)\n    check(re.findall(r\"test result: ok\\. (\\d+) passed; (\\d+) failed; (\\d+) ignored;\", spill[\"log_text\"]) == [(\"8\", \"0\", \"0\")], \"spill suite totals differ from 8/0/0\", failures)\n    regressions = packet.get(\"verified_regressions\", [])\n    check(regressions == [\"admitted_fixture_parse_and_runtime_errors_retain_live_workspace_evidence\", \"admitted_spill_constructor_errors_report_zero_io_without_creating_a_workspace\"], \"regression names mismatch\", failures)\n    for test in regressions:\n        check(f\"test {test} ... ok\" in spill[\"log_text\"], f\"spill log lacks passing regression {test}\", failures)\n\n    test_source_path = ROOT / \"shardloom-cli/tests/required_execution_resources.rs\"\n    test_source = test_source_path.read_text()\n    def test_block(name: str) -> str:\n        start = test_source.index(f\"fn {name}()\")\n        end = test_source.find(\"\\n#[test]\", start)\n        return test_source[start:end if end >= 0 else len(test_source)]\n    fixture_block = test_block(regressions[0])\n    spill_block = test_block(regressions[1])\n    fixture_cases = re.findall(r\"^        &(?:\\[|\\n)\", fixture_block, re.MULTILINE)\n    spill_cases = re.findall(r\"^        &(?:\\[|\\n)\", spill_block, re.MULTILINE)\n    check(len(fixture_cases) == 16, f\"fixture regression has {len(fixture_cases)} top-level cases, expected 16\", failures)\n    check(len(spill_cases) == 3, f\"spill regression has {len(spill_cases)} top-level cases, expected 3\", failures)\n    check(packet.get(\"new_failure_cases\") == 19, \"packet failure-case total differs from 19\", failures)\n\n    support = packet.get(\"support\", {})\n    support_results = support.get(\"results\", {})\n    reports = support.get(\"reports\", [])\n    check(support_results.get(\"status\") == \"passed\", \"support record status is not passed\", failures)\n    check(len(support_results.get(\"reports\", [])) == 14 and len(reports) == 14, \"support records are not 14\", failures)\n    check(support_results.get(\"source_identity_sha256\") == identity, \"support source identity mismatch\", failures)\n    support_checks = []\n    for item in reports:\n        if \"path\" in item:\n            path = Path(item[\"path\"])\n            actual = sha(path)\n            check(actual == item.get(\"sha256\"), f\"support record hash mismatch: {path.name}\", failures)\n            check(any(source_item.get(\"path\") == item[\"path\"] and source_item.get(\"sha256\") == item.get(\"sha256\") for source_item in support_results.get(\"reports\", [])), f\"support result missing record {path.name}\", failures)\n            support_checks.append({\"path\": str(path), \"sha256\": actual})\n        else:\n            check(bool(item), \"empty inline support record\", failures)\n            check(item in support_results.get(\"reports\", []), \"support result missing inline record\", failures)\n            support_checks.append({\"inline_record\": item})\n\n    intermediate_results = {}\n    statuses = []\n    for name, item in packet.get(\"preserved_intermediate_checks\", {}).items():\n        receipt_path = Path(item[\"path\"])\n        inspected = receipt_record(receipt_path, None, failures)\n        check(sha(receipt_path) == item.get(\"sha256\"), f\"intermediate receipt hash mismatch: {name}\", failures)\n        check(item[\"receipt\"] == inspected[\"receipt\"], f\"intermediate receipt differs: {name}\", failures)\n        check(item[\"log\"][\"sha256\"] == inspected[\"log_sha256\"], f\"intermediate log hash mismatch: {name}\", failures)\n        check(item[\"log\"][\"text\"] == inspected[\"log_text\"], f\"intermediate log differs: {name}\", failures)\n        statuses.append(inspected[\"receipt\"].get(\"status\"))\n        intermediate_results[name] = {\"status\": inspected[\"receipt\"].get(\"status\"), \"command\": inspected[\"receipt\"].get(\"command\"), \"receipt_sha256\": sha(receipt_path), \"log_sha256\": inspected[\"log_sha256\"]}\n    check(len(statuses) == 4 and statuses.count(\"failed\") == 3 and statuses.count(\"passed\") == 1, \"intermediate status counts differ from 3 failed/1 passed\", failures)\n\n    prior_name = packet[\"unchanged_scope_evidence\"][\"path\"]\n    prior_path = ROOT / prior_name\n    prior = read(prior_path)\n    check(sha(prior_path) == packet[\"unchanged_scope_evidence\"][\"sha256\"], \"prior packet hash mismatch\", failures)\n    check(set(prior[\"source_hashes\"]) == set(packet[\"source_hashes\"]), \"prior/current source path sets differ\", failures)\n    source_differences = sorted(name for name in current_sources if current_sources[name] != prior[\"source_hashes\"][name])\n    check(source_differences == runtime, \"prior packet source differences are not exactly five CLI files\", failures)\n\n    preserved = packet.get(\"preserved_artifact_sha256\", {})\n    preserved_check = {}\n    for name, expected in preserved.items():\n        actual = sha(ROOT / name)\n        check(actual == expected, f\"preserved artifact hash mismatch: {name}\", failures)\n        preserved_check[name] = actual\n    check(len(preserved) == 14, \"prior artifact count is not 14\", failures)\n\n    check(packet.get(\"original_complete_workflows_rerun\") is False, \"complete workflows claimed rerun\", failures)\n    check(packet.get(\"performance_claim\") is False, \"performance claim is enabled\", failures)\n    check(packet.get(\"full43_runs\") is None, \"packet unexpectedly declares fresh Full43 runs\", failures)\n    current_commands = [\" \".join(row[\"receipt\"][\"command\"]) for row in packet.get(\"checks\", [])]\n    check(not any(\"full43\" in command.lower() for command in current_commands), \"fresh command list contains Full43 rerun\", failures)\n    check(not any(\"run_resource_acceptance\" in command or \"public_rows\" in command for command in current_commands), \"fresh command list contains complete public workflow rerun\", failures)\n    check(packet.get(\"whole_process_memory_limit_enforced\") is False, \"whole-process limit claim is enabled\", failures)\n    check(packet.get(\"fallback_attempted\") is False and packet.get(\"external_engine_invoked\") is False, \"fallback/external engine flag not false\", failures)\n    check(packet.get(\"intermediate_checks_establish_final_source_acceptance\") is False, \"intermediate receipts overclaimed as final acceptance\", failures)\n\n    report = {\n        \"status\": \"passed\" if not failures else \"failed\",\n        \"packet\": str(PACKET),\n        \"packet_sha256\": packet_hash,\n        \"head\": HEAD,\n        \"source_count\": len(current_sources),\n        \"source_identity_sha256\": identity,\n        \"changed_file_hashes\": before_after,\n        \"exact_patch_match\": exact_diff == packet.get(\"source_patch\"),\n        \"post_packet_index_link_change\": {\n            \"path\": expected_meta_path,\n            \"head_sha256\": hashlib.sha256(meta_head).hexdigest(),\n            \"current_sha256\": sha(INDEX),\n            \"diff\": meta_diff,\n            \"packet_path_untracked\": untracked_packet,\n        },\n        \"fresh_check_count\": len(packet.get(\"checks\", [])),\n        \"fresh_check_commands_and_totals\": [\n            {\"name\": row[\"name\"], \"command\": row[\"receipt\"][\"command\"], \"rust_test_totals\": row.get(\"rust_test_totals\")}\n            for row in packet.get(\"checks\", [])\n        ],\n        \"spill_cli_command\": spill[\"receipt\"].get(\"command\"),\n        \"spill_test_totals\": {\"passed\": 8, \"failed\": 0, \"ignored\": 0},\n        \"regressions\": regressions,\n        \"failure_case_counts\": {\"fixture_parse_and_runtime\": len(fixture_cases), \"spill_constructor\": len(spill_cases)},\n        \"support_record_count\": len(reports),\n        \"preserved_intermediate_checks\": intermediate_results,\n        \"previous_source_differences\": source_differences,\n        \"preserved_artifact_count\": len(preserved_check),\n        \"original_complete_workflows_rerun\": packet.get(\"original_complete_workflows_rerun\"),\n        \"historical_full43_runs_in_reused_prior_evidence\": packet.get(\"original_complete_workflow_evidence\", {}).get(\"full43_runs\"),\n        \"fresh_commands_contain_full43_or_complete_public_rerun\": False,\n        \"performance_claim\": packet.get(\"performance_claim\"),\n        \"failures\": failures,\n    }\n    REPORT.write_text(json.dumps(report, indent=2, sort_keys=True) + \"\\n\")\n    print(json.dumps({\"status\": report[\"status\"], \"report\": str(REPORT), \"failures\": failures}, indent=2))\n    return 0 if not failures else 1\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n"
+  },
+  "hosted_integration": "pending"
+}
