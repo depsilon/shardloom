@@ -316,6 +316,24 @@ verifies distinct fresh destinations and preserves both earlier reports. All
 Runtime sources and the earlier measured executable identities are unchanged;
 the corrected hosted wheel matrix still must pass before acceptance.
 
+Review of `e689d69c` found that columnar import probed arbitrary producers for a
+`native_result` attribute before native admission. The adapter now unwraps only
+the exact ShardLoom complete-result and batch wrapper types, using type identity
+without invoking producer properties or custom type equality. Other producers
+reach the guarded native stream importer unchanged. Two new tests reproduce the
+early property call and unrelated-attribute substitution on the earlier adapter,
+then pass with the correction. Timeout and retained-memory refusal leave producer
+callbacks untouched; successful external imports preserve complete values.
+Existing complete-result and incremental-result composition also pass.
+
+The [producer-admission evidence](evidence/native-python-producer-admission-2026-10-11.json)
+records all 742 Python tests passing, including 71 native integration methods,
+without skips. It retains the regression logs and identifies the initial test
+harness's missing optional dependency separately from the reproduced defects.
+All Rust, Vortex and dependency sources match the corrected extension above;
+only the Python adapter/tests and the prior CI validator/tests differ among the
+1,319 selected files. Hosted release-wheel checks must accept this final adapter.
+
 ## Portable evidence and replay
 
 The [portable packet](evidence/native-python-surface-2026-10-11.tar.xz) and

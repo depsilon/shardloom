@@ -277,6 +277,74 @@ class NativeBindingTests(unittest.TestCase):
             with self.assertRaises(sl.ShardLoomResourceConfigurationError):
                 limited.from_arrow_table(Producer(), resources=sl.ExecutionResources(8192, 1))
 
+    def test_public_native_columnar_refusal_does_not_probe_producer_attributes(self):
+        import shardloom as sl
+
+        inspected = []
+
+        class ProducerType(type):
+            def __eq__(cls, other):
+                inspected.append("type equality")
+                raise AssertionError("unadmitted producer type comparison ran")
+
+        class Producer(metaclass=ProducerType):
+            @property
+            def native_result(self):
+                inspected.append("native_result")
+                raise AssertionError("unadmitted producer attribute was inspected")
+
+            @property
+            def __class__(self):
+                inspected.append("__class__")
+                raise AssertionError("unadmitted producer class was inspected")
+
+            def __arrow_c_stream__(self, requested_schema=None):
+                inspected.append("__arrow_c_stream__")
+                raise AssertionError("unadmitted producer was opened")
+
+        expired = sl.ShardLoomClient(transport="native", timeout=0,
+                                    memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(expired.close)
+        with self.assertRaisesRegex(RuntimeError, "deadline exceeded"):
+            sl.from_arrow_table(Producer(), client=expired)
+
+        ctx = sl.context(transport="native", memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(ctx.client.close)
+        retained = ctx.from_rows([{"id": 1}])
+        self.assertIsNotNone(retained.source.native_input)
+        self.assertGreater(ctx.client._native_backend.session.snapshot()["reserved_bytes"], 1)
+        with self.assertRaisesRegex(RuntimeError, "memory allocation cannot cover retained owners"):
+            ctx.from_arrow_table(Producer(), resources=sl.ExecutionResources(1, 1))
+        self.assertEqual(inspected, [])
+
+    def test_public_native_columnar_import_ignores_unrelated_native_result(self):
+        import shardloom as sl
+
+        pa = self.arrow()
+        expected = [{"id": 2}, {"id": 7}, {"id": 11}]
+        table = pa.table({"id": [2, 7, 11]})
+        opened = []
+
+        class ProducerWithAttribute:
+            native_result = object()
+
+            def __arrow_c_stream__(self, requested_schema=None):
+                opened.append(type(self).__name__)
+                return table.__arrow_c_stream__(requested_schema)
+
+        class ProducerWithProperty(ProducerWithAttribute):
+            @property
+            def native_result(self):
+                raise AssertionError("unrelated producer property was inspected")
+
+        ctx = sl.context(transport="native", memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(ctx.client.close)
+        for producer_type in (ProducerWithAttribute, ProducerWithProperty):
+            with self.subTest(producer=producer_type.__name__):
+                frame = ctx.from_arrow_table(producer_type())
+                self.assertEqual(frame.collect(check=True).to_arrow().to_pylist(), expected)
+        self.assertEqual(opened, ["ProducerWithAttribute", "ProducerWithProperty"])
+
     def test_public_native_incremental_results_keep_owners_after_close(self):
         import shardloom as sl
 
@@ -294,6 +362,8 @@ class NativeBindingTests(unittest.TestCase):
                 first = next(partial)
                 self.assertIsNone(partial.report)
             self.assertIsNone(partial.report)
+            composed = ctx.from_arrow_table(first).collect(check=True)
+            self.assertEqual(composed.to_arrow().to_pylist(), [{"id": value} for value in range(4)])
         ctx.client.close()
         self.assertEqual(first.to_arrow().to_pylist(), [{"id": value} for value in range(4)])
         actual = [row for batch in retained for row in batch.to_arrow().to_pylist()]

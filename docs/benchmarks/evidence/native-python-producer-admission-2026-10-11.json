@@ -1,0 +1,272 @@
+{
+  "status": "passed",
+  "parent_commit": "e689d69ce230551cdfa615a4c589f8202c7f8fbd",
+  "review_comment_id": 4242076368,
+  "behavior": "Only exact ShardLoom result wrapper types are unwrapped; external producers reach native admission unchanged.",
+  "scope": "Python adapter correction; no Rust, Vortex, Cargo dependency or native extension changes.",
+  "source_baseline": "native-release-source-305.json in native-python-integration-corrections-2026-10-11.tar.xz",
+  "selected_source_count": 1319,
+  "unchanged_source_count": 1315,
+  "changed_selected_sources": {
+    "python/src/shardloom/_native_backend.py": {
+      "previous_sha256": "d09ddba97097af1fa057ad1cbea5a983bb84ee4aa965e15937c838eadac8f218",
+      "current_sha256": "2d7dcd45a923b20e1d15a6ee4111fad1a0e70756ecd977782c159ac7eedf8712"
+    },
+    "python/tests/test_native_binding.py": {
+      "previous_sha256": "7ffad8532df9c890d99b4eff5b1585d55862436f5520d3604e3e74a103fc52fe",
+      "current_sha256": "a71f3f4ec99c8d0731a587a80e29ec124a42410beabf782a2a606ea797e8dba4"
+    },
+    "python/tests/test_release_scripts.py": {
+      "previous_sha256": "504f58dcd0332349f18cce5754add7d1e453e679fe310aab47defb3aa77ec301",
+      "current_sha256": "166863219f4acb9580126709145daaaf7755dd63ca5106c8de9304707fcb6dd5"
+    },
+    "scripts/check_ci_gate_matrix.py": {
+      "previous_sha256": "9a4c45ba46279c6c2139dc0960873f6120a52d5c40756428468055fd46789447",
+      "current_sha256": "4928969581f186593538ca582e973f60c9cab29f4bb345914cfc0a70736dcf5b"
+    }
+  },
+  "library": {
+    "filename": "_native.abi3.so",
+    "size": 357347264,
+    "sha256": "bfe3aeefd3df4ce4c501a735bcd0b9a040212ac5aa07bf8068e65d860972359d"
+  },
+  "python_test_count": 742,
+  "native_integration_test_count": 71,
+  "check_interpretation": {
+    "red-308": "Deadline regression reproduced; the positive-input test also lacked PyArrow in its first harness invocation.",
+    "red-308b": "Corrected dependency path; both new methods reproduce actual producer inspection/replacement bugs.",
+    "green-308": "Two new methods plus retained complete-result and incremental-result composition checks pass.",
+    "full-308": "Every Python test passes with the retained corrected native extension, without skips."
+  },
+  "checks": [
+    {
+      "name": "native-producer-admission-red-308",
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/usr/bin/env",
+          "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+          "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-305/_native.abi3.so",
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_refusal_does_not_probe_producer_attributes",
+          "python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result",
+          "-v"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "e689d69ce230551cdfa615a4c589f8202c7f8fbd",
+        "working_tree": " M python/tests/test_native_binding.py\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5743600320,
+            "log_bytes": 0,
+            "free_bytes": 16625922048,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 55208677376,
+            "log_bytes": 0,
+            "free_bytes": 16625967104,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 180.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 46190,
+        "output_bytes": 3413,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 0.2798362079774961,
+        "log_sha256": "d28219e9a5738a9b81cc6e8aded647ea3b542f456748c990f385e4aa2c903032"
+      },
+      "log": "test_public_native_columnar_refusal_does_not_probe_producer_attributes (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_refusal_does_not_probe_producer_attributes) ... FAIL\ntest_public_native_columnar_import_ignores_unrelated_native_result (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result) ... FAIL\n\n======================================================================\nFAIL: test_public_native_columnar_refusal_does_not_probe_producer_attributes (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_refusal_does_not_probe_producer_attributes)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 304, in test_public_native_columnar_refusal_does_not_probe_producer_attributes\n    sl.from_arrow_table(Producer(), client=expired)\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/query.py\", line 9318, in from_arrow_table\n    owner = resolved_client._native_backend_for(resources).from_arrow(table, resources)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_native_backend.py\", line 139, in from_arrow\n    retained = getattr(producer, \"native_result\", None)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 289, in native_result\n    raise AssertionError(\"unadmitted producer attribute was inspected\")\nAssertionError: unadmitted producer attribute was inspected\n\n======================================================================\nFAIL: test_public_native_columnar_import_ignores_unrelated_native_result (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 134, in arrow\n    import pyarrow as pa\nModuleNotFoundError: No module named 'pyarrow'\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 318, in test_public_native_columnar_import_ignores_unrelated_native_result\n    pa = self.arrow()\n         ^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 136, in arrow\n    _unavailable(\"optional PyArrow dependency is not installed\")\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 22, in _unavailable\n    raise AssertionError(message)\nAssertionError: optional PyArrow dependency is not installed\n\n----------------------------------------------------------------------\nRan 2 tests in 0.147s\n\nFAILED (failures=2)\n"
+    },
+    {
+      "name": "native-producer-admission-red-308b",
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/usr/bin/env",
+          "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+          "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-305/_native.abi3.so",
+          "PYTHONPATH=/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/python-deps:python/src:scripts",
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_refusal_does_not_probe_producer_attributes",
+          "python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result",
+          "-v"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "e689d69ce230551cdfa615a4c589f8202c7f8fbd",
+        "working_tree": " M python/tests/test_native_binding.py\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5743608512,
+            "log_bytes": 0,
+            "free_bytes": 16625909760,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 55208677376,
+            "log_bytes": 0,
+            "free_bytes": 16625963008,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 180.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 46216,
+        "output_bytes": 6928,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 0.5392462079762481,
+        "log_sha256": "251aefc2d54af62c91e1644e0eec7e482c716405546640ae6821d27a8573d12a"
+      },
+      "log": "test_public_native_columnar_refusal_does_not_probe_producer_attributes (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_refusal_does_not_probe_producer_attributes) ... FAIL\ntest_public_native_columnar_import_ignores_unrelated_native_result (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result) ... \n  test_public_native_columnar_import_ignores_unrelated_native_result (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result) (producer='ProducerWithAttribute') ... ERROR\n  test_public_native_columnar_import_ignores_unrelated_native_result (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result) (producer='ProducerWithProperty') ... FAIL\ntest_public_native_columnar_import_ignores_unrelated_native_result (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result) ... FAIL\n\n======================================================================\nERROR: test_public_native_columnar_import_ignores_unrelated_native_result (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result) (producer='ProducerWithAttribute')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 339, in test_public_native_columnar_import_ignores_unrelated_native_result\n    frame = ctx.from_arrow_table(producer_type())\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/context.py\", line 11778, in from_arrow_table\n    return from_arrow_table(\n           ^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/query.py\", line 9318, in from_arrow_table\n    owner = resolved_client._native_backend_for(resources).from_arrow(table, resources)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_native_backend.py\", line 140, in from_arrow\n    return self.session.from_arrow(\n           ^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: native columnar input requires __arrow_c_stream__; no row conversion is implied\n\n======================================================================\nFAIL: test_public_native_columnar_refusal_does_not_probe_producer_attributes (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_refusal_does_not_probe_producer_attributes)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 304, in test_public_native_columnar_refusal_does_not_probe_producer_attributes\n    sl.from_arrow_table(Producer(), client=expired)\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/query.py\", line 9318, in from_arrow_table\n    owner = resolved_client._native_backend_for(resources).from_arrow(table, resources)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_native_backend.py\", line 139, in from_arrow\n    retained = getattr(producer, \"native_result\", None)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 289, in native_result\n    raise AssertionError(\"unadmitted producer attribute was inspected\")\nAssertionError: unadmitted producer attribute was inspected\n\n======================================================================\nFAIL: test_public_native_columnar_import_ignores_unrelated_native_result (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result) (producer='ProducerWithProperty')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 339, in test_public_native_columnar_import_ignores_unrelated_native_result\n    frame = ctx.from_arrow_table(producer_type())\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/context.py\", line 11778, in from_arrow_table\n    return from_arrow_table(\n           ^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/query.py\", line 9318, in from_arrow_table\n    owner = resolved_client._native_backend_for(resources).from_arrow(table, resources)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_native_backend.py\", line 139, in from_arrow\n    retained = getattr(producer, \"native_result\", None)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 333, in native_result\n    raise AssertionError(\"unrelated producer property was inspected\")\nAssertionError: unrelated producer property was inspected\n\n======================================================================\nFAIL: test_public_native_columnar_import_ignores_unrelated_native_result (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/tests/test_native_binding.py\", line 341, in test_public_native_columnar_import_ignores_unrelated_native_result\n    self.assertEqual(opened, [\"ProducerWithAttribute\", \"ProducerWithProperty\"])\nAssertionError: Lists differ: [] != ['ProducerWithAttribute', 'ProducerWithProperty']\n\nSecond list contains 2 additional elements.\nFirst extra element 0:\n'ProducerWithAttribute'\n\n- []\n+ ['ProducerWithAttribute', 'ProducerWithProperty']\n\n----------------------------------------------------------------------\nRan 2 tests in 0.435s\n\nFAILED (failures=3, errors=1)\n"
+    },
+    {
+      "name": "native-producer-admission-green-308",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+          "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-305/_native.abi3.so",
+          "PYTHONPATH=/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/python-deps:python/src:scripts",
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_refusal_does_not_probe_producer_attributes",
+          "python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result",
+          "python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_workflow_retains_results_and_preparation",
+          "python.tests.test_native_binding.NativeBindingTests.test_public_native_incremental_results_keep_owners_after_close",
+          "-v"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "e689d69ce230551cdfa615a4c589f8202c7f8fbd",
+        "working_tree": " M python/src/shardloom/_native_backend.py\n M python/tests/test_native_binding.py\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5743620800,
+            "log_bytes": 0,
+            "free_bytes": 16624705536,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 55208677376,
+            "log_bytes": 0,
+            "free_bytes": 16624820224,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 180.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 46240,
+        "output_bytes": 882,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 0.4786178339854814,
+        "log_sha256": "765e1166dad7a76f358e7c0b3e8bab959116b8150fa935e61270f991b1d6f9fe"
+      },
+      "log": "test_public_native_columnar_refusal_does_not_probe_producer_attributes (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_refusal_does_not_probe_producer_attributes) ... ok\ntest_public_native_columnar_import_ignores_unrelated_native_result (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_import_ignores_unrelated_native_result) ... ok\ntest_public_native_columnar_workflow_retains_results_and_preparation (python.tests.test_native_binding.NativeBindingTests.test_public_native_columnar_workflow_retains_results_and_preparation) ... ok\ntest_public_native_incremental_results_keep_owners_after_close (python.tests.test_native_binding.NativeBindingTests.test_public_native_incremental_results_keep_owners_after_close) ... ok\n\n----------------------------------------------------------------------\nRan 4 tests in 0.375s\n\nOK\n"
+    },
+    {
+      "name": "native-producer-full-python-308",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+          "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-305/_native.abi3.so",
+          "PYTHONPATH=/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/python-deps:python/src:scripts",
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_*.py"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "e689d69ce230551cdfa615a4c589f8202c7f8fbd",
+        "working_tree": " M python/src/shardloom/_native_backend.py\n M python/tests/test_native_binding.py\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5743633088,
+            "log_bytes": 0,
+            "free_bytes": 16620953600,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 55208677376,
+            "log_bytes": 0,
+            "free_bytes": 16620937216,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1200.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 46264,
+        "output_bytes": 1213,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 24.291595874994528,
+        "log_sha256": "59a8878e7e98e43318c0b2e8ec791dcf0898028a3e7f19d2d96ba41b7e34d0c1"
+      },
+      "log": "......................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................\n----------------------------------------------------------------------\nRan 742 tests in 23.845s\n\nOK\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpb2qys1u1/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpjhat82m7/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpyx6g6amu/target/registry-proof.json\n/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/tmpjzdq5jxx/target/release-dry-run-proof/transcript.json\n"
+    }
+  ],
+  "hosted_final_head_acceptance": "pending",
+  "performance_claim": null
+}

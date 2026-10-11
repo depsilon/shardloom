@@ -136,7 +136,14 @@ class NativeBackend:
         self.session.cancel()
 
     def from_arrow(self, producer, allocation):
-        retained = getattr(producer, "native_result", None)
+        from .query import VortexWorkflowExecutionReport
+
+        # Only our exact wrappers have a trusted retained-owner accessor. Do not
+        # inspect arbitrary producer attributes before native resource admission.
+        producer_type = type(producer)
+        retained = (producer.native_result
+                    if producer_type is VortexWorkflowExecutionReport or producer_type is NativeResultBatch
+                    else None)
         return self.session.from_arrow(
             producer if retained is None else retained,
             resources=native_resources(self.module, allocation),
