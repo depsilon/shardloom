@@ -488,11 +488,25 @@ pub(crate) fn handle_local_table_metadata_read_smoke(
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
-    let _admission =
-        match context.admit_for_command(resources, "local-table-metadata-read-smoke", format) {
-            Ok(admission) => admission,
-            Err(code) => return code,
-        };
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        "local-table-metadata-read-smoke",
+        format,
+        context,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let _workspace = match crate::fixture_io::reserve_fixed_fixture_workspace(
+        args.as_slice(),
+        resources,
+        &pool,
+        "local-table-metadata-read-smoke",
+        format,
+    ) {
+        Ok(workspace) => workspace,
+        Err(code) => return code,
+    };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-table-metadata-read-smoke",
@@ -524,9 +538,11 @@ pub(crate) fn handle_local_table_metadata_read_smoke(
         "local manifest-backed table metadata read smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        crate::execution_resources::with_declaration_fields(
+        crate::fixture_io::with_estimated_fixture_fields(
             local_table_metadata_read_smoke_fields(&report),
             resources,
+            &pool,
+            "fixed_fixture_state_and_argument_expansion_workspace_estimate",
         ),
     );
     if has_errors {
@@ -772,11 +788,25 @@ pub(crate) fn handle_local_delete_tombstone_read_smoke(
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
-    let _admission =
-        match context.admit_for_command(resources, "local-delete-tombstone-read-smoke", format) {
-            Ok(admission) => admission,
-            Err(code) => return code,
-        };
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        "local-delete-tombstone-read-smoke",
+        format,
+        context,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let _workspace = match crate::fixture_io::reserve_fixed_fixture_workspace(
+        args.as_slice(),
+        resources,
+        &pool,
+        "local-delete-tombstone-read-smoke",
+        format,
+    ) {
+        Ok(workspace) => workspace,
+        Err(code) => return code,
+    };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-delete-tombstone-read-smoke",
@@ -808,9 +838,11 @@ pub(crate) fn handle_local_delete_tombstone_read_smoke(
         "local manifest-backed delete/tombstone read smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        crate::execution_resources::with_declaration_fields(
+        crate::fixture_io::with_estimated_fixture_fields(
             local_delete_tombstone_read_smoke_fields(&report),
             resources,
+            &pool,
+            "fixed_fixture_state_and_argument_expansion_workspace_estimate",
         ),
     );
     if has_errors {
@@ -835,11 +867,25 @@ pub(crate) fn handle_local_append_only_cdc_overlay_smoke(
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
-    let _admission =
-        match context.admit_for_command(resources, "local-append-only-cdc-overlay-smoke", format) {
-            Ok(admission) => admission,
-            Err(code) => return code,
-        };
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        "local-append-only-cdc-overlay-smoke",
+        format,
+        context,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let _workspace = match crate::fixture_io::reserve_fixed_fixture_workspace(
+        args.as_slice(),
+        resources,
+        &pool,
+        "local-append-only-cdc-overlay-smoke",
+        format,
+    ) {
+        Ok(workspace) => workspace,
+        Err(code) => return code,
+    };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-append-only-cdc-overlay-smoke",
@@ -871,9 +917,11 @@ pub(crate) fn handle_local_append_only_cdc_overlay_smoke(
         "local append-only CDC overlay smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        crate::execution_resources::with_declaration_fields(
+        crate::fixture_io::with_estimated_fixture_fields(
             local_append_only_cdc_overlay_smoke_fields(&report),
             resources,
+            &pool,
+            "fixed_fixture_state_and_argument_expansion_workspace_estimate",
         ),
     );
     if has_errors {

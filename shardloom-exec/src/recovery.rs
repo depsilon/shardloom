@@ -5042,9 +5042,10 @@ mod tests {
             SpillPayloadWriteRequest::new(fs_ref.clone(), payload)
                 .create_workspace(true)
                 .allow_overwrite(true),
+            &crate::live_memory::LiveMemoryPool::new(4 * 1024 * 1024).expect("fixture memory"),
         )
         .expect("write");
-        assert!(write_report.payload_written());
+        assert!(write_report.value().payload_written());
         let target = workspace.join(fs_ref.file_name());
         assert!(target.exists());
         let report = execute_cleanup_plan(

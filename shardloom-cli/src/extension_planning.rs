@@ -1089,33 +1089,28 @@ pub(crate) fn handle_udf_local_scalar_fixture_smoke(
         Ok(value) => value,
         Err(code) => return code,
     };
-    let _admission =
-        match context.admit_for_command(resources, "udf-local-scalar-fixture-smoke", format) {
-            Ok(admission) => admission,
-            Err(code) => return code,
-        };
-    let values = match parse_nullable_i64_values(&values_raw) {
-        Ok(values) => values,
-        Err(error) => {
-            return emit_error(
-                "udf-local-scalar-fixture-smoke",
-                format,
-                "udf local scalar fixture failed",
-                &error,
-            );
-        }
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        "udf-local-scalar-fixture-smoke",
+        format,
+        context,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
     };
-    let report = match run_deterministic_scalar_udf_fixture(&values) {
+    let report = match run_admitted_udf_fixture(&values_raw, &pool) {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "udf-local-scalar-fixture-smoke",
                 format,
                 "udf local scalar fixture failed",
                 &error,
+                extension_fixture_resource_fields(Vec::new(), resources, &pool),
             );
         }
     };
+    let report = report.value();
     emit(
         "udf-local-scalar-fixture-smoke",
         format,
@@ -1123,9 +1118,10 @@ pub(crate) fn handle_udf_local_scalar_fixture_smoke(
         "deterministic scalar UDF fixture smoke".to_string(),
         report.to_human_text(),
         vec![],
-        crate::execution_resources::with_declaration_fields(
-            udf_local_scalar_fixture_fields(&report),
+        extension_fixture_resource_fields(
+            udf_local_scalar_fixture_fields(report),
             resources,
+            &pool,
         ),
     );
     ExitCode::SUCCESS
@@ -1156,14 +1152,6 @@ pub(crate) fn handle_embedding_vector_local_fixture_smoke(
         Ok(value) => value,
         Err(code) => return code,
     };
-    let _admission = match context.admit_for_command(
-        resources,
-        "embedding-vector-local-fixture-smoke",
-        format,
-    ) {
-        Ok(admission) => admission,
-        Err(code) => return code,
-    };
     let mut query_text = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -1190,29 +1178,28 @@ pub(crate) fn handle_embedding_vector_local_fixture_smoke(
             }
         }
     }
-    let texts = match parse_semicolon_text_values(&texts_raw) {
-        Ok(texts) => texts,
-        Err(error) => {
-            return emit_error(
-                "embedding-vector-local-fixture-smoke",
-                format,
-                "embedding/vector local fixture failed",
-                &error,
-            );
-        }
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        "embedding-vector-local-fixture-smoke",
+        format,
+        context,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
     };
-    let query = query_text.unwrap_or_else(|| texts[0].clone());
-    let report = match run_deterministic_embedding_vector_fixture(&texts, &query) {
+    let report = match run_admitted_embedding_fixture(&texts_raw, query_text.as_deref(), &pool) {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "embedding-vector-local-fixture-smoke",
                 format,
                 "embedding/vector local fixture failed",
                 &error,
+                extension_fixture_resource_fields(Vec::new(), resources, &pool),
             );
         }
     };
+    let report = report.value();
     emit(
         "embedding-vector-local-fixture-smoke",
         format,
@@ -1220,12 +1207,99 @@ pub(crate) fn handle_embedding_vector_local_fixture_smoke(
         "deterministic embedding/vector fixture smoke".to_string(),
         report.to_human_text(),
         vec![],
-        crate::execution_resources::with_declaration_fields(
-            embedding_vector_local_fixture_fields(&report),
+        extension_fixture_resource_fields(
+            embedding_vector_local_fixture_fields(report),
             resources,
+            &pool,
         ),
     );
     ExitCode::SUCCESS
+}
+
+fn extension_fixture_resource_fields(
+    fields: Vec<(String, String)>,
+    resources: shardloom_core::ExecutionResources,
+    pool: &shardloom_exec::live_memory::LiveMemoryPool,
+) -> Vec<(String, String)> {
+    crate::fixture_io::with_estimated_fixture_fields(
+        fields,
+        resources,
+        pool,
+        "extension_fixture_input_output_and_summary_capacity_estimate",
+    )
+}
+
+fn extension_fixture_workspace_bytes(
+    rows: usize,
+    row_bytes: usize,
+    text_bytes: usize,
+    query_bytes: usize,
+) -> Result<u64, ShardLoomError> {
+    // Includes a 4-KiB fixed control allowance plus input/output containers,
+    // concurrent numeric summaries, and copied text/query representations.
+    let bytes = rows
+        .checked_mul(row_bytes)
+        .and_then(|bytes| {
+            text_bytes
+                .checked_mul(8)
+                .and_then(|text| bytes.checked_add(text))
+        })
+        .and_then(|bytes| {
+            query_bytes
+                .checked_mul(4)
+                .and_then(|query| bytes.checked_add(query))
+        })
+        .and_then(|bytes| bytes.checked_add(4096))
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation("extension fixture workspace size overflow".into())
+        })?;
+    u64::try_from(bytes).map_err(|_| {
+        ShardLoomError::InvalidOperation(
+            "extension fixture workspace exceeds byte accounting".into(),
+        )
+    })
+}
+
+fn run_admitted_udf_fixture(
+    raw: &str,
+    pool: &shardloom_exec::live_memory::LiveMemoryPool,
+) -> Result<
+    shardloom_exec::live_memory::Budgeted<DeterministicScalarUdfFixtureReport>,
+    ShardLoomError,
+> {
+    let rows = raw.split(',').count();
+    // Two nullable-int64 arrays and four concurrent summary workspaces. Each
+    // summary permits a String header plus twice the 21-byte i64/null token.
+    let row_bytes =
+        2 * std::mem::size_of::<Option<i64>>() + 4 * (std::mem::size_of::<String>() + 2 * 21);
+    let lease = pool.reserve(extension_fixture_workspace_bytes(rows, row_bytes, 0, 0)?)?;
+    let values = parse_nullable_i64_values(raw)?;
+    let report = run_deterministic_scalar_udf_fixture(&values)?;
+    Ok(shardloom_exec::live_memory::Budgeted::new(report, lease))
+}
+
+fn run_admitted_embedding_fixture(
+    raw: &str,
+    query: Option<&str>,
+    pool: &shardloom_exec::live_memory::LiveMemoryPool,
+) -> Result<
+    shardloom_exec::live_memory::Budgeted<DeterministicEmbeddingVectorFixtureReport>,
+    ShardLoomError,
+> {
+    let rows = raw.split(';').count();
+    // Input/summary String headers, four int64 coordinates, and four copies of
+    // an 86-byte maximum numeric-vector summary per row; text copies separately.
+    let row_bytes = 2 * std::mem::size_of::<String>() + std::mem::size_of::<[i64; 4]>() + 4 * 86;
+    let lease = pool.reserve(extension_fixture_workspace_bytes(
+        rows,
+        row_bytes,
+        raw.len(),
+        query.map_or(raw.len(), str::len),
+    )?)?;
+    let texts = parse_semicolon_text_values(raw)?;
+    let query = query.unwrap_or(&texts[0]);
+    let report = run_deterministic_embedding_vector_fixture(&texts, query)?;
+    Ok(shardloom_exec::live_memory::Budgeted::new(report, lease))
 }
 
 fn parse_nullable_i64_values(values_raw: &str) -> Result<Vec<Option<i64>>, ShardLoomError> {
@@ -1234,8 +1308,8 @@ fn parse_nullable_i64_values(values_raw: &str) -> Result<Vec<Option<i64>>, Shard
             "comma-separated values must not be empty".to_string(),
         ));
     }
-    let mut values = Vec::new();
-    for token in values_raw.split(',') {
+    let mut values = Vec::with_capacity(values_raw.split(',').count());
+    for (index, token) in values_raw.split(',').enumerate() {
         let token = token.trim();
         if token.eq_ignore_ascii_case("null") {
             values.push(None);
@@ -1246,7 +1320,7 @@ fn parse_nullable_i64_values(values_raw: &str) -> Result<Vec<Option<i64>>, Shard
         } else {
             let value = token.parse::<i64>().map_err(|error| {
                 ShardLoomError::InvalidOperation(format!(
-                    "invalid int64 UDF fixture value {token:?}: {error}"
+                    "invalid int64 UDF fixture value at index {index}: {error}"
                 ))
             })?;
             values.push(Some(value));
@@ -1261,7 +1335,7 @@ fn parse_semicolon_text_values(values_raw: &str) -> Result<Vec<String>, ShardLoo
             "semicolon-separated text values must not be empty".to_string(),
         ));
     }
-    let mut values = Vec::new();
+    let mut values = Vec::with_capacity(values_raw.split(';').count());
     for token in values_raw.split(';') {
         let text = token.trim();
         if text.is_empty() {
@@ -2887,4 +2961,138 @@ fn optional_u64_as_count(value: Option<u64>) -> usize {
     value
         .and_then(|value| usize::try_from(value).ok())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod resource_tests {
+    use super::*;
+    use shardloom_exec::live_memory::LiveMemoryPool;
+
+    #[test]
+    fn udf_admission_precedes_parsing_and_keeps_complete_results_charged() {
+        let tiny = LiveMemoryPool::new(1).unwrap();
+        let error = run_admitted_udf_fixture("not-an-integer", &tiny).unwrap_err();
+        assert!(error.to_string().contains("memory reservation denied"));
+        assert_eq!(tiny.snapshot().reserved_bytes, 0);
+
+        let values = (0..4097_i64)
+            .map(|value| (value % 5 != 0).then_some(value - 2048))
+            .collect::<Vec<_>>();
+        let raw = values
+            .iter()
+            .map(|value| value.map_or_else(|| "null".into(), |value| value.to_string()))
+            .collect::<Vec<_>>()
+            .join(",");
+        let generous = LiveMemoryPool::new(4 * 1024 * 1024).unwrap();
+        let first = run_admitted_udf_fixture(&raw, &generous).unwrap();
+        let required = first.reserved_bytes();
+        let expected = values
+            .iter()
+            .map(|value| value.map(|value| value * 2))
+            .collect::<Vec<_>>();
+        assert_eq!(first.value().output_values, expected);
+        assert!(first.value().no_fallback_invariant_holds());
+        drop(first);
+        assert_eq!(generous.snapshot().reserved_bytes, 0);
+
+        let pool = LiveMemoryPool::new(required).unwrap();
+        let competing = pool.reserve(1).unwrap();
+        assert!(run_admitted_udf_fixture(&raw, &pool).is_err());
+        assert_eq!(pool.snapshot().reserved_bytes, 1);
+        drop(competing);
+        let result = run_admitted_udf_fixture(&raw, &pool).unwrap();
+        assert_eq!(result.value().output_values, expected);
+        assert_eq!(pool.snapshot().reserved_bytes, required);
+        assert!(run_admitted_udf_fixture("1", &pool).is_err());
+        drop(result);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert_eq!(
+            run_admitted_udf_fixture("1,null,-2", &pool)
+                .unwrap()
+                .value()
+                .output_values,
+            [Some(2), None, Some(-4)]
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn udf_parse_and_overflow_failures_release_the_complete_workspace() {
+        let pool = LiveMemoryPool::new(64 * 1024).unwrap();
+        for (raw, message) in [
+            ("1,broken,3", "at index 1"),
+            ("9223372036854775807", "overflow blocked"),
+            ("", "must not be empty"),
+        ] {
+            let error = run_admitted_udf_fixture(raw, &pool).unwrap_err();
+            assert!(error.to_string().contains(message), "{error}");
+            assert_eq!(pool.snapshot().reserved_bytes, 0);
+        }
+        assert_eq!(
+            run_admitted_udf_fixture("null,0,-4611686018427387904,4611686018427387903", &pool)
+                .unwrap()
+                .value()
+                .output_values,
+            [None, Some(0), Some(i64::MIN), Some(i64::MAX - 1)]
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn embedding_admission_covers_unicode_rows_query_and_retained_report() {
+        let tiny = LiveMemoryPool::new(1).unwrap();
+        assert!(
+            run_admitted_embedding_fixture(";", None, &tiny)
+                .unwrap_err()
+                .to_string()
+                .contains("memory reservation denied")
+        );
+        let texts = (0..1025)
+            .map(|value| format!("{value}-{}", "界🦀é".repeat(32)))
+            .collect::<Vec<_>>();
+        let raw = texts.join(";");
+        let query = format!("{}{}", texts[1024], "🦀".repeat(2048));
+        let expected = run_deterministic_embedding_vector_fixture(&texts, &query).unwrap();
+        let generous = LiveMemoryPool::new(16 * 1024 * 1024).unwrap();
+        let first = run_admitted_embedding_fixture(&raw, Some(&query), &generous).unwrap();
+        assert_eq!(first.value(), &expected);
+        let required = first.reserved_bytes();
+        drop(first);
+        assert_eq!(generous.snapshot().reserved_bytes, 0);
+        let pool = LiveMemoryPool::new(required).unwrap();
+        let competing = pool.reserve(1).unwrap();
+        assert!(run_admitted_embedding_fixture(&raw, Some(&query), &pool).is_err());
+        assert_eq!(pool.snapshot().reserved_bytes, 1);
+        drop(competing);
+        let result = run_admitted_embedding_fixture(&raw, Some(&query), &pool).unwrap();
+        assert_eq!(result.value(), &expected);
+        assert_eq!(pool.snapshot().reserved_bytes, required);
+        assert!(run_admitted_embedding_fixture("a;b", None, &pool).is_err());
+        drop(result);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert_eq!(
+            run_admitted_embedding_fixture("a;b", None, &pool)
+                .unwrap()
+                .value()
+                .query_text,
+            "a"
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        for (raw, query) in [("", None), ("a;;b", None), ("a;b", Some(" "))] {
+            assert!(run_admitted_embedding_fixture(raw, query, &pool).is_err());
+            assert_eq!(pool.snapshot().reserved_bytes, 0);
+        }
+    }
+
+    #[test]
+    fn extension_workspace_arithmetic_refuses_overflow() {
+        for args in [
+            (usize::MAX, 2, 0, 0),
+            (1, 1, usize::MAX, 0),
+            (1, 1, 0, usize::MAX),
+            (usize::MAX - 1, 1, 0, 0),
+        ] {
+            assert!(extension_fixture_workspace_bytes(args.0, args.1, args.2, args.3).is_err());
+        }
+    }
 }

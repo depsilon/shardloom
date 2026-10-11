@@ -206,6 +206,69 @@ pub(crate) fn with_observation_fields(
     fields
 }
 
+/// Conservative workspace admission for the bounded synthetic engine/table
+/// fixtures. At most 32 fixed records participate; four 4-KiB workspaces per
+/// record cover their maps, clones and transition state. Caller operator text
+/// may expand through projection of every fixture row, so charge 1 KiB per
+/// argument byte before parsing. This estimate is not a production allocation,
+/// measured live heap usage, a query spill contract or a whole-process ceiling.
+pub(crate) fn fixed_fixture_workspace_bytes(arguments: &[String]) -> shardloom_core::Result<u64> {
+    let bytes = arguments
+        .iter()
+        .try_fold(32_usize * 4 * 4096, |bytes, argument| {
+            argument
+                .len()
+                .checked_mul(1024)
+                .and_then(|additional| bytes.checked_add(additional))
+                .ok_or_else(size_error)
+        })?;
+    u64::try_from(bytes).map_err(|_| size_error())
+}
+
+pub(crate) fn reserve_fixed_fixture_workspace(
+    arguments: &[String],
+    resources: ExecutionResources,
+    pool: &LiveMemoryPool,
+    command: &str,
+    format: OutputFormat,
+) -> Result<MemoryLease, ExitCode> {
+    fixed_fixture_workspace_bytes(arguments)
+        .and_then(|bytes| pool.reserve(bytes))
+        .map_err(|error| {
+            crate::cli_output::emit_error_with_fields(
+                command,
+                format,
+                "fixture workspace admission failed",
+                &error,
+                with_estimated_fixture_fields(
+                    Vec::new(),
+                    resources,
+                    pool,
+                    "fixed_fixture_state_and_argument_expansion_workspace_estimate",
+                ),
+            )
+        })
+}
+
+pub(crate) fn with_estimated_fixture_fields(
+    fields: Vec<(String, String)>,
+    resources: ExecutionResources,
+    pool: &LiveMemoryPool,
+    basis: &str,
+) -> Vec<(String, String)> {
+    let mut fields = with_observation_fields(fields, resources, pool);
+    let snapshot = pool.snapshot();
+    crate::execution_resources::append_memory_observation_fields(
+        &mut fields,
+        Some(snapshot.reserved_bytes),
+        snapshot.peak_reserved_bytes,
+        &format!(
+            "{basis};conservative_reservation_not_measured_heap;excludes_caller_arguments_envelope_serialization_and_process_rss"
+        ),
+    );
+    fields
+}
+
 /// Reserve the exact extent before opening the file. Read into fixed capacity,
 /// refusing size changes instead of growing a Vec beyond its admission.
 pub(crate) fn read_bytes(
@@ -297,6 +360,68 @@ fn invalid(message: &str) -> io::Error {
 mod tests {
     use super::*;
     use std::fmt::Write as _;
+
+    #[test]
+    fn fixed_fixture_workspace_competes_for_credit_and_reports_an_estimate() {
+        let arguments = vec!["--project".into(), "value,value,value".repeat(1024)];
+        let bytes = fixed_fixture_workspace_bytes(&arguments).unwrap();
+        assert!(bytes > fixed_fixture_workspace_bytes(&[]).unwrap());
+        let resources = ExecutionResources::from_bytes(
+            bytes,
+            2,
+            shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+        )
+        .unwrap();
+        let pool = LiveMemoryPool::new(bytes).unwrap();
+        let competing = pool.reserve(1).unwrap();
+        assert!(pool.reserve(bytes).is_err());
+        assert_eq!(pool.snapshot().reserved_bytes, 1);
+        drop(competing);
+        let workspace = reserve_fixed_fixture_workspace(
+            &arguments,
+            resources,
+            &pool,
+            "fixture-test",
+            OutputFormat::Json,
+        )
+        .unwrap();
+        let fields =
+            with_estimated_fixture_fields(Vec::new(), resources, &pool, "fixed_fixture_test");
+        let field = |name: &str| {
+            fields
+                .iter()
+                .find(|(key, _)| key == name)
+                .unwrap()
+                .1
+                .as_str()
+        };
+        assert_eq!(
+            field("execution_resource_observed_native_reserved_bytes"),
+            bytes.to_string()
+        );
+        assert_eq!(
+            field("execution_resource_observed_native_peak_reserved_bytes"),
+            bytes.to_string()
+        );
+        assert!(
+            field("execution_resource_memory_observation_scope")
+                .contains("conservative_reservation_not_measured_heap")
+        );
+        assert_eq!(field("execution_resource_admitted_max_parallelism"), "1");
+        drop(workspace);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert!(
+            reserve_fixed_fixture_workspace(
+                &arguments,
+                resources,
+                &pool,
+                "fixture-test",
+                OutputFormat::Json
+            )
+            .is_ok()
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+    }
 
     #[test]
     fn text_and_nested_vectors_reserve_before_growth_and_release_on_failure() {
