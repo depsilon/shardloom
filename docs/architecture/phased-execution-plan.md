@@ -291,7 +291,16 @@ the ledger.
       the shared resource owner is unavailable; do not report a declaration as
       admitted. Default and native CLI checks pass locally. The three platform
       regressions compile on Unix and are registered in Windows CI; actual
-      Windows execution remains part of hosted acceptance below.
+      Windows execution subsequently passed all three cases on the reviewed
+      `1acbd5d6` source. That result does not certify later writer changes.
+    - [x] Close the Unix reader/export and reduced writer-profile review findings.
+      Synchronous readers, preparation identities, buffered writers and streamed
+      writers retain the admitted owner. Structured Vortex output shares its
+      retained reader's pool; reduced builds without the accounted compatibility
+      reader refuse before source access. All 16 fresh source gates pass,
+      including 2,546 native Vortex, 1,339 native CLI and 1,104 reduced-profile
+      tests. The separate correction packet preserves failed/interrupted attempts
+      and the original complete-workflow source identity.
     - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations

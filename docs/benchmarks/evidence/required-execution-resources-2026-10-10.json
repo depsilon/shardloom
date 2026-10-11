@@ -896,5 +896,43 @@
     "documentation_checks": 14,
     "ci_registration_passed": true,
     "performance_claim": false
+  },
+  "shared_reader_writer_review_correction": {
+    "path": "required-execution-resources-shared-writers-2026-10-10.json",
+    "sha256": "be02d72260a7f5aaf4948274bfd092dba030f8db13ff75340a19c4949196dcb5",
+    "status": "passed_local_source_and_documentation_checks_pending_hosted",
+    "source_identity_sha256": "957830918043921a960e0c22779d9062dc57f6ac5824fecf407fe960d62283ce",
+    "source_checks": 16,
+    "documentation_checks": 14,
+    "ci_registration_passed": true,
+    "original_complete_workflows_rerun": false,
+    "performance_claim": false,
+    "rust_test_totals": {
+      "default-tests": {
+        "passed": 3166,
+        "failed": 0,
+        "ignored": 0
+      },
+      "reduced-writer-tests": {
+        "passed": 1104,
+        "failed": 0,
+        "ignored": 0
+      },
+      "native-cli-tests": {
+        "passed": 1339,
+        "failed": 0,
+        "ignored": 3
+      },
+      "native-vortex-tests": {
+        "passed": 2546,
+        "failed": 0,
+        "ignored": 24
+      },
+      "native-examples": {
+        "passed": 17,
+        "failed": 0,
+        "ignored": 0
+      }
+    }
   }
 }

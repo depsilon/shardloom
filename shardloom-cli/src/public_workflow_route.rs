@@ -16976,7 +16976,10 @@ mod tests {
         .expect("local SQL ClickBench route request");
         let plan = plan_public_workflow_route(&request);
 
-        if cfg!(feature = "vortex-write") {
+        if cfg!(all(
+            feature = "vortex-write",
+            feature = "vortex-local-primitives"
+        )) {
             assert_eq!(plan.status, CommandStatus::Success);
             assert_eq!(
                 plan.route_id,
@@ -16990,7 +16993,11 @@ mod tests {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
                 plan.blocker_id,
-                "cg21.route.local_file_vortex_ingest_feature_gated"
+                if cfg!(feature = "vortex-write") {
+                    "cg21.route.local_file_vortex_primitive_feature_gated"
+                } else {
+                    "cg21.route.local_file_vortex_ingest_feature_gated"
+                }
             );
         }
 

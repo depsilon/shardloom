@@ -229,7 +229,14 @@ fn write_and_verify(
     let expected = values(array, &mut execution);
     if matches!(route, Route::Array) {
         let result = context
-            .write_array(path, array, false, &decision, "test")
+            .write_array(
+                path,
+                array,
+                false,
+                &decision,
+                "test",
+                &LiveMemoryPool::new(16 << 20).unwrap(),
+            )
             .unwrap();
         assert!(
             result
@@ -406,7 +413,14 @@ fn date_only_files_keep_full_domain_minimum_and_maximum_statistics() {
                 .join(format!("date-only-{composition:?}.vortex"));
             let decision = decision(composition, &path);
             let result = context
-                .write_array(&path, &array, false, &decision, "test")
+                .write_array(
+                    &path,
+                    &array,
+                    false,
+                    &decision,
+                    "test",
+                    &LiveMemoryPool::new(16 << 20).unwrap(),
+                )
                 .unwrap();
             assert!(
                 !result

@@ -214,6 +214,29 @@ tree allocation. A grouped grant below one estimated 128-byte item fails before
 source opening or grouped-state construction. The same runtime-owner constructor
 continues to accept nonaggregate projection/count/sort preparation.
 
+The subsequent reader/writer ownership review extends that contract to the
+remaining synchronous Vortex primitive sessions and preparation identity checks.
+The reserved native allocator is installed before footer access. Partitioned
+readers and later materialization passes retain the same session. Preparation
+reserves its control/fingerprint scratch before source inspection, and retained
+preparation identities carry metadata credits on the caller's pool.
+
+Buffered writers reserve a conservative construction estimate before conversion;
+native host allocations, the workspace writer buffer and footer reopening share
+that owner. Structured Vortex exports pass their retained reader's pool into the
+buffered writer. They cannot grant a second full budget while the reader remains
+live. The estimate is identified as an estimate, and original input containers,
+reader internals, provider allocations outside the host allocator and process RSS
+remain excluded. Empty streams use the same admitted native-array provider as
+nonempty streams and report its actual provider identity.
+
+Compatibility preparation in a `vortex-write` build lacking
+`universal-format-io` refuses before reading input or creating output: that build
+has no resource-accounted compatibility reader. Default and full native builds
+retain their separate coverage. CI additionally runs all CLI targets for this
+reduced feature profile; refusal tests cover malformed inputs, tiny and adequate
+grants, existing destinations and missing output directories.
+
 All execution reports attach the declared bytes, lane maximum and origins.
 Resident count, filtered count, unary, aggregate and relational paths attach the
 actual admitted session snapshot after producing their native result buffers.
@@ -242,3 +265,13 @@ and 17 example tests. Their separate correction evidence preserves the initial
 complete-workflow source identity and does not attribute its timings to the
 changed copy path. Hosted acceptance remains required before this implementation
 unit is marked complete.
+
+The final shared reader/writer correction passes 16 fresh source gates: 3,166
+default workspace tests, 1,339 native CLI tests, 2,546 native Vortex tests,
+1,104 CLI tests in the reduced writer profile and 17 example tests, plus strict
+lint, formatting, feature-isolation and Rust 1.96 checks. The native suites
+retain 24 existing ignored Vortex cases and three non-Unix CLI cases ignored on
+this host. Those three platform refusal cases separately passed on Windows for
+the preceding reviewed commit; later writer changes still require hosted checks.
+The correction evidence preserves failed and deliberately interrupted attempts,
+without assigning the original complete-workflow timings to this changed source.

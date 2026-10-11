@@ -635,7 +635,9 @@ fn native_relational_every_writer_checks_original_preparation_source_through_com
                 1,
                 vec![(KEY, binding.as_bytes().to_vec())],
             );
-            let identity = Arc::new(local_preparation_identity(&source.path(), &binding).unwrap());
+            let memory = shardloom_exec::live_memory::LiveMemoryPool::new(32 << 20).unwrap();
+            let identity =
+                Arc::new(local_preparation_identity(&source.path(), &binding, &memory).unwrap());
             let prepared = source_provenance_tests::prepare(&source, identity, source_owned);
             let baseline = prepared.session.memory().snapshot().reserved_bytes;
             let plan = crate::local_primitives::native_sink::NativeSinkPlan::produced_sources(

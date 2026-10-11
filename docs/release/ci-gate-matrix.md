@@ -33,6 +33,7 @@ This prevents default-feature tests from masking failures in shipped native path
 ```text
 cargo test -p shardloom-vortex --lib --features release-user-surfaces
 cargo test -p shardloom-cli --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces
+cargo test -p shardloom-cli --all-targets --no-default-features --features vortex-write
 cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings
 ```
 

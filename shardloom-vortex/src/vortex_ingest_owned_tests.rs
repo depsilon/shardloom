@@ -95,6 +95,77 @@ fn path(label: &str) -> PathBuf {
     ))
 }
 
+#[test]
+fn buffered_columnar_ingest_owns_conversion_writer_and_reopen() {
+    let root = path("buffered-columnar-resources");
+    fs::create_dir_all(&root).unwrap();
+    let existing = root.join("existing.vortex");
+    let absent = root.join("absent").join("new.vortex");
+    fs::write(&existing, b"keep existing output").unwrap();
+    let batch = batch(7);
+    let schema = batch.schema();
+    let columns = schema
+        .fields()
+        .iter()
+        .map(|field| field.name().clone())
+        .collect::<Vec<_>>();
+    let source = FlatLocalColumnarSource {
+        header: columns.clone(),
+        column_dtypes: vec![None; columns.len()],
+        column_arrow_dtypes: schema
+            .fields()
+            .iter()
+            .map(|field| Some(field.data_type().clone()))
+            .collect(),
+        materialized_columns: columns.clone(),
+        reader_projection_columns: columns,
+        batches: vec![batch],
+        row_count: 3,
+    };
+    for target in [&existing, &absent] {
+        for bytes in [1, 128 << 10] {
+            let request = VortexPreparedStateColumnarWriteRequest::new(
+                target,
+                source.clone(),
+                shardloom_core::ExecutionResources::from_bytes(
+                    bytes,
+                    1,
+                    shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                )
+                .unwrap(),
+            )
+            .allow_overwrite(true);
+            let error = write_flat_columnar_vortex_prepared_state(request).unwrap_err();
+            assert!(error.to_string().contains("memory"), "{error}");
+            assert_eq!(fs::read(&existing).unwrap(), b"keep existing output");
+            assert!(!absent.parent().unwrap().exists());
+        }
+    }
+    let report =
+        write_flat_columnar_vortex_prepared_state(VortexPreparedStateColumnarWriteRequest::new(
+            &absent,
+            source,
+            shardloom_core::ExecutionResources::from_bytes(
+                16 << 20,
+                1,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .unwrap(),
+        ))
+        .unwrap();
+    assert_eq!(report.row_count, 3);
+    assert_eq!(report.reopen_row_count, 3);
+    let memory = report.shared_native_memory.unwrap();
+    assert!(memory.buffered_conversion);
+    assert!(
+        memory.peak_reserved_bytes
+            >= shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes()
+    );
+    assert!(memory.peak_reserved_bytes <= memory.limit_bytes);
+    assert_eq!(memory.final_reserved_bytes, 0);
+    fs::remove_dir_all(root).unwrap();
+}
+
 struct ResourceObservedReader {
     inner: Box<dyn arrow_array::RecordBatchReader + Send>,
     pulls: Arc<std::sync::atomic::AtomicUsize>,
@@ -187,6 +258,30 @@ fn explicit_writer_allocation_rejects_mismatches_before_input_or_output() {
         );
         assert!(!output.exists(), "{case}");
     }
+}
+
+#[test]
+fn writer_owns_declared_memory_when_no_narrower_suballocation_is_supplied() {
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+    let output = path("declared-owner");
+    let resources =
+        ExecutionResources::from_bytes(16 << 20, 1, ExecutionResourceOrigin::ExecutionCall)
+            .unwrap();
+    let (source, pulls) = resource_observed_source();
+    let report = write_flat_columnar_vortex_prepared_state_streaming(
+        VortexPreparedStateColumnarStreamWriteRequest::new(&output, source, resources),
+    )
+    .unwrap();
+    assert_eq!(report.row_count, 3);
+    assert!(pulls.load(std::sync::atomic::Ordering::Relaxed) > 0);
+    let memory = report
+        .shared_native_memory
+        .expect("required declaration owns the stream");
+    assert_eq!(memory.limit_bytes, resources.memory_bytes());
+    assert!(memory.peak_reserved_bytes > 0);
+    assert!(memory.peak_reserved_bytes <= resources.memory_bytes());
+    assert_eq!(memory.final_reserved_bytes, 0);
+    fs::remove_file(output).unwrap();
 }
 
 #[test]
@@ -288,7 +383,7 @@ fn bounded_table_subtrees_round_trip_values_and_release_shared_memory() {
             .collect::<BTreeMap<_, _>>();
         assert_eq!(
             evidence["vortex_shared_native_memory_scope"],
-            "shared_pool_lifetime_including_other_retained_native_owners;copied_native_input_buffers;prefetch_admission;native_host_allocator;root_layout_references"
+            "shared_pool_lifetime_including_other_retained_native_owners;copied_native_input_buffers;prefetch_admission;native_host_allocator;root_layout_references;workspace_writer_buffer;reopen_footer"
         );
         assert!(
             evidence["vortex_shared_native_memory_exclusions"]
