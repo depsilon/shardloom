@@ -9,7 +9,7 @@ description = "Pre-release Python client for ShardLoom, a Vortex-first no-fallba
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE"]
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_LICENSES/manifest.json", "THIRD_PARTY_LICENSES/texts/*.txt"]
 authors = [{ name = "ShardLoom contributors" }]
 dependencies = []
 keywords = ["analytics", "columnar", "vortex", "data-engine", "etl", "benchmark", "no-fallback", "rust", "python"]
@@ -43,7 +43,7 @@ Documentation = "https://github.com/depsilon/shardloom/tree/main/docs"
 where = ["src"]
 
 [tool.setuptools.package-data]
-shardloom = ["py.typed", "bin/*/shardloom", "bin/*/shardloom.exe"]
+shardloom = ["py.typed", "bin/*/shardloom", "bin/*/shardloom.exe", "_native.abi3.so"]
 
 [tool.setuptools.dynamic]
 version = { attr = "shardloom._version.__version__" }

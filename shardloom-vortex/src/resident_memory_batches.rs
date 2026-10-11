@@ -65,6 +65,45 @@ impl MemoryBatchSourceBuilder {
         self.session.memory().reserve(bytes)
     }
 
+    /// Interpret the same pinned native field declarations used by object and
+    /// batch inputs as an explicit Arrow construction boundary. Only schema
+    /// metadata crosses JSON; values are constructed directly by the adapter.
+    /// Top-level width uses shared admission, with the existing per-field nested
+    /// schema rules. The returned credit must remain alive during construction.
+    /// # Errors
+    /// Rejects malformed/unsupported types, duplicate names or memory pressure.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn object_input_schema(
+        &self,
+        fields: &[(String, String)],
+    ) -> Result<shardloom_exec::live_memory::Budgeted<arrow_schema::SchemaRef>> {
+        use arrow_schema::{Field, Schema};
+        use shardloom_exec::live_memory::Budgeted;
+        self.cancellation.check()?;
+        let memory = self.session.memory();
+        let mut metadata =
+            crate::native_payload_schema::reserve_names(memory, fields.len(), |i| {
+                fields[i].0.as_str()
+            })?;
+        let mut converted = Vec::with_capacity(fields.len());
+        for (name, raw) in fields {
+            self.cancellation.check()?;
+            let (dtype, mut credit) =
+                crate::local_primitives::native_input_schema::parse_dtype(raw, memory)?;
+            let bytes = credit
+                .bytes()
+                .checked_mul(4)
+                .ok_or_else(|| memory_error("object schema conversion metadata overflow"))?;
+            credit.resize(bytes)?;
+            let data_type = crate::native_arrow_conversion::data_type(&dtype).ok_or_else(|| {
+                memory_error("native object input type has no admitted columnar representation")
+            })?;
+            converted.push(Field::new(name, data_type, dtype.is_nullable()));
+            metadata.absorb(&mut credit)?;
+        }
+        Ok(Budgeted::new(Arc::new(Schema::new(converted)), metadata))
+    }
+
     /// Copy one caller-owned typed batch into native allocator-owned buffers.
     /// All batches, including empty ones, must declare the exact same schema.
     /// # Errors

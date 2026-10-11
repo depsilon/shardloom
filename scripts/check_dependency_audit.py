@@ -64,6 +64,7 @@ RUNTIME_CARGO_MANIFESTS = (
     "shardloom-exec/Cargo.toml",
     "shardloom-vortex/Cargo.toml",
     "shardloom-cli/Cargo.toml",
+    "shardloom-python/Cargo.toml",
 )
 BENCHMARK_REQUIREMENTS_FILES = (
     ROOT / "benchmarks" / "traditional_analytics" / "requirements.txt",

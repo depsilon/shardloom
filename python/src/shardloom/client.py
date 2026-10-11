@@ -6412,12 +6412,20 @@ class ShardLoomClient:
         profile_order: Sequence[str] = DEFAULT_PROFILE_ORDER,
         timeout: float | None = None,
         use_persistent_worker: bool | None = None,
+        transport: str = "subprocess",
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
     ) -> None:
+        from ._native_backend import normalize_transport, validate_timeout
+        self._transport = normalize_transport(transport)
+        if self._transport == "native" and use_persistent_worker is True:
+            raise ValueError("a persistent subprocess worker cannot use transport='native'")
+        self._native_backend = None
+        self._native_backend_lock = threading.Lock()
+        self._native_closed = False
         self._resources = optional_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, limits=resource_limits,
@@ -6430,7 +6438,7 @@ class ShardLoomClient:
         self._cwd = Path(cwd) if cwd is not None else None
         self._repo_root = Path(repo_root) if repo_root is not None else None
         self._profile_order = tuple(profile_order)
-        self._timeout = timeout
+        self._timeout = validate_timeout(timeout) if self._transport == "native" else timeout
         self._resolved_binary_cache: Binary | None = None
         self._use_persistent_worker = use_persistent_worker
         self._worker_process: subprocess.Popen[str] | None = None
@@ -6449,6 +6457,26 @@ class ShardLoomClient:
         """Return explicit ceilings, including when no job grant is configured."""
 
         return self._resource_limits
+
+    @property
+    def transport(self) -> str:
+        """Return the explicitly selected execution transport."""
+
+        return self._transport
+
+    def _native_backend_for(self, allocation: ExecutionResources):
+        from ._native_backend import NativeBackend
+        if self.transport != "native":
+            raise ValueError("this operation requires transport='native'")
+        allocation = resolve_resources(
+            resources=allocation, inherited=self.resources, limits=self.resource_limits,
+        )
+        with self._native_backend_lock:
+            if self._native_closed:
+                raise RuntimeError("native client is closed; retained results remain valid")
+            if self._native_backend is None:
+                self._native_backend = NativeBackend(allocation, self.resource_limits, self._timeout)
+            return self._native_backend
 
     @classmethod
     def from_repo(
@@ -6782,9 +6810,19 @@ class ShardLoomClient:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
+        _native_plan: object | None = None,
     ) -> PublicWorkflowExecution:
         """Run an admitted public workflow through the shared route facade."""
 
+        if self.transport == "native":
+            request = dict(locals())
+            request.pop("self")
+            allocation = resolve_resources(
+                memory_gb=memory_gb, memory_bytes=memory_bytes,
+                max_parallelism=max_parallelism, resources=resources,
+                inherited=self.resources, limits=self.resource_limits,
+            )
+            return self._native_backend_for(allocation).execute(request, allocation, check=check)
         args = self._public_workflow_facade_args(
             "run",
             surface,
@@ -6840,6 +6878,15 @@ class ShardLoomClient:
         input_batches: Mapping[str, object] | None = None, **kwargs: Any,
     ):
         """Iterate native result batches; use a context manager for early close."""
+        if self.transport == "native":
+            request = dict(kwargs, surface=surface, input_batches=input_batches)
+            allocation = resolve_resources(
+                memory_gb=kwargs.get("memory_gb"), memory_bytes=kwargs.get("memory_bytes"),
+                max_parallelism=kwargs.get("max_parallelism"), resources=kwargs.get("resources"),
+                inherited=self.resources, limits=self.resource_limits,
+            )
+            return self._native_backend_for(allocation).batches(request, allocation, batch_rows)
+        kwargs.pop("_native_plan", None)
         from ._batches import ResultBatchIterator, validate_inputs
         if kwargs.get("requested_output", "collect") != "collect":
             raise ValueError("incremental result consumption requires collect output")
@@ -8521,6 +8568,16 @@ class ShardLoomClient:
     def run(self, args: Sequence[CommandPart], *, check: bool = True) -> OutputEnvelope:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
 
+        if self.transport == "native":
+            from ._native_backend import load_native
+            if self._native_closed:
+                raise RuntimeError("native client is closed; retained results remain valid")
+            command = [str(arg) for arg in args]
+            payload = load_native().command(command)
+            envelope = OutputEnvelope.from_json(json.loads(payload))
+            if check and envelope.is_error:
+                raise ShardLoomCommandError(("shardloom._native", *command), 2, envelope, "")
+            return envelope
         if self._worker_enabled():
             try:
                 return self._run_worker(args, check=check)
@@ -8530,9 +8587,28 @@ class ShardLoomClient:
                 return self._run_subprocess(args, check=check)
         return self._run_subprocess(args, check=check)
 
-    def close(self) -> None:
-        """Close any persistent local CLI worker owned by this client."""
+    def cancel(self) -> None:
+        """Cancel this native client's current calls; later calls remain usable.
 
+        Cancellation is cooperative. A foreign producer callback must return
+        before native work can observe it. Completed results remain valid.
+        """
+
+        if self.transport != "native":
+            raise ValueError("cancel() requires transport='native'")
+        with self._native_backend_lock:
+            if self._native_closed:
+                raise RuntimeError("native client is closed; retained results remain valid")
+            if self._native_backend is not None:
+                self._native_backend.cancel()
+
+    def close(self) -> None:
+        """Close this client's native session or persistent local CLI worker."""
+
+        with self._native_backend_lock:
+            self._native_closed = True
+            if self._native_backend is not None:
+                self._native_backend.close()
         self._close_worker()
 
     def __del__(self) -> None:

@@ -26,6 +26,28 @@ pub enum SqlSource {
         schema: Option<String>,
     },
     Memory(ResidentMemorySource),
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    ColumnarStream(arrow_schema::SchemaRef),
+}
+
+/// Invoke the existing command interface without launching a CLI process.
+/// Native data operations use retained plan/result APIs instead; this callable
+/// boundary preserves diagnostic, discovery and explicit command envelopes.
+/// # Errors
+/// Refuses process-owning worker/server commands and malformed response output.
+pub fn command_json(mut args: Vec<String>) -> Result<String> {
+    if matches!(
+        args.first().map(String::as_str),
+        Some("python-worker" | "serve")
+    ) {
+        return Err(failed(
+            "process-owning commands require the explicit subprocess interface",
+        ));
+    }
+    args.extend(["--format".into(), "json".into()]);
+    crate::cli_output::capture_json(|| {
+        crate::run(args);
+    })
 }
 
 /// The same resource, provider, source, spill and execution evidence emitted by
@@ -101,6 +123,8 @@ pub fn prepare_sql(
         let (format, schema) = match &binding.source {
             SqlSource::File { format, schema } => (format.clone(), schema.clone()),
             SqlSource::Memory(_) => ("memory".into(), None),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            SqlSource::ColumnarStream(_) => ("memory".into(), None),
         };
         if request
             .source_bindings
@@ -125,6 +149,14 @@ pub fn prepare_sql(
                     schemas.register_memory_source(DatasetUri::new(&binding.reference)?, |_| {
                         Ok(source.clone())
                     })?;
+                }
+                #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+                if let SqlSource::ColumnarStream(schema) = &binding.source {
+                    schemas.register_arrow_batch_source(
+                        DatasetUri::new(&binding.reference)?,
+                        std::sync::Arc::clone(schema),
+                        cancellation,
+                    )?;
                 }
             }
             Ok(())

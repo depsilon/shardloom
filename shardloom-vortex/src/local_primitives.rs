@@ -121,7 +121,7 @@ pub(crate) mod native_payload;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_input_schema.rs"]
-mod native_input_schema;
+pub(crate) mod native_input_schema;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_input_values.rs"]
 mod native_input_values;

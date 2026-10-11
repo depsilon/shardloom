@@ -5171,8 +5171,8 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "Context construction and environment/repo binding",
         "high_level_context",
         "side_effect_free_constructor",
-        context_methods=("from_env", "from_repo", "resources", "resource_limits"),
-        client_methods=("from_env", "from_repo", "resources", "resource_limits"),
+        context_methods=("from_env", "from_repo", "resources", "resource_limits", "transport"),
+        client_methods=("from_env", "from_repo", "resources", "resource_limits", "transport"),
         runtime_route="constructor_only_no_runtime_execution",
         promotion_criteria="constructs a high-level context without probing data, catalogs, or engines",
         evidence_refs=("context_constructor_no_side_effect_docstrings", "python_import_smoke"),
@@ -5184,7 +5184,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "Low-level client invocation and binary resolution",
         "client_only",
         "explicit_cli_invocation",
-        client_methods=("run", "binary_command", "close"),
+        client_methods=("run", "binary_command", "cancel", "close"),
         runtime_route="explicit_user_requested_cli_command",
         promotion_criteria=(
             "low-level escape hatch and explicit local worker lifecycle control stay available "
@@ -10094,6 +10094,7 @@ class ShardLoomContext:
         client: ShardLoomClient | None = None,
         *,
         engine: str = "auto",
+        transport: str | None = None,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -10109,7 +10110,11 @@ class ShardLoomContext:
         self._resource_limits = merge_resource_limits(
             limits, self._resources.limits if self._resources is not None else None,
         )
-        self.client = client if client is not None else ShardLoomClient.from_env()
+        if client is not None and transport is not None:
+            raise ValueError("client cannot be combined with transport configuration")
+        self.client = client if client is not None else ShardLoomClient.from_env(
+            transport="subprocess" if transport is None else transport,
+        )
         self.engine = _normalize_engine_mode(engine)
 
     @property
@@ -10123,6 +10128,12 @@ class ShardLoomContext:
         """Return the ceilings inherited by work, with or without a job grant."""
 
         return self._resource_limits
+
+    @property
+    def transport(self) -> str:
+        """Return the transport used by this context's client."""
+
+        return self.client.transport
 
     @classmethod
     def from_env(
@@ -11858,6 +11869,7 @@ def context(
     *,
     client: ShardLoomClient | None = None,
     engine: str = "auto",
+    transport: str | None = None,
     binary: Binary | None = None,
     env: Mapping[str, str] | None = None,
     cwd: str | os.PathLike[str] | None = None,
@@ -11885,7 +11897,7 @@ def context(
     if client is not None:
         if any(
             value is not None
-            for value in (binary, env, cwd, repo_root, profile_order, timeout)
+            for value in (binary, env, cwd, repo_root, profile_order, timeout, transport)
         ):
             raise ValueError("client cannot be combined with client configuration arguments")
         return ShardLoomContext(client, engine=engine, resources=resources, resource_limits=resource_limits)
@@ -11898,6 +11910,7 @@ def context(
             profile_order=profile_order or DEFAULT_PROFILE_ORDER,
             timeout=timeout,
             engine=engine,
+            transport="subprocess" if transport is None else transport,
             resources=resources,
             resource_limits=resource_limits,
         )
@@ -11908,6 +11921,7 @@ def context(
         profile_order=profile_order,
         timeout=timeout,
         engine=engine,
+        transport="subprocess" if transport is None else transport,
         resources=resources,
         resource_limits=resource_limits,
     )
@@ -11917,6 +11931,7 @@ def session(
     *,
     client: ShardLoomClient | None = None,
     engine: str = "auto",
+    transport: str | None = None,
     binary: Binary | None = None,
     env: Mapping[str, str] | None = None,
     cwd: str | os.PathLike[str] | None = None,
@@ -11944,6 +11959,7 @@ def session(
     return context(
         client=client,
         engine=engine,
+        transport=transport,
         binary=binary,
         env=env,
         cwd=cwd,

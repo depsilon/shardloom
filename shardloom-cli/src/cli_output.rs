@@ -78,6 +78,21 @@ pub(crate) fn output_emission_count() -> u64 {
     OUTPUT_EMISSION_COUNT.load(Ordering::Relaxed)
 }
 
+/// Return a command's existing JSON response to an embedded caller. The same
+/// nested generation-validation scopes apply, without touching process stdout.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) fn capture_json(execute: impl FnOnce()) -> Result<String, ShardLoomError> {
+    let pending = PendingOutput::new();
+    execute();
+    let mut lines = pending.take().into_iter();
+    match (lines.next(), lines.next()) {
+        (Some(PendingLine::Stdout { rendered }), None) => Ok(rendered),
+        _ => Err(ShardLoomError::InvalidOperation(
+            "embedded command must emit exactly one JSON envelope".into(),
+        )),
+    }
+}
+
 fn base_envelope_from_fields(
     command: &str,
     status: CommandStatus,

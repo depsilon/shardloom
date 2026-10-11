@@ -145,7 +145,75 @@ calendar range. Caller-owned Python containers are outside native reservations.
 Neither Arrow export nor continued native execution invokes this endpoint.
 Compilation, integration tests and packaging remain required before acceptance.
 
+## Object and factory intake
+
+The optional in-process adapter accepts the public `from_rows`, `from_arrow_table`
+and `from_batches` declarations. Schema metadata uses the shared exact type
+interpretation. Native conversion builds typed column buffers for Python mappings;
+cell values do not pass through JSON. Columnar producers use the pinned Arrow
+stream provider, with imported values copied into admitted native ownership where
+borrowing would leave mutable or unaccounted buffers. Caller containers and
+producer allocations remain outside ShardLoom's reservation counter.
+
+Batch factories are opened only inside operation admission. Resident factories
+build fresh native sources for each call. Streaming factories feed the existing
+native batch executor on demand; they do not replay prior results. The original
+Python producer exception crosses back to the caller. Exhaustion closes the
+producer before writer completion, and interruption closes it while draining the
+native worker. Existing destination refusal occurs before factory demand.
+
+Focused local integration includes 4,099 nonempty batches following 8,193 empty
+batches, a 4,097-row Arrow batch, and two retained complete 4,097-field outputs.
+The latter explicitly grants 512 MiB for their combined ownership. These checks
+verify complete values and exercise resource refusal, producer failure and owner
+lifetimes; they establish neither a new schema/batch ceiling nor a performance gain.
+Complete operation/option parity, the broad regression and paired measurements
+remain separate acceptance obligations.
+
+## Native wheel proof
+
+`stage_native_python_package.py` combines explicitly supplied built artifacts in
+a fresh local directory. `check_native_python_wheel.py` checks the exact native
+library, CLI, Python sources, package tag and every wheel RECORD digest. Its
+notice check requires the project's own legal files plus all texts in
+`python/THIRD_PARTY_LICENSES`. The conservative bundle covers every locked
+registry dependency and reviewed vendored patch, including build, test and
+platform packages; it is not a linked-component SBOM or a license-policy decision.
+
+`prove_native_python_wheel.py` builds that stage and creates a clean virtual
+environment, installs the exact wheel and pinned optional Arrow consumer, verifies
+imports resolve inside that environment, and runs the complete required native
+binding integration suite. No-test and skipped-test outcomes fail. It preserves
+failed logs and emits artifact identities, test counts and installation evidence.
+Build and runtime proof on a developer Mac must still use the storage/workload
+supervisor. These commands do not publish or install into the caller's environment.
+
+The dedicated CI lane covers Ubuntu Python 3.10/3.13 and macOS Python 3.13.
+The declared stable ABI is `cp310-abi3`; successful load must be observed on each
+tested interpreter. Linux wheels use `linux_<architecture>` until a separate
+shared-library audit proves portability. Windows native extension support and
+unobserved platforms are not implied. Existing CLI-only wheels retain their tags.
+CI pins [PyArrow 25.0.1](https://pypi.org/project/pyarrow/25.0.1/), the consumer used
+by local integration, and build tooling separately with reviewed wheel hashes.
+PyArrow is an optional interchange test dependency, not a Python execution engine.
+Actual wheel/install and hosted CI acceptance remain required.
+
 ## Lifetime, conversion and evidence
+
+Native plan and input methods accept an optional timeout in seconds. The public
+client forwards its timeout through input conversion, preparation, collection and
+writers. Incremental execution starts the deadline at first demand and retains it
+while awaiting the consumer. Deadlines use the existing shared cancellation token
+at native checkpoints, without a timer thread per call; they do not forcibly
+interrupt an arbitrary foreign producer callback. Zero seconds refuses before
+input demand or output creation. Invalid values fail before work begins.
+
+The public native client exposes `cancel()` for active and queued operations.
+It renews the session cancellation owner for subsequent calls while retaining
+completed results. A timed-out child operation does not revoke its parent session
+or sibling operations. Native generic command ownership/deadline wiring remains a
+separate completion obligation. Compilation and runtime proof of the new deadline
+paths remain pending.
 
 Results must retain arrays, runtime and credits after session/plan handles drop.
 Explicit close revokes new work without invalidating independently retained

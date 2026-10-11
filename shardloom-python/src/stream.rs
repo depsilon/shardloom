@@ -23,7 +23,7 @@ use std::{
 
 enum Event {
     Batch(RecordBatch),
-    Finished(Box<Result<(ExecutedVortexArrowRelational, bool)>>),
+    Finished(Box<PyResult<(ExecutedVortexArrowRelational, bool)>>),
 }
 
 struct Running {
@@ -36,6 +36,7 @@ struct State {
     plan: Arc<PlanCore>,
     resources: ExecutionResources,
     cancellation: CancellationToken,
+    timeout: Option<Duration>,
     running: Option<Running>,
     completed: Option<(ExecutedVortexArrowRelational, bool)>,
     closed: bool,
@@ -59,6 +60,7 @@ impl NativeExecutionStream {
         plan: Arc<PlanCore>,
         resources: ExecutionResources,
         parent: &CancellationToken,
+        timeout: Option<Duration>,
     ) -> Self {
         let cancellation = CancellationToken::from_shared_flag_with_parent(
             Arc::new(AtomicBool::new(false)),
@@ -69,6 +71,7 @@ impl NativeExecutionStream {
                 plan,
                 resources,
                 cancellation: cancellation.clone(),
+                timeout,
                 running: None,
                 completed: None,
                 closed: false,
@@ -80,7 +83,10 @@ impl NativeExecutionStream {
 
 impl State {
     fn start(&mut self) -> Result<()> {
-        self.cancellation.check()?;
+        // Declaration is lazy. The deadline starts at the first demand and
+        // remains active across subsequent producer and consumer waits.
+        self.cancellation =
+            super::session::operation_cancellation(self.cancellation.clone(), self.timeout)?;
         let (demand, requested) = mpsc::channel();
         // At most one converted batch is queued; the producer then waits for
         // the consumer to acknowledge it by requesting its successor.
@@ -91,20 +97,30 @@ impl State {
         let worker = std::thread::Builder::new()
             .name("shardloom-python-stream".into())
             .spawn(move || {
-                let outcome = demand_next(&requested, &cancellation).and_then(|()| {
-                    let controller = plan.controller();
-                    plan.with_prepared(resources, &cancellation, |operation, reused| {
-                        let executed = operation.for_each_arrow_batch(&cancellation, |batch| {
-                            controller.with_consumer_wait(|| {
-                                outgoing
-                                    .send(Event::Batch(batch))
-                                    .map_err(|_| failed("columnar consumer closed"))?;
-                                demand_next(&requested, &cancellation)
-                            })
-                        })?;
-                        Ok((executed, reused))
-                    })
-                });
+                let outcome = demand_next(&requested, &cancellation)
+                    .map_err(native_error)
+                    .and_then(|()| {
+                        let controller = plan.controller();
+                        plan.with_prepared(resources, &cancellation, |operation, reused, input| {
+                            let consume = |batch| {
+                                controller.with_consumer_wait(|| {
+                                    outgoing
+                                        .send(Event::Batch(batch))
+                                        .map_err(|_| failed("columnar consumer closed"))?;
+                                    demand_next(&requested, &cancellation)
+                                })
+                            };
+                            let executed = if let Some(input) = input {
+                                let mut next = || input.next();
+                                operation
+                                    .with_arrow_batch_input(&mut next)?
+                                    .for_each_arrow_batch(&cancellation, consume)?
+                            } else {
+                                operation.for_each_arrow_batch(&cancellation, consume)?
+                            };
+                            Ok((executed, reused))
+                        })
+                    });
                 // A closed receiver deliberately discards provisional work and
                 // does not turn a cancelled transaction into a success report.
                 let _ = outgoing.send(Event::Finished(Box::new(outcome)));
@@ -146,7 +162,7 @@ impl State {
                             return Ok(None);
                         }
                         Err(error) => {
-                            return Err(native_error(error));
+                            return Err(error);
                         }
                     }
                 }

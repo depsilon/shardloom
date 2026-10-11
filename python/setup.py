@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import platform
 import re
 
@@ -54,7 +55,7 @@ else:
         return f"macosx_{major}_{minor}_{_normalized_macos_arch()}"
 
     class bdist_wheel(_bdist_wheel):
-        """Mark wheels as platform-specific when a bundled CLI binary is present."""
+        """Preserve platform tags and identify the optional stable-ABI extension."""
 
         def finalize_options(self) -> None:
             super().finalize_options()
@@ -70,5 +71,18 @@ else:
             macos_tag = _macos_platform_tag()
             if macos_tag is not None:
                 self.plat_name = macos_tag
+
+        def get_tag(self) -> tuple[str, str, str]:
+            interpreter, abi, platform_tag = super().get_tag()
+            if (Path(__file__).resolve().parent / "src/shardloom/_native.abi3.so").is_file():
+                # The optional PyO3 crate is built with abi3-py310. Ordinary
+                # CLI-only wheels retain their existing py3/none tag.
+                # A host glibc version does not establish manylinux compliance
+                # for an extension's linked libraries. Keep this a native host
+                # wheel until a separate repair/audit proves a portable tag.
+                if platform.system().strip().lower() == "linux":
+                    platform_tag = f"linux_{_normalized_arch()}"
+                return "cp310", "abi3", platform_tag
+            return interpreter, abi, platform_tag
 
     setup(cmdclass={"bdist_wheel": bdist_wheel})

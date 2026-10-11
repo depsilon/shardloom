@@ -1,4 +1,5 @@
 use super::{
+    batch_input::{self, BatchDeclaration, BatchReader},
     native_error,
     resources::NativeResources,
     result::NativeResult,
@@ -7,7 +8,7 @@ use super::{
 use pyo3::{prelude::*, types::PyDict};
 use shardloom_core::{ExecutionResources, Result};
 use shardloom_exec::compute_pool::CancellationToken;
-use shardloom_runtime::native::{self, SqlSourceBinding};
+use shardloom_runtime::native::{self, SqlSource, SqlSourceBinding};
 use shardloom_vortex::local_primitives::prepared_relational::PreparedVortexRelational;
 use std::{
     path::PathBuf,
@@ -28,6 +29,7 @@ pub(super) struct PlanCore {
     session: Arc<SessionOwner>,
     statement: String,
     bindings: Vec<SqlSourceBinding>,
+    batches: Vec<BatchDeclaration>,
     prepared: Mutex<Option<Prepared>>,
 }
 
@@ -44,12 +46,14 @@ impl NativePlan {
         session: Arc<SessionOwner>,
         statement: String,
         bindings: Vec<SqlSourceBinding>,
+        batches: Vec<BatchDeclaration>,
     ) -> Self {
         Self {
             core: Arc::new(PlanCore {
                 session,
                 statement,
                 bindings,
+                batches,
                 prepared: Mutex::new(None),
             }),
         }
@@ -61,8 +65,9 @@ impl PlanCore {
         &self,
         resources: ExecutionResources,
         cancellation: &CancellationToken,
-        execute: impl FnOnce(&PreparedVortexRelational, bool) -> Result<T>,
-    ) -> Result<T> {
+        execute: impl FnOnce(&PreparedVortexRelational, bool, Option<&mut BatchReader<'_>>) -> Result<T>,
+    ) -> PyResult<T> {
+        let errors = Arc::new(Mutex::new(None));
         self.session
             .controller
             .with_resources(resources, cancellation, |session, resources| {
@@ -73,14 +78,38 @@ impl PlanCore {
                     .map_err(|_| failed("prepared plan ownership poisoned"))?;
                 let reused = prepared
                     .as_ref()
-                    .is_some_and(|entry| entry.resources == resources);
+                    .is_some_and(|entry| entry.resources == resources)
+                    && self.batches.iter().all(|input| input.streaming);
                 if !reused {
                     *prepared = None;
+                }
+                let mut bindings = self.bindings.clone();
+                let mut streaming = None;
+                for declaration in &self.batches {
+                    let reader = BatchReader::new(declaration, session, cancellation, &errors)?;
+                    let source = if declaration.streaming {
+                        if streaming.is_some() {
+                            return Err(failed(
+                                "one native operation admits one streaming input producer",
+                            ));
+                        }
+                        let schema = reader.schema();
+                        streaming = Some(reader);
+                        SqlSource::ColumnarStream(schema)
+                    } else {
+                        SqlSource::Memory(reader.collect_resident()?)
+                    };
+                    bindings.push(SqlSourceBinding {
+                        reference: declaration.reference.clone(),
+                        source,
+                    });
+                }
+                if !reused {
                     let operation = native::prepare_sql(
                         &self.statement,
                         resources,
                         session,
-                        &self.bindings,
+                        &bindings,
                         cancellation,
                     )?;
                     *prepared = Some(Prepared {
@@ -91,8 +120,9 @@ impl PlanCore {
                 let entry = prepared
                     .as_ref()
                     .ok_or_else(|| failed("prepared operation was not retained"))?;
-                execute(&entry.operation, reused)
+                execute(&entry.operation, reused, streaming.as_mut())
             })
+            .map_err(|error| batch_input::map_failure(&errors, error))
     }
 
     pub(super) fn controller(
@@ -106,39 +136,54 @@ impl PlanCore {
 impl NativePlan {
     /// Demand-driven columnar execution. The worker starts on first iteration;
     /// completion evidence is published only after the final consumer demand.
-    #[pyo3(signature = (*, resources=None))]
+    #[pyo3(signature = (*, resources=None, timeout=None))]
     fn iter_batches(
         &self,
         resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<super::stream::NativeExecutionStream> {
+        let timeout = super::session::timeout_duration(timeout)?;
         let cancellation = self.session.begin().map_err(native_error)?;
         let resources = self.session.resources(resources);
         Ok(super::stream::NativeExecutionStream::new(
             Arc::clone(&self.core),
             resources,
             &cancellation,
+            timeout,
         ))
     }
 
-    #[pyo3(signature = (*, resources=None))]
-    fn prepare(&self, py: Python<'_>, resources: Option<&NativeResources>) -> PyResult<()> {
-        let cancellation = self.session.begin().map_err(native_error)?;
+    #[pyo3(signature = (*, resources=None, timeout=None))]
+    fn prepare(
+        &self,
+        py: Python<'_>,
+        resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let cancellation = self.session.begin_operation(timeout)?;
         let resources = self.session.resources(resources);
-        py.detach(|| self.with_prepared(resources, &cancellation, |_, _| Ok(())))
-            .map_err(native_error)
+        py.detach(|| self.with_prepared(resources, &cancellation, |_, _, _| Ok(())))
     }
 
-    #[pyo3(signature = (*, resources=None))]
+    #[pyo3(signature = (*, resources=None, timeout=None))]
     fn collect(
         &self,
         py: Python<'_>,
         resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<NativeResult> {
-        let cancellation = self.session.begin().map_err(native_error)?;
+        let cancellation = self.session.begin_operation(timeout)?;
         let resources = self.session.resources(resources);
         py.detach(|| {
-            self.with_prepared(resources, &cancellation, |operation, reused| {
-                let completed = operation.execute_native(&cancellation)?;
+            self.with_prepared(resources, &cancellation, |operation, reused, input| {
+                let completed = if let Some(input) = input {
+                    let mut next = || input.next();
+                    operation
+                        .with_arrow_batch_input(&mut next)?
+                        .execute_native(&cancellation)?
+                } else {
+                    operation.execute_native(&cancellation)?
+                };
                 Ok(NativeResult::new(
                     completed,
                     self.session.controller.clone(),
@@ -146,10 +191,9 @@ impl NativePlan {
                 ))
             })
         })
-        .map_err(native_error)
     }
 
-    #[pyo3(signature = (path, format, *, overwrite=false, resources=None))]
+    #[pyo3(signature = (path, format, *, overwrite=false, resources=None, timeout=None))]
     // PyO3 converts os.PathLike values into an owned PathBuf at this boundary.
     #[allow(clippy::needless_pass_by_value)]
     fn write(
@@ -159,19 +203,24 @@ impl NativePlan {
         format: &str,
         overwrite: bool,
         resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<PyDict>> {
-        let cancellation = self.session.begin().map_err(native_error)?;
+        let cancellation = self.session.begin_operation(timeout)?;
         let resources = self.session.resources(resources);
         let format = native::output_format(format).map_err(native_error)?;
-        let fields = py
-            .detach(|| {
-                self.with_prepared(resources, &cancellation, |operation, reused| {
-                    let written =
-                        operation.write_controlled(&path, format, overwrite, &cancellation)?;
-                    Ok(native::written_fields(&written, reused))
-                })
+        let fields = py.detach(|| {
+            self.with_prepared(resources, &cancellation, |operation, reused, input| {
+                let written = if let Some(input) = input {
+                    let mut next = || input.next();
+                    operation
+                        .with_arrow_batch_input(&mut next)?
+                        .write_controlled(&path, format, overwrite, &cancellation)?
+                } else {
+                    operation.write_controlled(&path, format, overwrite, &cancellation)?
+                };
+                Ok(native::written_fields(&written, reused))
             })
-            .map_err(native_error)?;
+        })?;
         super::result::fields_dict(py, fields)
     }
 

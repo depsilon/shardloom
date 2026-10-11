@@ -11,6 +11,7 @@ import json
 import math
 import os
 import re
+from dataclasses import field
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from itertools import combinations
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence, Union, cast
 
 from ._compat import dataclass
+from ._native_backend import NativePlanState
 from ._result_schema import ResultType, arrow_table, python_rows, schema_fields
 from .errors import ShardLoomProtocolError
 from .client import (
@@ -84,6 +86,7 @@ class WorkflowSource:
     schema: tuple[tuple[str, str], ...] = ()
     memory_input: tuple[tuple[str, object], ...] = ()
     batch_input: object | None = None
+    native_input: object | None = field(default=None, repr=False, compare=False)
 
     @property
     def schema_map(self) -> dict[str, str]:
@@ -943,6 +946,7 @@ class SqlWorkflow:
     source_bindings: tuple[WorkflowSource, ...] = ()
     resources: ExecutionResources | None = None
     resource_limits: ExecutionResourceLimits | None = None
+    _native_plan: NativePlanState = field(default_factory=NativePlanState, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         limits = merge_resource_limits(
@@ -1284,6 +1288,7 @@ class SqlWorkflow:
             spill=spill,
             input_batches=_workflow_batch_inputs(self._declared_sources()),
             inherited=self.resources, limits=self.resource_limits,
+            native_plan=self._native_plan,
         )
         return VortexWorkflowExecutionReport(
             workflow=self._report_workflow(), operation="collect", envelope=envelope,
@@ -1305,6 +1310,7 @@ class SqlWorkflow:
         """
         return self.client.public_workflow_batches(
             "sql", batch_rows=batch_rows, sql_statement=self.statement,
+            **_native_plan_kwargs(self),
             plan_summary=self.operation_summary,
             input_batches=_workflow_batch_inputs(self._declared_sources()),
             evidence_level="production_admitted_local_workflow",
@@ -2149,6 +2155,7 @@ class SqlWorkflow:
         # and avoids rebuilding compatibility inputs in Python for each sink.
         execution = self.client.public_workflow_run(
             "sql",
+            **_native_plan_kwargs(self),
             input_batches=_workflow_batch_inputs(self._declared_sources()),
             sql_statement=self.statement,
             plan_summary=self.operation_summary,
@@ -2343,10 +2350,16 @@ class VortexWorkflowExecutionReport:
     envelope: OutputEnvelope
 
     @property
+    def native_result(self) -> object | None:
+        """Return the retained in-process owner, when this execution has one."""
+
+        return self.envelope._native_result
+
+    @property
     def result_jsonl(self) -> str:
         """Return complete bounded rows when this execution includes a row payload."""
 
-        if self.envelope.field("result_values_json") is not None:
+        if self.native_result is not None or self.envelope.field("result_values_json") is not None:
             return "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in self.result_rows)
         return _required_field(self.envelope, "result_jsonl", allow_empty=True)
 
@@ -2354,6 +2367,8 @@ class VortexWorkflowExecutionReport:
     def result_rows(self) -> tuple[Mapping[str, Any], ...]:
         """Decode this execution's rows without reading or executing its source again."""
 
+        if self.native_result is not None:
+            return tuple(self.native_result.row_export(wire_values=True)[0])
         values = self.envelope.field("result_values_json")
         if values is None:
             return _jsonl_object_rows(self.result_jsonl, field_name="result_jsonl")
@@ -2369,6 +2384,8 @@ class VortexWorkflowExecutionReport:
     def result_schema(self) -> tuple[tuple[str, ResultType], ...]:
         """Return the ordered schema delivered by this native execution."""
 
+        if self.native_result is not None:
+            return schema_fields(self.native_result.schema_json, "vortex.dtype.serde.v1")
         return schema_fields(_required_field(self.envelope, "result_schema_json"),
                              _required_field(self.envelope, "result_schema_format"))
 
@@ -2382,7 +2399,32 @@ class VortexWorkflowExecutionReport:
     def python_objects(self) -> tuple[Mapping[str, Any], ...]:
         """Restore logical binary, decimal and temporal values at this boundary."""
 
+        if self.native_result is not None:
+            return tuple(self.native_result.row_export()[0])
         return tuple(python_rows(self.result_rows, self.result_schema))
+
+    def to_arrow(self):
+        """Export completed data without rerunning its query."""
+
+        import pyarrow
+        return _result_to_arrow_table(self, pyarrow)
+
+    def to_pandas(self):
+        """Construct the existing exact object-column pandas representation."""
+
+        import pandas
+        return _result_to_pandas(self, pandas)
+
+    def to_numpy(self):
+        """Construct the existing exact two-dimensional object representation."""
+
+        import numpy
+        return _result_to_numpy(self, numpy)
+
+    def __arrow_c_stream__(self, requested_schema=None):
+        if self.native_result is not None:
+            return self.native_result.__arrow_c_stream__(requested_schema)
+        return self.to_arrow().__arrow_c_stream__(requested_schema)
 
     @property
     def first_result_row(self) -> Mapping[str, Any] | None:
@@ -3756,6 +3798,7 @@ class LazyFrame:
     engine_mode: str = "auto"
     resources: ExecutionResources | None = None
     resource_limits: ExecutionResourceLimits | None = None
+    _native_plan: NativePlanState = field(default_factory=NativePlanState, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         limits = merge_resource_limits(
@@ -5382,6 +5425,7 @@ class LazyFrame:
             check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill,
             input_batches=_workflow_batch_inputs(self._declared_sources()),
             inherited=self.resources, limits=self.resource_limits,
+            native_plan=self._native_plan,
         )
         return VortexWorkflowExecutionReport(self, "collect", envelope)
 
@@ -5404,6 +5448,7 @@ class LazyFrame:
             raise ValueError("batch consumption requires an admitted native SQL declaration")
         return self.client.public_workflow_batches(
             "dataframe", batch_rows=batch_rows, sql_statement=statement,
+            **_native_plan_kwargs(self),
             input_uri=self.source.uri, input_format=_public_workflow_input_format(self.source),
             source_bindings=_workflow_source_bindings(self._declared_sources()),
             input_batches=_workflow_batch_inputs(self._declared_sources()),
@@ -5939,6 +5984,7 @@ class LazyFrame:
             )
         execution = self.client.public_workflow_run(
             "dataframe",
+            **_native_plan_kwargs(self),
             input_batches=_workflow_batch_inputs(self._declared_sources()),
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
@@ -9198,6 +9244,19 @@ def from_arrow_table(
     """Create a scoped generated-row source from an Arrow table-like object."""
 
     resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+    if getattr(resolved_client, "transport", "subprocess") == "native":
+        owner = resolved_client._native_backend_for(resources).from_arrow(table, resources)
+        from ._input_schema import normalize_schema, schema_hints
+        from uuid import uuid4
+        fields = schema_fields(owner.schema_json, "vortex.dtype.serde.v1")
+        if schema is not None and normalize_schema(schema) != fields:
+            raise ValueError("declared schema differs from the native columnar input schema")
+        return LazyFrame(
+            source=WorkflowSource("memory", "memory://native/" + uuid4().hex,
+                                  schema_hints(fields), native_input=owner),
+            client=resolved_client, engine_mode=_normalize_engine_mode(engine_mode),
+            resources=resources, resource_limits=resource_limits,
+        )
     workflow = _materialized_boundary_workflow(
         "arrow_table",
         _python_object_boundary_ref("arrow_table", table),
@@ -9288,6 +9347,17 @@ def _memory_rows_source(
         resources=resources, inherited=getattr(client, "resources", None), limits=limits,
     )
     limits = merge_resource_limits(limits, resources.limits)
+    if getattr(client, "transport", "subprocess") == "native":
+        owner = client._native_backend_for(resources).from_rows(rows, schema, resources)
+        from ._input_schema import schema_hints
+        from uuid import uuid4
+        fields = schema_fields(owner.schema_json, "vortex.dtype.serde.v1")
+        return LazyFrame(
+            source=WorkflowSource("memory", "memory://native/" + uuid4().hex,
+                                  schema_hints(fields), native_input=owner),
+            client=client, engine_mode=_normalize_engine_mode(engine_mode),
+            resources=resources, resource_limits=limits,
+        )
     from ._input_schema import encode_cell, normalize_schema, schema_hints, wire_schema
     from ._result_schema import ResultType
     if isinstance(rows, (str, bytes, bytearray)) or not isinstance(rows, Sequence):
@@ -9320,10 +9390,10 @@ def _memory_rows_source(
     else:
         fields = tuple((name, ResultType(_infer_memory_column_type(row[name] for row in rows), True))
                        for name in columns)
-    schema_fields = wire_schema(fields)
+    declared_fields = wire_schema(fields)
     encoded_rows = tuple(tuple(encode_cell(dtype, row[name]) for name, dtype in fields) for row in rows)
     return _native_memory_frame(
-        {"kind": "rows", "schema": schema_fields, "rows": encoded_rows},
+        {"kind": "rows", "schema": declared_fields, "rows": encoded_rows},
         schema=schema_hints(fields), client=client, engine_mode=engine_mode, resources=resources,
         resource_limits=limits,
     )
@@ -9706,6 +9776,7 @@ def _client_from_config(
     repo_root = config.pop("repo_root", None)
     profile_order = config.pop("profile_order", None)
     timeout = config.pop("timeout", None)
+    transport = config.pop("transport", "subprocess")
     if config:
         unknown = ", ".join(sorted(str(key) for key in config))
         raise TypeError(f"unknown client configuration argument(s): {unknown}")
@@ -9717,6 +9788,7 @@ def _client_from_config(
             cwd=_optional_path(cwd),
             profile_order=_optional_profile_order(profile_order) or DEFAULT_PROFILE_ORDER,
             timeout=_optional_timeout(timeout),
+            transport=transport,
         )
     return ShardLoomClient.from_env(
         env=_optional_env(env),
@@ -9724,6 +9796,7 @@ def _client_from_config(
         cwd=_optional_path(cwd),
         profile_order=_optional_profile_order(profile_order),
         timeout=_optional_timeout(timeout),
+        transport=transport,
     )
 
 
@@ -12886,7 +12959,9 @@ def _workflow_source_bindings(sources: Sequence[WorkflowSource]) -> dict[str, di
     bindings: dict[str, dict[str, object]] = {}
     for source in sources:
         binding: dict[str, object] = {"input_format": _public_workflow_input_format(source)}
-        if source.memory_input:
+        if source.native_input is not None:
+            binding["native_input"] = source.native_input
+        elif source.memory_input:
             binding["memory_input"] = dict(source.memory_input)
         elif schema := _prepare_vortex_schema_hints(source):
             binding["source_schema"] = schema
@@ -13006,6 +13081,12 @@ def _terminal_resource_kwargs(
     return kwargs
 
 
+def _native_plan_kwargs(workflow) -> dict[str, object]:
+    if getattr(workflow.client, "transport", "subprocess") == "native":
+        return {"_native_plan": workflow._native_plan}
+    return {}
+
+
 def _collect_native_relational(
     client: ShardLoomClient, statement: str, *, surface: str,
     plan_summary: str, input_kwargs: Mapping[str, Any], check: bool,
@@ -13015,6 +13096,7 @@ def _collect_native_relational(
     limits: ExecutionResourceLimits | None = None,
     spill: Mapping[str, object] | str | None = None,
     input_batches: Mapping[str, object] | None = None,
+    native_plan: NativePlanState | None = None,
 ) -> OutputEnvelope:
     return client.public_workflow_run(
         surface, sql_statement=statement, plan_summary=plan_summary,
@@ -13026,6 +13108,7 @@ def _collect_native_relational(
                                     inherited=inherited, limits=limits),
         check=check, **input_kwargs,
         input_batches=input_batches,
+        **({"_native_plan": native_plan} if getattr(client, "transport", "subprocess") == "native" else {}),
     ).envelope
 
 
@@ -13701,6 +13784,8 @@ def _result_to_pandas(report: VortexWorkflowExecutionReport, pandas: object) -> 
 
 
 def _result_to_arrow_table(report: VortexWorkflowExecutionReport, pyarrow: object) -> object:
+    if getattr(report, "native_result", None) is not None:
+        return pyarrow.RecordBatchReader.from_stream(report.native_result).read_all()
     return arrow_table(report.result_rows, report.result_schema, pyarrow)
 
 

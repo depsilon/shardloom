@@ -2,8 +2,9 @@ use super::{native_error, plan::NativePlan, resources::NativeResources, result::
 use arrow_array::{RecordBatch, RecordBatchReader, ffi_stream::ArrowArrayStreamReader};
 use arrow_pyarrow::FromPyArrow as _;
 use pyo3::{
-    exceptions::{PyRuntimeError, PyTypeError},
+    exceptions::{PyRuntimeError, PyTypeError, PyValueError},
     prelude::*,
+    types::{PyBool, PyFloat, PyInt},
 };
 use shardloom_core::{ExecutionResources, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
@@ -12,7 +13,10 @@ use shardloom_vortex::{
     resident_memory_source::{MemoryBatchSourceBuilder, ResidentMemorySource},
     resident_session::ConfigurableResidentSession,
 };
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 struct Lifecycle {
     closed: bool,
@@ -44,6 +48,47 @@ impl SessionOwner {
             |value| value.value,
         )
     }
+
+    pub(super) fn begin_operation(
+        &self,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<CancellationToken> {
+        let timeout = timeout_duration(timeout)?;
+        operation_cancellation(self.begin().map_err(native_error)?, timeout).map_err(native_error)
+    }
+}
+
+pub(super) fn timeout_duration(timeout: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Duration>> {
+    timeout
+        .map(|value| {
+            if value.is_instance_of::<PyBool>()
+                || !(value.is_instance_of::<PyInt>() || value.is_instance_of::<PyFloat>())
+            {
+                return Err(PyTypeError::new_err(
+                    "timeout must be a finite nonnegative number of seconds",
+                ));
+            }
+            Duration::try_from_secs_f64(value.extract::<f64>()?).map_err(|_| {
+                PyValueError::new_err("timeout must be a finite nonnegative number of seconds")
+            })
+        })
+        .transpose()
+}
+
+pub(super) fn operation_cancellation(
+    parent: CancellationToken,
+    timeout: Option<Duration>,
+) -> Result<CancellationToken> {
+    let token = if let Some(timeout) = timeout {
+        let deadline = Instant::now()
+            .checked_add(timeout)
+            .ok_or_else(|| failed("timeout exceeds the monotonic clock's supported range"))?;
+        parent.with_deadline(deadline)
+    } else {
+        parent
+    };
+    token.check()?;
+    Ok(token)
 }
 
 #[pyclass(name = "Session", module = "shardloom._native", frozen)]
@@ -59,6 +104,17 @@ pub(super) struct NativeSource {
 
 #[pymethods]
 impl NativeSource {
+    #[getter]
+    fn schema_json(&self, py: Python<'_>) -> PyResult<Py<pyo3::types::PyString>> {
+        py.detach(|| {
+            let schema = self.source.schema_json()?;
+            Ok(Python::attach(|py| {
+                pyo3::types::PyString::new(py, schema.value()).unbind()
+            }))
+        })
+        .map_err(native_error)
+    }
+
     #[getter]
     fn row_count(&self) -> usize {
         self.source.row_count()
@@ -90,12 +146,13 @@ impl NativeSession {
     }
 
     /// Construct a native plan declaration without inspecting any source.
-    #[pyo3(signature = (statement, *, files=Vec::new(), sources=Vec::new()))]
+    #[pyo3(signature = (statement, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new()))]
     fn sql(
         &self,
         statement: String,
         files: Vec<(String, String, Option<String>)>,
         sources: Vec<(String, PyRef<'_, NativeSource>)>,
+        batches: Vec<super::batch_input::BatchArgument>,
     ) -> PyResult<NativePlan> {
         self.owner.begin().map_err(native_error)?;
         let mut bindings = files
@@ -117,19 +174,21 @@ impl NativeSession {
             Arc::clone(&self.owner),
             statement,
             bindings,
+            batches.into_iter().map(Into::into).collect(),
         ))
     }
 
     /// Copy columnar producer buffers into admitted native owners, without JSON
     /// cells or Python rows. Producer callbacks run only after resource admission.
-    #[pyo3(name = "from_arrow", signature = (producer, *, resources=None))]
+    #[pyo3(name = "from_arrow", signature = (producer, *, resources=None, timeout=None))]
     fn import_arrow(
         &self,
         py: Python<'_>,
         producer: Py<PyAny>,
         resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<NativeSource> {
-        let cancellation = self.owner.begin().map_err(native_error)?;
+        let cancellation = self.owner.begin_operation(timeout)?;
         let resources = self.owner.resources(resources);
         let controller = self.owner.controller.clone();
         let native_result = producer
@@ -186,7 +245,8 @@ impl NativeSession {
         })
     }
 
-    #[pyo3(name = "from_range", signature = (name, start, step, rows, *, resources=None))]
+    #[pyo3(name = "from_range", signature = (name, start, step, rows, *, resources=None, timeout=None))]
+    #[allow(clippy::too_many_arguments)] // Mirrors the public range and operation-control arguments.
     fn create_range(
         &self,
         py: Python<'_>,
@@ -195,8 +255,9 @@ impl NativeSession {
         step: i64,
         rows: usize,
         resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<NativeSource> {
-        let cancellation = self.owner.begin().map_err(native_error)?;
+        let cancellation = self.owner.begin_operation(timeout)?;
         let resources = self.owner.resources(resources);
         let controller = self.owner.controller.clone();
         py.detach(move || {
@@ -209,6 +270,46 @@ impl NativeSession {
                 source,
                 _controller: controller,
             })
+        })
+    }
+
+    /// Convert ordinary Python mappings in admitted native batches. No cell is
+    /// encoded as JSON and no external library evaluates or converts the rows.
+    #[pyo3(name = "from_rows", signature = (rows, *, fields=None, resources=None, timeout=None))]
+    fn import_rows(
+        &self,
+        py: Python<'_>,
+        rows: Py<PyAny>,
+        fields: Option<Vec<(String, String)>>,
+        resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<NativeSource> {
+        let cancellation = self.owner.begin_operation(timeout)?;
+        let resources = self.owner.resources(resources);
+        let controller = self.owner.controller.clone();
+        py.detach(move || {
+            let mut python_error = None;
+            let source = controller.with_resources(resources, &cancellation, |session, _| {
+                let mut builder = MemoryBatchSourceBuilder::new(session, cancellation.clone())?;
+                let converted = super::object_input::import_rows(
+                    &rows,
+                    fields.as_deref(),
+                    &mut builder,
+                    &cancellation,
+                );
+                if let Err(error) = converted {
+                    python_error = Some(error);
+                    return Err(failed("Python object input conversion failed"));
+                }
+                builder.finish()
+            });
+            match source {
+                Ok(source) => Ok(NativeSource {
+                    source,
+                    _controller: controller,
+                }),
+                Err(error) => Err(python_error.unwrap_or_else(|| native_error(error))),
+            }
         })
     }
 

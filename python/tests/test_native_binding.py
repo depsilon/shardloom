@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 _REQUIRE_NATIVE = os.environ.get("SHARDLOOM_REQUIRE_NATIVE_PYTHON") == "1"
@@ -163,6 +164,97 @@ class NativeBindingTests(unittest.TestCase):
         second = plan.collect()
         self.assertEqual(second.report["resident_relational_declaration_reused"], "true")
         self.assertEqual(pa.RecordBatchReader.from_stream(second).read_all().to_pylist(), expected)
+
+    def test_public_native_columnar_workflow_retains_results_and_preparation(self):
+        import shardloom as sl
+
+        pa = self.arrow()
+        table = pa.table({"id": [1, 3, 5, 7], "label": ["one", None, "five", "seven"]})
+        ctx = sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        expected = [{"id": 3, "label": None}, {"id": 5, "label": "five"}, {"id": 7, "label": "seven"}]
+        with (
+            patch("shardloom.client.subprocess.run", side_effect=AssertionError("process launch")),
+            patch("shardloom.client.subprocess.Popen", side_effect=AssertionError("worker launch")),
+            patch("shardloom.query._arrow_table_like_records", side_effect=AssertionError("input rows")),
+            patch("shardloom.query.arrow_table", side_effect=AssertionError("output row bridge")),
+            patch("shardloom.query.python_rows", side_effect=AssertionError("Python row conversion")),
+        ):
+            frame = ctx.from_arrow_table(table).filter(sl.col("id") >= 3).sort("id")
+            first = frame.collect(check=True)
+            self.assertIsNotNone(first.native_result)
+            self.assertEqual(first.to_arrow().to_pylist(), expected)
+            self.assertEqual(first.envelope.field("python_execution_transport"), "native")
+            self.assertIsNone(first.envelope.field("result_values_json"))
+            self.assertEqual(first.envelope.field("resident_relational_declaration_reused"), "false")
+            second = frame.collect(check=True)
+            self.assertEqual(second.envelope.field("resident_relational_declaration_reused"), "true")
+            self.assertEqual(pa.RecordBatchReader.from_stream(second).read_all().to_pylist(), expected)
+            composed = ctx.from_arrow_table(second)
+            self.assertEqual(composed.source.native_input.input_columnar_buffer_bytes_copied, 0)
+            self.assertEqual(composed.select("id").to_arrow().to_pylist(), [{"id": 3}, {"id": 5}, {"id": 7}])
+            ctx.client.close()
+            self.assertEqual(first.to_arrow().to_pylist(), expected)
+        self.assertEqual(first.python_objects, tuple(expected))
+        self.assertEqual(first.result_rows, tuple(expected))
+
+    def test_public_native_resource_refusal_precedes_loading_and_producer(self):
+        import shardloom as sl
+
+        class Producer:
+            def __arrow_c_stream__(self, requested_schema=None):
+                raise AssertionError("producer was inspected before resource admission")
+
+        with patch("shardloom._native_backend.load_native", side_effect=AssertionError("extension load")):
+            ctx = sl.context(transport="native")
+            lazy = ctx.range(0, 3)
+            self.assertIsNone(ctx.resources)
+            with self.assertRaises(sl.ShardLoomResourceConfigurationError):
+                lazy.collect()
+            with self.assertRaises(sl.ShardLoomResourceConfigurationError):
+                ctx.from_arrow_table(Producer())
+            limited = sl.context(transport="native", resource_limits=sl.ExecutionResourceLimits(memory_bytes=4096))
+            with self.assertRaises(sl.ShardLoomResourceConfigurationError):
+                limited.from_arrow_table(Producer(), resources=sl.ExecutionResources(8192, 1))
+
+    def test_public_native_incremental_results_keep_owners_after_close(self):
+        import shardloom as sl
+
+        ctx = sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        frame = ctx.range(0, 17, column="id")
+        with patch("shardloom.client.subprocess.Popen", side_effect=AssertionError("worker launch")):
+            with frame.iter_batches(batch_rows=3) as batches:
+                self.assertIsNone(batches.report)
+                retained = list(batches)
+                self.assertEqual([len(batch.result_rows) for batch in retained], [3, 3, 3, 3, 3, 2])
+                self.assertIsNotNone(batches.report)
+                self.assertEqual(batches.report.envelope.status, "success")
+                self.assertEqual(retained[0].result_schema[0][1].name, "int64")
+            with frame.iter_batches(batch_rows=4) as partial:
+                first = next(partial)
+                self.assertIsNone(partial.report)
+            self.assertIsNone(partial.report)
+        ctx.client.close()
+        self.assertEqual(first.to_arrow().to_pylist(), [{"id": value} for value in range(4)])
+        actual = [row for batch in retained for row in batch.to_arrow().to_pylist()]
+        self.assertEqual(actual, [{"id": value} for value in range(17)])
+
+    def test_public_native_writer_and_metadata_commands_never_launch_processes(self):
+        import shardloom as sl
+
+        ctx = sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        with (
+            tempfile.TemporaryDirectory(prefix="shardloom-native-public-") as directory,
+            patch("shardloom.client.subprocess.run", side_effect=AssertionError("process launch")),
+            patch("shardloom.client.subprocess.Popen", side_effect=AssertionError("worker launch")),
+        ):
+            self.assertEqual(ctx.client.status().status, "success")
+            path = Path(directory) / "native.jsonl"
+            report = ctx.range(2, 11, step=2, column="id").write_jsonl(path)
+            self.assertEqual(report.envelope.status, "success")
+            result = ctx.read_json(path, schema={"id": "int64"}).collect(check=True)
+            self.assertEqual(result.python_objects, tuple({"id": value} for value in (2, 4, 6, 8, 10)))
+            self.assertEqual(result.envelope.field("python_execution_transport"), "native")
+        ctx.client.close()
 
     def test_retained_results_compose_as_sources_without_copying(self):
         pa = self.arrow()
@@ -486,6 +578,140 @@ assert later.row_count == 2
         unopened.close()
         self.assertIsNone(unopened.report)
 
+    def test_native_deadlines_reject_before_input_or_output_and_allow_session_reuse(self):
+        session = self.session(64 << 20, 2)
+
+        class Untouched:
+            def __iter__(self):
+                raise AssertionError("timed-out input was consumed")
+
+            def __arrow_c_stream__(self, requested_schema=None):
+                raise AssertionError("timed-out columnar producer was called")
+
+        for operation in (lambda: session.from_rows(Untouched(), timeout=0),
+                          lambda: session.from_arrow(Untouched(), timeout=0),
+                          lambda: session.from_range("id", 0, 1, 3, timeout=0)):
+            with self.assertRaisesRegex(RuntimeError, "deadline exceeded"):
+                operation()
+        self.assertEqual(session.snapshot()["reserved_bytes"], 0)
+        missing = session.sql("SELECT * FROM missing", files=[("missing", "parquet", None)])
+        for operation in (missing.prepare, missing.collect):
+            with self.assertRaisesRegex(RuntimeError, "deadline exceeded"):
+                operation(timeout=0)
+        self.assertEqual(session.snapshot()["prepared_source_opens"], 0)
+
+        source = session.from_range("id", 1, 1, 3)
+        plan = session.sql("SELECT id FROM 'memory://deadline'", sources=[("memory://deadline", source)])
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "uncreated" / "output.vortex"
+            with self.assertRaisesRegex(RuntimeError, "deadline exceeded"):
+                plan.write(target, "write_vortex", timeout=0)
+            self.assertFalse(target.parent.exists())
+        with plan.iter_batches(timeout=0) as stream:
+            with self.assertRaisesRegex(RuntimeError, "deadline exceeded"):
+                next(stream)
+            self.assertIsNone(stream.report)
+        rows, _ = plan.collect().row_export()
+        self.assertEqual(rows, [{"id": 1}, {"id": 2}, {"id": 3}])
+
+    def test_native_stream_deadline_starts_on_demand_and_expires_during_consumer_wait(self):
+        import time
+
+        session = self.session(64 << 20, 2)
+        source = session.from_range("id", 0, 1, 4097)
+        plan = session.sql("SELECT id FROM 'memory://deadline'", sources=[("memory://deadline", source)])
+        plan.prepare()
+        with plan.iter_batches(timeout=0.25) as stream:
+            time.sleep(0.3)  # A declaration has not started the operation clock.
+            retained = next(stream)
+            expected = [{"id": index} for index in range(retained.row_count)]
+            time.sleep(0.3)  # An admitted operation keeps its deadline while idle.
+            with self.assertRaisesRegex(RuntimeError, "deadline exceeded"):
+                next(stream)
+            self.assertIsNone(stream.report)
+        self.assertEqual(retained.row_export(), expected)
+        self.assertEqual(session.from_range("after_timeout", 0, 1, 1).row_count, 1)
+
+    def test_public_native_timeout_validation_and_no_consumption(self):
+        import shardloom as sl
+        from shardloom.errors import ShardLoomCommandError
+
+        invalid = (True, "1", -1, float("nan"), float("inf"))
+        session = self.session()
+        plan = session.sql("SELECT * FROM missing", files=[("missing", "parquet", None)])
+        for timeout in invalid:
+            with self.subTest(timeout=timeout):
+                with self.assertRaises((TypeError, ValueError)):
+                    sl.ShardLoomClient(transport="native", timeout=timeout)
+                with self.assertRaises((TypeError, ValueError)):
+                    plan.collect(timeout=timeout)
+        client = sl.ShardLoomClient(transport="native", timeout=0,
+                                   memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(client.close)
+        opened = []
+
+        def producer():
+            opened.append(True)
+            yield [{"id": 1}]
+
+        frame = sl.from_batches(producer, schema={"id": "int64"}, streaming=True, client=client)
+        with self.assertRaisesRegex(ShardLoomCommandError, "deadline exceeded"):
+            frame.collect(check=True)
+        with frame.iter_batches() as stream:
+            with self.assertRaisesRegex(TimeoutError, "deadline exceeded"):
+                next(stream)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "uncreated.vortex"
+            with self.assertRaisesRegex(ShardLoomCommandError, "deadline exceeded"):
+                frame.write(target, output_format="vortex")
+            self.assertFalse(target.exists())
+        self.assertEqual(opened, [])
+
+    def test_public_native_cancel_drains_producer_and_preserves_results_and_reuse(self):
+        import shardloom as sl
+        import threading
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        retained = sl.from_rows([{"id": 7}], schema={"id": "int64"}, client=client).collect(check=True)
+        entered, release = threading.Event(), threading.Event()
+        closed, outcomes = [], []
+
+        def producer():
+            try:
+                entered.set()
+                if not release.wait(5):
+                    raise AssertionError("test did not release its producer")
+                yield [{"id": 1}]
+                raise AssertionError("cancelled operation requested another batch")
+            finally:
+                closed.append(True)
+
+        frame = sl.from_batches(producer, schema={"id": "int64"}, streaming=True, client=client)
+
+        def execute():
+            try:
+                outcomes.append(frame.collect(check=True))
+            except BaseException as error:
+                outcomes.append(error)
+
+        worker = threading.Thread(target=execute)
+        worker.start()
+        try:
+            self.assertTrue(entered.wait(5), "producer was not opened")
+            client.cancel()
+        finally:
+            release.set()
+            worker.join(10)
+        self.assertFalse(worker.is_alive(), "cancelled operation did not drain")
+        self.assertEqual(closed, [True])
+        self.assertEqual(len(outcomes), 1)
+        self.assertIsInstance(outcomes[0], Exception)
+        self.assertIn("cancelled", str(outcomes[0]))
+        self.assertEqual(retained.to_arrow()["id"].to_pylist(), [7])
+        later = sl.from_rows([{"id": 9}], schema={"id": "int64"}, client=client).collect(check=True)
+        self.assertEqual(later.to_arrow()["id"].to_pylist(), [9])
+
     def test_native_writer_outputs_reopen_all_complete_values(self):
         session = self.session(64 << 20, 2)
         source = session.from_range("id", -4, 3, 129)
@@ -509,6 +735,311 @@ assert later.row_count == 2
                     self.assertTrue(observation["complete"])
                     with self.assertRaises(RuntimeError):
                         plan.write(path, "write_" + output)
+
+    def test_public_native_object_intake_infers_and_converts_without_json_cells(self):
+        import shardloom as sl
+        from collections import UserDict, UserList
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        rows = UserList([UserDict(id=1, value=2.5, active=True, name="α"),
+                         UserDict(id=2, value=None, active=False, name=""),
+                         UserDict(id=3, value=4, active=None, name=None)])
+        expected = [dict(row) for row in rows]
+        with patch("shardloom._input_schema.encode_cell", side_effect=AssertionError("JSON cell bridge")), \
+             patch("shardloom.query._infer_memory_column_type", side_effect=AssertionError("Python per-cell inference")), \
+             patch("shardloom.query._native_memory_frame", side_effect=AssertionError("JSON memory frame")), \
+             patch("subprocess.Popen", side_effect=AssertionError("child process")):
+            frame = sl.from_rows(rows, client=client)
+            rows[0]["id"] = 999
+            result = frame.collect()
+            self.assertEqual(result.python_objects, tuple(expected))
+            self.assertEqual(result.to_arrow().to_pylist(), expected)
+            self.assertGreater(frame.source.native_input.input_columnar_buffer_bytes_copied, 0)
+            client.close()
+            self.assertEqual(result.python_objects, tuple(expected))
+
+    def test_public_native_object_intake_preserves_rich_exact_values_and_null_masks(self):
+        import shardloom as sl
+        import datetime as dt
+        from decimal import Decimal, localcontext
+        from shardloom._input_schema import normalize_schema
+
+        schema = {
+            "id": {"type": "uint64", "nullable": False},
+            "small": "int8", "single": "float32", "payload": "binary",
+            "amount": "decimal128(38,6)", "day": "date32", "instant": "timestamp_micros",
+            "items": {"type": "list", "item": "uint16"},
+            "fixed": {"type": "fixed_size_list", "size": 2,
+                      "item": {"type": "int32", "nullable": False}},
+            "record": {"type": "struct", "fields": {
+                "key": {"type": "int16", "nullable": False},
+                "value": {"type": "list", "item": "utf8"},
+            }},
+        }
+        rows = [
+            {"id": (1 << 64) - 1, "small": -128, "single": -0.0,
+             "payload": bytearray(b"\x00\xff"),
+             "amount": Decimal("99999999999999999999999999999999.999999"),
+             "day": -(1 << 31), "instant": -(1 << 63), "items": [0, None, 65535],
+             "fixed": [-(1 << 31), (1 << 31) - 1], "record": {"key": -32768, "value": ["é", None]}},
+            {"id": 0, "small": None, "single": 1.5, "payload": memoryview(b"abc")[::2],
+             "amount": Decimal("-1.2300000"), "day": (1 << 31) - 1, "instant": (1 << 63) - 1,
+             "items": [], "fixed": None, "record": None},
+            {"id": 1, "small": 127, "single": None, "payload": None, "amount": Decimal("0E-1000000"),
+             "day": dt.date(2024, 2, 29), "instant": dt.datetime(2024, 2, 29, 1, 2, 3, 456789),
+             "items": None, "fixed": [0, 1], "record": {"key": 1, "value": []}},
+        ]
+        expected = [dict(row) for row in rows]
+        expected[0]["payload"], expected[1]["payload"] = b"\x00\xff", b"ac"
+        context = sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        self.addCleanup(context.client.close)
+        with localcontext() as decimal_context, \
+             patch("shardloom._input_schema.encode_cell", side_effect=AssertionError("JSON cells")):
+            decimal_context.prec = 3
+            result = context.from_rows(rows, schema=schema).collect()
+            self.assertEqual(result.result_schema, normalize_schema(schema))
+            self.assertEqual(result.python_objects, tuple(expected))
+            self.assertEqual(result.to_arrow().num_rows, len(rows))
+            self.assertEqual(context.from_rows([], schema=schema).collect().result_schema, normalize_schema(schema))
+
+    def test_native_object_refusals_preserve_input_and_release_partial_construction(self):
+        from collections.abc import Sequence
+        from decimal import Decimal
+        import datetime as dt
+        from shardloom._input_schema import _wire_type, normalize_schema
+        import json
+
+        session = self.session()
+        touched = []
+        class Rows(Sequence):
+            def __len__(self):
+                touched.append("length")
+                return 1
+            def __getitem__(self, index):
+                touched.append(index)
+                return {"n": 1}
+
+        with self.assertRaisesRegex(RuntimeError, "memory"):
+            session.from_rows(Rows(), resources=self.resources(1))
+        self.assertEqual(touched, [])
+        baseline = session.snapshot()["reserved_bytes"]
+        invalid = [
+            ("int8", 128), ("uint64", -1), ("int64", True), ("float32", 0.1),
+            ("float64", (1 << 53) + 1), ("float64", float("inf")), ("bool", 1),
+            ("binary", "text"), ("decimal128(3,2)", Decimal("1.234")),
+            ("decimal128(3,2)", Decimal("10.00")), ("decimal128(3,2)", Decimal("NaN")),
+            ("date32", dt.datetime(2024, 1, 1)), ("date32", 1 << 31),
+            ("timestamp_micros", dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc)),
+            ({"type": "int64", "nullable": False}, None),
+            ({"type": "list", "item": {"type": "int8", "nullable": False}}, [1, None]),
+            ({"type": "fixed_size_list", "item": "int8", "size": 2}, [1]),
+            ({"type": "struct", "fields": {"x": "int8"}}, {"y": 1}),
+        ]
+        for specification, value in invalid:
+            with self.subTest(schema=specification, value=value):
+                fields = [(name, json.dumps(_wire_type(dtype)))
+                          for name, dtype in normalize_schema({"n": specification})]
+                with self.assertRaises((ValueError, TypeError)):
+                    session.from_rows([{"n": value}], fields=fields)
+                self.assertEqual(session.snapshot()["reserved_bytes"], baseline)
+        source = session.from_rows([{"n": 7}, {"n": None}])
+        plan = session.sql("SELECT n FROM 'memory://objects'", sources=[("memory://objects", source)])
+        self.assertEqual(plan.collect().row_export()[0], [{"n": 7}, {"n": None}])
+
+    def test_native_object_input_crosses_old_total_row_limit_with_complete_values(self):
+        import shardloom as sl
+
+        count = 65_537
+        client = sl.ShardLoomClient(transport="native", memory_bytes=96 << 20, max_parallelism=2)
+        with patch("shardloom._input_schema.encode_cell", side_effect=AssertionError("JSON cells")):
+            frame = sl.from_rows([{"n": n} for n in range(count)], client=client, schema={"n": "int64"})
+            result = frame.collect()
+            self.assertEqual(result.to_arrow()["n"].to_pylist(), list(range(count)))
+        client.close()
+
+    def test_public_native_batch_factories_use_fresh_values_without_json_cells(self):
+        import shardloom as sl
+
+        for streaming in (False, True):
+            with self.subTest(streaming=streaming):
+                calls = []
+
+                def producer():
+                    offset = len(calls) * 10_000
+                    calls.append(offset)
+                    yield []
+                    # The native adapter subdivides construction work; the
+                    # caller's batch is not constrained by the JSON frame cap.
+                    yield [{"n": offset + n, "b": bytes([n % 256])} for n in range(3001)]
+                    yield []
+
+                client = sl.ShardLoomClient(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+                self.addCleanup(client.close)
+                frame = sl.from_batches(producer, schema={"n": "int64", "b": "binary"},
+                                        streaming=streaming, client=client)
+                self.assertEqual(calls, [])
+                with patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON cells")), \
+                     patch("subprocess.Popen", side_effect=AssertionError("child process")):
+                    first = frame.collect(check=True)
+                    second = frame.collect(check=True)
+                self.assertEqual(calls, [0, 10_000])
+                self.assertEqual(first.to_arrow()["n"].to_pylist(), list(range(3001)))
+                self.assertEqual(second.to_arrow()["n"].to_pylist(), list(range(10_000, 13_001)))
+                self.assertEqual(first.to_arrow()["b"].to_pylist(), [bytes([n % 256]) for n in range(3001)])
+                if streaming:
+                    self.assertTrue(second.envelope.field_bool("native_input_end_observed"))
+                    self.assertEqual(second.envelope.field_int("native_input_batch_rows"), 3001)
+                    self.assertEqual(second.envelope.field_int("native_input_max_retained_batches"), 1)
+
+    def test_public_native_columnar_batches_preserve_large_batches_and_empty_input(self):
+        import shardloom as sl
+        pa = self.arrow()
+        values = list(range(4097))
+        batch = pa.record_batch([pa.array(values, type=pa.int32())], names=["n"])
+        empty = pa.record_batch([pa.array([], type=pa.int32())], names=["n"])
+        client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        for streaming in (False, True):
+            with self.subTest(streaming=streaming), \
+                 patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("row bridge")):
+                frame = sl.from_batches(lambda: iter((empty, batch, empty)), schema={"n": "int32"},
+                                        streaming=streaming, client=client)
+                result = frame.collect(check=True)
+                self.assertEqual(result.to_arrow()["n"].to_pylist(), values)
+                if streaming:
+                    self.assertEqual(result.envelope.field_int("native_input_max_batch_rows"), 4097)
+                empty_result = sl.from_batches(lambda: iter(()), schema={"n": "int32"},
+                                              streaming=streaming, client=client).collect(check=True)
+                self.assertEqual(empty_result.to_arrow().num_rows, 0)
+                self.assertEqual(empty_result.to_arrow().schema.field("n").type, pa.int32())
+
+    def test_public_native_batch_admission_precedes_factory_and_stream_close_cleans_producer(self):
+        import shardloom as sl
+
+        events = []
+
+        def producer():
+            events.append("open")
+            try:
+                yield [{"n": n} for n in range(4097)]
+                events.append("next input")
+                yield [{"n": 9999}]
+            finally:
+                events.append("closed")
+
+        client = sl.ShardLoomClient(transport="native")
+        self.addCleanup(client.close)
+        frame = sl.from_batches(producer, schema={"n": "int64"}, streaming=True, client=client)
+        with self.assertRaises(ValueError):
+            frame.collect(check=True)
+        self.assertEqual(events, [])
+        with self.assertRaises(Exception) as refused:
+            frame.collect(memory_bytes=1, max_parallelism=1, check=True)
+        self.assertIn("memory", str(refused.exception).lower())
+        self.assertEqual(events, [])
+        with frame.iter_batches(memory_bytes=32 << 20, max_parallelism=2, batch_rows=32) as stream:
+            self.assertEqual(events, [])
+            retained = next(stream)
+            self.assertIsNone(stream.report)
+        self.assertEqual(events, ["open", "closed"])
+        self.assertIsNone(stream.report)
+        client.close()
+        self.assertEqual(retained.to_arrow()["n"].to_pylist(), list(range(32)))
+
+    def test_public_native_batch_late_errors_preserve_exception_and_existing_output(self):
+        import shardloom as sl
+        from shardloom.errors import ShardLoomCommandError
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(client.close)
+        failure = LookupError("late native producer failure")
+        closed = []
+
+        def producer():
+            try:
+                yield [{"n": 1}, {"n": 2}]
+                raise failure
+            finally:
+                closed.append(True)
+
+        for streaming in (False, True):
+            with self.subTest(streaming=streaming):
+                frame = sl.from_batches(producer, schema={"n": "int64"}, streaming=streaming, client=client)
+                with self.assertRaises(LookupError) as raised:
+                    frame.collect(check=True)
+                self.assertIs(raised.exception, failure)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "existing.vortex"
+            target.write_bytes(b"preserve this artifact")
+            frame = sl.from_batches(producer, schema={"n": "int64"}, streaming=True, client=client)
+            # The shared native writer refuses replacement before demanding
+            # input when generation-conditional publication is unavailable.
+            with self.assertRaisesRegex(ShardLoomCommandError, "existing destination"):
+                frame.write(target, output_format="vortex", allow_overwrite=True)
+            self.assertEqual(len(closed), 2)
+            failed_target = Path(directory) / "failed.vortex"
+            with self.assertRaises(LookupError) as raised:
+                frame.write(failed_target, output_format="vortex")
+            self.assertIs(raised.exception, failure)
+            self.assertFalse(failed_target.exists())
+            self.assertEqual(target.read_bytes(), b"preserve this artifact")
+            self.assertEqual(list(Path(directory).iterdir()), [target])
+        self.assertEqual(len(closed), 3)
+
+    def test_public_native_batch_intake_crosses_former_total_batch_limits(self):
+        import shardloom as sl
+
+        def producer():
+            for _ in range(8193):
+                yield []
+            for value in range(4099):
+                yield [{"n": value}]
+
+        for streaming in (False, True):
+            with self.subTest(streaming=streaming):
+                client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+                self.addCleanup(client.close)
+                frame = sl.from_batches(producer, schema={"n": "int64"}, streaming=streaming, client=client)
+                with patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON cells")):
+                    result = frame.collect(check=True)
+                self.assertEqual(result.to_arrow()["n"].to_pylist(), list(range(4099)))
+                client.close()
+
+    def test_public_native_wide_object_and_columnar_inputs_preserve_every_field(self):
+        import shardloom as sl
+        pa = self.arrow()
+
+        names = [f"field_{index}" for index in range(4097)]
+        expected = {name: [index, None if index % 17 == 0 else -index]
+                    for index, name in enumerate(names)}
+        rows = [{name: values[row] for name, values in expected.items()} for row in range(2)]
+        schema = dict.fromkeys(names, "int32")
+        # Both complete wide results remain retained under this one grant.
+        client = sl.ShardLoomClient(transport="native", memory_bytes=512 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        with patch("shardloom._input_schema.encode_cell", side_effect=AssertionError("JSON cells")), \
+             patch("shardloom.query.arrow_table", side_effect=AssertionError("row bridge")):
+            objects = sl.from_rows(rows, schema=schema, client=client).collect(check=True)
+            self.assertEqual(objects.to_arrow().to_pydict(), expected)
+            columns = pa.table({name: pa.array(values, type=pa.int32()) for name, values in expected.items()})
+            columnar = sl.from_arrow_table(columns, client=client).collect(check=True)
+            self.assertEqual(columnar.to_arrow().to_pydict(), expected)
+            self.assertEqual(columnar.to_arrow().schema.names, names)
+        client.close()
+        self.assertEqual(objects.to_arrow().to_pydict(), expected)
+
+    def test_native_workflow_rejects_unbound_options_before_execution(self):
+        import shardloom as sl
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
+        cases = ({"fanout_outputs": {"jsonl": "uncreated.jsonl"}},
+                 {"vortex_sample_fraction": 0.25}, {"execution_policy": "invented"},
+                 {"materialization_policy": "unbounded"}, {"bounded": False})
+        for options in cases:
+            with self.subTest(options=options), self.assertRaises(ValueError):
+                client.public_workflow_run("sql", sql_statement="SELECT 1", **options)
+        self.assertEqual(client._native_backend.session.snapshot()["completed_executions"], 0)
+        client.close()
 
 
 if __name__ == "__main__":

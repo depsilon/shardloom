@@ -353,6 +353,17 @@ impl ResidentMemorySource {
         self.0.array.dtype()
     }
 
+    /// Return authoritative schema metadata without traversing input values.
+    /// The returned text retains a reservation on this source's memory owner.
+    /// # Errors
+    /// Rejects unsupported metadata or shared-memory admission failure.
+    pub fn schema_json(&self) -> Result<shardloom_exec::live_memory::Budgeted<String>> {
+        crate::local_primitives::collect::serialize_result_schema(
+            self.dtype(),
+            &self.0.session.shared_memory_pool(),
+        )
+    }
+
     #[must_use]
     pub fn input_logical_bytes(&self) -> usize {
         self.0.input_logical_bytes

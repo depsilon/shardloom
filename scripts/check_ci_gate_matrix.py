@@ -190,6 +190,32 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         ),
     ),
     CiLane(
+        lane_id="native_python_wheel",
+        job_id="python-native-wheel",
+        commands=(
+            "python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt",
+            "python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest target/native-python-wheelhouse",
+            "python -B -m unittest discover -s scripts -p 'test_*native_python*.py' -v",
+            "python -B -m unittest discover -s scripts -p test_python_license_bundle.py -v",
+            "cargo build --locked --release -p shardloom-cli --bin shardloom --features release-user-surfaces",
+            "python scripts/build_native_python.py --output-dir target/native-python-extension --release",
+            'python scripts/prove_native_python_wheel.py --output-dir target/native-python-proof --native-library target/native-python-extension/_native.abi3.so --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse target/native-python-wheelhouse',
+        ),
+        artifact_refs=(
+            "target/native-python-build.json",
+            "target/native-python-proof/report.json",
+            "target/native-python-proof/integration.json",
+            "target/native-python-proof/*.log",
+            "target/native-python-proof/dist/*.whl",
+            "native-python-wheel-${{ matrix.lane }}",
+        ),
+        release_blocker_refs=("native Python wheel integrity and isolated installation",),
+        workflow_markers=(
+            'python-version: "3.10"', 'python-version: "3.13"',
+            "ubuntu-latest", "macos-latest", "if-no-files-found: error",
+        ),
+    ),
+    CiLane(
         lane_id="python_package_smoke",
         job_id="python-package",
         commands=(

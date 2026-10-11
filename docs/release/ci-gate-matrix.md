@@ -27,6 +27,31 @@ skipped_gate=real_publication
 
 ## Required Lanes
 
+`native_python_wheel` enforces native Python wheel integrity and isolated installation
+under job `python-native-wheel`. Ubuntu checks Python 3.10 and 3.13; macOS checks
+3.13. Its `native-python-wheel-${{ matrix.lane }}` artifacts retain the actual wheel,
+build identity, installation logs and the full required native integration suite.
+Zero tests or any skipped native test fails the proof. `release-readiness` requires
+this job to succeed. Windows extension support and portable Linux wheel certification
+remain unclaimed. Linux native wheels use a host platform tag until a separate
+shared-library audit establishes manylinux compliance.
+
+```text
+python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
+python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest target/native-python-wheelhouse
+python -B -m unittest discover -s scripts -p 'test_*native_python*.py' -v
+python -B -m unittest discover -s scripts -p test_python_license_bundle.py -v
+cargo build --locked --release -p shardloom-cli --bin shardloom --features release-user-surfaces
+python scripts/build_native_python.py --output-dir target/native-python-extension --release
+python scripts/prove_native_python_wheel.py --output-dir target/native-python-proof --native-library target/native-python-extension/_native.abi3.so --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse target/native-python-wheelhouse
+target/native-python-build.json
+target/native-python-proof/report.json
+target/native-python-proof/integration.json
+target/native-python-proof/*.log
+target/native-python-proof/dist/*.whl
+if-no-files-found: error
+```
+
 The native release feature matrix runs tests and lint in addition to compilation.
 This prevents default-feature tests from masking failures in shipped native paths:
 

@@ -1,7 +1,11 @@
 use pyo3::prelude::*;
 
+#[path = "batch_input.rs"]
+mod batch_input;
 #[path = "capsules.rs"]
 mod capsules;
+#[path = "object_input.rs"]
+mod object_input;
 #[path = "plan.rs"]
 mod plan;
 #[path = "resources.rs"]
@@ -29,7 +33,14 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<capsules::NativeColumnarStream>()?;
     module.add_class::<stream::NativeExecutionStream>()?;
     module.add_class::<stream::NativeColumnarBatch>()?;
+    module.add_function(wrap_pyfunction!(command, module)?)?;
     Ok(())
+}
+
+#[pyfunction]
+fn command(py: Python<'_>, args: Vec<String>) -> PyResult<String> {
+    py.detach(|| shardloom_runtime::native::command_json(args))
+        .map_err(native_error)
 }
 
 // Result::map_err transfers the owned native failure into Python diagnostics.

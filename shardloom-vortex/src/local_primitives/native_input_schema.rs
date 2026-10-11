@@ -28,7 +28,7 @@ pub(super) fn reserve_json(memory: &LiveMemoryPool, bytes: usize) -> Result<Memo
     memory.reserve(bytes)
 }
 
-pub(super) fn parse_dtype(raw: &str, memory: &LiveMemoryPool) -> Result<(DType, MemoryLease)> {
+pub(crate) fn parse_dtype(raw: &str, memory: &LiveMemoryPool) -> Result<(DType, MemoryLease)> {
     let _workspace = reserve_json(memory, raw.len())?;
     let value = parse_json(raw)?;
     let dtype = dtype(&value, 0, &mut 0)?;
