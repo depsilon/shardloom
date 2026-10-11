@@ -8,11 +8,12 @@ members = [
   "shardloom-python",
   "shardloom-contract-tests",
 ]
-exclude = ["vendor/arrow-pyarrow", "vendor/vortex-zstd"]
+exclude = ["vendor/arrow-pyarrow", "vendor/vortex-array", "vendor/vortex-zstd"]
 resolver = "2"
 
 [patch.crates-io]
 arrow-pyarrow = { path = "vendor/arrow-pyarrow" }
+vortex-array = { path = "vendor/vortex-array" }
 vortex-zstd = { path = "vendor/vortex-zstd" }
 
 [workspace.package]

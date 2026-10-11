@@ -163,4 +163,142 @@ mod tests {
         );
         assert!(Scalar::try_new(required, None).is_err());
     }
+
+    #[test]
+    #[allow(clippy::too_many_lines)] // Keep the shared encoding/predicate fixture and its checks together.
+    fn full_domain_timestamp_compression_preserves_storage_statistics_and_predicates() {
+        use vortex::{
+            VortexSessionDefault as _,
+            array::{
+                IntoArray as _, VortexSessionExecute as _,
+                arrays::{ConstantArray, ExtensionArray, PrimitiveArray, TemporalArray},
+                builtins::ArrayBuiltins as _,
+                expr::stats::Stat,
+                scalar_fn::fns::operators::Operator,
+            },
+            compressor::BtrBlocksCompressorBuilder,
+            editions::{ComponentKind, EditionSessionExt as _},
+            encodings::datetime_parts::DateTimeParts,
+            session::VortexSession,
+        };
+
+        let session = VortexSession::default();
+        let allowed = session
+            .enabled_component_ids(ComponentKind::Array)
+            .into_iter()
+            .collect();
+        let compressor = BtrBlocksCompressorBuilder::default()
+            .retain_allowed_encodings(&allowed)
+            .build();
+        let dtype = Timestamp::new(TimeUnit::Microseconds, Nullability::Nullable).erased();
+        let mut execution = session.create_execution_ctx();
+        let boundary = [
+            i64::MIN,
+            i64::MIN + 1,
+            -631_107_417_600_000_001,
+            -400_000_000_000_000_000,
+            -86_400_000_001,
+            -86_400_000_000,
+            -1,
+            0,
+            1,
+            86_400_000_000,
+            300_000_000_000_000_000,
+            631_107_417_600_000_001,
+            i64::MAX - 1,
+            i64::MAX,
+        ];
+        let profiles = [
+            boundary.into_iter().map(Some).chain([None]).collect(),
+            vec![Some(i64::MAX); 64],
+            (0..257).map(|offset| Some(i64::MIN + offset)).collect(),
+            (0..257).map(|offset| Some(i64::MAX - offset)).collect(),
+            vec![None; 64],
+            Vec::new(),
+        ];
+        for expected in profiles {
+            let source = ExtensionArray::new(
+                dtype.clone(),
+                PrimitiveArray::from_option_iter(expected.iter().copied()).into_array(),
+            )
+            .into_array();
+            // Exercise decomposition directly even if the general compressor
+            // selects a constant or another cheaper native representation.
+            let decomposed = DateTimeParts::try_from_temporal(
+                TemporalArray::try_from(source.clone()).unwrap(),
+                &mut execution,
+            )
+            .unwrap()
+            .into_array();
+            let compressed = compressor.compress(&source, &mut execution).unwrap();
+            for encoded in [decomposed, compressed] {
+                assert_eq!(encoded.dtype(), source.dtype());
+                assert_eq!(encoded.len(), expected.len());
+                for (row, value) in expected.iter().enumerate() {
+                    assert_eq!(
+                        encoded
+                            .execute_scalar(row, &mut execution)
+                            .unwrap()
+                            .as_extension()
+                            .to_storage_scalar()
+                            .as_primitive()
+                            .as_::<i64>(),
+                        *value
+                    );
+                }
+                for (stat, expected_bound) in [
+                    (Stat::Min, expected.iter().copied().flatten().min()),
+                    (Stat::Max, expected.iter().copied().flatten().max()),
+                ] {
+                    let actual = encoded
+                        .statistics()
+                        .compute_stat(stat, &mut execution)
+                        .unwrap()
+                        .and_then(|value| {
+                            value
+                                .as_extension()
+                                .to_storage_scalar()
+                                .as_primitive()
+                                .as_::<i64>()
+                        });
+                    assert_eq!(actual, expected_bound);
+                }
+                for threshold in boundary {
+                    for operator in [
+                        Operator::Eq,
+                        Operator::NotEq,
+                        Operator::Lt,
+                        Operator::Lte,
+                        Operator::Gt,
+                        Operator::Gte,
+                    ] {
+                        let rhs =
+                            ConstantArray::new(scalar(source.dtype(), threshold), encoded.len())
+                                .into_array();
+                        let result = encoded.binary(rhs, operator).unwrap();
+                        for (row, value) in expected.iter().enumerate() {
+                            let expected = value.map(|value| match operator {
+                                Operator::Eq => value == threshold,
+                                Operator::NotEq => value != threshold,
+                                Operator::Lt => value < threshold,
+                                Operator::Lte => value <= threshold,
+                                Operator::Gt => value > threshold,
+                                Operator::Gte => value >= threshold,
+                                _ => unreachable!(),
+                            });
+                            assert_eq!(
+                                result
+                                    .execute_scalar(row, &mut execution)
+                                    .unwrap()
+                                    .as_bool()
+                                    .value(),
+                                expected,
+                                "{operator:?} {threshold} at row {row}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

@@ -14467,7 +14467,7 @@ impl LocalVortexWriteContext {
         writer_session: &vortex::session::VortexSession,
     ) -> vortex::file::VortexWriteOptions {
         use vortex::file::WriteOptionsSessionExt as _;
-        let options = nested_layout::file_statistics(writer_session.write_options(), dtype);
+        let options = writer_session.write_options();
         if let Some(writer) = nested_layout::root_writer(dtype, writer_session) {
             return options.with_strategy(writer);
         }
