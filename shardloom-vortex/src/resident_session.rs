@@ -54,7 +54,7 @@ pub use serving_admission::{ResidentAdmissionSnapshot, ResidentServingPolicy};
 
 #[path = "resident_operation_resources.rs"]
 mod operation_resources;
-pub use operation_resources::ConfigurableResidentSession;
+pub use operation_resources::{ConfigurableResidentSession, ResidentOperationAdmission};
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_result_json.rs"]

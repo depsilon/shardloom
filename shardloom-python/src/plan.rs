@@ -82,7 +82,9 @@ impl PlanCore {
     ) -> PyResult<T> {
         let errors = Arc::new(Mutex::new(None));
         self.session
-            .controller
+            .runtime
+            .controller(resources, cancellation)
+            .map_err(native_error)?
             .with_resources(resources, cancellation, |session, resources| {
                 cancellation.check()?;
                 native::validate_sql_spill(self.spill.as_deref(), resources)?;
@@ -143,8 +145,13 @@ impl PlanCore {
 
     pub(super) fn controller(
         &self,
-    ) -> shardloom_vortex::resident_session::ConfigurableResidentSession {
-        self.session.controller.clone()
+        resources: ExecutionResources,
+        cancellation: &CancellationToken,
+    ) -> Result<shardloom_vortex::resident_session::ConfigurableResidentSession> {
+        self.session
+            .runtime
+            .controller(resources, cancellation)
+            .cloned()
     }
 }
 
@@ -160,7 +167,7 @@ impl NativePlan {
     ) -> PyResult<super::stream::NativeExecutionStream> {
         let timeout = super::session::timeout_duration(timeout)?;
         let cancellation = self.session.begin().map_err(native_error)?;
-        let resources = self.session.resources(resources);
+        let resources = self.session.resources(resources).map_err(native_error)?;
         Ok(super::stream::NativeExecutionStream::new(
             Arc::clone(&self.core),
             resources,
@@ -177,7 +184,7 @@ impl NativePlan {
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
         let cancellation = self.session.begin_operation(timeout)?;
-        let resources = self.session.resources(resources);
+        let resources = self.session.resources(resources).map_err(native_error)?;
         py.detach(|| self.with_prepared(resources, &cancellation, |_, _, _| Ok(())))
     }
 
@@ -189,7 +196,7 @@ impl NativePlan {
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<NativeResult> {
         let cancellation = self.session.begin_operation(timeout)?;
-        let resources = self.session.resources(resources);
+        let resources = self.session.resources(resources).map_err(native_error)?;
         py.detach(|| {
             self.with_prepared(resources, &cancellation, |operation, reused, input| {
                 let completed = if let Some(input) = input {
@@ -202,7 +209,7 @@ impl NativePlan {
                 };
                 Ok(NativeResult::new(
                     completed,
-                    self.session.controller.clone(),
+                    self.controller(resources, &cancellation)?,
                     reused,
                 ))
             })
@@ -222,7 +229,7 @@ impl NativePlan {
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<PyDict>> {
         let cancellation = self.session.begin_operation(timeout)?;
-        let resources = self.session.resources(resources);
+        let resources = self.session.resources(resources).map_err(native_error)?;
         let format = native::output_format(format).map_err(native_error)?;
         let fields = py.detach(|| {
             self.with_prepared(resources, &cancellation, |operation, reused, input| {
@@ -252,7 +259,7 @@ impl NativePlan {
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<PyDict>> {
         let cancellation = self.session.begin_operation(timeout)?;
-        let resources = self.session.resources(resources);
+        let resources = self.session.resources(resources).map_err(native_error)?;
         let targets = outputs
             .into_iter()
             .map(|(path, format)| native::output_format(&format).map(|format| (path, format)))

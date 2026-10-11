@@ -113,16 +113,19 @@ def _failure(error, *, check):
 
 
 class NativeBackend:
-    def __init__(self, allocation: ExecutionResources, limits, timeout=None):
+    def __init__(self, allocation: ExecutionResources | None, limits, timeout=None):
         self.module = load_native()
         self.timeout = validate_timeout(timeout)
         # A shared client's administrator policy persists. Per-context/per-call
         # ceilings accompany every operation but cannot change the client policy.
-        initial = ExecutionResources(
-            allocation.memory_bytes, allocation.max_parallelism,
-            allocation.memory_origin, allocation.parallelism_origin, limits,
+        self.session = self.module.Session(
+            None if allocation is None else native_resources(self.module, allocation),
+            memory_limit_bytes=None if limits is None else limits.memory_bytes,
+            parallelism_limit=None if limits is None else limits.max_parallelism,
         )
-        self.session = self.module.Session(native_resources(self.module, initial))
+
+    def command(self, args):
+        return self.session.command(args, timeout=self.timeout)
 
     def close(self):
         self.session.close()

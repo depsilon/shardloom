@@ -100,7 +100,9 @@ impl State {
                 let outcome = demand_next(&requested, &cancellation)
                     .map_err(native_error)
                     .and_then(|()| {
-                        let controller = plan.controller();
+                        let controller = plan
+                            .controller(resources, &cancellation)
+                            .map_err(native_error)?;
                         plan.with_prepared(resources, &cancellation, |operation, reused, input| {
                             let consume = |batch| {
                                 controller.with_consumer_wait(|| {

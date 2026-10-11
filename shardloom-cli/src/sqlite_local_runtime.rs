@@ -140,8 +140,9 @@ impl LocalSqliteImportExportReport {
 pub(crate) fn handle_sqlite_local_import_export_smoke(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
-    let options = match parse_sqlite_smoke_options(args) {
+    let options = match parse_sqlite_smoke_options(args, context) {
         Ok(options) => options,
         Err(error) => {
             return emit_error(
@@ -156,6 +157,7 @@ pub(crate) fn handle_sqlite_local_import_export_smoke(
         options.resources,
         "sqlite-local-import-export-smoke",
         format,
+        context,
     ) {
         Ok(pool) => pool,
         Err(code) => return code,
@@ -190,17 +192,20 @@ pub(crate) fn handle_sqlite_local_import_export_smoke(
 
 fn parse_sqlite_smoke_options(
     args: std::vec::IntoIter<String>,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> Result<SqliteSmokeOptions, ShardLoomError> {
-    let (mut args, resources) = crate::execution_resources::ResourceArguments::take_required(
-        args,
-        &[
-            "--table",
-            "--export-jsonl",
-            "--roundtrip-db",
-            "--order-by",
-            "--format",
-        ],
-    )?;
+    let (mut args, resources) =
+        crate::execution_resources::ResourceArguments::take_required_in_context(
+            args,
+            &[
+                "--table",
+                "--export-jsonl",
+                "--roundtrip-db",
+                "--order-by",
+                "--format",
+            ],
+            context,
+        )?;
     let Some(source_db) = args.next() else {
         return Err(ShardLoomError::InvalidOperation(
             "usage: sqlite-local-import-export-smoke <db.sqlite> --table <table> --export-jsonl <path> --roundtrip-db <path> [--order-by <column>] [--allow-overwrite]".to_string(),

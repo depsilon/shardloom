@@ -31,20 +31,7 @@ impl NativeResources {
         let parallelism_origin = parallelism_origin
             .parse::<ExecutionResourceOrigin>()
             .map_err(configuration)?;
-        let memory_limit = memory_limit_bytes
-            .map(|value| positive_u64(value, "memory_limit_bytes"))
-            .transpose()?;
-        let parallelism_limit = parallelism_limit
-            .map(|value| positive_usize(value, "parallelism_limit"))
-            .transpose()?;
-        let limits = if memory_limit.is_some() || parallelism_limit.is_some() {
-            Some(
-                ExecutionResourceLimits::new(memory_limit, parallelism_limit)
-                    .map_err(configuration)?,
-            )
-        } else {
-            None
-        };
+        let limits = parse_limits(memory_limit_bytes, parallelism_limit)?;
         Ok(Self {
             value: ExecutionResources::from_declaration(
                 memory_bytes,
@@ -65,6 +52,25 @@ impl NativeResources {
     #[getter]
     fn max_parallelism(&self) -> usize {
         self.value.max_parallelism()
+    }
+}
+
+pub(super) fn parse_limits(
+    memory_limit_bytes: Option<&Bound<'_, PyAny>>,
+    parallelism_limit: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Option<ExecutionResourceLimits>> {
+    let memory = memory_limit_bytes
+        .map(|value| positive_u64(value, "memory_limit_bytes"))
+        .transpose()?;
+    let lanes = parallelism_limit
+        .map(|value| positive_usize(value, "parallelism_limit"))
+        .transpose()?;
+    if memory.is_none() && lanes.is_none() {
+        Ok(None)
+    } else {
+        ExecutionResourceLimits::new(memory, lanes)
+            .map(Some)
+            .map_err(configuration)
     }
 }
 

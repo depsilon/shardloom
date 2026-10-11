@@ -8,7 +8,7 @@ use shardloom_exec::{
 };
 use std::cell::Cell;
 use std::sync::{
-    Arc, Mutex, TryLockError,
+    Arc, Mutex, MutexGuard, TryLockError,
     atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
@@ -55,6 +55,31 @@ impl Drop for OperationThread<'_> {
 /// valid after the controller is dropped because it retains its native owners.
 #[derive(Clone)]
 pub struct ConfigurableResidentSession(Arc<Owner>);
+
+/// A complete operation's admitted allocation and exclusive controller access.
+/// Keep this guard alive through preparation, execution, output and reporting.
+/// Retained arrays keep their memory ownership after the guard is released.
+pub struct ResidentOperationAdmission<'a> {
+    // Clear recursion/lock-order tracking before releasing exclusive admission.
+    _thread: OperationThread<'a>,
+    _operation: MutexGuard<'a, ()>,
+    session: &'a ResidentVortexSession,
+    resources: ExecutionResources,
+}
+
+impl ResidentOperationAdmission<'_> {
+    /// The retained native owner admitted for this complete operation.
+    #[must_use]
+    pub fn session(&self) -> &ResidentVortexSession {
+        self.session
+    }
+
+    /// The declaration after intersecting the controller's authorization limits.
+    #[must_use]
+    pub fn resources(&self) -> ExecutionResources {
+        self.resources
+    }
+}
 
 impl ConfigurableResidentSession {
     /// Create one explicit allocation without persistent background CPU drivers.
@@ -114,6 +139,20 @@ impl ConfigurableResidentSession {
         cancellation: &CancellationToken,
         operation: impl FnOnce(&ResidentVortexSession, ExecutionResources) -> Result<T>,
     ) -> Result<T> {
+        let admission = self.admit(resources, cancellation)?;
+        operation(admission.session(), admission.resources())
+    }
+
+    /// Admit an operation whose caller needs a scoped guard around an existing
+    /// command handler. Uses exactly the same ownership as `with_resources`.
+    /// # Errors
+    /// Rejects unauthorized resources, cancelled work, recursive admission,
+    /// poisoned state or a grant smaller than retained native ownership.
+    pub fn admit(
+        &self,
+        resources: ExecutionResources,
+        cancellation: &CancellationToken,
+    ) -> Result<ResidentOperationAdmission<'_>> {
         let resources = self.authorized(resources)?;
         let thread = std::thread::current().id();
         if self
@@ -128,7 +167,7 @@ impl ConfigurableResidentSession {
                 "recursive calls on the same operation controller are not admitted; retain a native source before entering a producer callback",
             ));
         }
-        let _operation = loop {
+        let operation = loop {
             cancellation.check()?;
             match self.0.operations.try_lock() {
                 Ok(guard) => break guard,
@@ -156,7 +195,7 @@ impl ConfigurableResidentSession {
             .lock()
             .map_err(|_| resident_error("operation thread ownership poisoned"))? = Some(thread);
         OPERATION_DEPTH.with(|depth| depth.set(depth.get() + 1));
-        let _thread = OperationThread(&self.0.operation_thread);
+        let thread = OperationThread(&self.0.operation_thread);
         cancellation.check()?;
         {
             // Also exclude any already-entered native operation while changing
@@ -184,7 +223,12 @@ impl ConfigurableResidentSession {
                 );
         }
         cancellation.check()?;
-        operation(&self.0.session, resources)
+        Ok(ResidentOperationAdmission {
+            _thread: thread,
+            _operation: operation,
+            session: &self.0.session,
+            resources,
+        })
     }
 
     /// Mark a held operation as waiting for caller demand. Reentrant work from
@@ -240,6 +284,32 @@ mod tests {
     fn resources(bytes: u64, lanes: usize) -> ExecutionResources {
         ExecutionResources::from_bytes(bytes, lanes, ExecutionResourceOrigin::ExecutionCall)
             .unwrap()
+    }
+
+    #[test]
+    fn scoped_admission_keeps_the_same_owner_and_releases_recursion_state() {
+        let configured = resources(1024, 2);
+        let controller = ConfigurableResidentSession::new(configured).unwrap();
+        let cancellation = CancellationToken::default();
+        let retained = {
+            let admission = controller.admit(configured, &cancellation).unwrap();
+            assert_eq!(admission.resources(), configured);
+            let retained = admission
+                .session()
+                .shared_memory_pool()
+                .reserve(768)
+                .unwrap();
+            assert!(controller.admit(configured, &cancellation).is_err());
+            retained
+        };
+        assert!(controller.admit(resources(767, 1), &cancellation).is_err());
+        let admission = controller.admit(resources(1024, 1), &cancellation).unwrap();
+        assert!(admission.session().shared_memory_pool().owns(&retained));
+        assert_eq!(admission.resources().max_parallelism(), 1);
+        drop(admission);
+        drop(retained);
+        let admission = controller.admit(resources(1, 1), &cancellation).unwrap();
+        assert_eq!(admission.session().snapshot().memory.reserved_bytes, 0);
     }
 
     #[test]

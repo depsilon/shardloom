@@ -341,6 +341,7 @@ pub(crate) fn handle_spill_reservation_plan(
 pub(crate) fn handle_spill_payload_roundtrip(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let Some(workspace_path_text) = args.next() else {
         eprintln!(
@@ -365,8 +366,13 @@ pub(crate) fn handle_spill_payload_roundtrip(
         format,
         "spill-payload-roundtrip",
         &[],
+        context,
     ) {
         Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
+    let _admission = match context.admit_for_command(resources, "spill-payload-roundtrip", format) {
+        Ok(admission) => admission,
         Err(code) => return code,
     };
     let mut cleanup_after = false;

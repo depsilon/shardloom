@@ -170,14 +170,13 @@ impl std::fmt::Write for Text {
     }
 }
 
-pub(crate) fn owner_for_command(
+pub(crate) fn owner_for_command<'a>(
     resources: ExecutionResources,
     command: &str,
     format: OutputFormat,
-) -> Result<LiveMemoryPool, ExitCode> {
-    LiveMemoryPool::new(resources.memory_bytes()).map_err(|error| {
-        crate::cli_output::emit_error(command, format, "fixture resource admission failed", &error)
-    })
+    context: &crate::command_context::CommandContext<'a>,
+) -> Result<crate::command_context::CommandAdmission<'a>, ExitCode> {
+    context.admit_for_command(resources, command, format)
 }
 
 pub(crate) fn with_observation_fields(

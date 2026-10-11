@@ -8,7 +8,7 @@ use pyo3::{
 };
 use shardloom_core::{ExecutionResources, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
-use shardloom_runtime::native::{SqlSource, SqlSourceBinding};
+use shardloom_runtime::native::{EmbeddedExecutionOwner, SqlSource, SqlSourceBinding};
 use shardloom_vortex::{
     resident_memory_source::{MemoryBatchSourceBuilder, ResidentMemorySource},
     resident_session::ConfigurableResidentSession,
@@ -24,7 +24,7 @@ struct Lifecycle {
 }
 
 pub(super) struct SessionOwner {
-    pub(super) controller: ConfigurableResidentSession,
+    pub(super) runtime: EmbeddedExecutionOwner,
     lifecycle: Mutex<Lifecycle>,
 }
 
@@ -42,11 +42,11 @@ impl SessionOwner {
         Ok(state.cancellation.clone())
     }
 
-    pub(super) fn resources(&self, supplied: Option<&NativeResources>) -> ExecutionResources {
-        supplied.map_or_else(
-            || self.controller.configured_resources(),
-            |value| value.value,
-        )
+    pub(super) fn resources(
+        &self,
+        supplied: Option<&NativeResources>,
+    ) -> Result<ExecutionResources> {
+        self.runtime.resources(supplied.map(|value| value.value))
     }
 
     pub(super) fn begin_operation(
@@ -129,20 +129,47 @@ impl NativeSource {
 #[pymethods]
 impl NativeSession {
     #[new]
-    fn new(py: Python<'_>, resources: &NativeResources) -> PyResult<Self> {
-        let resources = resources.value;
-        let controller = py
-            .detach(|| ConfigurableResidentSession::new(resources))
+    #[pyo3(signature = (resources=None, *, memory_limit_bytes=None, parallelism_limit=None))]
+    fn new(
+        py: Python<'_>,
+        resources: Option<&NativeResources>,
+        memory_limit_bytes: Option<&Bound<'_, PyAny>>,
+        parallelism_limit: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let resources = resources.map(|value| value.value);
+        let limits = super::resources::parse_limits(memory_limit_bytes, parallelism_limit)?;
+        let runtime = py
+            .detach(|| EmbeddedExecutionOwner::new(resources, limits))
             .map_err(native_error)?;
         Ok(Self {
             owner: Arc::new(SessionOwner {
-                controller,
+                runtime,
                 lifecycle: Mutex::new(Lifecycle {
                     closed: false,
                     cancellation: CancellationToken::default(),
                 }),
             }),
         })
+    }
+
+    /// Invoke the shared command dispatcher with this session's ownership and
+    /// cancellation. Each data handler parses and admits its own complete call.
+    #[pyo3(signature = (args, *, timeout=None))]
+    fn command(
+        &self,
+        py: Python<'_>,
+        args: Vec<String>,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<String> {
+        let cancellation = self.owner.begin_operation(timeout)?;
+        py.detach(|| {
+            shardloom_runtime::native::command_json_in_owner(
+                args,
+                &self.owner.runtime,
+                &cancellation,
+            )
+        })
+        .map_err(native_error)
     }
 
     /// Construct a native plan declaration without inspecting any source.
@@ -191,8 +218,15 @@ impl NativeSession {
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<NativeSource> {
         let cancellation = self.owner.begin_operation(timeout)?;
-        let resources = self.owner.resources(resources);
-        let controller = self.owner.controller.clone();
+        let resources = self.owner.resources(resources).map_err(native_error)?;
+        let controller = py
+            .detach(|| {
+                self.owner
+                    .runtime
+                    .controller(resources, &cancellation)
+                    .cloned()
+            })
+            .map_err(native_error)?;
         let native_result = producer
             .bind(py)
             .extract::<PyRef<'_, NativeResult>>()
@@ -260,8 +294,15 @@ impl NativeSession {
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<NativeSource> {
         let cancellation = self.owner.begin_operation(timeout)?;
-        let resources = self.owner.resources(resources);
-        let controller = self.owner.controller.clone();
+        let resources = self.owner.resources(resources).map_err(native_error)?;
+        let controller = py
+            .detach(|| {
+                self.owner
+                    .runtime
+                    .controller(resources, &cancellation)
+                    .cloned()
+            })
+            .map_err(native_error)?;
         py.detach(move || {
             let source = controller
                 .with_resources(resources, &cancellation, |session, _| {
@@ -287,8 +328,15 @@ impl NativeSession {
         timeout: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<NativeSource> {
         let cancellation = self.owner.begin_operation(timeout)?;
-        let resources = self.owner.resources(resources);
-        let controller = self.owner.controller.clone();
+        let resources = self.owner.resources(resources).map_err(native_error)?;
+        let controller = py
+            .detach(|| {
+                self.owner
+                    .runtime
+                    .controller(resources, &cancellation)
+                    .cloned()
+            })
+            .map_err(native_error)?;
         py.detach(move || {
             let mut python_error = None;
             let source = controller.with_resources(resources, &cancellation, |session, _| {
@@ -343,18 +391,43 @@ impl NativeSession {
 
     /// Observe retained native reservations without admitting or executing work.
     fn snapshot(&self, py: Python<'_>) -> PyResult<Py<pyo3::types::PyDict>> {
-        let observed = self.owner.controller.snapshot();
+        let observed = self.owner.runtime.snapshot();
         let values = pyo3::types::PyDict::new(py);
-        values.set_item("memory_limit_bytes", observed.memory.limit_bytes)?;
-        values.set_item("reserved_bytes", observed.memory.reserved_bytes)?;
-        values.set_item("peak_reserved_bytes", observed.memory.peak_reserved_bytes)?;
-        values.set_item("denied_reservations", observed.memory.denied_reservations)?;
+        values.set_item("native_owner_initialized", observed.is_some())?;
+        values.set_item(
+            "memory_limit_bytes",
+            observed.as_ref().map(|value| value.memory.limit_bytes),
+        )?;
+        values.set_item(
+            "reserved_bytes",
+            observed.as_ref().map(|value| value.memory.reserved_bytes),
+        )?;
+        values.set_item(
+            "peak_reserved_bytes",
+            observed
+                .as_ref()
+                .map(|value| value.memory.peak_reserved_bytes),
+        )?;
+        values.set_item(
+            "denied_reservations",
+            observed
+                .as_ref()
+                .map(|value| value.memory.denied_reservations),
+        )?;
         values.set_item(
             "admitted_max_parallelism",
-            observed.admitted_max_parallelism,
+            observed
+                .as_ref()
+                .map(|value| value.admitted_max_parallelism),
         )?;
-        values.set_item("prepared_source_opens", observed.prepared_source_opens)?;
-        values.set_item("completed_executions", observed.completed_executions)?;
+        values.set_item(
+            "prepared_source_opens",
+            observed.as_ref().map(|value| value.prepared_source_opens),
+        )?;
+        values.set_item(
+            "completed_executions",
+            observed.as_ref().map(|value| value.completed_executions),
+        )?;
         values.set_item(
             "scope",
             "shared_native_reservations;excludes_caller_memory_and_process_rss",

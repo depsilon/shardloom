@@ -1918,6 +1918,7 @@ struct VortexIngestRequest {
     runtime_profile: SqlLocalSourceRuntimeProfile,
     resources: ExecutionResources,
     shared_memory_pool: Option<shardloom_exec::live_memory::LiveMemoryPool>,
+    cancellation: shardloom_exec::compute_pool::CancellationToken,
     source_fingerprint_policy: SourceFingerprintPolicy,
     delta: Option<VortexIngestDeltaRequest>,
     // Retained by the request in every build; only the native writer consumes it.
@@ -2143,8 +2144,9 @@ fn vortex_ingest_source_schema_digest(source: &CsvSourceData) -> String {
 pub(crate) fn handle_vortex_prepare(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
-    handle_vortex_prepare_with_facade(args, format, VORTEX_PREPARE_COMMAND, &[])
+    handle_vortex_prepare_with_facade(args, format, VORTEX_PREPARE_COMMAND, &[], context)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2153,6 +2155,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
     format: OutputFormat,
     emit_command: &'static str,
     extra_fields: &[(String, String)],
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let Some(source_path_raw) = args.next() else {
         return emit_error(
@@ -2353,7 +2356,7 @@ pub(crate) fn handle_vortex_prepare_with_facade(
         }
     }
 
-    let resources = match resource_arguments.resolve() {
+    let resources = match context.resolve(&resource_arguments) {
         Ok(resources) => resources,
         Err(error) => {
             return emit_error(
@@ -2363,6 +2366,10 @@ pub(crate) fn handle_vortex_prepare_with_facade(
                 &error,
             );
         }
+    };
+    let admission = match context.admit_for_command(resources, emit_command, format) {
+        Ok(admission) => admission,
+        Err(code) => return code,
     };
     let source_path = Path::new(source_path_raw.trim()).to_path_buf();
     let target_path = match normalize_local_vortex_ingest_target_path(&target_path_raw) {
@@ -2410,8 +2417,9 @@ pub(crate) fn handle_vortex_prepare_with_facade(
         allow_overwrite,
         certification_level,
         runtime_profile,
-        resources,
-        shared_memory_pool: None,
+        resources: admission.resources(),
+        shared_memory_pool: Some((*admission).clone()),
+        cancellation: admission.cancellation(),
         source_fingerprint_policy,
         delta,
         prepared_source_binding: None,
@@ -2461,7 +2469,10 @@ pub(crate) fn handle_vortex_prepare_with_facade(
         native_request
             .shared_memory_pool
             .clone_from(&request.shared_memory_pool);
-        let report = match shardloom_vortex::prepare_native_vortex_artifact(&native_request) {
+        let report = match shardloom_vortex::prepare_native_vortex_artifact_controlled(
+            &native_request,
+            &request.cancellation,
+        ) {
             Ok(report) => report,
             Err(error) => {
                 return emit_error(emit_command, format, "vortex prepare failed", &error);
@@ -2579,6 +2590,32 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
     source_fingerprint_policy: Option<&str>,
     source_schema: Option<&str>,
 ) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
+    prepare_local_source_as_vortex_for_public_workflow_controlled(
+        source_path,
+        target_path,
+        source_format,
+        allow_overwrite,
+        resources,
+        shared_memory_pool,
+        source_fingerprint_policy,
+        source_schema,
+        &shardloom_exec::compute_pool::CancellationToken::default(),
+    )
+}
+
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_controlled(
+    source_path: impl AsRef<Path>,
+    target_path: impl AsRef<Path>,
+    source_format: Option<&str>,
+    allow_overwrite: bool,
+    resources: ExecutionResources,
+    shared_memory_pool: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    source_fingerprint_policy: Option<&str>,
+    source_schema: Option<&str>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
+    cancellation.check()?;
     if shared_memory_pool.is_some_and(|pool| pool.snapshot().limit_bytes > resources.memory_bytes())
     {
         return Err(ShardLoomError::new(
@@ -2615,7 +2652,8 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
         )?;
         let mut request = request;
         request.shared_memory_pool = shared_memory_pool.cloned();
-        let report = shardloom_vortex::prepare_native_vortex_artifact(&request)?;
+        let report =
+            shardloom_vortex::prepare_native_vortex_artifact_controlled(&request, cancellation)?;
         let raw_fields = report.evidence_fields();
         return Ok(PublicWorkflowVortexPreparation {
             target_path,
@@ -2649,6 +2687,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     let binding_control =
         preparation_memory.reserve(preparation_control_bytes(source_fingerprint_policy))?;
+    cancellation.check()?;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     let prepared_source_binding = Some(public_preparation_source_binding(
         source_path.as_ref(),
@@ -2680,6 +2719,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
         ));
     }
     if let Some(parent) = target_path.parent() {
+        cancellation.check()?;
         fs::create_dir_all(parent).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to create prepared Vortex directory '{}': {error}; no fallback execution was attempted",
@@ -2696,6 +2736,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
         runtime_profile: SqlLocalSourceRuntimeProfile::ProductLocalWorkflow,
         resources,
         shared_memory_pool: shared_memory_pool.cloned(),
+        cancellation: cancellation.clone(),
         source_fingerprint_policy,
         delta: None,
         prepared_source_binding: prepared_source_binding.clone(),
@@ -3393,6 +3434,7 @@ fn run_vortex_prepare_with_schema(
     request: VortexIngestRequest,
     source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestOutcome, ShardLoomError> {
+    request.cancellation.check()?;
     let delta = request.delta.clone();
     if let Some(delta) = delta {
         preflight_vortex_ingest_differential_request(&request, &delta)?;
@@ -3413,6 +3455,7 @@ fn run_vortex_prepare_with_schema(
                 runtime_profile: base_report.request.runtime_profile,
                 resources: base_report.request.resources,
                 shared_memory_pool: base_report.request.shared_memory_pool.clone(),
+                cancellation: base_report.request.cancellation.clone(),
                 source_fingerprint_policy: base_report.request.source_fingerprint_policy,
                 delta: None,
                 prepared_source_binding: None,
@@ -3530,6 +3573,7 @@ fn run_vortex_ingest_prepare_once_with_adapter(
     source_adapter: LocalInputAdapterSelection,
     source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
+    request.cancellation.check()?;
     require_shared_vortex_preparation_owner()?;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     let (request, _preparation_control) = {
@@ -7845,6 +7889,7 @@ fn vortex_ingest_scout_blocked_request(
             runtime_profile: request.runtime_profile,
             resources: request.resources,
             shared_memory_pool: request.shared_memory_pool.clone(),
+            cancellation: request.cancellation.clone(),
             source_fingerprint_policy: request.source_fingerprint_policy,
             delta: None,
             prepared_source_binding: None,

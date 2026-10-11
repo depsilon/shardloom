@@ -6464,18 +6464,19 @@ class ShardLoomClient:
 
         return self._transport
 
-    def _native_backend_for(self, allocation: ExecutionResources):
+    def _native_backend_for(self, allocation: ExecutionResources | None = None):
         from ._native_backend import NativeBackend
         if self.transport != "native":
             raise ValueError("this operation requires transport='native'")
-        allocation = resolve_resources(
-            resources=allocation, inherited=self.resources, limits=self.resource_limits,
-        )
+        if allocation is not None:
+            resolve_resources(
+                resources=allocation, inherited=self.resources, limits=self.resource_limits,
+            )
         with self._native_backend_lock:
             if self._native_closed:
                 raise RuntimeError("native client is closed; retained results remain valid")
             if self._native_backend is None:
-                self._native_backend = NativeBackend(allocation, self.resource_limits, self._timeout)
+                self._native_backend = NativeBackend(self.resources, self.resource_limits, self._timeout)
             return self._native_backend
 
     @classmethod
@@ -8569,11 +8570,8 @@ class ShardLoomClient:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
 
         if self.transport == "native":
-            from ._native_backend import load_native
-            if self._native_closed:
-                raise RuntimeError("native client is closed; retained results remain valid")
             command = [str(arg) for arg in args]
-            payload = load_native().command(command)
+            payload = self._native_backend_for().command(command)
             envelope = OutputEnvelope.from_json(json.loads(payload))
             if check and envelope.is_error:
                 raise ShardLoomCommandError(("shardloom._native", *command), 2, envelope, "")

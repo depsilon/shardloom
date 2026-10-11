@@ -823,12 +823,14 @@ impl ObjectStoreReadSmokeReport {
 pub(crate) fn handle_object_store_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (mut args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "object-store-read-smoke",
         &["--profile", "--public-fixture-path", "--range"],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
@@ -912,6 +914,7 @@ pub(crate) fn handle_object_store_read_smoke(
         resources,
         OBJECT_STORE_READ_SMOKE_COMMAND,
         format,
+        context,
     ) {
         Ok(pool) => pool,
         Err(code) => return code,
@@ -931,12 +934,14 @@ pub(crate) fn handle_object_store_read_smoke(
 pub(crate) fn handle_object_store_write_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (mut args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "object-store-write-smoke",
         &["--profile", "--idempotency-key"],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
@@ -1024,6 +1029,7 @@ pub(crate) fn handle_object_store_write_smoke(
         resources,
         OBJECT_STORE_WRITE_SMOKE_COMMAND,
         format,
+        context,
     ) {
         Ok(pool) => pool,
         Err(code) => return code,
@@ -1043,12 +1049,14 @@ pub(crate) fn handle_object_store_write_smoke(
 pub(crate) fn handle_object_store_write_recovery_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (mut args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "object-store-write-recovery-smoke",
         &["--profile", "--idempotency-key"],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
@@ -1120,6 +1128,7 @@ pub(crate) fn handle_object_store_write_recovery_smoke(
         resources,
         OBJECT_STORE_WRITE_RECOVERY_SMOKE_COMMAND,
         format,
+        context,
     ) {
         Ok(pool) => pool,
         Err(code) => return code,
@@ -1136,12 +1145,14 @@ pub(crate) fn handle_object_store_write_recovery_smoke(
 pub(crate) fn handle_object_store_partition_discovery_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (mut args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "object-store-partition-discovery-smoke",
         &["--profile", "--partition-columns"],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
@@ -1213,6 +1224,7 @@ pub(crate) fn handle_object_store_partition_discovery_smoke(
         resources,
         OBJECT_STORE_PARTITION_DISCOVERY_SMOKE_COMMAND,
         format,
+        context,
     ) {
         Ok(pool) => pool,
         Err(code) => return code,

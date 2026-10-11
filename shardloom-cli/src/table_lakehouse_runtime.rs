@@ -327,6 +327,7 @@ impl LocalTableAppendCommitReport {
 pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (mut args, resources) = match crate::execution_resources::require_for_command(
         args,
@@ -337,6 +338,7 @@ pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
             "--idempotency-key",
             "--expected-current-manifest-digest",
         ],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
@@ -434,7 +436,7 @@ pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
         }
     }
 
-    let pool = match crate::fixture_io::owner_for_command(resources, COMMAND, format) {
+    let pool = match crate::fixture_io::owner_for_command(resources, COMMAND, format, context) {
         Ok(pool) => pool,
         Err(code) => return code,
     };
@@ -453,12 +455,14 @@ pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
 pub(crate) fn handle_local_table_commit_recovery_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (mut args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         RECOVERY_COMMAND,
         &["--profile", "--idempotency-key"],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
@@ -527,10 +531,11 @@ pub(crate) fn handle_local_table_commit_recovery_smoke(
         }
     }
 
-    let pool = match crate::fixture_io::owner_for_command(resources, RECOVERY_COMMAND, format) {
-        Ok(pool) => pool,
-        Err(code) => return code,
-    };
+    let pool =
+        match crate::fixture_io::owner_for_command(resources, RECOVERY_COMMAND, format, context) {
+            Ok(pool) => pool,
+            Err(code) => return code,
+        };
     let report = execute_local_table_commit_recovery_smoke(
         &target,
         &profile,

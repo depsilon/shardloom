@@ -3716,7 +3716,6 @@ fn micros_to_millis_string(micros: u128) -> String {
     }
 }
 
-#[cfg(feature = "vortex-write")]
 /// Admit an existing local `.vortex` artifact as prepared native Vortex state.
 ///
 /// # Errors
@@ -3725,10 +3724,27 @@ fn micros_to_millis_string(micros: u128) -> String {
 /// when source metadata/footer inspection fails, when the source lacks a footer
 /// row count, or when the workspace-safe byte-preserving copy cannot be
 /// completed. No fallback or external execution engine is invoked.
-#[allow(clippy::too_many_lines)]
 pub fn prepare_native_vortex_artifact(
     request: &VortexNativeArtifactPrepareRequest,
 ) -> Result<VortexNativeArtifactPrepareReport> {
+    prepare_native_vortex_artifact_controlled(
+        request,
+        &shardloom_exec::compute_pool::CancellationToken::default(),
+    )
+}
+
+/// Admit or copy a native artifact under the caller's cancellation/deadline token.
+/// Copying checks the token at each read/write boundary and before publication.
+///
+/// # Errors
+/// Returns cancellation, admission, source validation or staged output errors.
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_lines)]
+pub fn prepare_native_vortex_artifact_controlled(
+    request: &VortexNativeArtifactPrepareRequest,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> Result<VortexNativeArtifactPrepareReport> {
+    cancellation.check()?;
     let prepare_start = Instant::now();
     let memory = match &request.shared_memory_pool {
         Some(pool) if pool.snapshot().limit_bytes > request.resources.memory_bytes() => {
@@ -3742,6 +3758,7 @@ pub fn prepare_native_vortex_artifact(
     // Admit copy scratch before inspecting the source or creating a target. The
     // same pool also owns provider footer reads. This is not a file-size limit.
     let copy_credit = memory.reserve(8192)?;
+    cancellation.check()?;
     ensure_native_vortex_artifact_extension(&request.source_path, "native Vortex source")?;
     ensure_native_vortex_artifact_extension(&request.target_path, "prepared Vortex target")?;
     let source_metadata = fs::metadata(&request.source_path).map_err(|error| {
@@ -3772,11 +3789,13 @@ pub fn prepare_native_vortex_artifact(
     };
 
     let metadata_open_start = Instant::now();
+    cancellation.check()?;
     let prepared_olap_layout_inventory =
         read_prepared_vortex_artifact_layout_inventory_with_memory(
             &request.source_path,
             Some(&memory),
         )?;
+    cancellation.check()?;
     let metadata_open_micros = metadata_open_start.elapsed().as_micros();
     let row_count = prepared_olap_layout_inventory.row_count.ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
@@ -3819,6 +3838,7 @@ pub fn prepare_native_vortex_artifact(
     } else {
         let _writer_credit = memory
             .reserve(shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes())?;
+        cancellation.check()?;
         let mut source_file = fs::File::open(&request.source_path).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to open native Vortex source '{}' for workspace-safe copy: {error}; no fallback execution was attempted",
@@ -3835,21 +3855,7 @@ pub fn prepare_native_vortex_artifact(
                 request.allow_overwrite,
                 "native vortex artifact workspace-safe copy",
                 |writer| {
-                    let mut buffer = vec![0_u8; 8192];
-                    let copy = (|| -> std::io::Result<u64> {
-                        let mut bytes = 0_u64;
-                        loop {
-                            let read = source_file.read(&mut buffer)?;
-                            if read == 0 {
-                                break;
-                            }
-                            std::io::Write::write_all(writer, &buffer[..read])?;
-                            bytes = bytes.checked_add(read as u64).ok_or_else(|| {
-                                std::io::Error::other("native artifact copy size overflow")
-                            })?;
-                        }
-                        Ok(bytes)
-                    })();
+                    let copy = copy_native_artifact_bytes(&mut source_file, writer, cancellation);
                     copy.map_err(|error| {
                         ShardLoomError::InvalidOperation(format!(
                             "failed to copy native Vortex artifact '{}' to '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
@@ -3859,6 +3865,7 @@ pub fn prepare_native_vortex_artifact(
                     })
                 },
                 |copied_bytes| {
+                    cancellation.check()?;
                     if *copied_bytes != source_size_bytes {
                         return Err(ShardLoomError::InvalidOperation(format!(
                             "native Vortex artifact copy byte count mismatch: copied {copied_bytes}, expected {source_size_bytes}; staging cleanup attempted; no fallback execution was attempted",
@@ -3958,17 +3965,46 @@ pub fn prepare_native_vortex_artifact(
     })
 }
 
+#[cfg(feature = "vortex-write")]
+fn copy_native_artifact_bytes(
+    source: &mut impl std::io::Read,
+    writer: &mut impl std::io::Write,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> std::io::Result<u64> {
+    let check = || {
+        cancellation
+            .check()
+            .map_err(|error| std::io::Error::other(error.to_string()))
+    };
+    let mut buffer = vec![0_u8; 8192];
+    let mut bytes = 0_u64;
+    loop {
+        check()?;
+        let read = source.read(&mut buffer)?;
+        check()?;
+        if read == 0 {
+            return Ok(bytes);
+        }
+        writer.write_all(&buffer[..read])?;
+        bytes = bytes
+            .checked_add(read as u64)
+            .ok_or_else(|| std::io::Error::other("native artifact copy size overflow"))?;
+    }
+}
+
 #[cfg(not(feature = "vortex-write"))]
-/// Admit an existing local `.vortex` artifact as prepared native Vortex state.
+/// Refuse native artifact preparation without its writer feature.
 ///
 /// # Errors
 ///
 /// Always returns an error when the binary is compiled without the
 /// `vortex-write` feature gate. No fallback or external execution engine is
 /// invoked.
-pub fn prepare_native_vortex_artifact(
+pub fn prepare_native_vortex_artifact_controlled(
     _request: &VortexNativeArtifactPrepareRequest,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
 ) -> Result<VortexNativeArtifactPrepareReport> {
+    cancellation.check()?;
     Err(ShardLoomError::NotImplemented(
         "vortex_ingest feature gate is not enabled".to_string(),
     ))
@@ -16092,6 +16128,86 @@ mod tests {
         assert_eq!(fs::read(&source).unwrap(), fs::read(&target).unwrap());
         drop(retained);
         assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_vortex_artifact_cancel_refuses_before_inspection_and_preserves_retained_credit() {
+        use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+        use shardloom_exec::{compute_pool::CancellationToken, live_memory::LiveMemoryPool};
+        let root = temp_test_root("native-vortex-cancel");
+        let source = root.join("missing.vortex");
+        let target = root.join("absent").join("target.vortex");
+        let pool = LiveMemoryPool::new(1024 * 1024).unwrap();
+        let retained = pool.reserve(17).unwrap();
+        let mut request = VortexNativeArtifactPrepareRequest::new_local(
+            &source,
+            &target,
+            true,
+            ExecutionResources::from_bytes(1024 * 1024, 1, ExecutionResourceOrigin::Context)
+                .unwrap(),
+            "test-provider",
+            "vortex-write",
+            "ingest_certified",
+        )
+        .unwrap();
+        request.shared_memory_pool = Some(pool.clone());
+        let token = CancellationToken::default();
+        token.cancel();
+        let error = prepare_native_vortex_artifact_controlled(&request, &token).unwrap_err();
+        assert!(error.to_string().contains("cancel"), "{error}");
+        assert!(!source.exists());
+        assert!(!target.parent().unwrap().exists());
+        assert_eq!(pool.snapshot().reserved_bytes, 17);
+        assert_eq!(pool.snapshot().peak_reserved_bytes, 17);
+        drop(retained);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_vortex_copy_cancel_discards_staged_prefix_and_keeps_destination() {
+        use shardloom_exec::compute_pool::CancellationToken;
+        struct CancellingReader {
+            cursor: std::io::Cursor<Vec<u8>>,
+            token: CancellationToken,
+            reads: usize,
+        }
+        impl std::io::Read for CancellingReader {
+            fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+                self.reads += 1;
+                let count = std::io::Read::read(&mut self.cursor, output)?;
+                if self.reads == 2 {
+                    self.token.cancel();
+                }
+                Ok(count)
+            }
+        }
+        let root = temp_test_root("native-vortex-copy-cancel");
+        let target = root.join("target.vortex");
+        fs::write(&target, b"preserve destination").unwrap();
+        let token = CancellationToken::default();
+        let mut source = CancellingReader {
+            cursor: std::io::Cursor::new(vec![42_u8; 17_000]),
+            token: token.clone(),
+            reads: 0,
+        };
+        let error = shardloom_core::write_workspace_safe_bytes_with_validated_producer(
+            &root,
+            &target,
+            true,
+            "cancelled native copy fixture",
+            |writer| {
+                copy_native_artifact_bytes(&mut source, writer, &token)
+                    .map_err(|error| ShardLoomError::new(error.to_string()))
+            },
+            |_| token.check(),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("cancel"), "{error}");
+        assert_eq!(source.reads, 2);
+        assert_eq!(fs::read(&target).unwrap(), b"preserve destination");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
         fs::remove_dir_all(root).unwrap();
     }
 

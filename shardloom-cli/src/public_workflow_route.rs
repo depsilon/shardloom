@@ -4674,7 +4674,32 @@ fn prepare_local_source_for_public_workflow(
     source_fingerprint_policy: Option<&str>,
     source_schema: Option<&str>,
 ) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, PreparationFacadeError> {
-    sql_local_source_runtime::prepare_local_source_as_vortex_for_public_workflow_with_schema(
+    prepare_local_source_for_public_workflow_controlled(
+        source_uri,
+        source_format,
+        target,
+        allow_overwrite,
+        resources,
+        shared_memory_pool,
+        source_fingerprint_policy,
+        source_schema,
+        &shardloom_exec::compute_pool::CancellationToken::default(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn prepare_local_source_for_public_workflow_controlled(
+    source_uri: &str,
+    source_format: &str,
+    target: &Path,
+    allow_overwrite: bool,
+    resources: ExecutionResources,
+    shared_memory_pool: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    source_fingerprint_policy: Option<&str>,
+    source_schema: Option<&str>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, PreparationFacadeError> {
+    sql_local_source_runtime::prepare_local_source_as_vortex_for_public_workflow_controlled(
         source_uri,
         target,
         Some(source_format),
@@ -4683,6 +4708,7 @@ fn prepare_local_source_for_public_workflow(
         shared_memory_pool,
         source_fingerprint_policy,
         source_schema,
+        cancellation,
     )
     .map_err(|error| match error {
         ShardLoomError::NotImplemented(feature)
@@ -5483,8 +5509,9 @@ fn local_prepared_vortex_right_execution_attachment_fields(
 pub(crate) fn handle_public_workflow_prepare(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
-    let mut request = match PublicWorkflowRouteRequest::parse_execution(args) {
+    let mut request = match PublicWorkflowRouteRequest::parse_execution_in_context(args, context) {
         Ok(request) => request,
         Err(error) => {
             return emit_error("prepare", format, "public workflow prepare failed", &error);
@@ -5521,15 +5548,20 @@ pub(crate) fn handle_public_workflow_prepare(
             );
         }
     };
-    let preparation = match prepare_local_source_for_public_workflow(
+    let admission = match context.admit_for_command(resources, "prepare", format) {
+        Ok(admission) => admission,
+        Err(code) => return code,
+    };
+    let preparation = match prepare_local_source_for_public_workflow_controlled(
         &input_uri,
         &source_format,
         Path::new(&output_ref),
         request.allow_overwrite,
-        resources,
-        None,
+        admission.resources(),
+        Some(&admission),
         request.source_fingerprint_policy.as_deref(),
         request.source_schema.as_deref(),
+        &admission.cancellation(),
     ) {
         Ok(preparation) => preparation,
         Err(PreparationFacadeError::FeatureGated) => {
@@ -5588,16 +5620,24 @@ pub(crate) fn handle_public_workflow_prepare(
 
 impl PublicWorkflowRouteRequest {
     fn parse(args: impl Iterator<Item = String>) -> Result<Self, ShardLoomError> {
-        Self::parse_with_resource_requirement(args, false)
+        Self::parse_with_resource_requirement(args, false, None)
     }
 
     fn parse_execution(args: impl Iterator<Item = String>) -> Result<Self, ShardLoomError> {
-        Self::parse_with_resource_requirement(args, true)
+        Self::parse_with_resource_requirement(args, true, None)
+    }
+
+    fn parse_execution_in_context(
+        args: impl Iterator<Item = String>,
+        context: &crate::command_context::CommandContext<'_>,
+    ) -> Result<Self, ShardLoomError> {
+        Self::parse_with_resource_requirement(args, true, Some(context))
     }
 
     fn parse_with_resource_requirement(
         args: impl Iterator<Item = String>,
         required: bool,
+        context: Option<&crate::command_context::CommandContext<'_>>,
     ) -> Result<Self, ShardLoomError> {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
@@ -5619,7 +5659,13 @@ impl PublicWorkflowRouteRequest {
 
         // Resolve before decoding caller-owned input cells or preparing a source.
         if required {
-            request.resources.resolve()?;
+            if let Some(context) = context {
+                request.resources = crate::execution_resources::ResourceArguments::from_resources(
+                    context.resolve(&request.resources)?,
+                );
+            } else {
+                request.resources.resolve()?;
+            }
         } else {
             request.resources.optional()?;
         }

@@ -115,6 +115,24 @@ for a busy one while holding their original grant. This prevents crossed imports
 from deadlocking two sessions. The thread-local nesting counter controls lock
 ordering only; it carries no data or resource allocation.
 
+General embedded commands must enter this same owner after their existing Rust
+argument parser resolves the allocation. Thread an explicit invocation context
+through the shared dispatcher and data handlers; do not use ambient allocation
+state or infer data access from command-name suffixes. A scoped admission guard
+holds the existing controller through input, preparation, output and reporting.
+Resource-free discovery may use an unconfigured owner; the native runtime is
+created only after an explicit allocation is available. A first call's override
+must not become the inheritance source or administrator ceiling for later calls.
+Cancellation/deadlines use the session's child token at cooperative checkpoints.
+
+Vortex-first decision: `wrap_vortex_concept` around the existing admitted
+`ConfigurableResidentSession`, `ResidentVortexSession` and `LiveMemoryPool`.
+This is ShardLoom invocation/admission plumbing; upstream Vortex has no Python
+client command inheritance contract. The change must reuse existing source,
+compute and writer providers, without another allocator, executor or row bridge.
+Shared-owner retention, lowered-grant refusal, cancellation, no-input/no-output
+failure and CLI/embedded capability equivalence require fresh verification.
+
 ## Incremental delivery and explicit Python objects
 
 The binding's incremental operation keeps one shared prepared plan and runs the

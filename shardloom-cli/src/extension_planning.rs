@@ -1067,6 +1067,7 @@ pub(crate) fn handle_udf_runtime_plan(
 pub(crate) fn handle_udf_local_scalar_fixture_smoke(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let Some(values_raw) = args.next() else {
         return emit_error(
@@ -1083,10 +1084,16 @@ pub(crate) fn handle_udf_local_scalar_fixture_smoke(
         format,
         "udf-local-scalar-fixture-smoke",
         &[],
+        context,
     ) {
         Ok(value) => value,
         Err(code) => return code,
     };
+    let _admission =
+        match context.admit_for_command(resources, "udf-local-scalar-fixture-smoke", format) {
+            Ok(admission) => admission,
+            Err(code) => return code,
+        };
     let values = match parse_nullable_i64_values(&values_raw) {
         Ok(values) => values,
         Err(error) => {
@@ -1127,6 +1134,7 @@ pub(crate) fn handle_udf_local_scalar_fixture_smoke(
 pub(crate) fn handle_embedding_vector_local_fixture_smoke(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let Some(texts_raw) = args.next() else {
         return emit_error(
@@ -1143,8 +1151,17 @@ pub(crate) fn handle_embedding_vector_local_fixture_smoke(
         format,
         "embedding-vector-local-fixture-smoke",
         &["--query"],
+        context,
     ) {
         Ok(value) => value,
+        Err(code) => return code,
+    };
+    let _admission = match context.admit_for_command(
+        resources,
+        "embedding-vector-local-fixture-smoke",
+        format,
+    ) {
+        Ok(admission) => admission,
         Err(code) => return code,
     };
     let mut query_text = None;

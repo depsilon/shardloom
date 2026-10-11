@@ -9,6 +9,10 @@ use shardloom_vortex::{
     resident_memory_source::ResidentMemorySource, resident_session::ResidentVortexSession,
 };
 
+#[path = "native_runtime_owner.rs"]
+mod owner;
+pub use owner::EmbeddedExecutionOwner;
+
 /// An explicitly declared source at the shared SQL boundary.
 #[derive(Clone)]
 pub struct SqlSourceBinding {
@@ -35,7 +39,30 @@ pub enum SqlSource {
 /// boundary preserves diagnostic, discovery and explicit command envelopes.
 /// # Errors
 /// Refuses process-owning worker/server commands and malformed response output.
-pub fn command_json(mut args: Vec<String>) -> Result<String> {
+pub fn command_json(args: Vec<String>) -> Result<String> {
+    command_json_in_context(args, &crate::command_context::CommandContext::default())
+}
+
+/// Invoke a command under the same owner as this caller's retained native data.
+/// Resource-free discovery keeps an unconfigured owner inert. Data handlers
+/// resolve their existing argument grammar and admit one complete operation.
+/// # Errors
+/// Rejects cancellation, process-owning commands and malformed response output.
+pub fn command_json_in_owner(
+    args: Vec<String>,
+    owner: &EmbeddedExecutionOwner,
+    cancellation: &CancellationToken,
+) -> Result<String> {
+    command_json_in_context(
+        args,
+        &crate::command_context::CommandContext::embedded(owner, cancellation),
+    )
+}
+
+fn command_json_in_context(
+    mut args: Vec<String>,
+    context: &crate::command_context::CommandContext<'_>,
+) -> Result<String> {
     if matches!(
         args.first().map(String::as_str),
         Some("python-worker" | "serve")
@@ -46,7 +73,11 @@ pub fn command_json(mut args: Vec<String>) -> Result<String> {
     }
     args.extend(["--format".into(), "json".into()]);
     crate::cli_output::capture_json(|| {
-        crate::run(args);
+        crate::run_with_session_and_context(
+            args,
+            &mut super::PublicExecutionSession::default(),
+            context,
+        );
     })
 }
 

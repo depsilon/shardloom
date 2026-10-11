@@ -476,16 +476,23 @@ pub(crate) fn handle_catalog_metadata_gate(
 pub(crate) fn handle_local_table_metadata_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (mut args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "local-table-metadata-read-smoke",
         &[],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
+    let _admission =
+        match context.admit_for_command(resources, "local-table-metadata-read-smoke", format) {
+            Ok(admission) => admission,
+            Err(code) => return code,
+        };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-table-metadata-read-smoke",
@@ -532,6 +539,7 @@ pub(crate) fn handle_local_table_metadata_read_smoke(
 pub(crate) fn handle_iceberg_metadata_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (args, resources) = match crate::execution_resources::require_for_command(
         args,
@@ -543,6 +551,7 @@ pub(crate) fn handle_iceberg_metadata_read_smoke(
             "--manifest-list",
             "--manifest",
         ],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
@@ -562,6 +571,7 @@ pub(crate) fn handle_iceberg_metadata_read_smoke(
         resources,
         "iceberg-metadata-read-smoke",
         format,
+        context,
     ) {
         Ok(pool) => pool,
         Err(code) => return code,
@@ -606,12 +616,14 @@ pub(crate) fn handle_iceberg_metadata_read_smoke(
 pub(crate) fn handle_delta_log_metadata_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "delta-log-metadata-read-smoke",
         &[],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
@@ -631,6 +643,7 @@ pub(crate) fn handle_delta_log_metadata_read_smoke(
         resources,
         "delta-log-metadata-read-smoke",
         format,
+        context,
     ) {
         Ok(pool) => pool,
         Err(code) => return code,
@@ -675,12 +688,14 @@ pub(crate) fn handle_delta_log_metadata_read_smoke(
 pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "hudi-timeline-metadata-read-smoke",
         &["--metadata-json"],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
@@ -700,6 +715,7 @@ pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
         resources,
         "hudi-timeline-metadata-read-smoke",
         format,
+        context,
     ) {
         Ok(pool) => pool,
         Err(code) => return code,
@@ -744,16 +760,23 @@ pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
 pub(crate) fn handle_local_delete_tombstone_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (mut args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "local-delete-tombstone-read-smoke",
         &[],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
+    let _admission =
+        match context.admit_for_command(resources, "local-delete-tombstone-read-smoke", format) {
+            Ok(admission) => admission,
+            Err(code) => return code,
+        };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-delete-tombstone-read-smoke",
@@ -800,16 +823,23 @@ pub(crate) fn handle_local_delete_tombstone_read_smoke(
 pub(crate) fn handle_local_append_only_cdc_overlay_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (mut args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "local-append-only-cdc-overlay-smoke",
         &[],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
+    let _admission =
+        match context.admit_for_command(resources, "local-append-only-cdc-overlay-smoke", format) {
+            Ok(admission) => admission,
+            Err(code) => return code,
+        };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-append-only-cdc-overlay-smoke",

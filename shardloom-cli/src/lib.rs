@@ -18,6 +18,7 @@ mod benchmark_runtime;
 mod ci_work_shaping;
 mod cli_output;
 mod cli_time;
+mod command_context;
 mod command_family;
 mod command_registry;
 mod diagnostics;
@@ -1019,12 +1020,32 @@ fn run(args: Vec<String>) -> ExitCode {
     )
 }
 
-#[allow(clippy::too_many_lines)]
 fn run_with_session(
     args: Vec<String>,
     execution_session: &mut public_workflow_route::PublicExecutionSession,
 ) -> ExitCode {
+    run_with_session_and_context(
+        args,
+        execution_session,
+        &command_context::CommandContext::default(),
+    )
+}
+
+#[allow(clippy::too_many_lines)]
+fn run_with_session_and_context(
+    args: Vec<String>,
+    execution_session: &mut public_workflow_route::PublicExecutionSession,
+    context: &command_context::CommandContext<'_>,
+) -> ExitCode {
     let requested_format = detect_requested_output_format(&args);
+    if let Err(error) = context.check() {
+        return emit_error(
+            args.first().map_or("cli", String::as_str),
+            requested_format,
+            "command cancelled",
+            &error,
+        );
+    }
     let (args, format) = match parse_output_format(args) {
         Ok(parsed) => parsed,
         Err(message) => {
@@ -1054,7 +1075,7 @@ fn run_with_session(
             operational_hardening::handle_spill_reservation_plan(args, format)
         }
         Some("spill-payload-roundtrip") => {
-            operational_hardening::handle_spill_payload_roundtrip(args, format)
+            operational_hardening::handle_spill_payload_roundtrip(args, format, context)
         }
         Some("cleanup-synthetic-payload") => {
             operational_hardening::handle_cleanup_synthetic_payload(args, format)
@@ -1067,7 +1088,9 @@ fn run_with_session(
         Some("run") => {
             public_workflow_route::handle_public_workflow_run(args, format, execution_session)
         }
-        Some("prepare") => public_workflow_route::handle_public_workflow_prepare(args, format),
+        Some("prepare") => {
+            public_workflow_route::handle_public_workflow_prepare(args, format, context)
+        }
         Some("status") => status_capabilities::handle_status(format),
         Some("runs-today") => status_capabilities::handle_runs_today(format),
         Some("release-plan") => packaging_deployment::handle_release_plan(format),
@@ -1091,9 +1114,11 @@ fn run_with_session(
         Some("serve") => rest_api_planning::handle_serve_command(args, format),
         Some("agent-contract-pack") => packaging_deployment::handle_agent_contract_pack(format),
         Some("python-wrapper-plan") => packaging_deployment::handle_python_wrapper_plan(format),
-        Some("vortex-prepare") => sql_local_source_runtime::handle_vortex_prepare(args, format),
+        Some("vortex-prepare") => {
+            sql_local_source_runtime::handle_vortex_prepare(args, format, context)
+        }
         Some("sqlite-local-import-export-smoke") => {
-            sqlite_local_runtime::handle_sqlite_local_import_export_smoke(args, format)
+            sqlite_local_runtime::handle_sqlite_local_import_export_smoke(args, format, context)
         }
         Some("workflow-unsupported-plan") => {
             workflow_planning::handle_workflow_unsupported_plan(args, format)
@@ -1129,10 +1154,10 @@ fn run_with_session(
         Some("udf-registry") => extension_planning::handle_udf_registry(args, format),
         Some("udf-runtime-plan") => extension_planning::handle_udf_runtime_plan(args, format),
         Some("udf-local-scalar-fixture-smoke") => {
-            extension_planning::handle_udf_local_scalar_fixture_smoke(args, format)
+            extension_planning::handle_udf_local_scalar_fixture_smoke(args, format, context)
         }
         Some("embedding-vector-local-fixture-smoke") => {
-            extension_planning::handle_embedding_vector_local_fixture_smoke(args, format)
+            extension_planning::handle_embedding_vector_local_fixture_smoke(args, format, context)
         }
         Some("security-plan") => operational_hardening::handle_security_plan(format),
         Some("security-governance-evidence-gate") => {
@@ -1203,28 +1228,30 @@ fn run_with_session(
             workflow_planning::handle_catalog_metadata_gate(args, format)
         }
         Some("local-table-metadata-read-smoke") => {
-            workflow_planning::handle_local_table_metadata_read_smoke(args, format)
+            workflow_planning::handle_local_table_metadata_read_smoke(args, format, context)
         }
         Some("iceberg-metadata-read-smoke") => {
-            workflow_planning::handle_iceberg_metadata_read_smoke(args, format)
+            workflow_planning::handle_iceberg_metadata_read_smoke(args, format, context)
         }
         Some("delta-log-metadata-read-smoke") => {
-            workflow_planning::handle_delta_log_metadata_read_smoke(args, format)
+            workflow_planning::handle_delta_log_metadata_read_smoke(args, format, context)
         }
         Some("hudi-timeline-metadata-read-smoke") => {
-            workflow_planning::handle_hudi_timeline_metadata_read_smoke(args, format)
+            workflow_planning::handle_hudi_timeline_metadata_read_smoke(args, format, context)
         }
         Some("local-delete-tombstone-read-smoke") => {
-            workflow_planning::handle_local_delete_tombstone_read_smoke(args, format)
+            workflow_planning::handle_local_delete_tombstone_read_smoke(args, format, context)
         }
         Some("local-append-only-cdc-overlay-smoke") => {
-            workflow_planning::handle_local_append_only_cdc_overlay_smoke(args, format)
+            workflow_planning::handle_local_append_only_cdc_overlay_smoke(args, format, context)
         }
         Some("local-table-append-commit-rehearsal-smoke") => {
-            table_lakehouse_runtime::handle_local_table_append_commit_rehearsal_smoke(args, format)
+            table_lakehouse_runtime::handle_local_table_append_commit_rehearsal_smoke(
+                args, format, context,
+            )
         }
         Some("local-table-commit-recovery-smoke") => {
-            table_lakehouse_runtime::handle_local_table_commit_recovery_smoke(args, format)
+            table_lakehouse_runtime::handle_local_table_commit_recovery_smoke(args, format, context)
         }
         Some("object-store-request-plan") => {
             object_store_planning::handle_object_store_request_plan(args, format)
@@ -1248,16 +1275,18 @@ fn run_with_session(
             object_store_planning::handle_object_store_commit_plan(args, format)
         }
         Some("object-store-read-smoke") => {
-            object_store_runtime::handle_object_store_read_smoke(args, format)
+            object_store_runtime::handle_object_store_read_smoke(args, format, context)
         }
         Some("object-store-write-smoke") => {
-            object_store_runtime::handle_object_store_write_smoke(args, format)
+            object_store_runtime::handle_object_store_write_smoke(args, format, context)
         }
         Some("object-store-write-recovery-smoke") => {
-            object_store_runtime::handle_object_store_write_recovery_smoke(args, format)
+            object_store_runtime::handle_object_store_write_recovery_smoke(args, format, context)
         }
         Some("object-store-partition-discovery-smoke") => {
-            object_store_runtime::handle_object_store_partition_discovery_smoke(args, format)
+            object_store_runtime::handle_object_store_partition_discovery_smoke(
+                args, format, context,
+            )
         }
         Some("incremental-plan") => workflow_planning::handle_incremental_plan(args, format),
         Some("stateful-reuse-plan") => workflow_planning::handle_stateful_reuse_plan(format),
@@ -1345,18 +1374,22 @@ fn run_with_session(
         Some("live-change-contract-plan") => {
             engine_fabric_planning::handle_live_change_contract_plan(args, format)
         }
-        Some("live-fixture-run") => engine_fabric_planning::handle_live_fixture_run(args, format),
+        Some("live-fixture-run") => {
+            engine_fabric_planning::handle_live_fixture_run(args, format, context)
+        }
         Some("hybrid-overlay-run") => {
-            engine_fabric_planning::handle_hybrid_overlay_run(args, format)
+            engine_fabric_planning::handle_hybrid_overlay_run(args, format, context)
         }
         Some("live-hybrid-state-transition-smoke") => {
-            engine_fabric_planning::handle_live_hybrid_state_transition_smoke(args, format)
+            engine_fabric_planning::handle_live_hybrid_state_transition_smoke(args, format, context)
         }
         Some("live-hybrid-durable-checkpoint-smoke") => {
-            engine_fabric_planning::handle_live_hybrid_durable_checkpoint_smoke(args, format)
+            engine_fabric_planning::handle_live_hybrid_durable_checkpoint_smoke(
+                args, format, context,
+            )
         }
         Some("distributed-local-fixture-run") => {
-            engine_fabric_planning::handle_distributed_local_fixture_run(args, format)
+            engine_fabric_planning::handle_distributed_local_fixture_run(args, format, context)
         }
         Some("streaming-plan") => engine_runtime_planning::handle_streaming_plan(args, format),
         Some("streaming-batch-plan") => {

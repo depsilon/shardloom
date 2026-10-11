@@ -20,10 +20,32 @@ pub(crate) struct ResourceArguments {
 }
 
 impl ResourceArguments {
+    /// Retain a fully resolved declaration for lower shared handlers without
+    /// resolving it again against a different command or session configuration.
+    pub(crate) fn from_resources(resources: ExecutionResources) -> Self {
+        Self {
+            inherited: Some(resources),
+            ..Self::default()
+        }
+    }
+
     /// Extract named resource options without performing command-specific work.
+    #[cfg(test)]
     pub(crate) fn take_required(
+        args: impl Iterator<Item = String>,
+        value_options: &[&str],
+    ) -> Result<(std::vec::IntoIter<String>, ExecutionResources)> {
+        Self::take_required_in_context(
+            args,
+            value_options,
+            &crate::command_context::CommandContext::default(),
+        )
+    }
+
+    pub(crate) fn take_required_in_context(
         mut args: impl Iterator<Item = String>,
         value_options: &[&str],
+        context: &crate::command_context::CommandContext<'_>,
     ) -> Result<(std::vec::IntoIter<String>, ExecutionResources)> {
         let mut arguments = Self::default();
         let mut remaining = Vec::new();
@@ -41,7 +63,7 @@ impl ResourceArguments {
                 remaining.push(argument);
             }
         }
-        Ok((remaining.into_iter(), arguments.resolve()?))
+        Ok((remaining.into_iter(), context.resolve(&arguments)?))
     }
 
     /// Read a complete resource tail. Historical explicit GiB/lane positionals
@@ -125,6 +147,13 @@ impl ResourceArguments {
     }
 
     pub(crate) fn resolve(&self) -> Result<ExecutionResources> {
+        self.resolve_with(None)
+    }
+
+    pub(crate) fn resolve_with(
+        &self,
+        configured: Option<ExecutionResources>,
+    ) -> Result<ExecutionResources> {
         let request = ExecutionResourceRequest {
             memory_gb: integer(self.memory_gb.as_deref(), "memory_gb (GiB)")?,
             memory_bytes: integer(self.memory_bytes.as_deref(), "memory_bytes")?,
@@ -139,7 +168,8 @@ impl ResourceArguments {
         } else {
             None
         };
-        let resources = ExecutionResources::resolve(request, self.inherited, limits)?;
+        let resources =
+            ExecutionResources::resolve(request, self.inherited.or(configured), limits)?;
         if self.memory_origin.is_some()
             && request.memory_gb.is_none()
             && request.memory_bytes.is_none()
@@ -202,8 +232,9 @@ pub(crate) fn require_for_command(
     format: OutputFormat,
     command: &str,
     value_options: &[&str],
+    context: &crate::command_context::CommandContext<'_>,
 ) -> std::result::Result<(std::vec::IntoIter<String>, ExecutionResources), std::process::ExitCode> {
-    ResourceArguments::take_required(args, value_options).map_err(|error| {
+    ResourceArguments::take_required_in_context(args, value_options, context).map_err(|error| {
         crate::cli_output::emit_error(command, format, "execution resources are required", &error)
     })
 }

@@ -129,14 +129,23 @@ pub(crate) fn handle_live_change_contract_plan(
     ExitCode::SUCCESS
 }
 
-pub(crate) fn handle_live_fixture_run(args: IntoIter<String>, format: OutputFormat) -> ExitCode {
+pub(crate) fn handle_live_fixture_run(
+    args: IntoIter<String>,
+    format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
+) -> ExitCode {
     let (args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "live-fixture-run",
         &[],
+        context,
     ) {
         Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
+    let _admission = match context.admit_for_command(resources, LIVE_FIXTURE_RUN_COMMAND, format) {
+        Ok(admission) => admission,
         Err(code) => return code,
     };
     let input = match parse_live_fixture_run_args(args, format) {
@@ -177,14 +186,24 @@ pub(crate) fn handle_live_fixture_run(args: IntoIter<String>, format: OutputForm
     }
 }
 
-pub(crate) fn handle_hybrid_overlay_run(args: IntoIter<String>, format: OutputFormat) -> ExitCode {
+pub(crate) fn handle_hybrid_overlay_run(
+    args: IntoIter<String>,
+    format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
+) -> ExitCode {
     let (args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "hybrid-overlay-run",
         &[],
+        context,
     ) {
         Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
+    let _admission = match context.admit_for_command(resources, HYBRID_FIXTURE_RUN_COMMAND, format)
+    {
+        Ok(admission) => admission,
         Err(code) => return code,
     };
     let input = match parse_hybrid_fixture_run_args(args, format) {
@@ -228,16 +247,23 @@ pub(crate) fn handle_hybrid_overlay_run(args: IntoIter<String>, format: OutputFo
 pub(crate) fn handle_live_hybrid_state_transition_smoke(
     args: IntoIter<String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (mut args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "live-hybrid-state-transition-smoke",
         &[],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
+    let _admission =
+        match context.admit_for_command(resources, LIVE_HYBRID_STATE_TRANSITION_COMMAND, format) {
+            Ok(admission) => admission,
+            Err(code) => return code,
+        };
     if let Some(extra) = args.next() {
         return emit_error(
             LIVE_HYBRID_STATE_TRANSITION_COMMAND,
@@ -283,12 +309,14 @@ pub(crate) fn handle_live_hybrid_state_transition_smoke(
 pub(crate) fn handle_live_hybrid_durable_checkpoint_smoke(
     args: IntoIter<String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "live-hybrid-durable-checkpoint-smoke",
         &[],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
@@ -301,6 +329,7 @@ pub(crate) fn handle_live_hybrid_durable_checkpoint_smoke(
         resources,
         LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND,
         format,
+        context,
     ) {
         Ok(pool) => pool,
         Err(code) => return code,
@@ -374,16 +403,23 @@ fn checkpoint_resource_fields(
 pub(crate) fn handle_distributed_local_fixture_run(
     args: IntoIter<String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let (args, resources) = match crate::execution_resources::require_for_command(
         args,
         format,
         "distributed-local-fixture-run",
         &[],
+        context,
     ) {
         Ok(admitted) => admitted,
         Err(code) => return code,
     };
+    let _admission =
+        match context.admit_for_command(resources, DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND, format) {
+            Ok(admission) => admission,
+            Err(code) => return code,
+        };
     let input = match parse_distributed_local_fixture_run_args(args, format) {
         Ok(input) => input,
         Err(exit_code) => return exit_code,
