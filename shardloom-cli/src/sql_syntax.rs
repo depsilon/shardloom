@@ -1165,7 +1165,7 @@ struct ParsedSqlLocalSourceUnion {
     limit: usize,
 }
 
-#[cfg(all(test, feature = "vortex-write"))]
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 fn run_vortex_prepare(request: VortexIngestRequest) -> Result<VortexIngestOutcome, ShardLoomError> {
     run_vortex_prepare_with_schema(request, &[])
 }
@@ -12116,7 +12116,7 @@ mod tests {
         assert!(reader.next().is_none());
     }
 
-    #[cfg(feature = "vortex-write")]
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn vortex_ingest_reuse_test_root(name: &str) -> PathBuf {
         let mut path = std::env::temp_dir();
         let nanos = std::time::SystemTime::now()
@@ -12132,7 +12132,7 @@ mod tests {
         path
     }
 
-    #[cfg(feature = "vortex-write")]
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn vortex_ingest_reuse_request(
         source_path: PathBuf,
         target_path: PathBuf,
@@ -12158,13 +12158,13 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "vortex-write")]
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn prepared_vortex_ingest_report(outcome: VortexIngestOutcome) -> Box<VortexIngestReport> {
         let VortexIngestOutcome::Prepared(report) = outcome;
         report
     }
 
-    #[cfg(feature = "vortex-write")]
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[test]
     #[allow(clippy::too_many_lines)]
     fn vortex_ingest_public_prepare_writes_only_single_vortex_artifact() {
@@ -13520,7 +13520,7 @@ mod tests {
         fs::remove_dir_all(root).expect("remove schema declared product cap root");
     }
 
-    #[cfg(feature = "vortex-write")]
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[test]
     fn vortex_ingest_source_drift_with_overwrite_rewrites_single_artifact_without_sidecars() {
         let root = vortex_ingest_reuse_test_root("drift-rewrite");

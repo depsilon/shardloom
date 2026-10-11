@@ -2433,6 +2433,36 @@ fn local_vortex_runtime(policy: VortexLocalPrimitiveExecutionPolicy) -> LocalVor
     }
 }
 
+/// The remaining synchronous primitive readers use the same reserved provider
+/// allocator as resident execution. One session spans every partition and its
+/// late materialization passes; the declaration cannot create an unowned reader.
+#[cfg(feature = "vortex-local-primitives")]
+fn local_vortex_session(
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    runtime: &impl vortex::io::runtime::BlockingRuntime,
+) -> Result<(
+    vortex::session::VortexSession,
+    shardloom_exec::live_memory::MemoryLease,
+)> {
+    use vortex::{
+        VortexSessionDefault as _, array::memory::MemorySessionExt as _,
+        io::session::RuntimeSessionExt as _,
+    };
+
+    let memory = shardloom_exec::live_memory::LiveMemoryPool::new(
+        policy.resource_envelope.memory_budget_bytes,
+    )?;
+    // Admit provider control state before even a footer can be opened. Native
+    // buffers retain their own credits through the allocator, including clones.
+    let control = memory.reserve(4096)?;
+    let session = vortex::session::VortexSession::default()
+        .with_handle(runtime.handle())
+        .with_allocator(std::sync::Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(memory),
+        ));
+    Ok((session, control))
+}
+
 /// Native or compatibility output format for a scoped local Vortex primitive export.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLocalPrimitiveRowExportFormat {
@@ -4615,11 +4645,8 @@ fn execute_vortex_local_primitive_row_export_enabled(
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveRowExportReport> {
     use std::io::Write as _;
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let (policy, physical_policy) = policy.with_writer_sink_physical_policy_for_request(request);
     #[cfg(all(feature = "vortex-write", unix))]
@@ -4646,6 +4673,57 @@ fn execute_vortex_local_primitive_row_export_enabled(
             policy,
         )
         .map(|report| report.with_physical_policy(physical_policy));
+    }
+    #[cfg(all(feature = "vortex-write", unix))]
+    if matches!(
+        request.kind,
+        VortexQueryPrimitiveKind::ProjectColumns
+            | VortexQueryPrimitiveKind::FilterPredicate
+            | VortexQueryPrimitiveKind::FilterAndProject
+    ) {
+        let source = prepared_dispatch::prepare_source(request, policy)?;
+        if let Some(report) = prepared_dispatch::try_write_source(
+            request,
+            output_path,
+            output_format,
+            allow_overwrite,
+            policy,
+            source.clone(),
+        )? {
+            return Ok(report.with_physical_policy(physical_policy));
+        }
+        // Residual predicates use the existing native relational scan. Retain
+        // the same source and pool when the direct array sink cannot bind them.
+        // Neither path executes through the legacy unowned text reader.
+        let uri = request.source_uri.clone().ok_or_else(|| {
+            ShardLoomError::InvalidOperation("native row export source URI is absent".into())
+        })?;
+        let prepared = prepared_relational::prepare_relational_from_source(
+            uri.clone(),
+            source,
+            policy,
+            |_| {
+                use crate::relational_query::{
+                    VortexRelationalLimit, VortexRelationalPlan, VortexRelationalScan,
+                };
+                let scan = VortexRelationalPlan::Scan(VortexRelationalScan {
+                    source_uri: uri,
+                    projection: request.projection.clone(),
+                    predicate: request.predicate.clone(),
+                });
+                Ok(match request.source_order_limit {
+                    None => scan,
+                    Some(count) => VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+                        input: scan,
+                        offset: 0,
+                        count,
+                    })),
+                })
+            },
+        )?;
+        let mut written = prepared.write(output_path, output_format, allow_overwrite)?;
+        written.output.primitive_kind = request.kind;
+        return Ok(written.output.with_physical_policy(physical_policy));
     }
     if output_format == VortexLocalPrimitiveRowExportFormat::Json {
         return json_sink::execute(request, output_path, allow_overwrite, policy)
@@ -4774,7 +4852,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
     }
 
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -5728,11 +5806,8 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
     #[cfg(feature = "universal-format-io")]
     {
         use std::io::Write as _;
-        use vortex::VortexSessionDefault as _;
         use vortex::file::OpenOptionsSessionExt as _;
         use vortex::io::runtime::BlockingRuntime as _;
-        use vortex::io::session::RuntimeSessionExt as _;
-        use vortex::session::VortexSession;
 
         let Some(structured_projection) = request.structured_projection.as_ref() else {
             return Ok(VortexLocalPrimitiveRowExportReport::blocked(
@@ -5755,7 +5830,7 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
             ));
         }
         let runtime = local_vortex_runtime(policy);
-        let session = VortexSession::default().with_handle(runtime.handle());
+        let (session, control_memory) = local_vortex_session(policy, &runtime)?;
         let file = runtime
             .block_on(
                 session
@@ -5821,6 +5896,7 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
                         projection_pushdown_applied,
                         plan.source_order_limit.is_some(),
                     ),
+                    control_memory.pool(),
                 );
             }
             let bytes = encode_structured_row_export_bytes(
@@ -5958,6 +6034,7 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
                     projection_pushdown_applied,
                     plan.source_order_limit.is_some(),
                 ),
+                control_memory.pool(),
             );
         }
 
@@ -6055,6 +6132,7 @@ fn execute_vortex_local_structured_vortex_row_export_enabled(
     policy: VortexLocalPrimitiveExecutionPolicy,
     source_order_limit: Option<usize>,
     evidence: VortexLocalPrimitiveRowExportEvidence,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
 ) -> Result<VortexLocalPrimitiveRowExportReport> {
     #[cfg(not(feature = "vortex-write"))]
     {
@@ -6069,6 +6147,7 @@ fn execute_vortex_local_structured_vortex_row_export_enabled(
         let _ = max_chunk_rows;
         let _ = source_order_limit;
         let _ = evidence;
+        let _ = memory;
         Ok(VortexLocalPrimitiveRowExportReport::blocked(
             request.kind,
             policy.resource_envelope(),
@@ -6085,17 +6164,19 @@ fn execute_vortex_local_structured_vortex_row_export_enabled(
     #[cfg(feature = "vortex-write")]
     {
         let rows_written = rows.len();
-        let write_report = crate::write_flat_scalar_vortex_prepared_state(
-            crate::VortexPreparedStateWriteRequest::new(
-                output_path.to_path_buf(),
-                output_columns.clone(),
-                rows,
-                policy.resource_envelope().declared_resources,
-            )
-            .column_dtypes(column_dtypes)
-            .allow_overwrite(allow_overwrite)
-            .certification_level(crate::VortexIngestCertificationLevel::IngestCertified),
-        )?;
+        let write_report =
+            crate::vortex_ingest::write_flat_scalar_vortex_prepared_state_with_memory(
+                crate::VortexPreparedStateWriteRequest::new(
+                    output_path.to_path_buf(),
+                    output_columns.clone(),
+                    rows,
+                    policy.resource_envelope().declared_resources,
+                )
+                .column_dtypes(column_dtypes)
+                .allow_overwrite(allow_overwrite)
+                .certification_level(crate::VortexIngestCertificationLevel::IngestCertified),
+                memory,
+            )?;
         Ok(VortexLocalPrimitiveRowExportReport {
             status: VortexLocalPrimitiveExecutionStatus::Executed,
             primitive_kind: request.kind,
@@ -6355,11 +6436,8 @@ fn execute_vortex_local_pivot_row_export_enabled(
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveRowExportReport> {
     use std::io::Write as _;
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let Some(uri) = request.source_uri.as_ref() else {
         return Ok(VortexLocalPrimitiveRowExportReport::blocked(
@@ -6396,7 +6474,7 @@ fn execute_vortex_local_pivot_row_export_enabled(
     prepare_output_target(output_path, &temp_path, allow_overwrite)?;
 
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -14870,17 +14948,14 @@ fn read_local_vortex_scan(
     policy: VortexLocalPrimitiveExecutionPolicy,
     configure: impl FnOnce(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let control_plane_started = Instant::now();
     let mut control_plane_micros = 0_u128;
     let mut evidence_collection_micros = 0_u128;
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -15082,16 +15157,13 @@ fn read_local_vortex_partitioned_scan(
     policy: VortexLocalPrimitiveExecutionPolicy,
     mut configure: impl FnMut(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let mut control_plane_micros = 0_u128;
     let mut evidence_collection_micros = 0_u128;
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let mut source_row_count = 0_u64;
     let mut result_row_count = 0_usize;
     let mut pre_limit_result_row_count = 0_usize;
@@ -16490,14 +16562,11 @@ fn count_all_metadata_report(
 
     #[cfg(not(unix))]
     let (file, rows) = {
-        use vortex::VortexSessionDefault as _;
         use vortex::file::OpenOptionsSessionExt as _;
         use vortex::io::runtime::BlockingRuntime as _;
-        use vortex::io::session::RuntimeSessionExt as _;
-        use vortex::session::VortexSession;
 
         let runtime = local_vortex_runtime(policy);
-        let session = VortexSession::default().with_handle(runtime.handle());
+        let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
         let file = runtime
             .block_on(
                 session
@@ -16570,14 +16639,11 @@ fn partitioned_count_all_metadata_report(
     sources: &[LocalVortexPartitionSource],
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let mut rows = 0_u64;
     let mut embedded_layout = VortexLocalPrimitiveEmbeddedLayoutReport::partitioned();
     for source in sources {
@@ -18372,14 +18438,11 @@ fn read_local_vortex_distinct_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -18559,14 +18622,11 @@ fn read_local_vortex_drop_duplicate_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -18762,14 +18822,11 @@ fn read_local_vortex_duplicate_mask_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -18906,14 +18963,11 @@ fn read_local_vortex_tail_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -19022,14 +19076,11 @@ fn read_local_vortex_sample_scan(
 ) -> Result<LocalVortexScan> {
     use std::cmp::Reverse;
     use std::collections::BinaryHeap;
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -19253,11 +19304,8 @@ fn read_local_vortex_expression_project_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let expression_projection = request.expression_projection.as_ref().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
@@ -19271,7 +19319,7 @@ fn read_local_vortex_expression_project_scan(
     }
 
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -19481,15 +19529,12 @@ fn read_local_vortex_melt_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let melt_projection = required_melt_projection(request)?;
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -19669,16 +19714,13 @@ fn read_local_vortex_pivot_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let pivot_projection = required_pivot_projection(request)?;
     let aggregate = normalized_pivot_aggregate(pivot_projection)?;
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -19874,15 +19916,12 @@ fn read_local_vortex_explode_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let explode_projection = required_explode_projection(request)?;
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -20071,15 +20110,12 @@ fn read_local_vortex_rolling_window_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let rolling_window = required_rolling_window(request)?;
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(
             session
@@ -20496,14 +20532,11 @@ fn read_local_vortex_simple_aggregate_scan(
     }
     #[cfg(not(unix))]
     {
-        use vortex::VortexSessionDefault as _;
         use vortex::file::OpenOptionsSessionExt as _;
         use vortex::io::runtime::BlockingRuntime as _;
-        use vortex::io::session::RuntimeSessionExt as _;
-        use vortex::session::VortexSession;
 
         let runtime = local_vortex_runtime(policy);
-        let session = VortexSession::default().with_handle(runtime.handle());
+        let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
         let file = runtime
             .block_on(
                 session
@@ -22118,15 +22151,12 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexAggregateScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let aggregate = required_simple_aggregate(request)?;
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let first_file = runtime
         .block_on(
             session
@@ -22641,11 +22671,8 @@ fn read_local_vortex_sort_rows_scan_with_output(
     policy: VortexLocalPrimitiveExecutionPolicy,
     output: Option<&mut completed_result::CompletedRows>,
 ) -> Result<LocalVortexRowsScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let sort_rows = required_sort_rows(request)?;
     // Spill always reads sort keys and final payloads in separate passes. Pin
@@ -22668,7 +22695,7 @@ fn read_local_vortex_sort_rows_scan_with_output(
         ));
     }
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let file = runtime
         .block_on(async {
             let options = session.open_options().with_layout_reader_cache();
@@ -23476,11 +23503,8 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<LocalVortexRowsScan> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
     let sort_rows = required_sort_rows(request)?;
     let Some(limit) = request.source_order_limit else {
@@ -23502,7 +23526,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         )
     })?;
     let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
     let mut source_row_count_estimate = 0_u64;
     let mut native_sort_dtype = None;
     let mut native_sort_partition_types_match = true;
@@ -23538,7 +23562,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             })?;
     }
     let output_columns =
-        local_vortex_sort_rows_output_columns(&sources[0].path, request, sort_rows, policy)?;
+        local_vortex_sort_rows_output_columns(&sources[0].path, request, &session, &runtime)?;
     let first_file = runtime
         .block_on(
             session
@@ -24088,6 +24112,8 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 &selected_candidates,
                 materialization_filter_predicate.as_ref(),
                 policy,
+                &session,
+                &runtime,
             )?;
         late_materialization_chunks_scanned = materialization.chunks_scanned;
         late_materialization_early_stop_applied = materialization.early_stop_applied;
@@ -24238,6 +24264,7 @@ fn min_optional_usize(left: Option<usize>, right: Option<usize>) -> Option<usize
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_arguments)] // Share the original source allocation through the second pass.
 fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
     sources: &[LocalVortexPartitionSource],
     request: &VortexQueryPrimitiveRequest,
@@ -24245,6 +24272,8 @@ fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
     selected_candidates: &[&SortRowCandidate],
     materialization_filter_predicate: Option<&PredicateExpr>,
     policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &vortex::session::VortexSession,
+    runtime: &impl vortex::io::runtime::BlockingRuntime,
 ) -> Result<SortRowsMaterializationResult> {
     let mut rows_out = vec![None; selected_candidates.len()];
     let mut by_partition = std::collections::BTreeMap::<usize, Vec<(usize, usize)>>::new();
@@ -24285,6 +24314,8 @@ fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
             &ordinals,
             materialization_filter_predicate,
             policy,
+            session,
+            runtime,
         )?;
         chunks_scanned = chunks_scanned
             .checked_add(materialization.chunks_scanned)
@@ -24349,17 +24380,11 @@ fn materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
 fn local_vortex_sort_rows_output_columns(
     path: &std::path::Path,
     request: &VortexQueryPrimitiveRequest,
-    _sort_rows: &VortexSortRowsRequest,
-    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &vortex::session::VortexSession,
+    runtime: &impl vortex::io::runtime::BlockingRuntime,
 ) -> Result<Vec<String>> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
-    use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
-    let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
             session
@@ -24378,6 +24403,7 @@ fn local_vortex_sort_rows_output_columns(
 
 #[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments)] // The caller retains the same source/writer grant.
 fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
     path: &std::path::Path,
     request: &VortexQueryPrimitiveRequest,
@@ -24385,15 +24411,11 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
     selected_source_ordinals: &[usize],
     materialization_filter_predicate: Option<&PredicateExpr>,
     policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &vortex::session::VortexSession,
+    runtime: &impl vortex::io::runtime::BlockingRuntime,
 ) -> Result<SortRowsMaterializationResult> {
-    use vortex::VortexSessionDefault as _;
     use vortex::file::OpenOptionsSessionExt as _;
-    use vortex::io::runtime::BlockingRuntime as _;
-    use vortex::io::session::RuntimeSessionExt as _;
-    use vortex::session::VortexSession;
 
-    let runtime = local_vortex_runtime(policy);
-    let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(
             session
@@ -24408,7 +24430,7 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
         })?;
     materialize_opened_vortex_sort_output_rows_by_source_ordinals(
         &file,
-        &runtime,
+        runtime,
         request,
         output_columns,
         selected_source_ordinals,
@@ -58689,6 +58711,107 @@ mod tests {
         assert!(wide_values.contains(&AggregateDistinctValue::UInt64(
             AGGREGATE_DIRECT_DISTINCT_DENSE_RANGE_LIMIT + 1
         )));
+    }
+
+    #[test]
+    fn partitioned_primitives_reserve_before_reading_and_preserve_scan_results() {
+        let left = unique_vortex_path("partitioned-resource-left");
+        let right = unique_vortex_path("partitioned-resource-right");
+        std::fs::write(&left, b"not a Vortex footer").unwrap();
+        std::fs::write(&right, b"not a Vortex footer").unwrap();
+        let sources = vec![
+            DatasetUri::new(left.display().to_string()).unwrap(),
+            DatasetUri::new(right.display().to_string()).unwrap(),
+        ];
+        let uri = sources[0].clone();
+        let predicate = PredicateExpr::Compare {
+            column: ColumnRef::new("value").unwrap(),
+            op: ComparisonOp::GtEq,
+            value: StatValue::UInt64(3),
+        };
+        let projection = ProjectionRequest::columns(vec![ColumnRef::new("metric").unwrap()]);
+        let requests =
+            [
+                VortexQueryPrimitiveRequest::count_all(uri.clone()),
+                VortexQueryPrimitiveRequest::count_where(uri.clone(), predicate.clone()),
+                VortexQueryPrimitiveRequest::filter(uri.clone(), predicate.clone()),
+                VortexQueryPrimitiveRequest::project(uri.clone(), projection.clone()),
+                VortexQueryPrimitiveRequest::filter_and_project(
+                    uri.clone(),
+                    predicate,
+                    projection.clone(),
+                ),
+                VortexQueryPrimitiveRequest::simple_aggregate(
+                    uri.clone(),
+                    VortexSimpleAggregateRequest::new(vec![
+                        crate::VortexSimpleAggregateMeasure::new("count", None, "rows".into()),
+                    ]),
+                ),
+                VortexQueryPrimitiveRequest::sort_rows(
+                    uri,
+                    projection,
+                    None,
+                    VortexSortRowsRequest::new(vec![crate::VortexAggregateOrderExpr::new(
+                        "metric", true,
+                    )]),
+                    3,
+                ),
+            ];
+        let denied = VortexLocalPrimitiveExecutionPolicy::from_resources(
+            shardloom_core::ExecutionResources::from_bytes(
+                1,
+                1,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        for request in &requests {
+            let error =
+                execute_vortex_local_partitioned_primitive_with_policy(request, &sources, denied)
+                    .expect_err("memory admission must precede malformed-footer inspection");
+            assert!(
+                error.to_string().contains("memory"),
+                "{}: {error}",
+                request.kind.as_str()
+            );
+            assert_eq!(std::fs::read(&left).unwrap(), b"not a Vortex footer");
+            assert_eq!(std::fs::read(&right).unwrap(), b"not a Vortex footer");
+        }
+        std::fs::remove_file(&left).unwrap();
+        std::fs::remove_file(&right).unwrap();
+        write_struct_fixture(&left).unwrap();
+        write_struct_fixture(&right).unwrap();
+        let admitted = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 1).unwrap();
+        for request in &requests {
+            let report =
+                execute_vortex_local_partitioned_primitive_with_policy(request, &sources, admitted)
+                    .unwrap();
+            assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+            assert_eq!(report.rows_scanned, 10);
+            assert!(!report.fallback_execution_allowed);
+            match request.kind {
+                VortexQueryPrimitiveKind::CountAll => assert_eq!(report.rows_selected, Some(10)),
+                VortexQueryPrimitiveKind::CountWhere
+                | VortexQueryPrimitiveKind::FilterPredicate => {
+                    assert_eq!(report.rows_selected, Some(6));
+                }
+                VortexQueryPrimitiveKind::ProjectColumns => {
+                    assert_eq!(report.rows_projected, Some(10));
+                }
+                VortexQueryPrimitiveKind::FilterAndProject => {
+                    assert_eq!(report.rows_selected, Some(6));
+                    assert_eq!(report.rows_projected, Some(6));
+                }
+                VortexQueryPrimitiveKind::SimpleAggregate => {
+                    assert_eq!(report.rows_projected, Some(1));
+                }
+                VortexQueryPrimitiveKind::SortRows => assert_eq!(report.rows_projected, Some(3)),
+                _ => unreachable!(),
+            }
+        }
+        std::fs::remove_file(left).unwrap();
+        std::fs::remove_file(right).unwrap();
     }
 
     #[test]

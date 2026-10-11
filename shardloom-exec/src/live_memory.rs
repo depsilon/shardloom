@@ -178,6 +178,13 @@ pub struct MemoryLease {
 }
 
 impl MemoryLease {
+    /// Reuse this reservation's owner across subsequent overlapping stages.
+    /// Borrowing the pool does not issue another allocation or release credits.
+    #[must_use]
+    pub const fn pool(&self) -> &LiveMemoryPool {
+        &self.pool
+    }
+
     #[must_use]
     pub const fn bytes(&self) -> u64 {
         self.bytes

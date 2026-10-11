@@ -48,7 +48,9 @@ impl PreparedFixture {
             1,
             vec![(KEY, binding.as_bytes().to_vec())],
         );
-        let identity = Arc::new(local_preparation_identity(&native.path(), &binding).unwrap());
+        let memory = shardloom_exec::live_memory::LiveMemoryPool::new(32 << 20).unwrap();
+        let identity =
+            Arc::new(local_preparation_identity(&native.path(), &binding, &memory).unwrap());
         Self {
             origin,
             native,

@@ -1934,6 +1934,11 @@ impl VortexIngestRequest {
         &self,
     ) -> Result<shardloom_exec::live_memory::LiveMemoryPool, ShardLoomError> {
         match &self.shared_memory_pool {
+            Some(pool) if pool.snapshot().limit_bytes > self.resources.memory_bytes() => {
+                Err(ShardLoomError::new(
+                    "preparation memory owner exceeds the declared allocation; no input was read and no fallback execution was attempted",
+                ))
+            }
             Some(pool) => Ok(pool.clone()),
             None => shardloom_exec::live_memory::LiveMemoryPool::new(self.resources.memory_bytes()),
         }
@@ -1951,6 +1956,18 @@ struct VortexIngestDeltaRequest {
 enum SourceFingerprintPolicy {
     MetadataOnly,
     ContentDigest,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+const SOURCE_FINGERPRINT_BUFFER_BYTES: usize = 1024 * 1024;
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn preparation_control_bytes(policy: SourceFingerprintPolicy) -> u64 {
+    4096 + if policy == SourceFingerprintPolicy::ContentDigest {
+        SOURCE_FINGERPRINT_BUFFER_BYTES as u64
+    } else {
+        0
+    }
 }
 
 impl SourceFingerprintPolicy {
@@ -2607,6 +2624,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
             identity: None,
         });
     }
+    require_shared_vortex_preparation_owner()?;
     let source_format_override = match source_format {
         Some(value) => Some(LocalSourceFormat::parse(value).ok_or_else(|| {
             ShardLoomError::InvalidOperation(format!(
@@ -2622,12 +2640,24 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     let binding_started = Instant::now();
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    let preparation_memory = shared_memory_pool.cloned().map_or_else(
+        || shardloom_exec::live_memory::LiveMemoryPool::new(resources.memory_bytes()),
+        Ok,
+    )?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    let shared_memory_pool = Some(&preparation_memory);
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    let binding_control =
+        preparation_memory.reserve(preparation_control_bytes(source_fingerprint_policy))?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     let prepared_source_binding = Some(public_preparation_source_binding(
         source_path.as_ref(),
         source_format_override,
         source_fingerprint_policy,
         source_schema,
     )?);
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    drop(binding_control);
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io", unix)))]
     let prepared_source_binding: Option<String> = None;
     let target_path =
@@ -2640,6 +2670,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
         let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
             &target_path,
             binding,
+            &preparation_memory,
         )?;
         return Ok(public_workflow_reused_preparation(
             target_path,
@@ -2687,6 +2718,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
             let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
                 &target_path,
                 &binding,
+                &preparation_memory,
             )?;
             public_preparation_identity_fields(&mut fields, &identity, false);
             Some(std::sync::Arc::new(identity))
@@ -3498,6 +3530,18 @@ fn run_vortex_ingest_prepare_once_with_adapter(
     source_adapter: LocalInputAdapterSelection,
     source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
+    require_shared_vortex_preparation_owner()?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    let (request, _preparation_control) = {
+        let memory = request.native_memory_pool()?;
+        let control =
+            memory.reserve(preparation_control_bytes(request.source_fingerprint_policy))?;
+        let mut request = request;
+        // Every preparation stage retains this owner, including older text
+        // readers and the final writer. A later helper cannot issue a new grant.
+        request.shared_memory_pool = Some(memory);
+        (request, control)
+    };
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
     let _ = &source_adapter;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -3510,6 +3554,18 @@ fn run_vortex_ingest_prepare_once_with_adapter(
         }
     }
     run_scalar_vortex_prepare(request, source_adapter, source_schema_hints)
+}
+
+fn require_shared_vortex_preparation_owner() -> Result<(), ShardLoomError> {
+    if cfg!(all(
+        feature = "vortex-write",
+        not(feature = "universal-format-io")
+    )) {
+        return Err(ShardLoomError::NotImplemented(
+            "native Vortex compatibility preparation requires universal-format-io for shared resource admission; no input was read, no output was created and no fallback execution was attempted".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn differential_preparation_report(
@@ -9631,7 +9687,7 @@ fn fingerprint_local_source_file_with_budget_report(
     })?;
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
     let mut total = 0_u64;
-    let mut buffer = vec![0_u8; 1024 * 1024].into_boxed_slice();
+    let mut buffer = vec![0_u8; SOURCE_FINGERPRINT_BUFFER_BYTES].into_boxed_slice();
     loop {
         let read = file.read(&mut buffer).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(

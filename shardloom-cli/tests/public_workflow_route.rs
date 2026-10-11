@@ -2676,7 +2676,11 @@ fn public_run_routes_local_sql_vortex_middle_without_direct_runtime() {
         assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
         assert!(stdout.contains(&field(
             "public_workflow_blocker_id",
-            "cg21.route.local_file_vortex_ingest_feature_gated"
+            if cfg!(feature = "vortex-write") {
+                "cg21.route.local_file_vortex_primitive_feature_gated"
+            } else {
+                "cg21.route.local_file_vortex_ingest_feature_gated"
+            }
         )));
         assert!(stdout.contains(&field(
             "public_workflow_resolved_internal_command",
@@ -2746,7 +2750,11 @@ fn public_run_blocks_extensionless_local_sql_source_but_preserves_declared_forma
         assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
         assert!(stdout.contains(&field(
             "public_workflow_blocker_id",
-            "cg21.route.local_file_vortex_ingest_feature_gated"
+            if cfg!(feature = "vortex-write") {
+                "cg21.route.local_file_vortex_primitive_feature_gated"
+            } else {
+                "cg21.route.local_file_vortex_ingest_feature_gated"
+            }
         )));
         assert!(stdout.contains(&field("runtime_execution", "false")));
         assert!(stdout.contains(&field("public_workflow_source_format", "csv")));
@@ -3782,7 +3790,7 @@ fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
     let output = workspace.join("fact.vortex");
     let _ = std::fs::remove_file(&output);
     std::fs::write(&input, "id,label\n1,alpha\n2,beta\n").expect("write csv");
-    let (_success, stdout) = run_facade(&[
+    let (success, stdout) = run_facade(&[
         "prepare",
         "dataframe",
         "--input",
@@ -3800,7 +3808,11 @@ fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
     ]);
 
     assert!(stdout.contains("\"command\":\"prepare\""));
-    if cfg!(feature = "vortex-write") {
+    if cfg!(all(
+        feature = "vortex-write",
+        feature = "universal-format-io"
+    )) {
+        assert!(success, "{stdout}");
         assert!(stdout.contains("\"status\":\"success\""));
         assert!(stdout.contains(&field(
             "public_workflow_facade_schema_version",
@@ -3828,6 +3840,19 @@ fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
             "public_workflow_preparation_local_workflow_synthetic_input_row_cap_enabled",
             "false"
         )));
+    } else if cfg!(feature = "vortex-write") {
+        assert!(!success, "{stdout}");
+        assert!(
+            stdout.contains("requires universal-format-io for shared resource admission"),
+            "{stdout}"
+        );
+        assert!(stdout.contains("no input was read"), "{stdout}");
+        assert!(!output.exists());
+        assert!(
+            stdout.contains("no fallback execution was attempted"),
+            "{stdout}"
+        );
+        return;
     } else {
         assert!(stdout.contains("\"status\":\"unsupported\""));
         assert!(stdout.contains(&field(

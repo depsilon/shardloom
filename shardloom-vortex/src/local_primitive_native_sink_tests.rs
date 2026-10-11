@@ -20,6 +20,103 @@ use vortex::{
 };
 
 struct Fixture(PathBuf);
+
+#[test]
+fn primitive_text_exports_share_source_and_sink_admission() {
+    use VortexLocalPrimitiveRowExportFormat as Format;
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+
+    let fixture = Fixture::new();
+    let source = fixture.source(20);
+    let uri = DatasetUri::new(source.display().to_string()).unwrap();
+    let columns = ProjectionRequest::columns(vec![ColumnRef::new("shipment_sequence").unwrap()]);
+    let predicate = PredicateExpr::Compare {
+        column: ColumnRef::new("shipment_sequence").unwrap(),
+        op: ComparisonOp::GtEq,
+        value: StatValue::UInt64(17),
+    };
+    let requests = [
+        VortexQueryPrimitiveRequest::project(uri.clone(), columns.clone())
+            .with_source_order_limit(3),
+        VortexQueryPrimitiveRequest::filter(uri.clone(), predicate.clone()),
+        VortexQueryPrimitiveRequest::filter_and_project(uri.clone(), predicate, columns.clone()),
+        VortexQueryPrimitiveRequest::filter_and_project(
+            uri,
+            PredicateExpr::StringContains {
+                column: ColumnRef::new("destination").unwrap(),
+                needle: "1".into(),
+                negated: false,
+            },
+            columns,
+        )
+        .with_source_order_limit(3),
+    ];
+    for (index, request) in requests.iter().enumerate() {
+        for format in [Format::Json, Format::Jsonl, Format::Csv] {
+            let stem = format!("text-{index}-{}", format.as_str());
+            let existing = fixture.0.join(format!("{stem}-existing"));
+            fs::write(&existing, b"keep original").unwrap();
+            let absent = fixture.0.join(format!("{stem}-absent")).join("output");
+            let denied = VortexLocalPrimitiveExecutionPolicy::from_resources(
+                ExecutionResources::from_bytes(1, 1, ExecutionResourceOrigin::ExecutionCall)
+                    .unwrap(),
+            )
+            .unwrap();
+            for output in [&existing, &absent] {
+                let error = execute_vortex_local_primitive_row_export_with_policy(
+                    request, output, format, true, denied,
+                )
+                .unwrap_err();
+                assert!(error.to_string().contains("memory"), "{error}");
+                assert_eq!(fs::read(&existing).unwrap(), b"keep original");
+                assert!(!absent.parent().unwrap().exists());
+            }
+            let output = fixture.0.join(stem);
+            let report = execute_vortex_local_primitive_row_export_with_policy(
+                request,
+                &output,
+                format,
+                false,
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 1).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(report.rows_written, 3);
+            assert_eq!(report.primitive_kind, request.kind);
+            assert!(report.evidence.native_array_sink.is_some());
+            assert!(!report.evidence.side_effects.fallback_attempted);
+            let expected = match index {
+                0 => vec![0, 1, 2],
+                1 | 2 => vec![17, 18, 19],
+                _ => vec![1, 10, 11],
+            };
+            let actual = fs::read_to_string(output).unwrap();
+            if format == Format::Csv {
+                let ids = actual
+                    .lines()
+                    .skip(1)
+                    .map(|row| row.split(',').next().unwrap().parse::<u64>().unwrap())
+                    .collect::<Vec<_>>();
+                assert_eq!(ids, expected);
+            } else {
+                let rows: Vec<serde_json::Value> = if format == Format::Json {
+                    serde_json::from_str(&actual).unwrap()
+                } else {
+                    actual
+                        .lines()
+                        .map(|row| serde_json::from_str(row).unwrap())
+                        .collect()
+                };
+                assert_eq!(
+                    rows.iter()
+                        .map(|row| row["shipment_sequence"].as_u64().unwrap())
+                        .collect::<Vec<_>>(),
+                    expected
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn target_created_after_preflight_never_becomes_an_overwrite_admission() {
     use std::io::Write as _;

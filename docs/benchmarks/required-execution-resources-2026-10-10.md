@@ -290,6 +290,50 @@ preceding complete workflows and native Vortex suite remain historical evidence;
 they were not rerun for this platform refusal. No new benchmark or package
 publication accompanies the correction.
 
+## Shared reader and writer follow-up
+
+The next review found two valid admission gaps: Unix CSV/JSONL exports could open
+an unbudgeted Vortex session, and a writer-only build could materialize a text
+source before resource admission. Synchronous primitive sessions now install the
+reserved native allocator before footer access and retain that session through
+partitioned scans and later materialization. Preparation reserves control and
+fingerprint scratch before source inspection; retained preparation identities
+keep their metadata credits on the same pool.
+
+Buffered scalar and columnar writers reserve construction estimates before
+conversion. Native host allocations, writer buffers and footer reopening use
+that pool. Structured Vortex output passes its retained reader's pool into the
+buffered writer, so output cannot issue a second grant while input remains live.
+Empty streams retain the admitted streaming provider and report its actual
+identity. Caller containers, reader internals and provider allocations bypassing
+the host allocator remain excluded; this is not a process-memory ceiling.
+
+The `vortex-write` profile without `universal-format-io` has no accounted
+compatibility reader and now refuses preparation before source access or output
+creation. CI covers all CLI targets in that profile. Regression checks verify
+small-grant denial, malformed inputs, existing destinations and absent output
+directories, retained reader/writer competition, released-credit reuse, empty
+streams and complete structured output values.
+
+All 16 fresh source gates pass: formatting and strict lint; 3,166 default
+workspace tests; 1,339 native CLI tests; 2,546 native Vortex tests; 1,104 reduced
+writer-profile tests; 17 example tests; lean, native-without-write, write-only and
+all-feature checks; Rust 1.96 lean/native checks; and diff validation. The native
+Vortex suite retains its 24 existing ignored cases. The three non-Unix CLI cases
+are ignored locally; their separate Windows run passed on reviewed `1acbd5d6`
+and is evidence for the earlier platform refusal, not this writer correction.
+
+The supplemental packet in the
+[evidence index](evidence/required-execution-resources-2026-10-10.json) binds the
+final source to these checks, documentation checks and CI registration. It keeps
+the initial lint failure, the two native test failures, the reduced-profile
+failures and a deliberately stopped broad run. That run was stopped when review
+found the structured writer's independent pool; after the shared-pool correction,
+the entire native suite was rerun successfully. A zero-test filter attempt
+receives no coverage credit. The original public workflows and Full43 results
+were not rerun or retimed for this correction. No performance gain or package
+publication is claimed; hosted checks for the final source remain pending.
+
 ## Remaining work
 
 Hosted acceptance remains pending. The next implementation
