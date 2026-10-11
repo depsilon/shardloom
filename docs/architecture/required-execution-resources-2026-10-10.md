@@ -72,6 +72,14 @@ retain their own configuration without mutating that client. Direct context
 `run`, `prepare` and `route` calls use the same inheritance and override rules as
 SQL and DataFrame workflows; resource-free routing remains permitted.
 
+Composition intersects every participating workflow's ceilings, including set
+operations, joins, concatenation and typed subqueries used in predicates,
+projections, grouping, ordering or windows. Source-free scalar subqueries retain
+their limits too. The receiving workflow supplies the inherited job allocation;
+composition does not take the other workflow's grant or silently lower the
+receiver's grant. An incompatible inherited allocation fails before execution.
+Ceiling-only workflows remain unconfigured until a complete allocation is given.
+
 The existing `ResourceBudget` and `MemoryBudget` describe runtime task limits and
 memory policy respectively. `LiveMemoryPool` and native leases track actual
 admitted owners. Preserve those distinctions and map the resolved declaration

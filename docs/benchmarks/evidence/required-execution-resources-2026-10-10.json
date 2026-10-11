@@ -972,5 +972,19 @@
         "ignored": 0
       }
     }
+  },
+  "workflow_composition_review_correction": {
+    "path": "required-execution-resources-composition-2026-10-10.json",
+    "sha256": "de631b4baca1fe55893810048ab2e913b77f730b824f07cc286e987d6e6a5a1b",
+    "status": "passed_python_and_native_wrapper_checks_pending_hosted",
+    "source_identity_sha256": "10cf910173d44628738602986edd002e62d1914e68b2abf2240ff2356adc187b",
+    "python_tests": 667,
+    "python_skips": 5,
+    "native_wrapper_cases": 28,
+    "documentation_checks": 14,
+    "unchanged_rust_source_gate_count": 16,
+    "ci_registration_passed": true,
+    "original_complete_workflows_rerun": false,
+    "performance_claim": false
   }
 }

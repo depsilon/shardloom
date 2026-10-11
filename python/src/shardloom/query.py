@@ -107,6 +107,7 @@ class WorkflowOperation:
     source_bindings: tuple[WorkflowSource, ...] = ()
     right_statement: str | None = None
     projection_sql: tuple[str, ...] | None = None
+    resource_limits: ExecutionResourceLimits | None = None
 
     def to_summary(self) -> str:
         """Return a deterministic operation summary."""
@@ -160,6 +161,7 @@ class PredicateExpression:
 
     sql: str
     source_bindings: tuple[WorkflowSource, ...] = ()
+    resource_limits: ExecutionResourceLimits | None = None
 
     def __str__(self) -> str:
         return self.sql
@@ -168,20 +170,22 @@ class PredicateExpression:
         """Return a scoped logical AND predicate."""
 
         return PredicateExpression(
-            f"({self.sql} AND {_predicate_sql(other)})", _predicate_sources(self, other)
+            f"({self.sql} AND {_predicate_sql(other)})", _predicate_sources(self, other),
+            resource_limits=_predicate_limits(self, other),
         )
 
     def __or__(self, other: object) -> "PredicateExpression":
         """Return a scoped logical OR predicate."""
 
         return PredicateExpression(
-            f"({self.sql} OR {_predicate_sql(other)})", _predicate_sources(self, other)
+            f"({self.sql} OR {_predicate_sql(other)})", _predicate_sources(self, other),
+            resource_limits=_predicate_limits(self, other),
         )
 
     def __invert__(self) -> "PredicateExpression":
         """Return a scoped logical NOT predicate."""
 
-        return PredicateExpression(f"NOT {self.sql}", self.source_bindings)
+        return PredicateExpression(f"NOT {self.sql}", self.source_bindings, resource_limits=self.resource_limits)
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,6 +194,7 @@ class WindowExpression:
 
     sql: str
     source_bindings: tuple[WorkflowSource, ...] = ()
+    resource_limits: ExecutionResourceLimits | None = None
 
     def __str__(self) -> str:
         return self.sql
@@ -239,6 +244,7 @@ class ColumnExpression:
 
     sql: str
     source_bindings: tuple[WorkflowSource, ...] = ()
+    resource_limits: ExecutionResourceLimits | None = None
 
     def __str__(self) -> str:
         return self.sql
@@ -271,7 +277,7 @@ class ColumnExpression:
             if isinstance(value, ColumnExpression)
             else _sql_literal(value)
         )
-        return PredicateExpression(f"{self.sql} {operator} {rhs}", _predicate_sources(self, value))
+        return PredicateExpression(f"{self.sql} {operator} {rhs}", _predicate_sources(self, value), resource_limits=_predicate_limits(self, value))
 
     def _numeric_binary(self, operator: str, value: object) -> "ColumnExpression":
         rhs = (
@@ -282,6 +288,7 @@ class ColumnExpression:
         return ColumnExpression(
             f"{_parenthesize_numeric_operand(self.sql)} {operator} {rhs}",
             _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
         )
 
     def __add__(self, value: object) -> "ColumnExpression":
@@ -312,37 +319,37 @@ class ColumnExpression:
     def __neg__(self) -> "ColumnExpression":
         """Return a checked native numeric negation expression."""
 
-        return ColumnExpression(f"-({self.sql})", self.source_bindings)
+        return ColumnExpression(f"-({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def abs(self) -> "ColumnExpression":
         """Return a scoped `ABS(column)` numeric absolute-value expression."""
 
-        return ColumnExpression(f"ABS({self.sql})", self.source_bindings)
+        return ColumnExpression(f"ABS({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def floor(self) -> "ColumnExpression":
         """Return a scoped `FLOOR(column)` numeric rounding expression."""
 
-        return ColumnExpression(f"FLOOR({self.sql})", self.source_bindings)
+        return ColumnExpression(f"FLOOR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def ceil(self) -> "ColumnExpression":
         """Return a scoped `CEIL(column)` numeric rounding expression."""
 
-        return ColumnExpression(f"CEIL({self.sql})", self.source_bindings)
+        return ColumnExpression(f"CEIL({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def round(self) -> "ColumnExpression":
         """Return a scoped `ROUND(column)` numeric rounding expression."""
 
-        return ColumnExpression(f"ROUND({self.sql})", self.source_bindings)
+        return ColumnExpression(f"ROUND({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_null(self) -> PredicateExpression:
         """Return a scoped `IS NULL` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NULL", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS NULL", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_not_null(self) -> PredicateExpression:
         """Return a scoped `IS NOT NULL` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NOT NULL", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS NOT NULL", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_distinct_from(self, value: object) -> PredicateExpression:
         """Return a scoped SQL `IS DISTINCT FROM` null-safe comparison."""
@@ -350,6 +357,7 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} IS DISTINCT FROM {self._null_safe_comparison_rhs(value)}",
             _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
         )
 
     def is_not_distinct_from(self, value: object) -> PredicateExpression:
@@ -358,6 +366,7 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} IS NOT DISTINCT FROM {self._null_safe_comparison_rhs(value)}",
             _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
         )
 
     def _null_safe_comparison_rhs(self, value: object) -> str:
@@ -372,22 +381,22 @@ class ColumnExpression:
     def is_true(self) -> PredicateExpression:
         """Return a scoped SQL boolean truth predicate."""
 
-        return PredicateExpression(f"{self.sql} IS TRUE", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS TRUE", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_false(self) -> PredicateExpression:
         """Return a scoped SQL boolean false predicate."""
 
-        return PredicateExpression(f"{self.sql} IS FALSE", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS FALSE", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_not_true(self) -> PredicateExpression:
         """Return a scoped SQL `IS NOT TRUE` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NOT TRUE", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS NOT TRUE", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_not_false(self) -> PredicateExpression:
         """Return a scoped SQL `IS NOT FALSE` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NOT FALSE", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS NOT FALSE", self.source_bindings, resource_limits=self.resource_limits)
 
     def like(self, pattern: object, *, escape: object | None = None) -> PredicateExpression:
         """Return a scoped SQL LIKE predicate.
@@ -401,6 +410,7 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} LIKE {_sql_string_literal(pattern)}{_like_escape_clause(escape)}",
             self.source_bindings,
+            resource_limits=self.resource_limits,
         )
 
     def not_like(self, pattern: object, *, escape: object | None = None) -> PredicateExpression:
@@ -409,17 +419,18 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} NOT LIKE {_sql_string_literal(pattern)}{_like_escape_clause(escape)}",
             self.source_bindings,
+            resource_limits=self.resource_limits,
         )
 
     def rlike(self, pattern: object) -> PredicateExpression:
         """Return a scoped UTF-8 regex predicate lowered to SQL `RLIKE`."""
 
-        return PredicateExpression(f"{self.sql} RLIKE {_sql_string_literal(pattern)}", self.source_bindings)
+        return PredicateExpression(f"{self.sql} RLIKE {_sql_string_literal(pattern)}", self.source_bindings, resource_limits=self.resource_limits)
 
     def not_rlike(self, pattern: object) -> PredicateExpression:
         """Return a scoped UTF-8 regex negation lowered to SQL `NOT RLIKE`."""
 
-        return PredicateExpression(f"{self.sql} NOT RLIKE {_sql_string_literal(pattern)}", self.source_bindings)
+        return PredicateExpression(f"{self.sql} NOT RLIKE {_sql_string_literal(pattern)}", self.source_bindings, resource_limits=self.resource_limits)
 
     def regex(self, pattern: object) -> PredicateExpression:
         """Return a scoped UTF-8 regex predicate."""
@@ -480,22 +491,22 @@ class ColumnExpression:
     def lower(self) -> "ColumnExpression":
         """Return a scoped `LOWER(column)` UTF-8 transform expression."""
 
-        return ColumnExpression(f"LOWER({self.sql})", self.source_bindings)
+        return ColumnExpression(f"LOWER({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def upper(self) -> "ColumnExpression":
         """Return a scoped `UPPER(column)` UTF-8 transform expression."""
 
-        return ColumnExpression(f"UPPER({self.sql})", self.source_bindings)
+        return ColumnExpression(f"UPPER({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def trim(self) -> "ColumnExpression":
         """Return a scoped `TRIM(column)` UTF-8 transform expression."""
 
-        return ColumnExpression(f"TRIM({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TRIM({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def length(self) -> "ColumnExpression":
         """Return a scoped `LENGTH(column)` UTF-8 length expression."""
 
-        return ColumnExpression(f"LENGTH({self.sql})", self.source_bindings)
+        return ColumnExpression(f"LENGTH({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def concat(self, *parts: object) -> "ColumnExpression":
         """Return a scoped `CONCAT(column-or-string-literal, ...)` expression."""
@@ -513,6 +524,7 @@ class ColumnExpression:
         return ColumnExpression(
             f"SUBSTR({column}, {normalized_start}, {normalized_length})",
             self.source_bindings,
+            resource_limits=self.resource_limits,
         )
 
     def substring(self, start: object, length: object) -> "ColumnExpression":
@@ -525,14 +537,14 @@ class ColumnExpression:
 
         column, _ = _normalize_string_scalar_expression_sql(self.sql)
         normalized_count = _normalize_substring_bound("left count", count, minimum=0)
-        return ColumnExpression(f"LEFT({column}, {normalized_count})", self.source_bindings)
+        return ColumnExpression(f"LEFT({column}, {normalized_count})", self.source_bindings, resource_limits=self.resource_limits)
 
     def right(self, count: object) -> "ColumnExpression":
         """Return a scoped `RIGHT(column, count)` UTF-8 expression."""
 
         column, _ = _normalize_string_scalar_expression_sql(self.sql)
         normalized_count = _normalize_substring_bound("right count", count, minimum=0)
-        return ColumnExpression(f"RIGHT({column}, {normalized_count})", self.source_bindings)
+        return ColumnExpression(f"RIGHT({column}, {normalized_count})", self.source_bindings, resource_limits=self.resource_limits)
 
     def replace(self, needle: object, replacement: object) -> "ColumnExpression":
         """Return a scoped `REPLACE(column, needle, replacement)` expression."""
@@ -547,25 +559,26 @@ class ColumnExpression:
         return ColumnExpression(
             f"REPLACE({column}, {needle_literal}, {replacement_literal})",
             self.source_bindings,
+            resource_limits=self.resource_limits,
         )
 
     def unhex(self) -> "ColumnExpression":
         """Return a scoped `UNHEX(<utf8-expression>)` binary helper expression."""
 
         expression = _sql_computed_projection_expression(self)
-        return ColumnExpression(f"UNHEX({expression})", self.source_bindings)
+        return ColumnExpression(f"UNHEX({expression})", self.source_bindings, resource_limits=self.resource_limits)
 
     def from_base64(self) -> "ColumnExpression":
         """Return a scoped `FROM_BASE64(<utf8-expression>)` binary helper expression."""
 
         expression = _sql_computed_projection_expression(self)
-        return ColumnExpression(f"FROM_BASE64({expression})", self.source_bindings)
+        return ColumnExpression(f"FROM_BASE64({expression})", self.source_bindings, resource_limits=self.resource_limits)
 
     def byte_length(self) -> "ColumnExpression":
         """Return a scoped `BYTE_LENGTH(<binary-expression>)` byte-count expression."""
 
         expression = _sql_computed_projection_expression(self)
-        return ColumnExpression(f"BYTE_LENGTH({expression})", self.source_bindings)
+        return ColumnExpression(f"BYTE_LENGTH({expression})", self.source_bindings, resource_limits=self.resource_limits)
 
     def fill_null(self, value: object) -> "ColumnExpression":
         """Return a `COALESCE` expression with a scalar value or expression."""
@@ -573,6 +586,7 @@ class ColumnExpression:
         return ColumnExpression(
             f"COALESCE({self.sql}, {_sql_case_branch(value)})",
             _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
         )
 
     def null_if(self, value: object) -> "ColumnExpression":
@@ -581,6 +595,7 @@ class ColumnExpression:
         return ColumnExpression(
             f"NULLIF({self.sql}, {_sql_case_branch(value)})",
             _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
         )
 
     def isin(self, *values: object) -> PredicateExpression:
@@ -588,7 +603,7 @@ class ColumnExpression:
 
         normalized = _normalize_in_values(values)
         joined = ",".join(_sql_in_literal(value) for value in normalized)
-        return PredicateExpression(f"{self.sql} IN ({joined})", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IN ({joined})", self.source_bindings, resource_limits=self.resource_limits)
 
     def isin_source(
         self,
@@ -618,6 +633,7 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} IN (SELECT {source_column} FROM {source_ref}{tail})",
             _predicate_sources(self, source, where, having),
+            resource_limits=_predicate_limits(self, source, where, having),
         )
 
     def any_source(
@@ -650,7 +666,7 @@ class ColumnExpression:
             descending=descending,
             limit=limit,
         )
-        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate))
+        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate), resource_limits=_predicate_limits(self, predicate))
 
     def all_source(
         self,
@@ -682,14 +698,14 @@ class ColumnExpression:
             descending=descending,
             limit=limit,
         )
-        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate))
+        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate), resource_limits=_predicate_limits(self, predicate))
 
     def not_in(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `NOT IN (...)` predicate."""
 
         normalized = _normalize_in_values(values)
         joined = ",".join(_sql_in_literal(value) for value in normalized)
-        return PredicateExpression(f"{self.sql} NOT IN ({joined})", self.source_bindings)
+        return PredicateExpression(f"{self.sql} NOT IN ({joined})", self.source_bindings, resource_limits=self.resource_limits)
 
     def not_in_source(
         self,
@@ -719,6 +735,7 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} NOT IN (SELECT {source_column} FROM {source_ref}{tail})",
             _predicate_sources(self, source, where, having),
+            resource_limits=_predicate_limits(self, source, where, having),
         )
 
     def between(self, lower: object, upper: object) -> PredicateExpression:
@@ -731,38 +748,40 @@ class ColumnExpression:
         return PredicateExpression(
             f"({self.sql} >= {_sql_literal(lower)} AND {self.sql} <= {_sql_literal(upper)})",
             _predicate_sources(self, lower, upper),
+            resource_limits=_predicate_limits(self, lower, upper),
         )
 
     def cast(self, dtype: object) -> "ColumnExpression":
         """Return a scoped `CAST(column AS dtype)` expression for comparisons."""
 
         normalized_dtype = _normalize_cast_dtype(dtype)
-        return ColumnExpression(f"CAST({self.sql} AS {normalized_dtype})", self.source_bindings)
+        return ColumnExpression(f"CAST({self.sql} AS {normalized_dtype})", self.source_bindings, resource_limits=self.resource_limits)
 
     def try_cast(self, dtype: object) -> "ColumnExpression":
         """Return a scoped `TRY_CAST(column AS dtype)` expression for dirty values."""
 
         normalized_dtype = _normalize_cast_dtype(dtype)
-        return ColumnExpression(f"TRY_CAST({self.sql} AS {normalized_dtype})", self.source_bindings)
+        return ColumnExpression(f"TRY_CAST({self.sql} AS {normalized_dtype})", self.source_bindings, resource_limits=self.resource_limits)
 
     def date_add_days(self, days: object) -> "ColumnExpression":
         """Return a scoped Date32 day-add expression for date predicates."""
 
         normalized_days = _normalize_date_arithmetic_days(days)
-        return ColumnExpression(f"DATE_ADD_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days))
+        return ColumnExpression(f"DATE_ADD_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days), resource_limits=_predicate_limits(self, days))
 
     def date_sub_days(self, days: object) -> "ColumnExpression":
         """Return a scoped Date32 day-subtract expression for date predicates."""
 
         normalized_days = _normalize_date_arithmetic_days(days)
-        return ColumnExpression(f"DATE_SUB_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days))
+        return ColumnExpression(f"DATE_SUB_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days), resource_limits=_predicate_limits(self, days))
 
     def timestamp_add_seconds(self, seconds: object) -> "ColumnExpression":
         """Return a scoped UTC timestamp second-add expression for predicates."""
 
         normalized_seconds = _normalize_timestamp_arithmetic_seconds(seconds)
         return ColumnExpression(
-            f"TIMESTAMP_ADD_SECONDS({self.sql}, {normalized_seconds})", _predicate_sources(self, seconds)
+            f"TIMESTAMP_ADD_SECONDS({self.sql}, {normalized_seconds})", _predicate_sources(self, seconds),
+            resource_limits=_predicate_limits(self, seconds),
         )
 
     def timestamp_sub_seconds(self, seconds: object) -> "ColumnExpression":
@@ -770,7 +789,8 @@ class ColumnExpression:
 
         normalized_seconds = _normalize_timestamp_arithmetic_seconds(seconds)
         return ColumnExpression(
-            f"TIMESTAMP_SUB_SECONDS({self.sql}, {normalized_seconds})", _predicate_sources(self, seconds)
+            f"TIMESTAMP_SUB_SECONDS({self.sql}, {normalized_seconds})", _predicate_sources(self, seconds),
+            resource_limits=_predicate_limits(self, seconds),
         )
 
     def date_diff_days(self, other: object) -> "ColumnExpression":
@@ -779,6 +799,7 @@ class ColumnExpression:
         return ColumnExpression(
             f"DATE_DIFF_DAYS({self.sql}, {_sql_temporal_difference_arg(other, 'date32')})",
             _predicate_sources(self, other),
+            resource_limits=_predicate_limits(self, other),
         )
 
     def timestamp_diff_seconds(self, other: object) -> "ColumnExpression":
@@ -787,52 +808,53 @@ class ColumnExpression:
         return ColumnExpression(
             f"TIMESTAMP_DIFF_SECONDS({self.sql}, {_sql_temporal_difference_arg(other, 'timestamp_micros')})",
             _predicate_sources(self, other),
+            resource_limits=_predicate_limits(self, other),
         )
 
     def date_year(self) -> "ColumnExpression":
         """Return a scoped Date32 year-extract expression for date predicates."""
 
-        return ColumnExpression(f"DATE_YEAR({self.sql})", self.source_bindings)
+        return ColumnExpression(f"DATE_YEAR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def date_month(self) -> "ColumnExpression":
         """Return a scoped Date32 month-extract expression for date predicates."""
 
-        return ColumnExpression(f"DATE_MONTH({self.sql})", self.source_bindings)
+        return ColumnExpression(f"DATE_MONTH({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def date_day(self) -> "ColumnExpression":
         """Return a scoped Date32 day-of-month extract expression for date predicates."""
 
-        return ColumnExpression(f"DATE_DAY({self.sql})", self.source_bindings)
+        return ColumnExpression(f"DATE_DAY({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_year(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp year-extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_YEAR({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_YEAR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_month(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp month-extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_MONTH({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_MONTH({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_day(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp day-of-month extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_DAY({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_DAY({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_hour(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp hour extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_HOUR({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_HOUR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_minute(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp minute extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_MINUTE({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_MINUTE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_second(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp second extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_SECOND({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_SECOND({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
 
 @dataclass(frozen=True, slots=True)
@@ -992,13 +1014,14 @@ class SqlWorkflow:
             statement, self.client, self.input_uri, self.input_format,
             (*self.source_bindings, *(source for operation in operations
                                      for source in operation.source_bindings)),
-            resources=self.resources, resource_limits=self.resource_limits,
+            resources=self.resources, resource_limits=_predicate_limits(self, operations),
         )
 
     def select(self, *columns: object) -> "SqlWorkflow":
         """Project the complete preceding SQL result without executing it."""
         return self._compose(WorkflowOperation(
             "select", _normalize_columns(columns), _predicate_sources(columns),
+            resource_limits=_predicate_limits(columns),
         ))
 
     def project(self, *columns: object) -> "SqlWorkflow":
@@ -1009,6 +1032,7 @@ class SqlWorkflow:
         return self._compose(WorkflowOperation(
             "filter", (_normalize_raw_or_typed_predicate("filter predicate", predicate),),
             _predicate_sources(predicate),
+            resource_limits=_predicate_limits(predicate),
         ))
 
     def where(self, predicate: object) -> "SqlWorkflow":
@@ -1021,9 +1045,11 @@ class SqlWorkflow:
         self, *columns: object, descending: bool = False, nulls: str | None = None,
         check: bool = False,
     ) -> "SqlWorkflow":
-        return self._compose(WorkflowOperation("sort", _format_sort_operation_values(
-            "desc" if descending else "asc", _normalize_columns(columns), _normalize_sort_nulls(nulls),
-        )))
+        return self._compose(WorkflowOperation(
+            "sort", _format_sort_operation_values(
+                "desc" if descending else "asc", _normalize_columns(columns), _normalize_sort_nulls(nulls),
+            ), _predicate_sources(columns), resource_limits=_predicate_limits(columns),
+        ))
 
     def order_by(
         self, *columns: object, descending: bool = False, nulls: str | None = None,
@@ -1035,10 +1061,14 @@ class SqlWorkflow:
         return self._compose(WorkflowOperation(
             "window", _normalize_window_expressions(expressions),
             _predicate_sources(expressions),
+            resource_limits=_predicate_limits(expressions),
         ))
 
     def group_by(self, *columns: object) -> "GroupedLazyFrame":
-        return GroupedLazyFrame(self, _normalize_columns(columns))
+        return GroupedLazyFrame(
+            self, _normalize_columns(columns), _predicate_sources(columns),
+            resource_limits=_predicate_limits(columns),
+        )
 
     def groupby(self, *columns: object) -> "GroupedLazyFrame":
         return self.group_by(*columns)
@@ -1046,15 +1076,17 @@ class SqlWorkflow:
     def _append_group_by_aggregate(
         self, columns: tuple[str, ...], expressions: tuple[str, ...],
         *, source_bindings: tuple[WorkflowSource, ...] = (),
+        resource_limits: ExecutionResourceLimits | None = None,
     ) -> "SqlWorkflow":
         return self._compose(
             WorkflowOperation("group_by", columns),
-            WorkflowOperation("aggregate", expressions, source_bindings),
+            WorkflowOperation("aggregate", expressions, source_bindings, resource_limits=resource_limits),
         )
 
     def aggregate(self, *expressions: object, check: bool = False) -> "SqlWorkflow":
         return self._compose(WorkflowOperation(
             "aggregate", _normalize_columns(expressions), _predicate_sources(expressions),
+            resource_limits=_predicate_limits(expressions),
         ))
 
     def agg(
@@ -1069,6 +1101,7 @@ class SqlWorkflow:
             raise ValueError("aggregate expressions must not be empty")
         return self._compose(WorkflowOperation(
             "aggregate", tuple(values), _predicate_sources(expressions, named_expressions),
+            resource_limits=_predicate_limits(expressions, named_expressions),
         ))
 
     def having(self, predicate: object, *, check: bool = False) -> "SqlWorkflow":
@@ -1090,7 +1123,7 @@ class SqlWorkflow:
             f"{statement} HAVING {value}",
             self.client, self.input_uri, self.input_format,
             (*self.source_bindings, *_predicate_sources(predicate)),
-            resources=self.resources, resource_limits=self.resource_limits,
+            resources=self.resources, resource_limits=_predicate_limits(self, predicate),
         )
 
     def with_column(
@@ -1104,6 +1137,7 @@ class SqlWorkflow:
             expression_sql = _sql_computed_projection_expression(expression)
         return self._compose(WorkflowOperation(
             "with_column", (column, expression_sql), _predicate_sources(expression),
+            resource_limits=_predicate_limits(expression),
         ))
 
     def with_columns(
@@ -1139,6 +1173,7 @@ class SqlWorkflow:
         return self._compose(WorkflowOperation(
             "join", (uri, ",".join(keys), ",".join(keys), kind, "f", "d", predicate),
             _predicate_sources(other, condition), right_statement=right,
+            resource_limits=_predicate_limits(other, condition),
         ))
 
     def _set_operation(
@@ -1151,7 +1186,7 @@ class SqlWorkflow:
             f"SELECT * FROM ({self._relation_statement()}) AS _sl_set_left {keyword} "
             f"SELECT * FROM ({right}) AS _sl_set_right", self.client,
             source_bindings=(*self._declared_sources(), *other._declared_sources()),
-            resources=self.resources, resource_limits=self.resource_limits,
+            resources=self.resources, resource_limits=_predicate_limits(self, other),
         )
 
     def union(
@@ -3760,6 +3795,7 @@ class LazyFrame:
     def __post_init__(self) -> None:
         limits = merge_resource_limits(
             self.resource_limits, getattr(self.client, "resource_limits", None),
+            _predicate_limits(self.operations),
         )
         resources = optional_resources(
             resources=self.resources, inherited=getattr(self.client, "resources", None),
@@ -3806,8 +3842,8 @@ class LazyFrame:
 
         value = _normalize_raw_or_typed_predicate("filter predicate", predicate)
         if self._can_append_having():
-            return self._append(WorkflowOperation("having", (value,), _predicate_sources(predicate)))
-        return self._append(WorkflowOperation("filter", (value,), _predicate_sources(predicate)))
+            return self._append(WorkflowOperation("having", (value,), _predicate_sources(predicate), resource_limits=_predicate_limits(predicate)))
+        return self._append(WorkflowOperation("filter", (value,), _predicate_sources(predicate), resource_limits=_predicate_limits(predicate)))
 
     def where(self, predicate: object) -> "LazyFrame":
         """Alias for `filter(...)` using familiar SQL/DataFrame naming."""
@@ -3838,7 +3874,7 @@ class LazyFrame:
 
         value = _normalize_raw_or_typed_predicate("HAVING predicate", predicate)
         if self._can_append_having():
-            return self._append(WorkflowOperation("having", (value,), _predicate_sources(predicate)))
+            return self._append(WorkflowOperation("having", (value,), _predicate_sources(predicate), resource_limits=_predicate_limits(predicate)))
         return self._unsupported_operation("having", value, check=check)
 
     def select(self, *columns: object) -> "LazyFrame":
@@ -3846,6 +3882,7 @@ class LazyFrame:
 
         return self._append(WorkflowOperation(
             "select", _normalize_columns(columns), _predicate_sources(columns),
+            resource_limits=_predicate_limits(columns),
         ))
 
     def project(self, *columns: object) -> "LazyFrame":
@@ -4116,7 +4153,7 @@ class LazyFrame:
                     statement=f"{left} UNION ALL {right}",
                     client=self.client,
                     source_bindings=(*self._declared_sources(), *other._declared_sources()),
-                    resources=self.resources, resource_limits=self.resource_limits,
+                    resources=self.resources, resource_limits=_predicate_limits(self, other),
                 )
         return self._unsupported_operation("concat", target_ref, check=check)
 
@@ -5053,6 +5090,7 @@ class LazyFrame:
 
         column_name = _normalize_output_column_name(name)
         expression_sources = _predicate_sources(expression)
+        expression_limits = _predicate_limits(expression)
         try:
             literal = (
                 expression
@@ -5069,7 +5107,7 @@ class LazyFrame:
                     expression_text
                 ):
                     return self._append(
-                        WorkflowOperation("with_column", (column_name, expression_text), expression_sources)
+                        WorkflowOperation("with_column", (column_name, expression_text), expression_sources, resource_limits=expression_limits)
                     )
                 return self._unsupported_operation(
                     "with-column",
@@ -5084,6 +5122,7 @@ class LazyFrame:
                 self._computed_projection_operation(
                     expression_project_payload, column_name, expression_sql,
                     source_bindings=expression_sources,
+                    resource_limits=expression_limits,
                 )
             )
         if expression_project_payload := self._string_replace_expression_project_payload(
@@ -5094,6 +5133,7 @@ class LazyFrame:
                 self._computed_projection_operation(
                     expression_project_payload, column_name, expression_sql,
                     source_bindings=expression_sources,
+                    resource_limits=expression_limits,
                 )
             )
         if (self.source.source_format == "vortex"
@@ -5101,16 +5141,19 @@ class LazyFrame:
                 and self._can_append_projection_column(column_name, allow_vortex=True)):
             projected = self._append(WorkflowOperation(
                 "with_column", (column_name, expression_sql), expression_sources,
+                resource_limits=expression_limits,
             ))
             if projected._has_structured_binary_export_shape():
                 return projected
         if self._can_append_projection_column(column_name, allow_vortex=True):
             return self._append(WorkflowOperation(
                 "with_column", (column_name, expression_sql), expression_sources,
+                resource_limits=expression_limits,
             ))
         if self.source.source_format == "vortex" and _sql_text_looks_like_cast(expression_sql):
             return self._append(WorkflowOperation(
                 "with_column", (column_name, expression_sql), expression_sources,
+                resource_limits=expression_limits,
             ))
         return self._unsupported_operation(
             "with-column",
@@ -5121,16 +5164,18 @@ class LazyFrame:
     def _computed_projection_operation(
         self, payload: str, name: str, expression: str,
         *, source_bindings: tuple[WorkflowSource, ...] = (),
+        resource_limits: ExecutionResourceLimits | None = None,
     ) -> WorkflowOperation:
         from ._relational_sql import computed_projection
 
         columns = self._expression_project_projection_columns(())
         if columns == ("*",):
-            return WorkflowOperation("with_column", (name, expression), source_bindings)
+            return WorkflowOperation("with_column", (name, expression), source_bindings, resource_limits=resource_limits)
         return WorkflowOperation(
             "expression_project", (payload,),
             source_bindings=source_bindings,
             projection_sql=computed_projection(columns, name, expression) if columns is not None else None,
+            resource_limits=resource_limits,
         )
 
     def with_columns(
@@ -6046,6 +6091,7 @@ class LazyFrame:
                     ),
                     source_bindings=_predicate_sources(other, condition),
                     right_statement=right_statement,
+                    resource_limits=_predicate_limits(other, condition),
                 )
             )
         if self.source.source_format == "vortex" or right_source_vortex:
@@ -6058,6 +6104,8 @@ class LazyFrame:
         return GroupedLazyFrame(
             workflow=self,
             columns=_normalize_columns(columns),
+            source_bindings=_predicate_sources(columns),
+            resource_limits=_predicate_limits(columns),
         )
 
     def groupby(self, *columns: object) -> "GroupedLazyFrame":
@@ -6077,6 +6125,7 @@ class LazyFrame:
         if self._can_append_scalar_aggregate():
             return self._append(WorkflowOperation(
                 "aggregate", values, _predicate_sources(expressions),
+                resource_limits=_predicate_limits(expressions),
             ))
         if self.source.source_format == "vortex":
             return self._unsupported_operation("native-vortex-aggregate", target, check=check)
@@ -6106,6 +6155,7 @@ class LazyFrame:
             return self._append(WorkflowOperation(
                 "aggregate", tuple(values),
                 _predicate_sources(expressions, named_expressions),
+                resource_limits=_predicate_limits(expressions, named_expressions),
             ))
         if self.source.source_format == "vortex":
             return self._unsupported_operation(
@@ -6139,6 +6189,8 @@ class LazyFrame:
                         normalized_columns,
                         null_ordering,
                     ),
+                    _predicate_sources(columns),
+                    resource_limits=_predicate_limits(columns),
                 )
             )
         return self._unsupported_operation("sort", target, check=check)
@@ -6188,6 +6240,7 @@ class LazyFrame:
         if self._can_append_window(values):
             return self._append(WorkflowOperation(
                 "window", values, _predicate_sources(expressions),
+                resource_limits=_predicate_limits(expressions),
             ))
         return self._unsupported_operation("window", target, check=check)
 
@@ -6566,6 +6619,7 @@ class LazyFrame:
                     source_bindings=operation.source_bindings,
                     right_statement=operation.right_statement,
                     projection_sql=operation.projection_sql,
+                    resource_limits=operation.resource_limits,
                 )
             )
         if not filter_seen:
@@ -6614,7 +6668,7 @@ class LazyFrame:
                     statement=f"{left} {keyword} {right}",
                     client=self.client,
                     source_bindings=(*self._declared_sources(), *other._declared_sources()),
-                    resources=self.resources, resource_limits=self.resource_limits,
+                    resources=self.resources, resource_limits=_predicate_limits(self, other),
                 )
             target = f"{self.operation_summary};{other.operation_summary}"
         else:
@@ -7624,6 +7678,7 @@ class LazyFrame:
         expressions: tuple[str, ...],
         *,
         source_bindings: tuple[WorkflowSource, ...] = (),
+        resource_limits: ExecutionResourceLimits | None = None,
     ) -> "LazyFrame":
         return LazyFrame(
             source=self.source,
@@ -7631,7 +7686,7 @@ class LazyFrame:
             operations=(
                 *self.operations,
                 WorkflowOperation("group_by", columns),
-                WorkflowOperation("aggregate", expressions, source_bindings),
+                WorkflowOperation("aggregate", expressions, source_bindings, resource_limits=resource_limits),
             ),
             engine_mode=self.engine_mode,
             resources=self.resources, resource_limits=self.resource_limits,
@@ -7934,6 +7989,8 @@ class GroupedLazyFrame:
 
     workflow: LazyFrame | SqlWorkflow
     columns: tuple[str, ...]
+    source_bindings: tuple[WorkflowSource, ...] = ()
+    resource_limits: ExecutionResourceLimits | None = None
 
     @property
     def operation_summary(self) -> str:
@@ -7962,18 +8019,24 @@ class GroupedLazyFrame:
         if not values:
             raise ValueError("aggregate expressions must not be empty")
         target = f"group_by:{','.join(self.columns)};agg:{','.join(target_values)}"
-        source_bindings = _predicate_sources(expressions, named_expressions)
+        source_bindings = (*self.source_bindings, *_predicate_sources(expressions, named_expressions))
+        resource_limits = merge_resource_limits(
+            self.resource_limits, _predicate_limits(expressions, named_expressions),
+        )
         if isinstance(self.workflow, SqlWorkflow):
             return self.workflow._append_group_by_aggregate(
                 self.columns, tuple(values), source_bindings=source_bindings,
+                resource_limits=resource_limits,
             )
         if self.workflow._can_append_group_by_aggregate(self.columns):
             return self.workflow._append_group_by_aggregate(
                 self.columns, tuple(values), source_bindings=source_bindings,
+                resource_limits=resource_limits,
             )
         if self.workflow.source.source_format == "vortex":
             return self.workflow._append_group_by_aggregate(
                 self.columns, tuple(values), source_bindings=source_bindings,
+                resource_limits=resource_limits,
             )
         envelope = self.workflow.client.workflow_unsupported_plan(
             "agg",
@@ -8110,7 +8173,7 @@ def typed_scalar_udf(udf_id: object, column: object) -> ColumnExpression:
         raise ValueError(
             "typed scalar UDF must be the admitted built-in sl_fixture_double_i64 fixture"
         )
-    return ColumnExpression(f"{source_column} * 2", _predicate_sources(column))
+    return ColumnExpression(f"{source_column} * 2", _predicate_sources(column), resource_limits=_predicate_limits(column))
 
 
 def fixture_double_i64(column: object) -> ColumnExpression:
@@ -8144,7 +8207,7 @@ def scalar_subquery(source: LazyFrame | SqlWorkflow) -> ColumnExpression:
     statement = source._relation_statement()
     if statement is None or not statement.strip():
         raise ValueError("scalar_subquery source has no native relational declaration")
-    return ColumnExpression(f"({statement})", _predicate_sources(source))
+    return ColumnExpression(f"({statement})", _predicate_sources(source), resource_limits=_predicate_limits(source))
 
 
 def interval_days(value: object) -> IntervalLiteral:
@@ -8440,6 +8503,7 @@ def _ranking_window_expression(
     return WindowExpression(
         f"{function_name}() OVER ({partition_clause}ORDER BY {order_clause}) AS {output_alias}",
         _predicate_sources(order_by, partition_by),
+        resource_limits=_predicate_limits(order_by, partition_by),
     )
 
 
@@ -8451,6 +8515,7 @@ def case_when(predicate: object, then_value: object, else_value: object) -> Colu
     return ColumnExpression(
         f"CASE WHEN {_predicate_sql(predicate)} THEN {then_branch} ELSE {else_branch} END",
         _predicate_sources(predicate, then_value, else_value),
+        resource_limits=_predicate_limits(predicate, then_value, else_value),
     )
 
 
@@ -8467,7 +8532,8 @@ def count_distinct(column_expression: object) -> str | ColumnExpression:
         column_sql = _normalize_expression_column(column_expression)
     sql = f"count(DISTINCT {column_sql})"
     sources = _predicate_sources(column_expression)
-    return ColumnExpression(sql, sources) if sources else sql
+    limits = _predicate_limits(column_expression)
+    return ColumnExpression(sql, sources, limits) if sources or limits is not None else sql
 
 
 def null_if(column_expression: object, value: object) -> ColumnExpression:
@@ -8509,7 +8575,7 @@ def concat(*parts: object) -> ColumnExpression:
         has_source_column = has_source_column or is_source_column
     if not has_source_column:
         raise ValueError("concat requires at least one shardloom column expression")
-    return ColumnExpression(f"CONCAT({', '.join(sql_parts)})", _predicate_sources(parts))
+    return ColumnExpression(f"CONCAT({', '.join(sql_parts)})", _predicate_sources(parts), resource_limits=_predicate_limits(parts))
 
 
 def substr(column_expression: object, start: object, length: object) -> ColumnExpression:
@@ -12099,6 +12165,26 @@ def _predicate_sources(*values: object) -> tuple[WorkflowSource, ...]:
     return tuple(sources)
 
 
+def _predicate_limits(*values: object) -> ExecutionResourceLimits | None:
+    """Retain every participating workflow ceiling through lazy composition.
+
+    Ceilings intersect; resource grants keep the receiving workflow's explicit
+    inheritance. This also covers source-free scalar subqueries, which carry no
+    source bindings but still have an execution policy.
+    """
+
+    limits = []
+    for value in values:
+        if isinstance(value, (tuple, list)):
+            limits.append(_predicate_limits(*value))
+        elif isinstance(value, Mapping):
+            limits.append(_predicate_limits(*value.values()))
+        elif isinstance(value, (PredicateExpression, ColumnExpression, WindowExpression,
+                                WorkflowOperation, LazyFrame, SqlWorkflow)):
+            limits.append(value.resource_limits)
+    return merge_resource_limits(*limits)
+
+
 def _normalize_raw_or_typed_predicate(name: str, value: object) -> str:
     if isinstance(value, PredicateExpression):
         return value.sql
@@ -12268,6 +12354,7 @@ def _row_value_in_source_predicate(
     return PredicateExpression(
         f"({column_sql}) {operator} (SELECT {source_column_sql} FROM {source_ref}{tail})",
         _predicate_sources(source, where, having),
+        resource_limits=_predicate_limits(source, where, having),
     )
 
 
@@ -12302,6 +12389,7 @@ def _exists_source_predicate(
     return PredicateExpression(
         f"{operator} (SELECT {projection_sql} FROM {source_ref}{tail})",
         _predicate_sources(source, where, having),
+        resource_limits=_predicate_limits(source, where, having),
     )
 
 
@@ -12339,6 +12427,7 @@ def _quantified_source_predicate(
         f"{column_sql} {operator} {quantifier} "
         f"(SELECT {source_column_sql} FROM {source_ref}{tail})",
         _predicate_sources(source, where, having),
+        resource_limits=_predicate_limits(source, where, having),
     )
 
 

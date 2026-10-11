@@ -383,6 +383,36 @@ Original public-workflow and Full43 evidence keeps its original source identity;
 those workflows have not been rerun or retimed for this fixture correction.
 There is no new performance claim, package version or publication.
 
+## Composed-workflow authorization follow-up
+
+A later review found that set operations kept the receiver's resource policy
+while dropping the other input's ceilings. Composition now intersects ceilings
+from every participating workflow while retaining the receiver's explicit grant.
+It refuses an incompatible grant instead of silently lowering it. The same rule
+covers joins, concatenation and typed expressions used in filters, projections,
+aggregates, grouping, ordering and windows. Source-free scalar subqueries carry
+policy even when they have no input bindings; ceiling-only workflows remain lazy
+and unconfigured.
+
+All 667 Python tests pass (five existing skips). Seven focused regressions cover
+all SQL/DataFrame set combinations, receiver order, transitive limits,
+incompatible grants and expression propagation. The 28 real wrapper checks
+compare complete set/join/subquery results, native Vortex output
+and incremental results, and verify the combined ceilings in native reports.
+Three invalid terminal calls leave the producer unopened and the destination
+parent absent; a subsequent valid call consumes that producer once and returns
+every expected row. These checks use the retained accepted native executable,
+with its identity recorded separately from the changed Python sources. Rust is
+unchanged from the fixture I/O correction, so its 16 source gates remain the
+applicable Rust evidence. No Full43 run or performance measurement is repeated.
+
+The supplemental composition packet in the
+[evidence index](evidence/required-execution-resources-2026-10-10.json) preserves
+the failing regressions and harness corrections: an ambiguous join projection
+was qualified, and incremental tests explicitly reopened native Vortex input as
+required by the existing batch interface. These were not resource admission
+failures. Hosted checks remain required for the final correction.
+
 ## Remaining work
 
 Hosted acceptance remains pending. The next implementation
