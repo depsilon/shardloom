@@ -456,6 +456,37 @@ remain outside this accounting scope. Original complete-workflow and Full43
 evidence retains its original identity; it was not rerun or retimed for this
 correction. Hosted checks remain required, with no new performance or package claim.
 
+## Post-admission fixture error evidence
+
+A subsequent review found that fixed-fixture parse and runtime failures dropped
+resource observations after admission. Their parsers now return typed errors to
+the handler, which retains its workspace lease while capturing the complete
+error envelope. The same correction covers local-table fixture failures and
+synthetic spill constructor errors. Constructor failures report zero payload I/O;
+failures inside the I/O operation retain unavailable observations where activity
+was not measured.
+
+All 14 applicable fresh source/feature gates pass: 3,193 default workspace tests,
+1,364 native CLI tests and 1,127 reduced writer-profile tests, plus formatting,
+strict Clippy, feature isolation, Rust 1.96 and diff checks. The native CLI suite
+retains its three platform-specific ignored cases. The real CLI resource suite
+also passes all eight tests with synthetic filesystem spill enabled, including
+19 new failure cases spanning malformed arguments, runtime predicate failures
+and invalid spill constructors. Checks compare the complete single error
+envelope and declaration/admission fields, live/peak estimates, denial counts,
+no-fallback status and absence of premature output effects.
+
+Only CLI sources and their tests changed. The unchanged Vortex, example and
+Python scopes retain the preceding 2,553 native Vortex tests, 17 examples and
+667 Python tests with no skips; those are separate earlier observations, not
+fresh executions of this correction. The supplemental packet in the
+[evidence index](evidence/required-execution-resources-2026-10-10.json) binds the
+final sources, all fresh checks and documentation validation. It preserves the
+initial compile error, an incorrect test lookup for the canonical fallback
+field, and a strict-lint failure corrected before final acceptance. Original
+complete-workflow and Full43 evidence retains its original identity. Hosted
+acceptance remains required; no performance, RSS-limit or package claim changes.
+
 ## Remaining work
 
 Hosted acceptance remains pending. The next implementation

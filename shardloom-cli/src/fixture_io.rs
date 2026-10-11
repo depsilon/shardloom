@@ -270,6 +270,29 @@ pub(crate) fn with_estimated_fixture_fields(
     fields
 }
 
+/// Keep the live workspace observation on parsing and execution failures too.
+pub(crate) fn emit_fixed_fixture_error(
+    command: &str,
+    format: OutputFormat,
+    summary: &str,
+    error: &ShardLoomError,
+    resources: ExecutionResources,
+    pool: &LiveMemoryPool,
+) -> ExitCode {
+    crate::cli_output::emit_error_with_fields(
+        command,
+        format,
+        summary,
+        error,
+        with_estimated_fixture_fields(
+            Vec::new(),
+            resources,
+            pool,
+            "fixed_fixture_state_and_argument_expansion_workspace_estimate",
+        ),
+    )
+}
+
 /// Reserve the exact extent before opening the file. Read into fixed capacity,
 /// refusing size changes instead of growing a Vec beyond its admission.
 pub(crate) fn read_bytes(

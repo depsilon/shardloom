@@ -139,6 +139,11 @@ workspace reservation before directory creation, with exact-size readback. That
 estimate is not an allocation measurement or permission for general query spill.
 Success and post-admission error envelopes retain the declaration, admission,
 live/peak reservations, denied-reservation count and explicit observation scope.
+This includes invalid fixture arguments and runtime errors after workspace
+admission. Fixed-fixture parsers return typed errors to the owning handler so
+the workspace lease remains alive while the error report captures its fields.
+Synthetic spill constructor failures report zero payload I/O; failures after
+entering the I/O operation leave unmeasured activity unavailable.
 
 The text-based UDF and embedding fixtures reserve a conservative workspace before
 parsing values. Its size grows with input rows and, for embeddings, UTF-8 input

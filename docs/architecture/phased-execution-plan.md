@@ -322,6 +322,12 @@ the ledger.
       pre-effect denial, output preservation and released-credit reuse. Fresh
       source gates and the dedicated synthetic-spill CI commands pass; original
       complete-workflow and Full43 evidence keeps its own source identity.
+    - [x] Preserve resource observations on post-admission fixed-fixture parse
+      and runtime failures, including synthetic spill constructor failures.
+      Nineteen failure cases verify complete error envelopes, retained workspace
+      observations and accurate pre-I/O spill fields. All 14 applicable fresh
+      source/feature gates pass; unchanged engine and Python evidence retains
+      its earlier identity.
     - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations

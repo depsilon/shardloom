@@ -154,18 +154,29 @@ pub(crate) fn handle_live_fixture_run(args: IntoIter<String>, format: OutputForm
         Ok(workspace) => workspace,
         Err(code) => return code,
     };
-    let input = match parse_live_fixture_run_args(args, format) {
+    let input = match parse_live_fixture_run_args(args) {
         Ok(input) => input,
-        Err(exit_code) => return exit_code,
-    };
-    let report = match run_live_fixture(input) {
-        Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::fixture_io::emit_fixed_fixture_error(
                 LIVE_FIXTURE_RUN_COMMAND,
                 format,
                 LIVE_FIXTURE_RUN_SUMMARY,
                 &error,
+                resources,
+                &pool,
+            );
+        }
+    };
+    let report = match run_live_fixture(input) {
+        Ok(report) => report,
+        Err(error) => {
+            return crate::fixture_io::emit_fixed_fixture_error(
+                LIVE_FIXTURE_RUN_COMMAND,
+                format,
+                LIVE_FIXTURE_RUN_SUMMARY,
+                &error,
+                resources,
+                &pool,
             );
         }
     };
@@ -219,18 +230,29 @@ pub(crate) fn handle_hybrid_overlay_run(args: IntoIter<String>, format: OutputFo
         Ok(workspace) => workspace,
         Err(code) => return code,
     };
-    let input = match parse_hybrid_fixture_run_args(args, format) {
+    let input = match parse_hybrid_fixture_run_args(args) {
         Ok(input) => input,
-        Err(exit_code) => return exit_code,
-    };
-    let report = match run_hybrid_fixture(input) {
-        Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::fixture_io::emit_fixed_fixture_error(
                 HYBRID_FIXTURE_RUN_COMMAND,
                 format,
                 HYBRID_FIXTURE_RUN_SUMMARY,
                 &error,
+                resources,
+                &pool,
+            );
+        }
+    };
+    let report = match run_hybrid_fixture(input) {
+        Ok(report) => report,
+        Err(error) => {
+            return crate::fixture_io::emit_fixed_fixture_error(
+                HYBRID_FIXTURE_RUN_COMMAND,
+                format,
+                HYBRID_FIXTURE_RUN_SUMMARY,
+                &error,
+                resources,
+                &pool,
             );
         }
     };
@@ -291,21 +313,25 @@ pub(crate) fn handle_live_hybrid_state_transition_smoke(
         Err(code) => return code,
     };
     if let Some(extra) = args.next() {
-        return emit_error(
+        return crate::fixture_io::emit_fixed_fixture_error(
             LIVE_HYBRID_STATE_TRANSITION_COMMAND,
             format,
             "live/hybrid state transition smoke failed",
             &cli_unknown_arg_error(LIVE_HYBRID_STATE_TRANSITION_COMMAND, &extra),
+            resources,
+            &pool,
         );
     }
     let report = match run_live_hybrid_state_transition_fixture() {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::fixture_io::emit_fixed_fixture_error(
                 LIVE_HYBRID_STATE_TRANSITION_COMMAND,
                 format,
                 "live/hybrid state transition smoke failed",
                 &error,
+                resources,
+                &pool,
             );
         }
     };
@@ -456,18 +482,29 @@ pub(crate) fn handle_distributed_local_fixture_run(
         Ok(workspace) => workspace,
         Err(code) => return code,
     };
-    let input = match parse_distributed_local_fixture_run_args(args, format) {
+    let input = match parse_distributed_local_fixture_run_args(args) {
         Ok(input) => input,
-        Err(exit_code) => return exit_code,
-    };
-    let report = match run_local_distributed_fixture(input) {
-        Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::fixture_io::emit_fixed_fixture_error(
                 DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
                 format,
                 DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
                 &error,
+                resources,
+                &pool,
+            );
+        }
+    };
+    let report = match run_local_distributed_fixture(input) {
+        Ok(report) => report,
+        Err(error) => {
+            return crate::fixture_io::emit_fixed_fixture_error(
+                DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
+                format,
+                DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
+                &error,
+                resources,
+                &pool,
             );
         }
     };
@@ -558,65 +595,43 @@ fn parse_engine_selection_args(
 
 fn parse_live_fixture_run_args(
     mut args: IntoIter<String>,
-    format: OutputFormat,
-) -> Result<LiveFixtureRunInput, ExitCode> {
+) -> shardloom_core::Result<LiveFixtureRunInput> {
     let operator = match args.next() {
-        Some(value) => parse_live_fixture_operator(&value, format)?,
+        Some(value) => parse_live_fixture_operator(&value)?,
         None => LiveFixtureOperator::Filter,
     };
     let argument = args.next();
     if let Some(extra) = args.next() {
-        return Err(emit_error(
-            LIVE_FIXTURE_RUN_COMMAND,
-            format,
-            LIVE_FIXTURE_RUN_SUMMARY,
-            &cli_unknown_arg_error(LIVE_FIXTURE_RUN_COMMAND, &extra),
-        ));
+        return Err(cli_unknown_arg_error(LIVE_FIXTURE_RUN_COMMAND, &extra));
     }
     LiveFixtureRunInput::new(operator)
         .with_argument(argument.as_deref())
         .map_err(|error| {
-            emit_error(
-                LIVE_FIXTURE_RUN_COMMAND,
-                format,
-                LIVE_FIXTURE_RUN_SUMMARY,
-                &ShardLoomError::InvalidOperation(format!(
-                    "{}; {LIVE_FIXTURE_RUN_USAGE}",
-                    error.message()
-                )),
-            )
+            ShardLoomError::InvalidOperation(format!(
+                "{}; {LIVE_FIXTURE_RUN_USAGE}",
+                error.message()
+            ))
         })
 }
 
 fn parse_hybrid_fixture_run_args(
     mut args: IntoIter<String>,
-    format: OutputFormat,
-) -> Result<HybridFixtureRunInput, ExitCode> {
+) -> shardloom_core::Result<HybridFixtureRunInput> {
     let operator = match args.next() {
-        Some(value) => parse_hybrid_fixture_operator(&value, format)?,
+        Some(value) => parse_hybrid_fixture_operator(&value)?,
         None => LiveFixtureOperator::Filter,
     };
     let argument = args.next();
     if let Some(extra) = args.next() {
-        return Err(emit_error(
-            HYBRID_FIXTURE_RUN_COMMAND,
-            format,
-            HYBRID_FIXTURE_RUN_SUMMARY,
-            &cli_unknown_arg_error(HYBRID_FIXTURE_RUN_COMMAND, &extra),
-        ));
+        return Err(cli_unknown_arg_error(HYBRID_FIXTURE_RUN_COMMAND, &extra));
     }
     HybridFixtureRunInput::new(operator)
         .with_argument(argument.as_deref())
         .map_err(|error| {
-            emit_error(
-                HYBRID_FIXTURE_RUN_COMMAND,
-                format,
-                HYBRID_FIXTURE_RUN_SUMMARY,
-                &ShardLoomError::InvalidOperation(format!(
-                    "{}; {HYBRID_FIXTURE_RUN_USAGE}",
-                    error.message()
-                )),
-            )
+            ShardLoomError::InvalidOperation(format!(
+                "{}; {HYBRID_FIXTURE_RUN_USAGE}",
+                error.message()
+            ))
         })
 }
 
@@ -645,87 +660,47 @@ fn parse_live_hybrid_durable_checkpoint_args(
 
 fn parse_distributed_local_fixture_run_args(
     mut args: IntoIter<String>,
-    format: OutputFormat,
-) -> Result<LocalDistributedFixtureRunInput, ExitCode> {
+) -> shardloom_core::Result<LocalDistributedFixtureRunInput> {
     let worker_count = match args.next() {
         Some(value) => value.parse::<usize>().map_err(|_| {
-            emit_error(
-                DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
-                format,
-                DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
-                &ShardLoomError::InvalidOperation(format!(
-                    "worker count must be a positive integer; {DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE}"
-                )),
-            )
+            ShardLoomError::InvalidOperation(format!(
+                "worker count must be a positive integer; {DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE}"
+            ))
         })?,
         None => 2,
     };
     let fault_mode = match args.next() {
         Some(value) => DistributedFixtureFaultMode::parse(&value).map_err(|error| {
-            emit_error(
-                DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
-                format,
-                DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
-                &ShardLoomError::InvalidOperation(format!(
-                    "{}; {DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE}",
-                    error.message()
-                )),
-            )
+            ShardLoomError::InvalidOperation(format!(
+                "{}; {DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE}",
+                error.message()
+            ))
         })?,
         None => DistributedFixtureFaultMode::None,
     };
     if let Some(extra) = args.next() {
-        return Err(emit_error(
+        return Err(cli_unknown_arg_error(
             DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
-            format,
-            DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
-            &cli_unknown_arg_error(DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND, &extra),
+            &extra,
         ));
     }
     LocalDistributedFixtureRunInput::new(worker_count, fault_mode).map_err(|error| {
-        emit_error(
-            DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
-            format,
-            DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
-            &ShardLoomError::InvalidOperation(format!(
-                "{}; {DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE}",
-                error.message()
-            )),
-        )
+        ShardLoomError::InvalidOperation(format!(
+            "{}; {DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE}",
+            error.message()
+        ))
     })
 }
 
-fn parse_live_fixture_operator(
-    value: &str,
-    format: OutputFormat,
-) -> Result<LiveFixtureOperator, ExitCode> {
+fn parse_live_fixture_operator(value: &str) -> shardloom_core::Result<LiveFixtureOperator> {
     LiveFixtureOperator::parse(value).map_err(|error| {
-        emit_error(
-            LIVE_FIXTURE_RUN_COMMAND,
-            format,
-            LIVE_FIXTURE_RUN_SUMMARY,
-            &ShardLoomError::InvalidOperation(format!(
-                "{}; {LIVE_FIXTURE_RUN_USAGE}",
-                error.message()
-            )),
-        )
+        ShardLoomError::InvalidOperation(format!("{}; {LIVE_FIXTURE_RUN_USAGE}", error.message()))
     })
 }
 
-fn parse_hybrid_fixture_operator(
-    value: &str,
-    format: OutputFormat,
-) -> Result<LiveFixtureOperator, ExitCode> {
+fn parse_hybrid_fixture_operator(value: &str) -> shardloom_core::Result<LiveFixtureOperator> {
     LiveFixtureOperator::parse(value).map_err(|error| {
-        emit_error(
-            HYBRID_FIXTURE_RUN_COMMAND,
-            format,
-            HYBRID_FIXTURE_RUN_SUMMARY,
-            &ShardLoomError::InvalidOperation(format!(
-                "{}; {HYBRID_FIXTURE_RUN_USAGE}",
-                error.message()
-            )),
-        )
+        ShardLoomError::InvalidOperation(format!("{}; {HYBRID_FIXTURE_RUN_USAGE}", error.message()))
     })
 }
 

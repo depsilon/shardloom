@@ -402,44 +402,48 @@ pub(crate) fn handle_spill_payload_roundtrip(
     let workspace_path = match SpillPayloadPath::new(workspace_path_text) {
         Ok(v) => v,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "spill-payload-roundtrip",
                 format,
                 "spill payload roundtrip failed",
                 &error,
+                spill_payload_resource_fields(Vec::new(), resources, &pool, Some((false, 0))),
             );
         }
     };
     let payload_id = match SpillPayloadId::new(payload_id_text) {
         Ok(v) => v,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "spill-payload-roundtrip",
                 format,
                 "spill payload roundtrip failed",
                 &error,
+                spill_payload_resource_fields(Vec::new(), resources, &pool, Some((false, 0))),
             );
         }
     };
     let payload = match SyntheticSpillPayload::from_text(payload_text) {
         Ok(v) => v,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "spill-payload-roundtrip",
                 format,
                 "spill payload roundtrip failed",
                 &error,
+                spill_payload_resource_fields(Vec::new(), resources, &pool, Some((false, 0))),
             );
         }
     };
     let payload_ref = match SpillPayloadRef::new(payload_id, "shardloom_cli_workspace") {
         Ok(v) => v,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "spill-payload-roundtrip",
                 format,
                 "spill payload roundtrip failed",
                 &error,
+                spill_payload_resource_fields(Vec::new(), resources, &pool, Some((false, 0))),
             );
         }
     };
@@ -1037,7 +1041,10 @@ fn emit_spill_payload_roundtrip(
             ],
             resources,
             pool,
-            Some(report),
+            Some((
+                report.payload_written() || report.payload_read(),
+                report.write_report.bytes_written,
+            )),
         ),
     );
     exit_for_errors(report.has_errors())
@@ -1047,7 +1054,7 @@ fn spill_payload_resource_fields(
     fields: Vec<(String, String)>,
     resources: shardloom_core::ExecutionResources,
     pool: &shardloom_exec::live_memory::LiveMemoryPool,
-    report: Option<&SpillPayloadRoundTripReport>,
+    spill_observation: Option<(bool, usize)>,
 ) -> Vec<(String, String)> {
     let mut fields = crate::fixture_io::with_observation_fields(fields, resources, pool);
     let snapshot = pool.snapshot();
@@ -1064,17 +1071,14 @@ fn spill_payload_resource_fields(
     fields.extend([
         (
             "execution_resource_observed_spill_io_performed".into(),
-            report.map_or_else(
+            spill_observation.map_or_else(
                 || "unavailable".into(),
-                |report| (report.payload_written() || report.payload_read()).to_string(),
+                |(performed, _)| performed.to_string(),
             ),
         ),
         (
             "execution_resource_observed_spill_bytes".into(),
-            report.map_or_else(
-                || "unavailable".into(),
-                |report| report.write_report.bytes_written.to_string(),
-            ),
+            spill_observation.map_or_else(|| "unavailable".into(), |(_, bytes)| bytes.to_string()),
         ),
         (
             "execution_resource_spill_observation_scope".into(),
