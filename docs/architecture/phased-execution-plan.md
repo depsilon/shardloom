@@ -368,6 +368,35 @@ the ledger.
   - Both units preserve all six remaining areas, eight investigations and
     CG-1 through CG-23 under their existing owners. Keep version 0.5.1 fixed.
 
+- [ ] `NATIVE-TIMESTAMP-PROVIDER` restore full-domain microsecond timestamp
+  compression and safe statistics through the existing native provider.
+  - V1 scope classification: `required_for_v1`.
+  - Existing owners: PERF-07/08/11/12 and CG-19/20/21.
+  - Source: the October 10–11 maintainer direction and the
+    [provider contract](native-timestamp-provider-2026-10-11.md).
+    The current writer preserves valid Int64 storage by omitting file-wide
+    min/max and leaving timestamp subtrees uncompressed. Provider limits are
+    implementation work, not a narrower supported timestamp domain.
+  - ShardLoom technique review: restore metadata-first pruning and use the
+    existing session, capillary demand and explicit compression concurrency;
+    preserve timing-surface and resource-observation boundaries.
+  - Execution checklist:
+    - [ ] Verify and correct the pinned scalar/calendar boundary with reviewed
+      provider provenance, endpoint construction/display and metadata tests.
+    - [ ] Restore exact field statistics and useful native compression across
+      writer compositions, retained streams and nested validity boundaries.
+    - [ ] Prove complete reopen/filter results, conservative pruning, resource
+      denial/lifetimes and paired complete writer costs on frozen sources.
+    - [ ] Complete required source/native/public/Full43 gates, support evidence,
+      hosted integration and ledger closeout.
+  - Non-goals: new temporal units or timezone semantics, an alternate engine,
+    package publication, hidden resource pools or changed allocation defaults.
+  - Acceptance: the existing full timestamp domain survives compression,
+    statistics and reopening; pruning never removes a matching value; file
+    statistics and measured writer costs have source-linked evidence.
+  - Keep `fallback_attempted=false`, `external_engine_invoked=false`, version
+    0.5.1, all six remaining areas, eight investigations and CG-1 through CG-23.
+
 `NATIVE-TYPED-INPUT` completed in PR #1540 after all 39 hosted checks passed;
 its accepted source, merge and production verification are recorded in the
 [completed ledger](phased-execution-completed-ledger.md).
