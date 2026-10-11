@@ -1505,6 +1505,11 @@ assert later.row_count == 2
                          str(snapshot["reserved_bytes"]))
         self.assertEqual(fields["execution_resource_observed_native_peak_reserved_bytes"],
                          str(snapshot["peak_reserved_bytes"]))
+        self.assertEqual(fields["execution_resource_observed_native_allocation_peak_reserved_bytes"],
+                         str(snapshot["allocation_peak_reserved_bytes"]))
+        self.assertLessEqual(snapshot["reserved_bytes"], snapshot["allocation_peak_reserved_bytes"])
+        self.assertLessEqual(snapshot["allocation_peak_reserved_bytes"], memory_bytes)
+        self.assertIn("current_allocation", fields["execution_resource_allocation_memory_observation_scope"])
         self.assertEqual(fields["execution_resource_observed_native_denied_reservations"],
                          str(snapshot["denied_reservations"]))
         self.assertIn("session_pool_lifetime", fields["execution_resource_memory_observation_scope"])

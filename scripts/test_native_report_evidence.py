@@ -8,11 +8,53 @@ from types import SimpleNamespace
 from run_native_unary_uat import require_unique_report_fields
 from native_report_evidence import (
     has_diagnostic_detail, require_native_pivot_spill, require_native_resource_admission,
-    require_relational_source_evidence,
+    require_native_allocation_peak, require_relational_source_evidence,
 )
 
 
 class NativeReportEvidenceTests(unittest.TestCase):
+    @staticmethod
+    def allocation_fields(budget=1 << 30, peak=1024):
+        return {
+            "execution_resource_admission_status": "admitted",
+            "execution_resource_declared_memory_bytes": str(budget),
+            "execution_resource_admitted_memory_bytes": str(budget),
+            "execution_resource_observed_native_reserved_bytes": "512",
+            "execution_resource_observed_native_allocation_peak_reserved_bytes": str(peak),
+            "execution_resource_observed_native_peak_reserved_bytes": str(peak),
+            "execution_resource_memory_observation_scope":
+                "session_pool_lifetime_including_preparation_and_retained_owners;"
+                "excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss",
+            "execution_resource_allocation_memory_observation_scope":
+                "current_allocation_including_preparation_and_retained_owners;"
+                "excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss",
+        }
+
+    def test_current_allocation_is_checked_without_bounding_a_larger_lifetime_peak(self):
+        fields = self.allocation_fields(1 << 30, 4096) | {
+            "execution_resource_observed_native_peak_reserved_bytes": "1076174900"}
+        self.assertEqual(require_native_allocation_peak(
+            "smaller grant", SimpleNamespace(field=fields.get), 1 << 30), 4096)
+        changes = [
+            {key: value}
+            for key in ("execution_resource_observed_native_reserved_bytes",
+                        "execution_resource_observed_native_allocation_peak_reserved_bytes",
+                        "execution_resource_observed_native_peak_reserved_bytes")
+            for value in (None, "", "-1", "1.5", "NaN", "١", str(1 << 64))
+        ] + [
+            {"execution_resource_observed_native_reserved_bytes": "4097"},
+            {"execution_resource_observed_native_allocation_peak_reserved_bytes": "1073741825"},
+            {"execution_resource_observed_native_peak_reserved_bytes": "4095"},
+            {"execution_resource_declared_memory_bytes": "4294967296"},
+            {"execution_resource_admitted_memory_bytes": "4294967296"},
+            {"execution_resource_admission_status": "not_observed"},
+            {"execution_resource_memory_observation_scope": "current_allocation"},
+            {"execution_resource_allocation_memory_observation_scope": "session_pool_lifetime"},
+        ]
+        for change in changes:
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                require_native_allocation_peak("test", SimpleNamespace(field=(fields | change).get), 1 << 30)
+
     def test_plan_sources_and_repeated_activity_are_separate_from_session_totals(self):
         fields = {
             "relational_prepared_file_source_count": "2",
@@ -129,19 +171,20 @@ class NativeReportEvidenceTests(unittest.TestCase):
         self.assertEqual(repr(raw), before)
 
     def test_collect_and_writers_share_the_admitted_native_resource_pool(self):
-        common = {"public_workflow_memory_gb": "1",
+        common = self.allocation_fields() | {"public_workflow_memory_gb": "1",
                   "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
                   "resident_provider_crate": "vortex"}
         for fields in [
             dict(common, public_workflow_route_id="native_vortex_relational_collect",
                  resident_peak_reserved_buffer_bytes="1024"),
-            dict(common, public_workflow_route_id="native_vortex_relational_write",
+            dict(common | self.allocation_fields(peak=1 << 30),
+                 public_workflow_route_id="native_vortex_relational_write",
                  resident_peak_reserved_buffer_bytes="1073741824"),
         ]:
             require_native_resource_admission("test", SimpleNamespace(field=fields.get))
 
     def test_native_array_writer_uses_its_session_allocator_evidence(self):
-        fields = {
+        fields = self.allocation_fields(peak=279803) | {
             "public_workflow_memory_gb": "1",
             "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
             "public_workflow_route_id": "native_vortex_primitive_row_export",
@@ -152,7 +195,9 @@ class NativeReportEvidenceTests(unittest.TestCase):
         }
         require_native_resource_admission("test", SimpleNamespace(field=fields.get))
         changes = [
-            {"native_vortex_array_sink_peak_reserved_bytes": value}
+            {key: value}
+            for key in ("native_vortex_array_sink_peak_reserved_bytes",
+                        "execution_resource_observed_native_allocation_peak_reserved_bytes")
             for value in [None, "", "-1", "1.5", "NaN", "١", "1073741825"]
         ] + [
             {"native_vortex_result_export_kind": "primitive_row_stream"},
@@ -165,7 +210,7 @@ class NativeReportEvidenceTests(unittest.TestCase):
                 require_native_resource_admission("test", SimpleNamespace(field=(fields | change).get))
 
     def test_conversion_resource_proof_uses_its_declared_budget_not_the_reported_one(self):
-        fields = {
+        fields = self.allocation_fields(budget=4 << 30, peak=4 << 30) | {
             "public_workflow_memory_gb": "4",
             "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
             "resident_provider_crate": "vortex",
@@ -175,17 +220,19 @@ class NativeReportEvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             require_native_resource_admission("test", SimpleNamespace(field=fields.get))
         for change in ({"public_workflow_memory_gb": "8"},
-                       {"resident_peak_reserved_buffer_bytes": "4294967297"}):
+                       {"execution_resource_observed_native_allocation_peak_reserved_bytes": "4294967297"}):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 require_native_resource_admission("test", SimpleNamespace(field=(fields | change).get), memory_gb=4)
 
     def test_native_resource_peak_never_accepts_missing_malformed_or_oversized_proof(self):
-        base = {"public_workflow_memory_gb": "1",
+        base = self.allocation_fields() | {"public_workflow_memory_gb": "1",
                 "public_workflow_native_vortex_plan_route_family": "native_vortex_unified_plan",
                 "resident_provider_crate": "vortex",
                 "resident_peak_reserved_buffer_bytes": "1024"}
         changes = [
-            {"resident_peak_reserved_buffer_bytes": value}
+            {key: value}
+            for key in ("resident_peak_reserved_buffer_bytes",
+                        "execution_resource_observed_native_allocation_peak_reserved_bytes")
             for value in [None, "", "-1", "1.5", "NaN", "١", "1073741825"]
         ] + [
             {"public_workflow_memory_gb": "2"},

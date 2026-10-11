@@ -138,6 +138,67 @@ fn retain_almost_all_memory(
 }
 
 #[test]
+fn smaller_command_allocation_reports_its_own_peak_and_keeps_lifetime_history() {
+    let owner = owner();
+    let token = CancellationToken::default();
+    let larger =
+        ExecutionResources::from_bytes(2 * MEMORY_BYTES, 1, ExecutionResourceOrigin::ExecutionCall)
+            .unwrap();
+    let controller = owner.controller(larger, &token).unwrap();
+    let retained = controller
+        .with_resources(larger, &token, |session, _| {
+            let mut retained = session.reserve_input_scratch(MEMORY_BYTES + 4096)?;
+            retained.resize(1024)?;
+            Ok(retained)
+        })
+        .unwrap();
+    for _ in 0..2 {
+        let result = envelope(
+            &command_json_in_owner(
+                run_primitive_args(&fixture_path(), "count", &[]),
+                &owner,
+                &token,
+            )
+            .unwrap(),
+        );
+        assert_eq!(result["status"], "success", "{result}");
+        assert_admitted_resources(&result);
+        assert_no_fallback(&result);
+        let peak = field(
+            &result,
+            "execution_resource_observed_native_allocation_peak_reserved_bytes",
+        )
+        .parse::<u64>()
+        .unwrap();
+        assert!((1024..=MEMORY_BYTES).contains(&peak));
+        assert_eq!(
+            field(
+                &result,
+                "execution_resource_observed_native_peak_reserved_bytes"
+            ),
+            (MEMORY_BYTES + 4096).to_string()
+        );
+        assert_eq!(
+            field(&result, "resident_peak_reserved_buffer_bytes"),
+            (MEMORY_BYTES + 4096).to_string()
+        );
+        assert_eq!(
+            field(
+                &result,
+                "execution_resource_allocation_memory_observation_scope"
+            ),
+            "current_allocation_including_preparation_and_retained_owners;excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss"
+        );
+        controller
+            .with_resources(resources(), &token, |session, _| {
+                assert!(session.shared_memory_pool().owns(&retained));
+                Ok(())
+            })
+            .unwrap();
+    }
+}
+
+#[test]
 fn cancelled_and_expired_public_run_commands_reject_missing_sources_before_open() {
     let owner = owner();
     let missing = std::env::temp_dir()

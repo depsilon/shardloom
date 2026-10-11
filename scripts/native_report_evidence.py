@@ -38,6 +38,38 @@ def require_relational_source_evidence(name, envelope, file_sources, *, previous
     return opens, executions
 
 
+def require_native_allocation_peak(name, envelope, budget):
+    """Verify this allocation's measured peak without discarding session history."""
+    required = {
+        "execution_resource_admission_status": "admitted",
+        "execution_resource_declared_memory_bytes": str(budget),
+        "execution_resource_admitted_memory_bytes": str(budget),
+        "execution_resource_memory_observation_scope":
+            "session_pool_lifetime_including_preparation_and_retained_owners;"
+            "excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss",
+        "execution_resource_allocation_memory_observation_scope":
+            "current_allocation_including_preparation_and_retained_owners;"
+            "excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss",
+    }
+    for key, expected in required.items():
+        if envelope.field(key) != expected:
+            raise ValueError(f"{name}: {key} differs from the declared allocation scope")
+    values = []
+    for suffix in ("reserved_bytes", "allocation_peak_reserved_bytes", "peak_reserved_bytes"):
+        key = f"execution_resource_observed_native_{suffix}"
+        value = envelope.field(key)
+        if not isinstance(value, str) or not value.isascii() or not value.isdecimal():
+            raise ValueError(f"{name}: missing or malformed reservation observation {key}")
+        number = int(value)
+        if number > (1 << 64) - 1:
+            raise ValueError(f"{name}: reservation observation exceeds the native integer domain {key}")
+        values.append(number)
+    live, allocation_peak, lifetime_peak = values
+    if not live <= allocation_peak <= lifetime_peak or allocation_peak > budget:
+        raise ValueError(f"{name}: shared native allocation admission differs")
+    return allocation_peak
+
+
 def require_native_resource_admission(name, envelope, *, memory_gb=1):
     """Check the caller's declared grant, never a budget inferred from the report."""
     budget = memory_gb << 30
@@ -58,12 +90,14 @@ def require_native_resource_admission(name, envelope, *, memory_gb=1):
     for key, expected in required.items():
         if envelope.field(key) != expected:
             raise ValueError(f"{name}: {key} differs from shared native admission")
-    # Both report owners snapshot the admitted producer session's allocator.
-    # Native array writers retain that measurement in their sink evidence.
+    # The shared owner may retain a larger lifetime peak from a prior grant.
+    # Both collect and array writers expose the current allocation separately.
+    require_native_allocation_peak(name, envelope, budget)
     peak = envelope.field(peak_key)
+    lifetime = int(envelope.field("execution_resource_observed_native_peak_reserved_bytes"))
     if (not isinstance(peak, str) or not peak.isascii() or not peak.isdecimal()
-            or int(peak) > budget):
-        raise ValueError(f"{name}: shared native resource admission differs")
+            or int(peak) > lifetime):
+        raise ValueError(f"{name}: native report peak differs from its shared session history")
 
 
 def require_native_pivot_spill(name, envelope, spill, workspace, *, stages=None):

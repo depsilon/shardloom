@@ -414,6 +414,46 @@ mod tests {
     }
 
     #[test]
+    fn complete_operation_peaks_preserve_retained_ownership_and_lifetime_history() {
+        let controller = ConfigurableResidentSession::new(resources(4096, 1)).unwrap();
+        let cancellation = CancellationToken::default();
+        let retained = controller
+            .with_resources(resources(4096, 1), &cancellation, |session, _| {
+                let mut retained = session.shared_memory_pool().reserve(3072)?;
+                retained.resize(256)?;
+                Ok(retained)
+            })
+            .unwrap();
+        let before = controller.snapshot().memory;
+        assert_eq!(before.allocation_peak_reserved_bytes, 3072);
+        assert!(controller.admit(resources(255, 1), &cancellation).is_err());
+        assert_eq!(controller.snapshot().memory, before);
+        for _ in 0..2 {
+            controller
+                .with_resources(resources(1024, 1), &cancellation, |session, _| {
+                    let pool = session.shared_memory_pool();
+                    assert!(pool.owns(&retained));
+                    assert_eq!(pool.snapshot().allocation_peak_reserved_bytes, 256);
+                    drop(pool.reserve(512)?);
+                    let observed = session.snapshot().memory;
+                    assert_eq!(observed.reserved_bytes, 256);
+                    assert_eq!(observed.allocation_peak_reserved_bytes, 768);
+                    assert_eq!(observed.peak_reserved_bytes, 3072);
+                    assert_eq!(observed.limit_bytes, 1024);
+                    Ok(())
+                })
+                .unwrap();
+            assert_eq!(
+                controller.snapshot().memory.allocation_peak_reserved_bytes,
+                768
+            );
+        }
+        drop(retained);
+        assert_eq!(controller.snapshot().memory.reserved_bytes, 0);
+        assert_eq!(controller.snapshot().memory.peak_reserved_bytes, 3072);
+    }
+
+    #[test]
     fn operation_resource_ceilings_and_per_field_origins_survive_overrides() {
         let limits = ExecutionResourceLimits::new(Some(4096), Some(4)).unwrap();
         let configured = ExecutionResources::from_declaration(
