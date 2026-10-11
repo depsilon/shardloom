@@ -13,6 +13,7 @@ use crate::resident_session::{
     NativeExecutionContext, PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
     segment_reuse::SegmentReusePolicy,
 };
+use shardloom_exec::compute_pool::CancellationToken;
 use std::fmt::Write as _;
 
 // Bound width-dependent validation/template vectors before cloning the request
@@ -92,7 +93,7 @@ impl ExecutedOwnedVortexAggregate {
 }
 
 #[cfg(feature = "vortex-write")]
-fn annotate_output_count(
+pub(super) fn annotate_output_count(
     report: &mut super::VortexLocalPrimitiveRowExportReport,
     request: &VortexQueryPrimitiveRequest,
 ) {
@@ -195,9 +196,27 @@ impl UnretainedVortexAggregate {
         );
         Ok(executed)
     }
+
+    /// Execute an unretained lowering under the caller's operation token.
+    /// # Errors
+    /// Rejects cancellation, changed inputs, resource pressure and native errors.
+    pub fn execute_cancellable(
+        self,
+        cancellation: &CancellationToken,
+    ) -> Result<ExecutedVortexAggregate> {
+        let cancellation = self.0.operation_cancellation(cancellation)?;
+        let mut executed = self
+            .0
+            .session
+            .with_owned_execution(&cancellation, |context| self.0.execute_in_context(context))?;
+        executed.native_io_certificate.source_pushdown_report.proof_basis.push_str(
+            ";aggregate_preparation_disposition=unretained_source;aggregate_lowering_reused=false;aggregate_state_reused=false;no_query_answer_cache=true;independent_oracle_not_run",
+        );
+        Ok(executed)
+    }
 }
 
-fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
+pub(super) fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
     if request.kind != VortexQueryPrimitiveKind::SimpleAggregate
         || request.diagnostics.iter().any(|diagnostic| {
             matches!(
@@ -313,7 +332,33 @@ pub fn prepare_aggregate_for_optional_reuse(
     }
     validate_policy(policy)?;
     let session = aggregate_session(request, policy)?;
-    let operation = prepare_candidate_in_session(request, policy, &session)?;
+    prepare_aggregate_for_optional_reuse_in_session(
+        request,
+        policy,
+        &session,
+        &CancellationToken::default(),
+    )
+}
+
+/// Prepare an optional retained aggregate using the caller's native session and
+/// cancellation/deadline token. Canonically inadmissible requests return `None`
+/// before the source is opened; admitted aggregates retain the reusable lowering.
+///
+/// # Errors
+/// Rejects cancellation, invalid resource grants, unreadable or changed sources,
+/// and invalid native lowering. Admission failures never retry through another path.
+pub fn prepare_aggregate_for_optional_reuse_in_session(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<Option<PreparedAggregateDisposition>> {
+    if canonical(request).is_err() {
+        return Ok(None);
+    }
+    validate_policy(policy)?;
+    cancellation.check()?;
+    let operation = prepare_candidate_in_session(request, policy, session, cancellation)?;
     Ok(Some(PreparedAggregateDisposition::Reusable(operation)))
 }
 
@@ -321,8 +366,13 @@ pub(super) fn aggregate_session(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<ResidentVortexSession> {
+    // Unary/sort preparation also shares this runtime-owner constructor. Only
+    // an actual aggregate payload has an aggregate-state admission requirement.
+    if let Some(aggregate) = &request.simple_aggregate {
+        super::admit_aggregate_state_policy(aggregate, policy.resource_envelope())?;
+    }
     let (effective, _) = policy.with_physical_policy_for_request(request);
-    if external_workers(request) {
+    if external_workers(request, effective.resource_envelope()) {
         ResidentVortexSession::for_external_cpu_pool(
             effective.resource_envelope.memory_budget_bytes,
             effective.resource_envelope.max_parallelism,
@@ -335,7 +385,10 @@ pub(super) fn aggregate_session(
     }
 }
 
-fn external_workers(request: &VortexQueryPrimitiveRequest) -> bool {
+fn external_workers(
+    request: &VortexQueryPrimitiveRequest,
+    envelope: super::VortexLocalPrimitiveResourceEnvelope,
+) -> bool {
     #[cfg(feature = "vortex-write")]
     if request
         .simple_aggregate
@@ -344,7 +397,7 @@ fn external_workers(request: &VortexQueryPrimitiveRequest) -> bool {
     {
         return super::weighted_count_spill_query::worker_request_admitted(request);
     }
-    aggregate_count_workers::request_may_be_admitted(request)
+    aggregate_count_workers::request_may_be_admitted(request, envelope)
 }
 
 /// Prepare in an existing session without opening another runtime. If that
@@ -357,30 +410,51 @@ pub fn prepare_aggregate_in_session(
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexAggregate> {
-    prepare_candidate_in_session(request, policy, session)
+    prepare_aggregate_in_session_controlled(request, policy, session, &CancellationToken::default())
+}
+
+/// Prepare in the existing native session under the caller's cancellation and
+/// deadline token. The source, provider drivers, and memory pool are reused.
+///
+/// # Errors
+/// Rejects cancellation, a wider supplied session, unsupported native shape,
+/// source changes, and native lowering or resource-admission failures.
+pub fn prepare_aggregate_in_session_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexAggregate> {
+    prepare_candidate_in_session(request, policy, session, cancellation)
 }
 
 fn prepare_candidate_in_session(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
 ) -> Result<PreparedVortexAggregate> {
+    cancellation.check()?;
     let (policy, physical_policy) = prepared_policy(request, policy, session)?;
+    cancellation.check()?;
     let uri = request
         .source_uri
         .as_ref()
         .ok_or_else(|| failed("source URI is required"))?;
     let path = local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("requires one local Vortex file"))?;
-    let source = session.prepare_file(path)?;
-    prepare_bound_aggregate(
+    let source = session.prepare_file_with_cancellation(path, cancellation)?;
+    cancellation.check()?;
+    let prepared = prepare_bound_aggregate(
         request,
         policy,
         physical_policy,
         session,
         PreparedAggregateSource::File(source),
         None,
-    )
+    )?;
+    cancellation.check()?;
+    Ok(prepared)
 }
 
 /// Bind the optimized aggregate to an existing source without reopening it.
@@ -413,6 +487,10 @@ fn prepared_policy(
 )> {
     canonical(request)?;
     validate_policy(policy)?;
+    super::admit_aggregate_state_policy(
+        required_simple_aggregate(request)?,
+        policy.resource_envelope(),
+    )?;
     let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     let snapshot = session.snapshot();
     if snapshot.memory.limit_bytes > policy.resource_envelope.memory_budget_bytes {
@@ -497,17 +575,21 @@ fn prepare_bound_aggregate(
     let (policy, physical_policy) = cap_session_cpu(policy, physical_policy, parallelism);
     #[cfg(feature = "vortex-write")]
     if required_simple_aggregate(request)?.spill.is_some() {
-        spill::validate_schema(request, source.dtype())?;
+        spill::validate_schema(request, source.dtype(), policy.resource_envelope())?;
     }
-    let lowering = AggregateLowering::new(request, source.dtype())?;
+    let lowering = AggregateLowering::new(request, source.dtype(), policy.resource_envelope())?;
     // Validate measure aliases/functions without retaining any aggregate state.
     drop(SimpleAggregateStates::new(
         &lowering.rewrite.aggregate,
         &lowering.plan.projected_columns,
     )?);
     let worker_pool = snapshot.provider_background_workers == 0
-        && external_workers(request)
-        && !aggregate_count_workers::restore_provider_drivers(request, source.dtype());
+        && external_workers(request, policy.resource_envelope())
+        && !aggregate_count_workers::restore_provider_drivers(
+            request,
+            source.dtype(),
+            policy.resource_envelope(),
+        );
     let temporary_provider_drivers =
         snapshot.provider_background_workers == 0 && parallelism > 1 && !worker_pool;
     let reuse = match &source {
@@ -1076,6 +1158,37 @@ impl PreparedVortexAggregate {
         let execution = self.certify(&scan)?;
         let (array, ownership) = output.into_array()?;
         let result = self.session.own_completed_array(array, ownership)?;
+        Ok(ExecutedOwnedVortexAggregate {
+            execution,
+            result,
+            #[cfg(feature = "vortex-write")]
+            request: self.request.clone(),
+            #[cfg(feature = "vortex-write")]
+            policy: self.policy,
+        })
+    }
+
+    /// Retain the complete native aggregate output under the shared allocation.
+    /// Uses the same batch finalizer and optional native spill as streaming
+    /// delivery, without a separate row or serialized-result size ceiling.
+    /// # Errors
+    /// Rejects unsupported requests, changed sources, pressure or cancellation.
+    /// Failed execution releases every partial result and its retained credits.
+    pub fn execute_native_result(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<ExecutedOwnedVortexAggregate> {
+        cancellation.check()?;
+        let mut arrays = super::native_capacity::ReservedVec::new(self.session.memory())?;
+        let mut execution = self.for_each_batch(cancellation, |array, context| {
+            context.check_cancelled()?;
+            arrays.push(array)
+        })?;
+        cancellation.check()?;
+        let (arrays, ownership) = arrays.into_parts();
+        let result = self.session.own_completed_arrays(arrays, ownership)?;
+        cancellation.check()?;
+        execution.runtime = self.snapshot();
         Ok(ExecutedOwnedVortexAggregate {
             execution,
             result,

@@ -164,7 +164,7 @@ request = read()
             for n in range(2):
                 consumed.append(n)
                 yield [{"n": n}]
-        iterator = from_batches(producer(), schema={"n": "int64"}, streaming=True, client=client).iter_batches()
+        iterator = from_batches(producer(), schema={"n": "int64"}, streaming=True, client=client).iter_batches(memory_gb=4, max_parallelism=2)
         self.addCleanup(iterator.close)
         self.assertEqual(consumed, [])
         self.assertEqual(next(iterator).result_rows, ({"n": 0},))
@@ -203,7 +203,7 @@ request = read()
                 consumed.append(n)
                 yield [{"n": n}]
         frame = from_batches(producer(), schema={"n": "int64"}, client=client)
-        iterator = frame.iter_batches()
+        iterator = frame.iter_batches(memory_gb=4, max_parallelism=2)
         self.addCleanup(iterator.close)
         self.assertEqual(consumed, [])
         result = list(iterator)

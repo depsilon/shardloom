@@ -25,6 +25,7 @@ fn worker_retains_wide_and_derived_aggregates_through_complete_public_calls() {
         completed(
             &worker.aggregate(&path, &aggregate, None, None, "1", "2"),
             &Value::Object(expected.clone()),
+            "1",
             &execution.to_string(),
             execution == 1,
         );
@@ -37,7 +38,8 @@ fn worker_retains_wide_and_derived_aggregates_through_complete_public_calls() {
         completed(
             &worker.aggregate(&path, &aggregate, None, Some("2"), "1", "2"),
             &json!([{"value":5,"prior":4,"frequency":1},{"value":4,"prior":3,"frequency":1}]),
-            &execution.to_string(),
+            "2",
+            &(execution + 3).to_string(),
             execution == 1,
         );
     }
@@ -60,12 +62,14 @@ fn worker_retains_explicit_spill_source_and_rebinds_changed_resource_policy() {
     let source = root.join("source.vortex");
     std::fs::copy(fixture(), &source).unwrap();
     let mut worker = Worker::new();
-    for memory in [4 << 20, 8 << 20] {
+    for (generation, memory) in [4 << 20, 8 << 20].into_iter().enumerate() {
         let aggregate = json!({"group_by":["value"],
             "measures":[{"function":"count_distinct","column":"metric","alias":"frequency"}],
             "order_by":[{"column":"frequency","descending":true},{"column":"value","descending":false}],
             "offset":1, "spill":{"workspace":workspace,"quota_bytes":64 << 20,"memory_bytes":memory}}).to_string();
         for execution in 1..=3 {
+            let open_count = generation + 1;
+            let completion_count = generation * 3 + execution;
             let result = worker.aggregate(&source, &aggregate, None, Some("2"), "1", "2");
             assert_eq!(result["status"], "success", "{result}");
             assert_eq!(
@@ -74,10 +78,13 @@ fn worker_retains_explicit_spill_source_and_rebinds_changed_resource_policy() {
                     {"value":2,"frequency":1}, {"value":3,"frequency":1}
                 ])
             );
-            assert_eq!(field(&result, "resident_source_opens"), "1");
+            assert_eq!(
+                field(&result, "resident_source_opens"),
+                open_count.to_string()
+            );
             assert_eq!(
                 field(&result, "resident_completed_executions"),
-                execution.to_string()
+                completion_count.to_string()
             );
             assert_eq!(field(&result, "resident_aggregate_handle_retained"), "true");
             assert_eq!(

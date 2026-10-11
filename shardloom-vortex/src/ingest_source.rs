@@ -28,16 +28,34 @@ pub(crate) struct IngestSourceReader {
     tasks: VecDeque<SourceTask>,
     window: usize,
     cancellation: CancellationToken,
+    finished: bool,
 }
 
 impl IngestSourceReader {
     pub(crate) const QUEUED_BATCHES: usize = 2;
 
+    #[cfg(test)]
     pub(crate) fn new(
         schema: SchemaRef,
         runtime: IngestRuntime,
         factories: Vec<ReaderFactory>,
         window: usize,
+    ) -> Self {
+        Self::new_controlled(
+            schema,
+            runtime,
+            factories,
+            window,
+            &CancellationToken::default(),
+        )
+    }
+
+    pub(crate) fn new_controlled(
+        schema: SchemaRef,
+        runtime: IngestRuntime,
+        factories: Vec<ReaderFactory>,
+        window: usize,
+        cancellation: &CancellationToken,
     ) -> Self {
         let window = window.max(1).min(runtime.parallelism());
         let mut reader = Self {
@@ -46,7 +64,11 @@ impl IngestSourceReader {
             factories: factories.into(),
             tasks: VecDeque::new(),
             window,
-            cancellation: CancellationToken::default(),
+            cancellation: CancellationToken::from_shared_flag_with_parent(
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                cancellation,
+            ),
+            finished: false,
         };
         reader.fill_window();
         reader
@@ -100,6 +122,7 @@ impl IngestSourceReader {
     }
 
     fn close_and_drain(&mut self) {
+        self.finished = true;
         self.cancellation.cancel();
         self.factories.clear();
         // Disconnect every result queue before joining any producer, including
@@ -122,10 +145,23 @@ impl Iterator for IngestSourceReader {
     type Item = Batch;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
         loop {
+            if let Err(error) = self.cancellation.check() {
+                self.close_and_drain();
+                return Some(Err(ArrowError::ExternalError(Box::new(error))));
+            }
             let task = self.tasks.front_mut()?;
             match self.runtime.runtime().block_on(task.receiver.next()) {
-                Some(Ok(batch)) => return Some(Ok(batch)),
+                Some(Ok(batch)) => {
+                    if let Err(error) = self.cancellation.check() {
+                        self.close_and_drain();
+                        return Some(Err(ArrowError::ExternalError(Box::new(error))));
+                    }
+                    return Some(Ok(batch));
+                }
                 Some(Err(error)) => {
                     self.close_and_drain();
                     return Some(Err(error));

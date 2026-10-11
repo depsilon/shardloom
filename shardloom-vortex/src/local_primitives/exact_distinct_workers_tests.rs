@@ -55,7 +55,8 @@ fn exact_distinct_order_admission_matches_native_integer_ties_and_rejects_other_
     let columns = vec!["cohort_alias".into(), "member_alias".into()];
     let chunk = chunk(&[-7, 2, -7, 2], &[u64::MAX, 1, u64::MAX - 1, 2]);
     let session = VortexSession::default();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     for (secondary, admitted) in [
         (None, true),
         (
@@ -82,7 +83,12 @@ fn exact_distinct_order_admission_matches_native_integer_ties_and_rejects_other_
         .with_source_order_limit(2);
         assert_eq!(super::request_may_be_admitted(&query), admitted);
         assert_eq!(
-            super::request_schema_may_be_admitted(&query, chunk.dtype()),
+            super::request_schema_may_be_admitted(
+                &query,
+                chunk.dtype(),
+                crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+                    .expect("explicit fixture allocation")
+            ),
             admitted
         );
         let states = GroupedAggregateStates::new_with_resource_envelope(
@@ -140,7 +146,8 @@ fn exact_distinct_workers_renamed_reordered_complete_values_and_exact_pressure_s
             let columns = vec!["cohort_alias".into(), "member_alias".into()];
             let memory = LiveMemoryPool::new(4 << 20).unwrap();
             let session = VortexSession::default();
-            let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+            let mut policy =
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
             policy.resource_envelope.group_state_soft_item_budget = pair_limit;
             let mut states = GroupedAggregateStates::new_with_resource_envelope(
                 &request,
@@ -262,7 +269,7 @@ fn exact_distinct_workers_retry_untouched_arrays_once_and_never_retry_corruption
             &states,
             chunks[0].dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
             &session,
             &memory,
         )
@@ -356,7 +363,7 @@ fn exact_distinct_workers_native_dictionary_domain_and_cancel_ownership() {
         &states,
         chunks[0].dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         &session,
         &memory,
     )
@@ -377,7 +384,7 @@ fn exact_distinct_workers_native_dictionary_domain_and_cancel_ownership() {
         &states,
         chunks[0].dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         &session,
         &memory,
     )
@@ -421,7 +428,7 @@ fn exact_distinct_workers_reject_nullable_parent_children_and_mixed_measures_bef
                 &states,
                 input.dtype(),
                 &columns,
-                VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
                 &session,
                 &memory
             )
@@ -444,7 +451,7 @@ fn exact_distinct_workers_reject_nullable_parent_children_and_mixed_measures_bef
             &states,
             input.dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
             &session,
             &memory
         )
@@ -468,7 +475,7 @@ fn exact_distinct_dispatch_installs_explicit_final_counts_with_owned_result_life
         &states,
         array.dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         &session,
         &memory,
     )
@@ -519,7 +526,7 @@ fn exact_distinct_eof_initial_reservation_denial_preserves_all_pairs_for_exact_h
         &states,
         array.dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
         &session,
         &memory,
     )
@@ -564,7 +571,7 @@ fn exact_distinct_empty_input_and_empty_batches_finalize_without_fake_sets() {
             &states,
             array.dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
             &session,
             &memory,
         )

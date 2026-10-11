@@ -191,6 +191,7 @@ fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_s
                 crate::universal_format_io::with_capillary_prefetch_columnar_stream_source(
                     source, grant,
                 )
+                .unwrap()
             } else {
                 source
             };
@@ -199,8 +200,17 @@ fn ingest_cpu_grants_preserve_native_values_across_parquet_and_single_prefetch_s
             let path = root.0.join(format!(
                 "grant-{iteration}-{grant}-prefetch-{single_prefetch}.vortex"
             ));
-            let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-                .shared_native_memory_budget_bytes(memory);
+            let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+                &path,
+                source,
+                shardloom_core::ExecutionResources::from_bytes(
+                    memory,
+                    grant,
+                    shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                )
+                .expect("explicit fixture allocation"),
+            )
+            .shared_native_memory_budget_bytes(memory);
             let report = write_flat_columnar_vortex_prepared_state_streaming(request).unwrap();
             let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::shared(grant, applied).unwrap();
             let design = &report.writer_physical_design;
@@ -260,9 +270,18 @@ fn parallel_codec_writer_preserves_complete_values_and_admitted_owners_across_gr
         advice.writer_compression_candidate_fields = vec!["renamed_text".to_string()];
         let path = root.0.join(format!("parallel-codec-{grant}.vortex"));
         let report = write_flat_columnar_vortex_prepared_state_streaming(
-            VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-                .layout_write_advisor(evaluate_vortex_layout_write_advisor(advice))
-                .shared_native_memory_budget_bytes(32 << 20),
+            VortexPreparedStateColumnarStreamWriteRequest::new(
+                &path,
+                source,
+                shardloom_core::ExecutionResources::from_bytes(
+                    32 << 20,
+                    grant,
+                    shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                )
+                .expect("explicit fixture allocation"),
+            )
+            .layout_write_advisor(evaluate_vortex_layout_write_advisor(advice))
+            .shared_native_memory_budget_bytes(32 << 20),
         )
         .unwrap();
         let lanes = crate::ingest_cpu_lanes::IngestCpuLanes::shared(grant, applied).unwrap();
@@ -323,12 +342,22 @@ fn narrower_request_never_silently_reuses_an_oversized_source_grant() {
     )
     .unwrap();
     let source =
-        crate::universal_format_io::with_capillary_prefetch_columnar_stream_source(source, 1);
+        crate::universal_format_io::with_capillary_prefetch_columnar_stream_source(source, 1)
+            .unwrap();
     assert_eq!(source.ingest_executor_requested_parallelism, 1);
     assert_eq!(source.ingest_executor_applied_parallelism, 1);
     let path = root.0.join("denied.vortex");
     let error = write_flat_columnar_vortex_prepared_state_streaming(
-        VortexPreparedStateColumnarStreamWriteRequest::new(&path, source),
+        VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                1,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        ),
     )
     .unwrap_err();
     assert!(

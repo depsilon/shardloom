@@ -8,16 +8,16 @@ use super::{
 };
 use futures::FutureExt as _;
 use shardloom_core::Result;
-use shardloom_exec::compute_pool::CancellationToken;
+use shardloom_exec::{compute_pool::CancellationToken, live_memory::MemoryLease};
 use std::{
     borrow::Cow,
-    sync::{Arc, MutexGuard, OnceLock},
+    sync::{Arc, Mutex, MutexGuard, OnceLock},
     time::{Duration, Instant},
 };
 use vortex::{
     error::{SharedVortexResult, vortex_err},
     file::{
-        SegmentSpec, VortexFile,
+        OpenOptionsSessionExt as _, SegmentSpec, VortexFile,
         segments::{FileSegmentSource, RequestMetrics},
     },
     io::runtime::BlockingRuntime as _,
@@ -49,6 +49,14 @@ pub struct NativeExecutionContext<'a> {
     io: OnceLock<Arc<IoScope>>,
     admitted: Instant,
     gate: Gate<'a>,
+    opened_sources: Mutex<OpenedSources>,
+}
+
+#[derive(Default)]
+struct OpenedSources {
+    // Held descriptors and their control credits survive all native reads.
+    values: Vec<(Arc<SourceIdentity>, MemoryLease)>,
+    capacity: Option<MemoryLease>,
 }
 
 impl RuntimeOwner {
@@ -85,6 +93,7 @@ impl RuntimeOwner {
             io: io.map_or_else(OnceLock::new, OnceLock::from),
             admitted,
             gate,
+            opened_sources: Mutex::new(OpenedSources::default()),
         })
     }
 }
@@ -107,7 +116,7 @@ impl NativeExecutionContext<'_> {
         match &self.gate {
             Gate::Exclusive(guard, _) => {
                 let () = &**guard;
-                self.owner.parallelism
+                self.owner.cpu_limit()
             }
             Gate::Serving(permit) => permit.lanes,
         }
@@ -169,15 +178,111 @@ impl NativeExecutionContext<'_> {
         }
     }
 
-    pub(super) fn file_view<'a>(
+    /// Synchronous primitive adapters can open another file under this same
+    /// operation. Its generation stays held until the final I/O drain, without
+    /// retaining every file's decoded footer or creating a second runtime.
+    pub(crate) async fn open_local_file(
         &self,
-        file: &'a VortexFile,
-        identity: Option<&Arc<SourceIdentity>>,
-    ) -> Result<Cow<'a, VortexFile>> {
-        let Some(identity) = identity else {
-            return Ok(Cow::Borrowed(file));
+        path: &std::path::Path,
+    ) -> vortex::error::VortexResult<VortexFile> {
+        let core = || -> Result<Arc<SourceIdentity>> {
+            self.check_general_execution()?;
+            // A conservative control estimate, distinct from provider buffer
+            // accounting. Reserve before opening or copying the local pathname.
+            let bytes = u64::try_from(path.as_os_str().len())
+                .ok()
+                .and_then(|bytes| bytes.checked_mul(2))
+                .and_then(|bytes| bytes.checked_add(4096))
+                .ok_or_else(|| resident_error("source identity capacity overflow"))?;
+            let ownership = self.owner.memory.reserve(bytes)?;
+            let mut sources = self
+                .opened_sources
+                .lock()
+                .map_err(|_| resident_error("source generation ownership poisoned"))?;
+            let OpenedSources { values, capacity } = &mut *sources;
+            if values.len() == values.capacity() {
+                let target = values
+                    .capacity()
+                    .max(4)
+                    .checked_mul(2)
+                    .ok_or_else(|| resident_error("source generation capacity overflow"))?;
+                let bytes = target
+                    .checked_mul(std::mem::size_of::<(Arc<SourceIdentity>, MemoryLease)>())
+                    .and_then(|bytes| u64::try_from(bytes).ok())
+                    .ok_or_else(|| resident_error("source generation capacity overflow"))?;
+                let credit = capacity.get_or_insert(self.owner.memory.reserve(0)?);
+                credit.resize(
+                    credit
+                        .bytes()
+                        .checked_add(bytes)
+                        .ok_or_else(|| resident_error("source generation capacity overflow"))?,
+                )?;
+                values
+                    .try_reserve_exact(target - values.len())
+                    .map_err(|error| resident_error(&error.to_string()))?;
+                if values.capacity() > target {
+                    return Err(resident_error(
+                        "source generation allocation exceeded admission",
+                    ));
+                }
+                credit.resize(bytes)?;
+            }
+            self.check_cancelled()?;
+            let identity = Arc::new(SourceIdentity::capture(path)?);
+            values.push((Arc::clone(&identity), ownership));
+            Ok(identity)
         };
-        self.check_general_execution()?;
+        let identity = core().map_err(|error| vortex_err!("{error}"))?;
+        let scope = self
+            .file_io_scope()
+            .map_err(|error| vortex_err!("{error}"))?;
+        // Opening creates a provider read driver even for a footer-only count.
+        // Track that driver's destruction before replacing its segment source;
+        // the operation cannot return while it still owns the shared grant.
+        let input = Arc::new(super::ResidentFileReadAt {
+            identity: Arc::clone(&identity),
+            allocator: self.owner.session.allocator(),
+            handle: self.owner.runtime.handle(),
+            concurrency: self.cpu_lanes(),
+            scope: Some(Arc::clone(scope)),
+            reader_owner: Some(
+                scope
+                    .retain_reader(&self.owner.memory)
+                    .map_err(|error| vortex_err!("{error}"))?,
+            ),
+        });
+        let file = self
+            .owner
+            .session
+            .open_options()
+            .with_layout_reader_cache()
+            .open(input)
+            .await?;
+        self.check_cancelled()
+            .map_err(|error| vortex_err!("{error}"))?;
+        identity
+            .validate()
+            .map_err(|error| vortex_err!("{error}"))?;
+        self.file_view(&file, Some(&identity))
+            .map(Cow::into_owned)
+            .map_err(|error| vortex_err!("{error}"))
+    }
+
+    pub(crate) fn finish_opened_sources(&self) -> Result<()> {
+        self.drain_io();
+        self.check_cancelled()?;
+        let sources = self
+            .opened_sources
+            .lock()
+            .map_err(|_| resident_error("source generation ownership poisoned"))?;
+        for (identity, _) in &sources.values {
+            self.check_cancelled()?;
+            identity.validate()?;
+        }
+        Ok(())
+    }
+
+    fn file_io_scope(&self) -> Result<&Arc<IoScope>> {
         if self.io.get().is_none() {
             // Ordinary calls need the same cancellation/drain boundary as
             // serving calls. Allocate it only for file execution: metadata and
@@ -192,10 +297,21 @@ impl NativeExecutionContext<'_> {
             let scope = IoScope::deferred(budget, &self.owner.memory, self.cancellation.clone())?;
             let _ = self.io.set(scope);
         }
-        let scope = self
-            .io
+        self.io
             .get()
-            .ok_or_else(|| resident_error("native file execution has no I/O owner"))?;
+            .ok_or_else(|| resident_error("native file execution has no I/O owner"))
+    }
+
+    pub(super) fn file_view<'a>(
+        &self,
+        file: &'a VortexFile,
+        identity: Option<&Arc<SourceIdentity>>,
+    ) -> Result<Cow<'a, VortexFile>> {
+        let Some(identity) = identity else {
+            return Ok(Cow::Borrowed(file));
+        };
+        self.check_general_execution()?;
+        let scope = self.file_io_scope()?;
         // Keep the held descriptor, parsed footer and user metadata. A fresh
         // provider reader tree gives this operation an exact I/O lifetime; it
         // does not reopen the file or cache an answer. Batch readers are unchanged.
@@ -205,7 +321,7 @@ impl NativeExecutionContext<'_> {
             handle: self.owner.runtime.handle(),
             concurrency: self.cpu_lanes(),
             scope: Some(Arc::clone(scope)),
-            _reader_owner: None,
+            reader_owner: None,
         };
         let source = DeferredFileSegments {
             segments: Arc::clone(file.footer().segment_map()),
@@ -240,7 +356,7 @@ impl SegmentSource for DeferredFileSegments {
     fn request(&self, id: SegmentId) -> SegmentFuture {
         let source = self.source.get_or_init(|| {
             let reader = super::ResidentFileReadAt {
-                _reader_owner: Some(
+                reader_owner: Some(
                     self.scope
                         .retain_reader(&self.memory)
                         .map_err(|error| Arc::new(vortex_err!("{error}")))?,

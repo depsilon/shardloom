@@ -15,6 +15,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run ShardLoom's local Python smoke.")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--shardloom-bin")
+    parser.add_argument("--memory-gb", type=int, required=True, help="Caller allocation in GiB.")
+    parser.add_argument("--max-parallelism", type=int, required=True, help="Caller execution-lane ceiling.")
     return parser.parse_args(argv)
 
 
@@ -31,7 +33,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.shardloom_bin
         else ShardLoomClient.from_repo(repo_root)
     )
-    ctx = sl.context(client=client)
+    ctx = sl.context(client=client, memory_gb=args.memory_gb, max_parallelism=args.max_parallelism)
     status = client.status()
     smoke = client.smoke_check()
     capabilities = client.capabilities()
@@ -95,7 +97,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     generated_native_plan_family = generated.envelope.field(
         "public_workflow_native_vortex_plan_route_family"
     )
-    generated_source_opens = generated.envelope.field_int("resident_source_opens")
+    generated_session_source_opens = generated.envelope.field_int("resident_source_opens")
+    # Both operations retain the same native runtime. Its opening counter is
+    # cumulative, so memory input must add zero file opens after the CSV read.
+    generated_source_opens = (
+        generated_session_source_opens - local_file_source_opens
+        if generated_session_source_opens is not None and local_file_source_opens is not None
+        else None
+    )
     local_file_route_passed = (
         local_file_blocker_id is None
         and local_file_runtime_execution

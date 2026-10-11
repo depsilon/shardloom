@@ -31,11 +31,9 @@ from .models import (
     OutputEnvelope,
     RuntimeActivationSummary,
 )
-from .runtime_defaults import (
-    DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
-    DEFAULT_INTERNAL_SMOKE_MEMORY_GB,
-    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-    DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+from .execution_resources import (
+    ExecutionResourceLimits, ExecutionResources, optional_resources, merge_resource_limits,
+    resolve_resources, resource_command_args,
 )
 
 CommandPart = Union[str, os.PathLike[str]]
@@ -6414,19 +6412,72 @@ class ShardLoomClient:
         profile_order: Sequence[str] = DEFAULT_PROFILE_ORDER,
         timeout: float | None = None,
         use_persistent_worker: bool | None = None,
+        transport: str = "subprocess",
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
+        resource_limits: ExecutionResourceLimits | None = None,
     ) -> None:
+        from ._native_backend import normalize_transport, validate_timeout
+        self._transport = normalize_transport(transport)
+        if self._transport == "native" and use_persistent_worker is True:
+            raise ValueError("a persistent subprocess worker cannot use transport='native'")
+        self._native_backend = None
+        self._native_backend_lock = threading.Lock()
+        self._native_closed = False
+        self._resources = optional_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, limits=resource_limits,
+        )
+        self._resource_limits = merge_resource_limits(
+            resource_limits, self._resources.limits if self._resources is not None else None,
+        )
         self._binary = binary
         self._env = dict(env) if env is not None else None
         self._cwd = Path(cwd) if cwd is not None else None
         self._repo_root = Path(repo_root) if repo_root is not None else None
         self._profile_order = tuple(profile_order)
-        self._timeout = timeout
+        self._timeout = validate_timeout(timeout) if self._transport == "native" else timeout
         self._resolved_binary_cache: Binary | None = None
         self._use_persistent_worker = use_persistent_worker
         self._worker_process: subprocess.Popen[str] | None = None
         self._worker_stdout_buffer = b""
         self._worker_disabled = False
         self._worker_lock = threading.Lock()
+
+    @property
+    def resources(self) -> ExecutionResources | None:
+        """Return this client's explicit allocation, independent of its transport."""
+
+        return self._resources
+
+    @property
+    def resource_limits(self) -> ExecutionResourceLimits | None:
+        """Return explicit ceilings, including when no job grant is configured."""
+
+        return self._resource_limits
+
+    @property
+    def transport(self) -> str:
+        """Return the explicitly selected execution transport."""
+
+        return self._transport
+
+    def _native_backend_for(self, allocation: ExecutionResources | None = None):
+        from ._native_backend import NativeBackend
+        if self.transport != "native":
+            raise ValueError("this operation requires transport='native'")
+        if allocation is not None:
+            resolve_resources(
+                resources=allocation, inherited=self.resources, limits=self.resource_limits,
+            )
+        with self._native_backend_lock:
+            if self._native_closed:
+                raise RuntimeError("native client is closed; retained results remain valid")
+            if self._native_backend is None:
+                self._native_backend = NativeBackend(self.resources, self.resource_limits, self._timeout)
+            return self._native_backend
 
     @classmethod
     def from_repo(
@@ -6654,13 +6705,20 @@ class ShardLoomClient:
         vortex_pivot_projection: str | None = None,
         vortex_rolling_window: str | None = None,
         vortex_sort_rows: str | None = None,
+        vortex_aggregate: str | None = None,
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> PublicWorkflowRoute:
         """Return the side-effect-free public route envelope for a declared workflow."""
 
+        resources = optional_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
         args: list[CommandPart] = ["route", surface]
         if input_uri is not None:
             args.extend(["--input", str(input_uri)])
@@ -6706,8 +6764,8 @@ class ShardLoomClient:
             vortex_pivot_projection=vortex_pivot_projection,
             vortex_rolling_window=vortex_rolling_window,
             vortex_sort_rows=vortex_sort_rows,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
+            vortex_aggregate=vortex_aggregate,
+            resources=resources,
             spill=spill,
         )
         return PublicWorkflowRoute(self.run(args, check=check))
@@ -6749,13 +6807,26 @@ class ShardLoomClient:
         vortex_pivot_projection: str | None = None,
         vortex_rolling_window: str | None = None,
         vortex_sort_rows: str | None = None,
+        vortex_aggregate: str | None = None,
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
+        _native_plan: object | None = None,
     ) -> PublicWorkflowExecution:
         """Run an admitted public workflow through the shared route facade."""
 
+        if self.transport == "native":
+            request = dict(locals())
+            request.pop("self")
+            allocation = resolve_resources(
+                memory_gb=memory_gb, memory_bytes=memory_bytes,
+                max_parallelism=max_parallelism, resources=resources,
+                inherited=self.resources, limits=self.resource_limits,
+            )
+            return self._native_backend_for(allocation).execute(request, allocation, check=check)
         args = self._public_workflow_facade_args(
             "run",
             surface,
@@ -6791,7 +6862,8 @@ class ShardLoomClient:
             vortex_pivot_projection=vortex_pivot_projection,
             vortex_rolling_window=vortex_rolling_window,
             vortex_sort_rows=vortex_sort_rows,
-            memory_gb=memory_gb,
+            vortex_aggregate=vortex_aggregate,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
         )
@@ -6811,12 +6883,21 @@ class ShardLoomClient:
         input_batches: Mapping[str, object] | None = None, **kwargs: Any,
     ):
         """Iterate native result batches; use a context manager for early close."""
+        if self.transport == "native":
+            request = dict(kwargs, surface=surface, input_batches=input_batches)
+            allocation = resolve_resources(
+                memory_gb=kwargs.get("memory_gb"), memory_bytes=kwargs.get("memory_bytes"),
+                max_parallelism=kwargs.get("max_parallelism"), resources=kwargs.get("resources"),
+                inherited=self.resources, limits=self.resource_limits,
+            )
+            return self._native_backend_for(allocation).batches(request, allocation, batch_rows)
+        kwargs.pop("_native_plan", None)
         from ._batches import ResultBatchIterator, validate_inputs
-        validate_inputs(kwargs.get("source_bindings"), input_batches)
         if kwargs.get("requested_output", "collect") != "collect":
             raise ValueError("incremental result consumption requires collect output")
         kwargs.setdefault("bounded", True)
         args = self._public_workflow_facade_args("run", surface, **kwargs)
+        validate_inputs(kwargs.get("source_bindings"), input_batches)
         return ResultBatchIterator(self, args, inputs=input_batches, batch_rows=batch_rows)
 
     def public_workflow_prepare(
@@ -6830,6 +6911,8 @@ class ShardLoomClient:
         plan_summary: str | None = None,
         evidence_level: str = "runtime_smoke",
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
@@ -6848,7 +6931,7 @@ class ShardLoomClient:
             materialization_policy="bounded",
             evidence_level=evidence_level,
             bounded=True,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
         return PublicWorkflowExecution(self.run(args, check=check))
@@ -6890,10 +6973,17 @@ class ShardLoomClient:
         vortex_pivot_projection: str | None = None,
         vortex_rolling_window: str | None = None,
         vortex_sort_rows: str | None = None,
+        vortex_aggregate: str | None = None,
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
     ) -> list[CommandPart]:
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
         args: list[CommandPart] = [command, surface]
         if input_uri is not None:
             args.extend(["--input", str(input_uri)])
@@ -6941,8 +7031,8 @@ class ShardLoomClient:
             vortex_pivot_projection=vortex_pivot_projection,
             vortex_rolling_window=vortex_rolling_window,
             vortex_sort_rows=vortex_sort_rows,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
+            vortex_aggregate=vortex_aggregate,
+            resources=resources,
             spill=spill,
         )
         return args
@@ -7013,13 +7103,26 @@ class ShardLoomClient:
         operator: str = "filter",
         argument: str | Sequence[str] | None = None,
         *,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> LiveFixtureRunReport:
         """Run the explicit CG-22 in-memory live fixture command."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
         args = ["live-fixture-run", operator]
         if argument is not None:
             args.append(str(argument) if isinstance(argument, str) else _columns_arg(argument))
+        args.extend(resource_command_args(allocation))
         return LiveFixtureRunReport(self.run(args, check=check))
 
     def hybrid_overlay_run(
@@ -7027,37 +7130,74 @@ class ShardLoomClient:
         operator: str = "filter",
         argument: str | Sequence[str] | None = None,
         *,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> HybridOverlayRunReport:
         """Run the explicit CG-22 in-memory hybrid overlay fixture command."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
         args = ["hybrid-overlay-run", operator]
         if argument is not None:
             args.append(str(argument) if isinstance(argument, str) else _columns_arg(argument))
+        args.extend(resource_command_args(allocation))
         return HybridOverlayRunReport(self.run(args, check=check))
 
     def live_hybrid_state_transition_smoke(
         self,
         *,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> LiveHybridStateTransitionReport:
         """Run the bounded CG-22 state-transition retry/cancel/cleanup fixture."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
         return LiveHybridStateTransitionReport(
-            self.run(["live-hybrid-state-transition-smoke"], check=check)
+            self.run(["live-hybrid-state-transition-smoke", *resource_command_args(allocation)], check=check)
         )
 
     def live_hybrid_durable_checkpoint_smoke(
         self,
         checkpoint_dir: str | os.PathLike[str],
         *,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> LiveHybridDurableCheckpointReport:
         """Run the bounded CG-22 local checkpoint/changelog fixture."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
         return LiveHybridDurableCheckpointReport(
             self.run(
-                ["live-hybrid-durable-checkpoint-smoke", str(checkpoint_dir)],
+                ["live-hybrid-durable-checkpoint-smoke", str(checkpoint_dir), *resource_command_args(allocation)],
                 check=check,
             )
         )
@@ -7067,13 +7207,25 @@ class ShardLoomClient:
         worker_count: int = 2,
         fault_mode: str = "none",
         *,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> LocalDistributedFixtureRunReport:
         """Run the scoped local distributed fixture command."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
         return LocalDistributedFixtureRunReport(
             self.run(
-                ["distributed-local-fixture-run", str(worker_count), fault_mode],
+                ["distributed-local-fixture-run", str(worker_count), fault_mode, *resource_command_args(allocation)],
                 check=check,
             )
         )
@@ -7127,6 +7279,8 @@ class ShardLoomClient:
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         delta_source_path: str | os.PathLike[str] | None = None,
         delta_target_vortex_path: str | os.PathLike[str] | None = None,
@@ -7135,6 +7289,10 @@ class ShardLoomClient:
     ) -> VortexIngestSmokeReport:
         """Prepare local compatibility input as a Vortex artifact."""
 
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
         command: list[CommandPart] = [
             "vortex-prepare",
             str(source_path),
@@ -7149,15 +7307,7 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         if certification_level != "ingest_certified":
             command.extend(["--certification-level", certification_level])
-        if memory_gb is not None:
-            command.extend(["--memory-gb", str(_positive_int("memory_gb", memory_gb))])
-        if max_parallelism is not None:
-            command.extend(
-                [
-                    "--max-parallelism",
-                    str(_positive_int("max_parallelism", max_parallelism)),
-                ]
-            )
+        command.extend(resource_command_args(resources))
         if delta_source_path is not None:
             command.extend(["--delta-source", str(delta_source_path)])
         if delta_target_vortex_path is not None:
@@ -7181,37 +7331,32 @@ class ShardLoomClient:
         dataset_uri: str | os.PathLike[str],
         primitive: str,
         *,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the explicit `vortex-run` CLI command and parse its envelope."""
 
-        if primitive.strip().lower() in {"count", "count_all"}:
-            return self.public_workflow_run(
-                "cli",
-                input_uri=dataset_uri,
-                input_format="vortex",
-                requested_output="collect",
-                execution_policy="native_vortex",
-                materialization_policy="zero_decode",
-                evidence_level="runtime_smoke",
-                bounded=True,
-                vortex_primitive=primitive,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
+        if primitive.strip().lower() not in {"count", "count_all"}:
+            allocation = resolve_resources(
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism, inherited=self.resources, limits=self.resource_limits,
+            )
+            return self.run(
+                ["vortex-run", str(dataset_uri), primitive, *resource_command_args(allocation)],
                 check=check,
-            ).envelope
-        return self.run(
-            [
-                "vortex-run",
-                str(dataset_uri),
-                primitive,
-                str(memory_gb),
-                str(max_parallelism),
-            ],
+            )
+        return self.public_workflow_run(
+            "cli", input_uri=dataset_uri, input_format="vortex",
+            requested_output="collect", execution_policy="native_vortex",
+            materialization_policy="zero_decode", evidence_level="runtime_smoke",
+            bounded=True, vortex_primitive=primitive,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
             check=check,
-        )
+        ).envelope
 
     def vortex_count(
         self,
@@ -7219,19 +7364,21 @@ class ShardLoomClient:
         *,
         execute_local_encoded_count: bool = False,
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run `vortex-count` with optional explicit local encoded execution."""
 
         args = ["vortex-count", str(dataset_uri)]
-        _append_resource_execution_args(
-            args,
-            option="--execute-local-encoded-count",
-            enabled=execute_local_encoded_count,
-            memory_gb=memory_gb,
-            max_parallelism=max_parallelism,
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism, inherited=self.resources, limits=self.resource_limits,
         )
+        if execute_local_encoded_count:
+            args.append("--execute-local-encoded-count")
+        args.extend(resource_command_args(allocation))
         return self.run(args, check=check)
 
     def vortex_count_where(
@@ -7241,16 +7388,14 @@ class ShardLoomClient:
         *,
         execute_local_primitive: bool = False,
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run `vortex-count-where` with optional explicit local execution."""
 
         if execute_local_primitive:
-            if memory_gb is None or max_parallelism is None:
-                raise ValueError(
-                    "--execute-local-primitive requires both memory_gb and max_parallelism"
-                )
             return self.public_workflow_run(
                 "cli",
                 input_uri=dataset_uri,
@@ -7262,7 +7407,7 @@ class ShardLoomClient:
                 bounded=True,
                 vortex_primitive="count_where",
                 vortex_predicate=predicate,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
                 check=check,
             ).envelope
@@ -7271,7 +7416,7 @@ class ShardLoomClient:
             args,
             option="--execute-local-primitive",
             enabled=execute_local_primitive,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
         return self.run(args, check=check)
@@ -7284,16 +7429,14 @@ class ShardLoomClient:
         source_order_limit: int | None = None,
         execute_local_primitive: bool = False,
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run `vortex-filter` with optional explicit local execution."""
 
         if execute_local_primitive:
-            if memory_gb is None or max_parallelism is None:
-                raise ValueError(
-                    "--execute-local-primitive requires both memory_gb and max_parallelism"
-                )
             return self.public_workflow_run(
                 "cli",
                 input_uri=dataset_uri,
@@ -7306,7 +7449,7 @@ class ShardLoomClient:
                 vortex_primitive="filter",
                 vortex_predicate=predicate,
                 vortex_source_order_limit=source_order_limit,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
                 check=check,
             ).envelope
@@ -7322,7 +7465,7 @@ class ShardLoomClient:
             args,
             option="--execute-local-primitive",
             enabled=execute_local_primitive,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
         return self.run(args, check=check)
@@ -7335,16 +7478,14 @@ class ShardLoomClient:
         source_order_limit: int | None = None,
         execute_local_primitive: bool = False,
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run `vortex-project` with optional explicit local execution."""
 
         if execute_local_primitive:
-            if memory_gb is None or max_parallelism is None:
-                raise ValueError(
-                    "--execute-local-primitive requires both memory_gb and max_parallelism"
-                )
             return self.public_workflow_run(
                 "cli",
                 input_uri=dataset_uri,
@@ -7357,7 +7498,7 @@ class ShardLoomClient:
                 vortex_primitive="project",
                 vortex_columns=columns,
                 vortex_source_order_limit=source_order_limit,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
                 check=check,
             ).envelope
@@ -7373,7 +7514,7 @@ class ShardLoomClient:
             args,
             option="--execute-local-primitive",
             enabled=execute_local_primitive,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
         return self.run(args, check=check)
@@ -7387,16 +7528,14 @@ class ShardLoomClient:
         source_order_limit: int | None = None,
         execute_local_primitive: bool = False,
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run `vortex-filter-project` with optional explicit local execution."""
 
         if execute_local_primitive:
-            if memory_gb is None or max_parallelism is None:
-                raise ValueError(
-                    "--execute-local-primitive requires both memory_gb and max_parallelism"
-                )
             return self.public_workflow_run(
                 "cli",
                 input_uri=dataset_uri,
@@ -7410,7 +7549,7 @@ class ShardLoomClient:
                 vortex_predicate=predicate,
                 vortex_columns=columns,
                 vortex_source_order_limit=source_order_limit,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
                 check=check,
             ).envelope
@@ -7431,7 +7570,7 @@ class ShardLoomClient:
             args,
             option="--execute-local-primitive",
             enabled=execute_local_primitive,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
         return self.run(args, check=check)
@@ -7442,19 +7581,23 @@ class ShardLoomClient:
         *,
         predicate: str = "gte:value:3",
         columns: str | Sequence[str] = ("metric",),
-        memory_gb: int = DEFAULT_INTERNAL_SMOKE_MEMORY_GB,
-        max_parallelism: int = DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         check: bool = True,
     ) -> LocalVortexPrimitiveSmokeReport:
         """Run the certified local Vortex primitive workflow through explicit CLI flags."""
 
-        memory_gb = _positive_int("memory_gb", memory_gb)
-        max_parallelism = _positive_int("max_parallelism", max_parallelism)
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
         return LocalVortexPrimitiveSmokeReport(
             count=self.vortex_run(
                 dataset_uri,
                 "count",
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
                 check=check,
             ),
@@ -7462,7 +7605,7 @@ class ShardLoomClient:
                 dataset_uri,
                 predicate,
                 execute_local_primitive=True,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
                 check=check,
             ),
@@ -7470,7 +7613,7 @@ class ShardLoomClient:
                 dataset_uri,
                 predicate,
                 execute_local_primitive=True,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
                 check=check,
             ),
@@ -7478,7 +7621,7 @@ class ShardLoomClient:
                 dataset_uri,
                 columns,
                 execute_local_primitive=True,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
                 check=check,
             ),
@@ -7487,7 +7630,7 @@ class ShardLoomClient:
                 predicate,
                 columns,
                 execute_local_primitive=True,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
                 check=check,
             ),
@@ -7764,11 +7907,24 @@ class ShardLoomClient:
     def local_table_metadata_read_smoke(
         self,
         *,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the scoped local-manifest table metadata read smoke."""
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
 
-        return self.run(["local-table-metadata-read-smoke"], check=check)
+        command = ["local-table-metadata-read-smoke"]
+        command.extend(resource_command_args(allocation))
+        return self.run(command, check=check)
 
     def object_store_runtime_gate(self, *, check: bool = True) -> OutputEnvelope:
         """Return the CG-10 object-store/distributed runtime promotion gate."""
@@ -7825,9 +7981,20 @@ class ShardLoomClient:
         byte_range: tuple[int, int] | None = None,
         public_fixture_path: str | os.PathLike[str] | None = None,
         fixture_listing: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run an explicit object-store read smoke for an admitted fixture profile."""
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
 
         command = ["object-store-read-smoke", str(local_object_path), "--profile", profile]
         if public_fixture_path is not None:
@@ -7837,6 +8004,7 @@ class ShardLoomClient:
         if byte_range is not None:
             offset, length = byte_range
             command.extend(["--range", f"{offset}:{length}"])
+        command.extend(resource_command_args(allocation))
         return self.run(command, check=check)
 
     def object_store_partition_discovery_smoke(
@@ -7845,9 +8013,20 @@ class ShardLoomClient:
         *,
         profile: str = "local-emulator",
         partition_columns: Sequence[str] | None = None,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run scoped local-emulator key=value partition discovery."""
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
 
         command = [
             "object-store-partition-discovery-smoke",
@@ -7863,6 +8042,7 @@ class ShardLoomClient:
             ]
             if columns:
                 command.extend(["--partition-columns", ",".join(columns)])
+        command.extend(resource_command_args(allocation))
         return self.run(command, check=check)
 
     def object_store_write_smoke(
@@ -7874,9 +8054,20 @@ class ShardLoomClient:
         idempotency_key: str | None = None,
         allow_overwrite: bool = False,
         rollback_after_commit: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the explicit local-emulator staged object-store write smoke."""
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
 
         command = [
             "object-store-write-smoke",
@@ -7891,6 +8082,7 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         if rollback_after_commit:
             command.append("--rollback-after-commit")
+        command.extend(resource_command_args(allocation))
         return self.run(command, check=check)
 
     def local_table_append_commit_rehearsal_smoke(
@@ -7901,9 +8093,20 @@ class ShardLoomClient:
         idempotency_key: str | None = None,
         allow_overwrite: bool = False,
         rollback_after_commit: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the local-manifest table append commit rehearsal smoke."""
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
 
         command = [
             "local-table-append-commit-rehearsal-smoke",
@@ -7917,6 +8120,7 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         if rollback_after_commit:
             command.append("--rollback-after-commit")
+        command.extend(resource_command_args(allocation))
         return self.run(command, check=check)
 
     def object_store_write_recovery_smoke(
@@ -7925,9 +8129,20 @@ class ShardLoomClient:
         *,
         profile: str = "local-emulator",
         idempotency_key: str | None = None,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run local-emulator object-store write recovery replay."""
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
 
         command = [
             "object-store-write-recovery-smoke",
@@ -7937,6 +8152,7 @@ class ShardLoomClient:
         ]
         if idempotency_key is not None:
             command.extend(["--idempotency-key", idempotency_key])
+        command.extend(resource_command_args(allocation))
         return self.run(command, check=check)
 
     def local_table_commit_recovery_smoke(
@@ -7945,9 +8161,20 @@ class ShardLoomClient:
         *,
         profile: str = "local-manifest",
         idempotency_key: str | None = None,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the local-manifest table commit recovery smoke."""
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
 
         command = [
             "local-table-commit-recovery-smoke",
@@ -7957,6 +8184,7 @@ class ShardLoomClient:
         ]
         if idempotency_key is not None:
             command.extend(["--idempotency-key", idempotency_key])
+        command.extend(resource_command_args(allocation))
         return self.run(command, check=check)
 
     def correctness_plan(self, *, check: bool = True) -> OutputEnvelope:
@@ -8187,24 +8415,42 @@ class ShardLoomClient:
         self,
         values: Sequence[int | None] | str,
         *,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the built-in deterministic nullable-int64 scalar UDF fixture."""
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
 
         if isinstance(values, str):
             encoded_values = values
         else:
             encoded_values = ",".join("null" if value is None else str(value) for value in values)
-        return self.run(["udf-local-scalar-fixture-smoke", encoded_values], check=check)
+        return self.run(["udf-local-scalar-fixture-smoke", encoded_values, *resource_command_args(allocation)], check=check)
 
     def embedding_vector_local_fixture_smoke(
         self,
         texts: Sequence[str] | str,
         *,
         query: str | None = None,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the built-in deterministic embedding/vector fixture."""
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
 
         if isinstance(texts, str):
             encoded_texts = texts
@@ -8213,6 +8459,7 @@ class ShardLoomClient:
         command: list[CommandPart] = ["embedding-vector-local-fixture-smoke", encoded_texts]
         if query is not None:
             command.extend(["--query", query])
+        command.extend(resource_command_args(allocation))
         return self.run(command, check=check)
 
     def sqlite_local_import_export_smoke(
@@ -8224,9 +8471,20 @@ class ShardLoomClient:
         roundtrip_db: str | os.PathLike[str],
         order_by: str | None = None,
         allow_overwrite: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the local SQLite file import/export fixture smoke."""
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
 
         command: list[CommandPart] = [
             "sqlite-local-import-export-smoke",
@@ -8242,6 +8500,7 @@ class ShardLoomClient:
             command.extend(["--order-by", order_by])
         if allow_overwrite:
             command.append("--allow-overwrite")
+        command.extend(resource_command_args(allocation))
         return self.run(command, check=check)
 
     def input_plan(
@@ -8316,6 +8575,13 @@ class ShardLoomClient:
     def run(self, args: Sequence[CommandPart], *, check: bool = True) -> OutputEnvelope:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
 
+        if self.transport == "native":
+            command = [str(arg) for arg in args]
+            payload = self._native_backend_for().command(command)
+            envelope = OutputEnvelope.from_json(json.loads(payload))
+            if check and envelope.is_error:
+                raise ShardLoomCommandError(("shardloom._native", *command), 2, envelope, "")
+            return envelope
         if self._worker_enabled():
             try:
                 return self._run_worker(args, check=check)
@@ -8325,9 +8591,28 @@ class ShardLoomClient:
                 return self._run_subprocess(args, check=check)
         return self._run_subprocess(args, check=check)
 
-    def close(self) -> None:
-        """Close any persistent local CLI worker owned by this client."""
+    def cancel(self) -> None:
+        """Cancel this native client's current calls; later calls remain usable.
 
+        Cancellation is cooperative. A foreign producer callback must return
+        before native work can observe it. Completed results remain valid.
+        """
+
+        if self.transport != "native":
+            raise ValueError("cancel() requires transport='native'")
+        with self._native_backend_lock:
+            if self._native_closed:
+                raise RuntimeError("native client is closed; retained results remain valid")
+            if self._native_backend is not None:
+                self._native_backend.cancel()
+
+    def close(self) -> None:
+        """Close this client's native session or persistent local CLI worker."""
+
+        with self._native_backend_lock:
+            self._native_closed = True
+            if self._native_backend is not None:
+                self._native_backend.close()
         self._close_worker()
 
     def __del__(self) -> None:
@@ -9241,21 +9526,18 @@ def _append_resource_execution_args(
     enabled: bool,
     memory_gb: int | None,
     max_parallelism: int | None,
+    memory_bytes: int | None = None,
+    resources: ExecutionResources | None = None,
 ) -> None:
     if enabled:
-        if memory_gb is None or max_parallelism is None:
-            raise ValueError(
-                f"{option} requires both memory_gb and max_parallelism"
-            )
-        args.extend(
-            [
-                option,
-                str(_positive_int("memory_gb", memory_gb)),
-                str(_positive_int("max_parallelism", max_parallelism)),
-            ]
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources,
         )
+        args.append(option)
+        args.extend(resource_command_args(allocation))
         return
-    if memory_gb is not None or max_parallelism is not None:
+    if any(value is not None for value in (memory_gb, memory_bytes, max_parallelism, resources)):
         raise ValueError(
             "memory_gb and max_parallelism require explicit local execution"
         )
@@ -9282,8 +9564,8 @@ def _append_public_vortex_payload_args(
     vortex_pivot_projection: str | None,
     vortex_rolling_window: str | None,
     vortex_sort_rows: str | None,
-    memory_gb: int | None,
-    max_parallelism: int | None,
+    vortex_aggregate: str | None,
+    resources: ExecutionResources | None,
     spill: Mapping[str, object] | str | None = None,
 ) -> None:
     if spill is not None:
@@ -9365,12 +9647,12 @@ def _append_public_vortex_payload_args(
         if not payload:
             raise ValueError("vortex_sort_rows must not be empty")
         args.extend(["--vortex-sort-rows", payload])
-    if memory_gb is not None:
-        args.extend(["--memory-gb", str(_positive_int("memory_gb", memory_gb))])
-    if max_parallelism is not None:
-        args.extend(
-            ["--max-parallelism", str(_positive_int("max_parallelism", max_parallelism))]
-        )
+    if vortex_aggregate is not None:
+        payload = str(vortex_aggregate).strip()
+        if not payload:
+            raise ValueError("vortex_aggregate must not be empty")
+        args.extend(["--vortex-aggregate", payload])
+    args.extend(resource_command_args(resources))
 
 
 def _positive_int(name: str, value: int) -> int:

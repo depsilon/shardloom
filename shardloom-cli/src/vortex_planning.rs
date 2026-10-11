@@ -2981,6 +2981,17 @@ pub(crate) fn handle_vortex_file_metadata_open(
         eprintln!("usage: shardloom vortex-file-metadata-open <dataset_uri>");
         return ExitCode::from(2);
     };
+    let resources = match crate::execution_resources::ResourceArguments::parse_complete(args) {
+        Ok(resources) => resources,
+        Err(error) => {
+            return emit_error(
+                "vortex-file-metadata-open",
+                format,
+                "invalid metadata inspection resources",
+                &error,
+            );
+        }
+    };
     let uri = match DatasetUri::new(uri_arg) {
         Ok(uri) => uri,
         Err(err) => {
@@ -2992,7 +3003,7 @@ pub(crate) fn handle_vortex_file_metadata_open(
             );
         }
     };
-    let request = VortexMetadataOpenRequest::metadata_only(uri);
+    let request = VortexMetadataOpenRequest::metadata_only(uri, resources);
     let report = match open_vortex_metadata_only(request) {
         Ok(report) => report,
         Err(err) => {
@@ -3009,6 +3020,8 @@ pub(crate) fn handle_vortex_file_metadata_open(
     } else {
         CommandStatus::Success
     };
+    let mut resource_fields = Vec::new();
+    crate::execution_resources::append_declaration_fields(&mut resource_fields, resources);
     emit(
         "vortex-file-metadata-open",
         format,
@@ -3046,7 +3059,10 @@ pub(crate) fn handle_vortex_file_metadata_open(
             ("write_io".to_string(), "false".to_string()),
             ("execution".to_string(), "not_performed".to_string()),
             ("plan_only".to_string(), "true".to_string()),
-        ],
+        ]
+        .into_iter()
+        .chain(resource_fields)
+        .collect(),
     );
     if matches!(status, CommandStatus::Error) {
         ExitCode::from(2)

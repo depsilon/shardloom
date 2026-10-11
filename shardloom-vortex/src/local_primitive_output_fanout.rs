@@ -5,6 +5,8 @@
 
 use super::native_sink::OwnedOutput;
 use super::{Result, ShardLoomError, VortexLocalPrimitiveRowExportFormat as Format};
+use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
+use shardloom_exec::compute_pool::CancellationToken;
 use std::{
     collections::BTreeSet,
     fs,
@@ -24,24 +26,71 @@ pub fn write_primitive(
     policy: super::VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<Vec<super::VortexLocalPrimitiveRowExportReport>> {
     let source = super::prepared_dispatch::prepare_source(request, policy)?;
+    write_primitive_with_source(
+        request,
+        targets,
+        overwrite,
+        policy,
+        &source,
+        &CancellationToken::default(),
+    )
+}
+
+/// Coordinate primitive outputs with a caller-owned resident session and its
+/// cancellation/deadline token. Source preparation and each adapter use that same
+/// operation context; target staging and publication retain their existing order.
+/// # Errors
+/// Rejects cancellation, source/destination aliasing and propagates admission,
+/// execution and publication failures.
+pub fn write_primitive_in_session(
+    request: &super::VortexQueryPrimitiveRequest,
+    targets: &[(PathBuf, Format)],
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<Vec<super::VortexLocalPrimitiveRowExportReport>> {
+    cancellation.check()?;
+    let source = super::prepared_dispatch::prepare_source_in_session(
+        request,
+        policy,
+        session,
+        cancellation,
+    )?;
+    write_primitive_with_source(request, targets, overwrite, policy, &source, cancellation)
+}
+
+fn write_primitive_with_source(
+    request: &super::VortexQueryPrimitiveRequest,
+    targets: &[(PathBuf, Format)],
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    source: &PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<Vec<super::VortexLocalPrimitiveRowExportReport>> {
     let mut reports = write(
         targets,
         overwrite,
         |path| {
+            cancellation.check()?;
             source.validate_generation()?;
+            cancellation.check()?;
             if source.aliases_file(path)? {
                 return Err(failed("source and output must be different files"));
             }
+            cancellation.check()?;
             Ok(())
         },
         |path, format| {
-            super::prepared_dispatch::try_write_source(
+            cancellation.check()?;
+            super::prepared_dispatch::try_write_source_controlled(
                 request,
                 path,
                 format,
                 false,
                 policy,
                 source.clone(),
+                cancellation,
             )?
             .ok_or_else(|| failed("native primitive output schema is not admitted"))
         },
@@ -64,28 +113,7 @@ pub fn write<T>(
     mut validate: impl FnMut(&Path) -> Result<()>,
     mut write: impl FnMut(&Path, Format) -> Result<T>,
 ) -> Result<Vec<T>> {
-    if targets.is_empty() || targets.len() > 32 {
-        return Err(failed("output fanout requires between 1 and 32 targets"));
-    }
-    let mut seen = BTreeSet::new();
-    let mut plans = Vec::with_capacity(targets.len());
-    for (path, _) in targets {
-        validate(path)?;
-        let root = shardloom_core::infer_local_output_workspace_root(path)?;
-        let plan = shardloom_core::plan_workspace_safe_local_output(root, path, overwrite)?;
-        if !plan.accepted() {
-            return Err(failed("output path failed workspace safety validation"));
-        }
-        if plan.target_existed_before {
-            return Err(failed(
-                "atomic generation-conditional replacement is unavailable for an existing destination; choose a new output path",
-            ));
-        }
-        if !seen.insert(plan.target_path.to_string_lossy().to_lowercase()) {
-            return Err(failed("output fanout destinations must be distinct"));
-        }
-        plans.push(plan);
-    }
+    let plans = plan_targets(targets, overwrite, &mut validate)?;
     let mut staged = Vec::with_capacity(targets.len());
     let mut results = Vec::with_capacity(targets.len());
     for (plan, (_, format)) in plans.iter().zip(targets) {
@@ -114,6 +142,46 @@ pub fn write<T>(
         }
     }
     Ok(results)
+}
+
+/// Check destination declarations before an input factory is consumed.
+/// This does not create directories or outputs. The writer repeats these checks
+/// with source-generation validation before staging and publication.
+/// # Errors
+/// Rejects the same empty, excessive, duplicate, existing and unsafe destinations
+/// as `write`.
+pub fn preflight_targets(targets: &[(PathBuf, Format)], overwrite: bool) -> Result<()> {
+    plan_targets(targets, overwrite, |_| Ok(())).map(|_| ())
+}
+
+fn plan_targets(
+    targets: &[(PathBuf, Format)],
+    overwrite: bool,
+    mut validate: impl FnMut(&Path) -> Result<()>,
+) -> Result<Vec<shardloom_core::WorkspaceSafeLocalWritePlan>> {
+    if targets.is_empty() || targets.len() > 32 {
+        return Err(failed("output fanout requires between 1 and 32 targets"));
+    }
+    let mut seen = BTreeSet::new();
+    let mut plans = Vec::with_capacity(targets.len());
+    for (path, _) in targets {
+        validate(path)?;
+        let root = shardloom_core::infer_local_output_workspace_root(path)?;
+        let plan = shardloom_core::plan_workspace_safe_local_output(root, path, overwrite)?;
+        if !plan.accepted() {
+            return Err(failed("output path failed workspace safety validation"));
+        }
+        if plan.target_existed_before {
+            return Err(failed(
+                "atomic generation-conditional replacement is unavailable for an existing destination; choose a new output path",
+            ));
+        }
+        if !seen.insert(plan.target_path.to_string_lossy().to_lowercase()) {
+            return Err(failed("output fanout destinations must be distinct"));
+        }
+        plans.push(plan);
+    }
+    Ok(plans)
 }
 
 struct Directory {

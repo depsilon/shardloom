@@ -14,6 +14,7 @@ use super::{
 use crate::resident_session::{
     PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
 };
+use shardloom_exec::compute_pool::CancellationToken;
 use std::fmt::Write as _;
 
 /// A complete native filtered count and the evidence produced by this execution.
@@ -22,6 +23,12 @@ pub struct ExecutedVortexCountWhere {
     pub report: VortexLocalPrimitiveExecutionReport,
     pub native_io_certificate: shardloom_core::NativeIoCertificate,
     pub runtime: ResidentSessionSnapshot,
+}
+
+/// Complete filtered-count value, with its native scalar and execution evidence.
+pub struct ExecutedOwnedVortexCountWhere {
+    pub execution: ExecutedVortexCountWhere,
+    pub result: crate::resident_session::OwnedVortexResultBatch,
 }
 
 /// A retained local source and one lowered count predicate. Results are never cached.
@@ -45,7 +52,27 @@ pub fn prepare_count_where_in_session(
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexCountWhere> {
-    prepare_count_where(request, policy, session, None)
+    prepare_count_where_in_session_controlled(
+        request,
+        policy,
+        session,
+        &CancellationToken::default(),
+    )
+}
+
+/// Prepare a filtered count in an existing native session under the caller's
+/// cancellation and deadline token. No second session is created.
+///
+/// # Errors
+/// Rejects cancellation before opening a source, invalid requests, resource
+/// admission failures, unsupported predicates, and nonlocal sources.
+pub fn prepare_count_where_in_session_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexCountWhere> {
+    prepare_count_where(request, policy, session, None, cancellation)
 }
 
 /// Bind the filtered count to the same source used for native strategy selection.
@@ -56,8 +83,29 @@ pub fn prepare_count_where_from_source(
     policy: VortexLocalPrimitiveExecutionPolicy,
     source: PreparedVortexSource,
 ) -> Result<PreparedVortexCountWhere> {
+    prepare_count_where_from_source_controlled(
+        request,
+        policy,
+        source,
+        &CancellationToken::default(),
+    )
+}
+
+/// Bind to a previously admitted source while observing the caller's operation
+/// token. The retained source and its resource owner are preserved.
+///
+/// # Errors
+/// Rejects cancellation, changed/mismatched sources, resources and unsupported
+/// predicates without opening another source.
+pub fn prepare_count_where_from_source_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexCountWhere> {
+    cancellation.check()?;
     let session = super::prepared_dispatch::source_session(&source, request, Some(policy))?;
-    prepare_count_where(request, policy, &session, Some(source))
+    prepare_count_where(request, policy, &session, Some(source), cancellation)
 }
 
 fn prepare_count_where(
@@ -65,7 +113,9 @@ fn prepare_count_where(
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
     prepared: Option<PreparedVortexSource>,
+    cancellation: &CancellationToken,
 ) -> Result<PreparedVortexCountWhere> {
+    cancellation.check()?;
     if request.kind != VortexQueryPrimitiveKind::CountWhere
         || request.diagnostics.iter().any(|diagnostic| {
             matches!(
@@ -99,8 +149,9 @@ fn prepare_count_where(
     let source = if let Some(source) = prepared {
         source
     } else {
-        session.prepare_file(&path)?
+        session.prepare_file_with_cancellation(&path, cancellation)?
     };
+    cancellation.check()?;
     let mut plan = LocalVortexScanPlan::passthrough();
     let planned_predicate =
         attach_predicate_to_scan_plan(&mut plan, predicate, source.dtype(), request.kind)?;
@@ -118,14 +169,49 @@ fn prepare_count_where(
 }
 
 impl PreparedVortexCountWhere {
+    /// Execute the existing predicate count and retain its scalar natively.
+    /// Result construction shares the source's memory owner and preserves exact
+    /// unsigned values; no JSON or Python row conversion participates.
+    /// # Errors
+    /// Rejects cancellation, changed sources, pressure or native provider errors.
+    pub fn execute_native_result(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<ExecutedOwnedVortexCountWhere> {
+        let mut execution = self.execute_with_cancellation(cancellation)?;
+        let result = self
+            .session
+            .own_count_result(execution.count, cancellation)?;
+        self.source.validate_generation()?;
+        cancellation.check()?;
+        execution.runtime = self.session.snapshot();
+        Ok(ExecutedOwnedVortexCountWhere { execution, result })
+    }
+
     /// Execute the same native count and serialize its exact scalar result.
     /// # Errors
     /// Preserves execution errors and rejects insufficient output capacity.
     pub fn collect_jsonl(
         &self,
     ) -> Result<(ExecutedVortexCountWhere, super::collect::CollectedCountRows)> {
-        let mut execution = self.execute()?;
+        self.collect_jsonl_controlled(&CancellationToken::default())
+    }
+
+    /// Execute and serialize the exact count with one caller-owned cancellation
+    /// token. Rendering remains charged to the prepared source's session.
+    ///
+    /// # Errors
+    /// Returns execution, cancellation/deadline, source generation, report or
+    /// bounded serialization errors without changing this prepared plan.
+    pub fn collect_jsonl_controlled(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<(ExecutedVortexCountWhere, super::collect::CollectedCountRows)> {
+        cancellation.check()?;
+        let mut execution = self.execute_with_cancellation(cancellation)?;
+        cancellation.check()?;
         let rows = super::collect::render_count_rows(execution.count, &self.session)?;
+        cancellation.check()?;
         execution.runtime = self.session.snapshot();
         Ok((execution, rows))
     }
@@ -156,6 +242,20 @@ impl PreparedVortexCountWhere {
     /// Rejects source mutation, resource-policy disagreement, provider failures
     /// and invalid report/certificate inputs. Failed calls produce no count.
     pub fn execute(&self) -> Result<ExecutedVortexCountWhere> {
+        self.execute_with_cancellation(&CancellationToken::default())
+    }
+
+    /// Execute the retained native scan and exact count under a caller-owned
+    /// cancellation/deadline token. The source, plan, and resource owner are reused.
+    ///
+    /// # Errors
+    /// Rejects cancellation, source mutation, resource-policy disagreement,
+    /// provider failures and invalid report/certificate inputs.
+    pub fn execute_with_cancellation(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<ExecutedVortexCountWhere> {
+        cancellation.check()?;
         let uri = self
             .request
             .source_uri
@@ -166,32 +266,38 @@ impl PreparedVortexCountWhere {
             .predicate
             .as_ref()
             .ok_or_else(|| failed("prepared predicate is missing"))?;
-        let scan = prepared_scan::read_prepared(
+        let scan = prepared_scan::read_prepared_controlled(
             uri,
             &self.source,
             self.request.kind,
             self.policy,
+            cancellation,
             |_| Ok(self.plan.clone()),
         )?;
+        cancellation.check()?;
         let report = count_where_report(&self.path, &self.request, &scan, predicate)?
             .with_physical_policy(self.physical_policy.clone());
+        cancellation.check()?;
         let count = report
             .rows_selected
             .ok_or_else(|| failed("completed count is missing"))?;
         let runtime = self.session.snapshot();
         let mut native_io_certificate =
             local_primitive_native_io_certificate(&self.request, &report)?;
+        cancellation.check()?;
         let _ = write!(
             native_io_certificate.source_pushdown_report.proof_basis,
             ";resident_source_generation_validation=before_and_after_native_scan_including_metadata_pruned_result;resident_source_opens={};resident_completed_executions={};no_query_answer_cache=true;independent_oracle_not_run",
             runtime.prepared_source_opens, runtime.completed_executions,
         );
-        Ok(ExecutedVortexCountWhere {
+        let execution = ExecutedVortexCountWhere {
             count,
             report,
             native_io_certificate,
             runtime,
-        })
+        };
+        cancellation.check()?;
+        Ok(execution)
     }
 }
 

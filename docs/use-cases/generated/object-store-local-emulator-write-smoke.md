@@ -21,7 +21,7 @@ Local-emulator staged object write/commit smoke only; real S3/GCS/ADLS providers
 ## How To Try It
 
 ```text
-target\debug\shardloom object-store-write-smoke target\source.bin target\object-store-fixture.bin --profile local-emulator --idempotency-key orders-batch-001 --rollback-after-commit --format json
+target\debug\shardloom object-store-write-smoke target\source.bin target\object-store-fixture.bin --profile local-emulator --idempotency-key orders-batch-001 --rollback-after-commit --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 ## Blocker

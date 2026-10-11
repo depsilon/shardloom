@@ -26,6 +26,7 @@ release-user-surfaces = [
 ]
 upstream-vortex = ["dep:vortex", "dep:bytes"]
 universal-format-io = [
+    "dep:bytes",
     "dep:arrow-array",
     "dep:arrow-avro",
     "dep:arrow-ipc",

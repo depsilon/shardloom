@@ -97,7 +97,9 @@ fn merge_geometry_covers_owned_overlap_and_retains_full_large_run_metadata_charg
 #[test]
 fn run_reader_refills_one_native_leaf_without_host_core_prefetch() {
     let workspace = Workspace::new();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::new(4).unwrap());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut spill = NumericSortSpill::new(
         &workspace.policy(),
@@ -144,7 +146,10 @@ fn minimum_budget_merges_multiple_runs_with_exact_high_offset_and_cleanup() {
     let workspace = Workspace::new();
     let mut policy = workspace.policy();
     policy.memory_bytes = 1 << 20;
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut spill =
         NumericSortSpill::new(&policy, true, VortexSortTiePolicy::First, true, 7).unwrap();
@@ -181,7 +186,10 @@ fn insufficient_run_metadata_fails_explicitly_and_releases_owned_files() {
     let workspace = Workspace::new();
     let mut policy = workspace.policy();
     policy.memory_bytes = 1 << 20;
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut spill =
         NumericSortSpill::new(&policy, false, VortexSortTiePolicy::First, true, 7).unwrap();
@@ -218,7 +226,10 @@ fn public_numeric_sort_spill_returns_complete_values_and_scoped_native_certifica
     let fixture = Workspace::new();
     let workspace = Workspace::new();
     let path = fixture.0.join("shipping.vortex");
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let keys = (0..ROWS)
         .map(|index| i64::try_from((index * 37) % 997).unwrap() - 498)
@@ -263,7 +274,8 @@ fn public_numeric_sort_spill_returns_complete_values_and_scoped_native_certifica
             );
             let report = execute_vortex_local_primitive_with_policy(
                 &request,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
             )
             .unwrap();
             assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
@@ -339,7 +351,10 @@ fn public_sort_spill_rejects_source_replacement_between_key_and_payload_passes()
         let workspace = Workspace::new();
         let path = fixture.0.join("source.vortex");
         let replacement = fixture.0.join("replacement.vortex");
-        let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+        let runtime = local_vortex_runtime(
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
+        );
         let session = VortexSession::default().with_handle(runtime.handle());
         for (target, keys) in [(&path, [3_i64, 1, 2]), (&replacement, [100, 200, 300])] {
             let array = StructArray::new(
@@ -384,7 +399,8 @@ fn public_sort_spill_rejects_source_replacement_between_key_and_payload_passes()
         let _reset = ResetHook;
         let error = execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap_err();
         assert!(error.to_string().contains("source changed"));
@@ -395,7 +411,8 @@ fn public_sort_spill_rejects_source_replacement_between_key_and_payload_passes()
         // operation releases its stale identity and all owned spill files.
         let report = execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
@@ -438,7 +455,8 @@ fn admission_rejects_unsupported_shapes_before_workspace_creation() {
         execute_vortex_local_partitioned_primitive_with_policy(
             &request,
             &[],
-            VortexLocalPrimitiveExecutionPolicy::single_threaded()
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation")
         )
         .is_err()
     );
@@ -450,7 +468,10 @@ fn native_runs_merge_exact_signed_extremes_ties_and_large_offset_with_bounded_ha
     const ROWS: usize = 50_000;
     const OFFSET: usize = 45_003;
     const LIMIT: usize = 7;
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     for descending in [false, true] {
         for tie_policy in [VortexSortTiePolicy::First, VortexSortTiePolicy::Last] {
@@ -520,7 +541,10 @@ fn native_runs_merge_exact_signed_extremes_ties_and_large_offset_with_bounded_ha
 
 #[test]
 fn native_sort_runs_preserve_unsigned_values_above_i64_and_empty_or_past_end_results() {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     for offset in [0, 3, 10] {
         let workspace = Workspace::new();
@@ -572,7 +596,10 @@ fn native_sort_runs_preserve_unsigned_values_above_i64_and_empty_or_past_end_res
 
 #[test]
 fn quota_failure_and_cancellation_remove_every_owned_native_run() {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let workspace = Workspace::new();
     let mut policy = workspace.policy();
@@ -610,7 +637,10 @@ fn quota_failure_and_cancellation_remove_every_owned_native_run() {
 #[test]
 fn truncated_and_changed_native_runs_fail_before_merge_and_cleanup_remains_owned() {
     use std::io::{Seek, SeekFrom};
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     for truncate in [false, true] {
         let workspace = Workspace::new();
@@ -649,7 +679,10 @@ fn truncated_and_changed_native_runs_fail_before_merge_and_cleanup_remains_owned
 #[cfg(unix)]
 #[test]
 fn verified_run_generation_rejects_replacement_and_mutation_after_native_open() {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     for replace in [false, true] {
         let workspace = Workspace::new();
@@ -754,7 +787,10 @@ fn recovery_marker_read_is_bounded_even_if_the_stream_grows_after_admission() {
 
 #[test]
 fn spill_rejects_unsupported_keys_and_reservation_growth_without_leaking_files() {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let workspace = Workspace::new();
     let mut spill = NumericSortSpill::new(
@@ -776,7 +812,10 @@ fn spill_rejects_unsupported_keys_and_reservation_growth_without_leaking_files()
 
 #[test]
 fn crash_recovery_refuses_unknown_files_then_removes_only_recorded_inodes() {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let workspace = Workspace::new();
     let policy = workspace.policy();
@@ -811,7 +850,10 @@ fn crash_recovery_refuses_unknown_files_then_removes_only_recorded_inodes() {
 fn recovery_tolerates_interrupted_known_file_cleanup() {
     let workspace = Workspace::new();
     let policy = workspace.policy();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut spill =
         NumericSortSpill::new(&policy, false, VortexSortTiePolicy::First, true, 1).unwrap();
@@ -861,7 +903,10 @@ fn private_workspace_preserves_replaced_ownership_marker() {
 #[test]
 fn symlink_workspaces_and_replaced_run_inodes_are_rejected_without_deleting_targets() {
     use std::os::unix::fs::symlink;
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let workspace = Workspace::new();
     let link = workspace.0.join("link");

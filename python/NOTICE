@@ -4,6 +4,13 @@ Copyright 2026 Dylan Justin Heinrich
 
 Licensed under the Apache License, Version 2.0.
 
-This package is the pure Python wrapper for the ShardLoom CLI JSON protocol. It
-does not intentionally include copied third-party implementation code requiring
-additional attribution notices.
+This package provides Python interfaces to the ShardLoom native engine. A package
+may include a native CLI executable and an optional in-process Python extension.
+These binaries incorporate dependencies with their own license and notice terms.
+
+THIRD_PARTY_LICENSES/manifest.json identifies each locked registry dependency,
+local vendored patch, and its original license/notice files. The corresponding complete texts are included
+under THIRD_PARTY_LICENSES/texts. This conservative inventory includes build, test,
+and platform-specific packages; it is not a claim that every listed component is
+linked into every binary. ShardLoom's Apache-2.0 license does not replace these
+dependencies' license terms.

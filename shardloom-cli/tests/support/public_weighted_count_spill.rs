@@ -40,7 +40,16 @@ fn public_weighted_count_spill_sql_dataframe_full_values_typed_evidence_and_lazy
     drop(writer);
     let columnar = shardloom_vortex::read_flat_arrow_ipc_columnar_source(&ipc, ROWS).unwrap();
     shardloom_vortex::write_flat_columnar_vortex_prepared_state(
-        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(&source, columnar),
+        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
+            &source,
+            columnar,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        ),
     )
     .unwrap();
     let mut counts = BTreeMap::new();
@@ -78,6 +87,10 @@ fn public_weighted_count_spill_sql_dataframe_full_values_typed_evidence_and_lazy
         "native_vortex",
         "--vortex-aggregate",
         &payload,
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -100,6 +113,10 @@ fn public_weighted_count_spill_sql_dataframe_full_values_typed_evidence_and_lazy
             "native_vortex",
             "--vortex-aggregate",
             &payload,
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ];
@@ -131,6 +148,26 @@ fn public_weighted_count_spill_sql_dataframe_full_values_typed_evidence_and_lazy
         };
         let runs_written = spill_field("runs_written").parse::<u64>().unwrap();
         assert!(runs_written >= 2);
+        let written = super::complete_result::field_value(
+            &envelope,
+            "execution_resource_observed_spill_bytes",
+        )
+        .parse::<u64>()
+        .unwrap();
+        assert!(written > 0);
+        // Disk quota includes reserved workspace metadata; the observed byte
+        // counter is cumulative native payload writes, not that reservation.
+        assert_eq!(
+            written,
+            spill_field("native_bytes_written").parse::<u64>().unwrap()
+        );
+        assert_eq!(
+            super::complete_result::field_value(
+                &envelope,
+                "execution_resource_spill_observation_scope",
+            ),
+            "cumulative_native_spill_payload_bytes_written;excludes_workspace_markers_and_filesystem_overhead",
+        );
         assert_eq!(
             runs_written,
             spill_field("runs_validated").parse::<u64>().unwrap()

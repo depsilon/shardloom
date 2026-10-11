@@ -447,12 +447,17 @@ run in ShardLoom. Unsupported work returns a diagnostic without fallback executi
 ## Run a local query
 
 Create the small CSV in the [getting-started walkthrough](/start) before running this example.
-The public \`run()\` report exposes the result and native execution evidence.
+The public \`run()\` report exposes the result and native execution evidence. The 16 GiB / 8 lane allocation below is an illustrative caller choice, not a recommendation, default, or measurement.
+The configured-context examples target the current source build; published v0.5.1 packages have not been replaced.
+Missing or malformed resources fail before data access. Configure once as below,
+or pass an explicit allocation on the execution call. Environment loading is
+deliberate through \`sl.ExecutionResources.from_env()\`; importing ShardLoom does
+not choose a budget. See [resources and recovery](/field-guide/runtime-and-io/#resources-and-recovery).
 
 \`\`\`python
 import shardloom as sl
 
-ctx = sl.context()
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 result = (
     ctx.read("data/orders.csv")
        .filter(sl.col("status") == "paid")
@@ -483,6 +488,47 @@ shared native result and sink contracts. Feature gates, supported types, and res
 See [runtime and I/O](/field-guide/runtime-and-io) and the
 [user-surface index](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md).
 
+## Keep results native
+
+Current source builds provide an optional in-process Python extension. Use the
+[source build and isolated install guide](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding)
+to build it; the published 0.5.1 package has not changed. The ordinary client
+still defaults to a subprocess. Select \`ShardLoomClient(transport="native", ...)\`
+explicitly for embedded workflows, or use \`shardloom.native\` for typed native
+plans and retained results.
+
+\`\`\`python
+import pyarrow as pa
+from shardloom.native import ExecutionResources, Relation, Session, col, lit
+
+session = Session(ExecutionResources(256 << 20, 2))
+source = session.from_range("value", 0, 1, 100)
+relation = (
+    Relation.scan("memory://values")
+    .filter(col("value") >= lit(10))
+    .project([("value", col("value"))])
+)
+result = session.plan(relation, sources=[("memory://values", source)]).collect()
+session.close()
+
+# The complete result keeps its owner after the session closes.
+table = pa.RecordBatchReader.from_stream(result).read_all()
+\`\`\`
+
+The example's 256 MiB and two lanes are explicit caller choices. Native results
+can feed another operation, use existing writers, or export columnar batches
+without constructing Python row objects. \`session.from_arrow(producer)\` admits
+columnar input; \`result.row_export()\` explicitly requests Python objects.
+Foreign input may require an accounted copy, and encoded data may need conversion
+for Arrow. These APIs use the shared ShardLoom planner, native providers,
+resources and cancellation owner.
+
+The [local acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-python-surface-2026-10-11.md)
+records installed-wheel checks and paired complete Python workflows for input,
+output, retained chains, short calls, wide plans and a native-file query.
+Those measurements establish their own workflow scope; no new ingest or Full43
+measurement is claimed. Platform and release acceptance remain separate.
+
 ## Consume results in batches
 
 The published engine supports \`iter_batches()\` for admitted results and
@@ -498,7 +544,7 @@ def orders():
 
 frame = sl.from_batches(
     orders, schema={"order_id": "int64", "amount": "float64"},
-    streaming=True,
+    streaming=True, memory_gb=16, max_parallelism=8,
 )
 with frame.iter_batches(batch_rows=1024) as batches:
     for batch in batches:
@@ -511,8 +557,9 @@ integers, finite Float32/Float64, Boolean, UTF8, binary, Decimal128, Date32,
 timezone-free microsecond timestamps, lists, fixed-size lists and ordered structs.
 The original four scalar declarations, aliases and inference remain compatible;
 rich types require an explicit schema. Published v0.5.1 artifacts retain their
-release-time input types and limits. Each input batch contains at most 2,048 row
-mappings and an 8 MiB frame. Current source builds admit growing field and batch
+release-time input types and limits. The subprocess row protocol carries at most
+2,048 row mappings and an 8 MiB frame per batch. Direct native columnar intake
+uses admitted column buffers instead of that row protocol. Current source builds admit growing field and batch
 metadata through the shared query grant, without fixed total field or batch
 counts. In default resident mode (\`streaming=False\`), total native input must fit
 the query memory grant. A factory, as above, supplies fresh input for repeated
@@ -578,7 +625,7 @@ page describes current coverage gaps.`,
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 9, 2026.
+Current capabilities, reviewed October 10, 2026.
 
 ## Native Execution
 
@@ -821,14 +868,15 @@ explicit reserved metadata lane. This does not establish production-scale fairne
 Native file operations drain admitted I/O and reader ownership before completion. Metadata-only
 aggregates avoid payload and worker admission, including when no spare payload credit is available.
 
-Supply CPU and memory limits at each operation's start through Rust, the CLI, or Python.
+Current source builds require explicit memory and parallelism limits before every execution, data inspection, and preparation through Rust, the CLI, or Python. In Python, configure \`memory_gb\` (GiB) and \`max_parallelism\` on a context/session or terminal call; lazy declarations and inert discovery need no allocation. This contract supersedes the numeric defaults in the unchanged v0.5.1 packages. The [required-resource contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/required-execution-resources-2026-10-10.md) defines exact bytes, inheritance, authorization ceilings and reports that separate declared allocation from admitted resources and observed use.
+The [complete local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/required-execution-resources-2026-10-10.md) checks rejection before input demand, shared ownership, complete workflows and every retained resource report. Unmeasured usage remains unavailable; a declared budget is neither a measured peak nor a whole-process memory limit.
 The runtime selects concurrency within the supplied maximum and the CPU capacity available
 to the process; an explicit one-CPU allocation stays one. Streaming ingestion shares this
 grant across ready source, conversion, statistics, and writer tasks. Full bounded queues
 yield their drivers, while memory admission can narrow unfinished work. Allocations can
 vary well beyond P4/P6/P8. I/O and serial work may limit useful concurrency; these controls
 do not guarantee full CPU utilization or a total-process RSS ceiling. See the
-[allocation contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/adaptive-ingest-budget-2026-10-02.md).
+[ingest scheduling contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/adaptive-ingest-budget-2026-10-02.md).
 
 Current source builds carry the same \`memory_gb\` and \`max_parallelism\` request through SQL and
 DataFrame collection and local writers. Optional \`spill\` declares an existing local workspace,

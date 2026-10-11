@@ -5,8 +5,10 @@ use vortex::array::VortexSessionExecute as _;
 
 fn large_source(fixture: &Fixture, rows: usize) -> PathBuf {
     let path = fixture.0.join("large.vortex");
-    let runtime =
-        runtime::local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = runtime::local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let array = StructArray::new(
         [KEY, VALUE].into(),
@@ -77,7 +79,8 @@ fn result_stream_complete_aggregate_exceeds_collect_rows_and_reopens_every_nativ
     let path = large_source(&fixture, ROWS);
     let at_bound = prepare_aggregate(
         &count_query(&path, 65_536),
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     let collected = at_bound
@@ -95,7 +98,8 @@ fn result_stream_complete_aggregate_exceeds_collect_rows_and_reopens_every_nativ
     drop(at_bound);
     let prepared = prepare_aggregate(
         &count_query(&path, ROWS),
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert!(prepared.execute_owned().is_err());
@@ -245,7 +249,8 @@ fn result_stream_chains_native_filter_projection_and_sink_without_nested_admissi
     });
     let prepared = prepare_aggregate(
         &query,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     let before = prepared.snapshot();
@@ -299,7 +304,8 @@ fn result_stream_chains_native_filter_projection_and_sink_without_nested_admissi
         &target,
         crate::VortexLocalPrimitiveRowExportFormat::Vortex,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &mut producer,
         &CancellationToken::default(),
     )
@@ -419,7 +425,8 @@ fn result_stream_public_ordered_output_exceeds_collect_and_spill_reopens_complet
             &target,
             Format::Jsonl,
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         assert_eq!(report.rows_written, limit as u64);
@@ -471,7 +478,8 @@ fn result_stream_public_exact_distinct_spill_writes_native_columns_and_cleans_ru
         &target,
         crate::VortexLocalPrimitiveRowExportFormat::Vortex,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert_eq!(report.rows_written, 4097);
@@ -573,7 +581,8 @@ fn result_stream_all_writers_drop_staging_and_buffers_on_late_error_or_cancellat
                 &target,
                 format,
                 false,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 &mut producer,
                 &token,
             )
@@ -637,7 +646,8 @@ fn result_stream_native_writer_metadata_denial_releases_pending_task_owners() {
         &target,
         crate::VortexLocalPrimitiveRowExportFormat::Vortex,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &mut producer,
         &CancellationToken::default(),
     )

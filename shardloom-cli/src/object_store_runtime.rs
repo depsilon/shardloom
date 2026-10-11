@@ -10,8 +10,7 @@
 use std::{
     collections::BTreeSet,
     fmt::Write as _,
-    fs::{self, File},
-    io::{Read, Seek, SeekFrom},
+    fs,
     path::{Path, PathBuf},
     process::ExitCode,
     time::UNIX_EPOCH,
@@ -21,10 +20,12 @@ use shardloom_core::{
     CommandStatus, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
     FallbackStatus, OutputFormat, ShardLoomError,
 };
+use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
+    fixture_io::JsonEscaped,
 };
 
 const OBJECT_STORE_READ_SMOKE_COMMAND: &str = "object-store-read-smoke";
@@ -820,10 +821,22 @@ impl ObjectStoreReadSmokeReport {
     }
 }
 
+#[allow(clippy::too_many_lines)] // Keep admission and the existing fixture report in the same boundary.
 pub(crate) fn handle_object_store_read_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "object-store-read-smoke",
+        &["--profile", "--public-fixture-path", "--range"],
+        context,
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(source) = args.next() else {
         return emit_error(
             OBJECT_STORE_READ_SMOKE_COMMAND,
@@ -882,7 +895,9 @@ pub(crate) fn handle_object_store_read_smoke(
                 requested_range = match parse_requested_range(&value) {
                     Ok(range) => Some(range),
                     Err(error) => {
-                        return emit_blocked_range_parse(format, &source, &profile, &error);
+                        return emit_blocked_range_parse(
+                            format, &source, &profile, &error, resources,
+                        );
                     }
                 };
             }
@@ -897,20 +912,42 @@ pub(crate) fn handle_object_store_read_smoke(
         }
     }
 
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        OBJECT_STORE_READ_SMOKE_COMMAND,
+        format,
+        context,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
     let report = execute_object_store_read_smoke(
         &source,
         &profile,
         requested_range,
         public_fixture_path.as_deref(),
         fixture_listing_requested,
+        &pool,
     );
-    emit_object_store_read_smoke_report(format, &report)
+    emit_object_store_read_smoke_report(format, &report, resources, Some(&pool))
 }
 
+#[allow(clippy::too_many_lines)] // Keep argument validation before resource admission and I/O.
 pub(crate) fn handle_object_store_write_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "object-store-write-smoke",
+        &["--profile", "--idempotency-key"],
+        context,
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(source) = args.next() else {
         return emit_error(
             OBJECT_STORE_WRITE_SMOKE_COMMAND,
@@ -990,6 +1027,15 @@ pub(crate) fn handle_object_store_write_smoke(
         }
     }
 
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        OBJECT_STORE_WRITE_SMOKE_COMMAND,
+        format,
+        context,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
     let report = execute_object_store_write_smoke(
         &source,
         &target,
@@ -997,14 +1043,26 @@ pub(crate) fn handle_object_store_write_smoke(
         idempotency_key.as_deref(),
         allow_overwrite,
         rollback_after_commit,
+        &pool,
     );
-    emit_object_store_write_smoke_report(format, &report)
+    emit_object_store_write_smoke_report(format, &report, resources, &pool)
 }
 
 pub(crate) fn handle_object_store_write_recovery_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "object-store-write-recovery-smoke",
+        &["--profile", "--idempotency-key"],
+        context,
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(target) = args.next() else {
         return emit_error(
             OBJECT_STORE_WRITE_RECOVERY_SMOKE_COMMAND,
@@ -1068,15 +1126,39 @@ pub(crate) fn handle_object_store_write_recovery_smoke(
         }
     }
 
-    let report =
-        execute_object_store_write_recovery_smoke(&target, &profile, idempotency_key.as_deref());
-    emit_object_store_write_recovery_smoke_report(format, &report)
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        OBJECT_STORE_WRITE_RECOVERY_SMOKE_COMMAND,
+        format,
+        context,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let report = execute_object_store_write_recovery_smoke(
+        &target,
+        &profile,
+        idempotency_key.as_deref(),
+        &pool,
+    );
+    emit_object_store_write_recovery_smoke_report(format, &report, resources, &pool)
 }
 
 pub(crate) fn handle_object_store_partition_discovery_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "object-store-partition-discovery-smoke",
+        &["--profile", "--partition-columns"],
+        context,
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(root) = args.next() else {
         return emit_error(
             OBJECT_STORE_PARTITION_DISCOVERY_SMOKE_COMMAND,
@@ -1140,8 +1222,33 @@ pub(crate) fn handle_object_store_partition_discovery_smoke(
         }
     }
 
-    let report = execute_object_store_partition_discovery_smoke(&root, &profile, partition_columns);
-    emit_object_store_partition_discovery_smoke_report(format, &report)
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        OBJECT_STORE_PARTITION_DISCOVERY_SMOKE_COMMAND,
+        format,
+        context,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let report = match execute_object_store_partition_discovery_smoke(
+        &root,
+        &profile,
+        partition_columns,
+        &pool,
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            return crate::cli_output::emit_error_with_fields(
+                OBJECT_STORE_PARTITION_DISCOVERY_SMOKE_COMMAND,
+                format,
+                "partition discovery resource admission failed",
+                &error,
+                crate::fixture_io::with_observation_fields(Vec::new(), resources, &pool),
+            );
+        }
+    };
+    emit_object_store_partition_discovery_smoke_report(format, report.value(), resources, &pool)
 }
 
 fn emit_blocked_range_parse(
@@ -1149,6 +1256,7 @@ fn emit_blocked_range_parse(
     source: &str,
     profile: &str,
     error: &ShardLoomError,
+    resources: shardloom_core::ExecutionResources,
 ) -> ExitCode {
     let report = ObjectStoreReadSmokeReport::blocked(
         ObjectStoreReadSmokeStatus::BlockedInvalidRange,
@@ -1159,12 +1267,14 @@ fn emit_blocked_range_parse(
             "Use --range offset:length with a positive length.",
         ),
     );
-    emit_object_store_read_smoke_report(format, &report)
+    emit_object_store_read_smoke_report(format, &report, resources, None)
 }
 
 fn emit_object_store_read_smoke_report(
     format: OutputFormat,
     report: &ObjectStoreReadSmokeReport,
+    resources: shardloom_core::ExecutionResources,
+    pool: Option<&LiveMemoryPool>,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     let status = if has_errors {
@@ -1179,7 +1289,21 @@ fn emit_object_store_read_smoke_report(
         object_store_read_summary(&report.provider_profile).to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        object_store_read_smoke_fields(report),
+        pool.map_or_else(
+            || {
+                crate::execution_resources::with_declaration_fields(
+                    object_store_read_smoke_fields(report),
+                    resources,
+                )
+            },
+            |pool| {
+                crate::fixture_io::with_observation_fields(
+                    object_store_read_smoke_fields(report),
+                    resources,
+                    pool,
+                )
+            },
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -1191,6 +1315,8 @@ fn emit_object_store_read_smoke_report(
 fn emit_object_store_write_smoke_report(
     format: OutputFormat,
     report: &ObjectStoreWriteSmokeReport,
+    resources: shardloom_core::ExecutionResources,
+    pool: &LiveMemoryPool,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     let status = if has_errors {
@@ -1205,7 +1331,11 @@ fn emit_object_store_write_smoke_report(
         "object-store local-emulator write smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        object_store_write_smoke_fields(report),
+        crate::fixture_io::with_observation_fields(
+            object_store_write_smoke_fields(report),
+            resources,
+            pool,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -1217,6 +1347,8 @@ fn emit_object_store_write_smoke_report(
 fn emit_object_store_write_recovery_smoke_report(
     format: OutputFormat,
     report: &ObjectStoreWriteRecoveryReport,
+    resources: shardloom_core::ExecutionResources,
+    pool: &LiveMemoryPool,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     let status = if has_errors {
@@ -1231,7 +1363,11 @@ fn emit_object_store_write_recovery_smoke_report(
         "object-store local-emulator write recovery smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        object_store_write_recovery_smoke_fields(report),
+        crate::fixture_io::with_observation_fields(
+            object_store_write_recovery_smoke_fields(report),
+            resources,
+            pool,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -1243,6 +1379,8 @@ fn emit_object_store_write_recovery_smoke_report(
 fn emit_object_store_partition_discovery_smoke_report(
     format: OutputFormat,
     report: &ObjectStorePartitionDiscoveryReport,
+    resources: shardloom_core::ExecutionResources,
+    pool: &LiveMemoryPool,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     let status = if has_errors {
@@ -1257,7 +1395,11 @@ fn emit_object_store_partition_discovery_smoke_report(
         "object-store local-emulator partition discovery smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        object_store_partition_discovery_smoke_fields(report),
+        crate::fixture_io::with_observation_fields(
+            object_store_partition_discovery_smoke_fields(report),
+            resources,
+            pool,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -1272,6 +1414,7 @@ fn execute_object_store_read_smoke(
     requested_range: Option<RequestedRange>,
     public_fixture_path: Option<&str>,
     fixture_listing_requested: bool,
+    pool: &LiveMemoryPool,
 ) -> ObjectStoreReadSmokeReport {
     let read_mode = read_mode_for(requested_range);
     if let Some(report) = early_profile_blocker(
@@ -1291,6 +1434,7 @@ fn execute_object_store_read_smoke(
             requested_range,
             public_fixture_path.expect("checked by early_profile_blocker"),
             fixture_listing_requested,
+            pool,
         );
     }
 
@@ -1331,7 +1475,8 @@ fn execute_object_store_read_smoke(
         return report;
     }
 
-    let bytes = match read_local_emulator_bytes(&local_path, requested_range, metadata.len()) {
+    let bytes = match read_local_emulator_bytes(&local_path, requested_range, metadata.len(), pool)
+    {
         Ok(bytes) => bytes,
         Err(error) => {
             return read_error_blocker(
@@ -1357,7 +1502,7 @@ fn execute_object_store_read_smoke(
             metadata: &metadata,
             requested_range,
         },
-        &bytes,
+        bytes.value(),
     )
 }
 
@@ -1367,6 +1512,7 @@ fn execute_public_fixture_read_smoke(
     requested_range: Option<RequestedRange>,
     public_fixture_path: &str,
     fixture_listing_requested: bool,
+    pool: &LiveMemoryPool,
 ) -> ObjectStoreReadSmokeReport {
     let read_mode = read_mode_for(requested_range);
     let parsed = match parse_object_store_uri(source) {
@@ -1418,7 +1564,8 @@ fn execute_public_fixture_read_smoke(
     ) {
         return report;
     }
-    let bytes = match read_local_emulator_bytes(&local_path, requested_range, metadata.len()) {
+    let bytes = match read_local_emulator_bytes(&local_path, requested_range, metadata.len(), pool)
+    {
         Ok(bytes) => bytes,
         Err(error) => {
             return read_error_blocker(
@@ -1444,7 +1591,7 @@ fn execute_public_fixture_read_smoke(
             metadata: &metadata,
             requested_range,
         },
-        &bytes,
+        bytes.value(),
     )
 }
 
@@ -1455,6 +1602,7 @@ fn execute_object_store_write_smoke(
     idempotency_key: Option<&str>,
     allow_overwrite: bool,
     rollback_after_commit: bool,
+    pool: &LiveMemoryPool,
 ) -> ObjectStoreWriteSmokeReport {
     if let Some(report) = early_write_profile_blocker(
         source,
@@ -1472,11 +1620,13 @@ fn execute_object_store_write_smoke(
         profile,
         allow_overwrite,
         rollback_after_commit,
+        pool,
     ) {
         Ok(inputs) => inputs,
         Err(report) => return *report,
     };
-    let payload_digest = fnv64_digest_bytes(&payload);
+    let payload_bytes = payload.value().len();
+    let payload_digest = fnv64_digest_bytes(payload.value());
     let (idempotency_key, idempotency_status) =
         resolved_idempotency_key(idempotency_key, source, target, &payload_digest);
     let staging_path = staging_object_path(&target_path, &idempotency_key);
@@ -1490,9 +1640,10 @@ fn execute_object_store_write_smoke(
         &commit_manifest_path,
         &idempotency_key,
         &payload_digest,
-        &payload,
+        payload,
         allow_overwrite,
         rollback_after_commit,
+        pool,
     );
 
     match commit_result {
@@ -1510,7 +1661,7 @@ fn execute_object_store_write_smoke(
             idempotency_status,
             allow_overwrite,
             rollback_after_commit,
-            payload_bytes: payload.len(),
+            payload_bytes,
             written_bytes: commit.written_bytes,
             commit_manifest_bytes: commit.commit_manifest_bytes,
             cleanup_deleted_count: commit.cleanup_deleted_count,
@@ -1534,6 +1685,7 @@ fn execute_object_store_write_recovery_smoke(
     target: &str,
     profile: &str,
     expected_idempotency_key: Option<&str>,
+    pool: &LiveMemoryPool,
 ) -> ObjectStoreWriteRecoveryReport {
     let expected_idempotency_key = expected_idempotency_key.map(str::to_string);
     if profile != DEFAULT_PROFILE {
@@ -1586,7 +1738,8 @@ fn execute_object_store_write_recovery_smoke(
     }
     let commit_manifest_path = commit_manifest_sidecar_path(&target_path);
     let object_size_bytes = target_path.metadata().map_or(0, |metadata| metadata.len());
-    let object_bytes = match read_local_emulator_bytes(&target_path, None, object_size_bytes) {
+    let object_bytes = match read_local_emulator_bytes(&target_path, None, object_size_bytes, pool)
+    {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return ObjectStoreWriteRecoveryReport::blocked(
@@ -1619,10 +1772,14 @@ fn execute_object_store_write_recovery_smoke(
             );
         }
     };
-    let commit_manifest = match read_local_utf8_file_with_budget(
+    let object_digest = fnv64_digest_bytes(object_bytes.value());
+    let object_length = object_bytes.value().len();
+    drop(object_bytes);
+    let commit_manifest = match crate::fixture_io::read_utf8(
         &commit_manifest_path,
         MAX_OBJECT_STORE_COMMIT_MANIFEST_BYTES,
         "object-store write recovery commit manifest",
+        pool,
     ) {
         Ok(content) => content,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -1655,23 +1812,23 @@ fn execute_object_store_write_recovery_smoke(
         }
     };
 
-    let object_digest = fnv64_digest_bytes(&object_bytes);
+    let commit_manifest = commit_manifest.value();
     let commit_manifest_bytes = commit_manifest.len();
-    let commit_manifest_digest = fnv64_digest(&commit_manifest);
-    let recorded_payload_digest = extract_json_string_field(&commit_manifest, "payload_digest")
+    let commit_manifest_digest = fnv64_digest(commit_manifest);
+    let recorded_payload_digest = extract_json_string_field(commit_manifest, "payload_digest")
         .unwrap_or_else(|| "missing_payload_digest".to_string());
     let recorded_target_content_digest =
-        extract_json_string_field(&commit_manifest, "target_content_digest")
+        extract_json_string_field(commit_manifest, "target_content_digest")
             .unwrap_or_else(|| "missing_target_content_digest".to_string());
-    let recovered_idempotency_key = extract_json_string_field(&commit_manifest, "idempotency_key")
+    let recovered_idempotency_key = extract_json_string_field(commit_manifest, "idempotency_key")
         .unwrap_or_else(|| "missing_idempotency_key".to_string());
-    let recorded_target_path = extract_json_string_field(&commit_manifest, "local_target_path")
+    let recorded_target_path = extract_json_string_field(commit_manifest, "local_target_path")
         .unwrap_or_else(|| "missing_local_target_path".to_string());
     let recorded_payload_bytes =
-        extract_json_usize_field(&commit_manifest, "payload_bytes").unwrap_or(0);
+        extract_json_usize_field(commit_manifest, "payload_bytes").unwrap_or(0);
     let target_digest_matched = recorded_target_content_digest == object_digest;
     let payload_digest_matched = recorded_payload_digest == object_digest;
-    let payload_bytes_matched = recorded_payload_bytes == object_bytes.len();
+    let payload_bytes_matched = recorded_payload_bytes == object_length;
     let target_path_matched = recorded_target_path == target_path.to_string_lossy().as_ref();
     let idempotency_matched = expected_idempotency_key
         .as_deref()
@@ -1729,7 +1886,7 @@ fn execute_object_store_write_recovery_smoke(
             expected_idempotency_key,
             recovered_idempotency_key,
             idempotency_status: "recovered_mismatch",
-            object_bytes: object_bytes.len(),
+            object_bytes: object_length,
             recorded_payload_bytes,
             object_digest,
             recorded_payload_digest,
@@ -1754,7 +1911,7 @@ fn execute_object_store_write_recovery_smoke(
         expected_idempotency_key,
         recovered_idempotency_key,
         idempotency_status: "recovered_from_commit_manifest",
-        object_bytes: object_bytes.len(),
+        object_bytes: object_length,
         recorded_payload_bytes,
         object_digest,
         recorded_payload_digest,
@@ -1769,11 +1926,28 @@ fn execute_object_store_write_recovery_smoke(
     }
 }
 
-#[allow(clippy::too_many_lines)]
 fn execute_object_store_partition_discovery_smoke(
     root: &str,
     profile: &str,
     requested_partition_columns: Vec<String>,
+    pool: &LiveMemoryPool,
+) -> shardloom_core::Result<Budgeted<ObjectStorePartitionDiscoveryReport>> {
+    let mut lease = pool.reserve(0)?;
+    let report = execute_partition_discovery_with_owner(
+        root,
+        profile,
+        requested_partition_columns,
+        &mut lease,
+    );
+    Ok(Budgeted::new(report, lease))
+}
+
+#[allow(clippy::too_many_lines)]
+fn execute_partition_discovery_with_owner(
+    root: &str,
+    profile: &str,
+    requested_partition_columns: Vec<String>,
+    lease: &mut MemoryLease,
 ) -> ObjectStorePartitionDiscoveryReport {
     if profile != DEFAULT_PROFILE {
         return ObjectStorePartitionDiscoveryReport::blocked(
@@ -1852,7 +2026,7 @@ fn execute_object_store_partition_discovery_smoke(
         );
     }
 
-    match discover_local_partition_directories(&root_path) {
+    match discover_local_partition_directories(&root_path, lease) {
         Ok(discovery) if discovery.partition_directory_count > 0 => {
             if !requested_partition_columns.is_empty()
                 && !partition_column_sets_match(
@@ -1914,13 +2088,16 @@ fn execute_object_store_partition_discovery_smoke(
     }
 }
 
+type LocalEmulatorWriteInputs = (PathBuf, PathBuf, Budgeted<Vec<u8>>);
+
 fn prepare_local_emulator_write_inputs(
     source: &str,
     target: &str,
     profile: &str,
     allow_overwrite: bool,
     rollback_after_commit: bool,
-) -> Result<(PathBuf, PathBuf, Vec<u8>), Box<ObjectStoreWriteSmokeReport>> {
+    pool: &LiveMemoryPool,
+) -> Result<LocalEmulatorWriteInputs, Box<ObjectStoreWriteSmokeReport>> {
     let source_path = normalize_local_emulator_path(source).map_err(|error| {
         Box::new(write_source_path_blocker(
             source,
@@ -1968,8 +2145,8 @@ fn prepare_local_emulator_write_inputs(
             )));
         }
     };
-    let payload =
-        read_local_emulator_bytes(&source_path, None, source_metadata.len()).map_err(|error| {
+    let payload = read_local_emulator_bytes(&source_path, None, source_metadata.len(), pool)
+        .map_err(|error| {
             Box::new(write_error_blocker(
                 source,
                 target,
@@ -2619,6 +2796,7 @@ fn prepare_local_emulator_write_backups(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)] // Keep commit, recovery, and reservation lifetimes together.
 fn perform_local_emulator_write_commit(
     source_uri: &str,
     target_uri: &str,
@@ -2628,21 +2806,23 @@ fn perform_local_emulator_write_commit(
     commit_manifest_path: &Path,
     idempotency_key: &str,
     payload_digest: &str,
-    payload: &[u8],
+    payload: Budgeted<Vec<u8>>,
     allow_overwrite: bool,
     rollback_after_commit: bool,
+    pool: &LiveMemoryPool,
 ) -> std::io::Result<LocalEmulatorWriteCommit> {
     let workspace_root = workspace_root_for_local_output(target_path)?;
     validate_workspace_safe_output(&workspace_root, target_path, allow_overwrite)?;
     validate_workspace_safe_output(&workspace_root, commit_manifest_path, true)?;
 
     let (backups, committed_staging_path) = if allow_overwrite {
-        let staging_write_report = write_workspace_safe_local_bytes(
+        let staging_write_report = crate::fixture_io::write_bytes(
             &workspace_root,
             staging_path,
             true,
             "object-store local-emulator staged object",
-            payload,
+            &payload,
+            pool,
         )?;
         let backups = prepare_local_emulator_write_backups(
             target_path,
@@ -2657,12 +2837,13 @@ fn perform_local_emulator_write_commit(
         }
         (backups, staging_write_report.target_path)
     } else {
-        let target_write_report = write_workspace_safe_local_bytes(
+        let target_write_report = crate::fixture_io::write_bytes(
             &workspace_root,
             target_path,
             false,
             "object-store local-emulator object",
-            payload,
+            &payload,
+            pool,
         )?;
         (
             LocalEmulatorWriteBackups::new(target_path, commit_manifest_path, idempotency_key),
@@ -2670,10 +2851,15 @@ fn perform_local_emulator_write_commit(
         )
     };
 
+    let payload_bytes = payload.value().len();
+    // The write is complete. Reuse its credits for verification instead of
+    // retaining a second full object alongside an unused source buffer.
+    drop(payload);
     let target_bytes = match read_local_emulator_bytes(
         target_path,
         None,
-        u64::try_from(payload.len()).unwrap_or(u64::MAX),
+        u64::try_from(payload_bytes).unwrap_or(u64::MAX),
+        pool,
     ) {
         Ok(bytes) => bytes,
         Err(error) => {
@@ -2682,25 +2868,35 @@ fn perform_local_emulator_write_commit(
             return Err(error);
         }
     };
-    let target_content_digest = fnv64_digest_bytes(&target_bytes);
-    let manifest = build_commit_manifest(
+    let target_content_digest = fnv64_digest_bytes(target_bytes.value());
+    drop(target_bytes);
+    let manifest = match build_commit_manifest(
         source_uri,
         target_uri,
         source_path,
         target_path,
         idempotency_key,
-        payload.len(),
+        payload_bytes,
         payload_digest,
         &target_content_digest,
-    );
-    let commit_manifest_digest = fnv64_digest(&manifest);
-    let commit_manifest_bytes = manifest.len();
-    if let Err(error) = write_workspace_safe_local_bytes(
+        pool,
+    ) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
+            backups.restore(target_path, commit_manifest_path);
+            return Err(error);
+        }
+    };
+    let commit_manifest_digest = fnv64_digest(manifest.value());
+    let commit_manifest_bytes = manifest.value().len();
+    if let Err(error) = crate::fixture_io::write_bytes(
         &workspace_root,
         commit_manifest_path,
         true,
         "object-store local-emulator commit manifest",
-        manifest.as_bytes(),
+        &manifest,
+        pool,
     ) {
         let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
         backups.restore(target_path, commit_manifest_path);
@@ -2727,7 +2923,7 @@ fn perform_local_emulator_write_commit(
     Ok(LocalEmulatorWriteCommit {
         status,
         staging_path: committed_staging_path,
-        written_bytes: payload.len(),
+        written_bytes: payload_bytes,
         cleanup_deleted_count,
         target_content_digest,
         commit_manifest_bytes,
@@ -2757,23 +2953,6 @@ fn validate_workspace_safe_output(
         .map_err(shardloom_error_to_io_error)
 }
 
-fn write_workspace_safe_local_bytes(
-    workspace_root: &Path,
-    path: &Path,
-    allow_overwrite: bool,
-    operation_label: &str,
-    content: &[u8],
-) -> std::io::Result<shardloom_core::WorkspaceSafeLocalWriteReport> {
-    shardloom_core::write_workspace_safe_bytes(
-        workspace_root,
-        path,
-        allow_overwrite,
-        operation_label,
-        content,
-    )
-    .map_err(shardloom_error_to_io_error)
-}
-
 fn remove_workspace_safe_file_if_exists(
     workspace_root: &Path,
     path: &Path,
@@ -2796,8 +2975,11 @@ fn build_commit_manifest(
     payload_bytes: usize,
     payload_digest: &str,
     target_content_digest: &str,
-) -> String {
-    format!(
+    pool: &LiveMemoryPool,
+) -> std::io::Result<Budgeted<String>> {
+    let mut manifest = crate::fixture_io::Text::new(pool).map_err(shardloom_error_to_io_error)?;
+    let _ = write!(
+        manifest,
         concat!(
             "{{\n",
             "  \"schema_version\": \"shardloom.object_store_write_commit_manifest.v1\",\n",
@@ -2815,33 +2997,16 @@ fn build_commit_manifest(
             "  \"external_engine_invoked\": false\n",
             "}}\n"
         ),
-        escape_json(source_uri),
-        escape_json(target_uri),
-        escape_json(&source_path.to_string_lossy()),
-        escape_json(&target_path.to_string_lossy()),
-        escape_json(idempotency_key),
+        JsonEscaped(source_uri),
+        JsonEscaped(target_uri),
+        JsonEscaped(source_path.display()),
+        JsonEscaped(target_path.display()),
+        JsonEscaped(idempotency_key),
         payload_bytes,
-        escape_json(payload_digest),
-        escape_json(target_content_digest),
-    )
-}
-
-fn escape_json(value: &str) -> String {
-    let mut escaped = String::new();
-    for character in value.chars() {
-        match character {
-            '"' => escaped.push_str("\\\""),
-            '\\' => escaped.push_str("\\\\"),
-            '\n' => escaped.push_str("\\n"),
-            '\r' => escaped.push_str("\\r"),
-            '\t' => escaped.push_str("\\t"),
-            value if value.is_control() => {
-                let _ = write!(escaped, "\\u{:04x}", value as u32);
-            }
-            value => escaped.push(value),
-        }
-    }
-    escaped
+        JsonEscaped(payload_digest),
+        JsonEscaped(target_content_digest),
+    );
+    manifest.finish().map_err(shardloom_error_to_io_error)
 }
 
 fn extract_json_string_field(source: &str, field: &str) -> Option<String> {
@@ -4627,9 +4792,10 @@ struct LocalPartitionDiscovery {
 
 fn discover_local_partition_directories(
     root: &Path,
+    lease: &mut MemoryLease,
 ) -> Result<LocalPartitionDiscovery, std::io::Error> {
-    let mut columns = BTreeSet::new();
-    let mut values = BTreeSet::new();
+    let mut columns = Vec::new();
+    let mut values = Vec::new();
     let mut partition_directory_count = 0usize;
     let mut listing_directory_count = 0usize;
     let mut max_partition_depth = 0usize;
@@ -4641,24 +4807,27 @@ fn discover_local_partition_directories(
         &mut partition_directory_count,
         &mut listing_directory_count,
         &mut max_partition_depth,
+        lease,
     )?;
     Ok(LocalPartitionDiscovery {
-        partition_columns: columns.into_iter().collect(),
-        partition_values: values.into_iter().collect(),
+        partition_columns: columns,
+        partition_values: values,
         partition_directory_count,
         listing_directory_count,
         max_partition_depth,
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn discover_local_partition_directories_inner(
     path: &Path,
     depth: usize,
-    columns: &mut BTreeSet<String>,
-    values: &mut BTreeSet<String>,
+    columns: &mut Vec<String>,
+    values: &mut Vec<String>,
     partition_directory_count: &mut usize,
     listing_directory_count: &mut usize,
     max_partition_depth: &mut usize,
+    lease: &mut MemoryLease,
 ) -> Result<(), std::io::Error> {
     if depth > MAX_OBJECT_STORE_PARTITION_DISCOVERY_DEPTH {
         return Err(std::io::Error::new(
@@ -4687,8 +4856,27 @@ fn discover_local_partition_directories_inner(
         let name = file_name.to_string_lossy();
         let child_depth = depth + 1;
         if let Some((key, value)) = parse_partition_directory_name(&name) {
-            columns.insert(key.to_string());
-            values.insert(format!("{key}={value}"));
+            if let Err(index) = columns.binary_search_by(|column| column.as_str().cmp(key)) {
+                crate::fixture_io::reserve_additional(columns, 1, lease)
+                    .map_err(std::io::Error::other)?;
+                columns.insert(
+                    index,
+                    crate::fixture_io::copy_text(key, lease).map_err(std::io::Error::other)?,
+                );
+            }
+            let mut text =
+                crate::fixture_io::Text::new(lease.pool()).map_err(std::io::Error::other)?;
+            let _ = write!(text, "{key}={value}");
+            let text = text.finish().map_err(std::io::Error::other)?;
+            if let Err(index) = values.binary_search(text.value()) {
+                crate::fixture_io::reserve_additional(values, 1, lease)
+                    .map_err(std::io::Error::other)?;
+                let (text, mut text_lease) = text.into_parts();
+                lease
+                    .absorb(&mut text_lease)
+                    .map_err(std::io::Error::other)?;
+                values.insert(index, text);
+            }
             *partition_directory_count += 1;
             *max_partition_depth = (*max_partition_depth).max(child_depth);
         }
@@ -4700,6 +4888,7 @@ fn discover_local_partition_directories_inner(
             partition_directory_count,
             listing_directory_count,
             max_partition_depth,
+            lease,
         )?;
     }
     Ok(())
@@ -4720,7 +4909,8 @@ fn read_local_emulator_bytes(
     local_path: &Path,
     requested_range: Option<RequestedRange>,
     object_size_bytes: u64,
-) -> std::io::Result<Vec<u8>> {
+    pool: &LiveMemoryPool,
+) -> std::io::Result<Budgeted<Vec<u8>>> {
     let max_bytes = MAX_OBJECT_STORE_FIXTURE_BYTES;
     match requested_range {
         Some(range) if range.length > max_bytes => {
@@ -4743,68 +4933,12 @@ fn read_local_emulator_bytes(
         }
         _ => {}
     }
-    let mut file = File::open(local_path)?;
-    let mut bytes = Vec::new();
-    if let Some(range) = requested_range {
-        file.seek(SeekFrom::Start(range.offset))?;
-        let mut limited = file.take(range.length);
-        limited.read_to_end(&mut bytes)?;
-    } else {
-        file.read_to_end(&mut bytes)?;
-    }
-    let bytes_len = u64::try_from(bytes.len()).map_err(|_| {
-        std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "object-store fixture read length does not fit in u64",
-        )
-    })?;
-    if bytes_len > max_bytes {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!(
-                "object-store fixture {} exceeded scoped read budget {max_bytes} bytes during read",
-                local_path.display()
-            ),
-        ));
-    }
-    Ok(bytes)
-}
-
-fn read_local_utf8_file_with_budget(
-    path: &Path,
-    max_bytes: u64,
-    label: &str,
-) -> std::io::Result<String> {
-    let metadata = fs::metadata(path)?;
-    if !metadata.is_file() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("{label} {} must be a regular file", path.display()),
-        ));
-    }
-    if metadata.len() > max_bytes {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!(
-                "{label} {} is {} bytes; scoped reads admit at most {max_bytes} bytes",
-                path.display(),
-                metadata.len()
-            ),
-        ));
-    }
-    let bytes = fs::read(path)?;
-    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > max_bytes {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("{label} {} exceeded scoped read budget", path.display()),
-        ));
-    }
-    String::from_utf8(bytes).map_err(|error| {
-        std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("{label} {} is not valid UTF-8: {error}", path.display()),
-        )
-    })
+    crate::fixture_io::read_bytes(
+        local_path,
+        requested_range.map(|range| (range.offset, range.length)),
+        object_size_bytes,
+        pool,
+    )
 }
 
 fn parse_requested_range(raw: &str) -> Result<RequestedRange, ShardLoomError> {
@@ -5061,6 +5195,308 @@ fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
+
+    fn execute_object_store_read_smoke(
+        source: &str,
+        profile: &str,
+        range: Option<RequestedRange>,
+        fixture: Option<&str>,
+        listing: bool,
+    ) -> ObjectStoreReadSmokeReport {
+        let pool = LiveMemoryPool::new(16 << 20).unwrap();
+        super::execute_object_store_read_smoke(source, profile, range, fixture, listing, &pool)
+    }
+
+    fn execute_object_store_write_smoke(
+        source: &str,
+        target: &str,
+        profile: &str,
+        key: Option<&str>,
+        overwrite: bool,
+        rollback: bool,
+    ) -> ObjectStoreWriteSmokeReport {
+        let pool = LiveMemoryPool::new(16 << 20).unwrap();
+        super::execute_object_store_write_smoke(
+            source, target, profile, key, overwrite, rollback, &pool,
+        )
+    }
+
+    fn execute_object_store_write_recovery_smoke(
+        target: &str,
+        profile: &str,
+        key: Option<&str>,
+    ) -> ObjectStoreWriteRecoveryReport {
+        let pool = LiveMemoryPool::new(16 << 20).unwrap();
+        super::execute_object_store_write_recovery_smoke(target, profile, key, &pool)
+    }
+
+    #[test]
+    fn object_store_reads_enforce_the_same_exact_pool_for_both_profiles() {
+        let fixture = std::env::temp_dir().join(format!(
+            "shardloom-object-store-shared-read-{}.bin",
+            std::process::id()
+        ));
+        fs::write(&fixture, b"abcdef").unwrap();
+        let path = fixture.to_str().unwrap();
+        for (source, profile, fixture_path) in [
+            (path, LOCAL_EMULATOR_PROFILE, None),
+            (
+                "s3://bucket/object",
+                PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE,
+                Some(path),
+            ),
+        ] {
+            let pool = LiveMemoryPool::new(6).unwrap();
+            let retained = pool.reserve(4).unwrap();
+            let denied = super::execute_object_store_read_smoke(
+                source,
+                profile,
+                Some(RequestedRange {
+                    offset: 1,
+                    length: 3,
+                }),
+                fixture_path,
+                false,
+                &pool,
+            );
+            assert_eq!(denied.status, ObjectStoreReadSmokeStatus::BlockedReadError);
+            assert_eq!(denied.bytes_read, 0);
+            assert!(
+                denied
+                    .diagnostics
+                    .iter()
+                    .any(|d| format!("{d:?}").contains("memory reservation denied"))
+            );
+            assert_eq!(pool.snapshot().reserved_bytes, 4);
+            drop(retained);
+            let read = super::execute_object_store_read_smoke(
+                source,
+                profile,
+                None,
+                fixture_path,
+                false,
+                &pool,
+            );
+            assert!(!read.has_errors());
+            assert_eq!(read.bytes_read, 6);
+            assert_eq!(pool.snapshot().peak_reserved_bytes, 6);
+            assert_eq!(pool.snapshot().reserved_bytes, 0);
+        }
+        let pool = LiveMemoryPool::new(1).unwrap();
+        let denied = super::execute_object_store_read_smoke(
+            path,
+            LOCAL_EMULATOR_PROFILE,
+            None,
+            None,
+            false,
+            &pool,
+        );
+        assert_eq!(denied.status, ObjectStoreReadSmokeStatus::BlockedReadError);
+        assert_eq!(pool.snapshot().peak_reserved_bytes, 0);
+        fs::remove_file(fixture).unwrap();
+    }
+
+    #[test]
+    fn object_store_write_denial_preserves_targets_and_recovery_has_its_own_admission() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-object-store-shared-write-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let source = root.join("source.bin");
+        let target = root.join("target.bin");
+        fs::write(&source, b"new-payload").unwrap();
+        fs::write(&target, b"preserve").unwrap();
+        let small = LiveMemoryPool::new(64).unwrap();
+        let denied = super::execute_object_store_write_smoke(
+            source.to_str().unwrap(),
+            target.to_str().unwrap(),
+            LOCAL_EMULATOR_PROFILE,
+            Some("budget"),
+            true,
+            false,
+            &small,
+        );
+        assert!(denied.has_errors());
+        assert_eq!(fs::read(&target).unwrap(), b"preserve");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+        assert_eq!(small.snapshot().reserved_bytes, 0);
+
+        let pool = LiveMemoryPool::new(16 << 20).unwrap();
+        let written = super::execute_object_store_write_smoke(
+            source.to_str().unwrap(),
+            target.to_str().unwrap(),
+            LOCAL_EMULATOR_PROFILE,
+            Some("budget"),
+            true,
+            false,
+            &pool,
+        );
+        assert!(!written.has_errors());
+        assert!(
+            pool.snapshot().peak_reserved_bytes
+                >= 11 + shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes()
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        let denied = super::execute_object_store_write_recovery_smoke(
+            target.to_str().unwrap(),
+            LOCAL_EMULATOR_PROFILE,
+            Some("budget"),
+            &LiveMemoryPool::new(1).unwrap(),
+        );
+        assert!(denied.has_errors());
+        let recovered = super::execute_object_store_write_recovery_smoke(
+            target.to_str().unwrap(),
+            LOCAL_EMULATOR_PROFILE,
+            Some("budget"),
+            &pool,
+        );
+        assert!(!recovered.has_errors());
+        assert_eq!(fs::read(&target).unwrap(), b"new-payload");
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn generated_object_manifest_denial_restores_prior_objects_and_sidecars() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-object-manifest-admission-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let source = root.join("source.bin");
+        fs::write(&source, b"x").unwrap();
+        let limit = shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes() + 1;
+        // Small text fits on its own but not beside staging. Escaped control
+        // text exceeds the grant during construction, before any manifest write.
+        for (index, key) in ["small".to_string(), "\u{0001}".repeat(65_536)]
+            .iter()
+            .enumerate()
+        {
+            for overwrite in [false, true] {
+                let target = root.join(format!("target-{index}-{overwrite}.bin"));
+                let sidecar = commit_manifest_sidecar_path(&target);
+                if overwrite {
+                    fs::write(&target, b"prior-object").unwrap();
+                    fs::write(&sidecar, b"prior-manifest").unwrap();
+                }
+                let pool = LiveMemoryPool::new(limit).unwrap();
+                let report = super::execute_object_store_write_smoke(
+                    source.to_str().unwrap(),
+                    target.to_str().unwrap(),
+                    LOCAL_EMULATOR_PROFILE,
+                    Some(key),
+                    overwrite,
+                    false,
+                    &pool,
+                );
+                assert_eq!(
+                    report.status,
+                    ObjectStoreWriteSmokeStatus::BlockedWriteError
+                );
+                assert!(format!("{:?}", report.diagnostics).contains("memory reservation denied"));
+                assert_eq!(pool.snapshot().reserved_bytes, 0);
+                assert_eq!(pool.snapshot().denied_reservations, 1);
+                assert!(pool.snapshot().peak_reserved_bytes <= limit);
+                if overwrite {
+                    assert_eq!(fs::read(&target).unwrap(), b"prior-object");
+                    assert_eq!(fs::read(&sidecar).unwrap(), b"prior-manifest");
+                } else {
+                    assert!(!target.exists());
+                    assert!(!sidecar.exists());
+                }
+                assert!(!staging_object_path(&target, key).exists());
+                assert!(!backup_object_path(&target, key).exists());
+                assert!(!backup_object_path(&sidecar, key).exists());
+            }
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn generated_object_manifest_reports_escaped_owned_capacity_and_recovers() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-object-manifest-accounted-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let source = root.join("source.bin");
+        let target = root.join("target.bin");
+        fs::write(&source, b"x").unwrap();
+        let key = "Unicode-λ-quote\"-slash\\-line\n".repeat(256);
+        let pool = LiveMemoryPool::new(2 << 20).unwrap();
+        let report = super::execute_object_store_write_smoke(
+            source.to_str().unwrap(),
+            target.to_str().unwrap(),
+            LOCAL_EMULATOR_PROFILE,
+            Some(&key),
+            false,
+            false,
+            &pool,
+        );
+        assert!(!report.has_errors(), "{report:?}");
+        let sidecar = fs::read(commit_manifest_sidecar_path(&target)).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&sidecar).unwrap();
+        assert_eq!(json["idempotency_key"], key);
+        assert_eq!(report.commit_manifest_bytes, sidecar.len());
+        assert!(
+            pool.snapshot().peak_reserved_bytes
+                >= sidecar.len() as u64
+                    + shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes()
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert_eq!(pool.snapshot().denied_reservations, 0);
+        let recovered = super::execute_object_store_write_recovery_smoke(
+            target.to_str().unwrap(),
+            LOCAL_EMULATOR_PROFILE,
+            Some(&key),
+            &pool,
+        );
+        assert!(!recovered.has_errors(), "{recovered:?}");
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn object_store_write_reuses_source_credits_for_readback() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-object-store-readback-credits-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let source = root.join("source.bin");
+        let target = root.join("target.bin");
+        let payload = vec![173_u8; 1 << 20];
+        fs::write(&source, &payload).unwrap();
+        let limit = payload.len() as u64
+            + shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes();
+        assert!(limit < 2 * payload.len() as u64);
+        let pool = LiveMemoryPool::new(limit).unwrap();
+        let written = super::execute_object_store_write_smoke(
+            source.to_str().unwrap(),
+            target.to_str().unwrap(),
+            LOCAL_EMULATOR_PROFILE,
+            Some("reuse"),
+            true,
+            false,
+            &pool,
+        );
+        assert!(!written.has_errors(), "{written:?}");
+        assert_eq!(fs::read(&target).unwrap(), payload);
+        assert_eq!(pool.snapshot().peak_reserved_bytes, limit);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert_eq!(pool.snapshot().denied_reservations, 0);
+        let recovered = super::execute_object_store_write_recovery_smoke(
+            target.to_str().unwrap(),
+            LOCAL_EMULATOR_PROFILE,
+            Some("reuse"),
+            &pool,
+        );
+        assert!(!recovered.has_errors());
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn local_emulator_range_read_emits_source_state_and_no_fallback_fields() {
@@ -5593,7 +6029,10 @@ mod tests {
             root.to_string_lossy().as_ref(),
             DEFAULT_PROFILE,
             vec![],
-        );
+            &LiveMemoryPool::new(16 << 20).unwrap(),
+        )
+        .unwrap();
+        let report = report.value();
         let _ = fs::remove_dir_all(&root);
 
         assert_eq!(
@@ -5610,6 +6049,52 @@ mod tests {
             "{:?}",
             report.diagnostics
         );
+    }
+
+    #[test]
+    fn partition_discovery_keeps_sorted_unique_names_with_their_credits() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-partition-resources-{}",
+            std::process::id()
+        ));
+        for suffix in [
+            "year=2025/country=US",
+            "year=2026/country=US",
+            "year=2026/country=CA",
+        ] {
+            fs::create_dir_all(root.join(suffix)).unwrap();
+        }
+        let tiny = LiveMemoryPool::new(1).unwrap();
+        let denied = execute_object_store_partition_discovery_smoke(
+            root.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            vec![],
+            &tiny,
+        )
+        .unwrap();
+        assert!(denied.value().has_errors());
+        assert_eq!(tiny.snapshot().reserved_bytes, 0);
+        let pool = LiveMemoryPool::new(65536).unwrap();
+        let report = execute_object_store_partition_discovery_smoke(
+            root.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            vec![],
+            &pool,
+        )
+        .unwrap();
+        assert!(!report.value().has_errors());
+        assert_eq!(
+            report.value().discovered_partition_columns,
+            ["country", "year"]
+        );
+        assert_eq!(
+            report.value().discovered_partition_values,
+            ["country=CA", "country=US", "year=2025", "year=2026"]
+        );
+        assert!(pool.snapshot().reserved_bytes > 0);
+        drop(report);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
     }
 
     fn output_field<'a>(fields: &'a [(String, String)], key: &str) -> &'a str {

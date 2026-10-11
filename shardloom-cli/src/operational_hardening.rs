@@ -341,6 +341,7 @@ pub(crate) fn handle_spill_reservation_plan(
 pub(crate) fn handle_spill_payload_roundtrip(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
     let Some(workspace_path_text) = args.next() else {
         eprintln!(
@@ -359,6 +360,16 @@ pub(crate) fn handle_spill_payload_roundtrip(
             "usage: shardloom spill-payload-roundtrip <workspace_path> <payload_id> <payload_text> [--cleanup]"
         );
         return ExitCode::from(2);
+    };
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "spill-payload-roundtrip",
+        &[],
+        context,
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
     };
     let mut cleanup_after = false;
     if let Some(extra) = args.next() {
@@ -385,65 +396,79 @@ pub(crate) fn handle_spill_payload_roundtrip(
             );
         }
     }
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        "spill-payload-roundtrip",
+        format,
+        context,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
     let workspace_path = match SpillPayloadPath::new(workspace_path_text) {
         Ok(v) => v,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "spill-payload-roundtrip",
                 format,
                 "spill payload roundtrip failed",
                 &error,
+                spill_payload_resource_fields(Vec::new(), resources, &pool, Some((false, 0))),
             );
         }
     };
     let payload_id = match SpillPayloadId::new(payload_id_text) {
         Ok(v) => v,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "spill-payload-roundtrip",
                 format,
                 "spill payload roundtrip failed",
                 &error,
+                spill_payload_resource_fields(Vec::new(), resources, &pool, Some((false, 0))),
             );
         }
     };
     let payload = match SyntheticSpillPayload::from_text(payload_text) {
         Ok(v) => v,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "spill-payload-roundtrip",
                 format,
                 "spill payload roundtrip failed",
                 &error,
+                spill_payload_resource_fields(Vec::new(), resources, &pool, Some((false, 0))),
             );
         }
     };
     let payload_ref = match SpillPayloadRef::new(payload_id, "shardloom_cli_workspace") {
         Ok(v) => v,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "spill-payload-roundtrip",
                 format,
                 "spill payload roundtrip failed",
                 &error,
+                spill_payload_resource_fields(Vec::new(), resources, &pool, Some((false, 0))),
             );
         }
     };
     let fs_ref = SpillPayloadFsRef::new(payload_ref, workspace_path);
     let write_request = SpillPayloadWriteRequest::new(fs_ref, payload);
     let request = SpillPayloadRoundTripRequest::new(write_request).cleanup_after(cleanup_after);
-    let report = match roundtrip_spill_payload(request) {
+    let report = match roundtrip_spill_payload(request, &pool) {
         Ok(v) => v,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "spill-payload-roundtrip",
                 format,
                 "spill payload roundtrip failed",
                 &error,
+                spill_payload_resource_fields(Vec::new(), resources, &pool, None),
             );
         }
     };
-    emit_spill_payload_roundtrip(format, &report)
+    emit_spill_payload_roundtrip(format, report.value(), resources, &pool)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -956,6 +981,8 @@ fn emit_security_style_plan(
 fn emit_spill_payload_roundtrip(
     format: OutputFormat,
     report: &SpillPayloadRoundTripReport,
+    resources: shardloom_core::ExecutionResources,
+    pool: &shardloom_exec::live_memory::LiveMemoryPool,
 ) -> ExitCode {
     let bytes_read = report.read_report.as_ref().map_or(0, |v| v.bytes_read);
     let verification_passed = report
@@ -973,52 +1000,98 @@ fn emit_spill_payload_roundtrip(
         "spill payload roundtrip report".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        vec![
-            (
-                "fallback_execution_allowed".to_string(),
-                "false".to_string(),
-            ),
-            ("mode".to_string(), "spill_payload_roundtrip".to_string()),
-            (
-                "spill_payload_feature_enabled".to_string(),
-                spill_payload_fs_feature_enabled().to_string(),
-            ),
-            (
-                "payload_written".to_string(),
-                report.payload_written().to_string(),
-            ),
-            (
-                "payload_read".to_string(),
-                report.payload_read().to_string(),
-            ),
-            (
-                "cleanup_performed".to_string(),
-                report.cleanup_performed().to_string(),
-            ),
-            (
-                "object_store_io".to_string(),
-                report.object_store_io().to_string(),
-            ),
-            (
-                "output_dataset_write".to_string(),
-                report.output_dataset_write().to_string(),
-            ),
-            (
-                "execution".to_string(),
-                "spill_payload_roundtrip_or_not_performed".to_string(),
-            ),
-            (
-                "bytes_written".to_string(),
-                report.write_report.bytes_written.to_string(),
-            ),
-            ("bytes_read".to_string(), bytes_read.to_string()),
-            (
-                "verification_passed".to_string(),
-                verification_passed.to_string(),
-            ),
-        ],
+        spill_payload_resource_fields(
+            vec![
+                (
+                    "fallback_execution_allowed".to_string(),
+                    "false".to_string(),
+                ),
+                ("mode".to_string(), "spill_payload_roundtrip".to_string()),
+                (
+                    "spill_payload_feature_enabled".to_string(),
+                    spill_payload_fs_feature_enabled().to_string(),
+                ),
+                (
+                    "payload_written".to_string(),
+                    report.payload_written().to_string(),
+                ),
+                (
+                    "payload_read".to_string(),
+                    report.payload_read().to_string(),
+                ),
+                (
+                    "cleanup_performed".to_string(),
+                    report.cleanup_performed().to_string(),
+                ),
+                (
+                    "object_store_io".to_string(),
+                    report.object_store_io().to_string(),
+                ),
+                (
+                    "output_dataset_write".to_string(),
+                    report.output_dataset_write().to_string(),
+                ),
+                (
+                    "execution".to_string(),
+                    "spill_payload_roundtrip_or_not_performed".to_string(),
+                ),
+                (
+                    "bytes_written".to_string(),
+                    report.write_report.bytes_written.to_string(),
+                ),
+                ("bytes_read".to_string(), bytes_read.to_string()),
+                (
+                    "verification_passed".to_string(),
+                    verification_passed.to_string(),
+                ),
+            ],
+            resources,
+            pool,
+            Some((
+                report.payload_written() || report.payload_read(),
+                report.write_report.bytes_written,
+            )),
+        ),
     );
     exit_for_errors(report.has_errors())
+}
+
+fn spill_payload_resource_fields(
+    fields: Vec<(String, String)>,
+    resources: shardloom_core::ExecutionResources,
+    pool: &shardloom_exec::live_memory::LiveMemoryPool,
+    spill_observation: Option<(bool, usize)>,
+) -> Vec<(String, String)> {
+    let mut fields = crate::fixture_io::with_observation_fields(fields, resources, pool);
+    let snapshot = pool.snapshot();
+    crate::execution_resources::append_memory_observation_fields(
+        &mut fields,
+        Some(snapshot.reserved_bytes),
+        snapshot.peak_reserved_bytes,
+        "synthetic_payload_retained_capacity_readback_and_staging_writer;excludes_paths_diagnostics_reports_and_process_rss",
+    );
+    fields.retain(|(key, _)| {
+        !key.starts_with("execution_resource_observed_spill_")
+            && key != "execution_resource_spill_observation_scope"
+    });
+    fields.extend([
+        (
+            "execution_resource_observed_spill_io_performed".into(),
+            spill_observation.map_or_else(
+                || "unavailable".into(),
+                |(performed, _)| performed.to_string(),
+            ),
+        ),
+        (
+            "execution_resource_observed_spill_bytes".into(),
+            spill_observation.map_or_else(|| "unavailable".into(), |(_, bytes)| bytes.to_string()),
+        ),
+        (
+            "execution_resource_spill_observation_scope".into(),
+            "synthetic_payload_only;query_spill_not_implied".into(),
+        ),
+    ]);
+    fields
 }
 
 fn emit_operator_memory_spill_declarations(

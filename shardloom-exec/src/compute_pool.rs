@@ -55,6 +55,7 @@ fn cpu_selection_handles_arbitrary_allocations_without_fixed_tiers() {
 pub struct CancellationToken {
     flag: Arc<AtomicBool>,
     parent: Option<Arc<Self>>,
+    deadline: Option<Instant>,
 }
 
 impl CancellationToken {
@@ -62,7 +63,11 @@ impl CancellationToken {
     /// same flag alive; neither construction nor normal destruction cancels it.
     #[must_use]
     pub fn from_shared_flag(flag: Arc<AtomicBool>) -> Self {
-        Self { flag, parent: None }
+        Self {
+            flag,
+            parent: None,
+            deadline: None,
+        }
     }
 
     /// Observe both an existing owner flag and its enclosing operation. Cancelling
@@ -73,6 +78,20 @@ impl CancellationToken {
         Self {
             flag,
             parent: Some(Arc::new(parent.clone())),
+            deadline: None,
+        }
+    }
+
+    /// Give a child operation a cooperative deadline. Expiration and explicit
+    /// child cancellation never cancel the parent or its other operations.
+    /// Existing kernel/admission checkpoints observe the deadline without a
+    /// timer thread; an uncooperative foreign callback cannot be preempted.
+    #[must_use]
+    pub fn with_deadline(&self, deadline: Instant) -> Self {
+        Self {
+            flag: Arc::new(AtomicBool::new(false)),
+            parent: Some(Arc::new(self.clone())),
+            deadline: Some(deadline),
         }
     }
 
@@ -84,7 +103,11 @@ impl CancellationToken {
     pub fn is_cancelled(&self) -> bool {
         let mut current = self;
         loop {
-            if current.flag.load(Ordering::Acquire) {
+            if current.flag.load(Ordering::Acquire)
+                || current
+                    .deadline
+                    .is_some_and(|deadline| Instant::now() >= deadline)
+            {
                 return true;
             }
             match &current.parent {
@@ -97,10 +120,21 @@ impl CancellationToken {
     /// # Errors
     /// Returns a deterministic cancellation error.
     pub fn check(&self) -> Result<()> {
-        if self.is_cancelled() {
-            Err(pool_error("execution cancelled"))
-        } else {
-            Ok(())
+        let mut current = self;
+        loop {
+            if current
+                .deadline
+                .is_some_and(|deadline| Instant::now() >= deadline)
+            {
+                return Err(pool_error("execution deadline exceeded"));
+            }
+            if current.flag.load(Ordering::Acquire) {
+                return Err(pool_error("execution cancelled"));
+            }
+            match &current.parent {
+                Some(parent) => current = parent,
+                None => return Ok(()),
+            }
         }
     }
 }
@@ -419,6 +453,41 @@ fn pool_error(message: &str) -> ShardLoomError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn deadlines_reach_descendants_without_revoking_other_operations() {
+        let session = CancellationToken::default();
+        let expired = session.with_deadline(Instant::now());
+        let descendant = CancellationToken::from_shared_flag_with_parent(
+            Arc::new(AtomicBool::new(false)),
+            &expired,
+        );
+        for token in [expired.clone(), descendant] {
+            assert!(token.is_cancelled());
+            assert!(
+                token
+                    .check()
+                    .unwrap_err()
+                    .to_string()
+                    .contains("deadline exceeded")
+            );
+        }
+        assert!(!session.is_cancelled());
+        let other = session.with_deadline(Instant::now() + Duration::from_secs(60));
+        assert!(other.check().is_ok());
+        other.cancel();
+        assert!(
+            other
+                .check()
+                .unwrap_err()
+                .to_string()
+                .contains("execution cancelled")
+        );
+        assert!(session.check().is_ok());
+        let fresh = session.with_deadline(Instant::now() + Duration::from_secs(60));
+        session.cancel();
+        assert!(fresh.check().is_err());
+    }
 
     #[test]
     fn linked_cancellation_observes_both_owners_without_cancelling_ancestors() {

@@ -21,7 +21,7 @@ Local fixture-smoke boundary only: SQLite support is a named local table scan to
 ## How To Try It
 
 ```powershell
-python -c "import pathlib, sqlite3; pathlib.Path('target').mkdir(exist_ok=True); db='target/orders.sqlite'; con=sqlite3.connect(db); con.execute('drop table if exists orders'); con.execute('create table orders(id integer primary key, label text, amount integer)'); con.executemany('insert into orders(label, amount) values (?, ?)', [('alpha', 8), ('beta', 15)]); con.commit(); con.close()"; cargo run -q -p shardloom-cli -- sqlite-local-import-export-smoke target\orders.sqlite --table orders --export-jsonl target\orders-sqlite.jsonl --roundtrip-db target\orders-roundtrip.sqlite --order-by id --allow-overwrite --format json; cargo run -q -p shardloom-cli -- udf-local-scalar-fixture-smoke 1,null,3 --format json
+python -c "import pathlib, sqlite3; pathlib.Path('target').mkdir(exist_ok=True); db='target/orders.sqlite'; con=sqlite3.connect(db); con.execute('drop table if exists orders'); con.execute('create table orders(id integer primary key, label text, amount integer)'); con.executemany('insert into orders(label, amount) values (?, ?)', [('alpha', 8), ('beta', 15)]); con.commit(); con.close()"; cargo run -q -p shardloom-cli -- sqlite-local-import-export-smoke target\orders.sqlite --table orders --export-jsonl target\orders-sqlite.jsonl --roundtrip-db target\orders-roundtrip.sqlite --order-by id --allow-overwrite --memory-gb 16 --max-parallelism 8 --format json; cargo run -q -p shardloom-cli -- udf-local-scalar-fixture-smoke 1,null,3 --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 ## Blocker

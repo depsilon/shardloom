@@ -129,7 +129,7 @@ fn worker_values(
         &states,
         chunks[0].dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
         &memory,
     )
     .unwrap()
@@ -302,7 +302,7 @@ fn pair_partitions_preserve_retained_measure_overflow_errors() {
                 &states,
                 chunk.dtype(),
                 &columns,
-                VortexLocalPrimitiveExecutionPolicy::new(3).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
                 &memory,
             )
             .unwrap()
@@ -364,7 +364,7 @@ fn pair_partition_sample_decline_returns_the_untouched_chunk_to_serial_state() {
         &states,
         repeated.dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(3).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
         &memory,
     )
     .unwrap()
@@ -447,7 +447,7 @@ fn pair_partition_admission_declines_nullable_keys_count_column_and_unbounded_sh
                 &states,
                 chunk.dtype(),
                 &columns,
-                VortexLocalPrimitiveExecutionPolicy::new(3).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
                 &memory,
             )
             .unwrap()
@@ -469,8 +469,17 @@ fn pair_partition_source_precheck_recognizes_renamed_late_measure_roles() {
         request(),
     )
     .with_source_order_limit(3);
-    assert!(request_may_be_admitted(&query));
-    assert!(!restore_provider_drivers(&query, chunk.dtype()));
+    assert!(request_may_be_admitted(
+        &query,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
+    ));
+    assert!(!restore_provider_drivers(
+        &query,
+        chunk.dtype(),
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
+    ));
 }
 
 #[test]
@@ -486,7 +495,7 @@ fn pair_partition_cancellation_after_committed_input_publishes_no_selection() {
             &states,
             chunk.dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &memory,
         )
         .unwrap()
@@ -521,7 +530,7 @@ fn pair_partition_growth_denial_after_committed_input_is_fatal_and_releases_leas
             &states,
             first.dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &memory,
         )
         .unwrap()

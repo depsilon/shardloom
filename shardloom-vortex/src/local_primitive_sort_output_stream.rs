@@ -8,6 +8,9 @@ use super::{
     VortexQueryPrimitiveRequest, completed_result::CompletedRows, result_batch::Value,
     vortex_error,
 };
+use crate::resident_session::NativeExecutionContext;
+use shardloom_core::StatValue;
+use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
         ArrayRef, VortexSessionExecute as _,
@@ -26,6 +29,73 @@ fn failed(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native ordered result: {reason}; no fallback execution was attempted"
     ))
+}
+
+/// Deliver the existing partitioned selection in bounded payload windows. Global
+/// ordering and tie selection have already completed in the shared sort kernel.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn deliver_partitioned(
+    sources: &[super::LocalVortexPartitionSource],
+    request: &VortexQueryPrimitiveRequest,
+    columns: &[String],
+    selected: &[&SortRowCandidate],
+    predicate: Option<&super::PredicateExpr>,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    context: &NativeExecutionContext<'_>,
+    output: &mut CompletedRows<'_>,
+) -> Result<SortRowsMaterializationResult> {
+    let mut observed = SortRowsMaterializationResult {
+        rows: Vec::new(),
+        chunks_scanned: 0,
+        early_stop_applied: false,
+        row_index_selection_applied: false,
+        requested_row_indices: 0,
+        min_selected_source_ordinal: None,
+        max_selected_source_ordinal: None,
+        selected_row_materialization_used: false,
+        memory: Vec::new(),
+    };
+    if selected.is_empty() {
+        output.push_values(columns, 0, |_, _| Err(failed("empty result was accessed")))?;
+    }
+    for window in selected.chunks(super::result_batch::VISITOR_ROWS) {
+        context.check_cancelled()?;
+        let batch =
+            super::materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
+                sources,
+                request,
+                columns,
+                window,
+                predicate,
+                policy,
+                context.native_session(),
+                context.runtime(),
+                Some(context),
+            )?;
+        output.push_values(columns, batch.rows.len(), |row, column| {
+            Ok(Value::from(&batch.rows[row][column]))
+        })?;
+        observed.chunks_scanned = observed
+            .chunks_scanned
+            .checked_add(batch.chunks_scanned)
+            .ok_or_else(|| failed("partitioned scan count overflow"))?;
+        observed.requested_row_indices = observed
+            .requested_row_indices
+            .checked_add(batch.requested_row_indices)
+            .ok_or_else(|| failed("partitioned selected row count overflow"))?;
+        observed.early_stop_applied |= batch.early_stop_applied;
+        observed.row_index_selection_applied |= batch.row_index_selection_applied;
+        observed.selected_row_materialization_used |= batch.selected_row_materialization_used;
+        observed.min_selected_source_ordinal = super::min_optional_usize(
+            observed.min_selected_source_ordinal,
+            batch.min_selected_source_ordinal,
+        );
+        observed.max_selected_source_ordinal = observed
+            .max_selected_source_ordinal
+            .max(batch.max_selected_source_ordinal);
+    }
+    output.finish_stream()?;
+    Ok(observed)
 }
 
 pub(super) fn scalar_value(scalar: &vortex::array::scalar::Scalar) -> Result<Value<'static>> {
@@ -104,7 +174,100 @@ pub(super) fn add_utf8_scratch_bytes(
         })
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Account scalar conversion while the provider continues to own its arrays.
+pub(super) fn reserve_scratch(
+    context: Option<&NativeExecutionContext<'_>>,
+    array: &ArrayRef,
+    columns: &[String],
+) -> Result<Option<MemoryLease>> {
+    context
+        .map(|context| {
+            context.check_cancelled()?;
+            let bytes = scratch_bytes(
+                array,
+                columns,
+                &mut context.native_session().create_execution_ctx(),
+            )?;
+            context.memory().reserve(bytes)
+        })
+        .transpose()
+}
+
+/// Selection maps, row descriptors and transferred child leases. Payload bytes
+/// are added before each selected value is cloned into the retained rows.
+pub(super) fn selection_memory(
+    context: Option<&NativeExecutionContext<'_>>,
+    rows: usize,
+    columns: usize,
+) -> Result<Option<MemoryLease>> {
+    context
+        .map(|context| {
+            context.check_cancelled()?;
+            context.memory().reserve(
+                (rows as u64)
+                    .saturating_mul(512)
+                    .saturating_add((columns as u64).saturating_mul(512))
+                    .saturating_add(64 * 1024),
+            )
+        })
+        .transpose()
+}
+
+pub(super) fn reserve_materialized_row(
+    memory: &mut Option<MemoryLease>,
+    columns: &[Vec<StatValue>],
+    row: usize,
+    copies: usize,
+) -> Result<()> {
+    if let Some(memory) = memory {
+        let bytes = columns.iter().try_fold(256_u64, |bytes, column| {
+            let value = column
+                .get(row)
+                .ok_or_else(|| failed("selected row is absent"))?;
+            bytes
+                .checked_add(match value {
+                    StatValue::Utf8(value) => 128_u64.saturating_add(value.len() as u64),
+                    _ => 128,
+                })
+                .ok_or_else(|| failed("selected payload size overflow"))
+        })?;
+        // Include the temporary row and retained clones; no allocation occurs
+        // before its capacity is admitted alongside the scalar scratch.
+        let bytes = bytes
+            .checked_mul((copies as u64).saturating_add(1))
+            .and_then(|bytes| memory.bytes().checked_add(bytes))
+            .ok_or_else(|| failed("selected payload size overflow"))?;
+        memory.resize(bytes)?;
+    }
+    Ok(())
+}
+
+pub(super) fn reserve_candidates(
+    memory: &mut MemoryLease,
+    candidates: &[SortRowCandidate],
+    scratch_bytes: u64,
+    arrays_read: usize,
+) -> Result<()> {
+    let retained = candidates.iter().fold(0_u64, |total, row| {
+        row.values
+            .iter()
+            .fold(total.saturating_add(256), |total, value| {
+                total.saturating_add(match value {
+                    StatValue::Utf8(value) => 128_u64.saturating_add(value.len() as u64),
+                    _ => 128,
+                })
+            })
+    });
+    // A truncated candidate vector retains capacity. Keep the high-water grant
+    // until the operator retires instead of shrinking it to the current length.
+    let bytes = retained
+        .saturating_add(scratch_bytes)
+        .saturating_mul(2)
+        .saturating_add((arrays_read as u64 + 1).saturating_mul(8192));
+    memory.resize(memory.bytes().max(bytes))
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // Keep each bounded payload delivery inside the same cancellation and output scope.
 pub(super) fn deliver(
     file: &VortexFile,
     runtime: &impl BlockingRuntime,
@@ -164,7 +327,12 @@ pub(super) fn deliver(
         let mut arrays = Vec::new();
         let mut ends = Vec::new();
         let mut rows = 0;
-        for array in scan.into_array_iter(runtime).map_err(vortex_error)? {
+        let mut iter = scan.into_array_iter(runtime).map_err(vortex_error)?;
+        loop {
+            context.check_cancelled()?;
+            let Some(array) = iter.next() else {
+                break;
+            };
             context.check_cancelled()?;
             let array = array.map_err(vortex_error)?;
             chunks_scanned += 1;
@@ -209,5 +377,6 @@ pub(super) fn deliver(
         min_selected_source_ordinal: selected.iter().map(|row| row.source_ordinal).min(),
         max_selected_source_ordinal: selected.iter().map(|row| row.source_ordinal).max(),
         selected_row_materialization_used: !selected.is_empty(),
+        memory: Vec::new(),
     })
 }

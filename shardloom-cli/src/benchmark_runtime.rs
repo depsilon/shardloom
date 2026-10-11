@@ -30,14 +30,28 @@ pub(crate) fn handle_vortex_count_benchmark(
             Ok(parsed) => parsed,
             Err(code) => return code,
         };
+    let resources = match shardloom_core::ExecutionResources::from_gib(
+        memory_gb,
+        max_parallelism,
+        shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+    ) {
+        Ok(resources) => resources,
+        Err(error) => {
+            return emit_error(
+                "vortex-count-benchmark",
+                format,
+                "invalid benchmark resources",
+                &error,
+            );
+        }
+    };
     let mut iterations = Vec::new();
     for _ in 0..iteration_count {
         let started = Instant::now();
         let (encoded_report, local_report) =
             match crate::vortex_primitive_execution::run_vortex_approved_local_encoded_count(
                 uri.clone(),
-                memory_gb,
-                max_parallelism,
+                resources,
             ) {
                 Ok(reports) => reports,
                 Err(error) => {

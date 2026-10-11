@@ -64,7 +64,8 @@ impl Drop for Fixture {
 }
 
 fn policy(parallelism: usize) -> VortexLocalPrimitiveExecutionPolicy {
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+    let mut policy =
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
     policy.resource_envelope.memory_budget_bytes = 32 << 20;
     policy
 }
@@ -330,7 +331,8 @@ fn utf8_integer_distinct_native_explicit_spill_remains_outside_integer_spill_adm
     assert!(
         !runtime::exact_distinct_pairs::workers::request_schema_may_be_admitted(
             &request,
-            source.dtype()
+            source.dtype(),
+            policy(1).resource_envelope(),
         )
     );
     assert!(prepare_aggregate_for_optional_reuse(&request, policy(1)).is_err());

@@ -157,7 +157,7 @@ impl VortexUniversalInputPlan {
             ));
             return Ok(out);
         };
-        let open_report = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))?;
+        let open_report = open_vortex_metadata_only(VortexMetadataOpenRequest::report_only(uri))?;
         out.metadata_summary_report
             .clone_from(&open_report.metadata_summary);
         match open_report.open_status {
@@ -368,6 +368,14 @@ mod tests {
         .expect("source");
         let p = plan_native_vortex_universal_input(s).expect("plan");
         assert!(p.is_side_effect_free());
+        assert_eq!(p.mode, VortexUniversalInputMode::PlanOnly);
+        assert_eq!(p.status, VortexUniversalInputStatus::NativeVortexInput);
+        assert_eq!(p.metadata_summary_report, None);
+        let metadata = p.metadata_open_report.as_ref().expect("deferred request");
+        assert_eq!(metadata.open_status, VortexMetadataOpenStatus::Planned);
+        assert!(!metadata.file_io_performed);
+        assert!(!metadata.request.allow_file_io);
+        assert_eq!(metadata.request.resources, None);
         assert!(
             !p.fallback_execution_allowed
                 && !p.data_materialized

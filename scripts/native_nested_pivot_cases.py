@@ -19,7 +19,10 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         materializations=("python",), spill_strategy=False):
     from shardloom._result_schema import ResultType as Type, schema_fields
     from shardloom.query import SqlWorkflow, UnsupportedWorkflowOperationReport
-    from shardloom.runtime_defaults import DEFAULT_LOCAL_RUNTIME_MEMORY_GB
+
+    if context.resources is None:
+        raise ValueError("nested pivot validation requires an explicit context allocation")
+    materialization_memory_gb = context.resources.whole_gib
 
     output.mkdir(parents=True)
     resources = {"memory_gb": 1, "max_parallelism": 2}
@@ -224,7 +227,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
             "output_formats": LOCAL_FORMATS,
             "materializations": [] if spill_strategy else materializations,
             "collect_and_writer_resources": resources,
-            "materialization_memory_gb": None if spill_strategy else DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+            "materialization_memory_gb": None if spill_strategy else materialization_memory_gb,
             "spill_strategy": spill_strategy,
         }, stream, ensure_ascii=False, indent=2)
         stream.write("\n")
@@ -328,7 +331,7 @@ def run(context, output, guard, accepted, complete, sources, identity, fixture_g
         # policy. Do not count those calls as execution under this spill policy.
         if not case["large"] and not spill_strategy:
             def converted_report(label, report):
-                verified(label, report, memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB)
+                verified(label, report, memory_gb=materialization_memory_gb)
                 check_schema(label, report, schema)
 
             converted = verify_materializations(

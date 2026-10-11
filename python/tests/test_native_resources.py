@@ -40,7 +40,7 @@ class NativeResourceTransportTests(unittest.TestCase):
         self.client.run = run  # type: ignore[method-assign]
 
     def assert_resources(self, command: list[str], *, execution: bool = True) -> None:
-        self.assertEqual(command[command.index("--memory-gb") + 1], "3", command)
+        self.assertEqual(command[command.index("--memory-bytes") + 1], str(3 << 30), command)
         self.assertEqual(command[command.index("--max-parallelism") + 1], "7")
         if execution:
             self.assertEqual(command.count("--spill"), 1)
@@ -52,10 +52,10 @@ class NativeResourceTransportTests(unittest.TestCase):
         for method in (self.client.public_workflow_run, self.client.public_workflow_route):
             method("sql", sql_statement="SELECT 1", **self.resources)
             self.assert_resources(self.commands[-1])
-            method("sql", spill=None)
+            method("sql", memory_gb=3, max_parallelism=7, spill=None)
             self.assertNotIn("--spill", self.commands[-1])
             # The shared backend owns validation, including unsupported fields.
-            method("sql", spill='{"unsupported":true}')
+            method("sql", memory_gb=3, max_parallelism=7, spill='{"unsupported":true}')
             self.assertEqual(self.commands[-1][self.commands[-1].index("--spill") + 1], '{"unsupported":true}')
         self.assertFalse((self.root / "absent-spill").exists())
 
@@ -126,13 +126,13 @@ class NativeResourceTransportTests(unittest.TestCase):
                     workflow.fanout({"jsonl": self.root / "session-one.jsonl", "csv": self.root / "session-two.csv"}, **resources)
                     self.assertGreaterEqual(len(self.commands), 10)
                     for command in self.commands:
-                        self.assertEqual(command[command.index("--memory-gb") + 1], str(memory), command)
+                        self.assertEqual(command[command.index("--memory-bytes") + 1], str(memory << 30), command)
                         self.assertEqual(command[command.index("--max-parallelism") + 1], str(grant), command)
             self.commands.clear()
             session.read_csv(str(self.root / "count.csv"), schema={"key": "int64"}).count(check=True, **resources)
             self.assertTrue(self.commands)
             for command in self.commands:
-                self.assertEqual(command[command.index("--memory-gb") + 1], str(memory), command)
+                self.assertEqual(command[command.index("--memory-bytes") + 1], str(memory << 30), command)
                 self.assertEqual(command[command.index("--max-parallelism") + 1], str(grant), command)
 
     def test_each_session_collect_uses_its_native_resource_allocation(self) -> None:
@@ -153,30 +153,34 @@ class NativeResourceTransportTests(unittest.TestCase):
                 self.assertFalse(fresh.reuse_hit)
                 self.assertGreater(len(self.commands), previous)
                 for command in self.commands[previous:]:
-                    self.assertEqual(command[command.index("--memory-gb") + 1], str(memory))
+                    self.assertEqual(command[command.index("--memory-bytes") + 1], str(memory << 30))
                     self.assertEqual(command[command.index("--max-parallelism") + 1], str(grant))
                 executed = len(self.commands)
                 repeated = workflow.collect(check=True, **resources)
                 self.assertFalse(repeated.reuse_hit)
                 self.assertGreater(len(self.commands), executed)
                 for command in self.commands[executed:]:
-                    self.assertEqual(command[command.index("--memory-gb") + 1], str(memory))
+                    self.assertEqual(command[command.index("--memory-bytes") + 1], str(memory << 30))
                     self.assertEqual(command[command.index("--max-parallelism") + 1], str(grant))
 
-    def test_environment_defaults_preserve_one_cpu_and_large_allocations(self) -> None:
-        for supplied, expected in [("1", 1), ("3", 3), ("17", 17), ("128", 128), ("0", 2), ("invalid", 2)]:
+    def test_deliberate_environment_loading_preserves_allocations_and_rejects_invalid_values(self) -> None:
+        from shardloom import ExecutionResources, ShardLoomResourceConfigurationError
+        for supplied, expected in [("1", 1), ("3", 3), ("17", 17), ("128", 128)]:
             with self.subTest(supplied=supplied):
                 environment = {
-                    **os.environ,
-                    "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
                     "SHARDLOOM_MEMORY_GB": "3",
                     "SHARDLOOM_MAX_PARALLELISM": supplied,
                 }
-                result = subprocess.run([
-                    sys.executable, "-B", "-c",
-                    "import json; from shardloom.runtime_defaults import DEFAULT_LOCAL_RUNTIME_MEMORY_GB as m, DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM as p; print(json.dumps([m,p]))",
-                ], env=environment, check=True, capture_output=True, text=True)
-                self.assertEqual(json.loads(result.stdout), [3, expected])
+                resources = ExecutionResources.from_env(environment)
+                self.assertEqual((resources.whole_gib, resources.max_parallelism), (3, expected))
+                self.assertEqual(resources.memory_origin, "environment")
+                self.assertEqual(resources.parallelism_origin, "environment")
+        for supplied in (None, "0", "invalid", "eight", "-1", "1.5"):
+            environment = {"SHARDLOOM_MEMORY_GB": "3"}
+            if supplied is not None:
+                environment["SHARDLOOM_MAX_PARALLELISM"] = supplied
+            with self.subTest(invalid=supplied), self.assertRaises(ShardLoomResourceConfigurationError):
+                ExecutionResources.from_env(environment)
 
 
 if __name__ == "__main__":

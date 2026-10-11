@@ -322,7 +322,7 @@ fn result_stream_weighted_count_spill_writes_native_and_text_results_exactly() {
                 &output,
                 format,
                 false,
-                VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
             )
             .unwrap();
             assert_eq!(report.rows_written, 7, "{groups:?} {format:?}");
@@ -386,7 +386,7 @@ fn public_weighted_count_spill_native_domains_both_group_orders_filter_global_va
         }
         let report = execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         let output = summary(&report);
@@ -472,7 +472,8 @@ fn public_weighted_count_spill_empty_small_and_unprunable_zero_are_lazy_exact_an
         let request = fixture.query(&["label_renamed"], 0, 7);
         let report = execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         assert_eq!(
@@ -498,7 +499,8 @@ fn public_weighted_count_spill_empty_small_and_unprunable_zero_are_lazy_exact_an
             });
             let report = execute_vortex_local_primitive_with_policy(
                 &empty,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
             )
             .unwrap();
             assert_eq!(summary(&report)["values"], serde_json::json!([]));
@@ -514,7 +516,8 @@ fn public_weighted_count_workers_force_exact_spill_with_global_ties_and_offset()
     let fixture = Fixture::with_unique_keys(16_384, 128, true, false, true);
     let request = fixture.query(&["label_renamed"], 1, 7);
     for parallelism in [1, 2, 4] {
-        let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+        let mut policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
         policy.resource_envelope.group_state_soft_item_budget = 1;
         let report = execute_vortex_local_primitive_with_policy(&request, policy).unwrap();
         let output = summary(&report);
@@ -550,7 +553,8 @@ fn prepared_spill_weighted_count_reuses_source_with_fresh_runs_and_existing_cpu_
     for parallelism in [1, 2] {
         for supplied in [false, true] {
             let request = fixture.query(&["label_renamed"], 1, 7);
-            let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+            let mut policy =
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
             policy.resource_envelope.group_state_soft_item_budget = 1;
             let session = ResidentVortexSession::new(32 << 20, parallelism).unwrap();
             let mut prepared = if supplied {
@@ -618,7 +622,8 @@ fn public_weighted_count_spill_rejects_unsupported_before_source_open_and_nullab
     assert!(
         execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded()
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation")
         )
         .unwrap_err()
         .to_string()
@@ -662,7 +667,8 @@ fn public_weighted_count_spill_rejects_unsupported_before_source_open_and_nullab
         assert!(
             execute_vortex_local_primitive_with_policy(
                 &request,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded()
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation")
             )
             .unwrap_err()
             .to_string()
@@ -684,7 +690,8 @@ fn public_weighted_count_spill_quota_cancel_long_keys_and_source_generation_clea
         .as_mut()
         .unwrap()
         .quota_bytes = 32 * 1024 + 1;
-    let mut pressure = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut pressure = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     pressure.resource_envelope.group_state_soft_item_budget = 1;
     assert!(execute_vortex_local_primitive_with_policy(&request, pressure).is_err());
     fixture.empty();
@@ -700,7 +707,8 @@ fn public_weighted_count_spill_quota_cancel_long_keys_and_source_generation_clea
     assert!(
         execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded()
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation")
         )
         .unwrap_err()
         .to_string()
@@ -712,7 +720,8 @@ fn public_weighted_count_spill_quota_cancel_long_keys_and_source_generation_clea
     assert!(
         execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded()
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation")
         )
         .unwrap_err()
         .to_string()
@@ -733,7 +742,8 @@ fn public_weighted_count_spill_quota_cancel_long_keys_and_source_generation_clea
         super::execute(
             request.source_uri.as_ref().unwrap(),
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             file,
             session,
             runtime,
@@ -767,7 +777,8 @@ fn public_weighted_count_spill_parent_envelope_survives_source_and_session_owner
             super::execute(
                 request.source_uri.as_ref().unwrap(),
                 &request,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 file,
                 session,
                 runtime,

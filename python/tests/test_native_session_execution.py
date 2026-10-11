@@ -28,7 +28,7 @@ def response(value, *, reused=False):
 
 class NativeSessionExecutionTests(unittest.TestCase):
     def setUp(self):
-        self.client = ShardLoomClient(binary="unused")
+        self.client = ShardLoomClient(binary="unused", memory_gb=4, max_parallelism=2)
         self.session = ShardLoomContext(self.client).session()
         self.addCleanup(self.session.close)
 

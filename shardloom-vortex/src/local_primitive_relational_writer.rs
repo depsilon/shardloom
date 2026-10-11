@@ -13,6 +13,29 @@ pub struct WrittenVortexRelational {
     pub output: VortexLocalPrimitiveRowExportReport,
 }
 
+impl WrittenVortexRelational {
+    /// Primitive frontends expose one complete report, so include the input
+    /// execution's effects as well as the terminal adapter's work.
+    #[must_use]
+    pub fn into_output_report(mut self) -> VortexLocalPrimitiveRowExportReport {
+        let source = &self.execution.native_io_certificate.side_effects;
+        let output = &mut self.output.evidence.side_effects;
+        output.data_read |= source.data_read;
+        output.data_decoded |= source.data_decoded;
+        output.data_materialized |= source.data_materialized;
+        output.row_read |= source.row_read;
+        output.arrow_converted |= source.arrow_converted;
+        output.object_store_io |= source.object_store_io;
+        output.write_io |= source.write_io;
+        output.spill_io_performed |= source.spill_io_performed;
+        output.external_effects_executed |= source.external_effects_executed;
+        output.fallback_attempted |= source.fallback_attempted;
+        output.fallback_execution_allowed |= source.fallback_execution_allowed;
+        self.output.evidence.upstream_scan_called |= source.data_read;
+        self.output
+    }
+}
+
 impl PreparedVortexRelational {
     /// Write the same admitted plan to each output adapter, staging every result
     /// before publication. Each target executes the plan with the same retained
@@ -95,7 +118,7 @@ impl PreparedVortexRelational {
         format: VortexLocalPrimitiveRowExportFormat,
         overwrite: bool,
         cancellation: &CancellationToken,
-        input: Option<&mut super::batch_input::Provider<'_>>,
+        input: Option<super::batch_input::Provider<'_>>,
     ) -> Result<WrittenVortexRelational> {
         self.validate_batch_provider(input.is_some())?;
         let mut written =

@@ -282,7 +282,8 @@ fn unary_pivot_reserves_state_and_cleans_failure_before_publication() {
     let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
     let prepared = prepare_unary_in_session(
         &request(&fixture, "sum"),
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &session,
     )
     .unwrap();

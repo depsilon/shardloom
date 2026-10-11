@@ -27,6 +27,47 @@ pub fn prepare_count_in_session(
     request: &VortexQueryPrimitiveRequest,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexCount> {
+    prepare_count_in_session_controlled(request, session, &CancellationToken::default())
+}
+
+/// Prepare an exact native footer count in the supplied resident session while
+/// observing the caller's cancellation/deadline token.
+///
+/// # Errors
+/// Rejects cancellation before source admission, non-count requests, additional
+/// operation payloads, diagnostic errors, and nonlocal/native sources.
+pub fn prepare_count_in_session_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexCount> {
+    cancellation.check()?;
+    let uri = validate_count_request(request)?;
+    let path = local_vortex_path(uri, request.kind)?
+        .ok_or_else(|| collect_error("local Vortex source is required"))?;
+    let source = session.prepare_file_with_cancellation(path, cancellation)?;
+    prepare_count_from_source(request, &source, cancellation)
+}
+
+/// Reuse an admitted source for exact footer count without reopening its reader.
+/// # Errors
+/// Rejects cancellation, source identity mismatch and noncanonical payloads.
+pub fn prepare_count_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    source: &PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexCount> {
+    cancellation.check()?;
+    validate_count_request(request)?;
+    super::prepared_dispatch::source_session(source, request, None)?;
+    let count = source.prepare_count();
+    cancellation.check()?;
+    Ok(count)
+}
+
+fn validate_count_request(
+    request: &VortexQueryPrimitiveRequest,
+) -> Result<&shardloom_core::DatasetUri> {
     if request.kind != VortexQueryPrimitiveKind::CountAll
         || request.diagnostics.iter().any(|diagnostic| {
             matches!(
@@ -51,9 +92,7 @@ pub fn prepare_count_in_session(
             "native footer count does not admit predicate, projection, limit, or other operation payloads",
         ));
     }
-    let path = local_vortex_path(uri, request.kind)?
-        .ok_or_else(|| collect_error("local Vortex source is required"))?;
-    Ok(session.prepare_file(path)?.prepare_count())
+    Ok(uri)
 }
 
 pub struct CollectedVortexRows {
@@ -146,7 +185,21 @@ pub fn prepare_rows_in_session(
     request: &VortexQueryPrimitiveRequest,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexCollect> {
-    prepare_rows(request, session, None)
+    prepare_rows_in_session_controlled(request, session, &CancellationToken::default())
+}
+
+/// Bind a local collect in an existing resident session under the caller's
+/// cancellation/deadline token. No additional session is created.
+///
+/// # Errors
+/// Rejects cancellation, unsupported requests, residual predicates, source
+/// generations, and projection schemas without invoking another engine.
+pub fn prepare_rows_in_session_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexCollect> {
+    prepare_rows(request, session, None, cancellation)
 }
 
 /// Bind a projection to a source already admitted by native strategy selection.
@@ -156,15 +209,32 @@ pub fn prepare_rows_from_source(
     request: &VortexQueryPrimitiveRequest,
     source: PreparedVortexSource,
 ) -> Result<PreparedVortexCollect> {
+    prepare_rows_from_source_controlled(request, source, &CancellationToken::default())
+}
+
+/// Bind a projection to an already admitted source under the caller's operation
+/// token, preserving that source's resident owner.
+///
+/// # Errors
+/// Rejects cancellation, changed/mismatched sources and unsupported projection
+/// semantics without opening another provider.
+pub fn prepare_rows_from_source_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    source: PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexCollect> {
+    cancellation.check()?;
     let session = super::prepared_dispatch::source_session(&source, request, None)?;
-    prepare_rows(request, &session, Some(source))
+    prepare_rows(request, &session, Some(source), cancellation)
 }
 
 fn prepare_rows(
     request: &VortexQueryPrimitiveRequest,
     session: &ResidentVortexSession,
     prepared: Option<PreparedVortexSource>,
+    cancellation: &CancellationToken,
 ) -> Result<PreparedVortexCollect> {
+    cancellation.check()?;
     if request.diagnostics.iter().any(|diagnostic| {
         matches!(
             diagnostic.severity,
@@ -192,8 +262,9 @@ fn prepare_rows(
     let source = if let Some(source) = prepared {
         source
     } else {
-        session.prepare_file(path)?
+        session.prepare_file_with_cancellation(path, cancellation)?
     };
+    cancellation.check()?;
     let plan = row_export_scan_plan(request, source.dtype())?;
     if plan.residual_predicate.is_some() {
         return Err(collect_error(
@@ -220,6 +291,7 @@ fn prepare_rows(
     let projection = source
         .prepare_projection(&names, rows_limit, 32 * 1024 * 1024)?
         .with_filter(filter);
+    cancellation.check()?;
     Ok(PreparedVortexCollect {
         request: request.clone(),
         session: session.clone(),
@@ -246,7 +318,21 @@ impl PreparedVortexCollect {
     /// # Errors
     /// Rejects changed source generations and row/byte/memory bound violations.
     pub fn execute_arrays(&self) -> Result<OwnedVortexResultBatch> {
-        let result = self.projection.execute()?;
+        self.execute_arrays_with_cancellation(&CancellationToken::default())
+    }
+
+    /// Execute the prepared projection/filter with the caller's cancellation or
+    /// deadline token, retaining the existing source and resource owner.
+    ///
+    /// # Errors
+    /// Rejects cancellation, changed source generations, and row/byte/memory bounds.
+    pub fn execute_arrays_with_cancellation(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<OwnedVortexResultBatch> {
+        cancellation.check()?;
+        let result = self.projection.execute_with_cancellation(cancellation)?;
+        cancellation.check()?;
         if result.row_count() > MAX_COLLECT_ROWS {
             return Err(collect_error(
                 "collect exceeds 65,536 rows; use an explicit streaming export",
@@ -261,8 +347,21 @@ impl PreparedVortexCollect {
     /// # Errors
     /// Rejects mutation, unsupported JSON types, and complete output bounds.
     pub fn execute(&self) -> Result<CollectedVortexRows> {
-        let result = self.execute_arrays()?;
-        self.complete_json(result)
+        self.execute_with_cancellation(&CancellationToken::default())
+    }
+
+    /// Execute and render the bounded JSON result under one caller-owned
+    /// cancellation/deadline token.
+    ///
+    /// # Errors
+    /// Rejects cancellation, source mutation, unsupported JSON types, and output bounds.
+    pub fn execute_with_cancellation(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<CollectedVortexRows> {
+        cancellation.check()?;
+        let result = self.execute_arrays_with_cancellation(cancellation)?;
+        self.complete_json(result, cancellation)
     }
 
     #[cfg(test)]
@@ -272,14 +371,27 @@ impl PreparedVortexCollect {
     ) -> Result<CollectedVortexRows> {
         let result = self.execute_arrays()?;
         after_scan();
-        self.complete_json(result)
+        self.complete_json(result, &CancellationToken::default())
     }
 
-    fn complete_json(&self, result: OwnedVortexResultBatch) -> Result<CollectedVortexRows> {
-        let values_json = result.render_admitted_json(&self.projected_columns, MAX_JSON_BYTES)?;
+    fn complete_json(
+        &self,
+        result: OwnedVortexResultBatch,
+        cancellation: &CancellationToken,
+    ) -> Result<CollectedVortexRows> {
+        cancellation.check()?;
+        let values_json = result.render_admitted_json_controlled(
+            &self.projected_columns,
+            MAX_JSON_BYTES,
+            cancellation,
+        )?;
+        cancellation.check()?;
         let result_schema_json = serialize_result_schema(result.dtype(), self.session.memory())?;
+        cancellation.check()?;
         self.source.validate_generation()?;
+        cancellation.check()?;
         let native_io_certificate = certificate(&self.request, result.row_count(), self.filtered)?;
+        cancellation.check()?;
         let rows = result.row_count();
         drop(result);
         Ok(CollectedVortexRows {
@@ -431,6 +543,23 @@ pub(crate) fn render_owned_json(
     memory: &LiveMemoryPool,
     max_bytes: usize,
 ) -> Result<Budgeted<String>> {
+    render_owned_json_controlled(
+        result,
+        names,
+        memory,
+        max_bytes,
+        &CancellationToken::default(),
+    )
+}
+
+pub(crate) fn render_owned_json_controlled(
+    result: &OwnedVortexResultBatch,
+    names: &[String],
+    memory: &LiveMemoryPool,
+    max_bytes: usize,
+    cancellation: &CancellationToken,
+) -> Result<Budgeted<String>> {
+    cancellation.check()?;
     if result.row_count() > MAX_COLLECT_ROWS || max_bytes == 0 {
         return Err(collect_error(
             "native JSON sink requires positive byte bounds and at most 65,536 rows",
@@ -439,9 +568,13 @@ pub(crate) fn render_owned_json(
     let mut output = JsonRows::new(memory, max_bytes.min(MAX_JSON_BYTES), false)?;
     let mut context = result.create_execution_ctx();
     for array in result.arrays() {
-        output.append(array, names, &mut context, &CancellationToken::default())?;
+        cancellation.check()?;
+        output.append(array, names, &mut context, cancellation)?;
     }
-    output.finish()
+    cancellation.check()?;
+    let output = output.finish()?;
+    cancellation.check()?;
+    Ok(output)
 }
 
 /// A terminal bounded text sink. Native batches are consumed synchronously;
@@ -1040,7 +1173,7 @@ mod tests {
         );
         let result = collect_rows(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         assert_eq!(result.rows, 3);
@@ -1316,7 +1449,7 @@ mod tests {
             .with_source_order_limit(2);
             let result = collect_rows(
                 &request,
-                VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
             )
             .unwrap();
             let values: serde_json::Value =
@@ -1380,7 +1513,7 @@ mod tests {
         );
         let result = collect_rows(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
         )
         .unwrap();
         let values: serde_json::Value = serde_json::from_str(result.values_json.value()).unwrap();
@@ -1416,7 +1549,7 @@ mod tests {
         );
         let result = collect_rows(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
         );
         assert!(result.err().unwrap().to_string().contains("65,536 rows"));
         std::fs::remove_file(&path).unwrap();

@@ -106,7 +106,7 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         "v1-supported-unsupported.md",
     ),
     "website-src/src/content/docs/field-guide/python-surface.mdx": (
-        "ctx = sl.context()",
+        "ctx = sl.context(memory_gb=16, max_parallelism=8)",
         "ctx.read(path)",
         "result.envelope",
         "result.fallback_attempted",

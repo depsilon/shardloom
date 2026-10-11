@@ -9,14 +9,15 @@ use std::sync::Arc;
 
 use arrow_array::{Array as _, ArrayRef, BooleanArray, RecordBatch, cast::AsArray as _};
 use shardloom_core::{Result, ShardLoomError};
-use vortex::array::memory::HostAllocator as _;
+use vortex::array::memory::HostAllocator;
 use vortex::buffer::Alignment;
 
+#[cfg(test)]
 use crate::owned_buffers::ReservedHostAllocator;
 
 /// Exact allocation charges for the copied buffer regions, including alignment
 /// headroom and aligned empty buffers. This does not size original Arrow owners.
-pub(super) fn batch_copy_allocation_bytes(batch: &RecordBatch) -> Result<u64> {
+pub(crate) fn batch_copy_allocation_bytes(batch: &RecordBatch) -> Result<u64> {
     batch.columns().iter().try_fold(0_u64, |sum, array| {
         sum.checked_add(array_copy_allocation_bytes(array)?)
             .ok_or_else(|| ownership_error("Arrow intake size overflow"))
@@ -54,10 +55,7 @@ fn buffer_copy_allocation_bytes(length: usize) -> Result<u64> {
         .ok_or_else(|| ownership_error("Arrow copy allocation overflow"))
 }
 
-pub(super) fn copy_batch(
-    batch: RecordBatch,
-    allocator: &ReservedHostAllocator,
-) -> Result<RecordBatch> {
+pub(crate) fn copy_batch(batch: RecordBatch, allocator: &dyn HostAllocator) -> Result<RecordBatch> {
     let columns = batch
         .columns()
         .iter()
@@ -76,7 +74,7 @@ pub(super) fn copy_batch(
     .map_err(|error| ownership_error(&format!("Arrow retained batch validation failed: {error}")))
 }
 
-fn copy_array(array: &ArrayRef, allocator: &ReservedHostAllocator) -> Result<ArrayRef> {
+fn copy_array(array: &ArrayRef, allocator: &dyn HostAllocator) -> Result<ArrayRef> {
     let data = array.to_data();
     // The inferred Arrow Buffer type keeps this bridge on the existing
     // arrow-array/bytes dependency surfaces, without a new direct dependency.
@@ -130,6 +128,37 @@ fn ownership_error(message: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native ingest ownership: {message}; no fallback execution was attempted"
     ))
+}
+
+/// Copied bytes at this boundary, including validity, offsets and every referenced
+/// child region. Unlike the allocation charge, this excludes alignment headroom.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) fn batch_copy_buffer_bytes(batch: &RecordBatch) -> Result<u64> {
+    fn array_bytes(array: &ArrayRef) -> Result<u64> {
+        let data = array.to_data();
+        let mut bytes = 0_u64;
+        for buffer in data.buffers() {
+            bytes = bytes
+                .checked_add(buffer.len() as u64)
+                .ok_or_else(|| ownership_error("Arrow copied buffer size overflow"))?;
+        }
+        if let Some(nulls) = data.nulls() {
+            bytes = bytes
+                .checked_add(nulls.buffer().len() as u64)
+                .ok_or_else(|| ownership_error("Arrow copied validity size overflow"))?;
+        }
+        for child in data.child_data() {
+            bytes = bytes
+                .checked_add(array_bytes(&arrow_array::make_array(child.clone()))?)
+                .ok_or_else(|| ownership_error("Arrow copied child size overflow"))?;
+        }
+        Ok(bytes)
+    }
+    batch.columns().iter().try_fold(0_u64, |bytes, array| {
+        bytes
+            .checked_add(array_bytes(array)?)
+            .ok_or_else(|| ownership_error("Arrow copied batch size overflow"))
+    })
 }
 
 #[cfg(test)]

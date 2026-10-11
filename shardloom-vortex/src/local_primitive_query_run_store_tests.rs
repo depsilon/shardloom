@@ -70,7 +70,10 @@ fn spec(rows: usize) -> QueryRunSpec {
 fn native_array_runs_roundtrip_non_sort_schema_and_empty_without_row_serialization() {
     let workspace = Workspace::new();
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let work = Arc::new(memory.reserve(1 << 20).unwrap());
     let mut store = store(&workspace, &memory);
@@ -121,7 +124,10 @@ fn native_array_runs_roundtrip_non_sort_schema_and_empty_without_row_serializati
 fn positional_native_blocks_preserve_sequential_cursor_bounds_and_retained_owners() {
     let workspace = Workspace::new();
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let work = Arc::new(memory.reserve(1 << 20).unwrap());
     let mut store = store(&workspace, &memory);
@@ -177,7 +183,10 @@ fn positional_native_blocks_preserve_sequential_cursor_bounds_and_retained_owner
 fn positional_native_reads_revalidate_an_already_open_run_even_at_eof() {
     let workspace = Workspace::new();
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let work = Arc::new(memory.reserve(1 << 20).unwrap());
     let mut store = store(&workspace, &memory);
@@ -206,7 +215,10 @@ fn positional_native_reads_revalidate_an_already_open_run_even_at_eof() {
 fn native_block_retains_metadata_work_and_path_credits_after_store_and_reader_drop() {
     let workspace = Workspace::new();
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let work = Arc::new(memory.reserve(1 << 20).unwrap());
     let mut store = store(&workspace, &memory);
@@ -249,7 +261,10 @@ fn foreign_pool_scratch_and_work_are_rejected_before_file_side_effects() {
     let workspace = Workspace::new();
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
     let other = LiveMemoryPool::new(4 << 20).unwrap();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     assert!(
         QueryRunStore::new(
@@ -298,7 +313,10 @@ fn foreign_pool_scratch_and_work_are_rejected_before_file_side_effects() {
 fn metadata_denial_is_before_run_creation_and_long_paths_have_separate_credit() {
     let workspace = Workspace::new();
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let work = Arc::new(memory.reserve(1 << 20).unwrap());
     let mut store = store(&workspace, &memory);
@@ -333,7 +351,10 @@ fn metadata_denial_is_before_run_creation_and_long_paths_have_separate_credit() 
 fn overlapping_output_quota_counts_partial_files_and_a_failed_store_cannot_resume() {
     let workspace = Workspace::new();
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let work = Arc::new(memory.reserve(1 << 20).unwrap());
     let mut store = store(&workspace, &memory);
@@ -379,7 +400,10 @@ fn overlapping_output_quota_counts_partial_files_and_a_failed_store_cannot_resum
 #[test]
 fn changed_and_truncated_run_bytes_are_rejected_before_native_open() {
     use std::io::{Seek as _, SeekFrom};
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     for truncate in [false, true] {
         let workspace = Workspace::new();
@@ -419,7 +443,10 @@ fn changed_and_truncated_run_bytes_are_rejected_before_native_open() {
 
 #[test]
 fn schema_and_block_shape_mismatch_never_publish_a_run() {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     for blocks in [
         vec![Ok(PrimitiveArray::from_iter([1_u64, 2]).into_array())],
@@ -458,8 +485,10 @@ fn failed_run_writes_release_accepted_buffer_owners_before_returning() {
         for accepted in [0, 1, 2, 5] {
             let workspace = Workspace::new();
             let memory = LiveMemoryPool::new(8 << 20).unwrap();
-            let runtime =
-                local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+            let runtime = local_vortex_runtime(
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
+            );
             let session = VortexSession::default().with_handle(runtime.handle());
             let work = Arc::new(memory.reserve(1 << 20).unwrap());
             let mut store = store(&workspace, &memory);
@@ -534,7 +563,10 @@ fn failed_run_writes_release_accepted_buffer_owners_before_returning() {
 
 #[test]
 fn cancellation_stops_reader_and_mid_write_then_owned_cleanup_releases_every_credit() {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     for (during_write, relational_parent) in
         [(false, false), (true, false), (false, true), (true, true)]
@@ -630,7 +662,10 @@ fn cancellation_stops_reader_and_mid_write_then_owned_cleanup_releases_every_cre
 fn closed_namespaces_and_foreign_store_runs_cannot_cross_cleanup_boundaries() {
     let workspace = Workspace::new();
     let memory = LiveMemoryPool::new(8 << 20).unwrap();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let work = Arc::new(memory.reserve(1 << 20).unwrap());
     let mut first = store(&workspace, &memory);

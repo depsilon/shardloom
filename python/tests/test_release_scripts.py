@@ -2277,6 +2277,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(report["python_package_identity"], "shardloom")
         self.assertEqual(report["internal_crate_publish_status"], "all_publish_false")
+        self.assertIn("shardloom-python/Cargo.toml", report["internal_crate_manifests"])
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
 
@@ -2298,6 +2299,26 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "blocked")
         self.assertTrue(
             any("publish = false" in blocker for blocker in report["blockers"])
+        )
+
+    def test_package_identity_contract_blocks_publishable_native_binding(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_native_package_identity_blocker_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            matrix = self._write_package_identity_contract_fixture(module, repo_root)
+            manifest = repo_root / "shardloom-python/Cargo.toml"
+            manifest.parent.mkdir(exist_ok=True)
+            manifest.write_text(
+                '[package]\nname = "shardloom-python"\npublish = true\n', encoding="utf-8",
+            )
+            report = module.validate_package_identity_contract(repo_root, matrix)
+
+        self.assertEqual(report["status"], "blocked")
+        self.assertIn(
+            "shardloom-python/Cargo.toml missing marker 'publish = false'", report["blockers"],
         )
 
     def test_package_channel_matrix_records_v1_feasibility_review(self) -> None:
@@ -5224,6 +5245,60 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
 
+    def test_workspace_version_source_contract_accepts_optional_internal_dependencies(self) -> None:
+        module = self._load_script_module(
+            "check_workspace_version_sources.py",
+            "check_workspace_optional_inheritance_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace_version_source_fixture(root)
+            manifest = root / "shardloom-vortex" / "Cargo.toml"
+            original = manifest.read_text(encoding="utf-8")
+            for declaration in (
+                "{ workspace = true }",
+                "{ workspace = true, optional = true }",
+                "{optional=false,workspace=true}",
+            ):
+                with self.subTest(declaration=declaration):
+                    manifest.write_text(
+                        original + f"shardloom-core = {declaration}\n"
+                        + f"shardloom-runtime = {declaration}\n",
+                        encoding="utf-8",
+                    )
+                    report = module.build_report(root)
+                    self.assertEqual(report["status"], "passed", report["blockers"])
+
+    def test_workspace_version_source_contract_rejects_optional_dependency_overrides(self) -> None:
+        module = self._load_script_module(
+            "check_workspace_version_sources.py",
+            "check_workspace_optional_override_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace_version_source_fixture(root)
+            manifest = root / "shardloom-vortex" / "Cargo.toml"
+            original = manifest.read_text(encoding="utf-8")
+            for dependency in ("shardloom-core", "shardloom-runtime"):
+                for declaration in (
+                    "{ workspace = false, optional = true }",
+                    '{ workspace = true, optional = true, version = "0.0.1" }',
+                    '{ workspace = true, optional = true, path = "../other" }',
+                    '{ workspace = "true", optional = true }',
+                    '{ workspace = true, optional = "true" }',
+                    "{ workspace = true, workspace = true, optional = true }",
+                ):
+                    with self.subTest(dependency=dependency, declaration=declaration):
+                        manifest.write_text(
+                            original + f"{dependency} = {declaration}\n", encoding="utf-8",
+                        )
+                        report = module.build_report(root)
+                        self.assertEqual(report["status"], "blocked")
+                        self.assertIn(
+                            f"internal dependency {dependency} must inherit workspace dependency",
+                            "\n".join(report["blockers"]),
+                        )
+
     def test_workspace_version_source_contract_blocks_duplicate_version_sources(self) -> None:
         module = self._load_script_module(
             "check_workspace_version_sources.py",
@@ -5964,6 +6039,48 @@ jobs:
                     f"workflow job {lane.job_id} missing command: {command}",
                     rejected["blockers"],
                 )
+
+    def test_native_wheel_ci_attempts_do_not_reuse_cached_proofs(self) -> None:
+        module = self._load_script_module(
+            "check_ci_gate_matrix.py", "check_ci_gate_matrix_native_paths_for_test"
+        )
+        workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        doc = (REPO_ROOT / "docs/release/ci-gate-matrix.md").read_text(encoding="utf-8")
+        lane = next(lane for lane in module.REQUIRED_LANES
+                    if lane.lane_id == "native_python_wheel")
+        accepted = module.lane_status(lane, workflow, doc)
+        self.assertEqual(accepted["status"], "passed", accepted["blockers"])
+        job = module.workflow_job_section(workflow, lane.job_id)
+        allocator = re.search(r"python - <<'PY'\n(.*?)\n\s*PY\n", job, re.DOTALL)
+        self.assertIsNotNone(allocator)
+        script = textwrap.dedent(allocator.group(1))
+
+        with tempfile.TemporaryDirectory(prefix="native wheel ci ") as directory:
+            root = Path(directory).resolve()
+            cached = root / "target/native-python-proof/report.json"
+            cached.parent.mkdir(parents=True)
+            cached.write_text("stale cached proof", encoding="utf-8")
+            temporary = root / "runner temporary"
+            temporary.mkdir()
+            attempts = []
+            for attempt in range(2):
+                env_file = root / f"environment-{attempt}"
+                subprocess.run(
+                    [sys.executable, "-c", script], cwd=root, check=True,
+                    env={**os.environ, "RUNNER_TEMP": str(temporary),
+                         "GITHUB_ENV": str(env_file)},
+                )
+                values = dict(line.split("=", 1)
+                              for line in env_file.read_text().splitlines())
+                output = Path(values["SHARDLOOM_NATIVE_WHEEL_ROOT"]).resolve()
+                self.assertEqual(output.parent, temporary)
+                self.assertNotIn(output, attempts)
+                self.assertFalse((output / "proof").exists())
+                (output / "proof").mkdir()
+                (output / "proof/report.json").write_text(str(attempt))
+                attempts.append(output)
+            self.assertEqual(cached.read_text(), "stale cached proof")
+            self.assertEqual((attempts[0] / "proof/report.json").read_text(), "0")
 
     def test_focused_check_runner_scopes_rust_filters_to_exact_targets(self) -> None:
         module = self._load_script_module(
@@ -7737,6 +7854,7 @@ jobs:
                             {"Primitive": ["i64", False]}, {"Utf8": False}, {"Primitive": ["i64", False]},
                         ]}, False]}
                         output_rows = [{"id": 1, "label": "alpha", "batch_id": 1}]
+                        generated_session_source_opens = 1
                         emit("run", [
                             {"key": "result_schema_json", "value": json.dumps(output_schema)},
                             {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
@@ -7746,7 +7864,7 @@ jobs:
                             {"key": "native_vortex_result_export_rows_written", "value": "1"},
                             {"key": "native_vortex_result_export_all_targets_committed", "value": "true"},
                             {"key": "public_workflow_native_vortex_plan_route_family", "value": "native_vortex_unified_plan"},
-                            {"key": "resident_source_opens", "value": "0"},
+                            {"key": "resident_source_opens", "value": str(generated_session_source_opens)},
                             {"key": "output_row_count", "value": "1"},
                             {"key": "output_io_performed", "value": "true"},
                             {"key": "runtime_execution", "value": "true"},
@@ -7782,7 +7900,7 @@ jobs:
             stdout = io.StringIO()
             with contextlib.redirect_stdout(stdout):
                 returncode = module.main(
-                    ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli)]
+                    ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli), "--memory-gb", "4", "--max-parallelism", "2"]
                 )
 
             output = stdout.getvalue()
@@ -7815,7 +7933,8 @@ jobs:
             repeated_stdout = io.StringIO()
             with contextlib.redirect_stdout(repeated_stdout):
                 self.assertEqual(module.main(
-                    ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli)]
+                    ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli),
+                     "--memory-gb", "4", "--max-parallelism", "2"]
                 ), 0)
             repeated_path = Path(next(
                 line.split("=", 1)[1] for line in repeated_stdout.getvalue().splitlines()
@@ -7884,7 +8003,8 @@ jobs:
                 ('"public_workflow_native_vortex_plan_route_family"', '"missing_plan_family"'),
                 ('"native_vortex_unified_plan"', '"unadmitted_plan_family"'),
                 ('"resident_source_opens", "value": "1"', '"resident_source_opens", "value": "2"'),
-                ('"resident_source_opens", "value": "0"', '"resident_source_opens", "value": "1"'),
+                ("generated_session_source_opens = 1", "generated_session_source_opens = 0"),
+                ("generated_session_source_opens = 1", "generated_session_source_opens = 2"),
             ):
                 with self.subTest(missing_or_invalid_evidence=original):
                     self.assertIn(original, original_cli)
@@ -7892,7 +8012,11 @@ jobs:
                     stdout = io.StringIO()
                     with contextlib.redirect_stdout(stdout):
                         returncode = module.main(
-                            ["--repo-root", str(repo_root), "--shardloom-bin", str(fake_cli)]
+                            [
+                                "--repo-root", str(repo_root),
+                                "--shardloom-bin", str(fake_cli),
+                                "--memory-gb", "4", "--max-parallelism", "2",
+                            ]
                         )
                     self.assertEqual(returncode, 1, stdout.getvalue())
                     self.assertIn("quickstart_user_surface_status=failed", stdout.getvalue())

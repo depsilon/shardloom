@@ -939,6 +939,140 @@ fn native_typed_expressions_calendar_extremes_and_checked_offsets() {
     }
 }
 
+#[test]
+fn native_typed_temporal_literal_extremes_survive_owned_result_after_preparation_drops() {
+    let fixture = decimals();
+    let date = |value| literal(ScalarValue::Date32(value));
+    let timestamp = |value| literal(ScalarValue::TimestampMicros(value));
+    let expressions = vec![
+        ("date_min", date(i32::MIN)),
+        ("date_max", date(i32::MAX)),
+        ("timestamp_min", timestamp(i64::MIN)),
+        ("timestamp_max", timestamp(i64::MAX)),
+        (
+            "date_values",
+            expr(ExpressionKind::List {
+                values: vec![date(i32::MIN), date(i32::MAX)],
+            }),
+        ),
+        (
+            "timestamp_values",
+            expr(ExpressionKind::List {
+                values: vec![timestamp(i64::MIN), timestamp(i64::MAX)],
+            }),
+        ),
+        (
+            "temporal_record",
+            expr(ExpressionKind::Struct {
+                fields: vec![
+                    ("date_min".into(), date(i32::MIN)),
+                    ("timestamp_max".into(), timestamp(i64::MAX)),
+                ],
+            }),
+        ),
+    ];
+    let plan = project(fixture.scan(), expressions.clone());
+    let empty_plan = project(empty(fixture.scan()), expressions);
+    let prepared = prepare_relational(&plan, policy()).unwrap();
+    let expected_dtype = prepared.output_dtype().unwrap();
+    let empty_prepared = prepare_relational(&empty_plan, policy()).unwrap();
+    assert_eq!(
+        empty_prepared.output_dtype().unwrap(),
+        expected_dtype,
+        "empty input retains the same nested temporal result schema"
+    );
+    let empty_completed = empty_prepared
+        .execute_native(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(empty_completed.result.row_count(), 0);
+    assert_eq!(empty_completed.result.dtype(), &expected_dtype);
+    drop(empty_completed);
+
+    let memory = prepared.session.memory().clone();
+    let completed = prepared
+        .execute_native(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(completed.result.row_count(), 4);
+    assert_eq!(completed.execution.output_rows, 4);
+    let result = std::sync::Arc::new(completed.result);
+    drop((completed.execution, prepared, empty_prepared));
+
+    // The explicit bounded JSON sink reads every retained row after preparation
+    // and its source owners have been dropped. Nested list/struct columns are
+    // still present in the owned result and were evaluated by execute_native.
+    assert_eq!(result.dtype(), &expected_dtype);
+    let columns = [
+        "date_min".into(),
+        "date_max".into(),
+        "timestamp_min".into(),
+        "timestamp_max".into(),
+    ];
+    let rendered = result.to_bounded_json(&columns, 4096).unwrap();
+    let actual: Vec<serde_json::Value> = serde_json::from_str(rendered.value()).unwrap();
+    let row = serde_json::json!({
+        "date_min": i32::MIN,
+        "date_max": i32::MAX,
+        "timestamp_min": i64::MIN,
+        "timestamp_max": i64::MAX,
+    });
+    assert_eq!(actual, vec![row; 4]);
+    drop(rendered);
+
+    #[cfg(feature = "universal-format-io")]
+    verify_owned_temporal_extremes(&result);
+    drop(result);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[cfg(feature = "universal-format-io")]
+fn verify_owned_temporal_extremes(
+    result: &std::sync::Arc<crate::resident_session::OwnedVortexResultBatch>,
+) {
+    use arrow_array::{
+        cast::AsArray as _,
+        types::{Date32Type, TimestampMicrosecondType},
+    };
+
+    // Inspect every field through the native Arrow export after preparation
+    // has been released, including the nested temporal values.
+    let mut stream = result.arrow_batches(CancellationToken::default()).unwrap();
+    let mut rows = 0;
+    while let Some(batch) = stream.next_batch().unwrap() {
+        let date_min = batch.column(0).as_primitive::<Date32Type>();
+        let date_max = batch.column(1).as_primitive::<Date32Type>();
+        let timestamp_min = batch.column(2).as_primitive::<TimestampMicrosecondType>();
+        let timestamp_max = batch.column(3).as_primitive::<TimestampMicrosecondType>();
+        let dates = batch.column(4).as_list::<i32>();
+        let timestamps = batch.column(5).as_list::<i32>();
+        let temporal_record = batch.column(6).as_struct();
+        let record_date = temporal_record.column(0).as_primitive::<Date32Type>();
+        let record_timestamp = temporal_record
+            .column(1)
+            .as_primitive::<TimestampMicrosecondType>();
+        for row_index in 0..batch.num_rows() {
+            assert_eq!(date_min.value(row_index), i32::MIN);
+            assert_eq!(date_max.value(row_index), i32::MAX);
+            assert_eq!(timestamp_min.value(row_index), i64::MIN);
+            assert_eq!(timestamp_max.value(row_index), i64::MAX);
+            assert_eq!(
+                dates.value(row_index).as_primitive::<Date32Type>().values(),
+                &[i32::MIN, i32::MAX]
+            );
+            assert_eq!(
+                timestamps
+                    .value(row_index)
+                    .as_primitive::<TimestampMicrosecondType>()
+                    .values(),
+                &[i64::MIN, i64::MAX]
+            );
+            assert_eq!(record_date.value(row_index), i32::MIN);
+            assert_eq!(record_timestamp.value(row_index), i64::MAX);
+        }
+        rows += batch.num_rows();
+    }
+    assert_eq!(rows, 4);
+}
+
 #[cfg(feature = "universal-format-io")]
 fn computed_expression_oracle(count: u32) -> (Vec<serde_json::Value>, String) {
     use std::fmt::Write as _;

@@ -11,7 +11,7 @@ use crate::resident_session::NativeExecutionContext;
 use shardloom_core::{BinaryOp, ComparisonOp, Result, UnaryOp};
 use vortex::array::{
     ArrayRef, IntoArray, VortexSessionExecute as _,
-    arrays::{ChunkedArray, ConstantArray, ExtensionArray, ListArray, StructArray},
+    arrays::{ChunkedArray, ConstantArray, ListArray, StructArray},
     dtype::{DType, Nullability, PType},
     memory::MemorySessionExt as _,
     scalar::Scalar,
@@ -91,13 +91,19 @@ impl Expression {
         let result = match &self.kind {
             Kind::Column(name) => super::logical_field_from_native_array(input, name)?,
             Kind::Literal(scalar) => {
-                let constant = ConstantArray::new(scalar.clone(), input.len()).into_array();
-                if let DType::Extension(extension) = &self.dtype {
-                    ExtensionArray::try_new(extension.clone(), constant)
-                        .map_err(vortex_error)?
-                        .into_array()
+                if crate::native_payload_schema::temporal_storage(&self.dtype).is_some() {
+                    // The pinned provider reduces Extension(Constant(storage))
+                    // through a calendar scalar with a narrower domain. A later
+                    // take (including result ownership) can therefore panic for
+                    // valid Date32/Int64 values. Keep these literals in credited
+                    // primitive buffers under their native extension dtype.
+                    let value = scalar
+                        .as_primitive()
+                        .as_::<i64>()
+                        .ok_or_else(|| failed("temporal literal has invalid primitive storage"))?;
+                    self.build(input.len(), context, |_| Ok(Value::Int(value)))?
                 } else {
-                    constant
+                    ConstantArray::new(scalar.clone(), input.len()).into_array()
                 }
             }
             Kind::List(children) | Kind::Struct(children) => {

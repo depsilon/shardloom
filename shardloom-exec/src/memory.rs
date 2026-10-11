@@ -31,7 +31,8 @@ pub struct MemoryBudget {
 }
 impl MemoryBudget {
     pub fn new(total: ByteSize) -> Result<Self> {
-        let soft_limit = ByteSize::from_bytes(total.as_bytes().saturating_mul(8) / 10);
+        let bytes = total.as_bytes();
+        let soft_limit = ByteSize::from_bytes(bytes / 5 * 4 + bytes % 5 * 4 / 5);
         Self::with_limits(total, soft_limit, total)
     }
     pub fn with_limits(
@@ -55,7 +56,12 @@ impl MemoryBudget {
         })
     }
     pub fn from_gib(total_gib: u64) -> Result<Self> {
-        Self::new(ByteSize::from_gib(total_gib))
+        let bytes = total_gib
+            .checked_mul(shardloom_core::BYTES_PER_GIB)
+            .ok_or_else(|| {
+                ShardLoomError::new("memory_gb exceeds the exact byte allocation range")
+            })?;
+        Self::new(ByteSize::from_bytes(bytes))
     }
     pub const fn available_after_reserved(&self, reserved: ByteSize) -> ByteSize {
         ByteSize::from_bytes(self.total.as_bytes().saturating_sub(reserved.as_bytes()))

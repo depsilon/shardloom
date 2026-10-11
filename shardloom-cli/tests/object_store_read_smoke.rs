@@ -1,8 +1,15 @@
 use std::{fs, process::Command};
 
 fn run_object_store_read_smoke_json(args: &[String]) -> (bool, String, String) {
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
+    let mut command = Command::new(env!("CARGO_BIN_EXE_shardloom"));
+    command.args(args);
+    if matches!(
+        args.first().map(String::as_str),
+        Some("object-store-read-smoke")
+    ) {
+        command.args(["--memory-gb", "4", "--max-parallelism", "2"]);
+    }
+    let output = command
         .arg("--format")
         .arg("json")
         .output()

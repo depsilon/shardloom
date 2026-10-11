@@ -23,7 +23,14 @@ impl Worker {
     }
 }
 
-fn completed(result: &Value, expected: &Value, sources: usize, executions: usize) {
+fn completed(
+    result: &Value,
+    expected: &Value,
+    sources: usize,
+    opens: usize,
+    executions: usize,
+    reused: bool,
+) {
     assert_eq!(result["status"], "success", "{result}");
     let rows = field(result, "result_jsonl")
         .lines()
@@ -59,7 +66,7 @@ fn completed(result: &Value, expected: &Value, sources: usize, executions: usize
     ] {
         assert_eq!(field(result, key), value, "{key}: {result}");
     }
-    assert_eq!(field(result, "resident_source_opens"), sources.to_string());
+    assert_eq!(field(result, "resident_source_opens"), opens.to_string());
     assert_eq!(
         field(result, "public_workflow_native_vortex_plan_source_count"),
         sources.to_string()
@@ -70,7 +77,7 @@ fn completed(result: &Value, expected: &Value, sources: usize, executions: usize
     );
     assert_eq!(
         field(result, "resident_relational_lowering_reused"),
-        (executions > 1).to_string()
+        reused.to_string()
     );
     assert_eq!(
         field(result, "output_row_count"),
@@ -108,9 +115,16 @@ fn worker_relational_families_reuse_bound_readers_and_deliver_complete_results()
         ),
     ];
     let mut worker = Worker::new();
-    for (statement, expected) in cases {
+    for (case, (statement, expected)) in cases.into_iter().enumerate() {
         for execution in 1..=3 {
-            completed(&worker.relational(&statement, &[]), &expected, 1, execution);
+            completed(
+                &worker.relational(&statement, &[]),
+                &expected,
+                1,
+                case + 1,
+                case * 3 + execution,
+                execution > 1,
+            );
         }
     }
 }
@@ -120,6 +134,7 @@ fn worker_flat_declared_sources_preserve_zero_limit_and_zero_offset() {
     let source = fixture().display().to_string();
     let bindings = json!({source.clone(): {"input_format":"vortex"}}).to_string();
     let mut worker = Worker::new();
+    let mut case = 0;
     for surface in ["sql", "dataframe"] {
         for (body, tail, expected) in [
             ("value", "LIMIT 0", json!([])),
@@ -153,8 +168,16 @@ fn worker_flat_declared_sources_preserve_zero_limit_and_zero_offset() {
                     "--max-parallelism",
                     "2",
                 ]);
-                completed(&result, &expected, 1, execution);
+                completed(
+                    &result,
+                    &expected,
+                    1,
+                    case + 1,
+                    case * 2 + execution,
+                    execution > 1,
+                );
             }
+            case += 1;
         }
     }
 }
@@ -212,7 +235,7 @@ fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation
     let (root, source, bindings) = declared_nested_arrow_source();
     let original = std::fs::read(&source).unwrap();
     let mut worker = Worker::new();
-    for surface in ["sql", "dataframe"] {
+    for (surface_index, surface) in ["sql", "dataframe"].into_iter().enumerate() {
         for (index, (body, tail, expected)) in [
             (
                 "items, COUNT(*) AS n",
@@ -246,7 +269,15 @@ fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation
                     "--max-parallelism",
                     "2",
                 ]);
-                completed(&result, &expected, 1, execution);
+                let case = surface_index * 4 + index;
+                completed(
+                    &result,
+                    &expected,
+                    1,
+                    case * 2 + 1,
+                    case * 3 + execution,
+                    execution > 1,
+                );
                 assert_eq!(
                     field(&result, "public_workflow_preparation_included"),
                     (execution == 1).to_string()
@@ -299,12 +330,14 @@ fn worker_flat_prepared_source_change_rejects_reuse_and_releases_the_session() {
     let expected = json!([{"items":[1,null],"n":2},{"items":[],"n":1},{"items":null,"n":1}]);
     let mut worker = Worker::new();
     let first = worker.relational(&statement, &["--source-bindings", &bindings]);
-    completed(&first, &expected, 1, 1);
+    completed(&first, &expected, 1, 1, 1, false);
     completed(
         &worker.relational(&statement, &["--source-bindings", &bindings]),
         &expected,
         1,
+        1,
         2,
+        true,
     );
     // Inspect only this test's owned preparation directory. Relational reports
     // describe all source leaves rather than publishing one privileged path.
@@ -333,13 +366,17 @@ fn worker_flat_prepared_source_change_rejects_reuse_and_releases_the_session() {
         &expected,
         1,
         1,
+        1,
+        false,
     );
     for execution in 1..=2 {
         completed(
             &worker.relational(&statement, &["--source-bindings", &bindings]),
             &expected,
             1,
-            execution,
+            2,
+            execution + 1,
+            execution > 1,
         );
     }
     let original = std::fs::read(&source).unwrap();
@@ -357,7 +394,9 @@ fn worker_flat_prepared_source_change_rejects_reuse_and_releases_the_session() {
         &worker.relational(&statement, &["--source-bindings", &bindings]),
         &expected,
         1,
-        1,
+        3,
+        4,
+        false,
     );
     assert_eq!(std::fs::read(source).unwrap(), original);
 }
@@ -429,7 +468,9 @@ fn worker_relational_retains_each_sources_declared_format_and_schema() {
             &result,
             &json!([{"key":"001","amount":2,"label":"0009"}, {"key":"1","amount":3,"label":"0010"}]),
             2,
+            2,
             execution,
+            execution > 1,
         );
         assert_eq!(field(&result, "relational_normalized_source_count"), "2");
         assert_eq!(
@@ -446,7 +487,9 @@ fn worker_relational_retains_each_sources_declared_format_and_schema() {
         &worker.relational(&statement, &["--source-bindings", &bindings]),
         &json!([{"key":"001"},{"key":"1"}]),
         2,
-        1,
+        4,
+        3,
+        false,
     );
 }
 
@@ -540,7 +583,9 @@ fn worker_relational_normalizes_every_nested_leaf_once_and_preserves_path_litera
             &result,
             &json!([{"renamed":2,"flag":"match"},{"renamed":3,"flag":"match"}]),
             3,
+            3,
             execution,
+            execution > 1,
         );
         assert_eq!(field(&result, "relational_normalized_source_count"), "2");
     }
@@ -584,6 +629,8 @@ fn worker_relational_writers_reject_aliases_of_original_compatibility_sources() 
         &json!([{"renamed":1,"ranked":3},{"renamed":2,"ranked":2},{"renamed":3,"ranked":1}]),
         1,
         1,
+        1,
+        false,
     );
     for request in requests {
         let alias = root.0.join(format!("alias-{request}"));
@@ -635,6 +682,8 @@ fn worker_relational_projected_subquery_does_not_inherit_the_reference_value_cap
             &json!([{"renamed":40},{"renamed":39}]),
             1,
             1,
+            1,
+            false,
         );
     }
 }
@@ -683,9 +732,16 @@ fn worker_relational_prunes_wide_sources_with_nested_outer_scope_dependencies() 
         ),
     ];
     let mut worker = Worker::new();
-    for (statement, expected) in cases {
+    for (case, (statement, expected)) in cases.into_iter().enumerate() {
         for execution in 1..=2 {
-            completed(&worker.relational(&statement, &[]), &expected, 1, execution);
+            completed(
+                &worker.relational(&statement, &[]),
+                &expected,
+                1,
+                case + 1,
+                case * 2 + execution,
+                execution > 1,
+            );
         }
     }
 }
@@ -707,7 +763,9 @@ fn worker_relational_invalidates_any_source_and_rebinds_after_failure() {
         &worker.relational(&statement, &[]),
         &json!([{"l.value":1}]),
         2,
+        2,
         1,
+        false,
     );
     let replacement = root.0.join("replacement.vortex");
     std::fs::copy(fixture(), &replacement).unwrap();
@@ -722,7 +780,9 @@ fn worker_relational_invalidates_any_source_and_rebinds_after_failure() {
         &worker.relational(&statement, &[]),
         &json!([{"l.value":1}]),
         2,
-        1,
+        4,
+        2,
+        false,
     );
 }
 
@@ -771,7 +831,7 @@ fn worker_relational_writes_complete_nullable_results_through_all_eight_writers(
     );
     let expected = json!([{"left_value":4,"right_value":5},{"left_value":5,"right_value":null}]);
     let mut worker = Worker::new();
-    for (format, request) in [
+    for (case, (format, request)) in [
         ("vortex", "write_vortex"),
         ("json", "write_json"),
         ("jsonl", "write_jsonl"),
@@ -780,7 +840,10 @@ fn worker_relational_writes_complete_nullable_results_through_all_eight_writers(
         ("arrow-ipc", "write_arrow_ipc"),
         ("avro", "write_avro"),
         ("orc", "write_orc"),
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
         let path = root.0.join(format!("selected.{format}"));
         let result = worker.relational(
             &statement,
@@ -795,7 +858,10 @@ fn worker_relational_writes_complete_nullable_results_through_all_eight_writers(
             field(&result, "native_vortex_result_export_rows_written"),
             "2"
         );
-        assert_eq!(field(&result, "resident_completed_executions"), "1");
+        assert_eq!(
+            field(&result, "resident_completed_executions"),
+            (case * 2 + 1).to_string()
+        );
         let reopened = if format == "vortex" {
             path
         } else {

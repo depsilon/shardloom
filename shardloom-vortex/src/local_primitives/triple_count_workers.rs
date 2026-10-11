@@ -66,8 +66,10 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
 pub(super) fn request_schema_may_be_admitted(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
+    envelope: VortexLocalPrimitiveResourceEnvelope,
 ) -> bool {
-    let Ok(lowering) = super::aggregate_lowering::AggregateLowering::new(request, dtype) else {
+    let Ok(lowering) = super::aggregate_lowering::AggregateLowering::new(request, dtype, envelope)
+    else {
         return false;
     };
     if lowering.residual.is_some() {
@@ -77,6 +79,7 @@ pub(super) fn request_schema_may_be_admitted(
         &lowering.rewrite.aggregate,
         request.source_order_limit,
         dtype,
+        envelope,
     )
     .is_some()
 }
@@ -85,13 +88,13 @@ fn aggregate_roles(
     aggregate: &crate::VortexSimpleAggregateRequest,
     limit: Option<usize>,
     dtype: &DType,
+    envelope: VortexLocalPrimitiveResourceEnvelope,
 ) -> Option<Roles> {
     let columns = aggregate
         .projected_columns()
         .iter()
         .map(|column| column.as_str().to_owned())
         .collect::<Vec<_>>();
-    let envelope = VortexLocalPrimitiveResourceEnvelope::new(1, 1).ok()?;
     GroupedAggregateStates::new_with_resource_envelope(
         aggregate, limit, &columns, false, false, envelope,
     )
@@ -105,6 +108,7 @@ fn aggregate_roles(
 pub(super) fn preserve_raw_minute_input(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
+    envelope: VortexLocalPrimitiveResourceEnvelope,
 ) -> bool {
     if request.predicate.is_some() {
         return false;
@@ -112,7 +116,8 @@ pub(super) fn preserve_raw_minute_input(
     let Ok(aggregate) = required_simple_aggregate(request) else {
         return false;
     };
-    let Some(roles) = aggregate_roles(aggregate, request.source_order_limit, dtype) else {
+    let Some(roles) = aggregate_roles(aggregate, request.source_order_limit, dtype, envelope)
+    else {
         return false;
     };
     if roles.minute_column_prepared {

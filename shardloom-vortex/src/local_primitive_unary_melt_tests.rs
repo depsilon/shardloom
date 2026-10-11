@@ -44,7 +44,8 @@ fn unary_melt_preserves_mixed_value_types_nulls_order_and_native_file_payload() 
     let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
     let prepared = prepare_unary_in_session(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &session,
     )
     .unwrap();

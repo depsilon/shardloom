@@ -70,6 +70,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--run-id")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--shardloom-bin")
+    parser.add_argument("--memory-gb", type=int, required=True)
+    parser.add_argument("--max-parallelism", type=int, required=True)
     parser.add_argument("--profile-order", default="release,debug")
     parser.add_argument(
         "--update-website",
@@ -182,6 +184,8 @@ def build_artifact(
     selected_run_id: str | None,
     binary: str | os.PathLike[str] | Sequence[str] | None,
     selected_profile_order: Sequence[str],
+    memory_gb: int,
+    max_parallelism: int,
 ) -> dict[str, Any]:
     run_dir = (run_root / (selected_run_id or run_id())).resolve()
     scenario_payload = run_scenarios(
@@ -189,6 +193,8 @@ def build_artifact(
         run_dir=run_dir,
         binary=binary,
         profile_order=selected_profile_order,
+        memory_gb=memory_gb,
+        max_parallelism=max_parallelism,
     )
     source_summary_path = run_dir / "front-door-source-scenario-summary.json"
     write_json(source_summary_path, scenario_payload)
@@ -426,6 +432,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         selected_run_id=args.run_id,
         binary=args.shardloom_bin,
         selected_profile_order=profile_order(args.profile_order),
+        memory_gb=args.memory_gb,
+        max_parallelism=args.max_parallelism,
     )
     write_json(output, payload)
     if args.update_website:

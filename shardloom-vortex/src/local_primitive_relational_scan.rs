@@ -74,10 +74,18 @@ pub(super) fn run(
             })?;
             input.run(context, &mut |source| {
                 add(&metrics.scans_started, 1)?;
-                if source.row_count() > 0 {
-                    add(&metrics.data_scans, 1)?;
+                if source.row_count() == 0 {
+                    return accept(projection.execute_batch_range(source, 0..0, context)?);
                 }
-                accept(projection.execute_batch(source, context)?)
+                add(&metrics.data_scans, 1)?;
+                // Producer batches and native scan work units are different
+                // boundaries. Slice before projection/filter work so a large
+                // admitted columnar input does not expand scan scratch.
+                for start in (0..source.row_count()).step_by(SCAN_ROWS) {
+                    let end = start.saturating_add(SCAN_ROWS).min(source.row_count());
+                    accept(projection.execute_batch_range(source, start..end, context)?)?;
+                }
+                Ok(())
             })
         }
     }

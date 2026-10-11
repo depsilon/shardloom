@@ -27,12 +27,47 @@ skipped_gate=real_publication
 
 ## Required Lanes
 
+`native_python_wheel` enforces native Python wheel integrity and isolated installation
+under job `python-native-wheel`. Ubuntu checks Python 3.10 and 3.13; macOS checks
+3.13. Its `native-python-wheel-${{ matrix.lane }}` artifacts retain the actual wheel,
+build identity, installation logs and the full required native integration suite.
+Zero tests or any skipped native test fails the proof. `release-readiness` requires
+this job to succeed. Windows extension support and portable Linux wheel certification
+remain unclaimed. Linux native wheels use a host platform tag until a separate
+shared-library audit establishes manylinux compliance.
+Each attempt reserves a fresh `SHARDLOOM_NATIVE_WHEEL_ROOT` inside `RUNNER_TEMP`.
+The extension staging, dependency wheels and installation proof remain outside
+the Cargo cache, so restored build outputs cannot reuse an earlier proof or its
+uploaded results. The proof still rejects an existing destination.
+
+```text
+root = tempfile.mkdtemp(prefix="native-python-", dir=os.environ["RUNNER_TEMP"])
+python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
+python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse"
+python -B -m unittest discover -s scripts -p 'test_*native_python*.py' -v
+python -B -m unittest discover -s scripts -p test_python_license_bundle.py -v
+cargo build --locked --release -p shardloom-cli --bin shardloom --features release-user-surfaces
+python scripts/build_native_python.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension" --release
+python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse"
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/build.json
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/report.json
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/integration.json
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/*.log
+${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/dist/*.whl
+if-no-files-found: error
+```
+
 The native release feature matrix runs tests and lint in addition to compilation.
-This prevents default-feature tests from masking failures in shipped native paths:
+This prevents default-feature tests from masking failures in shipped native paths. Synthetic spill
+ownership tests run as a dedicated serialized lane:
 
 ```text
 cargo test -p shardloom-vortex --lib --features release-user-surfaces
-cargo test -p shardloom-cli --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces
+cargo test -p shardloom-exec --lib --features spill-payload-fs spill_payload::tests -- --test-threads=1
+cargo test -p shardloom-vortex --lib --features shardloom-exec/spill-payload-fs bounded_execution::tests -- --test-threads=1
+cargo test -p shardloom-cli --test required_execution_resources --features shardloom-exec/spill-payload-fs -- --test-threads=1
+cargo test -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces
+cargo test -p shardloom-cli --all-targets --no-default-features --features vortex-write
 cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings
 ```
 
@@ -63,6 +98,11 @@ into the serial release-readiness tail:
   native CLI bundled into a release wheel compiles. This closes the gap exposed by the
   interrupted v0.5.0 registry build; it does not certify Unix-only spill or streaming
   behavior on Windows.
+  Windows native resource-admission refusal additionally verifies that primitive
+  execution cannot open sources or modify outputs without the shared reservation
+  owner. The CLI must report unavailable admission rather than certifying a
+  numeric declaration. These platform tests run on Windows and compile as ignored
+  tests on Unix.
 - `rust_msrv_validation` derives the Rust MSRV toolchain from root `Cargo.toml` and checks it with
   default features disabled and across all targets with `release-user-surfaces` enabled. This
   covers the native runtime and its test code at the supported minimum, while the existing
@@ -104,6 +144,7 @@ if: ${{ matrix.os == 'windows-latest' }}
 key: windows-release-user-surfaces
 cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces
 ./target/release/shardloom.exe --version
+cargo test --release -p shardloom-cli --test non_unix_resource_admission --features release-user-surfaces
 ```
 
 Workspace version source contract:
@@ -151,7 +192,7 @@ target/production-certification-gate.json
 | --- | --- | --- | --- | --- |
 | `ci_work_shaping_contract` | `ci-work-shaping` | `cargo run -q -p shardloom-cli -- ci-work-shaping-plan` | `target/ci-work-shaping-plan.json`<br>`target/ci-work-shaping-changed-files.txt`<br>`ci-work-shaping-evidence` | metadata-first CI work shaping; capillary changed-file selection; pulseweave evidence fingerprint; source-aware benchmark rerun recommendations |
 | `rust_baseline` | `rust-baseline` | `cargo fmt --all -- --check`<br>`cargo clippy --workspace --all-targets -- -D warnings`<br>`cargo test --workspace --all-targets` | none | default Rust formatting, linting, and tests; matrix capillary lanes for fmt, clippy, and test |
-| `rust_feature_matrix` | `rust-feature-matrix` | `cargo check --workspace`<br>`cargo check --workspace --all-features`<br>`cargo check --workspace --no-default-features`<br>`cargo check -p shardloom-vortex --features upstream-vortex`<br>`cargo check -p shardloom-vortex --features vortex-file-io`<br>`cargo check -p shardloom-vortex --features vortex-local-primitives`<br>`cargo check -p shardloom-vortex --features vortex-encoded-read-spike`<br>`cargo check -p shardloom-vortex --features release-user-surfaces`<br>`cargo test -p shardloom-contract-tests --test conda_packaging_recipes` | none | workspace feature/build matrix |
+| `rust_feature_matrix` | `rust-feature-matrix` | `cargo check --workspace`<br>`cargo check --workspace --all-features`<br>`cargo check --workspace --no-default-features`<br>`cargo check -p shardloom-vortex --features upstream-vortex`<br>`cargo check -p shardloom-vortex --features vortex-file-io`<br>`cargo check -p shardloom-vortex --features vortex-local-primitives`<br>`cargo check -p shardloom-vortex --features vortex-encoded-read-spike`<br>`cargo check -p shardloom-vortex --features release-user-surfaces`<br>`cargo test -p shardloom-vortex --lib --features release-user-surfaces`<br>`cargo test -p shardloom-exec --lib --features spill-payload-fs spill_payload::tests -- --test-threads=1`<br>`cargo test -p shardloom-vortex --lib --features shardloom-exec/spill-payload-fs bounded_execution::tests -- --test-threads=1`<br>`cargo test -p shardloom-cli --test required_execution_resources --features shardloom-exec/spill-payload-fs -- --test-threads=1`<br>`cargo test -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces`<br>`cargo test -p shardloom-cli --all-targets --no-default-features --features vortex-write`<br>`cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings`<br>`cargo test -p shardloom-contract-tests --test conda_packaging_recipes` | none | workspace feature/build matrix; synthetic spill ownership tests |
 | `rust_msrv_validation` | `rust-msrv` | `cargo check --workspace --no-default-features`<br>`cargo check --workspace --all-targets --features release-user-surfaces`<br>`python scripts/write_release_compatibility_lane_report.py --lane "$SHARDLOOM_RUST_MSRV_LANE" --surface rust --rust-toolchain "$SHARDLOOM_RUST_MSRV_TOOLCHAIN" --os-name ubuntu-latest` | `target/release-compatibility/rust_msrv_*.json`<br>`release-compatibility-rust-msrv` | Rust MSRV derived from root Cargo.toml validation |
 | `python_test_shards` | `python-test-shards` | `python scripts/run_python_test_shard.py --shard ${{ matrix.shard }}` | `target/python-test-shards/${{ matrix.shard }}.json`<br>`python-test-shard-${{ matrix.shard }}` | Python test shards |
 | `python_tests` | `python-tests` | `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`<br>`python scripts/merge_python_test_shard_evidence.py` | `python-test-shard-*`<br>`target/python-test-evidence.json`<br>`python-test-evidence` | Python tests; Python compile check |

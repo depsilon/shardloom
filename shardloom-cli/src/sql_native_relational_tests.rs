@@ -47,7 +47,8 @@ impl Drop for TestDirectory {
 }
 
 fn verify(statement: &str, expected: &Value) {
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     policy.resource_envelope.memory_budget_bytes = 32 << 20;
     let prepared = prepare(statement, policy, |path| {
         DatasetUri::new(path.path.to_string_lossy().into_owned())
@@ -109,7 +110,8 @@ fn native_relational_sql_division_checks_only_evaluated_rows() {
     ] {
         let prepared = prepare(
             &statement,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
         )
         .unwrap();
@@ -173,7 +175,8 @@ fn native_relational_sql_column_null_selection_preserves_values_and_bind_errors(
     assert!(
         prepare(
             &statement,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |path| DatasetUri::new(path.path.to_string_lossy().into_owned())
         )
         .is_err()
@@ -209,7 +212,8 @@ fn native_relational_sql_trailing_offset_preserves_order_and_empty_binding() {
     assert!(
         prepare(
             &format!("SELECT absent FROM '{source}' LIMIT 0 OFFSET 1"),
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |path| DatasetUri::new(path.path.to_string_lossy().into_owned())
         )
         .is_err()
@@ -235,7 +239,8 @@ fn native_relational_sql_replace_or_add_binds_the_previous_schema() {
         &format!(
             "SELECT * REPLACE OR ADD (value + 1 AS a) FROM (SELECT value AS a,value AS b FROM '{source}') AS renamed"
         ),
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
     );
     assert!(
@@ -350,7 +355,8 @@ fn native_relational_sql_derived_discovery_and_binding_are_scope_aware() {
     ] {
         let error = prepare(
             &sql,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
         )
         .err()
@@ -373,7 +379,8 @@ fn native_relational_sql_derived_cancellation_consumer_failure_and_generation_cl
     );
     let prepared = prepare(
         &sql,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
     )
     .unwrap();
@@ -441,7 +448,8 @@ fn native_relational_sql_derived_resource_denial_and_empty_schema_are_explicit()
     );
     let prepared = prepare(
         &sql,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
     )
     .unwrap();
@@ -450,7 +458,8 @@ fn native_relational_sql_derived_resource_denial_and_empty_schema_are_explicit()
         .unwrap();
     assert_eq!(result.execution.output_columns, ["renamed"]);
     assert_eq!(result.execution.output_rows, 0);
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     policy.resource_envelope.memory_budget_bytes = 1;
     assert!(
         prepare(&sql, policy, |path| DatasetUri::new(
@@ -480,7 +489,8 @@ fn native_relational_sql_every_writer_protects_nested_source_aliases() {
     );
     let prepared = prepare(
         &sql,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
     )
     .unwrap();
@@ -660,7 +670,8 @@ fn native_relational_sql_exists_binds_selected_columns_before_reducing_to_presen
         format!("SELECT value FROM '{source}' WHERE EXISTS (SELECT absent_column FROM '{source}')");
     let result = prepare(
         &statement,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
     );
     assert!(result.is_err());

@@ -2,10 +2,10 @@
 
 # Local Python Smoke
 
-Run a source-checkout Python smoke without installing runtime dependencies:
+Run a source-checkout Python smoke without installing runtime dependencies. The 16 GiB / 8 lane values are illustrative caller choices, not recommendations, defaults, or measured usage:
 
 ```powershell
-python examples\local-python-smoke\run.py --repo-root .
+python examples\local-python-smoke\run.py --repo-root . --memory-gb 16 --max-parallelism 8
 ```
 
 The script imports the source-tree Python package, resolves the local CLI,

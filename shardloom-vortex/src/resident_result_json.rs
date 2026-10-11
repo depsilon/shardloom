@@ -8,6 +8,18 @@ use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::Budgeted;
 
 impl OwnedVortexResultBatch {
+    /// Export only the authoritative ordered schema. This never reads result
+    /// values, reopens a source or constructs row objects. The returned metadata
+    /// keeps its reservation on the result's original resource owner.
+    /// # Errors
+    /// Rejects unsupported metadata depth/size and shared-memory denial.
+    pub fn schema_json(&self) -> Result<Budgeted<String>> {
+        crate::local_primitives::collect::serialize_result_schema(
+            self.dtype(),
+            &self.runtime.memory,
+        )
+    }
+
     /// Materialize this retained result through the existing native JSON sink.
     /// No source is reopened and no query is rerun. The result's own runtime and
     /// allocator survive the original session handle. JSON is an explicit copy
@@ -49,6 +61,22 @@ impl OwnedVortexResultBatch {
         columns: &[String],
         max_bytes: usize,
     ) -> Result<Budgeted<String>> {
+        self.render_admitted_json_controlled(columns, max_bytes, &CancellationToken::default())
+    }
+
+    /// Render an already admitted result with the caller's operation cancellation
+    /// or deadline token, using the result's original resident owner.
+    ///
+    /// # Errors
+    /// Rejects cancellation, invalid result schema/fields, provider failures, and
+    /// row/byte/shared-memory bounds.
+    pub(crate) fn render_admitted_json_controlled(
+        &self,
+        columns: &[String],
+        max_bytes: usize,
+        cancellation: &CancellationToken,
+    ) -> Result<Budgeted<String>> {
+        cancellation.check()?;
         self.validate_schema_and_rows()?;
         let fields = self
             .dtype()
@@ -65,13 +93,17 @@ impl OwnedVortexResultBatch {
         // handle closes; concurrent result sinks must not bypass that grant.
         let _context = self
             .runtime
-            .enter(CallClass::General, CancellationToken::default())?;
-        crate::local_primitives::collect::render_owned_json(
+            .enter(CallClass::General, cancellation.clone())?;
+        cancellation.check()?;
+        let output = crate::local_primitives::collect::render_owned_json_controlled(
             self,
             columns,
             &self.runtime.memory,
             max_bytes,
-        )
+            cancellation,
+        )?;
+        cancellation.check()?;
+        Ok(output)
     }
 }
 

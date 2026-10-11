@@ -24,6 +24,7 @@ mod batches;
 #[path = "public_relational_sources.rs"]
 mod sources;
 pub(super) use batches::run as run_batches;
+pub(super) use sources::{has_file_collection, prepare_in_session, prepare_native_in_session};
 
 pub(super) struct PreparedPublicRelational {
     pub(super) request: PublicWorkflowRouteRequest,
@@ -126,6 +127,7 @@ pub(super) fn run(
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     session: &mut PublicExecutionSession,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> ExitCode {
     run_with_source(
         request,
@@ -135,9 +137,11 @@ pub(super) fn run(
         Vec::new(),
         None,
         PublicSourcePreparations::default(),
+        admission,
     )
 }
 
+#[allow(clippy::too_many_arguments)] // Preserve the shared route/report contract and its caller-owned admission.
 pub(super) fn run_with_source(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -146,6 +150,7 @@ pub(super) fn run_with_source(
     extra_fields: Vec<(String, String)>,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
     preparations: PublicSourcePreparations,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> ExitCode {
     match execute(
         request,
@@ -155,6 +160,7 @@ pub(super) fn run_with_source(
         extra_fields,
         source,
         preparations,
+        admission,
     ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
@@ -164,6 +170,7 @@ pub(super) fn run_with_source(
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Reuse the route's prepared source, result cache and admission together.
 fn execute(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -172,17 +179,30 @@ fn execute(
     extra_fields: Vec<(String, String)>,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
     preparations: PublicSourcePreparations,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Result<(), ShardLoomError> {
+    admission.check()?;
     let statement = request.sql_statement.as_deref().ok_or_else(|| {
         ShardLoomError::InvalidOperation("native relational SQL is absent".into())
     })?;
     let reused = session.relational.as_ref().is_some_and(|entry| {
         entry.request == *request && entry.preparations.same_generations(&preparations)
-    }) && !sources::has_file_collection(statement, request)?;
+    }) && !sources::has_file_collection(
+        statement,
+        request,
+        admission,
+        &admission.cancellation(),
+    )?;
     if !reused {
         session.clear();
-        let (operation, prepared_sources) =
-            sources::prepare_with_source(statement, request, source, preparations.clone())?;
+        let (operation, prepared_sources) = sources::prepare_with_source_in_session(
+            statement,
+            request,
+            source,
+            preparations.clone(),
+            admission.native_session()?,
+            &admission.cancellation(),
+        )?;
         session.relational = Some(PreparedPublicRelational {
             request: request.clone(),
             operation,
@@ -213,19 +233,20 @@ fn execute(
     ));
     if is_write_request(request) {
         #[cfg(feature = "vortex-write")]
-        return execute_write(request, format, operation, fields, reused);
+        return execute_write_controlled(
+            request,
+            format,
+            operation,
+            fields,
+            reused,
+            &admission.cancellation(),
+        );
         #[cfg(not(feature = "vortex-write"))]
         return Err(ShardLoomError::InvalidOperation(
             "native relational writers require vortex-write".into(),
         ));
     }
-    execute_collect(
-        format,
-        operation,
-        fields,
-        reused,
-        &CancellationToken::default(),
-    )
+    execute_collect(format, operation, fields, reused, &admission.cancellation())
 }
 
 fn execute_collect(
@@ -271,24 +292,6 @@ fn emit_collected(
 }
 
 #[cfg(feature = "vortex-write")]
-fn execute_write(
-    request: &PublicWorkflowRouteRequest,
-    format: OutputFormat,
-    operation: &PreparedVortexRelational,
-    fields: Vec<(String, String)>,
-    reused: bool,
-) -> Result<(), ShardLoomError> {
-    execute_write_controlled(
-        request,
-        format,
-        operation,
-        fields,
-        reused,
-        &CancellationToken::default(),
-    )
-}
-
-#[cfg(feature = "vortex-write")]
 fn execute_write_controlled(
     request: &PublicWorkflowRouteRequest,
     format: OutputFormat,
@@ -330,22 +333,11 @@ fn execute_write_controlled(
 fn emit_written(
     format: OutputFormat,
     targets: &[super::NativeVortexPrimitiveRowExportTarget],
-    mut written: Vec<
-        shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelational,
-    >,
+    written: Vec<shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelational>,
     mut fields: Vec<(String, String)>,
     reused: bool,
 ) {
-    let final_write = written.pop().expect("at least one target");
-    let reports = written
-        .into_iter()
-        .map(|written| written.output)
-        .chain([final_write.output])
-        .collect::<Vec<_>>();
-    let primary = &reports[0];
-    append_native_vortex_primitive_row_export_fields(&mut fields, primary);
-    append_native_vortex_primitive_row_export_target_fields(&mut fields, targets, &reports);
-    append_execution(&mut fields, &final_write.execution, reused);
+    let primary = append_written(&mut fields, targets, written, reused);
     emit(
         "run",
         format,
@@ -355,9 +347,31 @@ fn emit_written(
             "wrote {} rows to {}",
             primary.rows_written, primary.output_path
         ),
-        primary.diagnostics.clone(),
+        primary.diagnostics,
         fields,
     );
+}
+
+#[cfg(feature = "vortex-write")]
+pub(super) fn append_written(
+    fields: &mut Vec<(String, String)>,
+    targets: &[super::NativeVortexPrimitiveRowExportTarget],
+    mut written: Vec<
+        shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelational,
+    >,
+    reused: bool,
+) -> shardloom_vortex::VortexLocalPrimitiveRowExportReport {
+    let final_write = written.pop().expect("at least one target");
+    let mut reports = written
+        .into_iter()
+        .map(|written| written.output)
+        .chain([final_write.output])
+        .collect::<Vec<_>>();
+    let primary = &reports[0];
+    append_native_vortex_primitive_row_export_fields(fields, primary);
+    append_native_vortex_primitive_row_export_target_fields(fields, targets, &reports);
+    append_execution(fields, &final_write.execution, reused);
+    reports.remove(0)
 }
 
 fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {
@@ -421,11 +435,18 @@ fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelat
 }
 
 #[allow(clippy::too_many_lines)]
-fn append_execution(
+pub(super) fn append_execution(
     fields: &mut Vec<(String, String)>,
     result: &ExecutedVortexRelational,
     reused: bool,
 ) {
+    crate::execution_resources::append_declaration_fields(fields, result.resources);
+    crate::execution_resources::append_resident_snapshot_fields(fields, &result.runtime);
+    crate::execution_resources::append_spill_observation_fields(
+        fields,
+        result.native_io_certificate.side_effects.spill_io_performed,
+        None,
+    );
     append_spill(fields, result);
     fields.extend([
         (
@@ -649,6 +670,7 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_batch_rows", input.rows.to_string()),
         ("native_input_logical_bytes", input.input_logical_bytes.to_string()),
         ("native_input_payload_bytes_copied", input.intake_payload_bytes_copied.to_string()),
+        ("native_input_columnar_buffer_bytes_copied", input.intake_columnar_buffer_bytes_copied.to_string()),
         ("native_input_max_batch_rows", input.max_batch_rows.to_string()),
         ("native_input_max_retained_batches", input.max_retained_input_batches.to_string()),
         ("native_input_max_retained_logical_bytes", input.max_retained_input_logical_bytes.to_string()),

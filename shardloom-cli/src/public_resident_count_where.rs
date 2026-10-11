@@ -16,6 +16,7 @@ pub(super) fn run(
     extra_fields: Vec<(String, String)>,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> ExitCode {
     run_with_source(
         request,
@@ -25,9 +26,11 @@ pub(super) fn run(
         binding,
         execution_session,
         None,
+        admission,
     )
 }
 
+#[allow(clippy::too_many_arguments)] // Keep the existing source and report arguments with their admission.
 pub(super) fn run_with_source(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -36,19 +39,20 @@ pub(super) fn run_with_source(
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> ExitCode {
-    let (executed, rows, prepared_now) = match execute(request, binding, execution_session, source)
-    {
-        Ok(result) => result,
-        Err(error) => {
-            execution_session.clear();
-            return native_vortex_materializing_error(
-                format,
-                PublicVortexPrimitive::CountWhere,
-                &error,
-            );
-        }
-    };
+    let (executed, rows, prepared_now) =
+        match execute(request, binding, execution_session, source, admission) {
+            Ok(result) => result,
+            Err(error) => {
+                execution_session.clear();
+                return native_vortex_materializing_error(
+                    format,
+                    PublicVortexPrimitive::CountWhere,
+                    &error,
+                );
+            }
+        };
     let mut fields = execution_attachment_fields("run", request, plan);
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
@@ -62,8 +66,7 @@ pub(super) fn run_with_source(
         ("output_row_count".into(), "1".into()),
     ]);
     let local = vortex_primitive_execution::VortexLocalPrimitiveCliExecutionEvidence {
-        memory_gb: executed.report.resource_envelope.memory_budget_bytes / (1024 * 1024 * 1024),
-        max_parallelism: executed.report.max_parallelism_requested,
+        resources: executed.report.resource_envelope.declared_resources,
         report: executed.report,
         native_io_certificate: executed.native_io_certificate,
         // This call executes the source, not an independent correctness oracle.
@@ -76,6 +79,7 @@ pub(super) fn run_with_source(
         &mut fields,
         Some(&local),
     );
+    crate::execution_resources::append_resident_snapshot_fields(&mut fields, &executed.runtime);
     emit(
         "run",
         format,
@@ -102,6 +106,7 @@ fn execute(
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Result<
     (
         ExecutedVortexCountWhere,
@@ -110,6 +115,7 @@ fn execute(
     ),
     ShardLoomError,
 > {
+    admission.check()?;
     if request.vortex_columns.is_some() || request.vortex_source_order_limit.is_some() {
         return Err(ShardLoomError::InvalidOperation(
             "native filtered count does not admit projection or limit payloads; select an explicit matching primitive; no fallback execution was attempted".into()));
@@ -127,16 +133,12 @@ fn execute(
         )?;
         let policy = native_vortex_materializing_policy(request)?;
         let operation = if let Some(source) = source {
-            shardloom_vortex::local_primitives::prepared_count::prepare_count_where_from_source(
-                &primitive, policy, source,
+            shardloom_vortex::local_primitives::prepared_count::prepare_count_where_from_source_controlled(
+                &primitive, policy, source, &admission.cancellation(),
             )?
         } else {
-            let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
-                policy.resource_envelope.memory_budget_bytes,
-                policy.max_parallelism,
-            )?;
-            shardloom_vortex::local_primitives::prepared_count::prepare_count_where_in_session(
-                &primitive, policy, &session,
+            shardloom_vortex::local_primitives::prepared_count::prepare_count_where_in_session_controlled(
+                &primitive, policy, admission.native_session()?, &admission.cancellation(),
             )?
         };
         execution_session.count_where = Some(PreparedPublicCountWhere {
@@ -149,7 +151,9 @@ fn execute(
             "prepared filtered count was not admitted; no fallback execution was attempted".into(),
         )
     })?;
-    let (execution, rows) = prepared.operation.collect_jsonl()?;
+    let (execution, rows) = prepared
+        .operation
+        .collect_jsonl_controlled(&admission.cancellation())?;
     Ok((execution, rows, prepared_now))
 }
 

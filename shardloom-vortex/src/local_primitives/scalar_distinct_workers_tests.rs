@@ -26,7 +26,8 @@ fn state() -> SimpleAggregateStates {
     SimpleAggregateStates::new(&request(), &["text".into()]).unwrap()
 }
 fn policy(parallelism: usize) -> VortexLocalPrimitiveExecutionPolicy {
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+    let mut policy =
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
     policy.resource_envelope.memory_budget_bytes = MEMORY;
     policy
 }

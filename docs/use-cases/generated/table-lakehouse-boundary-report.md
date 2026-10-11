@@ -21,7 +21,7 @@ ShardLoom has scoped local-manifest metadata/read and append-commit rehearsal ev
 ## How To Try It
 
 ```text
-target\debug\shardloom iceberg-metadata-read-smoke target\iceberg\metadata.json --manifest target\iceberg\manifest.avro --execute-data-file-scan --format json; target\debug\shardloom delta-log-metadata-read-smoke target\delta\00000000000000000000.json --format json; target\debug\shardloom hudi-timeline-metadata-read-smoke target\hudi\.hoodie --metadata-json target\hudi\metadata-summary.json --format json
+target\debug\shardloom iceberg-metadata-read-smoke target\iceberg\metadata.json --manifest target\iceberg\manifest.avro --execute-data-file-scan --memory-gb 16 --max-parallelism 8 --format json; target\debug\shardloom delta-log-metadata-read-smoke target\delta\00000000000000000000.json --memory-gb 16 --max-parallelism 8 --format json; target\debug\shardloom hudi-timeline-metadata-read-smoke target\hudi\.hoodie --metadata-json target\hudi\metadata-summary.json --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 ## Blocker

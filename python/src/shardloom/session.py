@@ -15,9 +15,9 @@ from .client import (
     VortexIngestSmokeReport,
 )
 from .models import RuntimeEnvelopeValidationReport
-from .runtime_defaults import (
-    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-    DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+from .execution_resources import (
+    ExecutionResourceLimits, ExecutionResources, optional_resources, resolve_resources,
+    merge_resource_limits,
 )
 from .query import (
     GroupedLazyFrame,
@@ -396,8 +396,10 @@ class SessionLazyFrame:
         limit: int | None = None,
         reuse: bool = True,
         check: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Collect rows through this session's scoped local-source reuse cache."""
 
@@ -411,7 +413,7 @@ class SessionLazyFrame:
             frame,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -420,15 +422,17 @@ class SessionLazyFrame:
         *,
         reuse: bool = True,
         check: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a scoped row-count report through the session cache when admitted."""
 
         if self.frame.source_format == "vortex":
             return self.frame.count(
                 check=check,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
             )
         result = self.aggregate("count(*)", check=check)
@@ -436,7 +440,7 @@ class SessionLazyFrame:
             return result.limit(1).collect(
                 reuse=reuse,
                 check=check,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
             )
         return result
@@ -449,8 +453,10 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Write this workflow through the session's scoped output reuse cache."""
 
@@ -461,7 +467,7 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -472,8 +478,10 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="jsonl")`."""
 
@@ -483,7 +491,7 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -494,8 +502,10 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="json")` (one JSON array)."""
 
@@ -505,7 +515,7 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -516,8 +526,10 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="csv")`."""
 
@@ -527,7 +539,7 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -538,8 +550,10 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="parquet")`."""
 
@@ -549,7 +563,7 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -560,8 +574,10 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="arrow-ipc")`."""
 
@@ -571,7 +587,7 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -582,8 +598,10 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="avro")`."""
 
@@ -593,7 +611,7 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -604,8 +622,10 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="orc")`."""
 
@@ -615,7 +635,7 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -626,8 +646,10 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="vortex")`."""
 
@@ -637,7 +659,7 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -648,8 +670,10 @@ class SessionLazyFrame:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Write this workflow to fanout sinks through the session cache."""
 
@@ -659,7 +683,7 @@ class SessionLazyFrame:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -668,10 +692,18 @@ class SessionLazyFrame:
         *,
         reuse: bool = True,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
         """Return bounded Python rows through the session cache when admitted."""
 
-        result = self.collect(reuse=reuse, check=check)
+        result = self.collect(
+            reuse=reuse, check=check,
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+        )
         if isinstance(result, SessionSqlResult):
             return result.report.result_rows
         return result
@@ -781,8 +813,10 @@ class SessionSqlWorkflow:
         limit: int | None = None,
         reuse: bool = True,
         check: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -793,14 +827,14 @@ class SessionSqlWorkflow:
             return self.limit(limit).collect(
                 reuse=reuse,
                 check=check,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
             )
         return self.session._sql_result(
             operation="collect",
             execute=lambda: self.workflow.collect(
                 check=check,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
             ),
             reuse=reuse,
@@ -822,8 +856,10 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -838,7 +874,7 @@ class SessionSqlWorkflow:
                 output_format=normalized_output_format,
                 allow_overwrite=allow_overwrite,
                 check=check,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
             ),
             reuse=reuse,
@@ -851,8 +887,10 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -864,7 +902,7 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -875,8 +913,10 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -888,7 +928,7 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -899,8 +939,10 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -912,7 +954,7 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -923,8 +965,10 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -936,7 +980,7 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -947,8 +991,10 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -960,7 +1006,7 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -971,8 +1017,10 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -984,7 +1032,7 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -995,8 +1043,10 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -1008,7 +1058,7 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -1019,8 +1069,10 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -1032,7 +1084,7 @@ class SessionSqlWorkflow:
             allow_overwrite=allow_overwrite,
             reuse=reuse,
             check=check,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
         )
 
@@ -1043,8 +1095,10 @@ class SessionSqlWorkflow:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> (
         SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
@@ -1058,7 +1112,7 @@ class SessionSqlWorkflow:
                 normalized_outputs,
                 allow_overwrite=allow_overwrite,
                 check=check,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
             ),
             reuse=reuse,
@@ -1092,7 +1146,21 @@ class ShardLoomSession:
         *,
         engine: str = "auto",
         session_id: str | None = None,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
+        resource_limits: ExecutionResourceLimits | None = None,
     ) -> None:
+        limits = merge_resource_limits(resource_limits, getattr(client, "resource_limits", None))
+        self._resources = optional_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=getattr(client, "resources", None),
+            limits=limits, origin="session",
+        )
+        self._resource_limits = merge_resource_limits(
+            limits, self._resources.limits if self._resources is not None else None,
+        )
         self.client = client
         self.engine = engine
         self.session_id = (
@@ -1102,7 +1170,7 @@ class ShardLoomSession:
         )
         self.session_state_scope = "in_process_python_local"
         self._prepared_cache: dict[
-            tuple[str, str, str, int | None, int | None],
+            tuple[str, str, str, str | None, ExecutionResources],
             _PreparedCacheEntry,
         ] = {}
         self._closed = False
@@ -1114,6 +1182,18 @@ class ShardLoomSession:
         self._result_replay_reuse_count = 0
         self._last_reuse_reason: str | None = None
         self._last_invalidation_reason: str | None = None
+
+    @property
+    def resources(self) -> ExecutionResources | None:
+        """Return the allocation inherited by this session's complete operations."""
+
+        return self._resources
+
+    @property
+    def resource_limits(self) -> ExecutionResourceLimits | None:
+        """Return explicit session ceilings independently of the current grant."""
+
+        return self._resource_limits
 
     @property
     def closed(self) -> bool:
@@ -1173,6 +1253,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1192,6 +1273,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1211,6 +1293,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1230,6 +1313,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1249,6 +1333,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1268,6 +1353,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1287,6 +1373,7 @@ class ShardLoomSession:
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1300,6 +1387,7 @@ class ShardLoomSession:
                 uri,
                 client=self.client,
                 engine_mode=self.engine,
+                resources=self.resources, resource_limits=self.resource_limits,
             ),
         )
 
@@ -1309,7 +1397,8 @@ class ShardLoomSession:
         self._ensure_open()
         return SessionSqlWorkflow(
             session=self,
-            workflow=sql_workflow(statement, client=self.client),
+            workflow=sql_workflow(statement, client=self.client, resources=self.resources,
+                                  resource_limits=self.resource_limits),
         )
 
     def prepare_vortex(
@@ -1319,6 +1408,8 @@ class ShardLoomSession:
         *,
         input_format: str | None = None,
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
@@ -1328,6 +1419,10 @@ class ShardLoomSession:
         """Prepare or reuse one local Vortex artifact within this session."""
 
         self._ensure_open()
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
         if target_vortex_path is None:
             raise ValueError("prepare_vortex requires target_vortex_path")
         normalized_source = _normalized_path(source_path)
@@ -1340,8 +1435,8 @@ class ShardLoomSession:
             normalized_source,
             normalized_target,
             normalized_certification,
-            memory_gb,
-            max_parallelism,
+            input_format,
+            resources,
         )
         source_fingerprint = _fingerprint_file_metadata(source_path)
         target_fingerprint = _fingerprint_file_metadata(target_vortex_path)
@@ -1383,7 +1478,7 @@ class ShardLoomSession:
             input_format=input_format,
             allow_overwrite=allow_overwrite,
             certification_level=normalized_certification,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             check=check,
         )
@@ -1410,17 +1505,24 @@ class ShardLoomSession:
         *,
         reuse: bool = True,
         check: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Collect rows for an admitted local query-builder workflow with session reuse."""
 
         self._ensure_open()
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources or frame.resources,
+            limits=merge_resource_limits(self.resource_limits, frame.resource_limits),
+        )
         return self._sql_result(
             operation="collect",
             execute=lambda: frame.collect(
                 check=check,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
             ),
             reuse=reuse,
@@ -1435,12 +1537,19 @@ class ShardLoomSession:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Write an admitted local query-builder result with session output reuse."""
 
         self._ensure_open()
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources or frame.resources,
+            limits=merge_resource_limits(self.resource_limits, frame.resource_limits),
+        )
         normalized_output_format = _normalize_local_output_format(output_format)
         return self._sql_result(
             operation="write",
@@ -1449,7 +1558,7 @@ class ShardLoomSession:
                 output_format=normalized_output_format,
                 allow_overwrite=allow_overwrite,
                 check=check,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
             ),
             reuse=reuse,
@@ -1463,12 +1572,19 @@ class ShardLoomSession:
         allow_overwrite: bool = False,
         reuse: bool = True,
         check: bool = True,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
     ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Write an admitted local query-builder result to fanout sinks with session reuse."""
 
         self._ensure_open()
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources or frame.resources,
+            limits=merge_resource_limits(self.resource_limits, frame.resource_limits),
+        )
         normalized_outputs = _normalize_fanout_outputs(outputs)
         return self._sql_result(
             operation="fanout",
@@ -1476,7 +1592,7 @@ class ShardLoomSession:
                 normalized_outputs,
                 allow_overwrite=allow_overwrite,
                 check=check,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
             ),
             reuse=reuse,

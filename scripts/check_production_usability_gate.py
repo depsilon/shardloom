@@ -13,8 +13,10 @@ production, performance, or Spark-replacement claim.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -638,7 +640,13 @@ def validate_docs(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         if not text:
             blockers.append(f"missing security/legal/package file: {rel_path}")
     pyproject = read_text(repo_root / "python/pyproject.toml")
-    if "license-files = [\"LICENSE\", \"NOTICE\"]" not in pyproject:
+    declaration = re.search(r"(?m)^\s*license-files\s*=\s*(\[[^\]]*\])", pyproject)
+    try:
+        license_files = ast.literal_eval(declaration.group(1)) if declaration else []
+    except (ValueError, SyntaxError):
+        license_files = []
+    if (not isinstance(license_files, list) or not all(isinstance(item, str) for item in license_files)
+            or not {"LICENSE", "NOTICE"}.issubset(license_files)):
         blockers.append("python/pyproject.toml must include LICENSE and NOTICE files")
     return {"status": "passed" if not blockers else "blocked", "checked_refs": checked}, blockers
 

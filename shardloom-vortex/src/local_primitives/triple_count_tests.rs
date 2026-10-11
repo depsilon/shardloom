@@ -66,13 +66,24 @@ fn triple_lowering_preserves_nonnullable_raw_minutes_when_prepared_dtype_is_null
     )
     .unwrap()
     .into_array();
-    let lowering = AggregateLowering::new(&query, chunk.dtype()).unwrap();
+    let lowering = AggregateLowering::new(
+        &query,
+        chunk.dtype(),
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation"),
+    )
+    .unwrap();
     assert_eq!(lowering.rewrite.rewritten_columns, [] as [String; 0]);
     assert_eq!(
         lowering.rewrite.aggregate.group_expressions[0].function,
         "extract_minute"
     );
-    assert!(!restore_provider_drivers(&query, chunk.dtype()));
+    assert!(!restore_provider_drivers(
+        &query,
+        chunk.dtype(),
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
+    ));
     let expected = serial_values(&aggregate, std::slice::from_ref(&chunk), false, 2);
     assert_eq!(
         worker_values(
@@ -91,7 +102,12 @@ fn triple_lowering_preserves_nonnullable_raw_minutes_when_prepared_dtype_is_null
         request(true),
     )
     .with_source_order_limit(2);
-    assert!(restore_provider_drivers(&prepared_query, chunk.dtype()));
+    assert!(restore_provider_drivers(
+        &prepared_query,
+        chunk.dtype(),
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
+    ));
 
     // The shortcut must not bypass existing predicate rewrites.
     let mut filtered = query;
@@ -102,13 +118,20 @@ fn triple_lowering_preserves_nonnullable_raw_minutes_when_prepared_dtype_is_null
     });
     assert!(!super::triple_count_workers::preserve_raw_minute_input(
         &filtered,
-        chunk.dtype()
+        chunk.dtype(),
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
     ));
     assert_eq!(
-        AggregateLowering::new(&filtered, chunk.dtype())
-            .unwrap()
-            .rewrite
-            .rewritten_columns,
+        AggregateLowering::new(
+            &filtered,
+            chunk.dtype(),
+            crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+                .expect("explicit fixture allocation")
+        )
+        .unwrap()
+        .rewrite
+        .rewritten_columns,
         vec![hidden]
     );
 }
@@ -204,7 +227,7 @@ fn worker_values(
         &states,
         chunks[0].dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
         &session,
         &memory,
     )
@@ -455,7 +478,7 @@ fn triple_workers_decline_nullable_roles_and_explicit_spill() {
                 &states,
                 chunk.dtype(),
                 &columns,
-                VortexLocalPrimitiveExecutionPolicy::new(3).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
                 &session,
                 &memory,
             )
@@ -483,7 +506,7 @@ fn triple_workers_decline_nullable_roles_and_explicit_spill() {
             &states,
             chunk.dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(3).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
             &session,
             &memory,
         )
@@ -519,7 +542,7 @@ fn triple_workers_reject_invalid_prepared_minutes_in_a_losing_group() {
         &states,
         chunks[0].dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
         &session,
         &memory,
     )
@@ -557,9 +580,21 @@ fn triple_worker_source_precheck_admits_raw_and_prepared_renamed_roles() {
             request(prepared),
         )
         .with_source_order_limit(1);
-        assert!(request_may_be_admitted(&query), "prepared={prepared}");
         assert!(
-            !restore_provider_drivers(&query, chunk.dtype()),
+            request_may_be_admitted(
+                &query,
+                crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+                    .expect("explicit fixture allocation")
+            ),
+            "prepared={prepared}"
+        );
+        assert!(
+            !restore_provider_drivers(
+                &query,
+                chunk.dtype(),
+                crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+                    .expect("explicit fixture allocation")
+            ),
             "prepared={prepared}"
         );
     }
@@ -584,7 +619,7 @@ fn triple_worker_cancellation_after_committed_updates_releases_every_lease() {
             &states,
             chunk.dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &session,
             &memory,
         )
@@ -632,7 +667,7 @@ fn triple_worker_buffer_pressure_after_committed_updates_fails_without_serial_re
         &states,
         chunk.dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
         &session,
         &memory,
     )
@@ -685,7 +720,7 @@ fn triple_worker_state_growth_denial_after_committed_updates_is_fatal_and_releas
             &states,
             first.dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &session,
             &memory,
         )

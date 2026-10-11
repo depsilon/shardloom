@@ -5,6 +5,10 @@
 use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, Expression, PredicateExpr};
 use shardloom_plan::ProjectionRequest;
 
+/// The existing recursive native binder limit, independent of total plan or
+/// expression count. Frontends use it before copying a recursively owned tree.
+pub const NATIVE_RECURSION_LIMIT: usize = 24;
+
 #[path = "relational_window_frame.rs"]
 mod window_frame;
 pub use window_frame::{

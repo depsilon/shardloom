@@ -45,7 +45,7 @@ pub(super) fn is_nested(dtype: &DType) -> bool {
 }
 
 /// Copy one bounded native payload, retaining schema credits on every child.
-pub(super) fn detach(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
+pub(crate) fn detach(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
     detach_with_policy(array, CopyPolicy::ValidateValues, context)
 }
 
@@ -167,7 +167,7 @@ pub(super) fn defaults(
 }
 
 /// A typed empty row record keeps the same width policy as nonempty delivery.
-pub(super) fn empty_record(
+pub(crate) fn empty_record(
     dtype: &DType,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {

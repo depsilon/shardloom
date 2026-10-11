@@ -1,15 +1,16 @@
-# ShardLoom Python CLI Client
+# ShardLoom Python
 
-This package is the first thin Python surface for ShardLoom, a Vortex-native,
-no-fallback, evidence-certified local compute engine. It invokes the workspace
-`shardloom` CLI with `--format json`, parses the stable `OutputEnvelope`, and
-preserves typed result/artifact/certificate payloads, diagnostics, fallback
-status, and the temporary legacy field mirror.
+This package provides a Python client for ShardLoom, a Vortex-native,
+no-fallback, evidence-certified local compute engine. Its default transport
+invokes the workspace `shardloom` CLI with `--format json`, parses the stable
+`OutputEnvelope`, and preserves typed result/artifact/certificate payloads,
+diagnostics, fallback status, and the temporary legacy field mirror. Current
+source builds also include an optional in-process native binding for direct
+plans and results; see [Source-only native Python API](#source-only-native-python-api).
 
-It is intentionally not a native binding, broad DataFrame API, broad SQL runtime, UDF runtime, or
-fallback execution path. Importing the package has no ShardLoom side effects. Work happens only when
-a caller explicitly invokes a CLI command through `ShardLoomClient` or one of the scoped Python
-helpers that wraps an evidence-backed CLI smoke.
+Importing the package has no ShardLoom side effects. Work begins only when a
+caller explicitly invokes a client command, native operation, or scoped Python
+helper. The default client transport remains `subprocess`.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This README may describe scoped
 local Python surfaces, the current source version, and the approved package track, but it does not
@@ -38,6 +39,58 @@ Operational hardening is in progress. The technical-preview designation refers t
 resource and failure acceptance in the
 [exit criteria](../docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).
 Package access does not imply production readiness, broad runtime support, or performance claims.
+
+## Source-only native Python API
+
+The current source tree includes the optional `shardloom.native` API for
+direct in-process `Session`, typed `Relation`/`Expression`, `Plan`, and retained
+`Result` objects. This extension is not part of the published 0.5.1 package;
+follow the [native source build and isolated install instructions](../docs/getting-started/source-checkout-install.md#optional-native-python-binding).
+The [local acceptance report](../docs/benchmarks/native-python-surface-2026-10-11.md)
+records complete results, ownership/failure checks and paired Python workflows.
+The ordinary `ShardLoomClient` continues to use the subprocess transport by
+default. Select `transport="native"` explicitly to run its shared workflow
+surface in process. Existing high-level DataFrame expression builders still
+produce SQL declarations; `shardloom.native.Relation` is the explicit optional
+typed-plan API.
+
+Relation and expression constructors describe work without opening a source.
+Give the session an explicit allocation, admit a range source, bind it to a typed
+scan, and collect a result. Arrow is used here as an explicit columnar export
+boundary:
+
+```python
+import pyarrow as pa
+from shardloom.native import ExecutionResources, Relation, Session, col, lit
+
+resources = ExecutionResources(256 << 20, 2)
+session = Session(resources)
+source = session.from_range("value", 0, 1, 100)
+relation = (
+    Relation.scan("memory://values")
+    .filter(col("value") >= lit(10))
+    .project([("value", col("value"))])
+)
+plan = session.plan(relation, sources=[("memory://values", source)])
+result = plan.collect()
+session.close()
+
+# A completed result retains its native owner and remains exportable after close.
+table = pa.RecordBatchReader.from_stream(result).read_all()
+```
+
+`Session.close()` prevents new work and cancels active work; completed results
+remain valid while retained. `session.from_arrow(producer)` accepts columnar
+input through Arrow's stream interface. Python row objects are a separate,
+explicit endpoint: call `result.row_export()` when Python rows are needed.
+Arrow export and native execution do not construct those row objects. Imported
+foreign buffers are copied into admitted native ownership when safe borrowing is
+unavailable; encoded Vortex values may require conversion at the Arrow boundary.
+The measured Python workflows have their own recorded scope and do not establish
+an ingest, Full43 or general query-kernel speedup. Local wheel proof does not
+establish public package or platform readiness.
+
+## CLI-backed client installation and configuration
 
 ```sh
 python -m pip install shardloom
@@ -156,12 +209,18 @@ the path extension. Explicit helpers such as `read_csv(...)`, `read_json(...)`,
 `read_parquet(...)`, `read_arrow_ipc(...)`, `read_avro(...)`, and `read_orc(...)` remain available
 for compatibility, tests, and schema-pinned examples. The context returns a lazy query that uses
 the shared native workflow for admitted work. Collection returns the complete typed result; a
-write executes the same query into the declared sink:
+write executes the same query into the declared sink.
+
+The resource-configured examples in this guide use the current source build.
+Published v0.5.1 packages retain their release-time API. Build and install the
+matching source revisions using the
+[source checkout guide](../docs/getting-started/source-checkout-install.md).
+The example allocation of 16 GiB and 8 lanes is an illustrative caller choice.
 
 ```python
 import shardloom as sl
 
-ctx = sl.context()
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 result = (
     ctx.read("target/orders.csv")
     .filter(sl.col("amount") >= 10)
@@ -241,6 +300,7 @@ bounded container/output boundaries over the admitted ShardLoom result; optional
 used as execution engines and missing packages return deterministic diagnostics:
 
 ```python
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 preview_report = (
     ctx.read("target/orders.csv")
     .select("id", "amount")
@@ -260,7 +320,7 @@ For workflows that need caller-scoped reuse evidence, `ctx.session(...)` and `sl
 the same local read/SQL shapes as session-bound workflows:
 
 ```python
-with ctx.session(session_id="orders-run") as sess:
+with ctx.session(session_id="orders-run", memory_gb=16, max_parallelism=8) as sess:
     result = (
         sess.read_csv("target/orders.csv")
         .select("id", "amount")
@@ -277,13 +337,35 @@ query answers are not cached. Collection, writes and fanout use the same native 
 Explicit `ctx.prepare_vortex(...)` calls also track source and prepared-artifact fingerprints
 for reuse. Session lifetime and reuse evidence do not establish a performance claim.
 
-Supply `memory_gb` and `max_parallelism` on each operation that needs an explicit
-allocation. Session collection, counts, all `write_*` methods and `fanout` forward
-those values to the same native runtime as standalone workflows. Session reuse
-requires the resource request to match, so changing the allocation cannot reuse
-an earlier operation's result report. Positive environment defaults
-`SHARDLOOM_MEMORY_GB` and `SHARDLOOM_MAX_PARALLELISM` are read at Python import;
-an explicit CPU value of `1` stays `1`. The built-in defaults remain 4 GiB and 2.
+`memory_gb` and `max_parallelism` define an operation's explicit allocation. Configure them once on a context or session, or pass them to a terminal call. Execution, data inspection, and preparation require both values; lazy query construction and inert discovery remain resource-free. The 16 GiB and 8 lanes used in examples below are illustrative caller choices, not recommended defaults or measurements.
+
+For deliberate environment-based configuration, call `ExecutionResources.from_env()` explicitly. It requires `SHARDLOOM_MEMORY_GB` or `SHARDLOOM_MEMORY_BYTES` together with `SHARDLOOM_MAX_PARALLELISM`; missing or invalid values raise `ShardLoomResourceConfigurationError` rather than selecting a fallback allocation:
+
+```python
+from shardloom import ExecutionResources, context
+
+ctx = context(resources=ExecutionResources.from_env())
+```
+
+Environment configuration is loaded only by that explicit call; importing ShardLoom or constructing an ordinary context does not read resource variables.
+
+`memory_gb` means GiB (2^30 bytes). Use `memory_bytes` instead when an allocation
+is not a whole GiB; supplying both spellings is an error. A call can override
+one configured field and inherit the other. Any `ExecutionResourceLimits`
+attached to the context or supplied allocation still applies; an override cannot
+remove or raise those ceilings. Platforms can supply `ExecutionResources` with
+`platform` origins through this same interface. Origin records the caller's
+declaration and does not authenticate a platform.
+
+Execution reports distinguish `execution_resource_declared_*` from
+`execution_resource_admitted_*` and `execution_resource_observed_*`. Native
+reservation counters cover the reported pool lifetime, including retained
+owners. They do not measure whole-process memory. Unmeasured lane use, process
+RSS and spill bytes remain `unavailable`. Where the weighted-count spill path
+measures bytes written, the count covers native payload writes and excludes
+workspace markers and filesystem overhead. The adjacent observation-scope
+fields explain each counter. See the
+[required-resource contract](../docs/architecture/required-execution-resources-2026-10-10.md).
 
 The runtime selects CPU concurrency within the supplied maximum and the CPU
 capacity available to the process. Ingestion shares that grant among ready source,
@@ -317,11 +399,11 @@ id,label,amount
 
 cargo run -q -p shardloom-cli --features vortex-write -- `
   vortex-prepare target\vortex-ingest-source.csv target\vortex-ingest-source.vortex `
-  --allow-overwrite --format json
+  --allow-overwrite --memory-gb 16 --max-parallelism 8 --format json
 
 $env:PYTHONPATH = "python\src"
 $env:SHARDLOOM_REPO_ROOT = "."
-python -c "from shardloom import context; ctx=context(); r=ctx.read_csv('target/vortex-ingest-source.csv').prepare_vortex(workspace='target/shardloom-prepared', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.prepared_state_reuse_hit, r.prepared_state_reuse_reason, r.fallback_attempted, r.external_engine_invoked)"
+python -c "from shardloom import context; ctx=context(repo_root='.', memory_gb=16, max_parallelism=8); r=ctx.read_csv('target/vortex-ingest-source.csv').prepare_vortex(workspace='target/shardloom-prepared', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.prepared_state_reuse_hit, r.prepared_state_reuse_reason, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 Default CLI builds return a deterministic feature-gate blocker instead of writing an artifact. This
@@ -365,6 +447,9 @@ execute only admitted ShardLoom-native wrapper paths and attach the same route m
 runtime or preparation envelope:
 
 ```python
+import shardloom as sl
+
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 sql_route = ctx.sql("SELECT id FROM 'target/orders.csv' LIMIT 10").route()
 df_route = ctx.read("target/orders.csv").select("id").limit(10).route()
 execution = ctx.read("target/orders.csv").select("id").limit(10).run()
@@ -491,7 +576,7 @@ their release-time limits. Schema declarations still have an 8 MiB envelope.
 an explicit schema can preserve a full-width unsigned identifier and binary bytes:
 
 ```python
-frame = sl.from_rows(
+frame = ctx.from_rows(
     [{"id": 2**64 - 1, "payload": b"\x00"}],
     schema={"id": {"type": "uint64", "nullable": False}, "payload": "binary"},
 )
@@ -521,6 +606,7 @@ def incoming_rows():
 
 frame = sl.from_batches(
     incoming_rows, schema={"id": "int64", "label": "utf8"}, streaming=True,
+    memory_gb=16, max_parallelism=8,
 ).filter(sl.col("id") == 1)
 with frame.iter_batches() as batches:
     for batch in batches:
@@ -651,6 +737,7 @@ v0.5.1 admits scalar-value subqueries through
 SQL `(SELECT ...)` and `sl.scalar_subquery(frame_or_sql_workflow)`. For example:
 
 ```python
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 inner = ctx.sql("SELECT outer.value + 10 AS adjusted")
 result = ctx.range(1, 4).with_column("adjusted", sl.scalar_subquery(inner)).collect()
 # result.result_rows: value 1, 2, 3 paired with adjusted 11, 12, 13
@@ -678,7 +765,7 @@ plus in-memory hot-delta fixture for snapshot/bounded base overlays:
 ```python
 import shardloom as sl
 
-ctx = sl.context(engine="live")
+ctx = sl.context(engine="live", memory_gb=16, max_parallelism=8)
 selection = ctx.engine_selection(
     boundedness="unbounded",
     update_mode="append-only",
@@ -739,7 +826,7 @@ micro-segment flush, layout-health, freshness, execution, and Native I/O
 evidence without reading or writing data:
 
 ```python
-hybrid = sl.context(engine="hybrid").hybrid_overlay_run("group-count", "metric")
+hybrid = sl.context(engine="hybrid", memory_gb=16, max_parallelism=8).hybrid_overlay_run("group-count", "metric")
 
 print(hybrid.output_rows)
 print(hybrid.layout_health_status)
@@ -895,7 +982,7 @@ A normal local Python use looks like this:
 ```python
 import shardloom as sl
 
-ctx = sl.context()
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 orders = ctx.read("target/orders.csv")
 
 result = (
@@ -975,7 +1062,7 @@ an undeclared row UDF expose a blocker and the evidence needed to admit it:
 ```python
 import shardloom as sl
 
-ctx = sl.context()
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 workflow = ctx.read_csv("events.csv").filter("amount > 0")
 blocked = workflow.apply("row_udf", check=False)
 print(blocked.blocker_id)
@@ -1265,7 +1352,7 @@ local sink. For example:
 ```python
 import shardloom as sl
 
-ctx = sl.context()
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 frame = ctx.from_rows([{"id": 1, "label": "alpha"}, {"id": 2, "label": "beta"}])
 collected = frame.collect()
 written = frame.write_jsonl("target/generated-reference.jsonl")
@@ -1454,7 +1541,7 @@ $env:RUSTUP_TOOLCHAIN = $env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
 cargo build -p shardloom-cli --features vortex-local-primitives --bin shardloom
 
 $env:PYTHONPATH = "python\src"
-python python\examples\quickstart_proof.py --repo-root . --run-local-vortex
+python python\examples\quickstart_proof.py --repo-root . --run-local-vortex --memory-gb 16 --max-parallelism 8
 ```
 
 The optional execution path runs only the checked-in
@@ -1541,6 +1628,7 @@ emits SourceState, byte-range/full-file read, Native I/O, and no-fallback
 evidence.
 
 ```python
+client = ShardLoomClient.from_repo(memory_gb=16, max_parallelism=8)
 read = client.object_store_read_smoke(
     "target/object-store-fixture.bin",
     byte_range=(0, 16),

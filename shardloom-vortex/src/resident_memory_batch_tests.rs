@@ -10,7 +10,8 @@ use shardloom_plan::ProjectionRequest;
 use vortex::array::dtype::{Nullability, PType};
 
 fn policy() -> VortexLocalPrimitiveExecutionPolicy {
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     policy.resource_envelope.memory_budget_bytes = 128 << 20;
     policy
 }

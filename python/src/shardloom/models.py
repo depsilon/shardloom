@@ -619,6 +619,11 @@ class OutputEnvelope:
     _field_map_cache: dict[str, str] | None = field(
         default=None, init=False, repr=False, compare=False
     )
+    # In-process execution retains its data owner outside the serialized report.
+    # Ordinary CLI envelopes never populate this field.
+    _native_result: Any | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     @classmethod
     def from_json(cls, payload: Mapping[str, Any]) -> "OutputEnvelope":

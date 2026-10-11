@@ -25,8 +25,9 @@ pub(super) fn execute_native_vortex_resident_count(
     mut extra_fields: Vec<(String, String)>,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> ExitCode {
-    let result = execute(request, binding, execution_session);
+    let result = execute(request, binding, execution_session, admission);
     let ExecutedCount {
         count,
         snapshot,
@@ -71,6 +72,8 @@ pub(super) fn execute_native_vortex_resident_count(
         &mut fields,
         None,
     );
+    crate::execution_resources::append_resident_snapshot_fields(&mut fields, &snapshot);
+    crate::execution_resources::append_spill_observation_fields(&mut fields, false, Some(0));
     emit(
         "run",
         format,
@@ -83,7 +86,7 @@ pub(super) fn execute_native_vortex_resident_count(
     ExitCode::SUCCESS
 }
 
-fn count_fields(
+pub(super) fn count_fields(
     count: u64,
     snapshot: ResidentSessionSnapshot,
     prepared_now: bool,
@@ -140,7 +143,7 @@ fn count_fields(
     ]
 }
 
-fn append_effect_fields(fields: &mut Vec<(String, String)>) {
+pub(super) fn append_effect_fields(fields: &mut Vec<(String, String)>) {
     for key in [
         "data_io_performed",
         "object_store_io_performed",
@@ -169,7 +172,9 @@ fn execute(
     request: &PublicWorkflowRouteRequest,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Result<ExecutedCount, ShardLoomError> {
+    admission.check()?;
     if request.vortex_predicate.is_some()
         || request.vortex_columns.is_some()
         || request.vortex_source_order_limit.is_some()
@@ -185,15 +190,14 @@ fn execute(
         execution_session.clear();
         let (primitive_request, _, _) =
             native_vortex_bound_request_and_arg(request, PublicVortexPrimitive::Count, binding)?;
-        let policy = native_vortex_materializing_policy(request)?;
-        let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
-            policy.resource_envelope.memory_budget_bytes,
-            policy.max_parallelism,
-        )?;
-        let operation = shardloom_vortex::local_primitives::collect::prepare_count_in_session(
-            &primitive_request,
-            &session,
-        )?;
+        native_vortex_materializing_policy(request)?;
+        let session = admission.native_session()?.clone();
+        let operation =
+            shardloom_vortex::local_primitives::collect::prepare_count_in_session_controlled(
+                &primitive_request,
+                &session,
+                &admission.cancellation(),
+            )?;
         execution_session.count = Some(PreparedPublicCount {
             request: request.clone(),
             operation,
@@ -205,9 +209,12 @@ fn execute(
             "prepared count was not admitted; no fallback execution was attempted".into(),
         )
     })?;
-    let count = prepared.operation.execute()?;
+    let count = prepared
+        .operation
+        .execute_with_cancellation(&admission.cancellation())?;
     let rows =
         shardloom_vortex::local_primitives::collect::render_count_rows(count, &prepared.session)?;
+    admission.check()?;
     let snapshot = prepared.session.snapshot();
     // Issue evidence only after the retained operation completed both generation
     // checks. Repeated calls still execute against the retained native footer.
@@ -221,7 +228,7 @@ fn execute(
     })
 }
 
-fn count_certificate(
+pub(super) fn count_certificate(
     binding: &NativeVortexInputBinding,
     count: u64,
     snapshot: ResidentSessionSnapshot,
@@ -232,11 +239,12 @@ fn count_certificate(
         NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
         NativeIoSourcePushdownReport, RepresentationState,
     };
-    let [source] = binding.sources.as_slice() else {
+    if binding.sources.is_empty() {
         return Err(ShardLoomError::InvalidOperation(
-            "resident footer count certificate requires one admitted local source; no fallback execution was attempted".into(),
+            "resident footer count certificate requires admitted local sources; no fallback execution was attempted".into(),
         ));
-    };
+    }
+    let source = binding.sources.join(",");
     NativeIoCertificate::new(
         "resident.count_all.native_io",
         "native_vortex_source_to_scalar_count_result",

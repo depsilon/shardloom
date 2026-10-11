@@ -9,11 +9,12 @@ use super::{
     native_vortex_bound_request_and_arg, native_vortex_input_binding_for_request,
     native_vortex_materializing_error, native_vortex_materializing_policy,
 };
+use crate::command_context::CommandAdmission;
 use shardloom_vortex::{
     VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,
     local_primitives::prepared_aggregate::{
         CollectedVortexAggregate, PreparedAggregateDisposition, PreparedVortexAggregate,
-        prepare_aggregate_for_optional_reuse,
+        prepare_aggregate_for_optional_reuse_in_session,
     },
 };
 
@@ -38,8 +39,17 @@ pub(super) fn run(
     format: OutputFormat,
     extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
-    run_with_source(request, plan, format, extra_fields, execution_session, None)
+    run_with_source(
+        request,
+        plan,
+        format,
+        extra_fields,
+        execution_session,
+        None,
+        admission,
+    )
 }
 
 pub(super) fn run_with_source(
@@ -49,13 +59,18 @@ pub(super) fn run_with_source(
     extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
+    if let Err(error) = admission.check() {
+        execution_session.clear();
+        return native_vortex_materializing_error(format, PublicVortexPrimitive::Aggregate, &error);
+    }
     // Keep the ordinary materialization-policy rejection before any source open.
     if request.materialization_policy == "zero_decode" {
         execution_session.clear();
-        return ordinary(request, plan, format, extra_fields);
+        return ordinary(request, plan, format, extra_fields, admission);
     }
-    let binding = match native_vortex_input_binding_for_request(request) {
+    let binding = match native_vortex_input_binding_for_request(request, admission) {
         Ok(binding) => binding,
         Err(error) => {
             execution_session.clear();
@@ -68,13 +83,13 @@ pub(super) fn run_with_source(
     };
     if binding.mode != "single_file" {
         execution_session.clear();
-        return ordinary(request, plan, format, extra_fields);
+        return ordinary(request, plan, format, extra_fields, admission);
     }
-    match execute(request, &binding, execution_session, source) {
+    match execute(request, &binding, execution_session, source, admission) {
         Ok(Some(executed)) => render(request, plan, format, extra_fields, &binding, executed),
         Ok(None) => {
             execution_session.clear();
-            ordinary(request, plan, format, extra_fields)
+            ordinary(request, plan, format, extra_fields, admission)
         }
         Err(error) => {
             // Invalidation is terminal for this call. A later explicit request
@@ -90,13 +105,18 @@ fn ordinary(
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     extra_fields: Vec<(String, String)>,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
+    if let Err(error) = admission.check() {
+        return native_vortex_materializing_error(format, PublicVortexPrimitive::Aggregate, &error);
+    }
     execute_native_vortex_materializing_primitive_run_with_extra(
         request,
         plan,
         format,
         extra_fields,
         PublicVortexPrimitive::Aggregate,
+        admission,
     )
 }
 
@@ -105,7 +125,10 @@ fn execute(
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    admission: &CommandAdmission<'_>,
 ) -> Result<Option<Executed>, ShardLoomError> {
+    admission.check()?;
+    let cancellation = admission.cancellation();
     let (mut primitive, primitive_arg, _) =
         native_vortex_bound_request_and_arg(request, PublicVortexPrimitive::Aggregate, binding)?;
     let policy = native_vortex_materializing_policy(request)?;
@@ -138,21 +161,25 @@ fn execute(
     if !matches {
         execution_session.clear();
         let prepared = if let Some(source) = source {
+            admission.check()?;
             Some(PreparedAggregateDisposition::Reusable(
                 shardloom_vortex::local_primitives::prepared_aggregate::prepare_aggregate_from_source(
                     &primitive, policy, source,
                 )?,
             ))
         } else {
-            prepare_aggregate_for_optional_reuse(&primitive, policy)?
+            prepare_aggregate_for_optional_reuse_in_session(
+                &primitive,
+                policy,
+                admission.native_session()?,
+                &cancellation,
+            )?
         };
         match prepared {
             None => return Ok(None),
             Some(PreparedAggregateDisposition::Unretained(operation)) => {
                 return Ok(Some(Executed {
-                    value: operation.collect_jsonl(
-                        &shardloom_exec::compute_pool::CancellationToken::default(),
-                    )?,
+                    value: operation.collect_jsonl(&cancellation)?,
                     primitive_arg,
                     opened: true,
                     retained: false,
@@ -175,9 +202,7 @@ fn execute(
         )
     })?;
     Ok(Some(Executed {
-        value: prepared
-            .operation
-            .collect_jsonl(&shardloom_exec::compute_pool::CancellationToken::default())?,
+        value: prepared.operation.collect_jsonl(&cancellation)?,
         primitive_arg,
         opened: !matches,
         retained: true,
@@ -208,6 +233,7 @@ fn render(
         Some(&result.native_io_certificate),
         None,
     );
+    crate::execution_resources::append_resident_snapshot_fields(&mut fields, &result.runtime);
     let (jsonl, _json_ownership) = executed.value.result_jsonl.into_parts();
     let (schema, _schema_ownership) = executed.value.result_schema_json.into_parts();
     append_native_result_schema_fields(&mut fields, schema);

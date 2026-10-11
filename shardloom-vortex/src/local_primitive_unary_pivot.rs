@@ -408,10 +408,14 @@ pub(in crate::local_primitives) struct ResidentCompletedPivot {
 }
 
 impl PreparedVortexUnary {
-    pub(super) fn execute_pivot(&self) -> Result<ExecutedVortexUnary> {
+    pub(super) fn execute_pivot(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<ExecutedVortexUnary> {
+        cancellation.check()?;
         let mut execution = self
             .source
-            .with_native_execution_controlled(&CancellationToken::default(), |file, context| {
+            .with_native_execution_controlled(cancellation, |file, context| {
                 Ok(self.complete_pivot(file, context)?.execution)
             })?;
         execution.runtime = self.snapshot();

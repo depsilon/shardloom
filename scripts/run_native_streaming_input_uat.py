@@ -47,7 +47,9 @@ class Harness:
         self.binary, self.root = binary, root
         self.logs, self.output = root / "logs", root / "outputs"
         self.results = []
-        self.client = sl.ShardLoomClient(binary=binary, timeout=operation_timeout)
+        self.client = sl.ShardLoomClient(
+            binary=binary, timeout=operation_timeout, memory_gb=4, max_parallelism=2,
+        )
         self.context = sl.ShardLoomContext(self.client)
 
     def guard(self):

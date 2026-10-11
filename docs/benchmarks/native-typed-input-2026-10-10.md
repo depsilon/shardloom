@@ -8,8 +8,11 @@ share the existing native planner, operators, resource owners and writers.
 The four original scalar declarations and inference remain compatible.
 
 Local engine acceptance, the Python review correction and independent inspection
-are complete. Refreshed support and rendered guide checks pass. Hosted integration remains pending on
-[PR #1540](https://github.com/depsilon/shardloom/pull/1540). The
+are complete. Refreshed support and rendered guide checks pass.
+[PR #1540](https://github.com/depsilon/shardloom/pull/1540) merged at `316f52de`
+after all 39 hosted checks passed on `d9ceba02`; the
+[hosted receipt](evidence/native-typed-input-hosted-2026-10-10.json) verifies
+identical reviewed/merged trees and production deployment and browser checks. The
 [contract](../architecture/native-typed-input-2026-10-10.md),
 [evidence index](evidence/native-typed-input-2026-10-10.json),
 [base packet](evidence/native-typed-input-2026-10-10.json.xz) and
@@ -101,7 +104,7 @@ The Python correction tests clean commit
 files change; all Rust, Cargo and vendor bytes remain identical. Its 1,031-asset
 identity is `9f08d5544d33c145c2d5f1221c12e8f3bd2e368ade54216e2326f20e395fcfc3`.
 The base native runs retain their original commit and are not relabeled as review
-executions. Fresh hosted checks must validate the final PR head separately.
+executions. The separate hosted receipt validates the final PR head and its merge.
 
 Full43 runs each query three times against the retained 15,682,956,489-byte Vortex
 artifact, with 24 GiB and maximum parallelism 12 explicitly configured. The sum
@@ -144,8 +147,11 @@ source checks, site output and browser observations.
 The first support evidence reader assumes a `status` field that the website
 readiness v3 schema does not expose. Its three validators pass before the reader
 fails; the correction checks the actual empty-blocker contract and passes. The
-original helper, failure log and receipt remain preserved. Hosted checks,
-preview and production verification remain separate integration requirements.
+original helper, failure log and receipt remain preserved. The separate hosted
+receipt records passing checks and production verification. Production calendar
+search opens the corrected section, with its acceptance link and exact epoch-value
+explanation visible and no console warnings/errors. The observed hosted viewport
+is 685 pixels; the 390-pixel mobile observation above belongs to local support QA.
 
 ## Remaining work
 

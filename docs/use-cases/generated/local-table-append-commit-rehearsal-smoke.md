@@ -21,7 +21,7 @@ Local-manifest fixture table append commit rehearsal only; no Iceberg/Delta/Hudi
 ## How To Try It
 
 ```text
-target\debug\shardloom local-table-append-commit-rehearsal-smoke target\table-commit\metadata-v2.json --profile local-manifest --idempotency-key orders-table-commit-001 --rollback-after-commit --format json
+target\debug\shardloom local-table-append-commit-rehearsal-smoke target\table-commit\metadata-v2.json --profile local-manifest --idempotency-key orders-table-commit-001 --rollback-after-commit --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 ## Blocker

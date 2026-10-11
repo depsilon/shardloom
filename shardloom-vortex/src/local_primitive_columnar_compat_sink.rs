@@ -38,8 +38,7 @@ use vortex::{
     arrow::ArrowSessionExt as _,
 };
 
-#[path = "local_primitive_columnar_compat_nested.rs"]
-mod nested;
+use crate::native_arrow_conversion as nested;
 #[cfg(test)]
 use vortex::array::arrays::VarBinViewArray;
 
@@ -303,10 +302,16 @@ fn admitted_canonical(
     }
     let mut expanded = 0_u64;
     let mut children = Vec::with_capacity(names.len());
+    let check = || limits.check();
+    let conversion = nested::ConversionLimits {
+        string_bytes: limits.string_bytes,
+        arrow_batch_bytes: limits.arrow_batch_bytes,
+        check: &check,
+    };
     for name in names {
         limits.check()?;
         let child = logical_field_from_native_array(array, name)?;
-        let canonical = nested::canonical(&child, ctx, limits, &mut expanded)?;
+        let canonical = nested::canonical(&child, ctx, &conversion, &mut expanded)?;
         children.push(canonical);
     }
     let packed = StructArray::try_new(
@@ -439,24 +444,16 @@ impl PreparedCompatibilityExport {
         output: &Path,
         overwrite: bool,
     ) -> Result<CompletedCompatibilityExport> {
-        self.write_observed(output, overwrite, |_| Ok(()))
+        self.write_controlled(output, overwrite, &CancellationToken::default())
     }
 
-    #[allow(clippy::too_many_lines)] // Keep actual owner/scan/finish/commit ordering visible.
-    fn write_observed(
+    pub(super) fn write_controlled(
         &self,
-        output_path: &Path,
+        output: &Path,
         overwrite: bool,
-        after_batch: impl FnMut(u64) -> Result<()>,
+        cancellation: &CancellationToken,
     ) -> Result<CompletedCompatibilityExport> {
-        self.write_produced_observed(
-            output_path,
-            overwrite,
-            None,
-            &CancellationToken::default(),
-            None,
-            after_batch,
-        )
+        self.write_produced_observed(output, overwrite, None, cancellation, None, |_| Ok(()))
     }
 
     pub(super) fn write_produced(
@@ -477,6 +474,23 @@ impl PreparedCompatibilityExport {
         )
     }
 
+    #[cfg(test)]
+    fn write_observed(
+        &self,
+        output: &Path,
+        overwrite: bool,
+        after_batch: impl FnMut(u64) -> Result<()>,
+    ) -> Result<CompletedCompatibilityExport> {
+        self.write_produced_observed(
+            output,
+            overwrite,
+            None,
+            &CancellationToken::default(),
+            None,
+            after_batch,
+        )
+    }
+
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     fn write_produced_observed(
         &self,
@@ -487,6 +501,7 @@ impl PreparedCompatibilityExport {
         admitted: Option<&crate::resident_session::NativeExecutionContext<'_>>,
         mut after_batch: impl FnMut(u64) -> Result<()>,
     ) -> Result<CompletedCompatibilityExport> {
+        cancellation.check()?;
         self.limits.check()?;
         self.plan.validate_destination(output_path)?;
         let mut metadata = self.limits.metadata_reservation(self.schema_fields)?;

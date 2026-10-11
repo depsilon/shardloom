@@ -841,6 +841,7 @@ pub(super) fn pair_roles(
 pub(super) fn request_schema_may_be_admitted(
     request: &super::VortexQueryPrimitiveRequest,
     dtype: &DType,
+    resource_envelope: super::VortexLocalPrimitiveResourceEnvelope,
 ) -> bool {
     let Ok(aggregate) = super::required_simple_aggregate(request) else {
         return false;
@@ -871,7 +872,7 @@ pub(super) fn request_schema_may_be_admitted(
         &columns,
         false,
         false,
-        super::VortexLocalPrimitiveResourceEnvelope::default_single_threaded(),
+        resource_envelope,
     ) else {
         return false;
     };

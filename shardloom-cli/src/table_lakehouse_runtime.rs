@@ -17,10 +17,12 @@ use shardloom_core::{
     CommandStatus, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
     FallbackStatus, OutputFormat, ShardLoomError,
 };
+use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool};
 
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
+    fixture_io::JsonEscaped,
 };
 
 const COMMAND: &str = "local-table-append-commit-rehearsal-smoke";
@@ -322,10 +324,26 @@ impl LocalTableAppendCommitReport {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        COMMAND,
+        &[
+            "--profile",
+            "--idempotency-key",
+            "--expected-current-manifest-digest",
+        ],
+        context,
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(target) = args.next() else {
         return emit_error(
             COMMAND,
@@ -419,6 +437,10 @@ pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
         }
     }
 
+    let pool = match crate::fixture_io::owner_for_command(resources, COMMAND, format, context) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
     let report = execute_local_table_append_commit_rehearsal(
         &target,
         &profile,
@@ -426,14 +448,26 @@ pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
         expected_current_manifest_digest.as_deref(),
         allow_overwrite,
         rollback_after_commit,
+        &pool,
     );
-    emit_local_table_append_commit_rehearsal_report(format, &report)
+    emit_local_table_append_commit_rehearsal_report(format, &report, resources, &pool)
 }
 
 pub(crate) fn handle_local_table_commit_recovery_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        RECOVERY_COMMAND,
+        &["--profile", "--idempotency-key"],
+        context,
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let Some(target) = args.next() else {
         return emit_error(
             RECOVERY_COMMAND,
@@ -498,12 +532,18 @@ pub(crate) fn handle_local_table_commit_recovery_smoke(
         }
     }
 
+    let pool =
+        match crate::fixture_io::owner_for_command(resources, RECOVERY_COMMAND, format, context) {
+            Ok(pool) => pool,
+            Err(code) => return code,
+        };
     let report = execute_local_table_commit_recovery_smoke(
         &target,
         &profile,
         expected_idempotency_key.as_deref(),
+        &pool,
     );
-    emit_local_table_commit_recovery_report(format, &report)
+    emit_local_table_commit_recovery_report(format, &report, resources, &pool)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -514,6 +554,7 @@ fn execute_local_table_append_commit_rehearsal(
     expected_current_manifest_digest: Option<&str>,
     allow_overwrite: bool,
     rollback_after_commit: bool,
+    pool: &LiveMemoryPool,
 ) -> LocalTableAppendCommitReport {
     if profile != DEFAULT_PROFILE {
         return LocalTableAppendCommitReport::blocked(
@@ -578,6 +619,7 @@ fn execute_local_table_append_commit_rehearsal(
     let conflict_evidence = match inspect_local_manifest_commit_conflict(
         &target_path,
         expected_current_manifest_digest,
+        pool,
     ) {
         Ok(evidence) => evidence,
         Err((message, evidence)) => {
@@ -593,7 +635,7 @@ fn execute_local_table_append_commit_rehearsal(
     };
 
     let manifest_payload = build_committed_manifest_payload();
-    let manifest_payload_digest = fnv64_digest(&manifest_payload);
+    let manifest_payload_digest = fnv64_digest(manifest_payload);
     let (resolved_key, idempotency_status) =
         resolved_idempotency_key(idempotency_key, target, &manifest_payload_digest);
     let commit_record_path = commit_record_sidecar_path(&target_path);
@@ -604,12 +646,13 @@ fn execute_local_table_append_commit_rehearsal(
         &target_path,
         &commit_record_path,
         &resolved_key,
-        &manifest_payload,
+        manifest_payload,
         &manifest_payload_digest,
         &correctness_digest,
         &conflict_evidence,
         allow_overwrite,
         rollback_after_commit,
+        pool,
     ) {
         Ok(outcome) => outcome,
         Err(error) => {
@@ -671,6 +714,7 @@ fn execute_local_table_commit_recovery_smoke(
     target: &str,
     profile: &str,
     expected_idempotency_key: Option<&str>,
+    pool: &LiveMemoryPool,
 ) -> LocalTableCommitRecoveryReport {
     let expected_idempotency_key = expected_idempotency_key.map(str::to_string);
     if profile != DEFAULT_PROFILE {
@@ -732,7 +776,12 @@ fn execute_local_table_commit_recovery_smoke(
         );
     }
     let commit_record_path = commit_record_sidecar_path(&target_path);
-    let manifest_payload = match fs::read_to_string(&target_path) {
+    let manifest_owner = match crate::fixture_io::read_utf8(
+        &target_path,
+        pool.snapshot().limit_bytes,
+        "local table manifest",
+        pool,
+    ) {
         Ok(content) => content,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return LocalTableCommitRecoveryReport::blocked(
@@ -765,7 +814,13 @@ fn execute_local_table_commit_recovery_smoke(
             );
         }
     };
-    let commit_record = match fs::read_to_string(&commit_record_path) {
+    let manifest_payload = manifest_owner.value();
+    let commit_owner = match crate::fixture_io::read_utf8(
+        &commit_record_path,
+        pool.snapshot().limit_bytes,
+        "local table commit record",
+        pool,
+    ) {
         Ok(content) => content,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return LocalTableCommitRecoveryReport::blocked(
@@ -796,27 +851,28 @@ fn execute_local_table_commit_recovery_smoke(
             );
         }
     };
+    let commit_record = commit_owner.value();
     let commit_record_bytes = commit_record.len();
 
     let expected_manifest_payload = build_committed_manifest_payload();
-    let expected_manifest_digest = fnv64_digest(&expected_manifest_payload);
-    let manifest_digest = fnv64_digest(&manifest_payload);
-    let commit_record_digest = fnv64_digest(&commit_record);
+    let expected_manifest_digest = fnv64_digest(expected_manifest_payload);
+    let manifest_digest = fnv64_digest(manifest_payload);
+    let commit_record_digest = fnv64_digest(commit_record);
     let expected_correctness_digest = fixture_correctness_digest();
     let recorded_manifest_digest =
-        extract_json_string_field(&commit_record, "committed_manifest_digest")
+        extract_json_string_field(commit_record, "committed_manifest_digest")
             .unwrap_or_else(|| "missing_committed_manifest_digest".to_string());
     let recorded_correctness_digest =
-        extract_json_string_field(&commit_record, "correctness_digest")
+        extract_json_string_field(commit_record, "correctness_digest")
             .unwrap_or_else(|| "missing_correctness_digest".to_string());
-    let recorded_target_uri = extract_json_string_field(&commit_record, "target_uri")
+    let recorded_target_uri = extract_json_string_field(commit_record, "target_uri")
         .unwrap_or_else(|| "missing_target_uri".to_string());
     let recorded_local_manifest_path =
-        extract_json_string_field(&commit_record, "local_manifest_path")
+        extract_json_string_field(commit_record, "local_manifest_path")
             .unwrap_or_else(|| "missing_local_manifest_path".to_string());
-    let recovered_idempotency_key = extract_json_string_field(&commit_record, "idempotency_key")
+    let recovered_idempotency_key = extract_json_string_field(commit_record, "idempotency_key")
         .unwrap_or_else(|| "missing_idempotency_key".to_string());
-    let manifest_bytes = extract_json_usize_field(&commit_record, "manifest_bytes").unwrap_or(0);
+    let manifest_bytes = extract_json_usize_field(commit_record, "manifest_bytes").unwrap_or(0);
     let manifest_digest_matched =
         manifest_digest == expected_manifest_digest && recorded_manifest_digest == manifest_digest;
     let correctness_digest_matched = recorded_correctness_digest == expected_correctness_digest;
@@ -932,6 +988,8 @@ fn execute_local_table_commit_recovery_smoke(
 fn emit_local_table_append_commit_rehearsal_report(
     format: OutputFormat,
     report: &LocalTableAppendCommitReport,
+    resources: shardloom_core::ExecutionResources,
+    pool: &LiveMemoryPool,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     emit(
@@ -945,7 +1003,11 @@ fn emit_local_table_append_commit_rehearsal_report(
         "local table append commit rehearsal smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        local_table_append_commit_rehearsal_fields(report),
+        crate::fixture_io::with_observation_fields(
+            local_table_append_commit_rehearsal_fields(report),
+            resources,
+            pool,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -957,6 +1019,8 @@ fn emit_local_table_append_commit_rehearsal_report(
 fn emit_local_table_commit_recovery_report(
     format: OutputFormat,
     report: &LocalTableCommitRecoveryReport,
+    resources: shardloom_core::ExecutionResources,
+    pool: &LiveMemoryPool,
 ) -> ExitCode {
     let has_errors = report.has_errors();
     emit(
@@ -970,7 +1034,11 @@ fn emit_local_table_commit_recovery_report(
         "local table commit recovery smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        local_table_commit_recovery_fields(report),
+        crate::fixture_io::with_observation_fields(
+            local_table_commit_recovery_fields(report),
+            resources,
+            pool,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -1768,50 +1836,72 @@ fn perform_local_manifest_append_commit(
     target_path: &Path,
     commit_record_path: &Path,
     idempotency_key: &str,
-    manifest_payload: &str,
+    manifest_payload: &'static str,
     manifest_payload_digest: &str,
     correctness_digest: &str,
     conflict_evidence: &LocalTableCommitConflictEvidence,
     allow_overwrite: bool,
     rollback_after_commit: bool,
+    pool: &LiveMemoryPool,
 ) -> std::io::Result<LocalTableAppendCommitOutcome> {
     let workspace_root = workspace_root_for_local_output(target_path)?;
     validate_workspace_safe_output(&workspace_root, target_path, allow_overwrite)?;
     validate_workspace_safe_output(&workspace_root, commit_record_path, true)?;
 
-    let manifest_write_report = write_workspace_safe_local_bytes(
-        &workspace_root,
-        target_path,
-        allow_overwrite,
-        "local table append commit manifest",
-        manifest_payload.as_bytes(),
-    )?;
-    let committed_manifest = match fs::read_to_string(target_path) {
-        Ok(content) => content,
-        Err(error) => {
-            let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
-            return Err(error);
-        }
-    };
-    let committed_manifest_digest = fnv64_digest(&committed_manifest);
+    // Admit the generated record before replacing a prior manifest. Its expected
+    // digest is checked against readback before the sidecar can be published.
     let commit_record = build_commit_record(
         target_uri,
         target_path,
         idempotency_key,
         manifest_payload.len(),
         manifest_payload_digest,
-        &committed_manifest_digest,
+        manifest_payload_digest,
         correctness_digest,
         conflict_evidence,
+        pool,
+    )?;
+    let manifest = Budgeted::new(
+        manifest_payload,
+        pool.reserve(0).map_err(std::io::Error::other)?,
     );
-    let commit_record_digest = fnv64_digest(&commit_record);
-    let commit_record_bytes = commit_record.len();
-    if let Err(error) = write_workspace_safe_local_bytes(
+    let manifest_write_report = crate::fixture_io::write_bytes(
+        &workspace_root,
+        target_path,
+        allow_overwrite,
+        "local table append commit manifest",
+        &manifest,
+        pool,
+    )?;
+    let committed_manifest = match crate::fixture_io::read_utf8(
+        target_path,
+        pool.snapshot().limit_bytes,
+        "committed table manifest",
+        pool,
+    ) {
+        Ok(content) => content,
+        Err(error) => {
+            let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
+            return Err(error);
+        }
+    };
+    let committed_manifest_digest = fnv64_digest(committed_manifest.value());
+    drop(committed_manifest);
+    if committed_manifest_digest != manifest_payload_digest {
+        let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
+        return Err(std::io::Error::other(
+            "committed table manifest digest changed during readback",
+        ));
+    }
+    let commit_record_digest = fnv64_digest(commit_record.value());
+    let commit_record_bytes = commit_record.value().len();
+    if let Err(error) = crate::fixture_io::write_bytes(
         &workspace_root,
         commit_record_path,
         true,
         "local table append commit sidecar record",
-        commit_record.as_bytes(),
+        &commit_record,
+        pool,
     ) {
         let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
         return Err(error);
@@ -1878,11 +1968,17 @@ fn validate_local_manifest_target(
 fn inspect_local_manifest_commit_conflict(
     target_path: &Path,
     expected_current_manifest_digest: Option<&str>,
+    pool: &LiveMemoryPool,
 ) -> Result<LocalTableCommitConflictEvidence, (String, LocalTableCommitConflictEvidence)> {
-    let existing_manifest = fs::read_to_string(target_path);
+    let existing_manifest = crate::fixture_io::read_utf8(
+        target_path,
+        pool.snapshot().limit_bytes,
+        "existing table manifest",
+        pool,
+    );
     let (existing_manifest_present_before_commit, observed_current_manifest_digest) =
         match existing_manifest {
-            Ok(content) => (true, fnv64_digest(&content)),
+            Ok(content) => (true, fnv64_digest(content.value())),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 (false, "not_observed_no_existing_manifest".to_string())
             }
@@ -2056,7 +2152,7 @@ fn recovery_read_error_blocker(
     )
 }
 
-fn build_committed_manifest_payload() -> String {
+fn build_committed_manifest_payload() -> &'static str {
     concat!(
         "{\n",
         "  \"schema_version\": \"shardloom.local_table_committed_manifest.v1\",\n",
@@ -2087,7 +2183,6 @@ fn build_committed_manifest_payload() -> String {
         "  \"table_catalog_commit_performed\": false\n",
         "}\n"
     )
-    .to_string()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2100,12 +2195,15 @@ fn build_commit_record(
     committed_manifest_digest: &str,
     correctness_digest: &str,
     conflict_evidence: &LocalTableCommitConflictEvidence,
-) -> String {
+    pool: &LiveMemoryPool,
+) -> std::io::Result<Budgeted<String>> {
     let expected_current_manifest_digest = conflict_evidence
         .expected_current_manifest_digest
         .as_deref()
         .unwrap_or("not_requested");
-    format!(
+    let mut record = crate::fixture_io::Text::new(pool).map_err(std::io::Error::other)?;
+    let _ = write!(
+        record,
         concat!(
             "{{\n",
             "  \"schema_version\": \"shardloom.local_table_commit_rehearsal_record.v1\",\n",
@@ -2127,17 +2225,18 @@ fn build_commit_record(
             "  \"table_catalog_commit_performed\": false\n",
             "}}\n"
         ),
-        escape_json(target_uri),
-        escape_json(&target_path.to_string_lossy()),
-        escape_json(idempotency_key),
-        escape_json(expected_current_manifest_digest),
-        escape_json(&conflict_evidence.observed_current_manifest_digest),
+        JsonEscaped(target_uri),
+        JsonEscaped(target_path.display()),
+        JsonEscaped(idempotency_key),
+        JsonEscaped(expected_current_manifest_digest),
+        JsonEscaped(&conflict_evidence.observed_current_manifest_digest),
         conflict_evidence.existing_manifest_present_before_commit,
         manifest_bytes,
-        escape_json(manifest_payload_digest),
-        escape_json(committed_manifest_digest),
-        escape_json(correctness_digest),
-    )
+        JsonEscaped(manifest_payload_digest),
+        JsonEscaped(committed_manifest_digest),
+        JsonEscaped(correctness_digest),
+    );
+    record.finish().map_err(std::io::Error::other)
 }
 
 fn fixture_correctness_digest() -> String {
@@ -2226,23 +2325,6 @@ fn validate_workspace_safe_output(
         .map_err(shardloom_error_to_io_error)
 }
 
-fn write_workspace_safe_local_bytes(
-    workspace_root: &Path,
-    path: &Path,
-    allow_overwrite: bool,
-    operation_label: &str,
-    content: &[u8],
-) -> std::io::Result<shardloom_core::WorkspaceSafeLocalWriteReport> {
-    shardloom_core::write_workspace_safe_bytes(
-        workspace_root,
-        path,
-        allow_overwrite,
-        operation_label,
-        content,
-    )
-    .map_err(shardloom_error_to_io_error)
-}
-
 fn remove_workspace_safe_file_if_exists(
     workspace_root: &Path,
     path: &Path,
@@ -2312,24 +2394,6 @@ fn fnv64_digest_bytes(value: &[u8]) -> String {
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
     format!("fnv64:{hash:016x}")
-}
-
-fn escape_json(value: &str) -> String {
-    let mut escaped = String::new();
-    for character in value.chars() {
-        match character {
-            '"' => escaped.push_str("\\\""),
-            '\\' => escaped.push_str("\\\\"),
-            '\n' => escaped.push_str("\\n"),
-            '\r' => escaped.push_str("\\r"),
-            '\t' => escaped.push_str("\\t"),
-            value if value.is_control() => {
-                let _ = write!(escaped, "\\u{:04x}", value as u32);
-            }
-            value => escaped.push(value),
-        }
-    }
-    escaped
 }
 
 fn support_status(has_errors: bool) -> &'static str {
@@ -2589,12 +2653,190 @@ mod tests {
     use super::*;
 
     #[test]
+    fn table_manifest_reads_and_writes_share_the_declared_pool() {
+        let root =
+            std::env::temp_dir().join(format!("shardloom-table-resources-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        let target = root.join("manifest.json");
+        fs::write(&target, "keep").unwrap();
+        let tiny = LiveMemoryPool::new(1).unwrap();
+        let denied = execute_local_table_append_commit_rehearsal(
+            target.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            None,
+            None,
+            true,
+            false,
+            &tiny,
+        );
+        assert!(denied.has_errors());
+        assert_eq!(fs::read_to_string(&target).unwrap(), "keep");
+        assert!(!commit_record_sidecar_path(&target).exists());
+        assert_eq!(tiny.snapshot().reserved_bytes, 0);
+
+        // Reading the old manifest fits, but staging must also be admitted
+        // before replacing it or creating a sidecar.
+        let small = LiveMemoryPool::new(64).unwrap();
+        let denied = execute_local_table_append_commit_rehearsal(
+            target.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            None,
+            None,
+            true,
+            false,
+            &small,
+        );
+        assert_eq!(
+            denied.status,
+            LocalTableAppendCommitStatus::BlockedWriteError
+        );
+        assert_eq!(fs::read_to_string(&target).unwrap(), "keep");
+        assert_eq!(small.snapshot().reserved_bytes, 0);
+
+        let pool = LiveMemoryPool::new(16 << 20).unwrap();
+        let success = execute_local_table_append_commit_rehearsal(
+            target.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            Some("resource-check"),
+            None,
+            true,
+            false,
+            &pool,
+        );
+        assert!(!success.has_errors(), "{success:?}");
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert!(pool.snapshot().peak_reserved_bytes > 0);
+        let recovered = execute_local_table_commit_recovery_smoke(
+            target.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            Some("resource-check"),
+            &pool,
+        );
+        assert!(!recovered.has_errors(), "{recovered:?}");
+
+        // Each file fits separately. Their simultaneously retained buffers do
+        // not receive separate copies of the same grant.
+        let manifest_len = fs::metadata(&target).unwrap().len();
+        let sidecar_len = fs::metadata(commit_record_sidecar_path(&target))
+            .unwrap()
+            .len();
+        let shared = LiveMemoryPool::new(manifest_len.max(sidecar_len)).unwrap();
+        let denied = execute_local_table_commit_recovery_smoke(
+            target.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            Some("resource-check"),
+            &shared,
+        );
+        assert!(denied.has_errors());
+        assert_eq!(shared.snapshot().denied_reservations, 1);
+        assert_eq!(shared.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn generated_table_record_denial_precedes_manifest_replacement() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-table-record-admission-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let limit = shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes() + 1;
+        for (index, key) in ["small".to_string(), "\u{0001}".repeat(65_536)]
+            .iter()
+            .enumerate()
+        {
+            for overwrite in [false, true] {
+                let target = root.join(format!("manifest-{index}-{overwrite}.json"));
+                let sidecar = commit_record_sidecar_path(&target);
+                if overwrite {
+                    fs::write(&target, b"prior-manifest").unwrap();
+                    fs::write(&sidecar, b"prior-record").unwrap();
+                }
+                let count_before = fs::read_dir(&root).unwrap().count();
+                let pool = LiveMemoryPool::new(limit).unwrap();
+                let report = execute_local_table_append_commit_rehearsal(
+                    target.to_str().unwrap(),
+                    DEFAULT_PROFILE,
+                    Some(key),
+                    None,
+                    overwrite,
+                    false,
+                    &pool,
+                );
+                assert_eq!(
+                    report.status,
+                    LocalTableAppendCommitStatus::BlockedWriteError
+                );
+                assert!(format!("{:?}", report.diagnostics).contains("memory reservation denied"));
+                assert_eq!(pool.snapshot().reserved_bytes, 0);
+                assert_eq!(pool.snapshot().denied_reservations, 1);
+                assert!(pool.snapshot().peak_reserved_bytes <= limit);
+                if overwrite {
+                    assert_eq!(fs::read(&target).unwrap(), b"prior-manifest");
+                    assert_eq!(fs::read(&sidecar).unwrap(), b"prior-record");
+                } else {
+                    assert!(!target.exists());
+                    assert!(!sidecar.exists());
+                }
+                assert_eq!(fs::read_dir(&root).unwrap().count(), count_before);
+            }
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn generated_table_record_keeps_escaped_capacity_charged_through_write() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-table-record-accounted-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let target = root.join("manifest.json");
+        let key = "Unicode-λ-quote\"-slash\\-line\n".repeat(256);
+        let pool = LiveMemoryPool::new(2 << 20).unwrap();
+        let report = execute_local_table_append_commit_rehearsal(
+            target.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            Some(&key),
+            None,
+            false,
+            false,
+            &pool,
+        );
+        assert!(!report.has_errors(), "{report:?}");
+        let sidecar = fs::read(commit_record_sidecar_path(&target)).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&sidecar).unwrap();
+        assert_eq!(json["idempotency_key"], key);
+        assert_eq!(
+            json["committed_manifest_digest"],
+            report.committed_manifest_digest
+        );
+        assert_eq!(report.commit_record_bytes, sidecar.len());
+        assert!(
+            pool.snapshot().peak_reserved_bytes
+                >= sidecar.len() as u64
+                    + shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes()
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert_eq!(pool.snapshot().denied_reservations, 0);
+        let recovered = execute_local_table_commit_recovery_smoke(
+            target.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            Some(&key),
+            &pool,
+        );
+        assert!(!recovered.has_errors(), "{recovered:?}");
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn local_append_commit_rehearsal_payload_digest_is_stable() {
         let payload = build_committed_manifest_payload();
         assert!(payload.contains("\"operation\": \"append_only_commit_rehearsal\""));
         assert!(payload.contains("\"effective_row_count\": 5"));
         assert_eq!(
-            fnv64_digest(&payload),
+            fnv64_digest(payload),
             execute_digest_without_file_io_for_test()
         );
     }
@@ -2621,6 +2863,6 @@ mod tests {
     }
 
     fn execute_digest_without_file_io_for_test() -> String {
-        fnv64_digest(&build_committed_manifest_payload())
+        fnv64_digest(build_committed_manifest_payload())
     }
 }

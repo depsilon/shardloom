@@ -40,7 +40,16 @@ impl Fixture {
         drop(writer);
         let columnar = shardloom_vortex::read_flat_arrow_ipc_columnar_source(&ipc, ROWS).unwrap();
         shardloom_vortex::write_flat_columnar_vortex_prepared_state(
-            shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(&source, columnar),
+            shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
+                &source,
+                columnar,
+                shardloom_core::ExecutionResources::from_gib(
+                    4,
+                    8,
+                    shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                )
+                .expect("explicit fixture allocation"),
+            ),
         )
         .unwrap();
         Self { root, source }
@@ -86,6 +95,8 @@ fn run_sink(fixture: &Fixture, surface: &str, request: &str, operation: &str) ->
         output_text,
         "--bounded",
         "true",
+        "--memory-gb",
+        "4",
         "--max-parallelism",
         "1",
         "--format",
@@ -153,7 +164,8 @@ fn reopen_vortex_as_jsonl(
         &decoded,
         shardloom_vortex::VortexLocalPrimitiveRowExportFormat::Jsonl,
         false,
-        shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert_eq!(

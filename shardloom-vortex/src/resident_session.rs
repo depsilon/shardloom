@@ -8,7 +8,7 @@ use std::{
     path::Path,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU64, AtomicUsize, Ordering},
     },
 };
 
@@ -52,9 +52,31 @@ pub use io_ownership::ResidentIoSnapshot;
 use serving_admission::CallClass;
 pub use serving_admission::{ResidentAdmissionSnapshot, ResidentServingPolicy};
 
+#[path = "resident_operation_resources.rs"]
+mod operation_resources;
+pub use operation_resources::{
+    ConfigurableResidentSession, ResidentOperationAdmission, ResidentOperationDependency,
+};
+
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_result_json.rs"]
 mod result_json;
+
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+#[path = "resident_result_arrow.rs"]
+mod result_arrow;
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+pub use result_arrow::{NativeArrowBatchDelivery, NativeArrowBatchStream, NativeArrowExportReport};
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_segment_reuse.rs"]
@@ -89,9 +111,18 @@ struct RuntimeOwner {
     io_budget: Option<Arc<io_ownership::IoBudget>>,
     memory: LiveMemoryPool,
     parallelism: usize,
+    configured_parallelism: Option<AtomicUsize>,
     provider_background_workers: usize,
     opens: AtomicU64,
     executions: AtomicU64,
+}
+
+impl RuntimeOwner {
+    fn cpu_limit(&self) -> usize {
+        self.configured_parallelism
+            .as_ref()
+            .map_or(self.parallelism, |limit| limit.load(Ordering::Acquire))
+    }
 }
 
 /// A session shares provider registries and runtime workers across prepared calls.
@@ -105,12 +136,21 @@ pub struct ResidentSessionSnapshot {
     pub prepared_source_opens: u64,
     pub completed_executions: u64,
     pub provider_background_workers: usize,
+    /// Actual executor grant, not measured concurrent lane utilization.
+    pub admitted_max_parallelism: usize,
     pub memory: LiveMemorySnapshot,
 }
 
 impl ResidentVortexSession {
     pub(crate) fn memory(&self) -> &LiveMemoryPool {
         &self.0.memory
+    }
+
+    /// Share the existing reservation owner with an input/output adapter. The
+    /// returned handle grants no additional capacity and retains the same pool.
+    #[must_use]
+    pub fn shared_memory_pool(&self) -> LiveMemoryPool {
+        self.0.memory.clone()
     }
 
     /// Reserve temporary input framing/conversion storage under this session's
@@ -129,7 +169,14 @@ impl ResidentVortexSession {
 
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn parallelism(&self) -> usize {
-        self.0.parallelism
+        self.0.cpu_limit()
+    }
+
+    /// Report-based primitive paths call this only after successful native work,
+    /// final source validation and I/O drain. A blocked report is not completion.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn record_completed_execution(&self) {
+        self.0.executions.fetch_add(1, Ordering::Relaxed);
     }
 
     /// Array-backed queries share the same outer admission and completion
@@ -198,6 +245,8 @@ impl ResidentVortexSession {
     }
 
     /// Retain already completed batches without combining or copying their buffers.
+    /// Output size is admitted by the buffers' existing credits; a small-result
+    /// consumer applies its own row and representation bounds before this transfer.
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn own_completed_arrays(
         &self,
@@ -222,9 +271,7 @@ impl ResidentVortexSession {
                 .checked_add(array.nbytes())
                 .ok_or_else(|| resident_error("completed result byte count overflow"))?;
         }
-        if rows > 65_536
-            || logical_buffer_bytes > 8 * 1024 * 1024
-            || !self.memory().owns(&ownership)
+        if !self.memory().owns(&ownership)
             || ownership.bytes() < (arrays.capacity() * std::mem::size_of::<ArrayRef>()) as u64
         {
             return Err(resident_error(
@@ -238,6 +285,39 @@ impl ResidentVortexSession {
             rows,
             logical_buffer_bytes,
         })
+    }
+
+    /// A scalar count remains an encoded constant, with its schema, wrappers and
+    /// one-element array container reserved before construction. The reservation
+    /// follows the result even after its source and prepared operation are gone.
+    /// # Errors
+    /// Rejects cancellation and insufficient shared capacity. This performs no
+    /// query and does not certify the origin of the supplied scalar value.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub fn own_count_result(
+        &self,
+        count: u64,
+        cancellation: &CancellationToken,
+    ) -> Result<OwnedVortexResultBatch> {
+        use vortex::array::{
+            IntoArray as _,
+            arrays::{ConstantArray, StructArray},
+            dtype::FieldNames,
+            validity::Validity,
+        };
+        cancellation.check()?;
+        let ownership =
+            crate::native_payload_schema::reserve_names(self.memory(), 1, |_| "count_all")?;
+        let array = StructArray::try_new(
+            FieldNames::from(vec!["count_all"]),
+            vec![ConstantArray::new(count, 1).into_array()],
+            1,
+            Validity::NonNullable,
+        )
+        .map_err(native_error)?
+        .into_array();
+        cancellation.check()?;
+        self.own_completed_arrays(vec![array], ownership)
     }
 
     #[cfg(all(feature = "vortex-write", unix))]
@@ -264,8 +344,7 @@ impl ResidentVortexSession {
     ) -> Result<T> {
         let context = self.0.enter(CallClass::General, cancellation.clone())?;
         let result = execute(&context);
-        context.drain_io();
-        let completion = context.check_cancelled();
+        let completion = context.finish_opened_sources();
         let result = result?;
         completion?;
         Ok(result)
@@ -463,8 +542,19 @@ impl ResidentVortexSession {
         if max_parallelism == 0 {
             return Err(resident_error("parallelism must be greater than zero"));
         }
-        let parallelism = shardloom_exec::compute_pool::bounded_cpu_parallelism(max_parallelism);
         let memory = LiveMemoryPool::new(memory_bytes)?;
+        Self::with_memory_pool(memory, max_parallelism, external_cpu_pool)
+    }
+
+    fn with_memory_pool(
+        memory: LiveMemoryPool,
+        max_parallelism: usize,
+        external_cpu_pool: bool,
+    ) -> Result<Self> {
+        if max_parallelism == 0 {
+            return Err(resident_error("parallelism must be greater than zero"));
+        }
+        let parallelism = shardloom_exec::compute_pool::bounded_cpu_parallelism(max_parallelism);
         let runtime = CurrentThreadRuntime::new();
         let provider_background_workers = if external_cpu_pool {
             0
@@ -486,6 +576,7 @@ impl ResidentVortexSession {
             io_budget: None,
             memory,
             parallelism,
+            configured_parallelism: None,
             provider_background_workers,
             opens: AtomicU64::new(0),
             executions: AtomicU64::new(0),
@@ -498,12 +589,16 @@ impl ResidentVortexSession {
             prepared_source_opens: self.0.opens.load(Ordering::Relaxed),
             completed_executions: self.0.executions.load(Ordering::Relaxed),
             provider_background_workers: self.0.provider_background_workers,
+            admitted_max_parallelism: self.0.cpu_limit(),
             memory: self.0.memory.snapshot(),
         }
     }
 
     #[cfg(all(feature = "vortex-local-primitives", unix))]
-    pub(crate) fn same_owner(&self, other: &Self) -> bool {
+    /// Whether both handles retain the same runtime and native allocation owner.
+    /// Equal numeric grants do not establish shared ownership.
+    #[must_use]
+    pub fn same_owner(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
     }
 
@@ -514,14 +609,27 @@ impl ResidentVortexSession {
     /// Rejects inaccessible/nonregular files, unsupported generation identity,
     /// concurrent mutation, invalid Vortex files, and memory admission failures.
     pub fn prepare_file(&self, path: impl AsRef<Path>) -> Result<PreparedVortexSource> {
-        let context = self
-            .0
-            .enter(CallClass::General, CancellationToken::default())?;
+        self.prepare_file_with_cancellation(path, &CancellationToken::default())
+    }
+
+    /// Open a retained file under the complete operation's cancellation owner.
+    /// Native I/O drains before returning or releasing its allocation.
+    /// # Errors
+    /// Returns cancellation, generation, input or admission failures. A token
+    /// already cancelled refuses before file inspection or provider work.
+    pub fn prepare_file_with_cancellation(
+        &self,
+        path: impl AsRef<Path>,
+        cancellation: &CancellationToken,
+    ) -> Result<PreparedVortexSource> {
+        cancellation.check()?;
+        let context = self.0.enter(CallClass::General, cancellation.clone())?;
         let identity = Arc::new(SourceIdentity::capture(path.as_ref())?);
+        cancellation.check()?;
         let input = identity.reader_scoped(
             self.0.session.allocator(),
             self.0.runtime.handle(),
-            self.0.parallelism,
+            context.cpu_lanes(),
             context.io_scope(),
         );
         let file = self
@@ -536,7 +644,9 @@ impl ResidentVortexSession {
             )
             .map_err(native_error)?;
         context.drain_io();
+        context.check_cancelled()?;
         identity.validate()?;
+        cancellation.check()?;
         self.0.opens.fetch_add(1, Ordering::Relaxed);
         Ok(PreparedVortexSource(Arc::new(PreparedSourceOwner {
             file,
@@ -659,17 +769,22 @@ impl PreparedVortexSource {
     pub(crate) fn resource_limits(&self) -> (u64, usize) {
         (
             self.0.runtime.memory.snapshot().limit_bytes,
-            self.0.runtime.parallelism,
+            self.0.runtime.cpu_limit(),
         )
     }
 
-    pub(crate) fn validate_generation(&self) -> Result<()> {
+    /// Recheck the retained generation without reopening its data provider.
+    /// # Errors
+    /// Rejects a replaced, modified or inaccessible source/preparation input.
+    pub fn validate_generation(&self) -> Result<()> {
         self.0.validate()
     }
 
     /// Include hard links and symlinks when rejecting an input as a write target.
+    /// # Errors
+    /// Rejects inaccessible destination metadata and preparation-input aliases.
     #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
-    pub(crate) fn aliases_file(&self, path: &Path) -> Result<bool> {
+    pub fn aliases_file(&self, path: &Path) -> Result<bool> {
         #[cfg(feature = "universal-format-io")]
         if let Some(preparation) = &self.0.preparation {
             for source in &preparation.sources {
@@ -1117,6 +1232,33 @@ impl PreparedVortexCount {
         self.execute_timed(cancellation).map(|(result, _)| result)
     }
 
+    /// Execute a footer count and retain its exact unsigned scalar natively.
+    /// The source is validated around result construction; no payload scan or
+    /// JSON representation is needed. Result credits use the retained session.
+    /// # Errors
+    /// Rejects cancellation, source changes or insufficient output credits.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub fn execute_native_result(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<(u64, OwnedVortexResultBatch)> {
+        let source = &self.0.0;
+        let context = source
+            .runtime
+            .enter(CallClass::Metadata, cancellation.clone())?;
+        context.check_cancelled()?;
+        source.validate()?;
+        let count = source.file.row_count();
+        let result = self
+            .0
+            .retained_session()
+            .own_count_result(count, cancellation)?;
+        source.validate()?;
+        context.check_cancelled()?;
+        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok((count, result))
+    }
+
     /// Return the count and this call's admission/service timings.
     /// # Errors
     /// Returns the same cancellation, generation and admission errors as execute.
@@ -1412,7 +1554,7 @@ impl SourceIdentity {
             handle,
             concurrency,
             scope,
-            _reader_owner: None,
+            reader_owner: None,
         })
     }
 }
@@ -1424,7 +1566,7 @@ struct ResidentFileReadAt {
     handle: Handle,
     concurrency: usize,
     scope: Option<Arc<io_ownership::IoScope>>,
-    _reader_owner: Option<Arc<io_ownership::ReaderOwner>>,
+    reader_owner: Option<Arc<io_ownership::ReaderOwner>>,
 }
 
 impl VortexReadAt for ResidentFileReadAt {
@@ -1455,13 +1597,20 @@ impl VortexReadAt for ResidentFileReadAt {
         let identity = Arc::clone(&self.identity);
         let allocator = Arc::clone(&self.allocator);
         let handle = self.handle.clone();
-        let scope = self.scope.clone();
+        // An unpolled/cancelled read future must keep its provider reader alive.
+        // Tuple field order releases the extra scope before the reader guard
+        // can publish its final zero count to an operation waiting for cleanup.
+        let ownership = (self.scope.clone(), self.reader_owner.clone());
         async move {
-            let job = scope
+            let job = ownership
+                .0
                 .as_ref()
                 .map(|scope| scope.admit(length))
                 .transpose()
                 .map_err(|error| vortex_err!("{error}"))?;
+            // The admitted blocking job now owns the read lifetime. Do not keep
+            // an untracked scope clone after that job signals completion.
+            drop(ownership);
             let completion = handle
                 .spawn_blocking(move || {
                     let result = (|| {

@@ -92,7 +92,13 @@ fn measure_count_where(
     let started = Instant::now();
     let prepared = prepare_count_where_in_session(
         request,
-        VortexLocalPrimitiveExecutionPolicy::new(2)?,
+        VortexLocalPrimitiveExecutionPolicy::from_resources(
+            shardloom_core::ExecutionResources::from_bytes(
+                session.snapshot().memory.limit_bytes,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )?,
+        )?,
         session,
     )?;
     let prepare_seconds = started.elapsed().as_secs_f64();

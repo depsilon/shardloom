@@ -27,11 +27,12 @@ fn native_relational_sql_streaming_input_preserves_synthetic_limit_origin_and_en
     ] {
         let prepared = prepare_with_inputs(
             statement,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |schemas| {
                 schemas.register_batch_source(uri.clone(), |session| batch_source(session, &[]))
             },
-            |_| Ok(vec![uri.clone()]),
+            |_, _| Ok(vec![uri.clone()]),
         )
         .unwrap_or_else(|error| panic!("{statement}: {error}"));
         let mut calls = 0;
@@ -71,11 +72,12 @@ fn native_relational_sql_streaming_explicit_limits_drain_and_preserve_late_failu
         let statement = format!("SELECT n FROM 'memory://stream' LIMIT {limit}");
         let prepared = prepare_with_inputs(
             &statement,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |schemas| {
                 schemas.register_batch_source(uri.clone(), |session| batch_source(session, &[]))
             },
-            |_| Ok(vec![uri.clone()]),
+            |_, _| Ok(vec![uri.clone()]),
         )
         .unwrap();
         let baseline = prepared.snapshot().memory.reserved_bytes;
@@ -129,7 +131,8 @@ fn native_relational_sql_streaming_explicit_limits_drain_and_preserve_late_failu
 }
 
 pub(super) fn verify_memory(statement: &str, expected: &Value) {
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     policy.resource_envelope.memory_budget_bytes = 32 << 20;
     let prepared = prepare(statement, policy, |_| {
         panic!("memory query must not resolve a file")
@@ -248,7 +251,8 @@ fn native_relational_sql_memory_rejects_invalid_declarations_before_source_acces
         assert!(
             prepare(
                 statement,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 |_| panic!("invalid declaration must not resolve a file")
             )
             .is_err(),

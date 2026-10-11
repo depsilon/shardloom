@@ -24,11 +24,17 @@ pub(super) fn validate_field(field: &Field) -> Result<()> {
     Ok(())
 }
 
-/// Preserve the existing finite-float intake policy throughout the retained
+/// Preserve finite floats and declared decimal precision throughout the retained
 /// child domain. Null parents and children outside a sliced list's offsets are
 /// not logical values. Schema validation bounds recursion before this traversal.
-pub(super) fn validate_values(column: &str, array: &dyn Array) -> Result<()> {
+pub(crate) fn validate_values(column: &str, array: &dyn Array) -> Result<()> {
     match array.data_type() {
+        DataType::Decimal128(precision, _) => array
+            .as_primitive::<arrow_array::types::Decimal128Type>()
+            .validate_decimal_precision(*precision)
+            .map_err(|error| ShardLoomError::InvalidOperation(format!(
+                "native columnar intake column '{column}' exceeds its declared decimal precision: {error}; no fallback execution was attempted"
+            ))),
         DataType::List(_) => validate_list_values(column, array.as_list::<i32>()),
         DataType::LargeList(_) => validate_list_values(column, array.as_list::<i64>()),
         DataType::FixedSizeList(..) => {

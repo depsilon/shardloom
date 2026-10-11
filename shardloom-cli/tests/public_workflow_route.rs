@@ -94,7 +94,16 @@ fn public_native_array_sink_reopens_full_nullable_projection_and_filter_values()
     drop(writer);
     let columnar = shardloom_vortex::read_flat_arrow_ipc_columnar_source(&ipc, ROWS).unwrap();
     shardloom_vortex::write_flat_columnar_vortex_prepared_state(
-        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(&source, columnar),
+        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
+            &source,
+            columnar,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        ),
     )
     .unwrap();
     let projection = r#"{"structured_columns":[{"name":"renamed_port","source":"destination"},{"name":"shipment_sequence","source":"shipment_sequence"}]}"#;
@@ -119,6 +128,8 @@ fn public_native_array_sink_reopens_full_nullable_projection_and_filter_values()
             primitive,
             "--vortex-source-order-limit",
             "10003",
+            "--memory-gb",
+            "4",
             "--max-parallelism",
             "1",
             "--format",
@@ -190,7 +201,8 @@ fn public_native_array_sink_reopens_full_nullable_projection_and_filter_values()
             &decoded,
             shardloom_vortex::VortexLocalPrimitiveRowExportFormat::Jsonl,
             false,
-            shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         assert_eq!(report.rows_written, u64::try_from(LIMIT).unwrap());
@@ -267,6 +279,12 @@ mod columnar_compatibility {
                 shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
                     fixture.source(),
                     columnar,
+                    shardloom_core::ExecutionResources::from_gib(
+                        4,
+                        8,
+                        shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                    )
+                    .expect("explicit fixture allocation"),
                 ),
             )
             .unwrap();
@@ -402,6 +420,8 @@ mod columnar_compatibility {
             PROJECTION,
             "--vortex-columns",
             "text_value,exact_identifier,row_ordinal",
+            "--memory-gb",
+            "4",
             "--max-parallelism",
             "1",
             "--format",
@@ -602,7 +622,16 @@ fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanu
     drop(writer);
     let columnar = shardloom_vortex::read_flat_arrow_ipc_columnar_source(&ipc, ROWS).unwrap();
     shardloom_vortex::write_flat_columnar_vortex_prepared_state(
-        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(&source, columnar),
+        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
+            &source,
+            columnar,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        ),
     )
     .unwrap();
     let payload = serde_json::json!({"order_by":[{"column":"priority","descending":true}],"offset":OFFSET,"spill":{"workspace":workspace,"memory_bytes":4_194_304,"quota_bytes":33_554_432}}).to_string();
@@ -655,6 +684,8 @@ fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanu
             "native_vortex",
             "--vortex-sort-rows",
             &payload,
+            "--memory-gb",
+            "4",
             "--max-parallelism",
             "1",
             "--format",
@@ -770,6 +801,8 @@ fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanu
             "--allow-overwrite",
             "--vortex-sort-rows",
             &payload,
+            "--memory-gb",
+            "4",
             "--max-parallelism",
             "1",
             "--format",
@@ -859,6 +892,10 @@ fn public_numeric_sort_spill_sql_and_dataframe_return_complete_values_and_cleanu
         "sort_rows",
         "--vortex-sort-rows",
         &invalid,
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--vortex-source-order-limit",
         "7",
         "--format",
@@ -1261,7 +1298,7 @@ fn run_facade(args: &[&str]) -> (bool, String) {
 }
 
 #[test]
-fn public_route_preserves_supplied_environment_cpu_and_memory_budgets() {
+fn public_route_preserves_deliberately_loaded_environment_cpu_and_memory_budgets() {
     for grant in [1, 3, 17, 64, 128] {
         let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
             .env("SHARDLOOM_MAX_PARALLELISM", grant.to_string())
@@ -1277,6 +1314,7 @@ fn public_route_preserves_supplied_environment_cpu_and_memory_budgets() {
                 "read_csv(target/allocation-input.csv) -> select(id) -> limit(10)",
                 "--request",
                 "collect",
+                "--resources-from-env",
                 "--format",
                 "json",
             ])
@@ -1451,6 +1489,10 @@ fn public_run_native_vortex_directory_count_uses_partitioned_binding() {
         "native_vortex",
         "--vortex-primitive",
         "count",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -1533,6 +1575,10 @@ fn public_run_native_vortex_directory_count_accepts_vtx_parts() {
         "native_vortex",
         "--vortex-primitive",
         "count",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -1583,6 +1629,10 @@ fn public_run_native_vortex_manifest_aggregate_uses_partitioned_state() {
         "aggregate",
         "--vortex-aggregate",
         aggregate,
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -1645,6 +1695,10 @@ fn public_run_native_vortex_manifest_rejects_duplicate_entries() {
         "native_vortex",
         "--vortex-primitive",
         "count",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -2533,6 +2587,10 @@ fn public_run_native_vortex_profile_marks_projected_metadata_scope() {
         "true",
         "--execution-policy",
         "native_vortex",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -2573,6 +2631,10 @@ fn public_run_routes_local_sql_vortex_middle_without_direct_runtime() {
         &statement,
         "--request",
         "collect",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -2614,7 +2676,11 @@ fn public_run_routes_local_sql_vortex_middle_without_direct_runtime() {
         assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
         assert!(stdout.contains(&field(
             "public_workflow_blocker_id",
-            "cg21.route.local_file_vortex_ingest_feature_gated"
+            if cfg!(feature = "vortex-write") {
+                "cg21.route.local_file_vortex_primitive_feature_gated"
+            } else {
+                "cg21.route.local_file_vortex_ingest_feature_gated"
+            }
         )));
         assert!(stdout.contains(&field(
             "public_workflow_resolved_internal_command",
@@ -2651,6 +2717,10 @@ fn public_run_blocks_extensionless_local_sql_source_but_preserves_declared_forma
         "csv",
         "--request",
         "collect",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -2680,7 +2750,11 @@ fn public_run_blocks_extensionless_local_sql_source_but_preserves_declared_forma
         assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
         assert!(stdout.contains(&field(
             "public_workflow_blocker_id",
-            "cg21.route.local_file_vortex_ingest_feature_gated"
+            if cfg!(feature = "vortex-write") {
+                "cg21.route.local_file_vortex_primitive_feature_gated"
+            } else {
+                "cg21.route.local_file_vortex_ingest_feature_gated"
+            }
         )));
         assert!(stdout.contains(&field("runtime_execution", "false")));
         assert!(stdout.contains(&field("public_workflow_source_format", "csv")));
@@ -2715,6 +2789,10 @@ fn public_run_executes_local_write_through_prepared_vortex_row_export() {
         "--output",
         output.to_str().expect("utf8 output path"),
         "--allow-overwrite",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -2792,6 +2870,10 @@ fn public_run_executes_local_fanout_through_native_relational_writer() {
         "--fanout-output",
         &fanout_arg,
         "--allow-overwrite",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -2876,6 +2958,10 @@ fn public_run_executes_local_file_vortex_middle_through_prepared_vortex_primitiv
         &plan,
         "--request",
         "collect",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -2939,6 +3025,10 @@ fn public_run_executes_declared_memory_rows_with_attached_route_envelope() {
         "--output",
         output.to_str().expect("utf8 output path"),
         "--allow-overwrite",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -2994,6 +3084,10 @@ fn public_run_forwards_declared_memory_fanout_with_attached_route_envelope() {
         "--fanout-output",
         &fanout_arg,
         "--allow-overwrite",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -3048,6 +3142,10 @@ fn public_run_executes_source_free_range_with_attached_route_envelope() {
         "--output",
         output.to_str().expect("utf8 output path"),
         "--allow-overwrite",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -3086,6 +3184,10 @@ fn public_run_executes_source_free_sequence_with_attached_route_envelope() {
         "--output",
         output.to_str().expect("utf8 output path"),
         "--allow-overwrite",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -3320,6 +3422,10 @@ fn json_collect_rejects_zero_decode_instead_of_returning_a_descriptor() {
         "project",
         "--vortex-columns",
         "metric",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -3351,6 +3457,10 @@ fn zero_decode_aggregate_rejects_before_source_open_but_metadata_count_remains_a
         "true",
         "--materialization-policy",
         "zero_decode",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -3377,6 +3487,10 @@ fn zero_decode_aggregate_rejects_before_source_open_but_metadata_count_remains_a
         "zero_decode",
         "--bounded",
         "true",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -3596,6 +3710,10 @@ fn public_run_executes_source_free_values_with_attached_route_envelope() {
         "--output",
         output.to_str().expect("utf8 output path"),
         "--allow-overwrite",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -3637,6 +3755,10 @@ fn public_run_executes_source_free_range_sql_with_attached_route_envelope() {
         "--output",
         output.to_str().expect("utf8 output path"),
         "--allow-overwrite",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -3668,7 +3790,7 @@ fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
     let output = workspace.join("fact.vortex");
     let _ = std::fs::remove_file(&output);
     std::fs::write(&input, "id,label\n1,alpha\n2,beta\n").expect("write csv");
-    let (_success, stdout) = run_facade(&[
+    let (success, stdout) = run_facade(&[
         "prepare",
         "dataframe",
         "--input",
@@ -3677,12 +3799,20 @@ fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
         "csv",
         "--output",
         output.to_str().expect("utf8 output path"),
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
 
     assert!(stdout.contains("\"command\":\"prepare\""));
-    if cfg!(feature = "vortex-write") {
+    if cfg!(all(
+        feature = "vortex-write",
+        feature = "universal-format-io"
+    )) {
+        assert!(success, "{stdout}");
         assert!(stdout.contains("\"status\":\"success\""));
         assert!(stdout.contains(&field(
             "public_workflow_facade_schema_version",
@@ -3710,6 +3840,19 @@ fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
             "public_workflow_preparation_local_workflow_synthetic_input_row_cap_enabled",
             "false"
         )));
+    } else if cfg!(feature = "vortex-write") {
+        assert!(!success, "{stdout}");
+        assert!(
+            stdout.contains("requires universal-format-io for shared resource admission"),
+            "{stdout}"
+        );
+        assert!(stdout.contains("no input was read"), "{stdout}");
+        assert!(!output.exists());
+        assert!(
+            stdout.contains("no fallback execution was attempted"),
+            "{stdout}"
+        );
+        return;
     } else {
         assert!(stdout.contains("\"status\":\"unsupported\""));
         assert!(stdout.contains(&field(

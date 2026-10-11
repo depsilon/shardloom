@@ -4,12 +4,13 @@
 //! batches are bounded; this is not a streaming JSON parser or an RSS bound.
 
 use super::{
-    Arc, BTreeMap, ColumnarSourceScoutEvidence, Instant, LocalInputAdapterSelection,
-    LocalSourceFormat, LocalSourceReadPlan, RecordBatch, ScalarValue, Schema, ShardLoomError,
-    VortexIngestReport, VortexIngestRequest, VortexIngestSourceData, decode_local_text_source,
-    enforce_local_source_row_budget, finish_text_streaming_vortex_prepare, fnv64_digest,
-    fnv64_digest_bytes, read_local_source_bytes_with_budget_report, text_stream_record_batch_size,
-    unsupported_sql_error, visit_json_source_rows_with_plan,
+    Arc, BTreeMap, CancellationToken, ColumnarSourceScoutEvidence, Instant,
+    LocalInputAdapterSelection, LocalSourceFormat, LocalSourceReadPlan, RecordBatch, ScalarValue,
+    Schema, ShardLoomError, VortexIngestReport, VortexIngestRequest, VortexIngestSourceData,
+    decode_local_text_source, enforce_local_source_row_budget,
+    finish_text_streaming_vortex_prepare, fnv64_digest, fnv64_digest_bytes_controlled,
+    read_local_source_bytes_with_budget_report_controlled, text_stream_record_batch_size,
+    unsupported_sql_error, visit_json_source_rows_with_plan_controlled,
 };
 use arrow_array::RecordBatchIterator;
 use shardloom_vortex::universal_format_io::InferredTextColumnBuilder;
@@ -21,18 +22,20 @@ pub(super) fn prepare(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
 ) -> Result<VortexIngestReport, ShardLoomError> {
+    request.cancellation.check()?;
     let prepare_start = Instant::now();
     let limits = request.runtime_profile.read_limits();
-    let byte_read = read_local_source_bytes_with_budget_report(
+    let byte_read = read_local_source_bytes_with_budget_report_controlled(
         &request.source_path,
         "JSON",
         limits.source_bytes,
+        &request.cancellation,
     )?;
     let read_millis = byte_read.total_read_millis();
     let scout = ColumnarSourceScoutEvidence {
         bytes: u64::try_from(byte_read.bytes.len())
             .map_err(|_| unsupported_sql_error("JSON source length does not fit in u64"))?,
-        digest: fnv64_digest_bytes(&byte_read.bytes),
+        digest: fnv64_digest_bytes_controlled(&byte_read.bytes, &request.cancellation)?,
         fingerprint_kind: "local_file_content_digest".to_string(),
         fingerprint_policy: "content_digest".to_string(),
         identity_source: "local_file_explicit_proof_digest".to_string(),
@@ -49,7 +52,12 @@ pub(super) fn prepare(
         byte_read.bytes,
     )?;
     let batch_size = text_stream_record_batch_size(limits.input_rows);
-    let batches = parse(&content, limits.input_rows, batch_size)?;
+    let batches = parse_controlled(
+        &content,
+        limits.input_rows,
+        batch_size,
+        &request.cancellation,
+    )?;
     drop(content);
     let batch = &batches[0];
     let header = batch
@@ -108,10 +116,11 @@ pub(super) fn prepare(
         shardloom_vortex::universal_format_io::with_embedded_derived_columns_columnar_stream_source(
             columnar_source,
         );
-    let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
+    let columnar_source = shardloom_vortex::universal_format_io::with_capillary_prefetch_columnar_stream_source_controlled(
         columnar_source,
-        request.max_parallelism,
-    );
+        request.resources.max_parallelism(),
+        &request.cancellation,
+    )?;
     let mut source = VortexIngestSourceData::from_columnar_stream_source(
         source_adapter,
         &columnar_source,
@@ -133,11 +142,22 @@ pub(super) fn prepare(
     )
 }
 
+#[cfg(test)]
 fn parse(
     content: &str,
     max_rows: Option<usize>,
     batch_size: usize,
 ) -> Result<Vec<RecordBatch>, ShardLoomError> {
+    parse_controlled(content, max_rows, batch_size, &CancellationToken::default())
+}
+
+fn parse_controlled(
+    content: &str,
+    max_rows: Option<usize>,
+    batch_size: usize,
+    cancellation: &CancellationToken,
+) -> Result<Vec<RecordBatch>, ShardLoomError> {
+    cancellation.check()?;
     let batch_size = batch_size.clamp(
         1,
         shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
@@ -147,11 +167,13 @@ fn parse(
     let mut values = Vec::<ScalarValue>::new();
     let mut builders = Vec::<InferredTextColumnBuilder>::new();
     let mut row_count = 0;
-    visit_json_source_rows_with_plan(content, &read_plan, |fields| {
+    visit_json_source_rows_with_plan_controlled(content, &read_plan, cancellation, |fields| {
+        cancellation.check()?;
         row_count += 1;
         enforce_local_source_row_budget(row_count, max_rows, "JSON")?;
         values.fill(ScalarValue::Null);
         for (name, value) in fields {
+            cancellation.check()?;
             let index = if let Some(&index) = indices.get(&name) {
                 index
             } else {
@@ -169,6 +191,7 @@ fn parse(
             values[index] = value;
         }
         for (builder, value) in builders.iter_mut().zip(&values) {
+            cancellation.check()?;
             builder.append(value)?;
         }
         Ok(())
@@ -180,7 +203,10 @@ fn parse(
     }
     let (fields, columns): (Vec<_>, Vec<_>) = builders
         .into_iter()
-        .map(InferredTextColumnBuilder::finish)
+        .map(|builder| {
+            cancellation.check()?;
+            builder.finish()
+        })
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .unzip();
@@ -189,18 +215,21 @@ fn parse(
         .map(|_| Vec::with_capacity(columns.len()))
         .collect::<Vec<_>>();
     for column in columns {
+        cancellation.check()?;
         if column.len() != batches.len() {
             return Err(unsupported_sql_error(
                 "JSON typed column batch counts differ",
             ));
         }
         for (batch, array) in batches.iter_mut().zip(column) {
+            cancellation.check()?;
             batch.push(array);
         }
     }
     batches
         .into_iter()
         .map(|arrays| {
+            cancellation.check()?;
             RecordBatch::try_new(Arc::clone(&schema), arrays).map_err(|error| {
                 unsupported_sql_error(&format!("{CONTEXT} failed to construct columns: {error}"))
             })
@@ -212,6 +241,65 @@ fn parse(
 mod tests {
     use super::super::{ordered_source_rows, parse_json_source_content};
     use super::*;
+
+    #[test]
+    fn whole_json_controlled_preparation_stops_before_io_and_between_rows() {
+        let token = CancellationToken::default();
+        token.cancel();
+        let error = read_local_source_bytes_with_budget_report_controlled(
+            std::path::Path::new("must-not-be-opened.json"),
+            "JSON",
+            None,
+            &token,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("cancel"), "{error}");
+        assert!(
+            parse_controlled("invalid JSON", None, 1, &token)
+                .unwrap_err()
+                .to_string()
+                .contains("cancel")
+        );
+        let token = CancellationToken::default();
+        let mut rows = 0;
+        let error = visit_json_source_rows_with_plan_controlled(
+            r#"[{"id":1},{"id":2},{"id":3}]"#,
+            &LocalSourceReadPlan::full("controlled_json_test"),
+            &token,
+            |_| {
+                rows += 1;
+                token.cancel();
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("cancel"), "{error}");
+        assert_eq!(rows, 1);
+    }
+
+    #[test]
+    fn whole_json_controlled_digest_preserves_bytes_and_parent_deadline_scope() {
+        let parent = CancellationToken::default();
+        let bytes = "東京🙂\\n".repeat(8193).into_bytes();
+        assert_eq!(
+            fnv64_digest_bytes_controlled(&bytes, &parent).unwrap(),
+            super::super::fnv64_digest_bytes(&bytes),
+        );
+        let child = parent.with_deadline(std::time::Instant::now());
+        assert!(
+            fnv64_digest_bytes_controlled(&bytes, &child)
+                .unwrap_err()
+                .to_string()
+                .contains("deadline")
+        );
+        assert!(
+            parse_controlled(r#"{"id":1}"#, None, 1, &child)
+                .unwrap_err()
+                .to_string()
+                .contains("deadline")
+        );
+        parent.check().unwrap();
+    }
 
     fn reference(content: &str) -> Result<RecordBatch, ShardLoomError> {
         let (header, rows) = parse_json_source_content(content)?;

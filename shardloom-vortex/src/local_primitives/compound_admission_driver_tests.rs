@@ -124,11 +124,16 @@ fn actual_compound_worker_admission_denial_restores_same_runtime_provider_driver
         {"actor_alias":7,"phrase_alias":"a","n_alias":2},
     ]);
     for parallelism in [1, 2, 4] {
-        let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+        let mut policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
         policy.resource_envelope.memory_budget_bytes = 32 << 20;
         let resident = ResidentVortexSession::for_external_cpu_pool(32 << 20, parallelism).unwrap();
         let prepared = resident.prepare_file(&fixture.0).unwrap();
-        assert!(request_schema_may_be_admitted(&query, prepared.dtype()));
+        assert!(request_schema_may_be_admitted(
+            &query,
+            prepared.dtype(),
+            policy.resource_envelope()
+        ));
         assert_eq!(resident.snapshot().provider_background_workers, 0);
         // A successful call follows the failed admission too: no retained
         // driver guard or pressure state may leak into the next execution.
@@ -214,7 +219,8 @@ fn cached_compound_admission_denial_reports_actual_restored_provider_drivers() {
         {"actor_alias":7,"phrase_alias":"a","n_alias":2},
     ]);
     for parallelism in [1, 2, 4] {
-        let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+        let mut policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
         policy.resource_envelope.memory_budget_bytes = 32 << 20;
         let resident = ResidentVortexSession::for_external_cpu_pool(32 << 20, parallelism).unwrap();
         let prepared = resident.prepare_file(&fixture.0).unwrap();

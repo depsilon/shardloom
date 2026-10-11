@@ -347,17 +347,17 @@ impl FacadeCompatibilityMatrixReport {
                     "vortex_primitive",
                     "local Vortex primitive plans must dispatch through an admitted provider and preserve typed evidence",
                 ),
-                executable_facade_row(
+                unsupported_runtime_facade_row(
                     "prepared_encoded",
-                    "prepared encoded plans must preserve execution certificates, Native I/O certificates, and residual boundaries",
+                    "prepared encoded report kernels lack shared resource admission; native relational and Vortex primitive execution use their admitted providers",
                 ),
-                executable_facade_row(
+                unsupported_runtime_facade_row(
                     "source_backed_encoded",
-                    "source-backed encoded plans require source/split refs and provider evidence before execution claims",
+                    "source/split evidence does not admit unbudgeted encoded report kernels; shared resource ownership is required before facade execution",
                 ),
-                executable_facade_row(
+                unsupported_runtime_facade_row(
                     "reader_backed_encoded",
-                    "reader-backed encoded plans require reader split evidence and supported provider surfaces",
+                    "reader split evidence does not admit unbudgeted encoded report kernels; shared resource ownership is required before facade execution",
                 ),
                 report_only_facade_row(
                     "report_only",
@@ -1318,12 +1318,26 @@ mod tests {
         let report = facade_compatibility_matrix_report();
 
         assert_eq!(report.gar_id, "GAR-0038-A");
-        assert_eq!(report.executable_surface_count(), 4);
+        assert_eq!(report.executable_surface_count(), 1);
         assert_eq!(report.report_only_surface_count(), 1);
-        assert_eq!(report.unsupported_surface_count(), 3);
+        assert_eq!(report.unsupported_surface_count(), 6);
         assert_eq!(report.legacy_boundary_count(), 1);
         assert_eq!(report.prohibited_surface_count(), 1);
         assert!(report.no_fallback_no_external_engine());
+        for surface in [
+            "prepared_encoded",
+            "source_backed_encoded",
+            "reader_backed_encoded",
+        ] {
+            let row = report
+                .rows
+                .iter()
+                .find(|row| row.surface == surface)
+                .unwrap();
+            assert_eq!(row.support_status, "unsupported");
+            assert_eq!(row.category, "unsupported_runtime");
+            assert!(row.detail.contains("resource"));
+        }
         assert_eq!(
             report.legacy_boundary_status(),
             "legacy_placeholder_removed_or_unsupported"

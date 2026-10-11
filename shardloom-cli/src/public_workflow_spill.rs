@@ -4,7 +4,7 @@ use super::{
     CommandStatus, DatasetUri, Diagnostic, DiagnosticCode, PublicVortexPrimitive,
     PublicWorkflowRoutePlan, PublicWorkflowRouteRequest, ShardLoomError, blocked_route,
     native_vortex_primitive_arg_for_request, normalized_vortex_primitive,
-    public_workflow_effective_memory_gb, vortex_primitive_execution,
+    public_workflow_effective_resource_envelope, vortex_primitive_execution,
 };
 use shardloom_vortex::{
     VortexAggregateSpillPolicy, VortexQueryPrimitiveRequest, VortexSortSpillPolicy,
@@ -128,9 +128,7 @@ fn validate(
             "spill requires vortex-local-primitives, vortex-write and Unix file identity",
         ));
     }
-    let budget = public_workflow_effective_memory_gb(request)?
-        .checked_mul(1024 * 1024 * 1024)
-        .ok_or_else(|| invalid("query memory budget overflow"))?;
+    let budget = public_workflow_effective_resource_envelope(request)?.memory_bytes();
     if options.buffer_bytes > budget {
         return Err(invalid(
             "spill buffer_bytes exceeds the declared query memory budget",
@@ -250,6 +248,8 @@ mod tests {
                 "10",
                 "--memory-gb",
                 "1",
+                "--max-parallelism",
+                "2",
             ]
             .into_iter()
             .map(str::to_owned),

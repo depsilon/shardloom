@@ -47,7 +47,8 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
         }
         let expected = execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap_or_else(|error| panic!("{family} ordinary spill fixture: {error}"));
         let parallelism = thread::available_parallelism().unwrap().get().min(2);
@@ -63,7 +64,7 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
         .unwrap();
         let mut prepared = prepare_aggregate_in_session(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &session,
         )
         .unwrap();

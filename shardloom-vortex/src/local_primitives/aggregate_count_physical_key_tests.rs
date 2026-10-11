@@ -72,7 +72,7 @@ fn execute(
         &states,
         chunks[0].dtype(),
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(workers).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap(),
         &session,
         &memory,
     )?
@@ -129,7 +129,11 @@ fn physical_integer_key_workers_keep_i32_and_reconstruct_all_dependent_outputs()
         request.clone(),
     )
     .with_source_order_limit(2);
-    assert!(request_may_be_admitted(&public));
+    assert!(request_may_be_admitted(
+        &public,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
+    ));
     for workers in [1, 2, 4, 8, 12] {
         let result = execute(&chunks, &request, 2, workers).unwrap();
         assert_eq!(
@@ -251,7 +255,7 @@ fn physical_integer_key_workers_decline_missing_identity_nullable_and_float_sour
                 &states,
                 chunk.dtype(),
                 &columns,
-                VortexLocalPrimitiveExecutionPolicy::new(4).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
                 &session,
                 &memory,
             )
@@ -269,7 +273,11 @@ fn physical_integer_key_workers_decline_missing_identity_nullable_and_float_sour
         expression_only,
     )
     .with_source_order_limit(1);
-    assert!(!request_may_be_admitted(&public));
+    assert!(!request_may_be_admitted(
+        &public,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
+    ));
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
@@ -343,7 +351,7 @@ fn physical_integer_key_workers_are_dispatched_by_the_native_file_query_route() 
     for workers in [1, 4] {
         let report = super::super::execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(workers).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap(),
         )
         .unwrap();
         let (_, payload) = report

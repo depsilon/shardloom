@@ -80,6 +80,26 @@ still the command's normal typed envelope with `fallback_attempted=false` and
 `external_engine_invoked=false` evidence from the underlying ShardLoom/Vortex route. Set
 `SHARDLOOM_PERSISTENT_WORKER=0` to force one-shot subprocess transport for diagnostics.
 
+## Optional Native Python Surface
+
+Current source builds additionally expose `shardloom.native`: `Session`,
+`Expression`, `Relation`, `WindowExpression`, prepared `Plan` and retained `Result`
+owners. The public client selects embedding explicitly with `transport="native"`;
+its default remains `subprocess`. SQL and typed declarations converge on shared
+native planning, providers, resources and cancellation. Completed results can
+outlive session close, feed further native operations, write through existing
+sinks and export columnar data without compulsory Python rows. Explicit
+`row_export()` constructs Python objects. Foreign columnar input can require a
+charged copy into native ownership.
+
+See the [contract](../architecture/native-python-surface-2026-10-10.md),
+[source build/install guide](../getting-started/source-checkout-install.md#optional-native-python-binding)
+and [local acceptance](../benchmarks/native-python-surface-2026-10-11.md).
+The installed local wheel and complete workflows are accepted; hosted platform
+integration remains pending. Published 0.5.1 packages do not include this
+extension. The older resident and batch adapter entries below describe their
+original Rust/CLI transport contracts, separately from this optional binding.
+
 ## Resident Native Results
 
 The Unix `vortex-local-primitives` build supports typed immutable memory intake
@@ -89,9 +109,9 @@ JSON, and source-free SQL collection through `shardloom run sql --sql "SELECT 1 
 public run command with `--input <path> --input-format <format>`. Direct single-file count/projection/filter
 collect calls can retain prepared operations in the existing public worker.
 See [Resident Native Results](resident-native-results.md) for exact types, bounds,
-ownership, source-change behavior, and examples. This is a bounded native Rust and
-CLI-backed transport surface; it does not add a native Python binding or establish
-performance claims.
+ownership, source-change behavior, and examples. That original bounded native
+Rust/CLI-backed transport contract predates the optional binding above and does
+not itself establish performance claims.
 
 `ShardLoomContext.from_rows` declares typed native rows, including the scalar
 and nested values admitted by the current source input contract; `range` declares
@@ -474,9 +494,9 @@ Entry points:
 - `ctx.sql("SELECT ... FROM hits ...", input="hits.vortex")` for a declared Vortex input when
   SQL uses a logical table name.
 - `sl.sql("SELECT ...")`
-- `shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --format json`
+- `shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json`
   for source-free SQL collection.
-- `shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --format json`
+- `shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json`
   for a declared local-file input.
 
 Admitted forms include local-source `SELECT` over local file references, declared Vortex
@@ -561,11 +581,13 @@ shardloom workflow-unsupported-plan <operation> --format json
 Common executable local proof commands:
 
 ```sh
-shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --format json
-shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --format json
-shardloom vortex-prepare --format json
-shardloom sqlite-local-import-export-smoke --format json
+shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
+shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
+shardloom vortex-prepare examples/foundry-lightweight-transform/fixtures/staged_input.csv /tmp/shardloom-staged-input.vortex --allow-overwrite --memory-gb 16 --max-parallelism 8 --format json
+shardloom sqlite-local-import-export-smoke local.sqlite --table events --export-jsonl target/events-export.jsonl --roundtrip-db target/events-roundtrip.sqlite --memory-gb 16 --max-parallelism 8 --format json
 ```
+
+These execution examples use illustrative caller-declared limits of 16 GiB and 8 lanes, not defaults or recommendations. They show current source-build syntax; published v0.5.1 packages retain their release-time API and resource behavior. The Vortex preparation example uses the checked-in CSV fixture and requires the `vortex-write` feature. The SQLite example assumes `local.sqlite` contains a table named `events`.
 
 The exhaustive command inventory, support state, side-effect level, input/output contract, feature
 gate status, owning phase item, and claim/fallback boundary are generated by

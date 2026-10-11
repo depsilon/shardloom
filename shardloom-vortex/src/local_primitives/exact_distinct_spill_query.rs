@@ -60,7 +60,11 @@ pub(in super::super) fn execute_with_output(
         token.check()?;
     }
     if !workers::request_may_be_admitted(request)
-        || !workers::request_schema_may_be_admitted(request, file.dtype())
+        || !workers::request_schema_may_be_admitted(
+            request,
+            file.dtype(),
+            policy.resource_envelope(),
+        )
     {
         return Err(failed(
             "requires nonnullable identity integer group/value columns, native pushdown-only predicate, and bounded count-descending output",

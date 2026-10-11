@@ -15,7 +15,7 @@ from shardloom.models import OutputEnvelope
 
 class NativeRelationalCollectionTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.client = sl.ShardLoomClient(binary="unused-shardloom")
+        self.client = sl.ShardLoomClient(binary="unused-shardloom", memory_gb=4, max_parallelism=2)
         self.context = sl.ShardLoomContext(self.client)
 
     @staticmethod
@@ -49,8 +49,8 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                 self.assertEqual(report.result_rows, tuple(rows))
                 self.assertEqual(run.call_count, 1)
                 self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
-                self.assertEqual(run.call_args.kwargs["memory_gb"], 3)
-                self.assertEqual(run.call_args.kwargs["max_parallelism"], 1)
+                self.assertEqual(run.call_args.kwargs["resources"].whole_gib, 3)
+                self.assertEqual(run.call_args.kwargs["resources"].max_parallelism, 1)
                 self.assertEqual(run.call_args.kwargs["materialization_policy"], "bounded")
                 self.assertNotIn("vortex_primitive", run.call_args.kwargs)
                 self.assertNotIn("native_vortex_provider_scenario", run.call_args.kwargs)
@@ -102,8 +102,8 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                     run.assert_called_once()
                     kwargs = run.call_args.kwargs
                     self.assertEqual(kwargs["sql_statement"], statement)
-                    self.assertEqual(kwargs["memory_gb"], 3)
-                    self.assertEqual(kwargs["max_parallelism"], 2)
+                    self.assertEqual(kwargs["resources"].whole_gib, 3)
+                    self.assertEqual(kwargs["resources"].max_parallelism, 2)
                     self.assertEqual(kwargs["materialization_policy"], "bounded")
                     self.assertNotIn("vortex_primitive", kwargs)
                     self.assertNotIn("native_vortex_provider_scenario", kwargs)
@@ -140,8 +140,8 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                         run.assert_called_once()
                         kwargs = run.call_args.kwargs
                         self.assertEqual(kwargs["sql_statement"], statement)
-                        self.assertEqual(kwargs["memory_gb"], 3)
-                        self.assertEqual(kwargs["max_parallelism"], 2)
+                        self.assertEqual(kwargs["resources"].whole_gib, 3)
+                        self.assertEqual(kwargs["resources"].max_parallelism, 2)
                         self.assertEqual(kwargs["materialization_policy"], "bounded")
                         self.assertNotIn("vortex_primitive", kwargs)
                         self.assertNotIn("native_vortex_provider_scenario", kwargs)
@@ -403,8 +403,8 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                     workflow.collect(check=True, memory_gb=3, max_parallelism=2)
                     self.assertEqual(run.call_args.kwargs["sql_statement"], statement)
                     self.assertEqual(run.call_args.kwargs["source_bindings"], {"input.data": {"input_format": "csv", "source_schema": original.source.schema}})
-                    self.assertEqual(run.call_args.kwargs["memory_gb"], 3)
-                    self.assertEqual(run.call_args.kwargs["max_parallelism"], 2)
+                    self.assertEqual(run.call_args.kwargs["resources"].whole_gib, 3)
+                    self.assertEqual(run.call_args.kwargs["resources"].max_parallelism, 2)
                     prepare.assert_not_called()
 
     def test_successive_unary_stages_share_output_names_and_keep_their_positions(self) -> None:
@@ -494,8 +494,8 @@ class NativeRelationalCollectionTests(unittest.TestCase):
                 for call in [*run.call_args_list, batches.call_args]:
                     self.assertEqual(call.kwargs["sql_statement"], statement)
                     self.assertEqual(call.kwargs["spill"], spill)
-                    self.assertEqual(call.kwargs["memory_gb"], 1)
-                    self.assertEqual(call.kwargs["max_parallelism"], 2)
+                    self.assertEqual(call.kwargs["resources"].whole_gib, 1)
+                    self.assertEqual(call.kwargs["resources"].max_parallelism, 2)
                     self.assertEqual(set(call.kwargs["source_bindings"]), {"input.data"})
 
     def test_dynamic_pivot_preserves_join_and_set_source_declarations(self) -> None:

@@ -14,7 +14,7 @@ from shardloom.models import OutputEnvelope
 
 class SourceBindingsTransportTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.client = ShardLoomClient(binary="unused")
+        self.client = ShardLoomClient(binary="unused", memory_gb=4, max_parallelism=2)
         self.commands: list[list[str]] = []
 
         def capture_run(args: list[str], *, check: bool = True) -> OutputEnvelope:

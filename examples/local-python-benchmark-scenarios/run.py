@@ -21,6 +21,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--run-root", type=Path, default=DEFAULT_RUN_ROOT)
     parser.add_argument("--run-id")
     parser.add_argument("--shardloom-bin")
+    parser.add_argument("--memory-gb", type=int, required=True)
+    parser.add_argument("--max-parallelism", type=int, required=True)
     parser.add_argument(
         "--profile-order",
         default="release,debug",
@@ -49,6 +51,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_dir=paths["run_dir"],  # type: ignore[arg-type]
         binary=args.shardloom_bin,
         profile_order=profile_order(args.profile_order),
+        memory_gb=args.memory_gb,
+        max_parallelism=args.max_parallelism,
     )
     summary_json = paths["summary_json"]
     write_json(summary_json, payload)  # type: ignore[arg-type]

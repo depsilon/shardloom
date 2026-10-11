@@ -168,7 +168,7 @@ fn query(path: &Path, offset: usize, limit: usize) -> VortexQueryPrimitiveReques
     .with_source_order_limit(limit)
 }
 fn policy() -> VortexLocalPrimitiveExecutionPolicy {
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::new(2).unwrap();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap();
     policy.resource_envelope.memory_budget_bytes = 64 << 20;
     policy
 }

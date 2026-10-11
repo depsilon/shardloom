@@ -104,7 +104,8 @@ fn native_relational_sql_window_frames_reject_invalid_empty_declarations() {
         assert!(
             prepare(
                 &statement,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 |_| { panic!("empty analytic declaration must not resolve a file") }
             )
             .is_err(),

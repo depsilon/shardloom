@@ -7,23 +7,20 @@
 
 use std::{
     collections::BTreeSet,
-    fs,
     path::{Path, PathBuf},
     process::ExitCode,
 };
 
 use shardloom_core::{
     CommandStatus, DatasetUri, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
-    FallbackStatus, OutputFormat, ShardLoomError,
+    ExecutionResources, FallbackStatus, OutputFormat, ShardLoomError,
 };
 
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
-    runtime_defaults::{
-        MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM, default_public_local_runtime_max_parallelism,
-        default_public_local_runtime_memory_gb,
-    },
+    command_context::CommandAdmission,
+    execution_resources::ResourceArguments,
     sql_local_source_runtime, vortex_planning, vortex_primitive_execution,
 };
 
@@ -47,6 +44,7 @@ struct PublicWorkflowRouteRequest {
     input_format: Option<String>,
     source_schema: Option<String>,
     source_bindings: std::collections::BTreeMap<String, PublicSourceBinding>,
+    raw_source_bindings: Option<String>,
     sql_statement: Option<String>,
     plan_summary: Option<String>,
     requested_output: String,
@@ -77,8 +75,7 @@ struct PublicWorkflowRouteRequest {
     vortex_rolling_window: Option<String>,
     vortex_aggregate: Option<String>,
     vortex_sort_rows: Option<String>,
-    memory_gb: Option<String>,
-    max_parallelism: Option<String>,
+    resources: ResourceArguments,
     spill: Option<spill::Options>,
 }
 
@@ -191,10 +188,18 @@ mod resident_unary;
 #[path = "public_resident_relational.rs"]
 mod resident_relational;
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "native_runtime.rs"]
+pub mod native;
+
 /// Caller-owned prepared execution. Only the latest admitted operation is retained;
 /// results are never cached and every execution validates its source generation.
 #[derive(Default)]
 pub(crate) struct PublicExecutionSession {
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    command_owner: Option<std::sync::Arc<native::EmbeddedExecutionOwner>>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    cache_owner: Option<shardloom_vortex::resident_session::ResidentVortexSession>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     collect: Option<PreparedPublicCollect>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -229,8 +234,57 @@ struct PreparedPublicCountWhere {
 }
 
 impl PublicExecutionSession {
+    // Reduced builds have no prepared native fields to release.
+    #[cfg_attr(
+        not(all(feature = "vortex-local-primitives", unix)),
+        allow(clippy::unused_self)
+    )]
     pub(crate) fn clear(&mut self) {
-        *self = Self::default();
+        // Discard prepared work without replacing the runtime that owns its
+        // credits. The worker's next explicit allocation reconfigures that same
+        // owner; a previous call never becomes implicit resource configuration.
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        {
+            self.collect = None;
+            self.count = None;
+            self.count_where = None;
+            self.aggregate = None;
+            self.unary = None;
+            self.relational = None;
+        }
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn command_owner(
+        &mut self,
+    ) -> Result<std::sync::Arc<native::EmbeddedExecutionOwner>, ShardLoomError> {
+        if self.command_owner.is_none() {
+            self.command_owner = Some(std::sync::Arc::new(native::EmbeddedExecutionOwner::new(
+                None, None,
+            )?));
+        }
+        Ok(std::sync::Arc::clone(
+            self.command_owner
+                .as_ref()
+                .expect("command owner initialized"),
+        ))
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn bind_native_owner(
+        &mut self,
+        admission: &crate::command_context::CommandAdmission<'_>,
+    ) -> Result<(), ShardLoomError> {
+        let native = admission.native_session()?;
+        if self
+            .cache_owner
+            .as_ref()
+            .is_none_or(|owner| !owner.same_owner(native))
+        {
+            self.clear();
+            self.cache_owner = Some(native.clone());
+        }
+        Ok(())
     }
 
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -305,8 +359,9 @@ pub(crate) fn handle_public_workflow_run(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
     execution_session: &mut PublicExecutionSession,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
-    let request = match PublicWorkflowRouteRequest::parse(args) {
+    let request = match PublicWorkflowRouteRequest::parse_execution_in_context(args, context) {
         Ok(request) => request,
         Err(error) => {
             execution_session.clear();
@@ -321,11 +376,23 @@ pub(crate) fn handle_public_workflow_run(
         execution_session.clear();
         return emit_blocked_facade("run", format, &request, &plan);
     }
+    let resources = match request.resources.resolve() {
+        Ok(resources) => resources,
+        Err(error) => return emit_error("run", format, "resource declaration failed", &error),
+    };
+    let admission = match context.admit_for_command(resources, "run", format) {
+        Ok(admission) => admission,
+        Err(exit) => return exit,
+    };
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if let Err(error) = execution_session.bind_native_owner(&admission) {
+        return emit_error("run", format, "native command ownership failed", &error);
+    }
 
     match plan.route_id {
         #[cfg(all(feature = "vortex-local-primitives", unix))]
         "native_vortex_relational_collect" | "native_vortex_relational_write" => {
-            resident_relational::run(&request, &plan, format, execution_session)
+            resident_relational::run(&request, &plan, format, execution_session, &admission)
         }
         "native_vortex_count_all"
         | "native_vortex_count_where"
@@ -343,12 +410,18 @@ pub(crate) fn handle_public_workflow_run(
         | "native_vortex_pivot"
         | "native_vortex_rolling_window"
         | "native_vortex_aggregate"
-        | "native_vortex_sort_rows" => {
-            execute_native_vortex_primitive_run(&request, &plan, format, execution_session)
+        | "native_vortex_sort_rows" => execute_native_vortex_primitive_run(
+            &request,
+            &plan,
+            format,
+            execution_session,
+            &admission,
+        ),
+        "native_vortex_user_profile" => {
+            execute_native_vortex_profile_run(&request, &plan, format, &admission)
         }
-        "native_vortex_user_profile" => execute_native_vortex_profile_run(&request, &plan, format),
         "native_vortex_primitive_row_export" => {
-            execute_native_vortex_primitive_row_export_run(&request, &plan, format)
+            execute_native_vortex_primitive_row_export_run(&request, &plan, format, &admission)
         }
         "local_file_prepare_once_first_query" => {
             let result = execute_local_file_prepare_once_first_query_run(
@@ -356,6 +429,7 @@ pub(crate) fn handle_public_workflow_run(
                 &plan,
                 format,
                 execution_session,
+                &admission,
             );
             if result != ExitCode::SUCCESS {
                 execution_session.clear();
@@ -374,7 +448,7 @@ pub(crate) fn handle_batch_workflow(
     args: impl Iterator<Item = String>,
     transport: &mut crate::python_batch_protocol::Transport,
 ) -> ExitCode {
-    let request = match PublicWorkflowRouteRequest::parse(args) {
+    let request = match PublicWorkflowRouteRequest::parse_execution(args) {
         Ok(request) => effective_public_workflow_request(&request),
         Err(error) => {
             return emit_error(
@@ -406,8 +480,9 @@ fn execute_native_vortex_profile_run(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
-    execute_native_vortex_profile_run_with_extra(request, plan, format, Vec::new())
+    execute_native_vortex_profile_run_with_extra(request, plan, format, Vec::new(), admission)
 }
 
 fn execute_native_vortex_profile_run_with_extra(
@@ -415,7 +490,11 @@ fn execute_native_vortex_profile_run_with_extra(
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     mut extra_fields: Vec<(String, String)>,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
+    if let Err(error) = admission.check() {
+        return emit_error("run", format, "native profile cancelled", &error);
+    }
     let Some(input_uri) = request.input_uri.clone() else {
         let blocked = input_not_declared_route();
         return emit_blocked_facade("run", format, request, &blocked);
@@ -435,8 +514,15 @@ fn execute_native_vortex_primitive_row_export_run(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
-    execute_native_vortex_primitive_row_export_run_with_extra(request, plan, format, Vec::new())
+    execute_native_vortex_primitive_row_export_run_with_extra(
+        request,
+        plan,
+        format,
+        Vec::new(),
+        admission,
+    )
 }
 
 fn execute_native_vortex_primitive_row_export_run_with_extra(
@@ -444,6 +530,7 @@ fn execute_native_vortex_primitive_row_export_run_with_extra(
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     extra_fields: Vec<(String, String)>,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
     let mut extra_fields = extra_fields;
@@ -454,6 +541,7 @@ fn execute_native_vortex_primitive_row_export_run_with_extra(
         format,
         &mut extra_fields,
         PublicSourcePreparations::default(),
+        admission,
     ) {
         return exit;
     }
@@ -481,18 +569,19 @@ fn execute_native_vortex_primitive_row_export_run_with_extra(
                 );
             }
         };
-    let reports =
-        match execute_native_vortex_primitive_row_export_reports(request, &targets, &execution) {
-            Ok(reports) => reports,
-            Err(error) => {
-                return emit_error(
-                    "run",
-                    format,
-                    "native Vortex primitive row export failed",
-                    &error,
-                );
-            }
-        };
+    let reports = match execute_native_vortex_primitive_row_export_reports(
+        request, &targets, &execution, admission,
+    ) {
+        Ok(reports) => reports,
+        Err(error) => {
+            return emit_error(
+                "run",
+                format,
+                "native Vortex primitive row export failed",
+                &error,
+            );
+        }
+    };
     emit_native_vortex_primitive_row_export(request, plan, format, extra_fields, &targets, &reports)
 }
 
@@ -597,15 +686,30 @@ fn execute_native_vortex_primitive_row_export_reports(
     request: &PublicWorkflowRouteRequest,
     targets: &[NativeVortexPrimitiveRowExportTarget],
     execution: &NativeVortexPrimitiveRowExportExecution,
+    admission: &CommandAdmission<'_>,
 ) -> Result<Vec<shardloom_vortex::VortexLocalPrimitiveRowExportReport>, ShardLoomError> {
+    admission.check()?;
     if targets.len() > 1 {
         return execute_native_vortex_primitive_row_export_reports_staged(
-            request, targets, execution,
+            request, targets, execution, admission,
         );
     }
     targets
         .iter()
         .map(|target| {
+            #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+            {
+                shardloom_vortex::local_primitives::execution::export_in_session(
+                    &execution.primitive_request,
+                    &target.path,
+                    target.format,
+                    request.allow_overwrite,
+                    execution.policy,
+                    admission.native_session()?,
+                    &admission.cancellation(),
+                )
+            }
+            #[cfg(not(all(feature = "vortex-local-primitives", feature = "vortex-write", unix)))]
             shardloom_vortex::execute_vortex_local_primitive_row_export_with_policy(
                 &execution.primitive_request,
                 &target.path,
@@ -621,10 +725,11 @@ fn execute_native_vortex_primitive_row_export_reports_staged(
     request: &PublicWorkflowRouteRequest,
     targets: &[NativeVortexPrimitiveRowExportTarget],
     execution: &NativeVortexPrimitiveRowExportExecution,
+    admission: &CommandAdmission<'_>,
 ) -> Result<Vec<shardloom_vortex::VortexLocalPrimitiveRowExportReport>, ShardLoomError> {
     #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
     {
-        shardloom_vortex::local_primitives::output_fanout::write_primitive(
+        shardloom_vortex::local_primitives::output_fanout::write_primitive_in_session(
             &execution.primitive_request,
             &targets
                 .iter()
@@ -632,11 +737,13 @@ fn execute_native_vortex_primitive_row_export_reports_staged(
                 .collect::<Vec<_>>(),
             request.allow_overwrite,
             execution.policy,
+            admission.native_session()?,
+            &admission.cancellation(),
         )
     }
     #[cfg(not(all(feature = "vortex-local-primitives", feature = "vortex-write", unix)))]
     {
-        let _ = (request, targets, execution);
+        let _ = (request, targets, execution, admission);
         Err(ShardLoomError::InvalidOperation("native output fanout requires the native writer features; no fallback execution was attempted".into()))
     }
 }
@@ -976,27 +1083,9 @@ fn attach_native_unary_source_predicate(
         | Kind::RollingWindowRows => {}
         _ => return Ok(()),
     }
-    let source_only = primitive_request
-        .expression_projection
-        .as_ref()
-        .is_none_or(shardloom_vortex::VortexExpressionProjectionRequest::is_empty)
-        && primitive_request
-            .structured_projection
-            .as_ref()
-            .is_some_and(|projection| {
-                !projection.is_empty()
-                    && projection.columns.iter().all(|column| {
-                        matches!(
-                            column.expr,
-                            shardloom_vortex::VortexStructuredProjectionExpr::SourceColumn(_)
-                        )
-                    })
-            });
-    if primitive_request.structured_projection.is_some() && !source_only {
-        return Err(ShardLoomError::InvalidOperation(
-            "filtered structured expression_project requires a projection of source columns; constructed expressions are not admitted with --vortex-predicate; no fallback execution was attempted".to_string(),
-        ));
-    }
+    // Constructed lists and structs use the same shared scan/filter/limit/project
+    // plan as other native expressions. The predicate belongs to the source and
+    // must remain attached even when its columns are absent from the output.
     primitive_request.predicate =
         Some(vortex_primitive_execution::parse_tiny_predicate(predicate)?);
     Ok(())
@@ -1029,6 +1118,23 @@ fn append_native_vortex_primitive_row_export_fields(
     report: &shardloom_vortex::VortexLocalPrimitiveRowExportReport,
 ) {
     append_hot_runtime_timing_surface_fields(fields);
+    if report.status == shardloom_vortex::VortexLocalPrimitiveExecutionStatus::Executed {
+        crate::execution_resources::append_admission_fields(
+            fields,
+            report.resource_envelope.memory_budget_bytes,
+            report.resource_envelope.max_parallelism,
+            "native_operator_policy_ceiling;runtime_may_use_fewer_lanes",
+        );
+        crate::execution_resources::append_spill_observation_fields(
+            fields,
+            report.evidence.side_effects.spill_io_performed,
+            report
+                .state_budget
+                .native_weighted_count_spill
+                .as_ref()
+                .map(|spill| spill.native_bytes_written),
+        );
+    }
     push_field(fields, "mode", "native_vortex_primitive_row_export");
     push_field(
         fields,
@@ -1140,6 +1246,12 @@ fn append_native_array_sink_fields(
     fields: &mut Vec<(String, String)>,
     evidence: &shardloom_vortex::VortexNativeArraySinkEvidence,
 ) {
+    crate::execution_resources::append_memory_observation_fields(
+        fields,
+        None,
+        evidence.peak_reserved_bytes,
+        "session_pool_lifetime_including_retained_owners;excludes_provider_bypass_allocations_and_process_rss",
+    );
     for (name, value) in [
         (
             "arrays_submitted",
@@ -1253,6 +1365,10 @@ fn append_local_primitive_resource_envelope_fields(
     fields: &mut Vec<(String, String)>,
     resource_envelope: &shardloom_vortex::VortexLocalPrimitiveResourceEnvelope,
 ) {
+    crate::execution_resources::append_declaration_fields(
+        fields,
+        resource_envelope.declared_resources,
+    );
     push_field(
         fields,
         "local_primitive_resource_envelope_schema_version",
@@ -1266,7 +1382,9 @@ fn append_local_primitive_resource_envelope_fields(
     push_field(
         fields,
         "local_primitive_resource_memory_gb",
-        resource_envelope.memory_gb.to_string(),
+        resource_envelope
+            .memory_gb
+            .map_or_else(|| "unavailable".into(), |value| value.to_string()),
     );
     push_field(
         fields,
@@ -1751,7 +1869,9 @@ fn append_local_primitive_memory_admission_fields(
         return;
     }
 
-    let Ok(budget) = shardloom_exec::MemoryBudget::from_gib(resource_envelope.memory_gb) else {
+    let Ok(budget) = shardloom_exec::MemoryBudget::new(shardloom_exec::ByteSize::from_bytes(
+        resource_envelope.memory_budget_bytes,
+    )) else {
         append_local_primitive_memory_admission_error_fields(fields, "invalid_budget");
         return;
     };
@@ -2350,6 +2470,7 @@ fn execute_native_vortex_primitive_run(
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     execution_session: &mut PublicExecutionSession,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     execute_native_vortex_primitive_run_with_extra(
         request,
@@ -2357,227 +2478,30 @@ fn execute_native_vortex_primitive_run(
         format,
         Vec::new(),
         execution_session,
+        admission,
     )
 }
 
-#[derive(Debug, Clone)]
-struct NativeVortexInputBinding {
-    mode: String,
-    sources: Vec<String>,
-}
-
-impl NativeVortexInputBinding {
-    fn single(source: String) -> Self {
-        Self {
-            mode: "single_file".to_string(),
-            sources: vec![source],
-        }
-    }
-
-    fn is_partitioned(&self) -> bool {
-        self.sources.len() > 1
-    }
-
-    fn evidence_fields(&self) -> Vec<(String, String)> {
-        vec![
-            (
-                "native_vortex_input_binding_schema_version".to_string(),
-                "shardloom.native_vortex_input_binding.v1".to_string(),
-            ),
-            (
-                "native_vortex_input_binding_mode".to_string(),
-                self.mode.clone(),
-            ),
-            (
-                "native_vortex_input_binding_count".to_string(),
-                self.sources.len().to_string(),
-            ),
-            (
-                "native_vortex_input_binding_strategy".to_string(),
-                if self.is_partitioned() {
-                    "sequential_capillary_parts"
-                } else {
-                    "single_source"
-                }
-                .to_string(),
-            ),
-            (
-                "native_vortex_partitioned_input_binding".to_string(),
-                self.is_partitioned().to_string(),
-            ),
-            (
-                "native_vortex_input_binding_sources".to_string(),
-                self.sources.join(","),
-            ),
-        ]
-    }
-}
+#[path = "native_vortex_input_binding.rs"]
+mod input_binding;
+use input_binding::NativeVortexInputBinding;
 
 fn native_vortex_input_binding_for_request(
     request: &PublicWorkflowRouteRequest,
+    admission: &CommandAdmission<'_>,
 ) -> Result<NativeVortexInputBinding, ShardLoomError> {
     let input_uri = request.input_uri.as_ref().ok_or_else(|| {
         ShardLoomError::InvalidOperation("public native Vortex run requires --input".to_string())
     })?;
-    native_vortex_input_binding_for_uri(input_uri)
+    native_vortex_input_binding_for_uri(input_uri, admission, &admission.cancellation())
 }
 
 fn native_vortex_input_binding_for_uri(
     input_uri: &str,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
 ) -> Result<NativeVortexInputBinding, ShardLoomError> {
-    let path = local_path_from_uri(input_uri);
-    if path.is_dir() {
-        return native_vortex_directory_input_binding(&path);
-    }
-    if path.is_file() && native_vortex_manifest_candidate(&path) {
-        return native_vortex_manifest_input_binding(&path);
-    }
-    Ok(NativeVortexInputBinding::single(input_uri.to_owned()))
-}
-
-fn local_path_from_uri(input_uri: &str) -> PathBuf {
-    if let Some(path) = input_uri.strip_prefix("file://") {
-        PathBuf::from(path)
-    } else {
-        PathBuf::from(input_uri)
-    }
-}
-
-fn native_vortex_manifest_candidate(path: &Path) -> bool {
-    path.extension()
-        .and_then(|value| value.to_str())
-        .is_some_and(|extension| {
-            matches!(
-                extension.to_ascii_lowercase().as_str(),
-                "json" | "manifest" | "vortex-manifest"
-            )
-        })
-}
-
-fn native_vortex_directory_input_binding(
-    directory: &Path,
-) -> Result<NativeVortexInputBinding, ShardLoomError> {
-    let mut sources = Vec::new();
-    collect_vortex_files(directory, &mut sources)?;
-    sources.sort();
-    sources.dedup();
-    if sources.is_empty() {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "native Vortex partitioned input directory contains no .vortex or .vtx files: {}; no fallback execution was attempted",
-            directory.display()
-        )));
-    }
-    Ok(NativeVortexInputBinding {
-        mode: "local_directory".to_string(),
-        sources,
-    })
-}
-
-fn collect_vortex_files(directory: &Path, sources: &mut Vec<String>) -> Result<(), ShardLoomError> {
-    for entry in fs::read_dir(directory).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read native Vortex input directory {}: {error}; no fallback execution was attempted",
-            directory.display()
-        ))
-    })? {
-        let entry = entry.map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to read native Vortex input directory entry {}: {error}; no fallback execution was attempted",
-                directory.display()
-            ))
-        })?;
-        let path = entry.path();
-        if path.is_dir() {
-            collect_vortex_files(&path, sources)?;
-        } else if path
-            .extension()
-            .and_then(|value| value.to_str())
-            .is_some_and(|extension| {
-                extension.eq_ignore_ascii_case("vortex") || extension.eq_ignore_ascii_case("vtx")
-            })
-        {
-            sources.push(path.display().to_string());
-        }
-    }
-    Ok(())
-}
-
-fn native_vortex_manifest_input_binding(
-    manifest_path: &Path,
-) -> Result<NativeVortexInputBinding, ShardLoomError> {
-    let raw = fs::read_to_string(manifest_path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read native Vortex input manifest {}: {error}; no fallback execution was attempted",
-            manifest_path.display()
-        ))
-    })?;
-    let payload: serde_json::Value = serde_json::from_str(&raw).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "native Vortex input manifest is not valid JSON: {error}; no fallback execution was attempted"
-        ))
-    })?;
-    let array = payload
-        .get("inputs")
-        .or_else(|| payload.get("paths"))
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "native Vortex input manifest must contain an inputs or paths array; no fallback execution was attempted"
-                    .to_string(),
-            )
-        })?;
-    let base_dir = manifest_path.parent().unwrap_or_else(|| Path::new("."));
-    let mut sources = Vec::with_capacity(array.len());
-    let mut seen_sources = BTreeSet::new();
-    for value in array {
-        let Some(path) = value.as_str() else {
-            return Err(ShardLoomError::InvalidOperation(
-                "native Vortex input manifest entries must be strings; no fallback execution was attempted"
-                    .to_string(),
-            ));
-        };
-        let path = PathBuf::from(path);
-        let resolved = if path.is_absolute() {
-            path
-        } else {
-            base_dir.join(path)
-        };
-        if !resolved.is_file() {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "native Vortex input manifest entry is not an existing file: {}; no fallback execution was attempted",
-                resolved.display()
-            )));
-        }
-        if !resolved
-            .extension()
-            .and_then(|value| value.to_str())
-            .is_some_and(|extension| {
-                extension.eq_ignore_ascii_case("vortex") || extension.eq_ignore_ascii_case("vtx")
-            })
-        {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "native Vortex input manifest entry is not a .vortex or .vtx file: {}; no fallback execution was attempted",
-                resolved.display()
-            )));
-        }
-        let resolved = resolved.display().to_string();
-        if !seen_sources.insert(resolved.clone()) {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "native Vortex input manifest contains duplicate entry: {resolved}; no fallback execution was attempted"
-            )));
-        }
-        sources.push(resolved);
-    }
-    if sources.is_empty() {
-        return Err(ShardLoomError::InvalidOperation(
-            "native Vortex input manifest contains no .vortex or .vtx files; no fallback execution was attempted"
-                .to_string(),
-        ));
-    }
-    Ok(NativeVortexInputBinding {
-        mode: "manifest".to_string(),
-        sources,
-    })
+    input_binding::bind(input_uri, memory, cancellation)
 }
 
 fn native_vortex_primitive_materializes(primitive: PublicVortexPrimitive) -> bool {
@@ -2605,6 +2529,7 @@ fn execute_native_vortex_primitive_run_with_extra(
     format: OutputFormat,
     mut extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     if let Some(exit) = resident_sql::run_if_needed(
@@ -2614,6 +2539,7 @@ fn execute_native_vortex_primitive_run_with_extra(
         &mut extra_fields,
         execution_session,
         PublicSourcePreparations::default(),
+        admission,
     ) {
         return exit;
     }
@@ -2636,9 +2562,10 @@ fn execute_native_vortex_primitive_run_with_extra(
             extra_fields,
             execution_session,
             primitive,
+            admission,
         );
     }
-    let binding = match native_vortex_input_binding_for_request(request) {
+    let binding = match native_vortex_input_binding_for_request(request, admission) {
         Ok(binding) => binding,
         Err(error) => {
             execution_session.clear();
@@ -2659,6 +2586,7 @@ fn execute_native_vortex_primitive_run_with_extra(
             extra_fields,
             primitive,
             &binding,
+            admission,
         );
     }
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -2670,6 +2598,7 @@ fn execute_native_vortex_primitive_run_with_extra(
             extra_fields,
             &binding,
             execution_session,
+            admission,
         );
     }
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -2681,6 +2610,7 @@ fn execute_native_vortex_primitive_run_with_extra(
             extra_fields,
             &binding,
             execution_session,
+            admission,
         );
     }
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -2700,6 +2630,7 @@ fn execute_native_vortex_primitive_run_with_extra(
             primitive,
             &binding,
             execution_session,
+            admission,
         );
     }
     let runtime_args = match native_vortex_primitive_runtime_args(request, primitive) {
@@ -2710,7 +2641,13 @@ fn execute_native_vortex_primitive_run_with_extra(
     };
     let mut attachment_fields = execution_attachment_fields("run", request, plan);
     attachment_fields.append(&mut extra_fields);
-    execute_native_vortex_single_primitive_run(primitive, runtime_args, format, attachment_fields)
+    execute_native_vortex_single_primitive_run(
+        primitive,
+        runtime_args,
+        format,
+        attachment_fields,
+        admission,
+    )
 }
 
 fn execute_native_vortex_materializing_with_session(
@@ -2720,11 +2657,19 @@ fn execute_native_vortex_materializing_with_session(
     extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
     primitive: PublicVortexPrimitive,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     if request.requested_output == "collect" {
         if primitive == PublicVortexPrimitive::Aggregate {
-            return resident_aggregate::run(request, plan, format, extra_fields, execution_session);
+            return resident_aggregate::run(
+                request,
+                plan,
+                format,
+                extra_fields,
+                execution_session,
+                admission,
+            );
         }
         if primitive != PublicVortexPrimitive::SortRows {
             return resident_unary::run(
@@ -2734,6 +2679,7 @@ fn execute_native_vortex_materializing_with_session(
                 extra_fields,
                 execution_session,
                 primitive,
+                admission,
             );
         }
     }
@@ -2744,10 +2690,12 @@ fn execute_native_vortex_materializing_with_session(
         format,
         extra_fields,
         primitive,
+        admission,
     )
 }
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
+#[allow(clippy::too_many_arguments)] // The existing collect facade now borrows the complete command admission.
 fn execute_native_vortex_owned_collect(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -2756,6 +2704,7 @@ fn execute_native_vortex_owned_collect(
     primitive: PublicVortexPrimitive,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     execute_native_vortex_owned_collect_with_source(
         request,
@@ -2766,6 +2715,7 @@ fn execute_native_vortex_owned_collect(
         binding,
         execution_session,
         None,
+        admission,
     )
 }
 
@@ -2780,8 +2730,10 @@ fn execute_native_vortex_owned_collect_with_source(
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     let result = (|| {
+        admission.check()?;
         if request.materialization_policy == "zero_decode" {
             return Err(ShardLoomError::InvalidOperation(
                 "JSON collect requires scalar decoding at its sink; use --materialization-policy bounded or the native Rust array result API; no fallback execution was attempted".to_string(),
@@ -2789,7 +2741,7 @@ fn execute_native_vortex_owned_collect_with_source(
         }
         let (primitive_request, _, _) =
             native_vortex_bound_request_and_arg(request, primitive, binding)?;
-        let policy = native_vortex_materializing_policy(request)?;
+        native_vortex_materializing_policy(request)?;
         if !execution_session
             .collect
             .as_ref()
@@ -2798,18 +2750,16 @@ fn execute_native_vortex_owned_collect_with_source(
             // Release the previous reader/runtime before admitting the next budget.
             execution_session.clear();
             let operation = if let Some(source) = source {
-                shardloom_vortex::local_primitives::collect::prepare_rows_from_source(
+                shardloom_vortex::local_primitives::collect::prepare_rows_from_source_controlled(
                     &primitive_request,
                     source,
+                    &admission.cancellation(),
                 )?
             } else {
-                let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
-                    policy.resource_envelope.memory_budget_bytes,
-                    policy.max_parallelism,
-                )?;
-                shardloom_vortex::local_primitives::collect::prepare_rows_in_session(
+                shardloom_vortex::local_primitives::collect::prepare_rows_in_session_controlled(
                     &primitive_request,
-                    &session,
+                    admission.native_session()?,
+                    &admission.cancellation(),
                 )?
             };
             execution_session.collect = Some(PreparedPublicCollect {
@@ -2824,7 +2774,7 @@ fn execute_native_vortex_owned_collect_with_source(
                 ShardLoomError::InvalidOperation("prepared collect was not admitted".to_string())
             })?
             .operation
-            .execute()
+            .execute_with_cancellation(&admission.cancellation())
     })();
     let result = match result {
         Ok(result) => result,
@@ -2963,13 +2913,18 @@ fn execute_native_vortex_single_primitive_run(
     runtime_args: Vec<String>,
     format: OutputFormat,
     attachment_fields: Vec<(String, String)>,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
+    if let Err(error) = admission.check() {
+        return native_vortex_materializing_error(format, primitive, &error);
+    }
     match primitive {
         PublicVortexPrimitive::Count => vortex_primitive_execution::handle_vortex_run_with_facade(
             runtime_args.into_iter(),
             format,
             "run",
             attachment_fields,
+            admission,
         ),
         PublicVortexPrimitive::CountWhere => {
             vortex_primitive_execution::handle_vortex_count_where_with_facade(
@@ -2977,6 +2932,7 @@ fn execute_native_vortex_single_primitive_run(
                 format,
                 "run",
                 attachment_fields,
+                admission,
             )
         }
         PublicVortexPrimitive::Filter => {
@@ -2985,6 +2941,7 @@ fn execute_native_vortex_single_primitive_run(
                 format,
                 "run",
                 attachment_fields,
+                admission,
             )
         }
         PublicVortexPrimitive::Project => {
@@ -2993,6 +2950,7 @@ fn execute_native_vortex_single_primitive_run(
                 format,
                 "run",
                 attachment_fields,
+                admission,
             )
         }
         PublicVortexPrimitive::FilterProject => {
@@ -3001,6 +2959,7 @@ fn execute_native_vortex_single_primitive_run(
                 format,
                 "run",
                 attachment_fields,
+                admission,
             )
         }
         PublicVortexPrimitive::Distinct
@@ -3020,6 +2979,44 @@ fn execute_native_vortex_single_primitive_run(
     }
 }
 
+fn execute_admitted_native_primitive(
+    request: &shardloom_vortex::VortexQueryPrimitiveRequest,
+    sources: Option<&[shardloom_core::DatasetUri]>,
+    policy: shardloom_vortex::VortexLocalPrimitiveExecutionPolicy,
+    admission: &CommandAdmission<'_>,
+) -> Result<shardloom_vortex::VortexLocalPrimitiveExecutionReport, ShardLoomError> {
+    admission.check()?;
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    {
+        let session = admission.native_session()?;
+        let cancellation = admission.cancellation();
+        match sources {
+            Some(sources) => {
+                shardloom_vortex::local_primitives::execution::execute_partitioned_in_session(
+                    request,
+                    sources,
+                    policy,
+                    session,
+                    &cancellation,
+                )
+            }
+            None => shardloom_vortex::local_primitives::execution::execute_in_session(
+                request,
+                policy,
+                session,
+                &cancellation,
+            ),
+        }
+    }
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+    match sources {
+        Some(sources) => shardloom_vortex::execute_vortex_local_partitioned_primitive_with_policy(
+            request, sources, policy,
+        ),
+        None => shardloom_vortex::execute_vortex_local_primitive_with_policy(request, policy),
+    }
+}
+
 fn execute_native_vortex_bound_primitive_run_with_extra(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -3027,7 +3024,11 @@ fn execute_native_vortex_bound_primitive_run_with_extra(
     mut extra_fields: Vec<(String, String)>,
     primitive: PublicVortexPrimitive,
     binding: &NativeVortexInputBinding,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
+    if let Err(error) = admission.check() {
+        return native_vortex_materializing_error(format, primitive, &error);
+    }
     let (primitive_request, primitive_arg, source_uris) =
         match native_vortex_bound_request_and_arg(request, primitive, binding) {
             Ok(value) => value,
@@ -3037,10 +3038,11 @@ fn execute_native_vortex_bound_primitive_run_with_extra(
         Ok(policy) => policy,
         Err(error) => return native_vortex_materializing_error(format, primitive, &error),
     };
-    let report = match shardloom_vortex::execute_vortex_local_partitioned_primitive_with_policy(
+    let report = match execute_admitted_native_primitive(
         &primitive_request,
-        &source_uris,
+        Some(&source_uris),
         policy,
+        admission,
     ) {
         Ok(report) => report,
         Err(error) => return native_vortex_materializing_error(format, primitive, &error),
@@ -3089,15 +3091,27 @@ fn execute_native_vortex_sort_collect(
     primitive_request: &shardloom_vortex::VortexQueryPrimitiveRequest,
     binding: &NativeVortexInputBinding,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     use shardloom_vortex::local_primitives::prepared_dispatch;
     let result = (|| {
+        admission.check()?;
         let policy = native_vortex_materializing_policy(request)?;
         let source = match source {
             Some(source) => source,
-            None => prepared_dispatch::prepare_source(primitive_request, policy)?,
+            None => prepared_dispatch::prepare_source_in_session(
+                primitive_request,
+                policy,
+                admission.native_session()?,
+                &admission.cancellation(),
+            )?,
         };
-        prepared_dispatch::collect_sort(primitive_request, policy, &source)
+        prepared_dispatch::collect_sort_controlled(
+            primitive_request,
+            policy,
+            &source,
+            &admission.cancellation(),
+        )
     })();
     let result = match result {
         Ok(result) => result,
@@ -3144,6 +3158,7 @@ fn execute_native_vortex_materializing_primitive_run_with_extra(
     format: OutputFormat,
     extra_fields: Vec<(String, String)>,
     primitive: PublicVortexPrimitive,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     execute_native_vortex_materializing_with_source(
         request,
@@ -3153,6 +3168,7 @@ fn execute_native_vortex_materializing_primitive_run_with_extra(
         primitive,
         #[cfg(all(feature = "vortex-local-primitives", unix))]
         None,
+        admission,
     )
 }
 
@@ -3166,7 +3182,11 @@ fn execute_native_vortex_materializing_with_source(
     #[cfg(all(feature = "vortex-local-primitives", unix))] source: Option<
         shardloom_vortex::resident_session::PreparedVortexSource,
     >,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
+    if let Err(error) = admission.check() {
+        return native_vortex_materializing_error(format, primitive, &error);
+    }
     if primitive == PublicVortexPrimitive::Aggregate
         && request.materialization_policy == "zero_decode"
     {
@@ -3181,7 +3201,7 @@ fn execute_native_vortex_materializing_with_source(
             "native row computation and collection require admitted materialization; use --materialization-policy bounded; no fallback execution was attempted".to_string(),
         ));
     }
-    let binding = match native_vortex_input_binding_for_request(request) {
+    let binding = match native_vortex_input_binding_for_request(request, admission) {
         Ok(binding) => binding,
         Err(error) => return native_vortex_materializing_error(format, primitive, &error),
     };
@@ -3207,14 +3227,16 @@ fn execute_native_vortex_materializing_with_source(
             &primitive_request,
             &binding,
             source,
+            admission,
         );
     }
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     let prepared = source.map(|source| {
-        shardloom_vortex::local_primitives::prepared_dispatch::execute_sort(
+        shardloom_vortex::local_primitives::prepared_dispatch::execute_sort_controlled(
             &primitive_request,
             policy,
             &source,
+            &admission.cancellation(),
         )
     });
     #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
@@ -3227,18 +3249,16 @@ fn execute_native_vortex_materializing_with_source(
             Err(error) => return native_vortex_materializing_error(format, primitive, &error),
         }
     } else if binding.mode == "single_file" {
-        match shardloom_vortex::execute_vortex_local_primitive_with_policy(
-            &primitive_request,
-            policy,
-        ) {
+        match execute_admitted_native_primitive(&primitive_request, None, policy, admission) {
             Ok(report) => report,
             Err(error) => return native_vortex_materializing_error(format, primitive, &error),
         }
     } else {
-        match shardloom_vortex::execute_vortex_local_partitioned_primitive_with_policy(
+        match execute_admitted_native_primitive(
             &primitive_request,
-            &source_uris,
+            Some(&source_uris),
             policy,
+            admission,
         ) {
             Ok(report) => report,
             Err(error) => return native_vortex_materializing_error(format, primitive, &error),
@@ -3348,61 +3368,36 @@ fn native_vortex_bound_request_and_arg(
 fn native_vortex_materializing_policy(
     request: &PublicWorkflowRouteRequest,
 ) -> Result<shardloom_vortex::VortexLocalPrimitiveExecutionPolicy, ShardLoomError> {
-    let max_parallelism = public_workflow_effective_max_parallelism(request)?;
-    let memory_gb = public_workflow_effective_memory_gb(request)?;
-    shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(
-        max_parallelism,
-        memory_gb,
+    shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::from_resources(
+        request.resources.resolve()?,
     )
 }
 
-fn public_workflow_effective_memory_gb(
-    request: &PublicWorkflowRouteRequest,
-) -> Result<u64, ShardLoomError> {
-    match request.memory_gb.as_deref() {
-        Some(value) => positive_u64_arg("memory_gb", value),
-        None => Ok(default_public_local_runtime_memory_gb()),
-    }
-}
-
 fn public_workflow_effective_memory_gb_label(request: &PublicWorkflowRouteRequest) -> String {
-    public_workflow_effective_memory_gb(request)
-        .map_or_else(|_| "invalid".to_string(), |value| value.to_string())
+    request.resources.optional().map_or_else(
+        |_| "invalid".into(),
+        |resources| {
+            resources
+                .and_then(ExecutionResources::whole_gib)
+                .map_or_else(|| "unavailable".into(), |value| value.to_string())
+        },
+    )
 }
 
-fn public_workflow_requested_max_parallelism(request: &PublicWorkflowRouteRequest) -> usize {
-    request
-        .max_parallelism
-        .as_deref()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or_else(default_public_local_runtime_max_parallelism)
-}
-
-fn public_workflow_effective_max_parallelism(
-    request: &PublicWorkflowRouteRequest,
-) -> Result<usize, ShardLoomError> {
-    let requested = match request.max_parallelism.as_deref() {
-        Some(value) => positive_usize_arg("max_parallelism", value)?,
-        None => default_public_local_runtime_max_parallelism(),
-    };
-    // The built-in default is two. An explicit positive maximum is a
-    // ceiling, including a single caller-driven native execution lane.
-    Ok(requested)
+fn public_workflow_requested_max_parallelism(request: &PublicWorkflowRouteRequest) -> String {
+    public_workflow_effective_max_parallelism_label(request)
 }
 
 fn public_workflow_effective_resource_envelope(
     request: &PublicWorkflowRouteRequest,
-) -> Result<(u64, usize), ShardLoomError> {
-    Ok((
-        public_workflow_effective_memory_gb(request)?,
-        public_workflow_effective_max_parallelism(request)?,
-    ))
+) -> Result<ExecutionResources, ShardLoomError> {
+    request.resources.resolve()
 }
 
-fn public_workflow_dynamic_parallelism_floor_applied(request: &PublicWorkflowRouteRequest) -> bool {
-    request.max_parallelism.is_none()
-        && public_workflow_requested_max_parallelism(request)
-            < MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
+fn public_workflow_dynamic_parallelism_floor_applied(
+    _request: &PublicWorkflowRouteRequest,
+) -> bool {
+    false
 }
 
 fn native_vortex_materializing_execution_certificate(
@@ -3427,6 +3422,23 @@ fn append_native_vortex_materializing_primitive_fields(
     execution_certificate: Option<&shardloom_core::ExecutionCertificate>,
 ) {
     append_hot_runtime_timing_surface_fields(fields);
+    if report.status == shardloom_vortex::VortexLocalPrimitiveExecutionStatus::Executed {
+        crate::execution_resources::append_admission_fields(
+            fields,
+            report.resource_envelope.memory_budget_bytes,
+            report.resource_envelope.max_parallelism,
+            "native_operator_policy_ceiling;runtime_may_use_fewer_lanes",
+        );
+        crate::execution_resources::append_spill_observation_fields(
+            fields,
+            report.spill_io_performed,
+            report
+                .state_budget
+                .native_weighted_count_spill
+                .as_ref()
+                .map(|spill| spill.native_bytes_written),
+        );
+    }
     append_native_vortex_materializing_identity_fields(fields, report, primitive_arg);
     append_native_vortex_materializing_row_fields(fields, report);
     append_native_vortex_materializing_side_effect_fields(fields, report);
@@ -3666,6 +3678,8 @@ fn append_local_primitive_result_summary_evidence_fields(
     append_encoded_numeric_reduction_evidence_fields(fields, object);
     append_scan_segment_reuse_evidence_fields(fields, object);
     for key in [
+        "aggregate_result_boundary",
+        "aggregate_result_serialized_json_round_trip",
         "aggregate_first_pass_scan_next_nanos",
         "aggregate_first_pass_reader_evidence_nanos",
         "aggregate_first_pass_accessor_nanos",
@@ -4310,6 +4324,14 @@ fn append_scan_segment_reuse_evidence_fields(
 }
 
 fn local_primitive_result_summary_payload(result_summary: &str) -> Option<serde_json::Value> {
+    let result_summary = result_summary
+        .strip_prefix("partitioned_vortex_sources=")
+        .and_then(|summary| {
+            let (count, summary) = summary.split_once(';')?;
+            count.parse::<usize>().ok()?;
+            summary.strip_prefix("partitioned_execution_strategy=sequential_capillary_parts;")
+        })
+        .unwrap_or(result_summary);
     if let Ok(payload) = serde_json::from_str::<serde_json::Value>(result_summary) {
         return Some(payload);
     }
@@ -4388,6 +4410,7 @@ fn execute_local_file_prepare_once_first_query_run(
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     execution_session: &mut PublicExecutionSession,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     if is_write_request(request)
         && !matches!(
@@ -4410,7 +4433,7 @@ fn execute_local_file_prepare_once_first_query_run(
         Ok(prepared_run) => prepared_run,
         Err(blocked) => return emit_blocked_facade("run", format, request, &blocked),
     };
-    let (memory_gb, max_parallelism) = match public_workflow_effective_resource_envelope(request) {
+    let resources = match public_workflow_effective_resource_envelope(request) {
         Ok(values) => values,
         Err(error) => {
             return emit_error(
@@ -4435,11 +4458,7 @@ fn execute_local_file_prepare_once_first_query_run(
         error_title: "public local Vortex preparation failed",
     };
     let left_preparation = match prepare_local_source_for_public_workflow_or_emit(
-        left_input,
-        request,
-        format,
-        memory_gb,
-        max_parallelism,
+        left_input, request, format, resources, admission,
     ) {
         Ok(preparation) => preparation,
         Err(exit) => return exit,
@@ -4463,8 +4482,8 @@ fn execute_local_file_prepare_once_first_query_run(
             right_input,
             request,
             format,
-            memory_gb,
-            max_parallelism,
+            resources,
+            admission,
         ) {
             Ok(preparation) => preparation,
             Err(exit) => return exit,
@@ -4492,6 +4511,7 @@ fn execute_local_file_prepare_once_first_query_run(
             extra_fields,
             execution_session,
             &preparations,
+            admission,
         )
     })
     .unwrap_or_else(|error| {
@@ -4528,6 +4548,7 @@ fn execute_prepared_local_native_route(
     extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
     preparations: &PublicSourcePreparations,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     let mut extra_fields = extra_fields;
@@ -4543,6 +4564,7 @@ fn execute_prepared_local_native_route(
             format,
             &mut extra_fields,
             preparations.clone(),
+            admission,
         )
     {
         return exit;
@@ -4555,6 +4577,7 @@ fn execute_prepared_local_native_route(
         &mut extra_fields,
         execution_session,
         preparations.clone(),
+        admission,
     ) {
         return exit;
     }
@@ -4569,6 +4592,7 @@ fn execute_prepared_local_native_route(
                 extra_fields,
                 None,
                 preparations.clone(),
+                admission,
             )
         }
         "native_vortex_count_all"
@@ -4593,16 +4617,22 @@ fn execute_prepared_local_native_route(
             format,
             extra_fields,
             execution_session,
+            admission,
         ),
-        "native_vortex_user_profile" => {
-            execute_native_vortex_profile_run_with_extra(request, native_plan, format, extra_fields)
-        }
+        "native_vortex_user_profile" => execute_native_vortex_profile_run_with_extra(
+            request,
+            native_plan,
+            format,
+            extra_fields,
+            admission,
+        ),
         "native_vortex_primitive_row_export" => {
             execute_native_vortex_primitive_row_export_run_with_extra(
                 request,
                 native_plan,
                 format,
                 extra_fields,
+                admission,
             )
         }
         _ => {
@@ -4621,18 +4651,19 @@ fn prepare_local_source_for_public_workflow_or_emit(
     input: PublicWorkflowPreparationInput<'_>,
     request: &PublicWorkflowRouteRequest,
     format: OutputFormat,
-    memory_gb: u64,
-    max_parallelism: usize,
+    resources: ExecutionResources,
+    admission: &CommandAdmission<'_>,
 ) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, ExitCode> {
-    match prepare_local_source_for_public_workflow(
+    match prepare_local_source_for_public_workflow_controlled(
         input.source_uri,
         input.source_format,
         input.target,
         false,
-        memory_gb,
-        max_parallelism,
+        resources,
+        Some(admission),
         request.source_fingerprint_policy.as_deref(),
         input.source_schema,
+        &admission.cancellation(),
     ) {
         Ok(preparation) => Ok(preparation),
         Err(PreparationFacadeError::FeatureGated) => {
@@ -4646,25 +4677,27 @@ fn prepare_local_source_for_public_workflow_or_emit(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn prepare_local_source_for_public_workflow(
+fn prepare_local_source_for_public_workflow_controlled(
     source_uri: &str,
     source_format: &str,
     target: &Path,
     allow_overwrite: bool,
-    memory_gb: u64,
-    max_parallelism: usize,
+    resources: ExecutionResources,
+    shared_memory_pool: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     source_fingerprint_policy: Option<&str>,
     source_schema: Option<&str>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
 ) -> Result<sql_local_source_runtime::PublicWorkflowVortexPreparation, PreparationFacadeError> {
-    sql_local_source_runtime::prepare_local_source_as_vortex_for_public_workflow_with_schema(
+    sql_local_source_runtime::prepare_local_source_as_vortex_for_public_workflow_controlled(
         source_uri,
         target,
         Some(source_format),
         allow_overwrite,
-        max_parallelism,
-        Some(memory_gb),
+        resources,
+        shared_memory_pool,
         source_fingerprint_policy,
         source_schema,
+        cancellation,
     )
     .map_err(|error| match error {
         ShardLoomError::NotImplemented(feature)
@@ -4690,7 +4723,6 @@ fn prepare_profile_runtime_requested(request: &PublicWorkflowRouteRequest) -> bo
 fn prepared_profile_native_runtime_request(
     request: &PublicWorkflowRouteRequest,
     prepared_target: &Path,
-    max_parallelism: usize,
 ) -> Result<PublicWorkflowRouteRequest, Box<PublicWorkflowRoutePlan>> {
     let mut native_request = request.clone();
     if let Some(plan_summary) = prepared_local_workflow_plan_summary(request, prepared_target, None)
@@ -4721,7 +4753,6 @@ fn prepared_profile_native_runtime_request(
     native_request
         .materialization_policy
         .clone_from(&request.materialization_policy);
-    native_request.max_parallelism = Some(max_parallelism.to_string());
     native_request.bounded = true;
     Ok(effective_public_workflow_request(&native_request))
 }
@@ -4730,7 +4761,6 @@ fn prepared_profile_native_runtime_request(
 fn prepared_profile_runtime_plan_fields(
     request: &PublicWorkflowRouteRequest,
     preparation: &sql_local_source_runtime::PublicWorkflowVortexPreparation,
-    max_parallelism: usize,
 ) -> Vec<(String, String)> {
     let mut fields = vec![
         (
@@ -4763,37 +4793,34 @@ fn prepared_profile_runtime_plan_fields(
         return fields;
     }
 
-    let native_request = match prepared_profile_native_runtime_request(
-        request,
-        &preparation.target_path,
-        max_parallelism,
-    ) {
-        Ok(native_request) => native_request,
-        Err(blocked) => {
-            fields.extend([
-                (
-                    "public_workflow_preparation_profile_runtime_plan_status".to_string(),
-                    "not_admitted".to_string(),
-                ),
-                (
-                    "public_workflow_preparation_profile_runtime_blocker_id".to_string(),
-                    blocked.blocker_id.to_string(),
-                ),
-                (
-                    "public_workflow_preparation_profile_runtime_next_action".to_string(),
-                    blocked
-                        .diagnostics
-                        .first()
-                        .and_then(|diagnostic| diagnostic.suggested_next_step.clone())
-                        .unwrap_or_else(|| {
-                            "use an admitted native Vortex aggregate or bounded sort profile"
-                                .to_string()
-                        }),
-                ),
-            ]);
-            return fields;
-        }
-    };
+    let native_request =
+        match prepared_profile_native_runtime_request(request, &preparation.target_path) {
+            Ok(native_request) => native_request,
+            Err(blocked) => {
+                fields.extend([
+                    (
+                        "public_workflow_preparation_profile_runtime_plan_status".to_string(),
+                        "not_admitted".to_string(),
+                    ),
+                    (
+                        "public_workflow_preparation_profile_runtime_blocker_id".to_string(),
+                        blocked.blocker_id.to_string(),
+                    ),
+                    (
+                        "public_workflow_preparation_profile_runtime_next_action".to_string(),
+                        blocked
+                            .diagnostics
+                            .first()
+                            .and_then(|diagnostic| diagnostic.suggested_next_step.clone())
+                            .unwrap_or_else(|| {
+                                "use an admitted native Vortex aggregate or bounded sort profile"
+                                    .to_string()
+                            }),
+                    ),
+                ]);
+                return fields;
+            }
+        };
     let native_plan = plan_public_workflow_route(&native_request);
     fields.extend([
         (
@@ -5468,11 +5495,13 @@ fn local_prepared_vortex_right_execution_attachment_fields(
     fields
 }
 
+#[allow(clippy::too_many_lines)] // Keep validation, admission and dispatch in one command boundary.
 pub(crate) fn handle_public_workflow_prepare(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
+    context: &crate::command_context::CommandContext<'_>,
 ) -> ExitCode {
-    let mut request = match PublicWorkflowRouteRequest::parse(args) {
+    let mut request = match PublicWorkflowRouteRequest::parse_execution_in_context(args, context) {
         Ok(request) => request,
         Err(error) => {
             return emit_error("prepare", format, "public workflow prepare failed", &error);
@@ -5498,7 +5527,7 @@ pub(crate) fn handle_public_workflow_prepare(
         .input_format
         .clone()
         .unwrap_or_else(|| "csv".to_string());
-    let (memory_gb, max_parallelism) = match public_workflow_effective_resource_envelope(&request) {
+    let resources = match public_workflow_effective_resource_envelope(&request) {
         Ok(values) => values,
         Err(error) => {
             return emit_error(
@@ -5509,15 +5538,20 @@ pub(crate) fn handle_public_workflow_prepare(
             );
         }
     };
-    let preparation = match prepare_local_source_for_public_workflow(
+    let admission = match context.admit_for_command(resources, "prepare", format) {
+        Ok(admission) => admission,
+        Err(code) => return code,
+    };
+    let preparation = match prepare_local_source_for_public_workflow_controlled(
         &input_uri,
         &source_format,
         Path::new(&output_ref),
         request.allow_overwrite,
-        memory_gb,
-        max_parallelism,
+        admission.resources(),
+        Some(&admission),
         request.source_fingerprint_policy.as_deref(),
         request.source_schema.as_deref(),
+        &admission.cancellation(),
     ) {
         Ok(preparation) => preparation,
         Err(PreparationFacadeError::FeatureGated) => {
@@ -5551,8 +5585,7 @@ pub(crate) fn handle_public_workflow_prepare(
             preparation.target_path.display().to_string(),
         ),
     ]);
-    let profile_runtime_fields =
-        prepared_profile_runtime_plan_fields(&request, &preparation, max_parallelism);
+    let profile_runtime_fields = prepared_profile_runtime_plan_fields(&request, &preparation);
     if let Err(error) = preparation.validate_generation() {
         return emit_error(
             "prepare",
@@ -5577,6 +5610,26 @@ pub(crate) fn handle_public_workflow_prepare(
 
 impl PublicWorkflowRouteRequest {
     fn parse(args: impl Iterator<Item = String>) -> Result<Self, ShardLoomError> {
+        Self::parse_with_resource_requirement(args, false, None)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn parse_execution(args: impl Iterator<Item = String>) -> Result<Self, ShardLoomError> {
+        Self::parse_with_resource_requirement(args, true, None)
+    }
+
+    fn parse_execution_in_context(
+        args: impl Iterator<Item = String>,
+        context: &crate::command_context::CommandContext<'_>,
+    ) -> Result<Self, ShardLoomError> {
+        Self::parse_with_resource_requirement(args, true, Some(context))
+    }
+
+    fn parse_with_resource_requirement(
+        args: impl Iterator<Item = String>,
+        required: bool,
+        context: Option<&crate::command_context::CommandContext<'_>>,
+    ) -> Result<Self, ShardLoomError> {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
@@ -5593,6 +5646,22 @@ impl PublicWorkflowRouteRequest {
                 || flag.starts_with("--native-vortex-")
                 || matches!(flag.as_str(), "--operation-family" | "--right-input");
             request.parse_flag(&flag, &mut args)?;
+        }
+
+        // Resolve before decoding caller-owned input cells or preparing a source.
+        if required {
+            if let Some(context) = context {
+                request.resources = crate::execution_resources::ResourceArguments::from_resources(
+                    context.resolve(&request.resources)?,
+                );
+            } else {
+                request.resources.resolve()?;
+            }
+        } else {
+            request.resources.optional()?;
+        }
+        if let Some(raw) = request.raw_source_bindings.take() {
+            request.source_bindings = parse_public_source_bindings(&raw)?;
         }
 
         if native_operator_options
@@ -5678,6 +5747,7 @@ impl PublicWorkflowRouteRequest {
             input_format: None,
             source_schema: None,
             source_bindings: std::collections::BTreeMap::new(),
+            raw_source_bindings: None,
             sql_statement: None,
             plan_summary: None,
             requested_output: "collect".to_string(),
@@ -5708,8 +5778,7 @@ impl PublicWorkflowRouteRequest {
             vortex_rolling_window: None,
             vortex_aggregate: None,
             vortex_sort_rows: None,
-            memory_gb: None,
-            max_parallelism: None,
+            resources: ResourceArguments::default(),
             spill: None,
         }
     }
@@ -5720,6 +5789,9 @@ impl PublicWorkflowRouteRequest {
         flag: &str,
         args: &mut std::iter::Peekable<impl Iterator<Item = String>>,
     ) -> Result<(), ShardLoomError> {
+        if self.resources.parse_flag(flag, args)? {
+            return Ok(());
+        }
         match flag {
             "--spill" => {
                 if self.spill.is_some() {
@@ -5743,7 +5815,12 @@ impl PublicWorkflowRouteRequest {
                 self.source_schema = Some(value);
             }
             "--source-bindings" => {
-                self.source_bindings = parse_public_source_bindings(&required_value(args, flag)?)?;
+                if self.raw_source_bindings.is_some() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "--source-bindings may be declared only once".into(),
+                    ));
+                }
+                self.raw_source_bindings = Some(required_value(args, flag)?);
             }
             "--sql" => {
                 if self.sql_statement.is_some() {
@@ -5852,12 +5929,6 @@ impl PublicWorkflowRouteRequest {
             }
             "--vortex-sort-rows" => {
                 self.vortex_sort_rows = Some(required_value(args, "--vortex-sort-rows")?);
-            }
-            "--memory-gb" => {
-                self.memory_gb = Some(required_value(args, "--memory-gb")?);
-            }
-            "--max-parallelism" => {
-                self.max_parallelism = Some(required_value(args, "--max-parallelism")?);
             }
             extra => return Err(cli_unknown_arg_error("route", extra)),
         }
@@ -7348,20 +7419,11 @@ fn profile_projection_columns_from_summary(
 fn native_vortex_resource_hint_blocker(
     request: &PublicWorkflowRouteRequest,
 ) -> Option<PublicWorkflowRoutePlan> {
-    if let Some(error) = positive_u64_option_error("--memory-gb", request.memory_gb.as_deref()) {
-        return Some(native_vortex_payload_blocked_route(
-            "public_workflow_route.memory_gb",
-            error,
-            "pass --memory-gb with an integer >= 1",
-        ));
-    }
-    if let Some(error) =
-        positive_usize_option_error("--max-parallelism", request.max_parallelism.as_deref())
-    {
-        return Some(native_vortex_payload_blocked_route(
-            "public_workflow_route.max_parallelism",
-            error,
-            "pass --max-parallelism with an integer >= 1",
+    if let Err(error) = request.resources.optional() {
+        return Some(blocked_route(
+            "cg21.route.execution_resources_invalid",
+            "the execution resource declaration is invalid",
+            error.to_diagnostic(),
         ));
     }
     if let Some(error) = positive_usize_option_error(
@@ -10246,21 +10308,6 @@ fn is_summary_identifier(value: &str) -> bool {
         && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
 }
 
-fn positive_u64_option_error<'a>(flag: &str, value: Option<&str>) -> Option<&'a str> {
-    let value = value?;
-    match value.parse::<u64>() {
-        Ok(parsed) if parsed >= 1 => None,
-        Ok(_) => Some(match flag {
-            "--memory-gb" => "memory_gb must be >= 1",
-            _ => "value must be >= 1",
-        }),
-        Err(_) => Some(match flag {
-            "--memory-gb" => "memory_gb must be an unsigned integer",
-            _ => "value must be an unsigned integer",
-        }),
-    }
-}
-
 fn positive_usize_option_error<'a>(flag: &str, value: Option<&str>) -> Option<&'a str> {
     let value = value?;
     match value.parse::<usize>() {
@@ -10939,6 +10986,9 @@ fn add_route_native_vortex_resource_fields(
     fields: &mut Vec<(String, String)>,
     request: &PublicWorkflowRouteRequest,
 ) {
+    if let Ok(Some(resources)) = request.resources.optional() {
+        crate::execution_resources::append_declaration_fields(fields, resources);
+    }
     spill::append_request_fields(fields, request);
     push_field(
         fields,
@@ -10953,7 +11003,7 @@ fn add_route_native_vortex_resource_fields(
     push_field(
         fields,
         "requested_max_parallelism",
-        public_workflow_requested_max_parallelism(request).to_string(),
+        public_workflow_requested_max_parallelism(request),
     );
     push_field(
         fields,
@@ -10963,8 +11013,15 @@ fn add_route_native_vortex_resource_fields(
 }
 
 fn public_workflow_effective_max_parallelism_label(request: &PublicWorkflowRouteRequest) -> String {
-    public_workflow_effective_max_parallelism(request)
-        .map_or_else(|_| "invalid".to_owned(), |value| value.to_string())
+    request.resources.optional().map_or_else(
+        |_| "invalid".into(),
+        |resources| {
+            resources.map_or_else(
+                || "unavailable".into(),
+                |value| value.max_parallelism().to_string(),
+            )
+        },
+    )
 }
 
 fn push_native_vortex_contract_fields(
@@ -12255,7 +12312,7 @@ fn execution_attachment_fields(
         ),
         (
             "public_workflow_requested_max_parallelism".to_string(),
-            public_workflow_requested_max_parallelism(&effective_request).to_string(),
+            public_workflow_requested_max_parallelism(&effective_request),
         ),
         (
             "public_workflow_dynamic_parallelism_floor_applied".to_string(),
@@ -12288,6 +12345,9 @@ fn execution_attachment_fields(
     ];
     push_native_vortex_contract_fields(&mut fields, "public_workflow_", &effective_request, plan);
     spill::append_request_fields(&mut fields, &effective_request);
+    if let Ok(Some(resources)) = effective_request.resources.optional() {
+        crate::execution_resources::append_declaration_fields(&mut fields, resources);
+    }
     fields
 }
 
@@ -12364,21 +12424,13 @@ fn native_vortex_primitive_runtime_args(
             "public native Vortex run requires --input with a Vortex dataset".to_string(),
         )
     })?;
-    let memory_gb = public_workflow_effective_memory_gb(request)?;
-    let max_parallelism = public_workflow_effective_max_parallelism(request)?;
+    let resources = request.resources.resolve()?;
     let mut args = match primitive {
-        PublicVortexPrimitive::Count => vec![
-            input_uri,
-            "count".to_string(),
-            memory_gb.to_string(),
-            max_parallelism.to_string(),
-        ],
+        PublicVortexPrimitive::Count => vec![input_uri, "count".to_string()],
         PublicVortexPrimitive::CountWhere => vec![
             input_uri,
             required_native_vortex_payload(request.vortex_predicate.as_ref(), "vortex predicate")?,
             "--execute-local-primitive".to_string(),
-            memory_gb.to_string(),
-            max_parallelism.to_string(),
         ],
         PublicVortexPrimitive::Filter => vec![
             input_uri,
@@ -12422,12 +12474,9 @@ fn native_vortex_primitive_runtime_args(
         primitive,
         PublicVortexPrimitive::Count | PublicVortexPrimitive::CountWhere
     ) {
-        args.extend([
-            "--execute-local-primitive".to_string(),
-            memory_gb.to_string(),
-            max_parallelism.to_string(),
-        ]);
+        args.push("--execute-local-primitive".to_string());
     }
+    args.extend(crate::execution_resources::command_args(resources));
     Ok(args)
 }
 
@@ -12443,18 +12492,6 @@ fn required_native_vortex_payload(
                 "public native Vortex run requires {label}; fallback execution was not attempted"
             ))
         })
-}
-
-fn positive_u64_arg(label: &str, value: &str) -> Result<u64, ShardLoomError> {
-    let parsed = value.parse::<u64>().map_err(|_| {
-        ShardLoomError::InvalidOperation(format!("{label} must be an unsigned integer"))
-    })?;
-    if parsed == 0 {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "{label} must be >= 1"
-        )));
-    }
-    Ok(parsed)
 }
 
 fn non_negative_u64_arg(label: &str, value: &str) -> Result<u64, ShardLoomError> {
@@ -12970,6 +13007,31 @@ mod tests {
                 .iter()
                 .any(|(key, _)| key.starts_with("local_primitive_aggregate_workers_"))
         );
+    }
+
+    #[test]
+    fn partitioned_native_summary_preserves_typed_result_boundary_evidence() {
+        let payload = serde_json::json!({
+            "aggregate_result_boundary": "owned_native_columns_from_completed_state",
+            "aggregate_result_serialized_json_round_trip": false,
+            "rows": 4097,
+            "values": null,
+        });
+        for summary in [payload.to_string(), format!("aggregate values={payload}")] {
+            let partitioned = format!(
+                "partitioned_vortex_sources=3;partitioned_execution_strategy=sequential_capillary_parts;{summary}"
+            );
+            assert_eq!(
+                local_primitive_result_summary_payload(&partitioned),
+                Some(payload.clone())
+            );
+            let mut fields = Vec::new();
+            append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&partitioned));
+            assert!(fields.contains(&(
+                "local_primitive_aggregate_result_serialized_json_round_trip".into(),
+                "false".into(),
+            )));
+        }
     }
 
     #[test]
@@ -14857,6 +14919,8 @@ mod tests {
                 "100",
                 "--max-parallelism",
                 "1",
+                "--memory-gb",
+                "4",
             ]
             .into_iter()
             .map(str::to_string),
@@ -14886,24 +14950,20 @@ mod tests {
         assert_eq!(
             public_workflow_effective_resource_envelope(&request)
                 .unwrap()
-                .1,
+                .max_parallelism(),
             1
         );
         let mut invalid = request.clone();
-        invalid.max_parallelism = Some("0".into());
+        invalid.resources.max_parallelism = Some("0".into());
         assert!(public_workflow_effective_resource_envelope(&invalid).is_err());
         assert_eq!(
             public_workflow_effective_max_parallelism_label(&invalid),
             "invalid"
         );
-        let mut automatic = request;
-        automatic.max_parallelism = None;
-        assert!(
-            public_workflow_effective_resource_envelope(&automatic)
-                .unwrap()
-                .1
-                >= MIN_PUBLIC_LOCAL_RUNTIME_MAX_PARALLELISM
-        );
+        let mut incomplete = request;
+        incomplete.resources.max_parallelism = None;
+        let error = public_workflow_effective_resource_envelope(&incomplete).unwrap_err();
+        assert!(error.to_string().contains("max_parallelism"));
     }
 
     #[test]
@@ -15724,12 +15784,20 @@ mod tests {
                 "gte:filter_only:3",
                 "--vortex-source-order-limit",
                 "2",
+                "--memory-gb",
+                "4",
+                "--max-parallelism",
+                "2",
             ]
             .into_iter()
             .map(str::to_owned),
         )
         .unwrap();
-        let binding = NativeVortexInputBinding::single("target/input.vortex".to_owned());
+        let binding = NativeVortexInputBinding::single(
+            "target/input.vortex",
+            &shardloom_exec::live_memory::LiveMemoryPool::new(1 << 20).unwrap(),
+        )
+        .unwrap();
         let exported = native_vortex_primitive_row_export_execution(
             &request,
             "target/input.vortex".to_owned(),
@@ -15758,26 +15826,33 @@ mod tests {
         }
         let mut constructed = request.clone();
         constructed.vortex_expression_projection =
-            Some(r#"{"structured_columns":[{"name":"constructed","array":[1]}]}"#.to_owned());
-        assert!(
-            native_vortex_primitive_row_export_execution(
-                &constructed,
-                "target/input.vortex".to_owned(),
-                PublicVortexPrimitive::ExpressionProject,
-            )
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("constructed expressions are not admitted")
-        );
-        assert!(
-            native_vortex_bound_request_and_arg(
-                &constructed,
-                PublicVortexPrimitive::ExpressionProject,
-                &binding,
-            )
-            .is_err()
-        );
+            Some(r#"{"structured_columns":[{"name":"renamed","source":"source_value"},{"name":"constructed","array":[1]}]}"#.to_owned());
+        let exported = native_vortex_primitive_row_export_execution(
+            &constructed,
+            "target/input.vortex".to_owned(),
+            PublicVortexPrimitive::ExpressionProject,
+        )
+        .unwrap()
+        .primitive_request;
+        let (collected, _, _) = native_vortex_bound_request_and_arg(
+            &constructed,
+            PublicVortexPrimitive::ExpressionProject,
+            &binding,
+        )
+        .unwrap();
+        for parsed in [exported, collected] {
+            assert_eq!(
+                parsed.predicate,
+                Some(
+                    vortex_primitive_execution::parse_tiny_predicate("gte:filter_only:3").unwrap()
+                )
+            );
+            assert_eq!(parsed.source_order_limit, Some(2));
+            assert_eq!(
+                parsed.structured_projection.unwrap().output_columns(),
+                ["renamed", "constructed"]
+            );
+        }
     }
 
     #[test]
@@ -16978,7 +17053,10 @@ mod tests {
         .expect("local SQL ClickBench route request");
         let plan = plan_public_workflow_route(&request);
 
-        if cfg!(feature = "vortex-write") {
+        if cfg!(all(
+            feature = "vortex-write",
+            feature = "vortex-local-primitives"
+        )) {
             assert_eq!(plan.status, CommandStatus::Success);
             assert_eq!(
                 plan.route_id,
@@ -16992,7 +17070,11 @@ mod tests {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
                 plan.blocker_id,
-                "cg21.route.local_file_vortex_ingest_feature_gated"
+                if cfg!(feature = "vortex-write") {
+                    "cg21.route.local_file_vortex_primitive_feature_gated"
+                } else {
+                    "cg21.route.local_file_vortex_ingest_feature_gated"
+                }
             );
         }
 
@@ -17021,6 +17103,14 @@ mod tests {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
+                "--memory-bytes",
+                "1500000001",
+                "--max-parallelism",
+                "2",
+                "--memory-origin",
+                "platform",
+                "--parallelism-origin",
+                "environment",
                 "--input",
                 "target/hits.parquet",
                 "--input-format",
@@ -17042,8 +17132,12 @@ mod tests {
         .expect("prepare SQL count profile route request");
 
         let native =
-            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"), 2)
+            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"))
                 .expect("prepared profile native request");
+        assert_eq!(
+            native.resources.resolve().unwrap(),
+            request.resources.resolve().unwrap()
+        );
         let plan = plan_public_workflow_route(&native);
         let fields = route_fields(&native, &plan);
 
@@ -17051,7 +17145,7 @@ mod tests {
         assert_eq!(native.input_uri.as_deref(), Some("target/hits.vortex"));
         assert_eq!(native.requested_output, "collect");
         assert_eq!(native.execution_policy, "native_vortex");
-        assert_eq!(native.max_parallelism.as_deref(), Some("2"));
+        assert_eq!(native.resources.max_parallelism.as_deref(), Some("2"));
         assert_eq!(
             plan.status,
             CommandStatus::Success,
@@ -17070,6 +17164,7 @@ mod tests {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
+                "--memory-gb", "4", "--max-parallelism", "2",
                 "--input",
                 "target/hits.parquet",
                 "--input-format",
@@ -17091,7 +17186,7 @@ mod tests {
         .expect("prepare SQL profile route request");
 
         let native =
-            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"), 2)
+            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"))
                 .expect("prepared profile native request");
         let plan = plan_public_workflow_route(&native);
         let fields = route_fields(&native, &plan);
@@ -17100,7 +17195,7 @@ mod tests {
         assert_eq!(native.input_uri.as_deref(), Some("target/hits.vortex"));
         assert_eq!(native.requested_output, "collect");
         assert_eq!(native.execution_policy, "native_vortex");
-        assert_eq!(native.max_parallelism.as_deref(), Some("2"));
+        assert_eq!(native.resources.max_parallelism.as_deref(), Some("2"));
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(
                 plan.status,
@@ -17126,6 +17221,7 @@ mod tests {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "dataframe",
+                "--memory-gb", "4", "--max-parallelism", "2",
                 "--input",
                 "target/hits.parquet",
                 "--input-format",
@@ -17147,7 +17243,7 @@ mod tests {
         .expect("prepare DataFrame profile route request");
 
         let native =
-            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"), 2)
+            prepared_profile_native_runtime_request(&request, Path::new("target/hits.vortex"))
                 .expect("prepared profile native request");
         let plan = plan_public_workflow_route(&native);
         let fields = route_fields(&native, &plan);

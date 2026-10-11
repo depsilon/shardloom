@@ -4,7 +4,7 @@
 //! capacity before allocation and keep the lease with every retained payload.
 
 use std::sync::{
-    Arc,
+    Arc, RwLock,
     atomic::{AtomicU64, Ordering},
 };
 
@@ -12,10 +12,16 @@ use shardloom_core::{Result, ShardLoomError};
 
 #[derive(Debug)]
 struct PoolState {
-    limit: u64,
+    limit: PoolLimit,
     live: AtomicU64,
     peak: AtomicU64,
     denied: AtomicU64,
+}
+
+#[derive(Debug)]
+enum PoolLimit {
+    Fixed(u64),
+    Configurable(RwLock<u64>),
 }
 
 /// One shared budget for source, queue, operator, merge, and result ownership.
@@ -34,21 +40,73 @@ impl LiveMemoryPool {
     /// # Errors
     /// Rejects an empty budget.
     pub fn new(limit_bytes: u64) -> Result<Self> {
+        Self::with_limit(PoolLimit::Fixed(limit_bytes))
+    }
+
+    /// Create a pool whose allocation may change between complete operations.
+    /// Every clone and retained lease continues to use this same owner. Callers
+    /// must serialize whole operations around allocation changes; the pool lock
+    /// only makes changing the limit atomic with concurrent reservations.
+    /// # Errors
+    /// Rejects an empty budget.
+    pub fn configurable(limit_bytes: u64) -> Result<Self> {
+        Self::with_limit(PoolLimit::Configurable(RwLock::new(limit_bytes)))
+    }
+
+    fn with_limit(limit: PoolLimit) -> Result<Self> {
+        let limit_bytes = match &limit {
+            PoolLimit::Fixed(limit) => *limit,
+            PoolLimit::Configurable(limit) => *limit
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        };
         if limit_bytes == 0 {
             return Err(memory_error("memory budget must be greater than zero"));
         }
         Ok(Self(Arc::new(PoolState {
-            limit: limit_bytes,
+            limit,
             live: AtomicU64::new(0),
             peak: AtomicU64::new(0),
             denied: AtomicU64::new(0),
         })))
     }
 
+    /// Change an explicitly configurable pool without replacing any owner or
+    /// releasing credits. A smaller allocation must cover every retained lease.
+    /// Authorization belongs to the caller's validated resource configuration.
+    /// # Errors
+    /// Rejects fixed pools, zero, or a limit below current live reservations.
+    /// A rejected change leaves the previous allocation intact.
+    pub fn set_limit_bytes(&self, limit_bytes: u64) -> Result<()> {
+        let PoolLimit::Configurable(limit) = &self.0.limit else {
+            return Err(memory_error("this memory pool has a fixed allocation"));
+        };
+        if limit_bytes == 0 {
+            return Err(memory_error("memory budget must be greater than zero"));
+        }
+        let mut limit = limit
+            .write()
+            .map_err(|_| memory_error("memory allocation configuration poisoned"))?;
+        let live = self.0.live.load(Ordering::Acquire);
+        if live > limit_bytes {
+            return Err(memory_error(&format!(
+                "memory allocation cannot cover retained owners: reserved={live}, requested_limit={limit_bytes}"
+            )));
+        }
+        *limit = limit_bytes;
+        Ok(())
+    }
+
     #[must_use]
     pub fn snapshot(&self) -> LiveMemorySnapshot {
+        let limit_bytes = match &self.0.limit {
+            PoolLimit::Fixed(limit) => *limit,
+            PoolLimit::Configurable(limit) => *limit
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        };
         LiveMemorySnapshot {
-            limit_bytes: self.0.limit,
+            limit_bytes,
             reserved_bytes: self.0.live.load(Ordering::Acquire),
             peak_reserved_bytes: self.0.peak.load(Ordering::Acquire),
             denied_reservations: self.0.denied.load(Ordering::Relaxed),
@@ -73,13 +131,24 @@ impl LiveMemoryPool {
     }
 
     fn acquire(&self, bytes: u64) -> Result<()> {
+        match &self.0.limit {
+            PoolLimit::Fixed(limit) => self.acquire_with_limit(bytes, *limit),
+            PoolLimit::Configurable(limit) => {
+                let limit = limit
+                    .read()
+                    .map_err(|_| memory_error("memory allocation configuration poisoned"))?;
+                self.acquire_with_limit(bytes, *limit)
+            }
+        }
+    }
+
+    fn acquire_with_limit(&self, bytes: u64, limit: u64) -> Result<()> {
         let mut live = self.0.live.load(Ordering::Acquire);
         loop {
-            let Some(next) = live.checked_add(bytes).filter(|next| *next <= self.0.limit) else {
+            let Some(next) = live.checked_add(bytes).filter(|next| *next <= limit) else {
                 self.0.denied.fetch_add(1, Ordering::Relaxed);
                 return Err(memory_error(&format!(
-                    "memory reservation denied: requested={bytes}, reserved={live}, limit={}",
-                    self.0.limit
+                    "memory reservation denied: requested={bytes}, reserved={live}, limit={limit}"
                 )));
             };
             match self
@@ -109,6 +178,13 @@ pub struct MemoryLease {
 }
 
 impl MemoryLease {
+    /// Reuse this reservation's owner across subsequent overlapping stages.
+    /// Borrowing the pool does not issue another allocation or release credits.
+    #[must_use]
+    pub const fn pool(&self) -> &LiveMemoryPool {
+        &self.pool
+    }
+
     #[must_use]
     pub const fn bytes(&self) -> u64 {
         self.bytes
@@ -189,6 +265,12 @@ impl<T> Budgeted<T> {
     #[must_use]
     pub const fn reserved_bytes(&self) -> u64 {
         self.lease.bytes()
+    }
+
+    /// Inspect the reservation identity without releasing or transferring credit.
+    #[must_use]
+    pub const fn lease(&self) -> &MemoryLease {
+        &self.lease
     }
 
     #[must_use]
@@ -278,5 +360,55 @@ mod tests {
             panic!("injected operator failure");
         });
         assert_eq!(pool.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn configurable_allocation_keeps_retained_owners_and_refuses_too_small_changes() {
+        let pool = LiveMemoryPool::configurable(100).unwrap();
+        let retained_pool = pool.clone();
+        let mut retained = pool.reserve(80).unwrap();
+        assert!(pool.set_limit_bytes(79).is_err());
+        assert!(pool.set_limit_bytes(0).is_err());
+        assert_eq!(pool.snapshot().limit_bytes, 100);
+        assert_eq!(retained.bytes(), 80);
+        pool.set_limit_bytes(80).unwrap();
+        assert!(retained_pool.reserve(1).is_err());
+        pool.set_limit_bytes(160).unwrap();
+        retained.resize(150).unwrap();
+        assert!(retained_pool.owns(&retained));
+        assert_eq!(retained_pool.snapshot().reserved_bytes, 150);
+        drop(retained);
+        retained_pool.set_limit_bytes(1).unwrap();
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert_eq!(pool.snapshot().peak_reserved_bytes, 150);
+        assert_eq!(pool.snapshot().limit_bytes, 1);
+        assert!(
+            LiveMemoryPool::new(100)
+                .unwrap()
+                .set_limit_bytes(200)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn configurable_reservation_and_reconfiguration_are_atomic() {
+        for _ in 0..64 {
+            let pool = LiveMemoryPool::configurable(100).unwrap();
+            let barrier = Barrier::new(2);
+            std::thread::scope(|scope| {
+                let reserve = scope.spawn(|| {
+                    barrier.wait();
+                    pool.reserve(80)
+                });
+                barrier.wait();
+                let changed = pool.set_limit_bytes(50);
+                let reserved = reserve.join().unwrap();
+                assert_ne!(changed.is_ok(), reserved.is_ok());
+                let snapshot = pool.snapshot();
+                assert!(snapshot.reserved_bytes <= snapshot.limit_bytes);
+                drop(reserved);
+            });
+            assert_eq!(pool.snapshot().reserved_bytes, 0);
+        }
     }
 }

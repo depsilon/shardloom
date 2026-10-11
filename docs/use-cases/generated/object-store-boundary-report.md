@@ -21,7 +21,7 @@ S3/GCS/ADLS URI parsing plus an explicit public no-credential fixture read profi
 ## How To Try It
 
 ```text
-target\debug\shardloom object-store-read-smoke s3://shardloom-public-fixtures/orders.vortex --profile public-no-credential-fixture --public-fixture-path target\object-store-public-fixture.vortex --range 0:16 --format json
+target\debug\shardloom object-store-read-smoke s3://shardloom-public-fixtures/orders.vortex --profile public-no-credential-fixture --public-fixture-path target\object-store-public-fixture.vortex --range 0:16 --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 ## Blocker

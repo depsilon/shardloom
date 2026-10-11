@@ -86,7 +86,7 @@ fn owned_count_complete_file_workers_admission_pressure_ties_offsets_and_fresh_s
             for explicit_tie in [false, true] {
                 let prepared = prepare_aggregate(
                     &count_request(&path, offset, limit, explicit_tie),
-                    VortexLocalPrimitiveExecutionPolicy::new(workers).unwrap(),
+                    VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap(),
                 )
                 .unwrap();
                 let memory = prepared.session.memory().clone();
@@ -186,7 +186,7 @@ fn owned_count_filtered_values_and_source_generation_failure_release_ownership()
         });
         let prepared = prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(workers).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap(),
         )
         .unwrap();
         let memory = prepared.session.memory().clone();
@@ -285,7 +285,7 @@ fn owned_count_preserves_every_integer_width_and_extreme_value() {
             let fixture = Fixture::new();
             let path = fixture.source(PrimitiveArray::new(vec![<$t>::MAX, <$t>::MIN, <$t>::MAX, <$t>::MIN], Validity::NonNullable).into_array(), vec![1; 4]);
             for explicit_tie in [false, true] {
-                let prepared = prepare_aggregate(&count_request(&path, 0, 5, explicit_tie), VortexLocalPrimitiveExecutionPolicy::new(2).unwrap()).unwrap();
+                let prepared = prepare_aggregate(&count_request(&path, 0, 5, explicit_tie), VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap()).unwrap();
                 let completed = prepared.execute_owned().unwrap();
                 assert_eq!(completed.result.arrays()[0].dtype().as_struct_fields_opt().unwrap().field(KEY), Some(DType::Primitive($ptype, Nullability::NonNullable)));
                 assert_eq!(completed.result.arrays()[0].dtype().as_struct_fields_opt().unwrap().field(COUNT), Some(DType::Primitive(PType::U64, Nullability::NonNullable)));
@@ -325,7 +325,7 @@ fn owned_count_empty_pruned_and_offset_past_end_keep_schema_and_native_sink_life
         }
         let prepared = prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         let completed = prepared.execute_owned().unwrap();
@@ -381,7 +381,7 @@ fn owned_count_general_shapes_preserve_reference_and_reject_excessive_output() {
     for request in requests {
         let prepared = prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         let memory = prepared.session.memory().clone();
@@ -427,7 +427,7 @@ fn owned_count_rejects_pressure_before_execution_or_output_publication() {
     let path = standard(&fixture);
     let prepared = prepare_aggregate(
         &count_request(&path, 0, 10, false),
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
     let memory = prepared.session.memory().clone();
@@ -467,7 +467,7 @@ fn owned_count_rejects_pressure_before_execution_or_output_publication() {
     );
     let prepared = prepare_aggregate(
         &count_request(&path, 0, 10, false),
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
     let result = prepared.execute_owned().unwrap();
@@ -521,7 +521,7 @@ fn owned_count_native_sink_preserves_all_values_after_source_drop_and_existing_d
     let path = fixture.physical_pair_batches(&keys.map(|key| (key, 1)));
     let prepared = prepare_aggregate(
         &count_request(&path, 0, 10, false),
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
     let target = fixture.0.join("existing.vortex");
@@ -589,7 +589,7 @@ fn owned_count_compatibility_sinks_keep_complete_values_after_source_drop() {
         let path = fixture.physical_pair_batches(&keys.map(|key| (key, 1)));
         let prepared = prepare_aggregate(
             &count_request(&path, offset, limit, false),
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         let result = prepared.execute_owned().unwrap();

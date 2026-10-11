@@ -101,6 +101,13 @@ pub mod metadata_pruning;
 pub mod metadata_summary;
 #[cfg(all(
     feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+mod native_arrow_conversion;
+#[cfg(all(
+    feature = "vortex-local-primitives",
     feature = "universal-format-io",
     unix
 ))]
@@ -615,8 +622,8 @@ pub use output_payload::{
 
 #[cfg(feature = "universal-format-io")]
 pub use universal_format_io::{
-    FlatLocalColumnarSource, FlatLocalColumnarStreamSource, FlatLocalSourceTable,
-    encode_flat_arrow_ipc_rows, encode_flat_arrow_ipc_rows_with_arrow_dtypes,
+    ColumnarSourceVisit, FlatLocalColumnarSource, FlatLocalColumnarStreamSource,
+    FlatLocalSourceTable, encode_flat_arrow_ipc_rows, encode_flat_arrow_ipc_rows_with_arrow_dtypes,
     encode_flat_arrow_ipc_rows_with_dtypes, encode_flat_avro_rows,
     encode_flat_avro_rows_with_arrow_dtypes, encode_flat_avro_rows_with_dtypes,
     encode_flat_orc_rows, encode_flat_orc_rows_with_arrow_dtypes, encode_flat_orc_rows_with_dtypes,
@@ -633,6 +640,7 @@ pub use universal_format_io::{
     read_flat_parquet_source_with_projection, stream_flat_arrow_ipc_columnar_source,
     stream_flat_avro_columnar_source, stream_flat_orc_columnar_source,
     stream_flat_parquet_columnar_source, stream_flat_parquet_columnar_source_with_parallelism,
+    visit_budgeted_avro_source_with_projection, visit_budgeted_parquet_source_with_projection,
     with_capillary_prefetch_columnar_stream_source,
     with_source_native_lean_runtime_embedded_derived_columns_columnar_stream_source,
 };
@@ -662,7 +670,7 @@ pub use vortex_ingest::{
     evaluate_vortex_layout_write_advisor, evaluate_vortex_prepared_olap_single_artifact_state,
     evaluate_vortex_prepared_state_append_only_refinement, evaluate_vortex_prepared_state_reuse,
     evaluate_vortex_scout_ingress, prepare_native_vortex_artifact,
-    publish_vortex_prepared_olap_single_artifact_state,
+    prepare_native_vortex_artifact_controlled, publish_vortex_prepared_olap_single_artifact_state,
     vortex_differential_refinement_manifest_path, vortex_ingest_write_feature_enabled,
     vortex_prepared_state_reuse_manifest_path, write_flat_scalar_vortex_prepared_state,
     write_vortex_differential_refinement_manifest, write_vortex_prepared_olap_state_bundle,
@@ -672,6 +680,7 @@ pub use vortex_ingest::{
 pub use vortex_ingest::{
     VortexPreparedStateColumnarStreamWriteRequest, VortexPreparedStateColumnarWriteRequest,
     write_flat_columnar_vortex_prepared_state, write_flat_columnar_vortex_prepared_state_streaming,
+    write_flat_columnar_vortex_prepared_state_streaming_controlled,
 };
 
 // Runtime bridge, scheduler, bounded execution, and narrow local engine/provider exports.

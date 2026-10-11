@@ -33,7 +33,7 @@ impl AggregateScanRuntime for LocalVortexRuntime {
     fn provider_drivers(&self, requested: usize) -> Result<(Self::ProviderDrivers, usize)> {
         // This cross-platform legacy runtime already owns its provider pool.
         let count = match self {
-            Self::Single(_) => 0,
+            Self::Single(_) | Self::Shared(_) => 0,
             Self::Current { .. } => bounded_local_vortex_worker_count(requested),
         };
         Ok(((), count))

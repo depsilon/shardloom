@@ -532,6 +532,40 @@ fn serving_cancelled_blocking_completion_keeps_io_and_buffer_owners_until_return
 }
 
 #[test]
+fn unpolled_native_read_retains_its_provider_owner_until_dropped() {
+    let fixture = Fixture::new();
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let budget = io_ownership::IoBudget::new(1, 4096);
+    let scope =
+        io_ownership::IoScope::new(Arc::clone(&budget), &memory, CancellationToken::default())
+            .unwrap();
+    let scope_bytes = memory.snapshot().reserved_bytes;
+    let runtime = CurrentThreadRuntime::new();
+    let reader = ResidentFileReadAt {
+        identity: Arc::new(SourceIdentity::capture(&fixture.path()).unwrap()),
+        allocator: Arc::new(ReservedHostAllocator::new(memory.clone())),
+        handle: runtime.handle(),
+        concurrency: 1,
+        scope: Some(Arc::clone(&scope)),
+        reader_owner: Some(scope.retain_reader(&memory).unwrap()),
+    };
+    let retained_bytes = memory.snapshot().reserved_bytes;
+    assert!(retained_bytes > scope_bytes);
+
+    let read = reader.read_at(0, 1, Alignment::none());
+    drop(reader);
+    // Cancelling the provider may drop its reader before this future. The
+    // future must keep that cleanup owner, even before any OS read is admitted.
+    assert_eq!(budget.snapshot().active_requests, 0);
+    assert_eq!(memory.snapshot().reserved_bytes, retained_bytes);
+    drop(read);
+    scope.close_and_drain(&runtime);
+    assert_eq!(memory.snapshot().reserved_bytes, scope_bytes);
+    drop(scope);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn ordinary_failed_operation_drives_cancelled_provider_completion_before_return() {
     let fixture = Fixture::new();
     for cancel in [false, true] {

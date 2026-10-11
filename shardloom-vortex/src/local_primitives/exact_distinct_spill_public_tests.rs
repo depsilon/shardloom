@@ -173,7 +173,7 @@ fn prepared_spill_exact_distinct_reexecutes_complete_values_without_reopening() 
         let session = ResidentVortexSession::new(32 << 20, parallelism).unwrap();
         let prepared = prepare_aggregate_in_session(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &session,
         )
         .unwrap();
@@ -214,7 +214,7 @@ fn public_exact_distinct_spill_many_runs_filtered_reordered_values_and_scoped_ce
         }
         let report = execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         let expected = fixture.expected(123, 7, minimum);
@@ -277,7 +277,8 @@ fn public_exact_distinct_spill_many_runs_filtered_reordered_values_and_scoped_ce
             assert!(
                 execute_vortex_local_primitive_with_policy(
                     &wrong_order,
-                    VortexLocalPrimitiveExecutionPolicy::single_threaded()
+                    VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                        .expect("explicit fixture allocation")
                 )
                 .unwrap_err()
                 .to_string()
@@ -295,7 +296,8 @@ fn public_exact_distinct_spill_empty_small_and_unsupported_before_source_open() 
         let request = fixture.query(0, 7);
         let report = execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         assert_eq!(values(&report), fixture.expected(0, 7, i16::MIN));
@@ -336,7 +338,8 @@ fn public_exact_distinct_spill_empty_small_and_unsupported_before_source_open() 
         unsupported.simple_aggregate.as_mut().unwrap().measures[0].function = "sum".into();
         let error = execute_vortex_local_primitive_with_policy(
             &unsupported,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap_err();
         assert!(
@@ -349,6 +352,7 @@ fn public_exact_distinct_spill_empty_small_and_unsupported_before_source_open() 
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn public_exact_distinct_spill_quota_workspace_cancel_and_source_generation_errors_cleanup() {
     let fixture = Fixture::new(65_537);
     let mut request = fixture.query(0, 7);
@@ -362,7 +366,8 @@ fn public_exact_distinct_spill_quota_workspace_cancel_and_source_generation_erro
         .quota_bytes = 32_769;
     let error = execute_vortex_local_primitive_with_policy(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap_err();
     assert!(
@@ -388,7 +393,8 @@ fn public_exact_distinct_spill_quota_workspace_cancel_and_source_generation_erro
         assert!(
             execute_vortex_local_primitive_with_policy(
                 &request,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded()
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation")
             )
             .is_err()
         );
@@ -410,7 +416,8 @@ fn public_exact_distinct_spill_quota_workspace_cancel_and_source_generation_erro
     assert!(
         execute_vortex_local_primitive_with_policy(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded()
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation")
         )
         .unwrap_err()
         .to_string()
@@ -432,7 +439,8 @@ fn public_exact_distinct_spill_quota_workspace_cancel_and_source_generation_erro
         super::execute(
             request.source_uri.as_ref().unwrap(),
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             file,
             session,
             runtime,

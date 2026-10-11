@@ -6,10 +6,15 @@ use std::{
 };
 
 fn run_shardloom_json(args: &[String]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
-        .output()
-        .expect("shardloom command runs")
+    let mut command = Command::new(env!("CARGO_BIN_EXE_shardloom"));
+    command.args(args);
+    if matches!(
+        args.first().map(String::as_str),
+        Some("delta-log-metadata-read-smoke" | "hudi-timeline-metadata-read-smoke")
+    ) {
+        command.args(["--memory-gb", "4", "--max-parallelism", "2"]);
+    }
+    command.output().expect("shardloom command runs")
 }
 
 fn field(key: &str, value: &str) -> String {

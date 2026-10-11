@@ -177,7 +177,8 @@ def main() -> int:
         sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python/src"))
         import shardloom as sl
 
-        context = sl.context(binary=str(binary), cwd=output, timeout=120)
+        context = sl.context(binary=str(binary), cwd=output, timeout=120,
+                             memory_gb=4, max_parallelism=2)
         client = context.client
         raw = output / "cargo.jsonl"
         raw.write_text("".join(json.dumps(row) + "\n" for row in [

@@ -53,7 +53,7 @@ target\debug\shardloom capabilities --format json
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python examples\local-python-smoke\run.py --repo-root .
+python examples\local-python-smoke\run.py --repo-root . --memory-gb 16 --max-parallelism 8
 ```
 
 The script imports the Python wrapper, runs status, smoke, and capability
@@ -75,14 +75,16 @@ or Foundry production claim. See
 
 ## 5. Try Memory-Backed Native Output
 
-After creating `ctx = context(repo_root='.')`, use `ctx.read('orders.csv')`
+The 16 GiB / 8 lane values below are illustrative caller choices, not recommended defaults or measured usage.
+
+After creating `ctx = context(repo_root='.', memory_gb=16, max_parallelism=8)`, use `ctx.read('orders.csv')`
 for a file, `ctx.from_rows([{'id': 1}])` for declared memory rows, or
 `ctx.range(0, 3)` for generated rows. These declarations enter the same native
 planner when collected or written; Python does not evaluate the query.
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from pathlib import Path; import tempfile; from shardloom import context; output=Path(tempfile.mkdtemp(prefix='shardloom-first-steps-'))/'generated-reference.jsonl'; ctx=context(repo_root='.'); r=ctx.from_rows([{'id': 1, 'label': 'alpha'}]).write(output); print(output, r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from pathlib import Path; import tempfile; from shardloom import context; output=Path(tempfile.mkdtemp(prefix='shardloom-first-steps-'))/'generated-reference.jsonl'; ctx=context(repo_root='.', memory_gb=16, max_parallelism=8); r=ctx.from_rows([{'id': 1, 'label': 'alpha'}]).write(output); print(output, r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
 The example writes to a new temporary directory on each run and prints its path.

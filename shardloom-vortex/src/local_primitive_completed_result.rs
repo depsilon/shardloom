@@ -687,8 +687,30 @@ pub(super) fn write_plan(
     overwrite: bool,
     policy: super::VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+    write_plan_controlled(
+        plan,
+        request,
+        path,
+        format,
+        overwrite,
+        policy,
+        &CancellationToken::default(),
+    )
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) fn write_plan_controlled(
+    plan: super::native_sink::NativeSinkPlan,
+    request: &VortexQueryPrimitiveRequest,
+    path: &std::path::Path,
+    format: super::VortexLocalPrimitiveRowExportFormat,
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    cancellation: &CancellationToken,
+) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+    cancellation.check()?;
     if format == super::VortexLocalPrimitiveRowExportFormat::Vortex {
-        return plan.write(request, path, overwrite, policy);
+        return plan.write_produced(request, path, overwrite, policy, None, cancellation, None);
     }
     if matches!(
         format,
@@ -704,7 +726,7 @@ pub(super) fn write_plan(
             overwrite,
             policy,
             None,
-            &CancellationToken::default(),
+            cancellation,
             None,
         );
     }
@@ -713,14 +735,14 @@ pub(super) fn write_plan(
         let limits = if plan.source.is_source() {
             super::columnar_compat_sink::CompatibilityLimits::streaming(
                 plan.row_count,
-                &CancellationToken::default(),
+                cancellation,
             )
         } else {
             super::columnar_compat_sink::CompatibilityLimits::default()
         };
         super::columnar_compat_sink::prepare_plan(request, plan, format, policy, limits)?
             .ok_or_else(|| failed("result exceeds compatibility sink admission"))?
-            .write(path, overwrite)
+            .write_controlled(path, overwrite, cancellation)
             .map(|completed| completed.report)
     }
     #[cfg(not(feature = "universal-format-io"))]
@@ -749,13 +771,39 @@ pub(super) fn export_sort_from_source(
     policy: super::VortexLocalPrimitiveExecutionPolicy,
     source: &crate::resident_session::PreparedVortexSource,
 ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+    export_sort_from_source_controlled(
+        request,
+        output,
+        format,
+        overwrite,
+        policy,
+        source,
+        &CancellationToken::default(),
+    )
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) fn export_sort_from_source_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    output: &std::path::Path,
+    format: super::VortexLocalPrimitiveRowExportFormat,
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    source: &crate::resident_session::PreparedVortexSource,
+    parent_cancellation: &CancellationToken,
+) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+    parent_cancellation.check()?;
     let sort = super::required_sort_rows(request)?;
-    let cancellation = sort
-        .spill
-        .as_ref()
-        .map_or_else(CancellationToken::default, |spill| {
-            CancellationToken::from_shared_flag(std::sync::Arc::clone(&spill.cancellation))
-        });
+    let cancellation = sort.spill.as_ref().map_or_else(
+        || parent_cancellation.clone(),
+        |spill| {
+            CancellationToken::from_shared_flag_with_parent(
+                std::sync::Arc::clone(&spill.cancellation),
+                parent_cancellation,
+            )
+        },
+    );
+    cancellation.check()?;
     let uri = request
         .source_uri
         .as_ref()

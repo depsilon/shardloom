@@ -163,8 +163,7 @@ impl VortexLocalEnginePrimitive {
 pub struct VortexLocalEngineRequest {
     pub uri: DatasetUri,
     pub primitive: VortexLocalEnginePrimitive,
-    pub memory_gb: u64,
-    pub max_parallelism: usize,
+    pub resources: shardloom_core::ExecutionResources,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexLocalEngineRequest {
@@ -176,23 +175,30 @@ impl VortexLocalEngineRequest {
         memory_gb: u64,
         max_parallelism: usize,
     ) -> Result<Self> {
-        if memory_gb == 0 {
-            return Err(ShardLoomError::InvalidOperation(
-                "memory_gb must be >= 1".to_string(),
-            ));
-        }
-        if max_parallelism == 0 {
-            return Err(ShardLoomError::InvalidOperation(
-                "max_parallelism must be >= 1".to_string(),
-            ));
-        }
-        Ok(Self {
+        Ok(Self::with_resources(
             uri,
             primitive,
-            memory_gb,
-            max_parallelism,
+            shardloom_core::ExecutionResources::from_gib(
+                memory_gb,
+                max_parallelism,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )?,
+        ))
+    }
+
+    /// Preserve the validated caller allocation, including exact-byte grants.
+    #[must_use]
+    pub const fn with_resources(
+        uri: DatasetUri,
+        primitive: VortexLocalEnginePrimitive,
+        resources: shardloom_core::ExecutionResources,
+    ) -> Self {
+        Self {
+            uri,
+            primitive,
+            resources,
             diagnostics: vec![],
-        })
+        }
     }
     pub fn add_diagnostic(&mut self, d: Diagnostic) {
         self.diagnostics.push(d);
@@ -207,11 +213,11 @@ impl VortexLocalEngineRequest {
     }
     pub fn summary(&self) -> String {
         format!(
-            "uri={} primitive={} memory_gb={} max_parallelism={} diagnostics={}",
+            "uri={} primitive={} memory_bytes={} max_parallelism={} diagnostics={}",
             self.uri.as_str(),
             self.primitive.summary(),
-            self.memory_gb,
-            self.max_parallelism,
+            self.resources.memory_bytes(),
+            self.resources.max_parallelism(),
             self.diagnostics.len()
         )
     }
@@ -250,9 +256,41 @@ impl VortexLocalEngineReport {
     /// # Errors
     /// Returns an error when nested planning/execution report creation fails.
     pub fn from_request(request: VortexLocalEngineRequest) -> Result<Self> {
+        Self::from_request_impl(
+            request,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            None,
+        )
+    }
+
+    /// Build the same local-engine report while retaining the caller's native owner.
+    /// # Errors
+    /// Returns an error when nested planning/execution report creation fails.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub fn from_request_in_session(
+        request: VortexLocalEngineRequest,
+        session: &crate::resident_session::ResidentVortexSession,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<Self> {
+        cancellation.check()?;
+        crate::local_primitives::prepared_relational::validate_session_policy(
+            VortexLocalPrimitiveExecutionPolicy::from_resources(request.resources)?,
+            session,
+        )?;
+        Self::from_request_impl(request, Some((session, cancellation)))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn from_request_impl(
+        request: VortexLocalEngineRequest,
+        #[cfg(all(feature = "vortex-local-primitives", unix))] owner: Option<(
+            &crate::resident_session::ResidentVortexSession,
+            &shardloom_exec::compute_pool::CancellationToken,
+        )>,
+    ) -> Result<Self> {
         let query_request = primitive_to_query_request(&request)?;
         let metadata_open_report = open_vortex_metadata_only(
-            VortexMetadataOpenRequest::metadata_only(request.uri.clone()),
+            VortexMetadataOpenRequest::metadata_only(request.uri.clone(), request.resources),
         )
         .ok();
         let summary = if let Some(open) = metadata_open_report.as_ref() {
@@ -276,17 +314,19 @@ impl VortexLocalEngineReport {
             query_request.clone(),
             Some(summary),
         )?);
-        let policy = VortexBoundedExecutionPolicy::memory_limited(
-            request.memory_gb,
-            request.max_parallelism,
-        )?;
+        let policy = VortexBoundedExecutionPolicy::from_resources(request.resources)?;
         let bounded_execution_report = if let Some(local_report) = local_execution_report.clone() {
             Some(execute_vortex_bounded_local_query(local_report, policy)?)
         } else {
             None
         };
-        let local_primitive_execution_report =
-            execute_local_primitive_when_needed(&query_request, &query_result, &request)?;
+        let local_primitive_execution_report = execute_local_primitive_when_needed(
+            &query_request,
+            &query_result,
+            &request,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            owner,
+        )?;
         let status = map_status(
             metadata_open_report.as_ref(),
             local_execution_report.as_ref(),
@@ -458,8 +498,24 @@ impl VortexLocalEngineReport {
             self.decision_trace_entries
         );
         let _ = writeln!(out, "work avoided metrics: {}", self.work_avoided_metrics);
-        let _ = writeln!(out, "memory_gb: {}", self.request.memory_gb);
-        let _ = writeln!(out, "max_parallelism: {}", self.request.max_parallelism);
+        let _ = writeln!(
+            out,
+            "memory_gb: {}",
+            self.request
+                .resources
+                .whole_gib()
+                .map_or_else(|| "unavailable".into(), |value| value.to_string())
+        );
+        let _ = writeln!(
+            out,
+            "memory_bytes: {}",
+            self.request.resources.memory_bytes()
+        );
+        let _ = writeln!(
+            out,
+            "max_parallelism: {}",
+            self.request.resources.max_parallelism()
+        );
         let _ = writeln!(out, "tasks executed: {}", self.tasks_executed);
         let _ = writeln!(out, "data read: {}", self.data_read);
         let _ = writeln!(out, "data decoded: {}", self.data_decoded);
@@ -927,14 +983,28 @@ fn execute_local_primitive_when_needed(
     query_request: &VortexQueryPrimitiveRequest,
     query_result: &VortexQueryPrimitiveResult,
     engine_request: &VortexLocalEngineRequest,
+    #[cfg(all(feature = "vortex-local-primitives", unix))] owner: Option<(
+        &crate::resident_session::ResidentVortexSession,
+        &shardloom_exec::compute_pool::CancellationToken,
+    )>,
 ) -> Result<Option<VortexLocalPrimitiveExecutionReport>> {
     if query_result.value.is_known() {
         return Ok(None);
     }
-    let report = execute_vortex_local_primitive_with_policy(
-        query_request,
-        VortexLocalPrimitiveExecutionPolicy::new(engine_request.max_parallelism)?,
-    )?;
+    let policy = VortexLocalPrimitiveExecutionPolicy::from_resources(engine_request.resources)?;
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let report = if let Some((session, cancellation)) = owner {
+        crate::local_primitives::execution::execute_in_session(
+            query_request,
+            policy,
+            session,
+            cancellation,
+        )?
+    } else {
+        execute_vortex_local_primitive_with_policy(query_request, policy)?
+    };
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+    let report = execute_vortex_local_primitive_with_policy(query_request, policy)?;
     if matches!(
         report.status,
         VortexLocalPrimitiveExecutionStatus::FeatureDisabled
@@ -1531,6 +1601,19 @@ pub fn run_vortex_local_engine(
 ) -> Result<VortexLocalEngineReport> {
     VortexLocalEngineReport::from_request(request)
 }
+
+/// Run the existing local-engine strategy under a caller-owned native session.
+/// # Errors
+/// Returns an error when report construction, cancellation, or native execution fails.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub fn run_vortex_local_engine_in_session(
+    request: VortexLocalEngineRequest,
+    session: &crate::resident_session::ResidentVortexSession,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> Result<VortexLocalEngineReport> {
+    VortexLocalEngineReport::from_request_in_session(request, session, cancellation)
+}
+
 pub const fn vortex_local_engine_is_side_effect_free(report: &VortexLocalEngineReport) -> bool {
     report.is_side_effect_free()
 }
@@ -1634,9 +1717,8 @@ mod tests {
         let local = metadata_local_execution_report();
         let bounded = execute_vortex_bounded_local_query(
             local.clone(),
-            VortexBoundedExecutionPolicy::new(
-                shardloom_exec::MemoryBudget::from_gib(1).expect("budget"),
-            ),
+            VortexBoundedExecutionPolicy::memory_limited(1, 1)
+                .expect("explicit fixture allocation"),
         )
         .expect("bounded report");
         let effects =
@@ -1664,6 +1746,8 @@ mod tests {
             VortexQueryPrimitiveResult::needs_encoded_read(query_request, "metadata unavailable");
         let mut local_primitive = VortexLocalPrimitiveExecutionReport::feature_disabled(
             VortexQueryPrimitiveKind::CountAll,
+            crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+                .expect("explicit fixture allocation"),
         );
         local_primitive.status = VortexLocalPrimitiveExecutionStatus::Executed;
         local_primitive.mode = VortexLocalPrimitiveExecutionMode::MetadataPreservingCount;

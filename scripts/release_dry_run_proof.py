@@ -706,7 +706,7 @@ def native_output_runtime_script(output_path: Path, declaration: str, expected: 
     return (
         "import json; from pathlib import Path; "
         "from shardloom import context; "
-        "ctx=context(); "
+        "ctx=context(memory_gb=4, max_parallelism=2); "
         f"report={declaration}.write("
         f"{output_arg}, allow_overwrite=True); "
         "assert report.envelope.status == 'success', report.envelope.human_text; "
@@ -965,6 +965,10 @@ def main() -> int:
                 str(repo_root),
                 "--shardloom-bin",
                 str(binary),
+                "--memory-gb",
+                "4",
+                "--max-parallelism",
+                "2",
             ],
             cwd=repo_root,
         )

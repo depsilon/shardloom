@@ -90,7 +90,7 @@ fn verify_aggregates(outputs: &[ExecutedVortexAggregate]) -> Vec<Value> {
 
 fn run(source: &PreparedVortexSource, baseline: &PreparedVortexAggregate, shared: bool) -> Value {
     let complete = Instant::now();
-    let policy = VortexLocalPrimitiveExecutionPolicy::new(4).unwrap();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap();
     let (outputs, producer_nanos, handoff_prepare_nanos) = if shared {
         let producer = Instant::now();
         let result = source
@@ -156,7 +156,7 @@ fn existing_owned_producer_fanout_pairs() {
     let source = session.prepare_file(&fixture.path).unwrap();
     let baseline = prepare_aggregate_in_session(
         &request(DatasetUri::new(fixture.path.display().to_string()).unwrap()),
-        VortexLocalPrimitiveExecutionPolicy::new(4).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
         &session,
     )
     .unwrap();
@@ -192,7 +192,7 @@ fn existing_owned_producer_fanout_pairs() {
     let prepared = owned
         .prepare_aggregate(
             &request(owned.source_uri().clone()),
-            VortexLocalPrimitiveExecutionPolicy::new(4).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
         )
         .unwrap();
     let mut cancelled = consumers(&prepared, true).into_iter();

@@ -210,7 +210,8 @@ fn utf8_integer_distinct_complete_workers_global_winner_offset_and_actual_eviden
     let (chunks, oracle, rows) = corpus();
     for parallelism in [1, 2, 4] {
         let memory = LiveMemoryPool::new(16 << 20).unwrap();
-        let policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+        let policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
         let aggregate = request(1);
         let mut states = state(&aggregate, 4, policy);
         let mut workers = CompoundWorkers::admit(
@@ -278,7 +279,8 @@ fn utf8_integer_distinct_complete_workers_global_winner_offset_and_actual_eviden
 
 fn admitted(dtype: &DType, aggregate: &VortexSimpleAggregateRequest) -> bool {
     let memory = LiveMemoryPool::new(2 << 20).unwrap();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let states = state(aggregate, 3, policy);
     let request = VortexQueryPrimitiveRequest::simple_aggregate(
         DatasetUri::new("/absent-admission.vortex").unwrap(),
@@ -287,7 +289,11 @@ fn admitted(dtype: &DType, aggregate: &VortexSimpleAggregateRequest) -> bool {
     .with_source_order_limit(3);
     let expected = compound_count_roles::admit(&states, dtype, &columns()).is_some();
     assert_eq!(
-        !aggregate_count_workers::restore_provider_drivers(&request, dtype),
+        !aggregate_count_workers::restore_provider_drivers(
+            &request,
+            dtype,
+            policy.resource_envelope()
+        ),
         expected
     );
     let workers = aggregate_count_workers::CountWorkers::admit(
@@ -349,7 +355,8 @@ fn utf8_integer_distinct_schema_and_order_admission_match_provider_precheck() {
     let states = state(
         &aggregate,
         3,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     );
     assert!(compound_count_roles::admit(&states, good.dtype(), &columns()).is_none());
 }
@@ -357,7 +364,8 @@ fn utf8_integer_distinct_schema_and_order_admission_match_provider_precheck() {
 #[test]
 fn utf8_integer_distinct_entry_pressure_never_installs_untracked_exact_groups() {
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     policy.resource_envelope.group_state_soft_item_budget = 2;
     let aggregate = request(0);
     let mut states = state(&aggregate, 3, policy);
@@ -390,7 +398,8 @@ fn utf8_integer_distinct_entry_pressure_never_installs_untracked_exact_groups() 
 fn utf8_integer_distinct_initial_and_committed_task_capacity_denial_are_distinct() {
     for committed in [false, true] {
         let memory = LiveMemoryPool::new(4 << 20).unwrap();
-        let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+        let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation");
         let aggregate = request(0);
         let mut states = state(&aggregate, 3, policy);
         let data = chunk(strings(&["x"]), integers(&[1]));
@@ -502,7 +511,8 @@ fn utf8_integer_distinct_cancel_submitted_jobs_publishes_no_partial_output() {
     let (chunks, _, _) = corpus();
     for parallelism in [1, 4] {
         let memory = LiveMemoryPool::new(16 << 20).unwrap();
-        let policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+        let policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
         let aggregate = request(0);
         let mut states = state(&aggregate, 4, policy);
         let mut workers = CompoundWorkers::admit(

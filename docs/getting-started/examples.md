@@ -10,10 +10,14 @@ object-store/lakehouse, Foundry, or Spark-displacement claims.
 
 ## Stable V1 Local Examples
 
-These examples show the copy-paste shape of the current v1 local surface. Start with
-`sl.context()` and `ctx.read(path)`; use explicit schemas or format-specific helpers only when a
-test, benchmark, or reproducibility workflow needs them. The examples are intentionally bounded and
-must emit ShardLoom evidence instead of delegating unsupported work to another engine.
+These examples use the current [source build](source-checkout-install.md).
+Published v0.5.1 packages retain their release-time API. Configure the resource
+allocation once on `sl.context(...)`, then use `ctx.read(path)`; use explicit
+schemas or format-specific helpers when a test, benchmark, or reproducibility
+workflow needs them. The examples must emit ShardLoom evidence instead of
+delegating unsupported work to another engine. The 16 GiB / 8 lane allocations
+shown below are illustrative caller choices, not recommendations, defaults, or
+measured usage.
 
 `ctx.read(path)` infers local adapters for `.csv`, `.json`, `.jsonl`, `.ndjson`, `.parquet`,
 `.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex`. CSV, flat JSON/JSONL/NDJSON,
@@ -26,7 +30,7 @@ present; otherwise ShardLoom returns deterministic adapter blockers without fall
 ```python
 import shardloom as sl
 
-ctx = sl.context()
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 orders = ctx.read("target/orders.csv")
 
 result = (
@@ -190,7 +194,7 @@ external_engine_invoked=false
 ## Local Python Smoke
 
 ```powershell
-python examples\local-python-smoke\run.py --repo-root .
+python examples\local-python-smoke\run.py --repo-root . --memory-gb 16 --max-parallelism 8
 ```
 
 This checks import, CLI resolution, status and capabilities, then creates a small CSV fixture,
@@ -221,7 +225,7 @@ dependencies.
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
 `from_rows(...)` declares typed memory input. `collect()` returns complete native result rows, and
@@ -235,7 +239,7 @@ transform, collection, and write request all use the shared native workflow:
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).with_column('batch_id', 1).select('id', 'batch_id').write('target/generated-reference-transformed.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).with_column('batch_id', 1).select('id', 'batch_id').write('target/generated-reference-transformed.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
 The example demonstrates this transform shape only. Other expressions are admitted or rejected by
@@ -245,8 +249,8 @@ the native planner, with unsupported work reported deterministically.
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').literal_table([{'code':'A','weight':1.5},{'code':'B','weight':2.0}]).write('target/generated-literal.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
-python -c "from shardloom import context; r=context(repo_root='.').calendar('2026-05-18','2026-05-21', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).literal_table([{'code':'A','weight':1.5},{'code':'B','weight':2.0}]).write('target/generated-literal.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).calendar('2026-05-18','2026-05-21', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
 These caller-provided literals use the same native collection and declared-sink path as
@@ -257,7 +261,7 @@ dtype combinations follow the same enabled adapter and admission rules.
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').range(0, 50, column='id').limit(5).write('target/generated-range.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).range(0, 50, column='id').limit(5).write('target/generated-range.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
 These Python helpers declare integer range/sequence input for the shared native workflow. They can
@@ -266,13 +270,13 @@ dtype, and sink-adapter rules as other memory-backed inputs. The examples use th
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').sequence(0, 50, column='id').take(5).write('target/generated-sequence.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).sequence(0, 50, column='id').take(5).write('target/generated-sequence.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
 Equivalent SQL request through the public CLI facade:
 
 ```powershell
-cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --sql "SELECT value AS id FROM range(1, 4)" --request write_jsonl --output target\generated-sequence.jsonl --bounded true --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --sql "SELECT value AS id FROM range(1, 4)" --request write_jsonl --output target\generated-sequence.jsonl --bounded true --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 The range form is also covered by public native-workflow tests. This example shows one bounded
@@ -282,9 +286,9 @@ range request; it does not claim support for every generator or sink/type combin
 
 ```powershell
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').sql_values(\"VALUES (1, 'alpha'), (2, 'beta')\").write('target/generated-sql-values.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
-python -c "from shardloom import context; r=context(repo_root='.').sql_literal_select(\"SELECT 1 AS id, 'alpha' AS label, true AS active\").write('target/generated-sql-select.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
-python -c "from shardloom import context; r=context(repo_root='.').sql(\"SELECT 2 AS id, 'beta' AS label\").write('target/generated-sql-from-context.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).sql_values(\"VALUES (1, 'alpha'), (2, 'beta')\").write('target/generated-sql-values.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).sql_literal_select(\"SELECT 1 AS id, 'alpha' AS label, true AS active\").write('target/generated-sql-select.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).sql(\"SELECT 2 AS id, 'beta' AS label\").write('target/generated-sql-from-context.jsonl', allow_overwrite=True); print(r.envelope.status, r.fallback_attempted, r.external_engine_invoked, r.claim_gate_status)"
 ```
 
 Source-free `VALUES` and literal `SELECT` statements use the shared native workflow. They can be
@@ -302,9 +306,9 @@ id,label,amount
 2,beta,15
 3,gamma,
 "@ | Set-Content -Encoding utf8 target\local-source-runtime.csv
-cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/local-source-runtime.csv --input-format csv --sql "SELECT id,label FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1" --request collect --bounded true --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/local-source-runtime.csv --input-format csv --sql "SELECT id,label FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').sql(\"SELECT id,label FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1\").collect(); print(r.result_rows, r.fallback_attempted, r.external_engine_invoked)"
+python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).sql(\"SELECT id,label FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1\").collect(); print(r.result_rows, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 This example submits the shown CSV projection, filter, and limit through the shared native workflow
@@ -320,9 +324,9 @@ id,label,amount
 1,alpha,8
 2,beta,15
 "@ | Set-Content -Encoding utf8 target\vortex-ingest-source.csv
-cargo run -q -p shardloom-cli --features vortex-write -- vortex-prepare target\vortex-ingest-source.csv target\vortex-ingest-source.vortex --allow-overwrite --format json
+cargo run -q -p shardloom-cli --features vortex-write -- vortex-prepare target\vortex-ingest-source.csv target\vortex-ingest-source.vortex --allow-overwrite --memory-gb 16 --max-parallelism 8 --format json
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.input_row_count, r.fallback_attempted, r.external_engine_invoked)"
+python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release'), memory_gb=16, max_parallelism=8); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.input_row_count, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 This example prepares a local Vortex artifact from the shown CSV input. The command enables the
@@ -338,7 +342,7 @@ New-Item -ItemType Directory -Force target | Out-Null
 {"id":2,"amount":"15","label":"mid"}
 {"id":3,"amount":"21","label":"high"}
 "@ | Set-Content -Encoding utf8 target\sql-local-source-cast.jsonl
-cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-cast.jsonl --input-format jsonl --sql "SELECT id,amount,label FROM 'target/sql-local-source-cast.jsonl' WHERE CAST(amount AS int64) >= 10 LIMIT 10" --request collect --bounded true --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-cast.jsonl --input-format jsonl --sql "SELECT id,amount,label FROM 'target/sql-local-source-cast.jsonl' WHERE CAST(amount AS int64) >= 10 LIMIT 10" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 This example sends the shown JSONL cast predicate to the shared native workflow and requests the
@@ -355,7 +359,7 @@ id,event_date
 2,2026-05-19
 3,2026-05-20
 "@ | Set-Content -Encoding utf8 target\sql-local-source-date.csv
-cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-date.csv --input-format csv --sql "SELECT id,event_date FROM 'target/sql-local-source-date.csv' WHERE DATE_ADD_DAYS(CAST(event_date AS date32), 1) >= DATE '2026-05-20' LIMIT 10" --request collect --bounded true --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-date.csv --input-format csv --sql "SELECT id,event_date FROM 'target/sql-local-source-date.csv' WHERE DATE_ADD_DAYS(CAST(event_date AS date32), 1) >= DATE '2026-05-20' LIMIT 10" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 This example submits a Date32 day-arithmetic predicate through the shared native workflow and
@@ -372,7 +376,7 @@ id,event_date
 2,2026-05-19
 3,2026-05-20
 "@ | Set-Content -Encoding utf8 target\sql-local-source-date.csv
-cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-date.csv --input-format csv --sql "SELECT id,event_date FROM 'target/sql-local-source-date.csv' WHERE DATE_YEAR(CAST(event_date AS date32)) = 2026 AND DATE_MONTH(event_date) = 5 AND DATE_DAY(event_date) >= 19 LIMIT 10" --request collect --bounded true --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-date.csv --input-format csv --sql "SELECT id,event_date FROM 'target/sql-local-source-date.csv' WHERE DATE_YEAR(CAST(event_date AS date32)) = 2026 AND DATE_MONTH(event_date) = 5 AND DATE_DAY(event_date) >= 19 LIMIT 10" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 This example submits the shown Date32 extraction predicate through the shared native workflow and
@@ -390,7 +394,7 @@ id,label,amount
 3,gamma,
 4,delta,21
 "@ | Set-Content -Encoding utf8 target\local-source-runtime.csv
-cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/local-source-runtime.csv --input-format csv --sql "SELECT count(*),sum(amount),avg(amount),min(amount),max(amount) FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1" --request collect --bounded true --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/local-source-runtime.csv --input-format csv --sql "SELECT count(*),sum(amount),avg(amount),min(amount),max(amount) FROM 'target/local-source-runtime.csv' WHERE amount >= 10 LIMIT 1" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 This example submits the shown scalar aggregate query through the shared native workflow and
@@ -409,7 +413,7 @@ id,region,amount
 4,west,
 5,north,3
 "@ | Set-Content -Encoding utf8 target\sql-local-source-group-by.csv
-cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-group-by.csv --input-format csv --sql "SELECT region,count(*),sum(amount) FROM 'target/sql-local-source-group-by.csv' WHERE amount >= 0 GROUP BY region LIMIT 10" --request collect --bounded true --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-group-by.csv --input-format csv --sql "SELECT region,count(*),sum(amount) FROM 'target/sql-local-source-group-by.csv' WHERE amount >= 0 GROUP BY region LIMIT 10" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 This example submits the shown grouped aggregate query through the shared native workflow and
@@ -427,7 +431,7 @@ id,label,amount
 3,gamma,21
 4,delta,13
 "@ | Set-Content -Encoding utf8 target\sql-local-source-topn.csv
-cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-topn.csv --input-format csv --sql "SELECT id,label FROM 'target/sql-local-source-topn.csv' WHERE amount >= 10 ORDER BY amount DESC LIMIT 2" --request collect --bounded true --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --input target/sql-local-source-topn.csv --input-format csv --sql "SELECT id,label FROM 'target/sql-local-source-topn.csv' WHERE amount >= 10 ORDER BY amount DESC LIMIT 2" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 This example submits the shown filtered order-and-limit query through the shared native workflow
@@ -453,7 +457,7 @@ customer_id,region,segment
 30,west,startup
 99,east,orphan
 "@ | Set-Content -Encoding utf8 target\sql-local-source-join-dim.csv
-cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --source-bindings '{"target/sql-local-source-join-fact.csv":{"input_format":"csv"},"target/sql-local-source-join-dim.csv":{"input_format":"csv"}}' --sql "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 10" --request collect --bounded true --format json
+cargo run -q -p shardloom-cli --features release-user-surfaces -- run sql --source-bindings '{"target/sql-local-source-join-fact.csv":{"input_format":"csv"},"target/sql-local-source-join-dim.csv":{"input_format":"csv"}}' --sql "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 10" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 This example submits the shown two-source inner equi-join through the shared native workflow and
@@ -475,7 +479,7 @@ $env:PYTHONPATH = "python\src"
 @'
 import shardloom as sl
 
-ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
+ctx = sl.context(repo_root=".", profile_order=("debug", "release"), memory_gb=16, max_parallelism=8)
 workflow = (
     ctx.read_csv("target/local-source-runtime.csv")
     .select("id", "label")
@@ -578,7 +582,7 @@ callers to parse raw JSON.
 ## Foundry Lightweight Transform
 
 ```powershell
-python examples\foundry-lightweight-transform\run.py --repo-root .
+python examples\foundry-lightweight-transform\run.py --repo-root . --memory-gb 16 --max-parallelism 8
 ```
 
 Use this to inspect the future Foundry transform shape without invoking Foundry,

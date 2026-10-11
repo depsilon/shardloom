@@ -73,7 +73,7 @@ class DeclaredSchemaWriteTests(unittest.TestCase):
         output_format: str,
         output_path: Path,
     ) -> None:
-        report = frame.write(output_path, output_format=output_format, check=False)
+        report = frame.write(output_path, output_format=output_format, check=False, memory_gb=4, max_parallelism=2)
 
         self.assertIsInstance(report, VortexWorkflowExecutionReport)
         self.assertNotIsInstance(report, UnsupportedWorkflowOperationReport)
@@ -119,7 +119,7 @@ class DeclaredSchemaWriteTests(unittest.TestCase):
             secondary = Path(directory) / "secondary.csv"
 
             report = frame.select("label").limit(2).fanout(
-                {"parquet": primary, "csv": secondary}, check=False
+                {"parquet": primary, "csv": secondary}, check=False, memory_gb=4, max_parallelism=2
             )
 
             self.assertIsInstance(report, VortexWorkflowExecutionReport)
@@ -141,6 +141,8 @@ class DeclaredSchemaWriteTests(unittest.TestCase):
                 Path(directory) / "output.parquet",
                 output_format="parquet",
                 check=False,
+                memory_gb=4,
+                max_parallelism=2,
             )
 
             self.assertIsInstance(report, VortexWorkflowExecutionReport)
@@ -150,7 +152,7 @@ class DeclaredSchemaWriteTests(unittest.TestCase):
             self.assertEqual(len(client.run_calls), 1)
 
     def test_public_workflow_run_serializes_source_schema(self) -> None:
-        client = ShardLoomClient(binary="unused")
+        client = ShardLoomClient(binary="unused", memory_gb=4, max_parallelism=2)
         captured: dict[str, Any] = {}
 
         def capture_run(args: list[str], *, check: bool = True) -> OutputEnvelope:
@@ -172,7 +174,7 @@ class DeclaredSchemaWriteTests(unittest.TestCase):
         self.assertEqual(args[args.index("--source-schema") + 1], "label:utf8")
 
     def test_public_workflow_run_omits_absent_source_schema(self) -> None:
-        client = ShardLoomClient(binary="unused")
+        client = ShardLoomClient(binary="unused", memory_gb=4, max_parallelism=2)
         captured: dict[str, Any] = {}
 
         def capture_run(args: list[str], *, check: bool = True) -> OutputEnvelope:

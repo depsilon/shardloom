@@ -51,7 +51,8 @@ fn native_workload_sql_remainder_group_aliases_and_input_precedence() {
     );
     let prepared = prepare(
         &format!("SELECT value % 0 AS bad FROM '{source}'"),
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         |leaf| DatasetUri::new(leaf.path.to_string_lossy()),
     )
     .unwrap();
@@ -109,7 +110,8 @@ fn native_workload_sql_text_kernels_preserve_null_and_format_semantics() {
         assert!(
             prepare(
                 &format!("SELECT {expression} AS bad FROM '{source}' LIMIT 0"),
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 |leaf| DatasetUri::new(leaf.path.to_string_lossy())
             )
             .is_err(),
@@ -122,7 +124,8 @@ fn native_workload_sql_text_kernels_preserve_null_and_format_semantics() {
     ] {
         let prepared = prepare(
             &format!("SELECT {expression} AS bad FROM '{source}'"),
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |leaf| DatasetUri::new(leaf.path.to_string_lossy()),
         )
         .unwrap();

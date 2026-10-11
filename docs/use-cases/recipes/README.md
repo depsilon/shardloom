@@ -32,17 +32,17 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
 | Foundry Dev-Stack Smoke | `smoke_supported` | `foundry-local-proof-boundary` |
 | Benchmark Evidence Interpretation | `smoke_supported` | `benchmark-interpretation-evidence-not-leaderboard` |
 
-## No-Dataset Smoke
+## Local CSV and Generated-Output Smoke
 
-- **User goal:** confirm the local CLI and Python wrapper can report status without reading data.
+- **User goal:** confirm local status and capability reporting, run a bounded CSV query, and write a generated reference output.
 - **Command:**
   ```powershell
-  python examples\local-python-smoke\run.py --repo-root .
+  python examples\local-python-smoke\run.py --repo-root . --memory-gb 16 --max-parallelism 8
   ```
-- **Expected output:** status, smoke, and capabilities JSON.
+- **Expected output:** status/smoke/capabilities JSON, a bounded CSV result, and generated JSONL output.
 - **Evidence fields:** `fallback_attempted=false`, `external_engine_invoked=false`,
   `protocol_version`, `resolved_cli_path`.
-- **Claim boundary:** no dataset execution and no generated-output claim.
+- **Claim boundary:** local source-checkout CSV execution and generated-output smoke with illustrative caller-declared limits of 16 GiB and 8 lanes; these values are not defaults, recommendations, or measurements.
 - **References:** `docs/getting-started/first-10-minutes.md`, `examples/local-python-smoke/README.md`.
 
 ## Local CSV Certified Result
@@ -108,46 +108,46 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
 - **Command:**
   ```powershell
   $env:PYTHONPATH = "python\src"
-  python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.claim_gate_status)"
+  python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.claim_gate_status)"
   ```
 - **Equivalent CLI:**
   ```powershell
-  shardloom generated-source-user-rows target\generated-reference.jsonl id:int64,label:utf8 "id=1,label=alpha;id=2,label=beta" --allow-overwrite --format json
+  shardloom run sql --sql "SELECT 1 AS id, 'alpha' AS label UNION ALL SELECT 2 AS id, 'beta' AS label" --request write_jsonl --output target\generated-reference.jsonl --allow-overwrite --memory-gb 16 --max-parallelism 8 --format json
   ```
 - **Range example:**
   ```powershell
   $env:PYTHONPATH = "python\src"
-  python -c "from shardloom import context; r=context(repo_root='.').range(0, 5, column='id').write('target/generated-range.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+  python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).range(0, 5, column='id').write('target/generated-range.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
   ```
 - **Range CLI:**
   ```powershell
-  shardloom generated-source-range target\generated-range.jsonl 0 5 --column id --allow-overwrite --format json
+  shardloom run sql --sql "SELECT value AS id FROM range(0, 5)" --request write_jsonl --output target\generated-range.jsonl --allow-overwrite --memory-gb 16 --max-parallelism 8 --format json
   ```
 - **Sequence example:**
   ```powershell
   $env:PYTHONPATH = "python\src"
-  python -c "from shardloom import context; r=context(repo_root='.').sequence(0, 5, column='id').write('target/generated-sequence.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+  python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).sequence(0, 5, column='id').write('target/generated-sequence.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
   ```
 - **Sequence CLI:**
   ```powershell
-  shardloom generated-source-sequence target\generated-sequence.jsonl 0 5 --column id --allow-overwrite --format json
+  shardloom run sql --sql "SELECT value AS id FROM range(0, 5)" --request write_jsonl --output target\generated-sequence.jsonl --allow-overwrite --memory-gb 16 --max-parallelism 8 --format json
   ```
 - **Literal-table example:**
   ```powershell
   $env:PYTHONPATH = "python\src"
-  python -c "from shardloom import context; r=context(repo_root='.').literal_table([{'code':'A','weight':1.5},{'code':'B','weight':2.0}]).write('target/generated-literal.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+  python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).literal_table([{'code':'A','weight':1.5},{'code':'B','weight':2.0}]).write('target/generated-literal.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
   ```
 - **Calendar example:**
   ```powershell
   $env:PYTHONPATH = "python\src"
-  python -c "from shardloom import context; r=context(repo_root='.').calendar('2026-05-18','2026-05-21', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+  python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).calendar('2026-05-18','2026-05-21', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
   ```
 - **Source-free SQL examples:**
   ```powershell
   $env:PYTHONPATH = "python\src"
-  python -c "from shardloom import context; r=context(repo_root='.').sql_values(\"VALUES (1, 'alpha'), (2, 'beta')\").write('target/generated-sql-values.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
-  python -c "from shardloom import context; r=context(repo_root='.').sql_literal_select(\"SELECT 1 AS id, 'alpha' AS label, true AS active\").write('target/generated-sql-select.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
-  python -c "from shardloom import context; ctx=context(repo_root='.'); r=ctx.sql(\"SELECT * FROM generate_series(0, 4)\").write('target/generated-sql-series.jsonl', allow_overwrite=True); p=ctx.sql(\"SELECT value AS id, value + 1 AS next FROM range(0, 4)\").write('target/generated-sql-range-projection.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.generated_source_range_end_inclusive, p.sql_source_free_projection_columns, r.claim_gate_status)"
+  python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).sql_values(\"VALUES (1, 'alpha'), (2, 'beta')\").write('target/generated-sql-values.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+  python -c "from shardloom import context; r=context(repo_root='.', memory_gb=16, max_parallelism=8).sql_literal_select(\"SELECT 1 AS id, 'alpha' AS label, true AS active\").write('target/generated-sql-select.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+  python -c "from shardloom import context; ctx=context(repo_root='.', memory_gb=16, max_parallelism=8); r=ctx.sql(\"SELECT * FROM generate_series(0, 4)\").write('target/generated-sql-series.jsonl', allow_overwrite=True); p=ctx.sql(\"SELECT value AS id, value + 1 AS next FROM range(0, 4)\").write('target/generated-sql-range-projection.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.generated_source_range_end_inclusive, p.sql_source_free_projection_columns, r.claim_gate_status)"
   ```
 - **Expected output:** local JSONL/CSV output plus a generated-source/output evidence envelope.
 - **Evidence fields:** `input_dataset_count=0`, `source_io_performed=false`,

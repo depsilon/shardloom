@@ -33,7 +33,10 @@ fn digest(path: &Path) -> String {
 
 // Check every row without retaining a large decoded oracle or output vector.
 fn verify_complete(path: &Path, filtered: bool) -> (usize, String, String) {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(session.open_options().open_path(path))
@@ -149,7 +152,8 @@ fn complete_native_sink_overlap_screen() {
             Fixture::request(&source)
         };
         for parallelism in [1, 4] {
-            let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+            let mut policy =
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
             policy.resource_envelope.memory_budget_bytes = 64 << 20;
             for repetition in 1..=3 {
                 let output = fixture
