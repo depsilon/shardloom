@@ -90,10 +90,10 @@ impl NativeColumnarStream {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .exported = true;
         // The provider owns release callbacks and retained native buffer credits.
-        PyCapsule::new(
+        PyCapsule::new_with_value(
             py,
             FFI_ArrowArrayStream::new(Box::new(reader)),
-            Some(c"arrow_array_stream".into()),
+            c"arrow_array_stream",
         )
     }
 

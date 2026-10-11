@@ -76,7 +76,7 @@ mod result_arrow;
     feature = "universal-format-io",
     unix
 ))]
-pub use result_arrow::{NativeArrowBatchStream, NativeArrowExportReport};
+pub use result_arrow::{NativeArrowBatchDelivery, NativeArrowBatchStream, NativeArrowExportReport};
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_segment_reuse.rs"]
@@ -285,6 +285,39 @@ impl ResidentVortexSession {
             rows,
             logical_buffer_bytes,
         })
+    }
+
+    /// A scalar count remains an encoded constant, with its schema, wrappers and
+    /// one-element array container reserved before construction. The reservation
+    /// follows the result even after its source and prepared operation are gone.
+    /// # Errors
+    /// Rejects cancellation and insufficient shared capacity. This performs no
+    /// query and does not certify the origin of the supplied scalar value.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub fn own_count_result(
+        &self,
+        count: u64,
+        cancellation: &CancellationToken,
+    ) -> Result<OwnedVortexResultBatch> {
+        use vortex::array::{
+            IntoArray as _,
+            arrays::{ConstantArray, StructArray},
+            dtype::FieldNames,
+            validity::Validity,
+        };
+        cancellation.check()?;
+        let ownership =
+            crate::native_payload_schema::reserve_names(self.memory(), 1, |_| "count_all")?;
+        let array = StructArray::try_new(
+            FieldNames::from(vec!["count_all"]),
+            vec![ConstantArray::new(count, 1).into_array()],
+            1,
+            Validity::NonNullable,
+        )
+        .map_err(native_error)?
+        .into_array();
+        cancellation.check()?;
+        self.own_completed_arrays(vec![array], ownership)
     }
 
     #[cfg(all(feature = "vortex-write", unix))]
@@ -740,13 +773,18 @@ impl PreparedVortexSource {
         )
     }
 
-    pub(crate) fn validate_generation(&self) -> Result<()> {
+    /// Recheck the retained generation without reopening its data provider.
+    /// # Errors
+    /// Rejects a replaced, modified or inaccessible source/preparation input.
+    pub fn validate_generation(&self) -> Result<()> {
         self.0.validate()
     }
 
     /// Include hard links and symlinks when rejecting an input as a write target.
+    /// # Errors
+    /// Rejects inaccessible destination metadata and preparation-input aliases.
     #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
-    pub(crate) fn aliases_file(&self, path: &Path) -> Result<bool> {
+    pub fn aliases_file(&self, path: &Path) -> Result<bool> {
         #[cfg(feature = "universal-format-io")]
         if let Some(preparation) = &self.0.preparation {
             for source in &preparation.sources {
@@ -1194,6 +1232,33 @@ impl PreparedVortexCount {
         self.execute_timed(cancellation).map(|(result, _)| result)
     }
 
+    /// Execute a footer count and retain its exact unsigned scalar natively.
+    /// The source is validated around result construction; no payload scan or
+    /// JSON representation is needed. Result credits use the retained session.
+    /// # Errors
+    /// Rejects cancellation, source changes or insufficient output credits.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub fn execute_native_result(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<(u64, OwnedVortexResultBatch)> {
+        let source = &self.0.0;
+        let context = source
+            .runtime
+            .enter(CallClass::Metadata, cancellation.clone())?;
+        context.check_cancelled()?;
+        source.validate()?;
+        let count = source.file.row_count();
+        let result = self
+            .0
+            .retained_session()
+            .own_count_result(count, cancellation)?;
+        source.validate()?;
+        context.check_cancelled()?;
+        source.runtime.executions.fetch_add(1, Ordering::Relaxed);
+        Ok((count, result))
+    }
+
     /// Return the count and this call's admission/service timings.
     /// # Errors
     /// Returns the same cancellation, generation and admission errors as execute.
@@ -1489,7 +1554,7 @@ impl SourceIdentity {
             handle,
             concurrency,
             scope,
-            _reader_owner: None,
+            reader_owner: None,
         })
     }
 }
@@ -1501,7 +1566,7 @@ struct ResidentFileReadAt {
     handle: Handle,
     concurrency: usize,
     scope: Option<Arc<io_ownership::IoScope>>,
-    _reader_owner: Option<Arc<io_ownership::ReaderOwner>>,
+    reader_owner: Option<Arc<io_ownership::ReaderOwner>>,
 }
 
 impl VortexReadAt for ResidentFileReadAt {
@@ -1532,13 +1597,20 @@ impl VortexReadAt for ResidentFileReadAt {
         let identity = Arc::clone(&self.identity);
         let allocator = Arc::clone(&self.allocator);
         let handle = self.handle.clone();
-        let scope = self.scope.clone();
+        // An unpolled/cancelled read future must keep its provider reader alive.
+        // Tuple field order releases the extra scope before the reader guard
+        // can publish its final zero count to an operation waiting for cleanup.
+        let ownership = (self.scope.clone(), self.reader_owner.clone());
         async move {
-            let job = scope
+            let job = ownership
+                .0
                 .as_ref()
                 .map(|scope| scope.admit(length))
                 .transpose()
                 .map_err(|error| vortex_err!("{error}"))?;
+            // The admitted blocking job now owns the read lifetime. Do not keep
+            // an untracked scope clone after that job signals completion.
+            drop(ownership);
             let completion = handle
                 .spawn_blocking(move || {
                     let result = (|| {

@@ -51,20 +51,31 @@ def vendored_components(root: Path) -> list[dict]:
             directory = root / str(relative)
             package = tomllib.loads((directory / "Cargo.toml").read_text())["package"]
             provenance = json.loads((directory / "upstream-provenance.json").read_text())
-            data = (directory / "LICENSE").read_bytes()
             if (provenance["provider"], provenance["version"], provenance["license"]) != (
                     package["name"], package["version"], package["license"]):
                 raise ValueError("vendored provider identity differs from its provenance")
-            sha = digest(data)
-            if provenance["license_sha256"] != sha:
-                raise ValueError("vendored license differs from its reviewed provenance")
+            files = []
+            for name in ("LICENSE", "NOTICE"):
+                path = directory / name
+                prefix = name.lower()
+                declared = any(f"{prefix}_{key}" in provenance for key in ("sha256", "url"))
+                if name == "NOTICE" and not path.exists() and not declared:
+                    continue
+                if not path.is_file() or path.is_symlink():
+                    raise ValueError(f"vendored {name} must be a regular reviewed file")
+                data = path.read_bytes()
+                data.decode("utf-8")
+                sha = digest(data)
+                if provenance.get(f"{prefix}_sha256") != sha:
+                    raise ValueError(f"vendored {name} differs from its reviewed provenance")
+                url = provenance.get(f"{prefix}_url")
+                if not isinstance(url, str) or not url.startswith("https://"):
+                    raise ValueError(f"vendored {name} needs its reviewed upstream URL")
+                files.append({"text": f"texts/{sha}.txt", "sha256": sha,
+                              "bytes": len(data), "crate_path": name, "upstream_url": url})
             components.append({"name": package["name"], "version": package["version"],
                                "path": str(relative), "license": package["license"],
-                               "provenance": provenance, "files": [{
-                                   "text": f"texts/{sha}.txt", "sha256": sha,
-                                   "bytes": len(data), "crate_path": "LICENSE",
-                                   "upstream_url": provenance["license_url"],
-                               }]})
+                               "provenance": provenance, "files": files})
     return sorted(components, key=lambda item: (item["name"], item["version"]))
 
 
@@ -109,7 +120,8 @@ def generate(root: Path, inventory: Path, *, replace: bool = False) -> None:
         })
     vendored = vendored_components(root)
     for component in vendored:
-        texts[component["files"][0]["text"]] = (root / component["path"] / "LICENSE").read_bytes()
+        for item in component["files"]:
+            texts[item["text"]] = (root / component["path"] / item["crate_path"]).read_bytes()
     bundle = root / BUNDLE
     if (bundle / "manifest.json").exists() and not replace:
         raise ValueError("notice bundle already exists; review replacement explicitly")

@@ -231,9 +231,8 @@ fn selected_sort_materialization_denial_releases_temporary_credits_and_can_retry
             Some(context),
         )
     });
-    let error = match denied {
-        Ok(_) => panic!("held credits should deny materialization"),
-        Err(error) => error,
+    let Err(error) = denied else {
+        panic!("held credits should deny materialization");
     };
     assert!(
         error.to_string().contains("memory reservation denied"),
@@ -285,9 +284,8 @@ fn selected_sort_materialization_denial_releases_temporary_credits_and_can_retry
             Some(context),
         )
     });
-    let error = match error {
-        Ok(_) => panic!("pre-cancelled call must reject before opening"),
-        Err(error) => error,
+    let Err(error) = error else {
+        panic!("pre-cancelled call must reject before opening");
     };
     assert!(error.to_string().contains("cancelled"), "{error}");
     assert!(!missing.exists());

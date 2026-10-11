@@ -1,15 +1,16 @@
-# ShardLoom Python CLI Client
+# ShardLoom Python
 
-This package is the first thin Python surface for ShardLoom, a Vortex-native,
-no-fallback, evidence-certified local compute engine. It invokes the workspace
-`shardloom` CLI with `--format json`, parses the stable `OutputEnvelope`, and
-preserves typed result/artifact/certificate payloads, diagnostics, fallback
-status, and the temporary legacy field mirror.
+This package provides a Python client for ShardLoom, a Vortex-native,
+no-fallback, evidence-certified local compute engine. Its default transport
+invokes the workspace `shardloom` CLI with `--format json`, parses the stable
+`OutputEnvelope`, and preserves typed result/artifact/certificate payloads,
+diagnostics, fallback status, and the temporary legacy field mirror. Current
+source builds also include an optional in-process native binding for direct
+plans and results; see [Source-only native Python API](#source-only-native-python-api).
 
-It is intentionally not a native binding, broad DataFrame API, broad SQL runtime, UDF runtime, or
-fallback execution path. Importing the package has no ShardLoom side effects. Work happens only when
-a caller explicitly invokes a CLI command through `ShardLoomClient` or one of the scoped Python
-helpers that wraps an evidence-backed CLI smoke.
+Importing the package has no ShardLoom side effects. Work begins only when a
+caller explicitly invokes a client command, native operation, or scoped Python
+helper. The default client transport remains `subprocess`.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This README may describe scoped
 local Python surfaces, the current source version, and the approved package track, but it does not
@@ -38,6 +39,58 @@ Operational hardening is in progress. The technical-preview designation refers t
 resource and failure acceptance in the
 [exit criteria](../docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).
 Package access does not imply production readiness, broad runtime support, or performance claims.
+
+## Source-only native Python API
+
+The current source tree includes the optional `shardloom.native` API for
+direct in-process `Session`, typed `Relation`/`Expression`, `Plan`, and retained
+`Result` objects. This extension is not part of the published 0.5.1 package;
+follow the [native source build and isolated install instructions](../docs/getting-started/source-checkout-install.md#optional-native-python-binding).
+The [local acceptance report](../docs/benchmarks/native-python-surface-2026-10-11.md)
+records complete results, ownership/failure checks and paired Python workflows.
+The ordinary `ShardLoomClient` continues to use the subprocess transport by
+default. Select `transport="native"` explicitly to run its shared workflow
+surface in process. Existing high-level DataFrame expression builders still
+produce SQL declarations; `shardloom.native.Relation` is the explicit optional
+typed-plan API.
+
+Relation and expression constructors describe work without opening a source.
+Give the session an explicit allocation, admit a range source, bind it to a typed
+scan, and collect a result. Arrow is used here as an explicit columnar export
+boundary:
+
+```python
+import pyarrow as pa
+from shardloom.native import ExecutionResources, Relation, Session, col, lit
+
+resources = ExecutionResources(256 << 20, 2)
+session = Session(resources)
+source = session.from_range("value", 0, 1, 100)
+relation = (
+    Relation.scan("memory://values")
+    .filter(col("value") >= lit(10))
+    .project([("value", col("value"))])
+)
+plan = session.plan(relation, sources=[("memory://values", source)])
+result = plan.collect()
+session.close()
+
+# A completed result retains its native owner and remains exportable after close.
+table = pa.RecordBatchReader.from_stream(result).read_all()
+```
+
+`Session.close()` prevents new work and cancels active work; completed results
+remain valid while retained. `session.from_arrow(producer)` accepts columnar
+input through Arrow's stream interface. Python row objects are a separate,
+explicit endpoint: call `result.row_export()` when Python rows are needed.
+Arrow export and native execution do not construct those row objects. Imported
+foreign buffers are copied into admitted native ownership when safe borrowing is
+unavailable; encoded Vortex values may require conversion at the Arrow boundary.
+The measured Python workflows have their own recorded scope and do not establish
+an ingest, Full43 or general query-kernel speedup. Local wheel proof does not
+establish public package or platform readiness.
+
+## CLI-backed client installation and configuration
 
 ```sh
 python -m pip install shardloom

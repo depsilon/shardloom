@@ -28,7 +28,7 @@ impl Worker {
     }
 }
 
-fn completed(result: &Value, expected: &Value, executions: usize) {
+fn completed(result: &Value, expected: &Value, opens: usize, executions: usize, reused: bool) {
     assert_eq!(result["status"], "success", "{result}");
     let rows = field(result, "result_jsonl")
         .lines()
@@ -36,7 +36,6 @@ fn completed(result: &Value, expected: &Value, executions: usize) {
         .collect::<Vec<_>>();
     assert_eq!(Value::Array(rows), *expected);
     for (name, value) in [
-        ("resident_source_opens", "1"),
         ("resident_unary_handle_retained", "true"),
         ("result_payload_complete", "true"),
         ("fallback_attempted", "false"),
@@ -44,17 +43,18 @@ fn completed(result: &Value, expected: &Value, executions: usize) {
     ] {
         assert_eq!(field(result, name), value, "{name}");
     }
+    assert_eq!(field(result, "resident_source_opens"), opens.to_string());
     assert_eq!(
         field(result, "resident_completed_executions"),
         executions.to_string()
     );
     assert_eq!(
         field(result, "resident_footer_open_performed_this_call"),
-        (executions == 1).to_string()
+        (!reused).to_string()
     );
     assert_eq!(
         field(result, "resident_unary_lowering_reused"),
-        (executions > 1).to_string()
+        reused.to_string()
     );
     assert_eq!(
         field(result, "output_row_count"),
@@ -161,12 +161,14 @@ fn worker_unary_reuses_sources_and_delivers_complete_values_for_each_flat_family
             ]),
         ),
     ];
-    for (primitive, extra, expected) in cases {
+    for (case, (primitive, extra, expected)) in cases.into_iter().enumerate() {
         for execution in 1..=3 {
             completed(
                 &worker.unary(&path, primitive, &extra),
                 &expected,
-                execution,
+                case + 1,
+                case * 3 + execution,
+                execution > 1,
             );
         }
     }
@@ -218,13 +220,15 @@ fn worker_unary_computations_apply_source_filters_before_values_and_schema() {
             json!([{"value":4,"pivot_4":40.0,"pivot_5":null},{"value":5,"pivot_4":null,"pivot_5":50.0}]),
         ),
     ];
-    for (primitive, mut extra, expected) in cases {
+    for (case, (primitive, mut extra, expected)) in cases.into_iter().enumerate() {
         extra.extend(["--vortex-predicate", "gt:value:3"]);
         for execution in 1..=3 {
             completed(
                 &worker.unary(&path, primitive, &extra),
                 &expected,
-                execution,
+                case + 1,
+                case * 3 + execution,
+                execution > 1,
             );
         }
     }
@@ -277,19 +281,39 @@ fn worker_unary_rebinds_changed_columns_and_resources_and_rejects_source_replace
         "--vortex-predicate",
         "gt:value:99",
     ];
-    completed(&worker.unary(&path, "distinct", &extra), &json!([]), 1);
-    completed(&worker.unary(&path, "distinct", &extra), &json!([]), 2);
+    completed(
+        &worker.unary(&path, "distinct", &extra),
+        &json!([]),
+        1,
+        1,
+        false,
+    );
+    completed(
+        &worker.unary(&path, "distinct", &extra),
+        &json!([]),
+        1,
+        2,
+        true,
+    );
     let replacement = root.join("replacement.vortex");
     std::fs::copy(fixture(), &replacement).unwrap();
     std::fs::rename(replacement, &path).unwrap();
     let failed = worker.unary(&path, "distinct", &extra);
     assert_eq!(failed["status"], "error", "{failed}");
     assert!(failed.to_string().contains("prepared source changed"));
-    completed(&worker.unary(&path, "distinct", &extra), &json!([]), 1);
+    completed(
+        &worker.unary(&path, "distinct", &extra),
+        &json!([]),
+        2,
+        3,
+        false,
+    );
     completed(
         &worker.unary(&path, "distinct", &["--vortex-columns", "value"]),
         &full,
-        1,
+        3,
+        4,
+        false,
     );
     completed(
         &worker.unary(
@@ -298,7 +322,9 @@ fn worker_unary_rebinds_changed_columns_and_resources_and_rejects_source_replace
             &["--vortex-columns", "value", "--max-parallelism", "1"],
         ),
         &full,
-        1,
+        4,
+        5,
+        false,
     );
     completed(
         &worker.unary(
@@ -307,7 +333,9 @@ fn worker_unary_rebinds_changed_columns_and_resources_and_rejects_source_replace
             &["--vortex-columns", "value", "--max-parallelism", "1"],
         ),
         &full,
-        2,
+        4,
+        6,
+        true,
     );
     completed(
         &worker.unary(
@@ -321,7 +349,9 @@ fn worker_unary_rebinds_changed_columns_and_resources_and_rejects_source_replace
             ],
         ),
         &json!([{"metric":50}]),
-        1,
+        5,
+        7,
+        false,
     );
     drop(worker);
     std::fs::remove_dir_all(root).unwrap();
@@ -369,13 +399,16 @@ fn worker_unary_binary_writes_reopen_complete_values_without_structured_payloads
     std::fs::create_dir(&root).unwrap();
     let _cleanup = Cleanup(root.clone());
     let mut worker = Worker::new();
-    for (format, request) in [
+    for (case, (format, request)) in [
         ("vortex", "write_vortex"),
         ("parquet", "write_parquet"),
         ("arrow-ipc", "write_arrow_ipc"),
         ("avro", "write_avro"),
         ("orc", "write_orc"),
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
         let path = root.join(format!("selected.{format}"));
         let result = worker.unary(
             &fixture(),
@@ -416,7 +449,9 @@ fn worker_unary_binary_writes_reopen_complete_values_without_structured_payloads
         completed(
             &worker.unary(&reopened, "distinct", &["--vortex-columns", "value"]),
             &json!([{"value":1}, {"value":2}]),
-            1,
+            case * 2 + 2,
+            case * 2 + 2,
+            false,
         );
     }
 }
@@ -469,7 +504,9 @@ fn worker_unary_explode_preserves_nullable_list_elements_and_reuses_preparation(
                 ],
             ),
             &expected,
-            execution,
+            2,
+            execution + 1,
+            execution > 1,
         );
     }
     for execution in 1..=2 {
@@ -487,7 +524,9 @@ fn worker_unary_explode_preserves_nullable_list_elements_and_reuses_preparation(
                 ],
             ),
             &json!([{"shipment":2,"items":7},{"shipment":2,"items":null},{"shipment":2,"items":8}]),
-            execution,
+            3,
+            execution + 4,
+            execution > 1,
         );
     }
 }

@@ -31,6 +31,73 @@ fn failed(reason: &str) -> ShardLoomError {
     ))
 }
 
+/// Deliver the existing partitioned selection in bounded payload windows. Global
+/// ordering and tie selection have already completed in the shared sort kernel.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn deliver_partitioned(
+    sources: &[super::LocalVortexPartitionSource],
+    request: &VortexQueryPrimitiveRequest,
+    columns: &[String],
+    selected: &[&SortRowCandidate],
+    predicate: Option<&super::PredicateExpr>,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    context: &NativeExecutionContext<'_>,
+    output: &mut CompletedRows<'_>,
+) -> Result<SortRowsMaterializationResult> {
+    let mut observed = SortRowsMaterializationResult {
+        rows: Vec::new(),
+        chunks_scanned: 0,
+        early_stop_applied: false,
+        row_index_selection_applied: false,
+        requested_row_indices: 0,
+        min_selected_source_ordinal: None,
+        max_selected_source_ordinal: None,
+        selected_row_materialization_used: false,
+        memory: Vec::new(),
+    };
+    if selected.is_empty() {
+        output.push_values(columns, 0, |_, _| Err(failed("empty result was accessed")))?;
+    }
+    for window in selected.chunks(super::result_batch::VISITOR_ROWS) {
+        context.check_cancelled()?;
+        let batch =
+            super::materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
+                sources,
+                request,
+                columns,
+                window,
+                predicate,
+                policy,
+                context.native_session(),
+                context.runtime(),
+                Some(context),
+            )?;
+        output.push_values(columns, batch.rows.len(), |row, column| {
+            Ok(Value::from(&batch.rows[row][column]))
+        })?;
+        observed.chunks_scanned = observed
+            .chunks_scanned
+            .checked_add(batch.chunks_scanned)
+            .ok_or_else(|| failed("partitioned scan count overflow"))?;
+        observed.requested_row_indices = observed
+            .requested_row_indices
+            .checked_add(batch.requested_row_indices)
+            .ok_or_else(|| failed("partitioned selected row count overflow"))?;
+        observed.early_stop_applied |= batch.early_stop_applied;
+        observed.row_index_selection_applied |= batch.row_index_selection_applied;
+        observed.selected_row_materialization_used |= batch.selected_row_materialization_used;
+        observed.min_selected_source_ordinal = super::min_optional_usize(
+            observed.min_selected_source_ordinal,
+            batch.min_selected_source_ordinal,
+        );
+        observed.max_selected_source_ordinal = observed
+            .max_selected_source_ordinal
+            .max(batch.max_selected_source_ordinal);
+    }
+    output.finish_stream()?;
+    Ok(observed)
+}
+
 pub(super) fn scalar_value(scalar: &vortex::array::scalar::Scalar) -> Result<Value<'static>> {
     if scalar.is_null() {
         return Ok(Value::Null);

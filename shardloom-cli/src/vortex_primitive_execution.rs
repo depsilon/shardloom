@@ -596,7 +596,7 @@ pub(crate) fn vortex_local_primitive_cli_execution_evidence(
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "vortex-local-primitives"))]
 pub(crate) fn fixture_primitive_execution_evidence(
     request: &VortexQueryPrimitiveRequest,
     local_request: &VortexLocalPrimitiveCliExecutionRequest,

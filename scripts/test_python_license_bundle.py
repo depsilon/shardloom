@@ -45,6 +45,59 @@ class PythonLicenseBundleTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed")
         self.assertGreater(report["registry_packages"], 0)
 
+    def vendored_fixture(self, root):
+        self.fixture(root)
+        directory = root / "vendor" / "adapter"
+        directory.mkdir(parents=True)
+        (root / "Cargo.toml").write_text(
+            '[workspace]\nmembers = []\n[patch.crates-io]\n'
+            'adapter = { path = "vendor/adapter" }\n'
+        )
+        (directory / "Cargo.toml").write_text(
+            '[package]\nname = "adapter"\nversion = "1.0.0"\nlicense = "Apache-2.0"\n'
+        )
+        provenance = {"provider": "adapter", "version": "1.0.0", "license": "Apache-2.0"}
+        for name in ("LICENSE", "NOTICE"):
+            data = f"Reviewed adapter {name} fixture.\n".encode()
+            (directory / name).write_bytes(data)
+            provenance[f"{name.lower()}_sha256"] = hashlib.sha256(data).hexdigest()
+            provenance[f"{name.lower()}_url"] = f"https://example.invalid/adapter/{name}"
+        (directory / "upstream-provenance.json").write_text(json.dumps(provenance))
+        return directory, provenance
+
+    def test_vendored_notice_is_bundled_and_verified_alongside_license(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vendor, _ = self.vendored_fixture(root)
+            notices.generate(root, root / "inventory.json", replace=True)
+            report = notices.verify(root)
+            self.assertEqual(report["vendored_packages"], 1)
+            manifest = json.loads((root / notices.BUNDLE / "manifest.json").read_text())
+            files = manifest["vendored_components"][0]["files"]
+            self.assertEqual({item["crate_path"] for item in files}, {"LICENSE", "NOTICE"})
+            for item in files:
+                self.assertEqual((root / notices.BUNDLE / item["text"]).read_bytes(),
+                                 (vendor / item["crate_path"]).read_bytes())
+
+    def test_missing_modified_or_unreviewed_vendored_notice_is_rejected(self):
+        for mutation in ("missing", "modified", "unreviewed", "missing_url"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                vendor, provenance = self.vendored_fixture(root)
+                notices.generate(root, root / "inventory.json", replace=True)
+                if mutation == "missing":
+                    (vendor / "NOTICE").unlink()
+                elif mutation == "modified":
+                    (vendor / "NOTICE").write_text("unreviewed replacement")
+                elif mutation == "unreviewed":
+                    del provenance["notice_sha256"]
+                    del provenance["notice_url"]
+                else:
+                    del provenance["notice_url"]
+                (vendor / "upstream-provenance.json").write_text(json.dumps(provenance))
+                with self.assertRaises(ValueError):
+                    notices.verify(root)
+
     def test_modified_missing_and_unattributed_texts_are_rejected(self):
         for mutation in ("modified", "missing", "unreferenced", "lock_changed", "component_missing"):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:

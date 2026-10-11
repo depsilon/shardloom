@@ -9307,7 +9307,11 @@ def from_arrow_table(
     check: bool = False,
     **client_config: object,
 ) -> LazyFrame | UnsupportedWorkflowOperationReport:
-    """Create a scoped generated-row source from an Arrow table-like object."""
+    """Create a source from an Arrow-compatible input or retained native result.
+
+    Native transport preserves columnar ownership through the shared input
+    adapter; subprocess transport uses the explicit bounded row conversion.
+    """
 
     resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
     if getattr(resolved_client, "transport", "subprocess") == "native":

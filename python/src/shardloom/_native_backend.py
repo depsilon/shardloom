@@ -153,18 +153,18 @@ class NativeBackend:
     def _plan(self, request, allocation, deadline=None):
         if request.get("fanout_outputs") and request.get("requested_output", "collect") == "collect":
             raise ValueError("native fanout requires an explicit primary output")
-        for name, expected in (("execution_policy", "vortex_middle"),
-                               ("materialization_policy", "bounded")):
-            if request.get(name, expected) != expected:
-                raise ValueError(f"native execution has no binding for {name}={request[name]!r}")
         if request.get("bounded") is False:
             raise ValueError("native execution requires bounded resource admission")
-        unsupported = [name for name, value in request.items()
-                       if name.startswith(("native_vortex_", "vortex_"))
-                       and value is not None and value is not False]
-        if unsupported:
-            raise ValueError("native operation options require shared plan binding: " + ", ".join(unsupported))
+        operation_options = any(
+            name.startswith(("native_vortex_", "vortex_"))
+            and value is not None and value is not False
+            for name, value in request.items()
+        )
         statement = request.get("sql_statement")
+        if (operation_options or not statement
+                or request.get("execution_policy", "vortex_middle") != "vortex_middle"
+                or request.get("materialization_policy", "bounded") != "bounded"):
+            return self._workflow_plan(request, allocation)
         if not isinstance(statement, str) or not statement.strip():
             raise ValueError("native execution requires a complete SQL or DataFrame plan")
         spill = request.get("spill")
@@ -228,6 +228,63 @@ class NativeBackend:
             plan = self.session.sql(
                 statement, files=files, sources=sources, batches=batches, spill=spill,
             )
+            state.key, state.plan = key, plan
+            return plan
+
+    def _workflow_plan(self, request, allocation):
+        from .client import (
+            _append_public_vortex_payload_args, _iter_fanout_outputs,
+            _schema_command_arg, _source_bindings_command_arg,
+        )
+
+        bindings = request.get("source_bindings") or {}
+        if any("native_input" in binding or "memory_input" in binding
+               for binding in bindings.values()):
+            raise ValueError(
+                "declared memory inputs require a complete SQL declaration; "
+                "separate native operator options are not consumed"
+            )
+        args = [request.get("surface", "python"), "--bounded", "true"]
+        for name, flag, default in (
+            ("input_uri", "--input", None), ("input_format", "--input-format", None),
+            ("sql_statement", "--sql", None), ("plan_summary", "--plan", None),
+            ("requested_output", "--request", "collect"), ("output_ref", "--output", None),
+            ("execution_policy", "--execution-policy", "vortex_middle"),
+            ("materialization_policy", "--materialization-policy", "bounded"),
+            ("evidence_level", "--evidence-level", "runtime_smoke"),
+        ):
+            value = request.get(name, default)
+            if value is not None:
+                args.extend((flag, str(value)))
+        for flag, value in (
+            ("--source-schema", _schema_command_arg(request.get("source_schema"))),
+            ("--source-bindings", _source_bindings_command_arg(bindings)),
+        ):
+            if value is not None:
+                args.extend((flag, value))
+        if request.get("allow_overwrite"):
+            args.append("--allow-overwrite")
+        for format_name, path in _iter_fanout_outputs(request.get("fanout_outputs")):
+            args.extend(("--fanout-output", f"{format_name}={path}"))
+        option_names = (
+            "native_vortex_operation_family", "native_vortex_right_input",
+            "vortex_primitive", "vortex_predicate", "vortex_columns",
+            "vortex_source_order_limit", "vortex_sample_seed", "vortex_sample_fraction",
+            "vortex_sample_replacement", "vortex_sample_weight_column", "vortex_duplicate_keep",
+            "vortex_deduplicate_key_columns", "vortex_expression_projection",
+            "vortex_melt_projection", "vortex_explode_projection", "vortex_pivot_projection",
+            "vortex_rolling_window", "vortex_sort_rows", "vortex_aggregate",
+        )
+        _append_public_vortex_payload_args(
+            args, **{name: request.get(name) for name in option_names},
+            resources=allocation, spill=request.get("spill"),
+        )
+        state = request.get("_native_plan") or NativePlanState()
+        key = (id(self), "workflow", tuple(args))
+        with state.lock:
+            if state.key == key:
+                return state.plan
+            plan = self.session.workflow(args)
             state.key, state.plan = key, plan
             return plan
 

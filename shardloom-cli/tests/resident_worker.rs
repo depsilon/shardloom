@@ -153,9 +153,11 @@ fn field<'a>(result: &'a Value, name: &str) -> &'a str {
         .unwrap()
 }
 
-fn assert_completed(result: &Value, executions: &str) {
+// Cache invalidation releases prepared handles; the admitted owner and its
+// lifetime counters survive every request in this worker.
+fn assert_completed(result: &Value, opens: &str, executions: &str) {
     assert_eq!(result["status"], "success", "{result}");
-    assert_eq!(field(result, "resident_source_opens"), "1");
+    assert_eq!(field(result, "resident_source_opens"), opens);
     assert_eq!(field(result, "resident_completed_executions"), executions);
     assert_eq!(field(result, "public_workflow_fallback_attempted"), "false");
     assert_eq!(
@@ -165,12 +167,12 @@ fn assert_completed(result: &Value, executions: &str) {
     assert_eq!(field(result, "output_row_count"), "5");
 }
 
-fn assert_filtered_count(result: &Value, count: &str, executions: &str) {
+fn assert_filtered_count(result: &Value, count: &str, opens: &str, executions: &str) {
     assert_count_rows(result, count);
     assert_eq!(result["status"], "success", "{result}");
     for (name, value) in [
         ("count", count),
-        ("resident_source_opens", "1"),
+        ("resident_source_opens", opens),
         ("resident_completed_executions", executions),
         ("filtered_count_local_execution_count", count),
         ("local_primitive_report_present", "true"),
@@ -189,9 +191,14 @@ fn assert_filtered_count(result: &Value, count: &str, executions: &str) {
 fn worker_preserves_one_lane_for_real_filtered_execution_and_rebinds_two() {
     let path = fixture();
     let mut worker = Worker::new();
-    for (workers, completed) in [("1", "1"), ("1", "2"), ("2", "1"), ("1", "1")] {
+    for (workers, opens, completed) in [
+        ("1", "1", "1"),
+        ("1", "1", "2"),
+        ("2", "2", "3"),
+        ("1", "3", "4"),
+    ] {
         let result = worker.count_where(&path, "gt:value:2", workers);
-        assert_filtered_count(&result, "3", completed);
+        assert_filtered_count(&result, "3", opens, completed);
         assert_eq!(field(&result, "data_read"), "true");
         assert_eq!(field(&result, "public_workflow_max_parallelism"), workers);
         assert_eq!(
@@ -202,10 +209,7 @@ fn worker_preserves_one_lane_for_real_filtered_execution_and_rebinds_two() {
             field(&result, "public_workflow_dynamic_parallelism_floor_applied"),
             "false"
         );
-        assert_eq!(
-            field(&result, "resident_provider_background_workers"),
-            if workers == "1" { "0" } else { "1" }
-        );
+        assert_eq!(field(&result, "resident_provider_background_workers"), "0");
     }
 }
 
@@ -215,23 +219,48 @@ fn worker_reuses_filtered_counts_and_clears_changed_or_failed_operations() {
     let mut worker = Worker::new();
     for completed in ["1", "2", "3"] {
         let result = worker.count_where(&path, "gt:value:2", "2");
-        assert_filtered_count(&result, "3", completed);
+        assert_filtered_count(&result, "3", "1", completed);
         assert_eq!(field(&result, "data_read"), "true");
     }
     let pruned = worker.count_where(&path, "gt:value:99", "2");
-    assert_filtered_count(&pruned, "0", "1");
+    assert_filtered_count(&pruned, "0", "2", "4");
     assert_eq!(field(&pruned, "data_read"), "false");
-    assert_filtered_count(&worker.count_where(&path, "gt:value:99", "2"), "0", "2");
-    assert_filtered_count(&worker.count_where(&path, "gt:value:99", "1"), "0", "1");
+    assert_filtered_count(
+        &worker.count_where(&path, "gt:value:99", "2"),
+        "0",
+        "2",
+        "5",
+    );
+    assert_filtered_count(
+        &worker.count_where(&path, "gt:value:99", "1"),
+        "0",
+        "3",
+        "6",
+    );
     assert_eq!(worker.raw_request("{invalid")["status"], "error");
-    assert_filtered_count(&worker.count_where(&path, "gt:value:99", "1"), "0", "1");
+    assert_filtered_count(
+        &worker.count_where(&path, "gt:value:99", "1"),
+        "0",
+        "4",
+        "7",
+    );
     assert_eq!(
         worker.count_where(&path, "gt:missing:2", "1")["status"],
         "error"
     );
-    assert_filtered_count(&worker.count_where(&path, "gt:value:99", "1"), "0", "1");
-    assert_completed(&worker.collect(&path, "metric", "2"), "1");
-    assert_filtered_count(&worker.count_where(&path, "gt:value:2", "2"), "3", "1");
+    assert_filtered_count(
+        &worker.count_where(&path, "gt:value:99", "1"),
+        "0",
+        "6",
+        "8",
+    );
+    assert_completed(&worker.collect(&path, "metric", "2"), "7", "9");
+    assert_filtered_count(
+        &worker.count_where(&path, "gt:value:2", "2"),
+        "3",
+        "8",
+        "10",
+    );
 }
 
 #[test]
@@ -248,14 +277,24 @@ fn worker_invalidates_metadata_pruned_filtered_count_before_returning_zero() {
     let source = root.join("input.vortex");
     std::fs::copy(fixture(), &source).unwrap();
     let mut worker = Worker::new();
-    assert_filtered_count(&worker.count_where(&source, "gt:value:99", "2"), "0", "1");
+    assert_filtered_count(
+        &worker.count_where(&source, "gt:value:99", "2"),
+        "0",
+        "1",
+        "1",
+    );
     let replacement = root.join("replacement.vortex");
     std::fs::copy(fixture(), &replacement).unwrap();
     std::fs::rename(replacement, &source).unwrap();
     let invalidated = worker.count_where(&source, "gt:value:99", "2");
     assert_eq!(invalidated["status"], "error", "{invalidated}");
     assert!(invalidated.to_string().contains("prepared source changed"));
-    assert_filtered_count(&worker.count_where(&source, "gt:value:99", "2"), "0", "1");
+    assert_filtered_count(
+        &worker.count_where(&source, "gt:value:99", "2"),
+        "0",
+        "2",
+        "2",
+    );
     drop(worker);
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -265,22 +304,22 @@ fn worker_reuses_prepared_native_execution_and_rebinds_changed_requests() {
     let path = fixture();
     let mut worker = Worker::new();
     let first = worker.collect(&path, "metric", "2");
-    assert_completed(&first, "1");
+    assert_completed(&first, "1", "1");
     let second = worker.collect(&path, "metric", "2");
-    assert_completed(&second, "2");
+    assert_completed(&second, "1", "2");
     assert_eq!(
         complete_result::rows(&first),
         complete_result::rows(&second)
     );
     assert_ne!(complete_result::rows(&first), [] as [serde_json::Value; 0]);
     let changed = worker.collect(&path, "metric", "3");
-    assert_completed(&changed, "1");
+    assert_completed(&changed, "2", "3");
     assert_eq!(
         complete_result::rows(&first),
         complete_result::rows(&changed)
     );
     assert_eq!(worker.request(&["--version"])["status"], "success");
-    assert_completed(&worker.collect(&path, "metric", "3"), "1");
+    assert_completed(&worker.collect(&path, "metric", "3"), "3", "4");
 }
 
 #[test]
@@ -295,7 +334,7 @@ fn worker_rejects_replaced_source_then_reprepares_without_stale_answers() {
     let source = root.join("input.vortex");
     std::fs::copy(fixture(), &source).unwrap();
     let mut worker = Worker::new();
-    assert_completed(&worker.collect(&source, "metric", "2"), "1");
+    assert_completed(&worker.collect(&source, "metric", "2"), "1", "1");
     let replacement = root.join("replacement.vortex");
     std::fs::copy(fixture(), &replacement).unwrap();
     std::fs::rename(replacement, &source).unwrap();
@@ -305,7 +344,7 @@ fn worker_rejects_replaced_source_then_reprepares_without_stale_answers() {
         invalidated.to_string().contains("prepared source changed"),
         "{invalidated}"
     );
-    assert_completed(&worker.collect(&source, "metric", "2"), "1");
+    assert_completed(&worker.collect(&source, "metric", "2"), "2", "2");
     drop(worker);
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -324,8 +363,10 @@ fn worker_releases_retained_source_before_binding_error_or_directory_dispatch() 
     let source = root.join("input.vortex");
     std::fs::copy(fixture(), &source).unwrap();
     let mut worker = Worker::new();
-    for with_part in [false, true] {
-        assert_completed(&worker.collect(&source, "metric", "2"), "1");
+    for (with_part, before, after_opens, after_executions) in
+        [(false, "1", "2", "2"), (true, "3", "4", "5")]
+    {
+        assert_completed(&worker.collect(&source, "metric", "2"), before, before);
         std::fs::remove_file(&source).unwrap();
         std::fs::create_dir(&source).unwrap();
         if with_part {
@@ -339,7 +380,13 @@ fn worker_releases_retained_source_before_binding_error_or_directory_dispatch() 
         }
         std::fs::remove_dir_all(&source).unwrap();
         std::fs::copy(fixture(), &source).unwrap();
-        assert_completed(&worker.collect(&source, "metric", "2"), "1");
+        // Directory execution uses the shared synchronous reader, not another
+        // retained prepared source. It advances completion but not that cache counter.
+        assert_completed(
+            &worker.collect(&source, "metric", "2"),
+            after_opens,
+            after_executions,
+        );
         assert_eq!(worker.request(&["--version"])["status"], "success");
     }
     drop(worker);
@@ -410,7 +457,7 @@ fn worker_collects_fresh_typed_memory_without_durable_publication() {
     ];
     let result = worker.request(&changed);
     assert_eq!(result["status"], "success", "{result}");
-    assert_eq!(field(&result, "resident_completed_executions"), "1");
+    assert_eq!(field(&result, "resident_completed_executions"), "3");
     assert_eq!(
         field(&result, "resident_relational_declaration_reused"),
         "false"
@@ -523,12 +570,12 @@ fn worker_executes_resident_footer_count_each_call_and_releases_changed_handles(
         assert_eq!(result["human_text"], "result summary: 5\n");
     }
     let changed = worker.count(&path, "3");
-    assert_metadata_count_certificate(&changed, "5", "1", "true");
-    assert_eq!(field(&changed, "resident_completed_executions"), "1");
-    assert_completed(&worker.collect(&path, "metric", "3"), "1");
+    assert_metadata_count_certificate(&changed, "5", "4", "true");
+    assert_eq!(field(&changed, "resident_completed_executions"), "4");
+    assert_completed(&worker.collect(&path, "metric", "3"), "3", "5");
     assert_eq!(
         field(&worker.count(&path, "3"), "resident_completed_executions"),
-        "1"
+        "6"
     );
 }
 
@@ -675,9 +722,9 @@ fn worker_footer_count_rejects_source_replacement_then_reads_new_actual_count() 
     let rebound = worker.count(&source, "2");
     assert_eq!(rebound["status"], "success", "{rebound}");
     assert_eq!(field(&rebound, "count"), "20000");
-    assert_eq!(field(&rebound, "resident_completed_executions"), "1");
-    assert_metadata_count_certificate(&rebound, "20000", "1", "true");
-    assert_metadata_count_certificate(&worker.count(&source, "2"), "20000", "2", "false");
+    assert_eq!(field(&rebound, "resident_completed_executions"), "2");
+    assert_metadata_count_certificate(&rebound, "20000", "2", "true");
+    assert_metadata_count_certificate(&worker.count(&source, "2"), "20000", "3", "false");
     drop(worker);
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -686,25 +733,28 @@ fn worker_footer_count_rejects_source_replacement_then_reads_new_actual_count() 
 fn worker_parse_failures_release_prepared_context_before_next_valid_request() {
     let path = fixture();
     let mut worker = Worker::new();
-    for invalid in [
+    for (case, invalid) in [
         json!({"args": ["run", "dataframe", "--unexpected-resident-argument"]}).to_string(),
         json!({"args": ["run", "dataframe", "--format"]}).to_string(),
         "{malformed JSON".into(),
-    ] {
+    ]
+    .iter()
+    .enumerate()
+    {
         assert_eq!(
             field(&worker.count(&path, "2"), "resident_completed_executions"),
-            "1"
+            (case * 2 + 1).to_string()
         );
         assert_eq!(
             field(&worker.count(&path, "2"), "resident_completed_executions"),
-            "2"
+            (case * 2 + 2).to_string()
         );
-        let error = worker.raw_request(&invalid);
+        let error = worker.raw_request(invalid);
         assert_eq!(error["status"], "error", "{error}");
     }
     assert_eq!(
         field(&worker.count(&path, "2"), "resident_completed_executions"),
-        "1"
+        "7"
     );
 }
 
@@ -755,11 +805,11 @@ fn worker_releases_memory_runtime_on_a_different_public_run_route() {
         "--max-parallelism",
         "2",
     ]);
-    // Profile is an unsupported native operation here. Its failed admission must
-    // still release the preceding declared-memory runtime.
+    // A failed route releases prepared memory sources while preserving the
+    // command owner's lifetime observations.
     assert_eq!(profile["status"], "unsupported", "{profile}");
     assert_eq!(
         field(&worker.request(&memory), "resident_completed_executions"),
-        "1"
+        "3"
     );
 }

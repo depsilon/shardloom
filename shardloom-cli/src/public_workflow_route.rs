@@ -234,6 +234,11 @@ struct PreparedPublicCountWhere {
 }
 
 impl PublicExecutionSession {
+    // Reduced builds have no prepared native fields to release.
+    #[cfg_attr(
+        not(all(feature = "vortex-local-primitives", unix)),
+        allow(clippy::unused_self)
+    )]
     pub(crate) fn clear(&mut self) {
         // Discard prepared work without replacing the runtime that owns its
         // credits. The worker's next explicit allocation reconfigures that same
@@ -1078,27 +1083,9 @@ fn attach_native_unary_source_predicate(
         | Kind::RollingWindowRows => {}
         _ => return Ok(()),
     }
-    let source_only = primitive_request
-        .expression_projection
-        .as_ref()
-        .is_none_or(shardloom_vortex::VortexExpressionProjectionRequest::is_empty)
-        && primitive_request
-            .structured_projection
-            .as_ref()
-            .is_some_and(|projection| {
-                !projection.is_empty()
-                    && projection.columns.iter().all(|column| {
-                        matches!(
-                            column.expr,
-                            shardloom_vortex::VortexStructuredProjectionExpr::SourceColumn(_)
-                        )
-                    })
-            });
-    if primitive_request.structured_projection.is_some() && !source_only {
-        return Err(ShardLoomError::InvalidOperation(
-            "filtered structured expression_project requires a projection of source columns; constructed expressions are not admitted with --vortex-predicate; no fallback execution was attempted".to_string(),
-        ));
-    }
+    // Constructed lists and structs use the same shared scan/filter/limit/project
+    // plan as other native expressions. The predicate belongs to the source and
+    // must remain attached even when its columns are absent from the output.
     primitive_request.predicate =
         Some(vortex_primitive_execution::parse_tiny_predicate(predicate)?);
     Ok(())
@@ -3691,6 +3678,8 @@ fn append_local_primitive_result_summary_evidence_fields(
     append_encoded_numeric_reduction_evidence_fields(fields, object);
     append_scan_segment_reuse_evidence_fields(fields, object);
     for key in [
+        "aggregate_result_boundary",
+        "aggregate_result_serialized_json_round_trip",
         "aggregate_first_pass_scan_next_nanos",
         "aggregate_first_pass_reader_evidence_nanos",
         "aggregate_first_pass_accessor_nanos",
@@ -4335,6 +4324,14 @@ fn append_scan_segment_reuse_evidence_fields(
 }
 
 fn local_primitive_result_summary_payload(result_summary: &str) -> Option<serde_json::Value> {
+    let result_summary = result_summary
+        .strip_prefix("partitioned_vortex_sources=")
+        .and_then(|summary| {
+            let (count, summary) = summary.split_once(';')?;
+            count.parse::<usize>().ok()?;
+            summary.strip_prefix("partitioned_execution_strategy=sequential_capillary_parts;")
+        })
+        .unwrap_or(result_summary);
     if let Ok(payload) = serde_json::from_str::<serde_json::Value>(result_summary) {
         return Some(payload);
     }
@@ -5616,6 +5613,7 @@ impl PublicWorkflowRouteRequest {
         Self::parse_with_resource_requirement(args, false, None)
     }
 
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
     fn parse_execution(args: impl Iterator<Item = String>) -> Result<Self, ShardLoomError> {
         Self::parse_with_resource_requirement(args, true, None)
     }
@@ -13012,6 +13010,31 @@ mod tests {
     }
 
     #[test]
+    fn partitioned_native_summary_preserves_typed_result_boundary_evidence() {
+        let payload = serde_json::json!({
+            "aggregate_result_boundary": "owned_native_columns_from_completed_state",
+            "aggregate_result_serialized_json_round_trip": false,
+            "rows": 4097,
+            "values": null,
+        });
+        for summary in [payload.to_string(), format!("aggregate values={payload}")] {
+            let partitioned = format!(
+                "partitioned_vortex_sources=3;partitioned_execution_strategy=sequential_capillary_parts;{summary}"
+            );
+            assert_eq!(
+                local_primitive_result_summary_payload(&partitioned),
+                Some(payload.clone())
+            );
+            let mut fields = Vec::new();
+            append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&partitioned));
+            assert!(fields.contains(&(
+                "local_primitive_aggregate_result_serialized_json_round_trip".into(),
+                "false".into(),
+            )));
+        }
+    }
+
+    #[test]
     fn exact_distinct_summary_preserves_counts_and_reservation_scope() {
         let payload = serde_json::json!({
             "aggregate_workers_distinct_group_reduction_jobs": 1,
@@ -15803,26 +15826,33 @@ mod tests {
         }
         let mut constructed = request.clone();
         constructed.vortex_expression_projection =
-            Some(r#"{"structured_columns":[{"name":"constructed","array":[1]}]}"#.to_owned());
-        assert!(
-            native_vortex_primitive_row_export_execution(
-                &constructed,
-                "target/input.vortex".to_owned(),
-                PublicVortexPrimitive::ExpressionProject,
-            )
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("constructed expressions are not admitted")
-        );
-        assert!(
-            native_vortex_bound_request_and_arg(
-                &constructed,
-                PublicVortexPrimitive::ExpressionProject,
-                &binding,
-            )
-            .is_err()
-        );
+            Some(r#"{"structured_columns":[{"name":"renamed","source":"source_value"},{"name":"constructed","array":[1]}]}"#.to_owned());
+        let exported = native_vortex_primitive_row_export_execution(
+            &constructed,
+            "target/input.vortex".to_owned(),
+            PublicVortexPrimitive::ExpressionProject,
+        )
+        .unwrap()
+        .primitive_request;
+        let (collected, _, _) = native_vortex_bound_request_and_arg(
+            &constructed,
+            PublicVortexPrimitive::ExpressionProject,
+            &binding,
+        )
+        .unwrap();
+        for parsed in [exported, collected] {
+            assert_eq!(
+                parsed.predicate,
+                Some(
+                    vortex_primitive_execution::parse_tiny_predicate("gte:filter_only:3").unwrap()
+                )
+            );
+            assert_eq!(parsed.source_order_limit, Some(2));
+            assert_eq!(
+                parsed.structured_projection.unwrap().output_columns(),
+                ["renamed", "constructed"]
+            );
+        }
     }
 
     #[test]

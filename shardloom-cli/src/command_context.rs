@@ -46,6 +46,11 @@ impl<'a> CommandContext<'a> {
         }
     }
 
+    // Reduced builds retain the same invocation interface without native owners.
+    #[cfg_attr(
+        not(all(feature = "vortex-local-primitives", unix)),
+        allow(clippy::unused_self)
+    )]
     pub(crate) fn resolve(&self, arguments: &ResourceArguments) -> Result<ExecutionResources> {
         #[cfg(all(feature = "vortex-local-primitives", unix))]
         if let Some(owner) = self.owner {

@@ -93,7 +93,7 @@ impl ExecutedOwnedVortexAggregate {
 }
 
 #[cfg(feature = "vortex-write")]
-fn annotate_output_count(
+pub(super) fn annotate_output_count(
     report: &mut super::VortexLocalPrimitiveRowExportReport,
     request: &VortexQueryPrimitiveRequest,
 ) {
@@ -216,7 +216,7 @@ impl UnretainedVortexAggregate {
     }
 }
 
-fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
+pub(super) fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
     if request.kind != VortexQueryPrimitiveKind::SimpleAggregate
         || request.diagnostics.iter().any(|diagnostic| {
             matches!(
@@ -1158,6 +1158,37 @@ impl PreparedVortexAggregate {
         let execution = self.certify(&scan)?;
         let (array, ownership) = output.into_array()?;
         let result = self.session.own_completed_array(array, ownership)?;
+        Ok(ExecutedOwnedVortexAggregate {
+            execution,
+            result,
+            #[cfg(feature = "vortex-write")]
+            request: self.request.clone(),
+            #[cfg(feature = "vortex-write")]
+            policy: self.policy,
+        })
+    }
+
+    /// Retain the complete native aggregate output under the shared allocation.
+    /// Uses the same batch finalizer and optional native spill as streaming
+    /// delivery, without a separate row or serialized-result size ceiling.
+    /// # Errors
+    /// Rejects unsupported requests, changed sources, pressure or cancellation.
+    /// Failed execution releases every partial result and its retained credits.
+    pub fn execute_native_result(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<ExecutedOwnedVortexAggregate> {
+        cancellation.check()?;
+        let mut arrays = super::native_capacity::ReservedVec::new(self.session.memory())?;
+        let mut execution = self.for_each_batch(cancellation, |array, context| {
+            context.check_cancelled()?;
+            arrays.push(array)
+        })?;
+        cancellation.check()?;
+        let (arrays, ownership) = arrays.into_parts();
+        let result = self.session.own_completed_arrays(arrays, ownership)?;
+        cancellation.check()?;
+        execution.runtime = self.snapshot();
         Ok(ExecutedOwnedVortexAggregate {
             execution,
             result,

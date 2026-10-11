@@ -42,6 +42,15 @@ the engine or packages exist. v0.5.1 is available through GitHub, TestPyPI, PyPI
 the [publication verification](v0.5.1-publication-verification.md) closes the selected-channel
 proof requirement.
 
+Current source additionally implements the optional
+[native Python surface](../architecture/native-python-surface-2026-10-10.md).
+Its [local acceptance](../benchmarks/native-python-surface-2026-10-11.md) covers
+native input/results, in-process operations, typed plans, an isolated installed
+wheel and six paired complete Python workflows. Hosted integration remains
+pending. Published 0.5.1 packages are unchanged; local source/wheel proof does not
+change the public platform or production-support promise, or establish a new
+ingest or Full43 result.
+
 The local engine executes admitted SQL, Python/DataFrame and CLI workflows through one native
 pipeline, including typed and nested results, exact decimal reductions, analytic frames and
 local writers. Native ordering spill, cancellation, corrupt-run and quota rejection, slow or

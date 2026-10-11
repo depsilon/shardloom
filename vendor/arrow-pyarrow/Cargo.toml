@@ -1,0 +1,63 @@
+# Generated upstream by Cargo, then patched by ShardLoom for PyO3 0.29.
+# See upstream-provenance.json; this local provider is not published.
+#
+# When uploading crates to the registry Cargo will automatically
+# "normalize" Cargo.toml files for maximal compatibility
+# with all versions of Cargo and also rewrite `path` dependencies
+# to registry (e.g., crates.io) dependencies.
+#
+# If you are reading this file be aware that the original Cargo.toml
+# will likely look very different (and much more reasonable).
+# See Cargo.toml.orig for the original contents.
+
+[package]
+edition = "2024"
+rust-version = "1.85"
+name = "arrow-pyarrow"
+version = "58.3.0"
+publish = false
+authors = ["Apache Arrow <dev@arrow.apache.org>"]
+build = false
+include = [
+    "benches/*.rs",
+    "src/**/*.rs",
+    "Cargo.toml",
+    "LICENSE",
+    "NOTICE",
+    "upstream-provenance.json",
+    "README.shardloom.md",
+]
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "Pyarrow bindings"
+homepage = "https://github.com/apache/arrow-rs"
+readme = false
+keywords = ["arrow"]
+license = "Apache-2.0"
+repository = "https://github.com/apache/arrow-rs"
+resolver = "2"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+name = "arrow_pyarrow"
+path = "src/lib.rs"
+bench = false
+
+[dependencies.arrow-array]
+version = "58.3.0"
+features = ["ffi"]
+
+[dependencies.arrow-data]
+version = "58.3.0"
+
+[dependencies.arrow-schema]
+version = "58.3.0"
+
+[dependencies.pyo3]
+version = "0.29.0"
+default-features = false

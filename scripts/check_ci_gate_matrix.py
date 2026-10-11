@@ -85,7 +85,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "cargo test -p shardloom-exec --lib --features spill-payload-fs spill_payload::tests -- --test-threads=1",
             "cargo test -p shardloom-vortex --lib --features shardloom-exec/spill-payload-fs bounded_execution::tests -- --test-threads=1",
             "cargo test -p shardloom-cli --test required_execution_resources --features shardloom-exec/spill-payload-fs -- --test-threads=1",
-            "cargo test -p shardloom-cli --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces",
+            "cargo test -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces",
             "cargo test -p shardloom-cli --all-targets --no-default-features --features vortex-write",
             "cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings",
             "cargo test -p shardloom-contract-tests --test conda_packaging_recipes",

@@ -25,6 +25,12 @@ pub struct ExecutedVortexCountWhere {
     pub runtime: ResidentSessionSnapshot,
 }
 
+/// Complete filtered-count value, with its native scalar and execution evidence.
+pub struct ExecutedOwnedVortexCountWhere {
+    pub execution: ExecutedVortexCountWhere,
+    pub result: crate::resident_session::OwnedVortexResultBatch,
+}
+
 /// A retained local source and one lowered count predicate. Results are never cached.
 pub struct PreparedVortexCountWhere {
     request: VortexQueryPrimitiveRequest,
@@ -163,6 +169,25 @@ fn prepare_count_where(
 }
 
 impl PreparedVortexCountWhere {
+    /// Execute the existing predicate count and retain its scalar natively.
+    /// Result construction shares the source's memory owner and preserves exact
+    /// unsigned values; no JSON or Python row conversion participates.
+    /// # Errors
+    /// Rejects cancellation, changed sources, pressure or native provider errors.
+    pub fn execute_native_result(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<ExecutedOwnedVortexCountWhere> {
+        let mut execution = self.execute_with_cancellation(cancellation)?;
+        let result = self
+            .session
+            .own_count_result(execution.count, cancellation)?;
+        self.source.validate_generation()?;
+        cancellation.check()?;
+        execution.runtime = self.session.snapshot();
+        Ok(ExecutedOwnedVortexCountWhere { execution, result })
+    }
+
     /// Execute the same native count and serialize its exact scalar result.
     /// # Errors
     /// Preserves execution errors and rejects insufficient output capacity.

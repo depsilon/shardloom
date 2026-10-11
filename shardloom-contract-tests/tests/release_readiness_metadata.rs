@@ -139,7 +139,9 @@ fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
         );
     }
     assert!(pyproject.contains("license = \"Apache-2.0\""));
-    assert!(pyproject.contains("license-files = [\"LICENSE\", \"NOTICE\"]"));
+    assert!(pyproject.contains(
+        "license-files = [\"LICENSE\", \"NOTICE\", \"THIRD_PARTY_LICENSES/manifest.json\", \"THIRD_PARTY_LICENSES/texts/*.txt\"]"
+    ));
     assert!(!pyproject.contains("License :: OSI Approved :: Apache Software License"));
     assert!(pyproject.contains("Topic :: Database"));
     assert!(pyproject.contains("Topic :: Scientific/Engineering :: Information Analysis"));

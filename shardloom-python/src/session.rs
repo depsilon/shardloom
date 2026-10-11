@@ -173,6 +173,16 @@ impl NativeSession {
     }
 
     /// Construct a native plan declaration without inspecting any source.
+    #[pyo3(signature = (arguments))]
+    fn workflow(&self, py: Python<'_>, arguments: Vec<String>) -> PyResult<NativePlan> {
+        self.owner.begin().map_err(native_error)?;
+        let declaration = py
+            .detach(|| shardloom_runtime::native::NativeWorkflowDeclaration::new(arguments))
+            .map_err(native_error)?;
+        Ok(NativePlan::workflow(Arc::clone(&self.owner), declaration))
+    }
+
+    /// Construct a native SQL declaration without inspecting any source.
     #[pyo3(signature = (statement, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new(), spill=None))]
     fn sql(
         &self,
@@ -183,25 +193,30 @@ impl NativeSession {
         spill: Option<String>,
     ) -> PyResult<NativePlan> {
         self.owner.begin().map_err(native_error)?;
-        let mut bindings = files
-            .into_iter()
-            .map(|(reference, format, schema)| SqlSourceBinding {
-                reference,
-                source: SqlSource::File { format, schema },
-            })
-            .collect::<Vec<_>>();
-        bindings.extend(
-            sources
-                .into_iter()
-                .map(|(reference, source)| SqlSourceBinding {
-                    reference,
-                    source: SqlSource::Memory(source.source.clone()),
-                }),
-        );
         Ok(NativePlan::new(
             Arc::clone(&self.owner),
             statement,
-            bindings,
+            source_bindings(files, sources),
+            batches.into_iter().map(Into::into).collect(),
+            spill,
+        ))
+    }
+
+    /// Bind a typed native relation without rendering or parsing SQL text.
+    #[pyo3(signature = (relation, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new(), spill=None))]
+    fn plan(
+        &self,
+        relation: &super::relation::NativeRelation,
+        files: Vec<(String, String, Option<String>)>,
+        sources: Vec<(String, PyRef<'_, NativeSource>)>,
+        batches: Vec<super::batch_input::BatchArgument>,
+        spill: Option<String>,
+    ) -> PyResult<NativePlan> {
+        self.owner.begin().map_err(native_error)?;
+        Ok(NativePlan::relation(
+            Arc::clone(&self.owner),
+            Arc::clone(&relation.declaration),
+            source_bindings(files, sources),
             batches.into_iter().map(Into::into).collect(),
             spill,
         ))
@@ -434,6 +449,27 @@ impl NativeSession {
         )?;
         Ok(values.unbind())
     }
+}
+
+fn source_bindings(
+    files: Vec<(String, String, Option<String>)>,
+    sources: Vec<(String, PyRef<'_, NativeSource>)>,
+) -> Vec<SqlSourceBinding> {
+    files
+        .into_iter()
+        .map(|(reference, format, schema)| SqlSourceBinding {
+            reference,
+            source: SqlSource::File { format, schema },
+        })
+        .chain(
+            sources
+                .into_iter()
+                .map(|(reference, source)| SqlSourceBinding {
+                    reference,
+                    source: SqlSource::Memory(source.source.clone()),
+                }),
+        )
+        .collect()
 }
 
 pub(super) fn failed(message: &str) -> ShardLoomError {

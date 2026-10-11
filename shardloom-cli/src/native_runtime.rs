@@ -13,6 +13,19 @@ use shardloom_vortex::{
 mod owner;
 pub use owner::EmbeddedExecutionOwner;
 
+#[path = "native_runtime_plan.rs"]
+mod declaration;
+pub use declaration::NativeRelationDeclaration;
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "native_runtime_operation.rs"]
+mod operation;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub use operation::{
+    ExecutedArrowNativeOperation, ExecutedNativeOperation, ExecutedOwnedNativeOperation,
+    NativeWorkflowDeclaration, PreparedNativeOperation,
+};
+
 #[cfg(test)]
 #[path = "native_command_admission_tests.rs"]
 mod command_admission_tests;
@@ -230,15 +243,105 @@ pub fn prepare_sql_with_spill(
         shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::from_resources(resources)?,
         session,
     )?;
-    // Use the existing validated argument representation for compatibility
-    // preparation, including exact bytes, per-field origin and administrator limits.
-    let mut request = PublicWorkflowRouteRequest::new("python".into());
-    let mut args = crate::execution_resources::command_args(resources).into_iter();
-    while let Some(flag) = args.next() {
-        if !request.resources.parse_flag(&flag, &mut args)? {
-            return Err(failed("resource declaration contained an unknown option"));
+    let request = sql_request(statement, resources, bindings, spill)?;
+    let operation = resident_relational::prepare_in_session(
+        statement,
+        &request,
+        session,
+        |schemas| register_sources(schemas, bindings, cancellation),
+        cancellation,
+    )?;
+    cancellation.check()?;
+    Ok(operation)
+}
+
+/// Prepare complete SQL using the same file-provider selection as the public
+/// CLI. Retained memory, streaming inputs and unmatched relational declarations
+/// use the shared relational binder. Selection happens before source access;
+/// execution errors do not cause provider retries.
+/// # Errors
+/// Returns the shared resource, SQL, source, spill and provider admission errors.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub fn prepare_sql_operation(
+    statement: &str,
+    resources: ExecutionResources,
+    session: &ResidentVortexSession,
+    bindings: &[SqlSourceBinding],
+    spill: Option<&str>,
+    cancellation: &CancellationToken,
+) -> Result<PreparedNativeOperation> {
+    cancellation.check()?;
+    validate_sql_spill(spill, resources)?;
+    shardloom_vortex::local_primitives::prepared_relational::validate_session_policy(
+        shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::from_resources(resources)?,
+        session,
+    )?;
+    if bindings
+        .iter()
+        .all(|binding| matches!(binding.source, SqlSource::File { .. }))
+    {
+        let request = sql_request(statement, resources, bindings, spill)?;
+        if let Some(declaration) = NativeWorkflowDeclaration::from_sql_request(request)? {
+            return declaration.prepare(resources, session, cancellation);
         }
     }
+    prepare_sql_with_spill(statement, resources, session, bindings, spill, cancellation)
+        .map(|operation| PreparedNativeOperation::relational(operation, resources))
+}
+
+fn register_sources(
+    schemas: &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
+    bindings: &[SqlSourceBinding],
+    cancellation: &CancellationToken,
+) -> Result<()> {
+    for binding in bindings {
+        cancellation.check()?;
+        if let SqlSource::Memory(source) = &binding.source {
+            schemas.register_memory_source(DatasetUri::new(&binding.reference)?, |_| {
+                Ok(source.clone())
+            })?;
+        }
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        if let SqlSource::ColumnarStream(schema) = &binding.source {
+            schemas.register_arrow_batch_source(
+                DatasetUri::new(&binding.reference)?,
+                std::sync::Arc::clone(schema),
+                cancellation,
+            )?;
+        }
+    }
+    Ok(())
+}
+
+/// Check the ordinary SQL source declarations for changing collection membership.
+/// This performs only admitted source metadata inspection, never query execution.
+/// # Errors
+/// Rejects malformed declarations, insufficient memory and cancellation.
+pub fn sql_has_file_collection(
+    statement: &str,
+    resources: ExecutionResources,
+    session: &ResidentVortexSession,
+    bindings: &[SqlSourceBinding],
+    cancellation: &CancellationToken,
+) -> Result<bool> {
+    cancellation.check()?;
+    let request = sql_request(statement, resources, bindings, None)?;
+    resident_relational::has_file_collection(
+        statement,
+        &request,
+        &session.shared_memory_pool(),
+        cancellation,
+    )
+}
+
+fn sql_request(
+    statement: &str,
+    resources: ExecutionResources,
+    bindings: &[SqlSourceBinding],
+    spill: Option<&str>,
+) -> Result<PublicWorkflowRouteRequest> {
+    let mut request = PublicWorkflowRouteRequest::new("python".into());
+    request.resources = crate::execution_resources::ResourceArguments::from_resources(resources);
     request.sql_statement = Some(statement.into());
     request.bounded = true;
     request.spill = spill.map(super::spill::Options::parse).transpose()?;
@@ -264,33 +367,7 @@ pub fn prepare_sql_with_spill(
             return Err(failed("source reference is declared more than once"));
         }
     }
-    let operation = resident_relational::prepare_in_session(
-        statement,
-        &request,
-        session,
-        |schemas| {
-            for binding in bindings {
-                cancellation.check()?;
-                if let SqlSource::Memory(source) = &binding.source {
-                    schemas.register_memory_source(DatasetUri::new(&binding.reference)?, |_| {
-                        Ok(source.clone())
-                    })?;
-                }
-                #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-                if let SqlSource::ColumnarStream(schema) = &binding.source {
-                    schemas.register_arrow_batch_source(
-                        DatasetUri::new(&binding.reference)?,
-                        std::sync::Arc::clone(schema),
-                        cancellation,
-                    )?;
-                }
-            }
-            Ok(())
-        },
-        cancellation,
-    )?;
-    cancellation.check()?;
-    Ok(operation)
+    Ok(request)
 }
 
 fn failed(message: &str) -> ShardLoomError {

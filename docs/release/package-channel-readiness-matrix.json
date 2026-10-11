@@ -492,6 +492,7 @@
         "shardloom-exec/Cargo.toml",
         "shardloom-vortex/Cargo.toml",
         "shardloom-cli/Cargo.toml",
+        "shardloom-python/Cargo.toml",
         "shardloom-contract-tests/Cargo.toml"
       ],
       "current_blockers": [

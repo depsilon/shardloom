@@ -96,6 +96,7 @@ fn local_path(input: &str) -> &Path {
     Path::new(input.strip_prefix("file://").unwrap_or(input))
 }
 
+#[cfg(any(test, all(feature = "vortex-local-primitives", unix)))]
 pub(super) fn is_collection(
     input: &str,
     pool: &LiveMemoryPool,

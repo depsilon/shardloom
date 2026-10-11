@@ -4,10 +4,14 @@ use pyo3::prelude::*;
 mod batch_input;
 #[path = "capsules.rs"]
 mod capsules;
+#[path = "expression.rs"]
+mod expression;
 #[path = "object_input.rs"]
 mod object_input;
 #[path = "plan.rs"]
 mod plan;
+#[path = "relation.rs"]
+mod relation;
 #[path = "resources.rs"]
 mod resources;
 #[path = "result.rs"]
@@ -20,6 +24,8 @@ mod schema;
 mod session;
 #[path = "stream.rs"]
 mod stream;
+#[path = "window.rs"]
+mod window;
 
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -29,6 +35,11 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<session::NativeSession>()?;
     module.add_class::<session::NativeSource>()?;
     module.add_class::<plan::NativePlan>()?;
+    module.add_class::<expression::NativeExpression>()?;
+    module.add_class::<relation::NativeRelation>()?;
+    module.add_class::<window::NativeFrameOffset>()?;
+    module.add_class::<window::NativeWindowFrame>()?;
+    module.add_class::<window::NativeWindowExpression>()?;
     module.add_class::<result::NativeResult>()?;
     module.add_class::<capsules::NativeColumnarStream>()?;
     module.add_class::<stream::NativeExecutionStream>()?;

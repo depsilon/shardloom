@@ -79,21 +79,41 @@ fn append_admitted_observation(fields: &mut Vec<(String, String)>) {
     ADMITTED_OUTPUT.with_borrow(|observations| {
         let Some(observation) = observations.last() else { return; };
         crate::execution_resources::append_declaration_fields(fields, observation.resources);
+        let mut observed = Vec::new();
         #[cfg(all(feature = "vortex-local-primitives", unix))]
         if let Some(native) = &observation.native {
-            crate::execution_resources::append_resident_snapshot_fields(fields, &native.snapshot());
+            crate::execution_resources::append_resident_snapshot_fields(&mut observed, &native.snapshot());
+            fill_unobserved_fields(fields, observed);
             return;
         }
         let snapshot = observation.memory.snapshot();
         crate::execution_resources::append_admission_fields(
-            fields, snapshot.limit_bytes, observation.resources.max_parallelism(),
+            &mut observed, snapshot.limit_bytes, observation.resources.max_parallelism(),
             "shared_command_allocation;maximum_parallelism_is_permission_not_observed_utilization",
         );
         crate::execution_resources::append_memory_observation_fields(
-            fields, Some(snapshot.reserved_bytes), snapshot.peak_reserved_bytes,
+            &mut observed, Some(snapshot.reserved_bytes), snapshot.peak_reserved_bytes,
             "command_pool_lifetime_including_preparation_and_retained_owners;excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss",
         );
+        fill_unobserved_fields(fields, observed);
     });
+}
+
+/// A handler's measured or explicitly scoped evidence is more specific than
+/// the enclosing command owner. Supply only observations it has not reported.
+fn fill_unobserved_fields(fields: &mut Vec<(String, String)>, observed: Vec<(String, String)>) {
+    for (key, value) in observed {
+        if let Some((_, existing)) = fields.iter_mut().find(|(name, _)| name == &key) {
+            if matches!(
+                existing.as_str(),
+                "unavailable" | "not_observed" | "not_instrumented"
+            ) {
+                *existing = value;
+            }
+        } else {
+            fields.push((key, value));
+        }
+    }
 }
 
 struct PendingOutput {

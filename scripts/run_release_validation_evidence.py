@@ -54,7 +54,7 @@ FEATURE_MATRIX_COMMANDS = [
     ),
     (
         "native_public_surface_tests",
-        ["cargo", "test", "-p", "shardloom-cli", "--bin", "shardloom", "--test", "vortex_prepare", "--test", "public_memory_inputs", "--test", "public_workflow_route", "--test", "resident_worker", "--features", "release-user-surfaces"],
+        ["cargo", "test", "-p", "shardloom-cli", "--lib", "--bin", "shardloom", "--test", "vortex_prepare", "--test", "public_memory_inputs", "--test", "public_workflow_route", "--test", "resident_worker", "--features", "release-user-surfaces"],
         False,
     ),
     (

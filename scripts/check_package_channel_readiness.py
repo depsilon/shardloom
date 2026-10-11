@@ -81,6 +81,7 @@ INTERNAL_CRATE_MANIFESTS = [
     "shardloom-exec/Cargo.toml",
     "shardloom-vortex/Cargo.toml",
     "shardloom-cli/Cargo.toml",
+    "shardloom-python/Cargo.toml",
     "shardloom-contract-tests/Cargo.toml",
 ]
 PACKAGE_WORKSPACE_REF_MANIFESTS = ["Cargo.toml", *INTERNAL_CRATE_MANIFESTS]

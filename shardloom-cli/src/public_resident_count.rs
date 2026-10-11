@@ -86,7 +86,7 @@ pub(super) fn execute_native_vortex_resident_count(
     ExitCode::SUCCESS
 }
 
-fn count_fields(
+pub(super) fn count_fields(
     count: u64,
     snapshot: ResidentSessionSnapshot,
     prepared_now: bool,
@@ -143,7 +143,7 @@ fn count_fields(
     ]
 }
 
-fn append_effect_fields(fields: &mut Vec<(String, String)>) {
+pub(super) fn append_effect_fields(fields: &mut Vec<(String, String)>) {
     for key in [
         "data_io_performed",
         "object_store_io_performed",
@@ -228,7 +228,7 @@ fn execute(
     })
 }
 
-fn count_certificate(
+pub(super) fn count_certificate(
     binding: &NativeVortexInputBinding,
     count: u64,
     snapshot: ResidentSessionSnapshot,
@@ -239,11 +239,12 @@ fn count_certificate(
         NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
         NativeIoSourcePushdownReport, RepresentationState,
     };
-    let [source] = binding.sources.as_slice() else {
+    if binding.sources.is_empty() {
         return Err(ShardLoomError::InvalidOperation(
-            "resident footer count certificate requires one admitted local source; no fallback execution was attempted".into(),
+            "resident footer count certificate requires admitted local sources; no fallback execution was attempted".into(),
         ));
-    };
+    }
+    let source = binding.sources.join(",");
     NativeIoCertificate::new(
         "resident.count_all.native_io",
         "native_vortex_source_to_scalar_count_result",

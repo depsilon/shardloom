@@ -488,16 +488,30 @@ pub fn prepare_relational_from_source(
     policy: VortexLocalPrimitiveExecutionPolicy,
     lower: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>,
 ) -> Result<PreparedVortexRelational> {
-    let request =
-        VortexQueryPrimitiveRequest::project(uri.clone(), shardloom_plan::ProjectionRequest::All);
-    let session = super::prepared_dispatch::source_session(&source, &request, Some(policy))?;
-    prepare_relational_with_owner(
+    prepare_relational_from_source_controlled(
+        uri,
+        source,
         policy,
-        session,
-        Some((uri, source)),
         lower,
         &CancellationToken::default(),
     )
+}
+
+/// Bind a retained source with the caller's cancellation and deadline owner.
+/// # Errors
+/// Rejects cancellation, source/request/resource mismatch and native bind errors.
+pub fn prepare_relational_from_source_controlled(
+    uri: shardloom_core::DatasetUri,
+    source: PreparedVortexSource,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    lower: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexRelational> {
+    cancellation.check()?;
+    let request =
+        VortexQueryPrimitiveRequest::project(uri.clone(), shardloom_plan::ProjectionRequest::All);
+    let session = super::prepared_dispatch::source_session(&source, &request, Some(policy))?;
+    prepare_relational_with_owner(policy, session, Some((uri, source)), lower, cancellation)
 }
 
 fn prepare_relational_with_owner(

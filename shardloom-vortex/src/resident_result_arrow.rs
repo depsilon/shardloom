@@ -1,7 +1,7 @@
 //! Explicit columnar delivery from a retained native result. The pinned Vortex
 //! provider performs representation conversion; no row/JSON bridge participates.
 
-use super::{NativeExecutionContext, OwnedVortexResultBatch};
+use super::{NativeExecutionContext, OwnedVortexResultBatch, ResidentVortexSession};
 use crate::local_primitives::native_capacity::ReservedVec;
 use crate::native_arrow_conversion::{self as conversion, ConversionLimits};
 use crate::native_payload_schema;
@@ -65,6 +65,70 @@ impl NativeArrowExportReport {
             .max(observed.peak_conversion_work_reserved_bytes);
         *self = report;
         Ok(())
+    }
+}
+
+/// Per-batch interchange over an existing native producer. This adapter holds
+/// no complete result and performs the same conversion as retained-result
+/// export. The native producer and the consumer determine demand and lifetime.
+pub struct NativeArrowBatchDelivery<'a, F> {
+    session: &'a ResidentVortexSession,
+    cancellation: &'a CancellationToken,
+    consume: F,
+    report: NativeArrowExportReport,
+}
+
+impl<'a, F: FnMut(RecordBatch) -> Result<()>> NativeArrowBatchDelivery<'a, F> {
+    #[must_use]
+    pub fn new(
+        session: &'a ResidentVortexSession,
+        cancellation: &'a CancellationToken,
+        consume: F,
+    ) -> Self {
+        Self {
+            session,
+            cancellation,
+            consume,
+            report: NativeArrowExportReport::default(),
+        }
+    }
+
+    /// Convert one produced native batch in its admitted execution context.
+    /// Returned Arrow arrays keep native buffers and conversion credits alive.
+    /// # Errors
+    /// Rejects cancellation, foreign owners, unsupported representations,
+    /// resource pressure and consumer failure without certifying completion.
+    pub fn push(&mut self, array: ArrayRef, context: &NativeExecutionContext<'_>) -> Result<()> {
+        self.cancellation.check()?;
+        let mut arrays = ReservedVec::new(context.memory())?;
+        arrays.push(array)?;
+        let (arrays, ownership) = arrays.into_parts();
+        let result = Arc::new(self.session.own_completed_arrays(arrays, ownership)?);
+        let mut stream = result.arrow_batches(self.cancellation.clone())?;
+        let batch = stream
+            .next_batch_in_context(context)?
+            .ok_or_else(|| failed("native batch produced no Arrow representation"))?;
+        if stream.next_batch_in_context(context)?.is_some() {
+            return Err(failed(
+                "one native batch produced multiple Arrow representations",
+            ));
+        }
+        self.report.append(stream.report())?;
+        (self.consume)(batch)
+    }
+
+    /// Accept completion only after the native producer validates its sources.
+    /// # Errors
+    /// Rejects cancellation and cardinality disagreement at the boundary.
+    pub fn finish(mut self, expected_rows: u64) -> Result<NativeArrowExportReport> {
+        self.cancellation.check()?;
+        if self.report.output_rows != expected_rows || self.report.output_batches == 0 {
+            return Err(failed(
+                "Arrow delivery changed native execution cardinality",
+            ));
+        }
+        self.report.complete = true;
+        Ok(self.report)
     }
 }
 

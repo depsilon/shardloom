@@ -16,6 +16,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[path = "public_relational_native_declaration.rs"]
+mod typed;
+pub(crate) use typed::prepare_native_in_session;
+
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use super::super::{
     PreparationFacadeError, auto_prepared_vortex_target_path_with_schema,
@@ -81,6 +85,11 @@ pub(crate) fn prepare_in_session(
 }
 
 /// General commands reuse the same owner as embedded plans and retained results.
+// Preparation owners transfer into the plan when format preparation is enabled.
+#[cfg_attr(
+    not(all(feature = "vortex-write", feature = "universal-format-io")),
+    allow(clippy::needless_pass_by_value)
+)]
 pub(super) fn prepare_with_source_in_session(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
@@ -379,7 +388,7 @@ fn declared_format<'a>(source: &str, request: &'a PublicWorkflowRouteRequest) ->
 
 /// File collections are rebound on each execution so adding, removing or
 /// reordering a manifest entry cannot silently reuse an earlier declaration.
-pub(super) fn has_file_collection(
+pub(crate) fn has_file_collection(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
     memory: &shardloom_exec::live_memory::LiveMemoryPool,
@@ -408,6 +417,7 @@ struct Sources {
     bound: BTreeMap<PathBuf, Vec<DatasetUri>>,
     metadata: Option<shardloom_exec::live_memory::MemoryLease>,
     normalized: usize,
+    has_collections: bool,
     cancellation: CancellationToken,
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     preparations:
@@ -441,6 +451,7 @@ impl Sources {
             .ok_or_else(|| failed("source format is not declared or recognized"))?;
         let uris = if format == "vortex" {
             let binding = native_vortex_input_binding_for_uri(raw, memory, &self.cancellation)?;
+            self.has_collections |= binding.mode != "single_file";
             self.reserve_metadata(
                 memory,
                 source_metadata_bytes(&path, binding.sources.iter().map(String::as_str))?,

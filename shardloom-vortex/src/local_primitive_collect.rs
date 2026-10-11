@@ -42,6 +42,32 @@ pub fn prepare_count_in_session_controlled(
     cancellation: &CancellationToken,
 ) -> Result<PreparedVortexCount> {
     cancellation.check()?;
+    let uri = validate_count_request(request)?;
+    let path = local_vortex_path(uri, request.kind)?
+        .ok_or_else(|| collect_error("local Vortex source is required"))?;
+    let source = session.prepare_file_with_cancellation(path, cancellation)?;
+    prepare_count_from_source(request, &source, cancellation)
+}
+
+/// Reuse an admitted source for exact footer count without reopening its reader.
+/// # Errors
+/// Rejects cancellation, source identity mismatch and noncanonical payloads.
+pub fn prepare_count_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    source: &PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexCount> {
+    cancellation.check()?;
+    validate_count_request(request)?;
+    super::prepared_dispatch::source_session(source, request, None)?;
+    let count = source.prepare_count();
+    cancellation.check()?;
+    Ok(count)
+}
+
+fn validate_count_request(
+    request: &VortexQueryPrimitiveRequest,
+) -> Result<&shardloom_core::DatasetUri> {
     if request.kind != VortexQueryPrimitiveKind::CountAll
         || request.diagnostics.iter().any(|diagnostic| {
             matches!(
@@ -66,13 +92,7 @@ pub fn prepare_count_in_session_controlled(
             "native footer count does not admit predicate, projection, limit, or other operation payloads",
         ));
     }
-    let path = local_vortex_path(uri, request.kind)?
-        .ok_or_else(|| collect_error("local Vortex source is required"))?;
-    let source = session.prepare_file_with_cancellation(path, cancellation)?;
-    cancellation.check()?;
-    let count = source.prepare_count();
-    cancellation.check()?;
-    Ok(count)
+    Ok(uri)
 }
 
 pub struct CollectedVortexRows {

@@ -80,6 +80,26 @@ still the command's normal typed envelope with `fallback_attempted=false` and
 `external_engine_invoked=false` evidence from the underlying ShardLoom/Vortex route. Set
 `SHARDLOOM_PERSISTENT_WORKER=0` to force one-shot subprocess transport for diagnostics.
 
+## Optional Native Python Surface
+
+Current source builds additionally expose `shardloom.native`: `Session`,
+`Expression`, `Relation`, `WindowExpression`, prepared `Plan` and retained `Result`
+owners. The public client selects embedding explicitly with `transport="native"`;
+its default remains `subprocess`. SQL and typed declarations converge on shared
+native planning, providers, resources and cancellation. Completed results can
+outlive session close, feed further native operations, write through existing
+sinks and export columnar data without compulsory Python rows. Explicit
+`row_export()` constructs Python objects. Foreign columnar input can require a
+charged copy into native ownership.
+
+See the [contract](../architecture/native-python-surface-2026-10-10.md),
+[source build/install guide](../getting-started/source-checkout-install.md#optional-native-python-binding)
+and [local acceptance](../benchmarks/native-python-surface-2026-10-11.md).
+The installed local wheel and complete workflows are accepted; hosted platform
+integration remains pending. Published 0.5.1 packages do not include this
+extension. The older resident and batch adapter entries below describe their
+original Rust/CLI transport contracts, separately from this optional binding.
+
 ## Resident Native Results
 
 The Unix `vortex-local-primitives` build supports typed immutable memory intake
@@ -89,9 +109,9 @@ JSON, and source-free SQL collection through `shardloom run sql --sql "SELECT 1 
 public run command with `--input <path> --input-format <format>`. Direct single-file count/projection/filter
 collect calls can retain prepared operations in the existing public worker.
 See [Resident Native Results](resident-native-results.md) for exact types, bounds,
-ownership, source-change behavior, and examples. This is a bounded native Rust and
-CLI-backed transport surface; it does not add a native Python binding or establish
-performance claims.
+ownership, source-change behavior, and examples. That original bounded native
+Rust/CLI-backed transport contract predates the optional binding above and does
+not itself establish performance claims.
 
 `ShardLoomContext.from_rows` declares typed native rows, including the scalar
 and nested values admitted by the current source input contract; `range` declares

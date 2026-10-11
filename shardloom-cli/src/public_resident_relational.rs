@@ -24,7 +24,7 @@ mod batches;
 #[path = "public_relational_sources.rs"]
 mod sources;
 pub(super) use batches::run as run_batches;
-pub(super) use sources::prepare_in_session;
+pub(super) use sources::{has_file_collection, prepare_in_session, prepare_native_in_session};
 
 pub(super) struct PreparedPublicRelational {
     pub(super) request: PublicWorkflowRouteRequest,

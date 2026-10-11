@@ -1,8 +1,9 @@
-"""Thin Python client for the ShardLoom CLI JSON protocol.
+"""Python interfaces to the ShardLoom native execution engine.
 
-The package does not provide a native binding or fallback execution engine.
-It lazily exposes explicit ShardLoom CLI/front-door helpers so `import
-shardloom` does not eagerly load the whole SQL/DataFrame/session surface.
+The optional in-process binding is exposed through ``shardloom.native`` and the
+client's explicit native transport. Subprocess clients retain the CLI protocol.
+Lazy imports leave the native runtime and SQL/DataFrame/session surface unloaded
+until requested. No interface delegates execution to a fallback engine.
 """
 
 from __future__ import annotations

@@ -348,13 +348,20 @@ the ledger.
     Separate conversion/native/workflow timing-surface observations at the same
     evidence-tier before accepting a measured improvement.
   - Execution checklist:
-    - [ ] Retain native result/batch owners and export columnar data directly.
-    - [ ] Admit direct columnar input with exact schemas and real producer owners.
-    - [ ] Expose in-process sessions and complete operations through shared Rust
+    - [x] Retain native result/batch owners and export columnar data directly.
+    - [x] Admit direct columnar input with exact schemas and real producer owners.
+    - [x] Expose in-process sessions and complete operations through shared Rust
       planning/execution, resources, cancellation and diagnostics.
-    - [ ] Add native expression/prepared-plan handles converging with SQL's IR.
-    - [ ] Verify lifetimes, failure, complete workflows and paired end-to-end
+    - [x] Add native expression/prepared-plan handles converging with SQL's IR.
+    - [x] Verify lifetimes, failure, complete workflows and paired end-to-end
       measurements; preserve an explicit subprocess option without semantic drift.
+      The [local acceptance report](../benchmarks/native-python-surface-2026-10-11.md)
+      records 63 installed native integration tests, 733 Python tests, all
+      applicable Rust profiles and 72 independently verified paired-workflow
+      samples. Measurements concern the Python interface, not new ingest or
+      Full43 performance. Original failures and exact source identities remain
+      preserved. The test suites overlap and must not be summed as workloads.
+    - [ ] Complete hosted integration and the native wheel platform matrix.
   - Adjacent ingest/pruning work under PERF-07/08/11/12 must restore useful
     full-domain timestamp compression and safe statistics with endpoint and
     conservative-pruning proof. Do not narrow accepted temporal storage values.

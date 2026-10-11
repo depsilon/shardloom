@@ -88,7 +88,7 @@ pub fn export_in_session(
         super::ShardLoomError::InvalidOperation("native row export source URI is absent".into())
     })?;
     cancellation.check()?;
-    let prepared = super::prepared_relational::prepare_relational_from_source(
+    let prepared = super::prepared_relational::prepare_relational_from_source_controlled(
         uri.clone(),
         source,
         policy,
@@ -110,10 +110,13 @@ pub fn export_in_session(
                 })),
             })
         },
+        cancellation,
     )?;
-    let mut written = prepared.write_controlled(output, format, overwrite, cancellation)?;
-    written.output.primitive_kind = request.kind;
-    Ok(written.output.with_physical_policy(physical))
+    let mut report = prepared
+        .write_controlled(output, format, overwrite, cancellation)?
+        .into_output_report();
+    report.primitive_kind = request.kind;
+    Ok(report.with_physical_policy(physical))
 }
 
 pub(super) fn execute_single(

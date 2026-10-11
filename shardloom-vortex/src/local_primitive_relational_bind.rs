@@ -261,7 +261,7 @@ impl<'a> Binder<'a> {
 
     pub(super) fn bind(&mut self, input: &VortexRelationalPlan, depth: usize) -> Result<Node> {
         self.cancellation.check()?;
-        if depth > 24 {
+        if depth > crate::relational_query::NATIVE_RECURSION_LIMIT {
             return Err(failed("recursive plan exceeds 24 levels"));
         }
         // Total operator count grows under the shared metadata lease. The

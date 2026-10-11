@@ -72,7 +72,7 @@ impl Binder<'_> {
         fields: &[(String, DType)],
         depth: usize,
     ) -> Result<Expression> {
-        if depth > 24 {
+        if depth > crate::relational_query::NATIVE_RECURSION_LIMIT {
             return Err(failed("recursive scalar expression exceeds 24 levels"));
         }
         // Each expression is admitted before allocation, including independent

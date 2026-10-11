@@ -50,6 +50,7 @@ INTERNAL_WORKSPACE_DEPENDENCIES = (
     "shardloom-core",
     "shardloom-exec",
     "shardloom-plan",
+    "shardloom-runtime",
     "shardloom-vortex",
 )
 ACTIVE_DOC_VERSION_CONSUMERS = (
@@ -185,6 +186,27 @@ def require_toml_dotted_key_value(
         blockers.append(f"{label}: {message}")
 
 
+def internal_dependency_inherits_workspace(value: str) -> bool:
+    """Admit the supported inline inheritance form with an optional boolean flag.
+
+    Keep dependency versions and paths in the workspace. This deliberately does
+    not accept arbitrary inline-table fields or coerce strings into booleans.
+    It also works in the dependency-free Python 3.10 validation lane.
+    """
+    value = value.strip()
+    if not (value.startswith("{") and value.endswith("}")):
+        return False
+    fields: dict[str, str] = {}
+    for field in value[1:-1].split(","):
+        key, separator, raw = field.partition("=")
+        key, raw = key.strip(), raw.strip()
+        if (not separator or key not in {"workspace", "optional"}
+                or key in fields or raw not in {"true", "false"}):
+            return False
+        fields[key] = raw
+    return fields.get("workspace") == "true"
+
+
 def cargo_member_inheritance_checks(repo_root: Path, blockers: list[str]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     members = workspace_members(repo_root)
@@ -216,7 +238,7 @@ def cargo_member_inheritance_checks(repo_root: Path, blockers: list[str]) -> lis
             )
             for dependency in INTERNAL_WORKSPACE_DEPENDENCIES:
                 actual = toml_dotted_key_value(text, dependency)
-                if actual is not None and actual != "{ workspace = true }":
+                if actual is not None and not internal_dependency_inherits_workspace(actual):
                     row_blockers.append(
                         f"internal dependency {dependency} must inherit workspace dependency"
                     )

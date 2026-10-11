@@ -79,7 +79,7 @@ fn worker_reports_exact_declared_and_admitted_resources_with_actual_session_usag
             json!([{"total":150.0}]),
         ),
     ];
-    for (primitive, extra, expected) in cases {
+    for (case, (primitive, extra, expected)) in cases.iter().enumerate() {
         let mut args = vec![
             "run",
             "dataframe",
@@ -105,9 +105,9 @@ fn worker_reports_exact_declared_and_admitted_resources_with_actual_session_usag
             "context",
         ];
         args.extend_from_slice(extra);
-        for executions in ["1", "2"] {
+        for repetition in 1..=2 {
             let result = worker.request(&args);
-            assert_resource_evidence(&result, executions);
+            assert_resource_evidence(&result, &(case * 2 + repetition).to_string());
             let rows: Vec<Value> = field(&result, "result_jsonl")
                 .lines()
                 .map(|line| serde_json::from_str(line).unwrap())
@@ -160,14 +160,14 @@ fn worker_resource_rejection_precedes_source_and_output_and_allows_clean_reuse()
             "2",
         ],
     ];
-    for invalid in invalid {
+    for (case, invalid) in invalid.iter().enumerate() {
         assert_eq!(
             field(&worker.count(&path, "2"), "resident_completed_executions"),
-            "1"
+            (case * 2 + 1).to_string()
         );
         assert_eq!(
             field(&worker.count(&path, "2"), "resident_completed_executions"),
-            "2"
+            (case * 2 + 2).to_string()
         );
         let mut args = vec![
             "run",
@@ -204,6 +204,6 @@ fn worker_resource_rejection_precedes_source_and_output_and_allows_clean_reuse()
     }
     assert_eq!(
         field(&worker.count(&path, "2"), "resident_completed_executions"),
-        "1"
+        (invalid.len() * 2 + 1).to_string()
     );
 }

@@ -263,7 +263,7 @@ pub(super) fn observe_operation_reader(
         shared,
         hooks,
         operation_scope: reader.scope,
-        _reader_owner: reader._reader_owner,
+        _reader_owner: reader.reader_owner,
         concurrency: reader.concurrency,
     })
 }

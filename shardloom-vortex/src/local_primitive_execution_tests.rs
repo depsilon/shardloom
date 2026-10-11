@@ -1,5 +1,11 @@
 use super::*;
+#[cfg(feature = "vortex-write")]
+use crate::local_primitives::VortexLocalPrimitiveRowExportFormat as ExportFormat;
 use crate::local_primitives::{collect, execution};
+#[cfg(feature = "vortex-write")]
+use crate::relational_query::{VortexRelationalPlan, VortexRelationalScan};
+#[cfg(feature = "vortex-write")]
+use shardloom_core::ScalarValue;
 use shardloom_core::{
     ColumnRef, ComparisonOp, DatasetUri, ExecutionResourceOrigin, ExecutionResources,
     PredicateExpr, StatValue,
@@ -96,6 +102,122 @@ fn assert_count(report: &VortexLocalPrimitiveExecutionReport, count: u64) {
     assert!(!report.fallback_execution_allowed);
 }
 
+#[cfg(feature = "vortex-write")]
+fn structured_request(source: &Path) -> VortexQueryPrimitiveRequest {
+    VortexQueryPrimitiveRequest::structured_project_rows(
+        Fixture::uri(source),
+        crate::VortexStructuredProjectionRequest::new(vec![
+            crate::VortexStructuredProjectionColumn::new(
+                "shipment".into(),
+                crate::VortexStructuredProjectionExpr::SourceColumn(
+                    ColumnRef::new("value").unwrap(),
+                ),
+            ),
+            crate::VortexStructuredProjectionColumn::new(
+                "items".into(),
+                crate::VortexStructuredProjectionExpr::ArrayLiteral(vec![
+                    ScalarValue::Int64(7),
+                    ScalarValue::Null,
+                    ScalarValue::Int64(8),
+                ]),
+            ),
+            crate::VortexStructuredProjectionColumn::new(
+                "pair".into(),
+                crate::VortexStructuredProjectionExpr::StructColumns(vec![
+                    ColumnRef::new("value").unwrap(),
+                    ColumnRef::new("metric").unwrap(),
+                ]),
+            ),
+        ]),
+    )
+    .with_source_order_limit(2)
+}
+
+#[cfg(feature = "vortex-write")]
+fn structured_rows(contents: &str) -> Vec<serde_json::Value> {
+    contents
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect()
+}
+
+#[cfg(feature = "vortex-write")]
+fn expected_structured_rows() -> Vec<serde_json::Value> {
+    vec![
+        serde_json::json!({
+            "shipment": 1,
+            "items": [7, null, 8],
+            "pair": {"value": 1, "metric": 10},
+        }),
+        serde_json::json!({
+            "shipment": 2,
+            "items": [7, null, 8],
+            "pair": {"value": 2, "metric": 20},
+        }),
+    ]
+}
+
+#[cfg(feature = "vortex-write")]
+fn assert_native_write_evidence(
+    report: &crate::local_primitives::VortexLocalPrimitiveRowExportReport,
+) {
+    assert_eq!(
+        report.status,
+        crate::local_primitives::VortexLocalPrimitiveExecutionStatus::Executed
+    );
+    assert_eq!(report.rows_written, 2);
+    assert_eq!(report.pre_limit_result_row_count, 5);
+    assert_eq!(report.source_order_limit_requested, Some(2));
+    assert!(report.evidence.pushdown.source_order_limit_applied);
+    assert!(
+        report
+            .evidence
+            .native_array_sink
+            .as_ref()
+            .unwrap()
+            .pre_limit_result_row_count_exact
+    );
+    assert_eq!(report.projected_columns, ["shipment", "items", "pair"]);
+    assert!(report.evidence.upstream_scan_called);
+    assert!(report.evidence.side_effects.data_read);
+    assert!(report.evidence.side_effects.data_materialized);
+    assert!(report.evidence.side_effects.write_io);
+    assert!(!report.evidence.side_effects.fallback_attempted);
+    assert!(!report.evidence.side_effects.fallback_execution_allowed);
+}
+
+#[cfg(feature = "vortex-write")]
+fn assert_export_denied_by_retained_memory(
+    session: &ResidentVortexSession,
+    request: &VortexQueryPrimitiveRequest,
+    output: &Path,
+    format: ExportFormat,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) {
+    let lease = session.reserve_input_scratch(SESSION_BYTES - 1).unwrap();
+    let before = session.snapshot();
+    let error = execution::export_in_session(
+        request,
+        output,
+        format,
+        false,
+        policy,
+        session,
+        &CancellationToken::default(),
+    )
+    .expect_err("the retained owner leaves too little memory for the writer");
+    assert!(
+        error.to_string().contains("memory reservation denied"),
+        "{error:#}"
+    );
+    assert!(!output.exists());
+    let after = session.snapshot();
+    assert_eq!(after.memory.reserved_bytes, SESSION_BYTES - 1);
+    assert_eq!(after.memory.reserved_bytes, before.memory.reserved_bytes);
+    drop(lease);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
 #[test]
 fn cancelled_and_expired_calls_reject_single_and_partitioned_counts_before_source_open() {
     let fixture = Fixture::new();
@@ -141,9 +263,17 @@ fn cancelled_and_expired_calls_reject_single_and_partitioned_counts_before_sourc
 
 #[test]
 fn shared_session_lease_denies_single_and_partitioned_count_until_released() {
+    for max_parallelism in [1, 2] {
+        assert_count_releases_shared_session_lease(max_parallelism);
+    }
+}
+
+fn assert_count_releases_shared_session_lease(max_parallelism: usize) {
     let fixture = Fixture::new();
-    let policy = policy(SESSION_BYTES, 2);
-    let session = ResidentVortexSession::new(SESSION_BYTES, 2).unwrap();
+    let policy = policy(SESSION_BYTES, max_parallelism);
+    // One lane leaves deferred provider destruction for the caller to drive;
+    // two lanes also cover cleanup by the session's background worker.
+    let session = ResidentVortexSession::new(SESSION_BYTES, max_parallelism).unwrap();
     let sources = fixture.two_sources();
     let lease = session.reserve_input_scratch(SESSION_BYTES - 1).unwrap();
 
@@ -280,4 +410,112 @@ fn mismatched_cpu_or_memory_grant_rejects_single_and_partitioned_before_open() {
         assert_eq!(snapshot.completed_executions, 0);
         assert_eq!(snapshot.memory.reserved_bytes, 0);
     }
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn structured_native_vortex_export_is_admitted_and_preserves_nested_results() {
+    let fixture = Fixture::new();
+    let policy = policy(SESSION_BYTES, 2);
+    let session = ResidentVortexSession::new(SESSION_BYTES, 2).unwrap();
+    let request = structured_request(&fixture.path());
+
+    let missing_source = fixture.0.join("cancelled-missing.vortex");
+    let cancelled_output = fixture.0.join("cancelled-output.vortex");
+    let opens_before_cancel = session.snapshot().prepared_source_opens;
+    let cancellation = CancellationToken::default();
+    cancellation.cancel();
+    assert!(
+        execution::export_in_session(
+            &structured_request(&missing_source),
+            &cancelled_output,
+            ExportFormat::Vortex,
+            false,
+            policy,
+            &session,
+            &cancellation,
+        )
+        .is_err()
+    );
+    assert_eq!(
+        session.snapshot().prepared_source_opens,
+        opens_before_cancel
+    );
+    assert!(!cancelled_output.exists());
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+
+    let output = fixture.0.join("structured.vortex");
+    assert_export_denied_by_retained_memory(
+        &session,
+        &request,
+        &output,
+        ExportFormat::Vortex,
+        policy,
+    );
+
+    let report = execution::export_in_session(
+        &request,
+        &output,
+        ExportFormat::Vortex,
+        false,
+        policy,
+        &session,
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert_native_write_evidence(&report);
+    assert_eq!(report.output_format, "vortex");
+    assert!(report.evidence.native_array_sink.is_some());
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+
+    let scan = VortexRelationalPlan::Scan(VortexRelationalScan {
+        source_uri: Fixture::uri(&output),
+        projection: ProjectionRequest::All,
+        predicate: None,
+    });
+    let prepared =
+        crate::local_primitives::prepared_relational::prepare_relational(&scan, policy).unwrap();
+    let collected = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        structured_rows(collected.result_jsonl.value()),
+        expected_structured_rows()
+    );
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn structured_jsonl_export_rejects_partial_output_under_memory_pressure() {
+    let fixture = Fixture::new();
+    let policy = policy(SESSION_BYTES, 2);
+    let session = ResidentVortexSession::new(SESSION_BYTES, 2).unwrap();
+    let request = structured_request(&fixture.path());
+    let output = fixture.0.join("structured.jsonl");
+
+    assert_export_denied_by_retained_memory(
+        &session,
+        &request,
+        &output,
+        ExportFormat::Jsonl,
+        policy,
+    );
+
+    let report = execution::export_in_session(
+        &request,
+        &output,
+        ExportFormat::Jsonl,
+        false,
+        policy,
+        &session,
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    assert_native_write_evidence(&report);
+    assert_eq!(report.output_format, "jsonl");
+    assert_eq!(
+        structured_rows(&std::fs::read_to_string(&output).unwrap()),
+        expected_structured_rows()
+    );
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
 }

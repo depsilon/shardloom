@@ -1,8 +1,12 @@
 # Native Python data and operation ownership
 
-Status: maintainer-directed follow-on to required explicit resources, October 10.
-This implementation contract follows the accepted local typed-input work. It does
-not ship the old experiment, declare a binding ready, or establish a performance gain.
+Status: implementation and complete local acceptance, October 11; hosted
+integration pending. This contract follows the accepted local typed-input work.
+The current source implements the optional binding against the shared engine.
+The [acceptance report](../benchmarks/native-python-surface-2026-10-11.md) records
+source gates, the isolated installed wheel, lifetime/failure checks and six paired
+Python workflows. Distribution retains its own gates. The old experiment remains
+historical; its unbuilt status is not a measured rejection.
 Owners remain PERF-02/03/07/11/12 and the existing capability gates. Version 0.5.1
 stays fixed; all remaining six areas/eight investigations remain in the queue.
 
@@ -23,6 +27,37 @@ transport, while retaining one shared native planner and execution implementatio
    actual SQL parsing. Extract callable core interfaces from CLI handlers where
    necessary; do not duplicate SQL or operator semantics inside Python bindings.
 
+Native expression and relation declarations wrap the existing `Expression` and
+`VortexRelationalPlan` trees. Their constructors describe work without source I/O;
+preparation binds through the same source normalization, schema binder, kernels,
+session and writers as SQL. Actual SQL retains its shared parser. A typed plan
+does not render expressions into SQL, parse JSON cells or execute a Python
+evaluator. The existing recursive binder-depth guard remains separate from total
+operator count, which is admitted under the caller's memory allocation.
+
+The direct Python API is `shardloom.native`: exact literals, expressions,
+relations, windows and subqueries feed a retained `Session.plan()` declaration.
+The existing high-level DataFrame builders still produce SQL declarations. Both
+enter the same binder and native providers; this change does not silently replace
+the existing expression API. `transport="native"` explicitly selects embedding
+for the public client; the subprocess transport remains its default.
+
+Ordinary embedded SQL also uses the public workflow router's existing file
+provider selection. Eligible file aggregates, counts, projections and top-N work
+retain those prepared providers instead of always entering the general relational
+path. Selection is declaration-based and occurs before execution; errors never
+trigger a provider retry. Memory and streamed sources retain their declared
+bindings, and unmatched SQL uses the shared relational binder. Provider-specific
+execution, resource and reuse evidence identifies the selected path. This closes
+the provider-selection gap found by the complete Python workflow comparison.
+
+Vortex-first provider check for these handles: reuse the current ShardLoom typed
+frontend IR and prepared Vortex provider, rather than create an evaluator or a
+second array representation. Native declarations carry conservative metadata
+credits while being lowered; resulting bound plans and arrays retain their
+existing owners. Compatibility source generations, changing collection
+membership, spill and cancellation retain the same contracts as SQL execution.
+
 The first three share an ownership boundary and may form one implementation
 unit. Preserve the subprocess option for isolation, without capability divergence
 or an implicit transport fallback. Cross-process columnar transfer requires a
@@ -39,10 +74,11 @@ against current relational/streaming APIs; do not import its narrow operation se
 
 Current native owners include `ResidentVortexSession`,
 `OwnedVortexResultBatch`, `ResidentMemorySource`, prepared relational execution
-and per-batch native consumers. Current owned-column intake intentionally rejects
-foreign/unbudgeted arbitrary arrays. Columnar import/export must resolve that
-ownership gap, not bypass it. Vortex remains the execution substrate and native
-persistence; Arrow is an optional compatibility boundary.
+and per-batch native consumers. Owned-column intake rejects foreign/unbudgeted
+arbitrary arrays. The new Python adapter copies imported Arrow values into
+admitted native ownership when safe borrowing is unavailable; results from the
+same controller reuse their existing owner. Vortex remains the execution substrate
+and native persistence; Arrow is an optional compatibility boundary.
 
 Official primary references checked October 10:
 
@@ -64,9 +100,12 @@ No external engine, Arrow evaluator, new semantic engine or hidden row bridge.
 ## Optional binding dependencies
 
 The native binding crate is feature-gated; the lean workspace does not link
-Python. The October 10 lockfile intake adds `arrow-pyarrow` 58.3.0, matching the
-existing Arrow graph, PyO3 and its four support crates at 0.28.3, and
-`target-lexicon` 0.13.5. Existing locked packages are neither removed nor upgraded.
+Python. The binding uses `arrow-pyarrow` 58.3.0, matching the existing Arrow
+graph, PyO3 and its four support crates at 0.29.3, and `target-lexicon` 0.13.5.
+The October 11 dependency audit rejected the initial PyO3 0.28.3 intake because
+of [RUSTSEC-2026-0176](https://rustsec.org/advisories/RUSTSEC-2026-0176.html)
+and [RUSTSEC-2026-0177](https://rustsec.org/advisories/RUSTSEC-2026-0177.html).
+Both advisories identify 0.29.0 as the patched boundary. No waiver is used.
 Arrow's adapter declares Apache-2.0 and Rust 1.85; the PyO3 family declares
 MIT OR Apache-2.0 and Rust 1.83. The workspace's Rust 1.96 floor remains unchanged.
 `target-lexicon` has no declared Rust floor; its actual compilation is part of
@@ -84,8 +123,21 @@ headers refer to the Arrow project notice. The exact-version upstream
 [notice](https://github.com/apache/arrow-rs/blob/58.3.0/NOTICE.txt) match the files
 in the already cached Arrow 58.3.0 sibling crates. Binary packaging must carry
 these notices plus the selected dependency license texts; a component-only SBOM
-does not supply those texts. Wheel staging, load proof, license bundle verification
-and CI acceptance remain required before declaring this binding distributable.
+does not supply those texts. Wheel staging, actual isolated loading and license
+bundle verification pass locally. Hosted platform acceptance and public
+distribution retain separate requirements.
+
+The published 58.x adapter still requires PyO3 0.28. The reviewed
+[`vendor/arrow-pyarrow`](../../vendor/arrow-pyarrow/README.shardloom.md) patch
+backports Apache's [PyO3 update](https://github.com/apache/arrow-rs/pull/10134)
+onto the exact 58.3.0 registry source: only the dependency requirement and an
+explicit invalid-UTF-8 capsule-name error conversion change. The existing
+aligned-buffer import remains intact. Registry/source hashes, patch identity and
+exact-version `LICENSE`/`NOTICE` are retained in its provenance record; packaging
+verifies and includes both texts. Arrow, Parquet and Vortex retain their existing
+versions. This optional interoperability patch adds no execution provider or
+advisory exception and must be removed when a compatible upstream adapter on the
+approved Arrow/Vortex graph carries the patched PyO3 requirement.
 
 ## Per-call resources with retained results
 
@@ -130,8 +182,35 @@ Vortex-first decision: `wrap_vortex_concept` around the existing admitted
 This is ShardLoom invocation/admission plumbing; upstream Vortex has no Python
 client command inheritance contract. The change must reuse existing source,
 compute and writer providers, without another allocator, executor or row bridge.
-Shared-owner retention, lowered-grant refusal, cancellation, no-input/no-output
-failure and CLI/embedded capability equivalence require fresh verification.
+Focused native tests verify shared-owner retention, lowered-grant refusal,
+resource-free discovery, per-call inheritance and producer-callback admission.
+General embedded commands now use the shared invocation context and session
+cancellation owner. Complete source and installed-package verification remain
+part of acceptance; a refused unaccounted owner is not the completion target
+for useful existing operations.
+
+Primitive result handles reuse the existing prepared native count, unary,
+aggregate and sort producers. Vortex-first decision: `wrap_vortex_concept`
+around their admitted Vortex arrays and the existing `OwnedVortexResultBatch`;
+no new operator kernel, Arrow evaluator or query-engine integration is introduced.
+Complete collection retains batches and their container credits in the same pool,
+without inheriting the small JSON endpoint's row/byte bounds. Existing metadata
+count, encoded scan, finalization and native spill choices remain with their
+providers. Native I/O and runtime evidence comes from that same execution, and
+Arrow/Python rows remain explicit conversion endpoints. Focused native tests
+verify empty typed schemas, complete values beyond the former small-result
+limits, pressure, cancellation, cleanup and retained-owner lifetimes.
+
+Directory and manifest sources retain every member's native source owner and
+revalidate collection membership when reused. Count, unary and structured
+operations use the shared relational lowering where appropriate. Partitioned
+aggregation and sorting call their existing cross-part providers and finalize
+directly into native batches. Source-order limits and predicates retain their
+global meaning; wide sorting materializes selected payloads in final global
+order. These paths support complete collection, incremental delivery and native
+Vortex writing without serializing result cells through the JSON endpoint.
+Existing materialization and spill admission still applies; this binding adds
+neither a new spill capability nor another operator implementation.
 
 ## Incremental delivery and explicit Python objects
 
@@ -161,7 +240,7 @@ and follows the existing temporal rule: represent calendar-compatible values as
 Python date/datetime objects, retaining exact epoch integers beyond Python's
 calendar range. Caller-owned Python containers are outside native reservations.
 Neither Arrow export nor continued native execution invokes this endpoint.
-Compilation, integration tests and packaging remain required before acceptance.
+Compilation, integration tests and packaging are separately evidenced below.
 
 The embedded SQL plan now carries the existing explicit native spill declaration
 into the shared relational preparation path. Validation uses the CLI's strict
@@ -174,8 +253,8 @@ reuse stale preparation. Collection, incremental delivery and writers use that
 same prepared operation. Focused integration verifies complete 24,001-row spilled
 ordering, retained result lifetime and cleanup, plus 4,097-row public collection,
 incremental delivery and native Vortex output. Invalid spill options refuse before
-producer demand or output creation. These results leave generic-command
-ownership, primitive options and native expressions as separate completion work.
+producer demand or output creation. The shared command owner, explicit primitive
+options and typed expression handles now have their own integration coverage.
 
 Native multi-output writing uses the existing shared `write_many_controlled`
 provider and its staged publication/recovery contract. Target validation precedes
@@ -186,8 +265,12 @@ binding does not introduce result caching. Focused checks reopen all eight outpu
 formats and verify every value, empty outputs, retained owners and producer
 failure without prefix publication. Streaming batch fanout retains the shared
 provider's explicit refusal; a streaming writer admits one native Vortex target.
-All 37 current native binding integration tests and the six provider fanout tests
-pass locally; complete source, wheel and hosted acceptance remain required.
+The six provider fanout tests passed during implementation. The final installed
+native binding suite passes all 63 tests, including command ownership, primitive
+and partitioned operation options, typed expressions and shared SQL provider
+selection. Complete local source, runtime and wheel gates also pass; hosted
+acceptance remains separate. These counts overlap and are not independent
+workload or performance observations.
 
 ## Object and factory intake
 
@@ -211,8 +294,9 @@ batches, a 4,097-row Arrow batch, and two retained complete 4,097-field outputs.
 The latter explicitly grants 512 MiB for their combined ownership. These checks
 verify complete values and exercise resource refusal, producer failure and owner
 lifetimes; they establish neither a new schema/batch ceiling nor a performance gain.
-Complete operation/option parity, the broad regression and paired measurements
-remain separate acceptance obligations.
+The expanded integration suite exercises complete SQL operations, native
+primitive declarations, multi-file collections and typed native plans. Broad
+regression and paired measurements remain separate acceptance obligations.
 
 ## Native wheel proof
 
@@ -240,7 +324,12 @@ unobserved platforms are not implied. Existing CLI-only wheels retain their tags
 CI pins [PyArrow 25.0.1](https://pypi.org/project/pyarrow/25.0.1/), the consumer used
 by local integration, and build tooling separately with reviewed wheel hashes.
 PyArrow is an optional interchange test dependency, not a Python execution engine.
-Actual wheel/install and hosted CI acceptance remain required.
+An earlier local wheel passed a clean install and all 32 then-current integration
+tests; its record remains historical. The final `native-wheel-proof-300b` verifies
+the release extension and CLI, every wheel RECORD entry and notice, isolated
+imports, and all 63 native integration tests without skips. Its exact source and
+artifact hashes appear in the acceptance report. Hosted CI acceptance remains
+required for the expanded surface.
 
 ## Lifetime, conversion and evidence
 
@@ -255,9 +344,10 @@ input demand or output creation. Invalid values fail before work begins.
 The public native client exposes `cancel()` for active and queued operations.
 It renews the session cancellation owner for subsequent calls while retaining
 completed results. A timed-out child operation does not revoke its parent session
-or sibling operations. Native generic command ownership/deadline wiring remains a
-separate completion obligation. Focused integration checks prove deadline and
-cancellation behavior for the typed plan, input, result and stream methods.
+or sibling operations. Generic commands now enter the same invocation owner and
+carry their deadline and cancellation token through the shared dispatcher.
+Focused integration checks prove deadline and cancellation behavior for the typed
+plan, input, result and stream methods.
 
 Results must retain arrays, runtime and credits after session/plan handles drop.
 Explicit close revokes new work without invalidating independently retained

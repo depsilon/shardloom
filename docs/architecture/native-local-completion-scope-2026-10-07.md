@@ -123,9 +123,14 @@ The October 10 direction prioritizes [required explicit resources](required-exec
 before data inspection or execution. Its
 [local acceptance](../benchmarks/required-execution-resources-2026-10-10.md)
 and independent inspection are complete. Support and rendered-guide checks
-pass; hosted acceptance remains pending. It is followed by [native Python ownership and
-columnar exchange](native-python-surface-2026-10-10.md). Both extend existing
-owners. Safe full-domain timestamp statistics/compression stays attached to ingest
+pass; hosted acceptance remains pending. The follow-on [native Python ownership and
+columnar exchange](native-python-surface-2026-10-10.md) now has complete
+[local acceptance](../benchmarks/native-python-surface-2026-10-11.md): native
+results/input, in-process operations, typed plans, an isolated installed wheel and
+six paired complete Python workflows. Its hosted integration remains pending.
+Both extend existing owners. Useful legacy/reduced-profile workloads that still
+refuse resource admission remain implementation work; an admission refusal does
+not close them. Safe full-domain timestamp statistics/compression stays attached to ingest
 and pruning. The unbuilt native-binding experiment was not a failed benchmark.
 
 Reviewed FSST/Zstd payload buffers, actual Zstd decoder/prepared-dictionary

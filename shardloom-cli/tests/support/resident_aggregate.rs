@@ -62,6 +62,8 @@ fn worker_reuses_integer_extrema_and_average_with_filters_order_and_empty_result
             {"function":"max","column":"metric","alias":"hi"},
             {"function":"avg","column":"metric","alias":"mean"}]})
         .to_string();
+        let mut opens = 0;
+        let mut executions = 0;
         for (predicate, expected) in [
             (None, json!({"lo":10,"hi":50,"mean":30.0})),
             (Some("gte:value:3"), json!({"lo":30,"hi":50,"mean":40.0})),
@@ -71,10 +73,15 @@ fn worker_reuses_integer_extrema_and_average_with_filters_order_and_empty_result
             ),
         ] {
             for execution in 1..=3 {
+                executions += 1;
+                if execution == 1 {
+                    opens += 1;
+                }
                 completed(
                     &worker.aggregate(&path, &scalar, predicate, None, "1", workers),
                     &expected,
-                    &execution.to_string(),
+                    &opens.to_string(),
+                    &executions.to_string(),
                     execution == 1,
                 );
             }
@@ -86,13 +93,18 @@ fn worker_reuses_integer_extrema_and_average_with_filters_order_and_empty_result
             "order_by":[{"column":"value","descending":true}], "offset":1})
         .to_string();
         for execution in 1..=3 {
+            executions += 1;
+            if execution == 1 {
+                opens += 1;
+            }
             completed(
                 &worker.aggregate(&path, &grouped, None, Some("2"), "1", workers),
                 &json!([
                     {"value":4,"lo":40,"hi":40,"mean":40.0},
                     {"value":3,"lo":30,"hi":30,"mean":30.0},
                 ]),
-                &execution.to_string(),
+                &opens.to_string(),
+                &executions.to_string(),
                 execution == 1,
             );
         }
@@ -107,7 +119,7 @@ fn values(result: &Value) -> Value {
     Value::Array(rows)
 }
 
-fn completed(result: &Value, expected: &Value, executions: &str, opened: bool) {
+fn completed(result: &Value, expected: &Value, opens: &str, executions: &str, opened: bool) {
     assert_eq!(result["status"], "success", "{result}");
     assert_eq!(
         values(result),
@@ -123,7 +135,7 @@ fn completed(result: &Value, expected: &Value, executions: &str, opened: bool) {
             "result_materialization_boundary",
             "bounded_native_batches_to_jsonl",
         ),
-        ("resident_source_opens", "1"),
+        ("resident_source_opens", opens),
         ("resident_completed_executions", executions),
         ("resident_aggregate_handle_retained", "true"),
         ("local_primitive_report_present", "true"),
@@ -151,12 +163,13 @@ fn worker_reuses_aggregate_lowering_with_complete_fresh_scalar_and_grouped_value
     let path = fixture();
     let mut worker = Worker::new();
     let aggregate = scalar();
-    for (execution, opened) in [("1", true), ("2", false), ("3", false)] {
+    for (opened, completed_count) in [(true, "1"), (false, "2"), (false, "3")] {
         let result = worker.aggregate(&path, &aggregate, None, None, "1", "2");
         completed(
             &result,
             &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-            execution,
+            "1",
+            completed_count,
             opened,
         );
     }
@@ -164,41 +177,45 @@ fn worker_reuses_aggregate_lowering_with_complete_fresh_scalar_and_grouped_value
         {"function":"count_distinct","column":"metric","alias":"unique_alias"}],
         "order_by":[{"column":"unique_alias","descending":true},{"column":"value","descending":false}],
         "offset":1}).to_string();
-    for (execution, opened) in [("1", true), ("2", false)] {
+    for (opened, opened_count, completed_count) in [(true, "2", "4"), (false, "2", "5")] {
         completed(
             &worker.aggregate(&path, &grouped, None, Some("2"), "1", "2"),
             &json!([{"value":2,"unique_alias":1},{"value":3,"unique_alias":1}]),
-            execution,
+            opened_count,
+            completed_count,
             opened,
         );
     }
     // Changing filter, source limit, memory and CPU grants invalidates the old
     // operation rather than reusing a stale plan or a wider runtime.
-    for (memory, workers, execution) in [
-        ("1", "1", "1"),
-        ("1", "1", "2"),
-        ("2", "1", "1"),
-        ("2", "2", "1"),
+    for (memory, workers, opens, executions, opened) in [
+        ("1", "1", "3", "6", true),
+        ("1", "1", "3", "7", false),
+        ("2", "1", "4", "8", true),
+        ("2", "2", "5", "9", true),
     ] {
         completed(
             &worker.aggregate(&path, &aggregate, Some("gt:value:2"), None, memory, workers),
             &json!({"rows_alias":3,"unique_alias":3,"total_alias":120.0}),
-            execution,
-            execution == "1",
+            opens,
+            executions,
+            opened,
         );
     }
     assert_eq!(worker.raw_request("{invalid")["status"], "error");
     completed(
         &worker.aggregate(&path, &aggregate, None, None, "1", "2"),
         &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-        "1",
+        "6",
+        "10",
         true,
     );
-    assert_completed(&worker.collect(&path, "metric", "2"), "1");
+    assert_completed(&worker.collect(&path, "metric", "2"), "7", "11");
     completed(
         &worker.aggregate(&path, &aggregate, None, None, "1", "2"),
         &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-        "1",
+        "8",
+        "12",
         true,
     );
 }
@@ -223,6 +240,7 @@ fn worker_aggregate_source_replacement_fails_once_before_explicit_reprepare() {
         &worker.aggregate(&path, &aggregate, Some("gt:value:99"), None, "1", "2"),
         &expected,
         "1",
+        "1",
         true,
     );
     let replacement = root.join("replacement.vortex");
@@ -234,7 +252,8 @@ fn worker_aggregate_source_replacement_fails_once_before_explicit_reprepare() {
     completed(
         &worker.aggregate(&path, &aggregate, Some("gt:value:99"), None, "1", "2"),
         &expected,
-        "1",
+        "2",
+        "2",
         true,
     );
     drop(worker);
@@ -246,26 +265,35 @@ fn worker_reuses_transformed_aggregate_and_rebinds_changed_requests() {
     let path = fixture();
     let mut worker = Worker::new();
     let aggregate = scalar();
+    let mut executions = 1;
+    let mut opens = 1;
     completed(
         &worker.aggregate(&path, &aggregate, None, None, "1", "2"),
         &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-        "1",
+        &opens.to_string(),
+        &executions.to_string(),
         true,
     );
     let avg =
         json!({"measures":[{"function":"avg","column":"metric","alias":"mean_alias","argument_offset":1}]}).to_string();
     for execution in 1..=2 {
+        executions += 1;
+        if execution == 1 {
+            opens += 1;
+        }
         completed(
             &worker.aggregate(&path, &avg, None, None, "1", "2"),
             &json!({"mean_alias":31.0}),
-            &execution.to_string(),
+            &opens.to_string(),
+            &executions.to_string(),
             execution == 1,
         );
     }
     completed(
         &worker.aggregate(&path, &aggregate, None, None, "1", "2"),
         &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-        "1",
+        "3",
+        "4",
         true,
     );
 }
@@ -287,9 +315,9 @@ fn worker_true_empty_source_aggregate_reuses_only_preparation_and_invalidates_ch
     let mut worker = Worker::new();
     let aggregate = scalar();
     let expected = json!({"rows_alias":0,"unique_alias":0,"total_alias":null});
-    for (execution, opened) in [("1", true), ("2", false), ("3", false)] {
+    for (opened, opens, executions) in [(true, "1", "1"), (false, "1", "2"), (false, "1", "3")] {
         let result = worker.aggregate(&source, &aggregate, None, None, "1", "2");
-        completed(&result, &expected, execution, opened);
+        completed(&result, &expected, opens, executions, opened);
         assert_eq!(field(&result, "local_primitive_rows_scanned"), "0");
     }
     let grouped = json!({"group_by":["value"],"measures":[
@@ -297,11 +325,12 @@ fn worker_true_empty_source_aggregate_reuses_only_preparation_and_invalidates_ch
         {"function":"count_distinct","column":"metric","alias":"unique_alias"},
         {"function":"sum","column":"metric","alias":"total_alias"}]})
     .to_string();
-    for (execution, opened) in [("1", true), ("2", false)] {
+    for (opened, opens, executions) in [(true, "2", "4"), (false, "2", "5")] {
         completed(
             &worker.aggregate(&source, &grouped, None, None, "1", "2"),
             &json!([]),
-            execution,
+            opens,
+            executions,
             opened,
         );
     }
@@ -314,7 +343,8 @@ fn worker_true_empty_source_aggregate_reuses_only_preparation_and_invalidates_ch
     completed(
         &worker.aggregate(&source, &aggregate, None, None, "1", "2"),
         &json!({"rows_alias":5,"unique_alias":5,"total_alias":150.0}),
-        "1",
+        "3",
+        "6",
         true,
     );
     drop(worker);
@@ -391,6 +421,7 @@ fn worker_reuses_noninteger_aggregate_with_complete_fresh_results() {
                 {"text_key":"a","rows_alias":2,"total_alias":5.0},
                 {"text_key":"b","rows_alias":1,"total_alias":2.0},
             ]),
+            "1",
             &execution.to_string(),
             execution == 1,
         );

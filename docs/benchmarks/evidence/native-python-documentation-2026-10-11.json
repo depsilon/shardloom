@@ -1,0 +1,432 @@
+{
+  "schema_version": "shardloom.native_python_documentation_packet.v1",
+  "status": "passed",
+  "archive": "native-python-documentation-2026-10-11.tar.xz",
+  "archive_bytes": 526244,
+  "archive_sha256": "66b557bc2dabba6e7aa2d9108c9974d59c100b5e95c763aa976bd5b78fdd5ca3",
+  "members_verified": 62,
+  "members": {
+    "observations/native-doc-inventory-302.json": {
+      "bytes": 11490,
+      "sha256": "a95d0451a69c9110b11827ee63072469150492ed6302473ca23162a8460fdb5f"
+    },
+    "observations/native-doc-preview-302.json": {
+      "bytes": 6479,
+      "sha256": "b97e4902b8a085afd2032d204a687573add394791f478ebdbb7f6cf2072c5c31"
+    },
+    "observations/native-doc-preview-302.log": {
+      "bytes": 3096,
+      "sha256": "87e27e6f4286d4cd90bcf2d7cc5e2cfdbe82e4c485a127ab8053bc2d664dac71"
+    },
+    "observations/native-doc-verification-302.json": {
+      "bytes": 13248,
+      "sha256": "d93c9c93db91a9942f7867d246efabff93836fdb54d719031aeba78586c97343"
+    },
+    "observations/native-documentation-checks-302.json": {
+      "bytes": 6081,
+      "sha256": "8c14435a7a8fa9257e339b86973199d644a9714a1f254d0761e04e7cb8b6d121"
+    },
+    "observations/native-documentation-checks-302.log": {
+      "bytes": 300,
+      "sha256": "20a285a6f1776a1ecf6165b002d297de3959f529c86281a26ad4a1d6a1f0ac39"
+    },
+    "observations/native-documentation-checks-302/astro-build.log": {
+      "bytes": 1736,
+      "sha256": "15778bd05299c9074a4efc91ebc6860f1c7b4e5857c04b07a88250cb0d92cc2d"
+    },
+    "observations/native-documentation-checks-302/astro-check.log": {
+      "bytes": 305,
+      "sha256": "548f8bdf8455b78324e6893cab9fa21d5814d29881881859a2b92bb84c8e805f"
+    },
+    "observations/native-documentation-checks-302/content-sync-build.log": {
+      "bytes": 82,
+      "sha256": "15f9a0b92df7716c08eea414a64265b2ab5a8d2cf46f4a1fd7f0a74c016a4d9b"
+    },
+    "observations/native-documentation-checks-302/content-sync.log": {
+      "bytes": 82,
+      "sha256": "15f9a0b92df7716c08eea414a64265b2ab5a8d2cf46f4a1fd7f0a74c016a4d9b"
+    },
+    "observations/native-documentation-checks-302/diff.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "observations/native-documentation-checks-302/guide-example.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "observations/native-documentation-checks-302/public-status.json": {
+      "bytes": 91168,
+      "sha256": "1da00f8e3c7f9dab59271b2a3ff3733869ee6896ce163d453a0bc5b83eaf474f"
+    },
+    "observations/native-documentation-checks-302/public-status.log": {
+      "bytes": 115,
+      "sha256": "ceb0d456bfdfbca4a66c0057bf43e32357f76cdb3ab5243c9b7cf3231c58fe54"
+    },
+    "observations/native-documentation-checks-302/readme-example.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "observations/native-documentation-checks-302/report.json": {
+      "bytes": 10963,
+      "sha256": "5bcc2b1fc73f940683de9e73f0ab4699cb73068b1d94f07efa22e6203c372a6e"
+    },
+    "observations/native-documentation-checks-302/search-policy.log": {
+      "bytes": 692,
+      "sha256": "70db52bf33bbf9104b3fc236cdf2f0c3fc62d629e06e360c3e0cce1202a32488"
+    },
+    "observations/native-documentation-checks-302/static-assets.log": {
+      "bytes": 39,
+      "sha256": "d943ff32ebe2c5140507f4030f665d6138a38dfaf1bc3529c3206fe3c1fcf977"
+    },
+    "observations/native-documentation-checks-302/static-clean.log": {
+      "bytes": 144,
+      "sha256": "3bd2d1921d61ab8507e8f0f41a4bda711e4cdf72fdb4ba3682155210c43fa133"
+    },
+    "observations/native-documentation-checks-302/static-postbuild.log": {
+      "bytes": 139,
+      "sha256": "c156d96c6514b128023a085cd328c1c8271289332dfd0242ce52e8db81c20da6"
+    },
+    "observations/native-documentation-checks-302/static-reset.log": {
+      "bytes": 143,
+      "sha256": "a2fa8fa7ee9d2b44433fd38d5613e88b1108804ab76bc55dde25dc4d5f33b3f4"
+    },
+    "observations/native-documentation-checks-302/static-settle.log": {
+      "bytes": 145,
+      "sha256": "4550dfac51e06c5d9f5fc20bb298d54c51c1d3c729228e1fd96be186cf0c3cec"
+    },
+    "observations/native-documentation-checks-302/use-case-backlinks.log": {
+      "bytes": 22,
+      "sha256": "a50d9d2259f01abfa511d86b4f36a42d25d7798ba209b5b76e5fa1ea15a71a66"
+    },
+    "observations/native-documentation-checks-302/user-surface-index.log": {
+      "bytes": 579,
+      "sha256": "ede6c855e3a0afe431cbb7e52a1d81394321a74317b12787e509ee4c245fa90e"
+    },
+    "observations/native-documentation-checks-302/website-link-tests.log": {
+      "bytes": 1144,
+      "sha256": "85606c4de735b7b8704206969d6658e3954f0139dd805edd6724955377b5af1c"
+    },
+    "observations/native-documentation-checks-302/website-readiness.json": {
+      "bytes": 8730,
+      "sha256": "b5ae4fc930812c86ce44f251e7a61caff14d128641f0231e855bdb7b8a1636ad"
+    },
+    "observations/native-documentation-checks-302/website-readiness.log": {
+      "bytes": 145,
+      "sha256": "e78cde5e3627b0371b3687bc10de208b4f4e35d78de4edbc4a5e77aa621b35f0"
+    },
+    "observations/native-final-support-303/ci-gate-matrix.json": {
+      "bytes": 24005,
+      "sha256": "23afa47f28d9612c978d399f4762a94cad1441ec66cbff0e34c485463e25bbf7"
+    },
+    "observations/native-final-support-303/ci-gate-matrix.log": {
+      "bytes": 109,
+      "sha256": "4438b231f8dc8cbdd57383a619b09dea109e3a8132649bd3c306a407c8756a29"
+    },
+    "observations/native-final-support-303/ci-library-selection.patch": {
+      "bytes": 2210,
+      "sha256": "398961347f401207a3e779fb62f00c2ecc1731c5ebd11a8300d11c85a42f4a8c"
+    },
+    "observations/native-final-support-303/ci_gate_matrix.log": {
+      "bytes": 593,
+      "sha256": "97a6081afd4cafc7434dd08476fb191da10e43f3599903b66121f56b8081840b"
+    },
+    "observations/native-final-support-303/diff-check.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "observations/native-final-support-303/final-selected-source-sha256.json": {
+      "bytes": 174195,
+      "sha256": "f4862bf3459a201a285cfdfad753dfdec8bd34007188e58292036cbef58029bc"
+    },
+    "observations/native-final-support-303/native-install-shell-syntax.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "observations/native-final-support-303/public-status.json": {
+      "bytes": 91168,
+      "sha256": "1da00f8e3c7f9dab59271b2a3ff3733869ee6896ce163d453a0bc5b83eaf474f"
+    },
+    "observations/native-final-support-303/public-status.log": {
+      "bytes": 108,
+      "sha256": "02d9b85fb423d06df406cf289a447280a7c16c28baf64cd99cae8bdf7fe96d31"
+    },
+    "observations/native-final-support-303/release_validation_evidence.log": {
+      "bytes": 828,
+      "sha256": "1beabffb7e89c303d4488292fccd449b87a76f1bb0dde881b29c9b8520f2e446"
+    },
+    "observations/native-final-support-303/report.json": {
+      "bytes": 7066,
+      "sha256": "17f28c8739b9b65b9efbd20f098c48ffec0e187eb8a853ac160ebb85ae0042a1"
+    },
+    "observations/native-pr-file-inventory-303.json": {
+      "bytes": 79199,
+      "sha256": "03aa6424af65f46de4699249c790aa21200c58bc79f6591a85dcea92e324ce22"
+    },
+    "observations/package_native_support_303.py": {
+      "bytes": 9095,
+      "sha256": "8466e081cf3dca46dfc42bc9aaab096533d493bcd3b7bde6cdc8ecc492751f23"
+    },
+    "observations/preview_native_docs_302.py": {
+      "bytes": 1062,
+      "sha256": "2998230cf6c8f6b3dd86aa88893213b74fa15c1dc8aa4f520819902b24d29171"
+    },
+    "observations/verify_native_docs_302.py": {
+      "bytes": 4485,
+      "sha256": "7ec9e61e2a69d485df8f059d50c974e4c805da3dec01310c503f36baa8af9474"
+    },
+    "screenshots/native-doc-desktop-302.png": {
+      "bytes": 86568,
+      "sha256": "4084afbd83b6c6c5904e1d821c54241c51f98a766f710220d011ebf18696e8ba"
+    },
+    "screenshots/native-doc-desktop-light-303.png": {
+      "bytes": 112263,
+      "sha256": "4365cee21295aed34e06fb6f7442ed9fcde6df5bc4ab518016aeed4f1996bd9c"
+    },
+    "screenshots/native-doc-mobile-dark-302.png": {
+      "bytes": 53703,
+      "sha256": "9538c6e194fcdcc29be9250741a6bc07f5d65f41e97d45309edd671ec5338664"
+    },
+    "screenshots/native-doc-mobile-light-303.png": {
+      "bytes": 47856,
+      "sha256": "45499beb07c4dba4e3e534f40d691f6984e45dbe4f1cf7f09ec95d9a1ae2cd45"
+    },
+    "screenshots/native-doc-mobile-native-303.png": {
+      "bytes": 49852,
+      "sha256": "b3d32b87bec15708b995d6ef97d87fb9716543715ed3c2a91670f04d404827e2"
+    },
+    "screenshots/native-doc-search-303.png": {
+      "bytes": 27936,
+      "sha256": "105a813c6cebee78cc6d4fb9232d130b59eee8c34f9312db7988500bc006e4fe"
+    },
+    "source/.github/workflows/ci.yml": {
+      "bytes": 40617,
+      "sha256": "60170ed4fb48af421318bc6474644b1807907f128aee42b315dc30a393f692e9"
+    },
+    "source/docs/architecture/native-python-surface-2026-10-10.md": {
+      "bytes": 25433,
+      "sha256": "133c0eb5d2b8451466101f157dd2b4feebe9e9cd4f78cea71dc9cd24ebe7c8d7"
+    },
+    "source/docs/benchmarks/native-python-surface-2026-10-11.md": {
+      "bytes": 18585,
+      "sha256": "04b685165d5ebab8f1ad29a7974e526b613f94340886b0550aff23d238505f0d"
+    },
+    "source/docs/getting-started/source-checkout-install.md": {
+      "bytes": 5667,
+      "sha256": "207299f985c8a11989b4a6144f4b129cf0a9c6d397c2141dff5e852271c09da0"
+    },
+    "source/docs/reference/shardloom-user-surface-index.json": {
+      "bytes": 43704,
+      "sha256": "0df957a1d0b98bf0aa0e09c84565e79db0b1491172dfb9f4b65537ebf51e45be"
+    },
+    "source/docs/reference/shardloom-user-surface-index.md": {
+      "bytes": 39911,
+      "sha256": "5c85b431cff6d7a822d8c376109aa2912260807796901065acc98b2536fab30a"
+    },
+    "source/docs/release/ci-gate-matrix.md": {
+      "bytes": 27552,
+      "sha256": "18e50a8bced47f3deb1f2a5f5c57f46d6de9a7e49812378fc1e6f681e88c29f7"
+    },
+    "source/docs/release/public-status-matrix.md": {
+      "bytes": 22421,
+      "sha256": "33177ec079ce2def7d89878de9af7224d82868a96d637f3904417c534a95b24d"
+    },
+    "source/python/README.md": {
+      "bytes": 92079,
+      "sha256": "8b13de74de8d1a3a46e9adff30910a15285c5c34c8a66656464f66c4fcc650e0"
+    },
+    "source/scripts/check_ci_gate_matrix.py": {
+      "bytes": 27360,
+      "sha256": "9a4c45ba46279c6c2139dc0960873f6120a52d5c40756428468055fd46789447"
+    },
+    "source/scripts/run_release_validation_evidence.py": {
+      "bytes": 17631,
+      "sha256": "695f3711019c4963914666a8f49104be336124d9befa858d3ed0d0a8d49abe65"
+    },
+    "source/website-src/scripts/sync-content.mjs": {
+      "bytes": 74778,
+      "sha256": "739e70bb9c474116eadaf94d8675287ff6f0cdb2236234cd4b9f53992a365d2b"
+    },
+    "source/website-src/src/content/docs/field-guide/python-surface.mdx": {
+      "bytes": 10255,
+      "sha256": "bfa4157e57cf4aa01833e27819245c6816206054fcc4035c653b32e680208f9e"
+    },
+    "source/website/field-guide/python-surface/index.html": {
+      "bytes": 60079,
+      "sha256": "1a8ce225a17d81da9dad81a483559a8e92b095c26d23273f41b2bc498206efdd"
+    }
+  },
+  "support": {
+    "schema_version": "shardloom.native_python_support.v1",
+    "status": "passed",
+    "checks": [
+      {
+        "name": "ci-gate-matrix",
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "scripts/check_ci_gate_matrix.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-final-support-303/ci-gate-matrix.json"
+        ],
+        "returncode": 0,
+        "seconds": 0.03963325003860518,
+        "log": "ci-gate-matrix.log",
+        "log_sha256": "4438b231f8dc8cbdd57383a619b09dea109e3a8132649bd3c306a407c8756a29"
+      },
+      {
+        "name": "ci_gate_matrix",
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_release_scripts.py",
+          "-k",
+          "ci_gate_matrix",
+          "-v"
+        ],
+        "returncode": 0,
+        "seconds": 0.08669091697083786,
+        "log": "ci_gate_matrix.log",
+        "log_sha256": "97a6081afd4cafc7434dd08476fb191da10e43f3599903b66121f56b8081840b"
+      },
+      {
+        "name": "release_validation_evidence",
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_release_scripts.py",
+          "-k",
+          "release_validation_evidence",
+          "-v"
+        ],
+        "returncode": 0,
+        "seconds": 0.087101542041637,
+        "log": "release_validation_evidence.log",
+        "log_sha256": "1beabffb7e89c303d4488292fccd449b87a76f1bb0dde881b29c9b8520f2e446"
+      },
+      {
+        "name": "native-install-shell-syntax",
+        "command": [
+          "/bin/bash",
+          "-n"
+        ],
+        "returncode": 0,
+        "seconds": 0.0027737090131267905,
+        "log": "native-install-shell-syntax.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "public-status",
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "scripts/check_public_status_docs.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-final-support-303/public-status.json"
+        ],
+        "returncode": 0,
+        "seconds": 0.2570621659979224,
+        "log": "public-status.log",
+        "log_sha256": "02d9b85fb423d06df406cf289a447280a7c16c28baf64cd99cae8bdf7fe96d31"
+      },
+      {
+        "name": "diff-check",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "returncode": 0,
+        "seconds": 0.04802695900434628,
+        "log": "diff-check.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "source_files": 1318,
+    "unchanged_frozen_files": 1316,
+    "frozen_runtime_sources_unchanged": true,
+    "post_acceptance_validation_script_changes": {
+      "scripts/check_ci_gate_matrix.py": {
+        "accepted_sha256": "6c16e8637401d87dd634f6f5a11954074c10566ad523a832fa4941a211cd98f2",
+        "current_sha256": "9a4c45ba46279c6c2139dc0960873f6120a52d5c40756428468055fd46789447"
+      },
+      "scripts/run_release_validation_evidence.py": {
+        "accepted_sha256": "5d886157543b84693e1c548114e7920afe07a27c39e7dde6949d5ba514709a72",
+        "current_sha256": "695f3711019c4963914666a8f49104be336124d9befa858d3ed0d0a8d49abe65"
+      }
+    },
+    "documentation_checks": 18,
+    "examples": [
+      {
+        "document": "python/README.md",
+        "document_sha256": "8b13de74de8d1a3a46e9adff30910a15285c5c34c8a66656464f66c4fcc650e0",
+        "code": "import pyarrow as pa\nfrom shardloom.native import ExecutionResources, Relation, Session, col, lit\n\nresources = ExecutionResources(256 << 20, 2)\nsession = Session(resources)\nsource = session.from_range(\"value\", 0, 1, 100)\nrelation = (\n    Relation.scan(\"memory://values\")\n    .filter(col(\"value\") >= lit(10))\n    .project([(\"value\", col(\"value\"))])\n)\nplan = session.plan(relation, sources=[(\"memory://values\", source)])\nresult = plan.collect()\nsession.close()\n\n# A completed result retains its native owner and remains exportable after close.\ntable = pa.RecordBatchReader.from_stream(result).read_all()",
+        "complete_values": 90,
+        "after_session_close": true
+      },
+      {
+        "document": "website-src/src/content/docs/field-guide/python-surface.mdx",
+        "document_sha256": "bfa4157e57cf4aa01833e27819245c6816206054fcc4035c653b32e680208f9e",
+        "code": "import pyarrow as pa\nfrom shardloom.native import ExecutionResources, Relation, Session, col, lit\n\nsession = Session(ExecutionResources(256 << 20, 2))\nsource = session.from_range(\"value\", 0, 1, 100)\nrelation = (\n    Relation.scan(\"memory://values\")\n    .filter(col(\"value\") >= lit(10))\n    .project([(\"value\", col(\"value\"))])\n)\nresult = session.plan(relation, sources=[(\"memory://values\", source)]).collect()\nsession.close()\n\n# The complete result keeps its owner after the session closes.\ntable = pa.RecordBatchReader.from_stream(result).read_all()",
+        "complete_values": 90,
+        "after_session_close": true
+      }
+    ],
+    "rendered_review": {
+      "method": "primary visual review through the in-app browser",
+      "guide": "/field-guide/python-surface/#keep-results-native",
+      "desktop": {
+        "viewport_width": 1280,
+        "body_scroll_width": 1265,
+        "themes": [
+          "dark",
+          "light"
+        ]
+      },
+      "mobile": {
+        "viewport_width": 390,
+        "body_scroll_width": 375,
+        "themes": [
+          "dark",
+          "light"
+        ]
+      },
+      "code_scroll": "contained horizontal code scrolling; no body overflow",
+      "search": {
+        "query": "shardloom.native",
+        "results": 2,
+        "selected_result": "Keep results native",
+        "correct_anchor": true
+      },
+      "browser_warnings_and_errors": [],
+      "temporary_tab_closed": true,
+      "preview_process_group_drained": true
+    },
+    "primary_review": {
+      "scope": "final boundary review; not an independent security audit",
+      "manifest_admission": "admitted owner precedes inspection; retained text/parser/path/listing credits",
+      "result_lifetimes": "retained native owner and consumer release callbacks; explicit row endpoint",
+      "streaming": "one demanded batch; cancellation and worker drain; no provisional success report",
+      "provider_selection": "shared declaration selection; no error-driven retry; file and memory controls",
+      "ci_correction": "include extracted runtime library unit tests in native lane and local validator",
+      "runtime_test_coverage": "already included in accepted --all-targets native run",
+      "remaining": [
+        "hosted final-head acceptance",
+        "unobserved native platforms and portability",
+        "timestamp compression/statistics and broader six-area/eight-investigation queue"
+      ]
+    }
+  },
+  "hosted_acceptance": "pending"
+}

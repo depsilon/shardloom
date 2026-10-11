@@ -8,8 +8,7 @@ use super::{
 use pyo3::{prelude::*, types::PyDict};
 use shardloom_core::{ExecutionResources, Result};
 use shardloom_exec::compute_pool::CancellationToken;
-use shardloom_runtime::native::{self, SqlSource, SqlSourceBinding};
-use shardloom_vortex::local_primitives::prepared_relational::PreparedVortexRelational;
+use shardloom_runtime::native::{self, PreparedNativeOperation, SqlSource, SqlSourceBinding};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -17,7 +16,8 @@ use std::{
 
 struct Prepared {
     resources: ExecutionResources,
-    operation: PreparedVortexRelational,
+    operation: PreparedNativeOperation,
+    reusable: bool,
 }
 
 #[pyclass(name = "Plan", module = "shardloom._native", frozen)]
@@ -31,6 +31,8 @@ pub(super) struct PlanCore {
     bindings: Vec<SqlSourceBinding>,
     batches: Vec<BatchDeclaration>,
     spill: Option<String>,
+    workflow: Option<native::NativeWorkflowDeclaration>,
+    relation: Option<Arc<native::NativeRelationDeclaration>>,
     prepared: Mutex<Option<Prepared>>,
 }
 
@@ -57,6 +59,47 @@ impl NativePlan {
                 bindings,
                 batches,
                 spill,
+                workflow: None,
+                relation: None,
+                prepared: Mutex::new(None),
+            }),
+        }
+    }
+
+    pub(super) fn workflow(
+        session: Arc<SessionOwner>,
+        declaration: native::NativeWorkflowDeclaration,
+    ) -> Self {
+        Self {
+            core: Arc::new(PlanCore {
+                session,
+                statement: String::new(),
+                bindings: Vec::new(),
+                batches: Vec::new(),
+                spill: None,
+                workflow: Some(declaration),
+                relation: None,
+                prepared: Mutex::new(None),
+            }),
+        }
+    }
+
+    pub(super) fn relation(
+        session: Arc<SessionOwner>,
+        declaration: Arc<native::NativeRelationDeclaration>,
+        bindings: Vec<SqlSourceBinding>,
+        batches: Vec<BatchDeclaration>,
+        spill: Option<String>,
+    ) -> Self {
+        Self {
+            core: Arc::new(PlanCore {
+                session,
+                statement: String::new(),
+                bindings,
+                batches,
+                spill,
+                workflow: None,
+                relation: Some(declaration),
                 prepared: Mutex::new(None),
             }),
         }
@@ -68,7 +111,7 @@ impl PlanCore {
         &self,
         resources: ExecutionResources,
         cancellation: &CancellationToken,
-        execute: impl FnOnce(&PreparedVortexRelational, bool, Option<&mut BatchReader<'_>>) -> Result<T>,
+        execute: impl FnOnce(&PreparedNativeOperation, bool, Option<&mut BatchReader<'_>>) -> Result<T>,
     ) -> PyResult<T> {
         self.with_prepared_and_preflight(resources, cancellation, || Ok(()), execute)
     }
@@ -78,7 +121,7 @@ impl PlanCore {
         resources: ExecutionResources,
         cancellation: &CancellationToken,
         preflight: impl FnOnce() -> Result<()>,
-        execute: impl FnOnce(&PreparedVortexRelational, bool, Option<&mut BatchReader<'_>>) -> Result<T>,
+        execute: impl FnOnce(&PreparedNativeOperation, bool, Option<&mut BatchReader<'_>>) -> Result<T>,
     ) -> PyResult<T> {
         let errors = Arc::new(Mutex::new(None));
         self.session
@@ -95,7 +138,7 @@ impl PlanCore {
                     .map_err(|_| failed("prepared plan ownership poisoned"))?;
                 let reused = prepared
                     .as_ref()
-                    .is_some_and(|entry| entry.resources == resources)
+                    .is_some_and(|entry| entry.resources == resources && entry.reusable)
                     && self.batches.iter().all(|input| input.streaming);
                 if !reused {
                     *prepared = None;
@@ -122,16 +165,45 @@ impl PlanCore {
                     });
                 }
                 if !reused {
-                    let operation = native::prepare_sql_with_spill(
-                        &self.statement,
-                        resources,
-                        session,
-                        &bindings,
-                        self.spill.as_deref(),
-                        cancellation,
-                    )?;
+                    let collection = self.workflow.is_none()
+                        && self.relation.is_none()
+                        && native::sql_has_file_collection(
+                            &self.statement,
+                            resources,
+                            session,
+                            &bindings,
+                            cancellation,
+                        )?;
+                    let (operation, reusable) = if let Some(declaration) = &self.relation {
+                        let (operation, reusable) = declaration.prepare(
+                            resources,
+                            session,
+                            &bindings,
+                            self.spill.as_deref(),
+                            cancellation,
+                        )?;
+                        (
+                            PreparedNativeOperation::relational(operation, resources),
+                            reusable,
+                        )
+                    } else if let Some(declaration) = &self.workflow {
+                        (declaration.prepare(resources, session, cancellation)?, true)
+                    } else {
+                        (
+                            native::prepare_sql_operation(
+                                &self.statement,
+                                resources,
+                                session,
+                                &bindings,
+                                self.spill.as_deref(),
+                                cancellation,
+                            )?,
+                            true,
+                        )
+                    };
                     *prepared = Some(Prepared {
                         resources,
+                        reusable: reusable && !collection && operation.permits_reuse(),
                         operation,
                     });
                 }
@@ -201,11 +273,9 @@ impl NativePlan {
             self.with_prepared(resources, &cancellation, |operation, reused, input| {
                 let completed = if let Some(input) = input {
                     let mut next = || input.next();
-                    operation
-                        .with_arrow_batch_input(&mut next)?
-                        .execute_native(&cancellation)?
+                    operation.execute_native(&cancellation, Some(&mut next))?
                 } else {
-                    operation.execute_native(&cancellation)?
+                    operation.execute_native(&cancellation, None)?
                 };
                 Ok(NativeResult::new(
                     completed,
@@ -233,15 +303,19 @@ impl NativePlan {
         let format = native::output_format(format).map_err(native_error)?;
         let fields = py.detach(|| {
             self.with_prepared(resources, &cancellation, |operation, reused, input| {
-                let written = if let Some(input) = input {
+                if let Some(input) = input {
                     let mut next = || input.next();
-                    operation
-                        .with_arrow_batch_input(&mut next)?
-                        .write_controlled(&path, format, overwrite, &cancellation)?
+                    operation.write_fields(
+                        &path,
+                        format,
+                        overwrite,
+                        &cancellation,
+                        Some(&mut next),
+                        reused,
+                    )
                 } else {
-                    operation.write_controlled(&path, format, overwrite, &cancellation)?
-                };
-                Ok(native::written_fields(&written, reused))
+                    operation.write_fields(&path, format, overwrite, &cancellation, None, reused)
+                }
             })
         })?;
         super::result::fields_dict(py, fields)
@@ -280,9 +354,7 @@ impl NativePlan {
                     )
                 },
                 |operation, reused, _| {
-                    let written =
-                        operation.write_many_controlled(&targets, overwrite, &cancellation)?;
-                    native::written_many_fields(&targets, written, reused)
+                    operation.write_many_fields(&targets, overwrite, &cancellation, reused)
                 },
             )
         })?;

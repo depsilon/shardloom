@@ -4,11 +4,8 @@ use pyo3::{
     types::{PyCapsule, PyDict, PyList, PyString},
 };
 use shardloom_exec::compute_pool::CancellationToken;
-use shardloom_runtime::native;
+use shardloom_runtime::native::{ExecutedNativeOperation, ExecutedOwnedNativeOperation};
 use shardloom_vortex::{
-    local_primitives::prepared_relational::{
-        ExecutedOwnedVortexRelational, ExecutedVortexRelational,
-    },
     resident_memory_source::ResidentMemorySource,
     resident_session::{ConfigurableResidentSession, OwnedVortexResultBatch},
 };
@@ -17,7 +14,7 @@ use std::sync::Arc;
 #[pyclass(name = "Result", module = "shardloom._native", frozen)]
 pub(super) struct NativeResult {
     data: Arc<OwnedVortexResultBatch>,
-    execution: ExecutedVortexRelational,
+    execution: ExecutedNativeOperation,
     controller: ConfigurableResidentSession,
     reused: bool,
 }
@@ -33,7 +30,7 @@ impl NativeResult {
     }
 
     pub(super) fn new(
-        completed: ExecutedOwnedVortexRelational,
+        completed: ExecutedOwnedNativeOperation,
         controller: ConfigurableResidentSession,
         reused: bool,
     ) -> Self {
@@ -72,7 +69,10 @@ impl NativeResult {
 
     #[getter]
     fn report(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
-        fields_dict(py, native::execution_fields(&self.execution, self.reused))
+        fields_dict(
+            py,
+            self.execution.fields(self.reused).map_err(native_error)?,
+        )
     }
 
     /// Explicitly construct Python rows. Native operations and columnar export

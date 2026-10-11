@@ -6705,6 +6705,7 @@ class ShardLoomClient:
         vortex_pivot_projection: str | None = None,
         vortex_rolling_window: str | None = None,
         vortex_sort_rows: str | None = None,
+        vortex_aggregate: str | None = None,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         resources: ExecutionResources | None = None,
@@ -6763,6 +6764,7 @@ class ShardLoomClient:
             vortex_pivot_projection=vortex_pivot_projection,
             vortex_rolling_window=vortex_rolling_window,
             vortex_sort_rows=vortex_sort_rows,
+            vortex_aggregate=vortex_aggregate,
             resources=resources,
             spill=spill,
         )
@@ -6805,6 +6807,7 @@ class ShardLoomClient:
         vortex_pivot_projection: str | None = None,
         vortex_rolling_window: str | None = None,
         vortex_sort_rows: str | None = None,
+        vortex_aggregate: str | None = None,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         resources: ExecutionResources | None = None,
@@ -6859,6 +6862,7 @@ class ShardLoomClient:
             vortex_pivot_projection=vortex_pivot_projection,
             vortex_rolling_window=vortex_rolling_window,
             vortex_sort_rows=vortex_sort_rows,
+            vortex_aggregate=vortex_aggregate,
             memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
@@ -6969,6 +6973,7 @@ class ShardLoomClient:
         vortex_pivot_projection: str | None = None,
         vortex_rolling_window: str | None = None,
         vortex_sort_rows: str | None = None,
+        vortex_aggregate: str | None = None,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         resources: ExecutionResources | None = None,
@@ -7026,6 +7031,7 @@ class ShardLoomClient:
             vortex_pivot_projection=vortex_pivot_projection,
             vortex_rolling_window=vortex_rolling_window,
             vortex_sort_rows=vortex_sort_rows,
+            vortex_aggregate=vortex_aggregate,
             resources=resources,
             spill=spill,
         )
@@ -9558,6 +9564,7 @@ def _append_public_vortex_payload_args(
     vortex_pivot_projection: str | None,
     vortex_rolling_window: str | None,
     vortex_sort_rows: str | None,
+    vortex_aggregate: str | None,
     resources: ExecutionResources | None,
     spill: Mapping[str, object] | str | None = None,
 ) -> None:
@@ -9640,6 +9647,11 @@ def _append_public_vortex_payload_args(
         if not payload:
             raise ValueError("vortex_sort_rows must not be empty")
         args.extend(["--vortex-sort-rows", payload])
+    if vortex_aggregate is not None:
+        payload = str(vortex_aggregate).strip()
+        if not payload:
+            raise ValueError("vortex_aggregate must not be empty")
+        args.extend(["--vortex-aggregate", payload])
     args.extend(resource_command_args(resources))
 
 

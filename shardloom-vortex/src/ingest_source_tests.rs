@@ -348,6 +348,7 @@ impl Drop for CancellableObservedReader {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Keep the gated cancellation and owner-drain lifecycle together.
 fn parent_cancel_stops_delivery_and_drains_active_source_owners_once() {
     for requested in [1, 3] {
         let runtime = IngestRuntime::new(requested).unwrap();
@@ -390,7 +391,7 @@ fn parent_cancel_stops_delivery_and_drains_active_source_owners_once() {
                 &worker_parent,
             );
             let child = reader.cancellation.clone();
-            while let Some(item) = reader.next() {
+            for item in &mut reader {
                 let event = match item {
                     Ok(batch) => Event::Value(
                         batch
@@ -415,11 +416,9 @@ fn parent_cancel_stops_delivery_and_drains_active_source_owners_once() {
         let entered = read_gate.wait_until_entered();
         let mut pre_cancel_events = vec![first];
         let mut observed_another_batch = false;
-        if entered {
-            if let Ok(event) = events_rx.recv_timeout(Duration::from_secs(10)) {
-                observed_another_batch = matches!(event, Event::Value(_));
-                pre_cancel_events.push(event);
-            }
+        if entered && let Ok(event) = events_rx.recv_timeout(Duration::from_secs(10)) {
+            observed_another_batch = matches!(event, Event::Value(_));
+            pre_cancel_events.push(event);
         }
         parent.cancel();
         read_gate.release();

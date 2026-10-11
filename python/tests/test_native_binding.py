@@ -69,6 +69,66 @@ class NativeBindingTests(unittest.TestCase):
     def session(self, memory_bytes: int = 32 << 20, lanes: int = 2):
         return self.native.Session(self.resources(memory_bytes, lanes))
 
+    def command_args(
+        self,
+        path: Path,
+        primitive: str,
+        *,
+        columns: str | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+    ) -> list[str]:
+        family = "count" if primitive == "count" else "filter_project_limit"
+        args = [
+            "run",
+            "cli",
+            "--input",
+            str(path),
+            "--input-format",
+            "vortex",
+            "--request",
+            "collect",
+            "--bounded",
+            "true",
+            "--execution-policy",
+            "native_vortex",
+            "--native-vortex-operation-family",
+            family,
+            "--vortex-primitive",
+            primitive,
+        ]
+        if columns is not None:
+            args.extend(["--vortex-columns", columns])
+        if memory_bytes is not None:
+            args.extend(["--memory-bytes", str(memory_bytes)])
+        if max_parallelism is not None:
+            args.extend(["--max-parallelism", str(max_parallelism)])
+        return args
+
+    @staticmethod
+    def command_fields(envelope: dict) -> dict[str, str]:
+        result = envelope.get("result", {})
+        fields = [*envelope.get("fields", []), *result.get("fields", [])]
+        return {field["key"]: field["value"] for field in fields}
+
+    def command_envelope(self, session, args: list[str], *, timeout: float | None = None) -> dict:
+        return json.loads(session.command(args, timeout=timeout))
+
+    def assert_no_command_fallback(self, envelope: dict) -> None:
+        self.assertFalse(envelope["fallback"]["attempted"], envelope)
+        self.assertFalse(envelope["fallback"]["allowed"], envelope)
+        self.assertIsNone(envelope["fallback"]["engine"], envelope)
+
+    def write_vortex_fixture(self, session, directory: str, rows: list[dict]) -> Path:
+        path = Path(directory) / "command-input.vortex"
+        source = session.from_rows(rows)
+        plan = session.sql(
+            "SELECT value, metric FROM 'memory://command-fixture' ORDER BY value",
+            sources=[("memory://command-fixture", source)],
+        )
+        plan.write(path, "write_vortex")
+        return path
+
     def arrow(self):
         try:
             import pyarrow as pa
@@ -1227,14 +1287,231 @@ assert later.row_count == 2
         import shardloom as sl
 
         client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
-        cases = ({"fanout_outputs": {"jsonl": "uncreated.jsonl"}},
-                 {"vortex_sample_fraction": 0.25}, {"execution_policy": "invented"},
-                 {"materialization_policy": "unbounded"}, {"bounded": False})
+        cases = ({"fanout_outputs": {"jsonl": "uncreated.jsonl"}}, {"bounded": False})
         for options in cases:
             with self.subTest(options=options), self.assertRaises(ValueError):
                 client.public_workflow_run("sql", sql_statement="SELECT 1", **options)
+        # Complete workflow declarations now use the same Rust validation and
+        # structured diagnostics as the CLI, before preparing any operation.
+        for options, message in (
+            ({"vortex_sample_fraction": 0.25}, "matching complete primitive declaration"),
+            ({"execution_policy": "invented"}, "unsupported route execution policy"),
+            ({"materialization_policy": "unbounded"}, "unsupported route materialization"),
+        ):
+            with self.subTest(options=options), self.assertRaises(sl.ShardLoomCommandError) as raised:
+                client.public_workflow_run("sql", sql_statement="SELECT 1", **options)
+            self.assertIn(message, str(raised.exception))
+            self.assertFalse(raised.exception.envelope.fallback.attempted)
+            self.assertFalse(raised.exception.envelope.fallback.allowed)
         self.assertEqual(client._native_backend.session.snapshot()["completed_executions"], 0)
         client.close()
+
+    def test_session_command_uses_the_configured_native_owner_for_generated_vortex_inputs(self):
+        rows = [{"value": value, "metric": value * 10} for value in range(1, 6)]
+        session = self.session(64 << 20, 2)
+        with (
+            tempfile.TemporaryDirectory(prefix="shardloom-session-command-owner-") as directory,
+            patch("shardloom.client.subprocess.run", side_effect=AssertionError("process launch")),
+            patch("shardloom.client.subprocess.Popen", side_effect=AssertionError("worker launch")),
+        ):
+            path = self.write_vortex_fixture(session, directory, rows)
+
+            count = self.command_envelope(session, self.command_args(path, "count"))
+            self.assertEqual(count["status"], "success", count)
+            self.assert_no_command_fallback(count)
+            count_fields = self.command_fields(count)
+            self.assertEqual(count_fields["result_jsonl"], '{"count_all":5}\n')
+            self.assertEqual(count_fields["result_known"], "true")
+            self.assertEqual(count_fields["execution_resource_admission_status"], "admitted")
+            self.assertEqual(count_fields["execution_resource_declared_memory_bytes"], str(64 << 20))
+            self.assertEqual(count_fields["execution_resource_admitted_memory_bytes"], str(64 << 20))
+            self.assertEqual(count_fields["execution_resource_declared_max_parallelism"], "2")
+            self.assertEqual(count_fields["execution_resource_admitted_max_parallelism"], "2")
+
+            projected = self.command_envelope(
+                session,
+                self.command_args(path, "project", columns="metric"),
+            )
+            self.assertEqual(projected["status"], "success", projected)
+            self.assert_no_command_fallback(projected)
+            projected_fields = self.command_fields(projected)
+            self.assertEqual(
+                json.loads(projected_fields["result_values_json"]),
+                [{"metric": value * 10} for value in range(1, 6)],
+            )
+            self.assertEqual(projected_fields["execution_resource_admission_status"], "admitted")
+            self.assertEqual(projected_fields["execution_resource_admitted_memory_bytes"], str(64 << 20))
+            self.assertEqual(projected_fields["execution_resource_admitted_max_parallelism"], "2")
+
+    def test_session_command_refuses_smaller_grant_while_native_sources_and_results_are_retained(self):
+        rows = [{"value": value, "metric": value * 10} for value in range(1, 6)]
+        session = self.session(64 << 20, 2)
+        with (
+            tempfile.TemporaryDirectory(prefix="shardloom-session-command-retained-") as directory,
+            patch("shardloom.client.subprocess.run", side_effect=AssertionError("process launch")),
+            patch("shardloom.client.subprocess.Popen", side_effect=AssertionError("worker launch")),
+        ):
+            path = self.write_vortex_fixture(session, directory, rows)
+            retained_source = session.from_rows(rows)
+            retained_plan = session.sql(
+                "SELECT value, metric FROM 'memory://retained-command-source' ORDER BY value",
+                sources=[("memory://retained-command-source", retained_source)],
+            )
+            retained_result = retained_plan.collect()
+            self.assertEqual(retained_result.row_export()[0], rows)
+            retained_plan.release_prepared()
+
+            before = session.snapshot()
+            retained_bytes = before["reserved_bytes"]
+            self.assertIsInstance(retained_bytes, int)
+            self.assertGreater(retained_bytes, 1, before)
+            insufficient = retained_bytes - 1
+            self.assertGreater(insufficient, 0)
+
+            denied = self.command_envelope(
+                session,
+                self.command_args(
+                    path,
+                    "count",
+                    memory_bytes=insufficient,
+                    max_parallelism=1,
+                ),
+            )
+            self.assertEqual(denied["status"], "error", denied)
+            self.assert_no_command_fallback(denied)
+            denial_reasons = [
+                str(item.get("reason", "")).lower()
+                for item in denied.get("diagnostics", [])
+            ]
+            self.assertTrue(
+                any("memory allocation cannot cover retained owners" in reason for reason in denial_reasons),
+                denied,
+            )
+            after_denial = session.snapshot()
+            self.assertEqual(after_denial["reserved_bytes"], retained_bytes)
+            self.assertEqual(after_denial["prepared_source_opens"], before["prepared_source_opens"])
+
+            del retained_result, retained_plan, retained_source
+            self.assertEqual(session.snapshot()["reserved_bytes"], 0)
+
+            completed = self.command_envelope(session, self.command_args(path, "count"))
+            self.assertEqual(completed["status"], "success", completed)
+            self.assert_no_command_fallback(completed)
+            self.assertEqual(self.command_fields(completed)["result_jsonl"], '{"count_all":5}\n')
+
+    def test_resource_free_session_command_does_not_turn_a_call_override_into_a_default(self):
+        session = self.native.Session()
+        self.assertFalse(session.snapshot()["native_owner_initialized"])
+        self.assertIsNone(session.snapshot()["memory_limit_bytes"])
+        with (
+            tempfile.TemporaryDirectory(prefix="shardloom-session-command-explicit-") as directory,
+            patch("shardloom.client.subprocess.run", side_effect=AssertionError("process launch")),
+            patch("shardloom.client.subprocess.Popen", side_effect=AssertionError("worker launch")),
+        ):
+            discovery = self.command_envelope(session, ["capabilities"])
+            self.assertEqual(discovery["status"], "success", discovery)
+            self.assert_no_command_fallback(discovery)
+            self.assertFalse(session.snapshot()["native_owner_initialized"])
+            self.assertIsNone(session.snapshot()["memory_limit_bytes"])
+
+            fixture_session = self.session(32 << 20, 1)
+            path = self.write_vortex_fixture(
+                fixture_session,
+                directory,
+                [{"value": value, "metric": value * 10} for value in range(1, 6)],
+            )
+            explicit = self.command_envelope(
+                session,
+                self.command_args(
+                    path,
+                    "count",
+                    memory_bytes=16 << 20,
+                    max_parallelism=1,
+                ),
+            )
+            self.assertEqual(explicit["status"], "success", explicit)
+            self.assert_no_command_fallback(explicit)
+            self.assertEqual(
+                self.command_fields(explicit)["execution_resource_admitted_memory_bytes"],
+                str(16 << 20),
+            )
+            self.assertEqual(session.snapshot()["memory_limit_bytes"], 16 << 20)
+
+            opens_before_missing_grant = session.snapshot()["prepared_source_opens"]
+            missing_grant = self.command_envelope(session, self.command_args(path, "count"))
+            self.assertEqual(missing_grant["status"], "error", missing_grant)
+            self.assert_no_command_fallback(missing_grant)
+            reasons = [
+                str(item.get("reason", "")).lower()
+                for item in missing_grant.get("diagnostics", [])
+            ]
+            self.assertTrue(
+                any("missing required execution resources" in reason for reason in reasons),
+                missing_grant,
+            )
+            self.assertEqual(session.snapshot()["prepared_source_opens"], opens_before_missing_grant)
+
+    def test_session_command_inside_columnar_producer_preserves_join_dependency(self):
+        pa = self.arrow()
+        session = self.session(64 << 20, 1)
+        table = pa.table({"id": [1, 2, 3]})
+        observed = []
+        with (
+            tempfile.TemporaryDirectory(prefix="shardloom-session-command-callback-") as directory,
+            patch("shardloom.client.subprocess.run", side_effect=AssertionError("process launch")),
+            patch("shardloom.client.subprocess.Popen", side_effect=AssertionError("worker launch")),
+        ):
+            path = self.write_vortex_fixture(
+                session,
+                directory,
+                [{"value": value, "metric": value * 10} for value in range(1, 6)],
+            )
+
+            class Producer:
+                def __arrow_c_stream__(producer_self, requested_schema=None):
+                    discovery = self.command_envelope(session, ["capabilities"])
+                    nested_data = self.command_envelope(
+                        session,
+                        self.command_args(path, "count"),
+                        timeout=2,
+                    )
+                    observed.append((discovery, nested_data))
+                    return table.__arrow_c_stream__(requested_schema)
+
+            imported = session.from_arrow(Producer())
+            self.assertEqual(imported.row_count, 3)
+            self.assertEqual(len(observed), 1)
+            discovery, nested_data = observed[0]
+            self.assertEqual(discovery["status"], "success", discovery)
+            self.assert_no_command_fallback(discovery)
+            self.assertEqual(nested_data["status"], "error", nested_data)
+            self.assert_no_command_fallback(nested_data)
+            reasons = [
+                str(item.get("reason", "")).lower()
+                for item in nested_data.get("diagnostics", [])
+            ]
+            self.assertTrue(
+                any("nested operation cannot wait" in reason for reason in reasons),
+                nested_data,
+            )
+
+            imported_plan = session.sql(
+                "SELECT id FROM 'memory://callback-input' ORDER BY id",
+                sources=[("memory://callback-input", imported)],
+            )
+            imported_result = imported_plan.collect()
+            self.assertEqual(imported_result.row_export()[0], [{"id": 1}, {"id": 2}, {"id": 3}])
+
+            completed = self.command_envelope(
+                session,
+                self.command_args(path, "project", columns="metric"),
+            )
+            self.assertEqual(completed["status"], "success", completed)
+            self.assert_no_command_fallback(completed)
+            self.assertEqual(
+                json.loads(self.command_fields(completed)["result_values_json"]),
+                [{"metric": value * 10} for value in range(1, 6)],
+            )
 
 
 if __name__ == "__main__":

@@ -11765,7 +11765,11 @@ class ShardLoomContext:
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
     ) -> LazyFrame | UnsupportedWorkflowOperationReport:
-        """Normalize a bounded Arrow input into native scalar rows."""
+        """Import a columnar input directly when using the native transport.
+
+        Native results from the same session retain their existing owner.
+        The subprocess transport uses the explicit bounded row adapter.
+        """
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
             resources=resources, inherited=self.resources, limits=self.resource_limits,

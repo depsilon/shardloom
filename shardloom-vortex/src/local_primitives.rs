@@ -215,6 +215,9 @@ mod pair_partition_tests;
 #[path = "local_primitives/pair_partition_workers.rs"]
 mod pair_partition_workers;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_partitioned_native.rs"]
+pub mod partitioned_native;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_aggregate.rs"]
 pub mod prepared_aggregate;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -3295,6 +3298,22 @@ fn local_primitive_native_io_safe(
     }
     if local_primitive_empty_unary_source_scan(report)
         || local_primitive_empty_unary_predicate_scan(request, report)
+    {
+        return true;
+    }
+    // A completed sort over an authoritative empty source has neither
+    // candidates nor materialized input. Its empty typed output is certified
+    // from the footer and completed scan, not from invented data-read work.
+    if request.kind == VortexQueryPrimitiveKind::SortRows
+        && request
+            .sort_rows
+            .as_ref()
+            .is_some_and(|sort| sort.spill.is_none())
+        && report.rows_projected == Some(0)
+        && report.source_order_limit_input_rows == Some(0)
+        && report.source_order_limit_rows_output == Some(0)
+        && report.embedded_layout.metadata_persisted_in_artifact
+        && local_primitive_empty_source_scan(report)
     {
         return true;
     }
@@ -14491,14 +14510,14 @@ fn execute_vortex_local_partitioned_primitive_enabled(
         }
         VortexQueryPrimitiveKind::SimpleAggregate => {
             let aggregate =
-                read_local_vortex_simple_aggregate_partitioned_scan(&sources, request, policy, context)?;
+                read_local_vortex_simple_aggregate_partitioned_scan(&sources, request, policy, context, None)?;
             Ok(partitioned_report(
                 simple_aggregate_report(request, &aggregate)?,
                 source_uris.len(),
             )?)
         }
         VortexQueryPrimitiveKind::SortRows => {
-            let rows = read_local_vortex_sort_rows_partitioned_scan(&sources, request, policy, context)?;
+            let rows = read_local_vortex_sort_rows_partitioned_scan(&sources, request, policy, context, None)?;
             Ok(partitioned_report(
                 sort_rows_report(request, &rows)?,
                 source_uris.len(),
@@ -18601,7 +18620,7 @@ fn sort_rows_report(
         ),
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: scan.streaming_scan_used(),
-        full_stream_collected: scan.streaming_scan_used(),
+        full_stream_collected: scan.streaming_scan_used() && scan.data_read(),
         resource_envelope: scan.resource_envelope,
         physical_policy: VortexLocalPrimitivePhysicalPolicyReport::not_selected(),
         max_parallelism_requested: scan.max_parallelism_requested,
@@ -22374,6 +22393,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
     context: Option<&crate::resident_session::NativeExecutionContext<'_>>,
+    output: Option<&mut aggregate_owned::AggregateOutput<'_>>,
 ) -> Result<LocalVortexAggregateScan> {
     use vortex::io::runtime::BlockingRuntime as _;
 
@@ -22731,8 +22751,11 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         .clone();
     let (result_row_count, mut result_summary, state_budget) = if let Some(states) = grouped_states
     {
-        let (result_row_count, result_summary) =
-            states.result_row_count_and_summary(result_limit)?;
+        let (result_row_count, result_summary) = if let Some(output) = output {
+            output.finish(&states)?
+        } else {
+            states.result_row_count_and_summary(result_limit)?
+        };
         (
             result_row_count,
             result_summary,
@@ -22750,9 +22773,14 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         } else {
             states.result_row_count(&aggregate.having)?
         };
+        let (result_row_count, result_summary) = if let Some(output) = output {
+            output.finish_scalar(&states, &aggregate.having)?
+        } else {
+            (result_row_count, states.result_summary(&aggregate.having)?)
+        };
         (
             result_row_count,
-            states.result_summary(&aggregate.having)?,
+            result_summary,
             states.state_budget_report(aggregate, pre_limit_result_row_count, result_row_count)?,
         )
     };
@@ -23746,6 +23774,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
     context: Option<&crate::resident_session::NativeExecutionContext<'_>>,
+    output: Option<&mut completed_result::CompletedRows<'_>>,
 ) -> Result<LocalVortexRowsScan> {
     use vortex::io::runtime::BlockingRuntime as _;
 
@@ -24408,9 +24437,10 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     let mut late_materialization_min_selected_source_ordinal = None::<usize>;
     let mut late_materialization_max_selected_source_ordinal = None::<usize>;
     let mut late_materialization_selected_row_refs_used = false;
+    let native_output = output.is_some();
     let result_rows = if let Some(output_column_indices) = output_column_indices.as_ref() {
         result_batch::Rows::from_fn(
-            None,
+            output,
             &output_columns,
             selected_candidates.len(),
             |row, column| {
@@ -24420,7 +24450,24 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             },
         )?
     } else {
-        let materialization =
+        let mut output = output;
+        let streaming = output.as_ref().is_some_and(|output| output.is_streaming());
+        let materialization = if streaming {
+            sort_output_stream::deliver_partitioned(
+                sources,
+                request,
+                &output_columns,
+                &selected_candidates,
+                materialization_filter_predicate.as_ref(),
+                policy,
+                context.ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "native ordered output context is absent".into(),
+                    )
+                })?,
+                output.as_deref_mut().expect("streaming output is present"),
+            )?
+        } else {
             materialize_partitioned_local_vortex_sort_output_rows_by_source_ordinals(
                 sources,
                 request,
@@ -24431,7 +24478,8 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 &session,
                 &runtime,
                 context,
-            )?;
+            )?
+        };
         late_materialization_chunks_scanned = materialization.chunks_scanned;
         late_materialization_early_stop_applied = materialization.early_stop_applied;
         late_materialization_row_index_selection_applied =
@@ -24443,16 +24491,20 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             materialization.max_selected_source_ordinal;
         late_materialization_selected_row_refs_used =
             materialization.selected_row_materialization_used;
-        result_batch::Rows::from_fn(
-            None,
-            &output_columns,
-            materialization.rows.len(),
-            |row, column| {
-                Ok(result_batch::Value::from(
-                    &materialization.rows[row][column],
-                ))
-            },
-        )?
+        if streaming {
+            result_batch::Rows::streamed(selected_candidates.len())
+        } else {
+            result_batch::Rows::from_fn(
+                output,
+                &output_columns,
+                materialization.rows.len(),
+                |row, column| {
+                    Ok(result_batch::Value::from(
+                        &materialization.rows[row][column],
+                    ))
+                },
+            )?
+        }
     };
     let result_row_count = result_rows.len();
     let source = UniversalInputSource::from_dataset_uri(sources[0].uri.clone())?;
@@ -24519,8 +24571,13 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         "sort_candidate_value_column_count": candidate_value_columns.len(),
         "sort_candidate_value_columns": candidate_value_columns,
         "values": result_rows.values,
-    })
-    .to_string();
+    });
+    if native_output {
+        result_summary["aggregate_result_boundary"] =
+            "owned_native_columns_from_completed_state".into();
+        result_summary["aggregate_result_serialized_json_round_trip"] = false.into();
+    }
+    let mut result_summary = result_summary.to_string();
     if let Some(rewrite) = predicate_rewrite.as_ref() {
         annotate_embedded_derived_column_rewrite_summary(
             &mut result_summary,

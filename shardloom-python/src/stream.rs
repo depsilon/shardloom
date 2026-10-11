@@ -9,8 +9,7 @@ use pyo3::{
 };
 use shardloom_core::{ExecutionResources, Result};
 use shardloom_exec::compute_pool::CancellationToken;
-use shardloom_runtime::native;
-use shardloom_vortex::local_primitives::prepared_relational::ExecutedVortexArrowRelational;
+use shardloom_runtime::native::ExecutedArrowNativeOperation;
 use std::{
     sync::{
         Arc, Mutex,
@@ -23,7 +22,7 @@ use std::{
 
 enum Event {
     Batch(RecordBatch),
-    Finished(Box<PyResult<(ExecutedVortexArrowRelational, bool)>>),
+    Finished(Box<PyResult<(ExecutedArrowNativeOperation, bool)>>),
 }
 
 struct Running {
@@ -38,7 +37,7 @@ struct State {
     cancellation: CancellationToken,
     timeout: Option<Duration>,
     running: Option<Running>,
-    completed: Option<(ExecutedVortexArrowRelational, bool)>,
+    completed: Option<(ExecutedArrowNativeOperation, bool)>,
     closed: bool,
 }
 
@@ -114,11 +113,13 @@ impl State {
                             };
                             let executed = if let Some(input) = input {
                                 let mut next = || input.next();
-                                operation
-                                    .with_arrow_batch_input(&mut next)?
-                                    .for_each_arrow_batch(&cancellation, consume)?
+                                operation.for_each_arrow_batch(
+                                    &cancellation,
+                                    Some(&mut next),
+                                    consume,
+                                )?
                             } else {
-                                operation.for_each_arrow_batch(&cancellation, consume)?
+                                operation.for_each_arrow_batch(&cancellation, None, consume)?
                             };
                             Ok((executed, reused))
                         })
@@ -245,12 +246,17 @@ impl NativeExecutionStream {
                 .state
                 .lock()
                 .map_err(|_| PyRuntimeError::new_err("native stream state poisoned"))?;
-            Ok::<_, PyErr>(state.completed.as_ref().map(|(completed, reused)| {
-                (
-                    native::execution_fields(&completed.execution, *reused),
-                    completed.export,
-                )
-            }))
+            state
+                .completed
+                .as_ref()
+                .map(|(completed, reused)| {
+                    completed
+                        .execution
+                        .fields(*reused)
+                        .map(|fields| (fields, completed.export))
+                        .map_err(native_error)
+                })
+                .transpose()
         })?;
         let Some((fields, export)) = fields else {
             return Ok(None);
@@ -349,10 +355,10 @@ impl NativeColumnarBatch {
             ));
         }
         let reader = RecordBatchIterator::new(vec![Ok(self.batch.clone())], self.batch.schema());
-        PyCapsule::new(
+        PyCapsule::new_with_value(
             py,
             FFI_ArrowArrayStream::new(Box::new(reader)),
-            Some(c"arrow_array_stream".into()),
+            c"arrow_array_stream",
         )
     }
 

@@ -7,6 +7,87 @@ use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
 use shardloom_exec::compute_pool::CancellationToken;
 use vortex::array::dtype::DType;
 
+#[cfg(feature = "vortex-write")]
+#[path = "local_primitive_structured_plan.rs"]
+mod structured;
+
+/// Lower the structured primitive over an already declared native input. Its
+/// predicate and projection belong to that input; the source-order limit applies
+/// once to the complete input, including when it contains several file scans.
+/// # Errors
+/// Rejects the same invalid structured payload as single-source preparation.
+#[cfg(feature = "vortex-write")]
+pub fn structured_projection_plan(
+    request: &VortexQueryPrimitiveRequest,
+    input: crate::relational_query::VortexRelationalPlan,
+) -> Result<crate::relational_query::VortexRelationalPlan> {
+    structured::plan(request, input)
+}
+
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "local_primitive_native_results_tests.rs"]
+mod native_results_tests;
+
+/// Bind a primitive projection/filter to the existing native relational scan.
+/// Constructed structured columns use the same shared expression plan as their
+/// writer. No textual SQL, data conversion or replacement evaluator is involved.
+/// # Errors
+/// Rejects nonprojection requests, source changes, invalid payloads, cancellation
+/// and shared resource denial.
+#[cfg(feature = "vortex-write")]
+pub fn prepare_projection_from_source(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<super::prepared_relational::PreparedVortexRelational> {
+    source_session(&source, request, Some(policy))?;
+    if request.kind == super::VortexQueryPrimitiveKind::ExpressionProjectRows
+        && request.structured_projection.is_some()
+    {
+        return structured::prepare(request, policy, source, cancellation);
+    }
+    if !matches!(
+        request.kind,
+        super::VortexQueryPrimitiveKind::ProjectColumns
+            | super::VortexQueryPrimitiveKind::FilterPredicate
+            | super::VortexQueryPrimitiveKind::FilterAndProject
+    ) {
+        return Err(failed("requires an admitted native projection or filter"));
+    }
+    // Retain the existing primitive payload validation before constructing the
+    // equivalent shared scan/limit nodes.
+    super::row_export_scan_plan(request, source.dtype())?;
+    let uri = request
+        .source_uri
+        .clone()
+        .ok_or_else(|| failed("source URI is absent"))?;
+    super::prepared_relational::prepare_relational_from_source_controlled(
+        uri.clone(),
+        source,
+        policy,
+        |_| {
+            use crate::relational_query::{
+                VortexRelationalLimit, VortexRelationalPlan, VortexRelationalScan,
+            };
+            let scan = VortexRelationalPlan::Scan(VortexRelationalScan {
+                source_uri: uri,
+                projection: request.projection.clone(),
+                predicate: request.predicate.clone(),
+            });
+            Ok(match request.source_order_limit {
+                None => scan,
+                Some(count) => VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+                    input: scan,
+                    offset: 0,
+                    count,
+                })),
+            })
+        },
+        cancellation,
+    )
+}
+
 /// Prepare the source with the same CPU ownership as the optimized operation.
 /// No query rows are read and no alternative operation is executed here.
 /// # Errors
@@ -186,6 +267,85 @@ pub struct CollectedVortexSort {
     pub result_schema_json: shardloom_exec::live_memory::Budgeted<String>,
 }
 
+/// Native sort evidence from the same producer that delivered the result.
+pub struct ExecutedVortexSort {
+    pub report: super::VortexLocalPrimitiveExecutionReport,
+    pub native_io_certificate: shardloom_core::NativeIoCertificate,
+    pub runtime: crate::resident_session::ResidentSessionSnapshot,
+}
+
+/// Complete native sort output retaining the original shared buffer owners.
+pub struct ExecutedOwnedVortexSort {
+    pub execution: ExecutedVortexSort,
+    pub result: crate::resident_session::OwnedVortexResultBatch,
+}
+
+/// Deliver complete native sort batches using the existing ordering and spill
+/// provider. The consumer borrows its operation context and controls backpressure.
+/// Empty results deliver their declared schema once. Batches remain provisional
+/// until final source validation and this method's successful return.
+/// # Errors
+/// Rejects invalid requests, source changes, pressure, cancellation or consumer
+/// errors. No JSON/row representation or fixed collection ceiling is introduced.
+pub fn for_each_sort_batch(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: &PreparedVortexSource,
+    cancellation: &CancellationToken,
+    mut consume: impl FnMut(
+        vortex::array::ArrayRef,
+        &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<()>,
+) -> Result<ExecutedVortexSort> {
+    cancellation.check()?;
+    let session = source_session(source, request, Some(policy))?;
+    let report =
+        execute_sort_with_consumer(request, policy, source, Some(&mut consume), cancellation)?;
+    cancellation.check()?;
+    let native_io_certificate = super::local_primitive_native_io_certificate(request, &report)?;
+    if report.has_errors() || !native_io_certificate.is_certified() {
+        return Err(failed(
+            "sort execution did not produce a certified native report",
+        ));
+    }
+    source.validate_generation()?;
+    cancellation.check()?;
+    session.record_completed_execution();
+    Ok(ExecutedVortexSort {
+        report,
+        native_io_certificate,
+        runtime: session.snapshot(),
+    })
+}
+
+/// Retain every native sort batch under the source's existing shared allocation.
+/// The producer retains ordering, tie and spill semantics; collection adds only
+/// an accounted array container and does not impose a row or text-byte limit.
+/// # Errors
+/// Rejects invalid requests, pressure, source changes or cancellation. Partial
+/// buffers and container credits are released if any stage fails.
+pub fn execute_sort_native_result(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: &PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<ExecutedOwnedVortexSort> {
+    cancellation.check()?;
+    let session = source_session(source, request, Some(policy))?;
+    let mut arrays = super::native_capacity::ReservedVec::new(session.memory())?;
+    let mut execution =
+        for_each_sort_batch(request, policy, source, cancellation, |array, context| {
+            context.check_cancelled()?;
+            arrays.push(array)
+        })?;
+    cancellation.check()?;
+    let (arrays, ownership) = arrays.into_parts();
+    let result = session.own_completed_arrays(arrays, ownership)?;
+    cancellation.check()?;
+    execution.runtime = session.snapshot();
+    Ok(ExecutedOwnedVortexSort { execution, result })
+}
+
 /// # Errors
 /// Rejects invalid sources, resource pressure, changed generations, cancellation
 /// and complete results exceeding 65,536 rows or the 8-MiB JSON bound.
@@ -236,6 +396,32 @@ fn execute_sort_with_sink(
     mut sink: Option<&mut super::collect::JsonRows>,
     parent_cancellation: &CancellationToken,
 ) -> Result<super::VortexLocalPrimitiveExecutionReport> {
+    if let Some(sink) = sink.as_mut() {
+        execute_sort_with_consumer(
+            request,
+            policy,
+            source,
+            Some(&mut |array, context| sink.append_native(&array, context)),
+            parent_cancellation,
+        )
+    } else {
+        execute_sort_with_consumer(request, policy, source, None, parent_cancellation)
+    }
+}
+
+type SortConsumer<'a> = dyn FnMut(
+        vortex::array::ArrayRef,
+        &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<()>
+    + 'a;
+
+fn execute_sort_with_consumer(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: &PreparedVortexSource,
+    mut consumer: Option<&mut SortConsumer<'_>>,
+    parent_cancellation: &CancellationToken,
+) -> Result<super::VortexLocalPrimitiveExecutionReport> {
     parent_cancellation.check()?;
     if request.kind != super::VortexQueryPrimitiveKind::SortRows {
         return Err(failed("requires a sort request"));
@@ -261,7 +447,7 @@ fn execute_sort_with_sink(
     cancellation.check()?;
     let report = session.with_native_execution_context(&cancellation, |context| {
         source.with_admitted_native_execution(context, |file, context| {
-            let collect = sink.is_some();
+            let collect = consumer.is_some();
             let columns =
                 super::projected_column_names(source.dtype(), &request.projection, request.kind)?;
             let fields = columns
@@ -274,12 +460,12 @@ fn execute_sort_with_sink(
                 })
                 .collect::<Result<Vec<_>>>()?;
             let mut consume = |array| {
-                sink.as_mut()
-                    .ok_or_else(|| failed("sort sink is absent"))?
-                    .append_native(&array, context)
+                consumer
+                    .as_mut()
+                    .ok_or_else(|| failed("sort sink is absent"))?(array, context)
             };
             let mut output = if collect {
-                Some(super::completed_result::CompletedRows::streaming(
+                Some(super::completed_result::CompletedRows::streaming_native(
                     fields,
                     context.memory(),
                     2048,
@@ -381,6 +567,32 @@ pub fn try_write_source_controlled(
                 &source,
                 cancellation,
             )?
+        }
+        super::VortexQueryPrimitiveKind::ExpressionProjectRows
+            if request.structured_projection.is_some() =>
+        {
+            // Renames of source columns keep the direct encoded-array sink.
+            // Constructed lists/structs use the shared native expression plan.
+            if let Some(plan) =
+                super::native_sink::prepare_from_source(request, source.clone(), policy)?
+            {
+                return super::completed_result::write_plan_controlled(
+                    plan,
+                    request,
+                    output,
+                    format,
+                    overwrite,
+                    policy,
+                    cancellation,
+                )
+                .map(|report| Some(report.with_physical_policy(physical)));
+            }
+            let source_rows = source.file().row_count();
+            let mut report = structured::prepare(request, policy, source, cancellation)?
+                .write_controlled(output, format, overwrite, cancellation)?
+                .into_output_report();
+            structured::annotate_report(request, source_rows, &mut report)?;
+            report
         }
         super::VortexQueryPrimitiveKind::ProjectColumns
         | super::VortexQueryPrimitiveKind::FilterPredicate

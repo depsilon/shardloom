@@ -51,7 +51,7 @@ print(json.dumps({"package": str(package), "native_library": str(library),
 
 RUN_TESTS = """
 import json, pathlib, sys, unittest
-suite = unittest.defaultTestLoader.discover(sys.argv[1], pattern="test_native_binding.py")
+suite = unittest.defaultTestLoader.discover(sys.argv[1], pattern="test_native*binding.py")
 result = unittest.TextTestRunner(verbosity=2).run(suite)
 report = {"tests": result.testsRun, "failures": len(result.failures),
           "errors": len(result.errors), "skipped": len(result.skipped)}

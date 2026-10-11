@@ -1,14 +1,14 @@
 //! Demand-driven Arrow delivery from the shared native batch consumer.
 
 use super::{
-    ExecutedVortexRelational, PreparedVortexRelational, ReservedVec, VortexRelationalPreparation,
-    failed,
+    ExecutedVortexRelational, PreparedVortexRelational, VortexRelationalPreparation, failed,
 };
 use crate::resident_memory_source::ResidentMemorySource;
-use crate::resident_session::NativeArrowExportReport;
+use crate::resident_session::{NativeArrowBatchDelivery, NativeArrowExportReport};
 use arrow_array::RecordBatch;
 use shardloom_core::Result;
 use shardloom_exec::compute_pool::CancellationToken;
+#[cfg(test)]
 use std::sync::Arc;
 
 /// Final query evidence plus explicit Arrow representation accounting. This
@@ -63,39 +63,21 @@ impl PreparedVortexRelational {
         &self,
         cancellation: &CancellationToken,
         input: Option<super::batch_input::Provider<'_>>,
-        mut consume: impl FnMut(RecordBatch) -> Result<()>,
+        consume: impl FnMut(RecordBatch) -> Result<()>,
     ) -> Result<ExecutedVortexArrowRelational> {
-        let mut export = NativeArrowExportReport::default();
+        let mut delivery = NativeArrowBatchDelivery::new(&self.session, cancellation, consume);
         let execution = self.for_each_batch_with_input(
             cancellation,
             super::BATCH_ROWS,
             input,
-            |array, context| {
-                let mut arrays = ReservedVec::new(context.memory())?;
-                arrays.push(array)?;
-                let (arrays, ownership) = arrays.into_parts();
-                let result = Arc::new(self.session.own_completed_arrays(arrays, ownership)?);
-                let mut stream = result.arrow_batches(cancellation.clone())?;
-                let batch = stream
-                    .next_batch_in_context(context)?
-                    .ok_or_else(|| failed("native batch produced no Arrow representation"))?;
-                if stream.next_batch_in_context(context)?.is_some() {
-                    return Err(failed(
-                        "one native batch produced multiple Arrow representations",
-                    ));
-                }
-                export.append(stream.report())?;
-                consume(batch)
-            },
+            |array, context| delivery.push(array, context),
         )?;
-        if export.output_rows != execution.output_rows
-            || export.output_batches != execution.output_batches
-        {
+        let export = delivery.finish(execution.output_rows)?;
+        if export.output_batches != execution.output_batches {
             return Err(failed(
                 "Arrow delivery changed native execution cardinality",
             ));
         }
-        export.complete = true;
         Ok(ExecutedVortexArrowRelational { execution, export })
     }
 }

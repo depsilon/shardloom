@@ -1,0 +1,21 @@
+{
+  "provider": "arrow-pyarrow",
+  "version": "58.3.0",
+  "license": "Apache-2.0",
+  "registry_archive_sha256": "d29abdf672a81c1aeb57fd2661457f9918964d49aed0e9f18932535f2a9e49ce",
+  "original_files_sha256": {
+    "Cargo.lock": "c5b2cc90a96c3656449443ee4d497e8d7f908430cfb2e5242b90d4deeda98724",
+    "Cargo.toml": "e4f0ebb7c26eb42472bc7088cba1d1528cb35d4c63291d7ce66aa3cb6b32b14a",
+    "Cargo.toml.orig": "7f1cbf94195af7b4b4446e5993949797b24eeb9558c28c8f1a1fb1f42479d528",
+    "src/lib.rs": "db97faa852aebabb27210e921af976e7f24dba1fcfc1a9097af79dbe7066ac2a"
+  },
+  "source_of_truth": "Published 58.3.0 registry archive; source verified byte-for-byte against upstream 58.3.0 tag. The crate-local Cargo.lock is recorded but not used or vendored; workspace Cargo.lock controls resolution.",
+  "license_url": "https://raw.githubusercontent.com/apache/arrow-rs/58.3.0/LICENSE.txt",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "notice_url": "https://raw.githubusercontent.com/apache/arrow-rs/58.3.0/NOTICE.txt",
+  "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+  "upstream_patch_url": "https://github.com/apache/arrow-rs/pull/10134",
+  "upstream_patch_commit": "11a58ac3ec7086960376ed1b5da7dc75cad9da0d",
+  "upstream_patch_diff_sha256": "ef289793d0d05928bec8daf09713dbf1547c0434de8d9867d202c8cb135ed024",
+  "local_changes": "Backport the upstream PyO3 0.29 dependency requirement and explicit invalid-UTF-8 capsule-name error conversion from Apache arrow-rs PR 10134 to arrow-pyarrow 58.3.0. Preserve the existing Arrow 58.3 graph and aligned-buffer import. Mark this vendored package unpublished and include its license, notice and provenance. No operator, array execution, Vortex version or query-engine integration is changed."
+}

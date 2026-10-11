@@ -2277,6 +2277,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(report["python_package_identity"], "shardloom")
         self.assertEqual(report["internal_crate_publish_status"], "all_publish_false")
+        self.assertIn("shardloom-python/Cargo.toml", report["internal_crate_manifests"])
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
 
@@ -2298,6 +2299,26 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "blocked")
         self.assertTrue(
             any("publish = false" in blocker for blocker in report["blockers"])
+        )
+
+    def test_package_identity_contract_blocks_publishable_native_binding(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_native_package_identity_blocker_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            matrix = self._write_package_identity_contract_fixture(module, repo_root)
+            manifest = repo_root / "shardloom-python/Cargo.toml"
+            manifest.parent.mkdir(exist_ok=True)
+            manifest.write_text(
+                '[package]\nname = "shardloom-python"\npublish = true\n', encoding="utf-8",
+            )
+            report = module.validate_package_identity_contract(repo_root, matrix)
+
+        self.assertEqual(report["status"], "blocked")
+        self.assertIn(
+            "shardloom-python/Cargo.toml missing marker 'publish = false'", report["blockers"],
         )
 
     def test_package_channel_matrix_records_v1_feasibility_review(self) -> None:
@@ -5223,6 +5244,60 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
+
+    def test_workspace_version_source_contract_accepts_optional_internal_dependencies(self) -> None:
+        module = self._load_script_module(
+            "check_workspace_version_sources.py",
+            "check_workspace_optional_inheritance_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace_version_source_fixture(root)
+            manifest = root / "shardloom-vortex" / "Cargo.toml"
+            original = manifest.read_text(encoding="utf-8")
+            for declaration in (
+                "{ workspace = true }",
+                "{ workspace = true, optional = true }",
+                "{optional=false,workspace=true}",
+            ):
+                with self.subTest(declaration=declaration):
+                    manifest.write_text(
+                        original + f"shardloom-core = {declaration}\n"
+                        + f"shardloom-runtime = {declaration}\n",
+                        encoding="utf-8",
+                    )
+                    report = module.build_report(root)
+                    self.assertEqual(report["status"], "passed", report["blockers"])
+
+    def test_workspace_version_source_contract_rejects_optional_dependency_overrides(self) -> None:
+        module = self._load_script_module(
+            "check_workspace_version_sources.py",
+            "check_workspace_optional_override_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace_version_source_fixture(root)
+            manifest = root / "shardloom-vortex" / "Cargo.toml"
+            original = manifest.read_text(encoding="utf-8")
+            for dependency in ("shardloom-core", "shardloom-runtime"):
+                for declaration in (
+                    "{ workspace = false, optional = true }",
+                    '{ workspace = true, optional = true, version = "0.0.1" }',
+                    '{ workspace = true, optional = true, path = "../other" }',
+                    '{ workspace = "true", optional = true }',
+                    '{ workspace = true, optional = "true" }',
+                    "{ workspace = true, workspace = true, optional = true }",
+                ):
+                    with self.subTest(dependency=dependency, declaration=declaration):
+                        manifest.write_text(
+                            original + f"{dependency} = {declaration}\n", encoding="utf-8",
+                        )
+                        report = module.build_report(root)
+                        self.assertEqual(report["status"], "blocked")
+                        self.assertIn(
+                            f"internal dependency {dependency} must inherit workspace dependency",
+                            "\n".join(report["blockers"]),
+                        )
 
     def test_workspace_version_source_contract_blocks_duplicate_version_sources(self) -> None:
         module = self._load_script_module(

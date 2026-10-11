@@ -59,6 +59,25 @@
       "shardloom sqlite-local-import-export-smoke local.sqlite --table events --export-jsonl target/events-export.jsonl --roundtrip-db target/events-roundtrip.sqlite --memory-gb 16 --max-parallelism 8 --format json"
     ]
   },
+  "native_python_surface": {
+    "reference": "docs/architecture/native-python-surface-2026-10-10.md",
+    "acceptance_reference": "docs/benchmarks/native-python-surface-2026-10-11.md",
+    "install_reference": "docs/getting-started/source-checkout-install.md#optional-native-python-binding",
+    "module": "shardloom.native",
+    "client_transport": "native",
+    "default_client_transport": "subprocess",
+    "local_acceptance_complete": true,
+    "hosted_integration_complete": false,
+    "included_in_published_0_5_1": false,
+    "shared_native_execution": true,
+    "retained_result_owners": true,
+    "columnar_import_export": true,
+    "typed_plan_handles": true,
+    "all_imports_zero_copy": false,
+    "process_rss_bound": false,
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  },
   "resident_native_results": {
     "reference": "docs/reference/resident-native-results.md",
     "required_feature": "vortex-local-primitives",

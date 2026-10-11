@@ -481,28 +481,6 @@
       ]
     },
     {
-      "name": "arrow-pyarrow",
-      "version": "58.3.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/apache/arrow-rs",
-      "crate_checksum_sha256": "d29abdf672a81c1aeb57fd2661457f9918964d49aed0e9f18932535f2a9e49ce",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/913bab26ba9bed8fc2bc1acda300cc52345b0da1/LICENSE.txt"
-        },
-        {
-          "text": "texts/e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6.txt",
-          "sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-          "bytes": 470,
-          "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/913bab26ba9bed8fc2bc1acda300cc52345b0da1/NOTICE.txt"
-        }
-      ]
-    },
-    {
       "name": "arrow-row",
       "version": "58.3.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -5012,11 +4990,11 @@
     },
     {
       "name": "pyo3",
-      "version": "0.28.3",
+      "version": "0.29.3",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/pyo3/pyo3",
-      "crate_checksum_sha256": "91fd8e38a3b50ed1167fb981cd6fd60147e091784c427b8f7183a7ee32c31c12",
+      "crate_checksum_sha256": "700d18fa267b73b9b521fd7e13580e2f446916f176cacee1ab63fcc8191f1655",
       "files": [
         {
           "text": "texts/32c76dbe0e73d79100d5ece77c158399f2e2541bc5c78548a4ba45c1cb53c5c9.txt",
@@ -5046,11 +5024,11 @@
     },
     {
       "name": "pyo3-build-config",
-      "version": "0.28.3",
+      "version": "0.29.3",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/pyo3/pyo3",
-      "crate_checksum_sha256": "e368e7ddfdeb98c9bca7f8383be1648fd84ab466bf2bc015e94008db6d35611e",
+      "crate_checksum_sha256": "7b3fc0c4d08f6bb10e71fe39dfb9e2f59c6eb6854e22ec8092f50c69a4499adb",
       "files": [
         {
           "text": "texts/32c76dbe0e73d79100d5ece77c158399f2e2541bc5c78548a4ba45c1cb53c5c9.txt",
@@ -5068,11 +5046,11 @@
     },
     {
       "name": "pyo3-ffi",
-      "version": "0.28.3",
+      "version": "0.29.3",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/pyo3/pyo3",
-      "crate_checksum_sha256": "7f29e10af80b1f7ccaf7f69eace800a03ecd13e883acfacc1e5d0988605f651e",
+      "crate_checksum_sha256": "dfc0b8e19df29aad7086cf977bb0c2a2f143e30567eb113e9cf72b62ca698330",
       "files": [
         {
           "text": "texts/32c76dbe0e73d79100d5ece77c158399f2e2541bc5c78548a4ba45c1cb53c5c9.txt",
@@ -5090,11 +5068,11 @@
     },
     {
       "name": "pyo3-macros",
-      "version": "0.28.3",
+      "version": "0.29.3",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/pyo3/pyo3",
-      "crate_checksum_sha256": "df6e520eff47c45997d2fc7dd8214b25dd1310918bbb2642156ef66a67f29813",
+      "crate_checksum_sha256": "6100e8a4b5eba53afaa5ed078364851a0b2499c553a44c31026b929049b49dc6",
       "files": [
         {
           "text": "texts/32c76dbe0e73d79100d5ece77c158399f2e2541bc5c78548a4ba45c1cb53c5c9.txt",
@@ -5112,11 +5090,11 @@
     },
     {
       "name": "pyo3-macros-backend",
-      "version": "0.28.3",
+      "version": "0.29.3",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/pyo3/pyo3",
-      "crate_checksum_sha256": "c4cdc218d835738f81c2338f822078af45b4afdf8b2e33cbb5916f108b813acb",
+      "crate_checksum_sha256": "6143877a16e82b5a727b7127ff4cd86858a24a28d745d72f43e6f227c7b1bdb3",
       "files": [
         {
           "text": "texts/32c76dbe0e73d79100d5ece77c158399f2e2541bc5c78548a4ba45c1cb53c5c9.txt",
@@ -8242,6 +8220,49 @@
     }
   ],
   "vendored_components": [
+    {
+      "name": "arrow-pyarrow",
+      "version": "58.3.0",
+      "path": "vendor/arrow-pyarrow",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "arrow-pyarrow",
+        "version": "58.3.0",
+        "license": "Apache-2.0",
+        "registry_archive_sha256": "d29abdf672a81c1aeb57fd2661457f9918964d49aed0e9f18932535f2a9e49ce",
+        "original_files_sha256": {
+          "Cargo.lock": "c5b2cc90a96c3656449443ee4d497e8d7f908430cfb2e5242b90d4deeda98724",
+          "Cargo.toml": "e4f0ebb7c26eb42472bc7088cba1d1528cb35d4c63291d7ce66aa3cb6b32b14a",
+          "Cargo.toml.orig": "7f1cbf94195af7b4b4446e5993949797b24eeb9558c28c8f1a1fb1f42479d528",
+          "src/lib.rs": "db97faa852aebabb27210e921af976e7f24dba1fcfc1a9097af79dbe7066ac2a"
+        },
+        "source_of_truth": "Published 58.3.0 registry archive; source verified byte-for-byte against upstream 58.3.0 tag. The crate-local Cargo.lock is recorded but not used or vendored; workspace Cargo.lock controls resolution.",
+        "license_url": "https://raw.githubusercontent.com/apache/arrow-rs/58.3.0/LICENSE.txt",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "notice_url": "https://raw.githubusercontent.com/apache/arrow-rs/58.3.0/NOTICE.txt",
+        "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+        "upstream_patch_url": "https://github.com/apache/arrow-rs/pull/10134",
+        "upstream_patch_commit": "11a58ac3ec7086960376ed1b5da7dc75cad9da0d",
+        "upstream_patch_diff_sha256": "ef289793d0d05928bec8daf09713dbf1547c0434de8d9867d202c8cb135ed024",
+        "local_changes": "Backport the upstream PyO3 0.29 dependency requirement and explicit invalid-UTF-8 capsule-name error conversion from Apache arrow-rs PR 10134 to arrow-pyarrow 58.3.0. Preserve the existing Arrow 58.3 graph and aligned-buffer import. Mark this vendored package unpublished and include its license, notice and provenance. No operator, array execution, Vortex version or query-engine integration is changed."
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/58.3.0/LICENSE.txt"
+        },
+        {
+          "text": "texts/e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6.txt",
+          "sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+          "bytes": 470,
+          "crate_path": "NOTICE",
+          "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/58.3.0/NOTICE.txt"
+        }
+      ]
+    },
     {
       "name": "vortex-zstd",
       "version": "0.85.0",
