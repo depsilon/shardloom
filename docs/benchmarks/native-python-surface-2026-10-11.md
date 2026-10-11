@@ -239,6 +239,14 @@ The [documentation/review index](evidence/native-python-documentation-2026-10-11
 and [supplemental packet](evidence/native-python-documentation-2026-10-11.tar.xz)
 retain the checks, final source differences and rendered screenshots.
 
+The initial hosted submission rejected the workflow before starting jobs because
+the new wheel-download command contained a YAML-significant colon. The
+[syntax correction](evidence/native-python-ci-syntax-2026-10-11.json) reproduces
+that original parser failure and verifies all 16 jobs and three native wheel
+lanes after changing only the command's YAML representation. The required-lane
+validator passes; runtime/package sources remain unchanged. Actual hosted
+execution must still pass on the corrected commit.
+
 ## Portable evidence and replay
 
 The [portable packet](evidence/native-python-surface-2026-10-11.tar.xz) and

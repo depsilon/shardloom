@@ -332,7 +332,8 @@ jobs:
       - name: Install pinned native wheel build tooling
         run: python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
       - name: Download pinned optional Arrow consumer
-        run: python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest target/native-python-wheelhouse
+        run: |
+          python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest target/native-python-wheelhouse
       - name: Native packaging integrity tests
         run: python -B -m unittest discover -s scripts -p 'test_*native_python*.py' -v
       - name: Native dependency notice tests
