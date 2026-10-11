@@ -92,7 +92,8 @@ fn mixed_distinct_workers_preserve_every_row_and_chunk_fold_with_pressure_retire
     ];
     for parallelism in [2, 4] {
         for pressure_after in [None, Some(0), Some(1)] {
-            let policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+            let policy =
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
             let memory = LiveMemoryPool::new(32 << 20).unwrap();
             let mut serial =
                 GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
@@ -167,7 +168,7 @@ fn mixed_distinct_workers_cancel_and_invalid_proof_fail_without_replaying() {
             &state,
             &report,
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
             &memory,
             None,
         )
@@ -205,7 +206,7 @@ fn mixed_distinct_workers_capacity_model_accepts_maximum_chunk_unique_pairs() {
         &state,
         &report,
         &columns,
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         &memory,
         None,
     )

@@ -15,14 +15,6 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
-fn vortex_file_io_enabled() -> bool {
-    cfg!(any(
-        feature = "vortex-encoded-read-spike",
-        feature = "vortex-local-primitives",
-        feature = "vortex-write"
-    ))
-}
-
 fn fixture_path() -> String {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -43,14 +35,6 @@ fn adaptive_sizing_json_exposes_split_coalesce_policy_without_execution() {
         "--format".to_string(),
         "json".to_string(),
     ]);
-
-    if vortex_file_io_enabled() {
-        assert!(!success, "{output}");
-        assert!(output.contains("\"status\":\"unsupported\""));
-        assert!(output.contains("\"attempted\":false"));
-        assert!(output.contains(&field("execution", "not_performed")));
-        return;
-    }
 
     assert!(success, "{output}");
     assert!(output.contains(&field("adaptive_sizing_status", "no_tasks_required")));
@@ -96,12 +80,6 @@ fn schedule_plan_json_exposes_bounded_parallel_queue_fields() {
         "--format".to_string(),
         "json".to_string(),
     ]);
-
-    if vortex_file_io_enabled() {
-        assert!(!success, "{output}");
-        assert!(output.contains("\"attempted\":false") || output.is_empty());
-        return;
-    }
 
     assert!(success, "{output}");
     assert!(output.contains(&field("scheduler_bridge_status", "no_tasks_required")));

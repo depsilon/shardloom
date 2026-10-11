@@ -21,6 +21,8 @@ Result-sink and fanout smoke is local/scoped; local Vortex output/fanout is feat
 ## How To Try It
 
 ```text
+import shardloom as sl
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 with ctx.session() as session: result = session.fanout(ctx.read_csv("target/input.csv").select("id").limit(10), {"jsonl": "target/out.jsonl", "csv": "target/out.csv"}, allow_overwrite=True); replay = session.fanout(ctx.read_csv("target/input.csv").select("id").limit(10), {"jsonl": "target/out.jsonl", "csv": "target/out.csv"}); print(replay.output_plan_reuse_hit, replay.result_replay_reuse_hit); # with --features vortex-write: ctx.read_csv("target/input.csv").select("id").limit(10).write_vortex("target/out.vortex", allow_overwrite=True)
 ```
 

@@ -510,7 +510,7 @@ fn encoded_numeric_reduction_public_native_file_preserves_complete_values() {
     );
     let report = execute_vortex_local_primitive_with_policy(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
     )
     .unwrap();
     assert!(!report.fallback_execution_allowed);

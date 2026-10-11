@@ -447,12 +447,17 @@ run in ShardLoom. Unsupported work returns a diagnostic without fallback executi
 ## Run a local query
 
 Create the small CSV in the [getting-started walkthrough](/start) before running this example.
-The public \`run()\` report exposes the result and native execution evidence.
+The public \`run()\` report exposes the result and native execution evidence. The 16 GiB / 8 lane allocation below is an illustrative caller choice, not a recommendation, default, or measurement.
+The configured-context examples target the current source build; published v0.5.1 packages have not been replaced.
+Missing or malformed resources fail before data access. Configure once as below,
+or pass an explicit allocation on the execution call. Environment loading is
+deliberate through \`sl.ExecutionResources.from_env()\`; importing ShardLoom does
+not choose a budget. See [resources and recovery](/field-guide/runtime-and-io/#resources-and-recovery).
 
 \`\`\`python
 import shardloom as sl
 
-ctx = sl.context()
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 result = (
     ctx.read("data/orders.csv")
        .filter(sl.col("status") == "paid")
@@ -498,7 +503,7 @@ def orders():
 
 frame = sl.from_batches(
     orders, schema={"order_id": "int64", "amount": "float64"},
-    streaming=True,
+    streaming=True, memory_gb=16, max_parallelism=8,
 )
 with frame.iter_batches(batch_rows=1024) as batches:
     for batch in batches:
@@ -578,7 +583,7 @@ page describes current coverage gaps.`,
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 9, 2026.
+Current capabilities, reviewed October 10, 2026.
 
 ## Native Execution
 
@@ -821,14 +826,15 @@ explicit reserved metadata lane. This does not establish production-scale fairne
 Native file operations drain admitted I/O and reader ownership before completion. Metadata-only
 aggregates avoid payload and worker admission, including when no spare payload credit is available.
 
-Supply CPU and memory limits at each operation's start through Rust, the CLI, or Python.
+Current source builds require explicit memory and parallelism limits before every execution, data inspection, and preparation through Rust, the CLI, or Python. In Python, configure \`memory_gb\` (GiB) and \`max_parallelism\` on a context/session or terminal call; lazy declarations and inert discovery need no allocation. This contract supersedes the numeric defaults in the unchanged v0.5.1 packages. The [required-resource contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/required-execution-resources-2026-10-10.md) defines exact bytes, inheritance, authorization ceilings and reports that separate declared allocation from admitted resources and observed use.
+The [complete local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/required-execution-resources-2026-10-10.md) checks rejection before input demand, shared ownership, complete workflows and every retained resource report. Unmeasured usage remains unavailable; a declared budget is neither a measured peak nor a whole-process memory limit.
 The runtime selects concurrency within the supplied maximum and the CPU capacity available
 to the process; an explicit one-CPU allocation stays one. Streaming ingestion shares this
 grant across ready source, conversion, statistics, and writer tasks. Full bounded queues
 yield their drivers, while memory admission can narrow unfinished work. Allocations can
 vary well beyond P4/P6/P8. I/O and serial work may limit useful concurrency; these controls
 do not guarantee full CPU utilization or a total-process RSS ceiling. See the
-[allocation contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/adaptive-ingest-budget-2026-10-02.md).
+[ingest scheduling contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/adaptive-ingest-budget-2026-10-02.md).
 
 Current source builds carry the same \`memory_gb\` and \`max_parallelism\` request through SQL and
 DataFrame collection and local writers. Optional \`spill\` declares an existing local workspace,

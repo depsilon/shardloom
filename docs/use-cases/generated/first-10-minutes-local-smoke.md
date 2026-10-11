@@ -6,9 +6,9 @@
 
 - **Audience:** new local user or reviewer
 - **Status:** `ready_local`
-- **Execution mode:** `no_dataset_smoke`
-- **Engine mode:** `batch_status`
-- **Claim boundary:** Local source-checkout smoke only; no dataset execution, package-publication, production, SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim.
+- **Execution mode:** `local_csv_and_generated_output_smoke`
+- **Engine mode:** `batch`
+- **Claim boundary:** Local source-checkout smoke executes a bounded CSV query and writes generated JSONL output using illustrative caller-declared limits of 16 GiB and 8 lanes; these values are not defaults, recommendations, or measurements. No production, broad SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,12 +16,12 @@ First 10 minutes local smoke has a scoped local path. Treat it as technical-prev
 
 ## Claim Boundary
 
-Local source-checkout smoke only; no dataset execution, package-publication, production, SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim.
+Local source-checkout smoke executes a bounded CSV query and writes generated JSONL output using illustrative caller-declared limits of 16 GiB and 8 lanes; these values are not defaults, recommendations, or measurements. No production, broad SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim.
 
 ## How To Try It
 
 ```text
-python examples\local-python-smoke\run.py --repo-root .
+python examples\local-python-smoke\run.py --repo-root . --memory-gb 16 --max-parallelism 8
 ```
 
 ## Blocker
@@ -30,7 +30,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Internal Flow
 
-`none -> no_dataset_smoke -> batch_status -> status_report, capabilities_report, smoke_report -> evidence -> claim gate`
+`local_csv_fixture -> local_csv_and_generated_output_smoke -> batch -> status_report, capabilities_report, smoke_report, bounded_csv_result, generated_jsonl_output -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -42,12 +42,11 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-Status, smoke, and capabilities JSON with fallback_attempted=false and external_engine_invoked=false.
+Status, smoke, and capabilities JSON, bounded CSV result, generated JSONL output, and fallback_attempted=false / external_engine_invoked=false.
 
 ## Common Mistakes
 
-- `expecting_dataset_output`
-- `treating_no_dataset_smoke_as_generated_output`
+- `treating_local_smoke_as_no_dataset_only`
 - `assuming_package_publication`
 
 ## Reference Files

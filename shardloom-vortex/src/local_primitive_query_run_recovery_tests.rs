@@ -38,7 +38,10 @@ fn recovery_process_child() {
     };
     let namespace = std::env::var(CHILD_NAMESPACE).unwrap();
     let memory = LiveMemoryPool::new(8 << 20).unwrap();
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let work = Arc::new(memory.reserve(1 << 20).unwrap());
     let mut store = QueryRunStore::new(
@@ -151,7 +154,10 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
             memory.reserve(128 << 10).unwrap(),
         )
         .unwrap();
-        let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+        let runtime = local_vortex_runtime(
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
+        );
         let session = VortexSession::default().with_handle(runtime.handle());
         let work = Arc::new(memory.reserve(1 << 20).unwrap());
         for values in [[1, 2], [3, 4]] {

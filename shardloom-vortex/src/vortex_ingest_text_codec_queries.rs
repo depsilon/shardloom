@@ -173,7 +173,7 @@ pub(super) fn run(
     // rounds; do not sum unrelated first samples taken after other warm runs.
     for (iteration, accumulated) in all_query_work.iter_mut().enumerate() {
         for (index, query) in queries.iter().copied().enumerate() {
-            let policy = VortexLocalPrimitiveExecutionPolicy::new(1).unwrap();
+            let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap();
             let start = Instant::now();
             let report =
                 execute_vortex_local_primitive_with_policy(&requests[index], policy).unwrap();

@@ -29,7 +29,6 @@ client_module = importlib.import_module("shardloom.client")
 
 from shardloom import (
     __version__,
-    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
     context as shardloom_context,
     session as shardloom_session,
     ClaimGateCloseoutReport,
@@ -1120,7 +1119,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     {"key": "source_state_reuse_hit", "value": "false"},
                     {
                         "key": "public_workflow_max_parallelism",
-                        "value": str(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM),
+                        "value": "2",
                     },
                     {"key": "data_decoded", "value": "false"},
                     {"key": "data_materialized", "value": "false"},
@@ -1140,7 +1139,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(summary.native_vortex_enabled)
         self.assertFalse(summary.runtime_execution)
         self.assertEqual(
-            summary.applied_parallelism, DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM
+            summary.applied_parallelism, 2
         )
         self.assertIsNone(summary.vortex_read_path)
         self.assertFalse(summary.fallback_attempted)
@@ -2425,7 +2424,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 }
             )
             return VortexWorkflowExecutionReport(
-                workflow=from_rows([{"id": 1}]),
+                workflow=from_rows([{"id": 1}], memory_gb=4, max_parallelism=2),
                 operation="collect",
                 envelope=envelope,
             )
@@ -2456,10 +2455,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--input-format",
                     "csv",
                     "--allow-overwrite",
-                    "--memory-gb",
-                    "6",
+                    "--memory-bytes",
+                    "6442450944",
                     "--max-parallelism",
                     "8",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -2861,6 +2864,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--schema",
                     "id:int64,label:utf8",
                     "--allow-overwrite",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -2891,7 +2902,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        result = ShardLoomClient(binary=binary).vortex_prepare(
+        result = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2).vortex_prepare(
             "target/source.csv",
             "target/source.vortex",
             input_format="csv",
@@ -2916,6 +2927,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "target/source.vortex",
                     "--input-format",
                     "csv",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -2938,7 +2957,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
             )
         )
-        prepared = ShardLoomClient(binary=binary).vortex_prepare(
+        prepared = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2).vortex_prepare(
             "target/source.csv",
             "target/source.vortex",
             input_format="csv",
@@ -2956,6 +2975,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "vortex-prepare",
                     "target/base.csv",
                     "target/base.vortex",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--delta-source",
                     "target/delta.csv",
                     "--delta-target",
@@ -3010,7 +3037,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        result = ShardLoomClient(binary=binary).vortex_prepare(
+        result = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2).vortex_prepare(
             "target/base.csv",
             "target/base.vortex",
             delta_source_path="target/delta.csv",
@@ -3093,6 +3120,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "target/source.vortex",
                     "--certification-level",
                     "ingest_minimal",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -3128,7 +3163,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
             )
         )
-        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
         result = ctx.prepare_vortex(
             "target/source.csv",
@@ -3235,7 +3270,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     """
                 )
             )
-            frame = ShardLoomContext(client=ShardLoomClient(binary=binary)).read_csv(source)
+            frame = ShardLoomContext(client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)).read_csv(source)
 
             first = frame.prepare_vortex(workspace=workspace)
             second = frame.prepare_vortex(workspace=workspace, allow_overwrite=True)
@@ -3339,7 +3374,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     """
                 )
             )
-            frame = ShardLoomContext(client=ShardLoomClient(binary=binary)).read_csv(
+            frame = ShardLoomContext(client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)).read_csv(
                 source,
                 schema={"id": "int64", "label": "utf8"},
             )
@@ -3417,7 +3452,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     """
                 )
             )
-            frame = ShardLoomContext(client=ShardLoomClient(binary=binary)).read_parquet(
+            frame = ShardLoomContext(client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)).read_parquet(
                 source,
                 schema={"id": "int64", "label": "utf8"},
             )
@@ -3468,8 +3503,10 @@ class ShardLoomClientTests(unittest.TestCase):
                 assert "--input" not in args and "--source-bindings" not in args, args
             assert value("--sql") == {sql_statement!r}, args
             assert value("--request") == "collect", args
-            assert value("--memory-gb") == "2", args
+            assert value("--memory-bytes") == "2147483648", args
             assert value("--max-parallelism") == "1", args
+            assert value("--memory-origin") == "execution_call", args
+            assert value("--parallelism-origin") == "execution_call", args
             assert not any(arg.startswith("--vortex-") for arg in args), args
             calls_path = Path({str(calls_path)!r})
             calls_path.write_text(str(int(calls_path.read_text()) + 1) if calls_path.exists() else "1")
@@ -3565,7 +3602,7 @@ class ShardLoomClientTests(unittest.TestCase):
     def test_lazy_frame_prepare_vortex_rejects_ambiguous_or_non_raw_inputs(
         self,
     ) -> None:
-        ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",)))
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",), memory_gb=4, max_parallelism=2))
 
         with self.assertRaisesRegex(ValueError, "requires target_vortex_path or workspace"):
             ctx.read_csv("source.csv").prepare_vortex()
@@ -3584,7 +3621,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 workspace="target/prepared"
             )
 
-        live_ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",)), engine="live")
+        live_ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",), memory_gb=4, max_parallelism=2), engine="live")
         with self.assertRaisesRegex(ValueError, "live/hybrid preparation remains gated"):
             live_ctx.read_csv("source.csv").prepare_vortex(workspace="target/prepared")
 
@@ -3601,7 +3638,7 @@ class ShardLoomClientTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tempdir:
             workspace = Path(tempdir) / "prepared"
             frame = ShardLoomContext(
-                client=ShardLoomClient(binary=("unused",))
+                client=ShardLoomClient(binary=("unused",), memory_gb=4, max_parallelism=2)
             ).from_rows([{"id": 1, "label": "alpha"}])
             target = workspace / (frame.source.uri.rsplit("/", 1)[-1] + ".vortex")
             statement = f"SELECT * FROM '{frame.source.uri}'"
@@ -3629,8 +3666,10 @@ class ShardLoomClientTests(unittest.TestCase):
                     assert json.loads(value("--source-bindings")) == json.loads({bindings!r}), args
                     assert value("--request") == "write_vortex", args
                     assert value("--output") == {str(target)!r}, args
-                    assert value("--memory-gb") == "4", args
+                    assert value("--memory-bytes") == "4294967296", args
                     assert value("--max-parallelism") == "2", args
+                    assert value("--memory-origin") == "execution_call", args
+                    assert value("--parallelism-origin") == "execution_call", args
                     print(json.dumps({{
                         "schema_version": "shardloom.output.v2",
                         "command": "run",
@@ -3657,7 +3696,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     """
                 )
             )
-            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
             report = ctx.from_rows([{"id": 1, "label": "alpha"}]).prepare_vortex(workspace=workspace)
 
@@ -3673,7 +3712,7 @@ class ShardLoomClientTests(unittest.TestCase):
     def test_generated_source_prepare_vortex_rejects_ambiguous_target_ownership(
         self,
     ) -> None:
-        source = ShardLoomContext(client=ShardLoomClient(binary=("unused",))).from_rows(
+        source = ShardLoomContext(client=ShardLoomClient(binary=("unused",), memory_gb=4, max_parallelism=2)).from_rows(
             [{"id": 1}]
         )
 
@@ -3688,7 +3727,7 @@ class ShardLoomClientTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             workspace = Path(tempdir) / "prepared"
-            ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",)))
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=("unused",), memory_gb=4, max_parallelism=2))
             range_frame = ctx.range(0, 2)
             range_target = workspace / (range_frame.source.uri.rsplit("/", 1)[-1] + ".vortex")
             sql_target = Path(tempdir) / "values.vortex"
@@ -3750,7 +3789,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     """
                 )
             )
-            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
             range_report = ctx.range(0, 2).prepare_vortex(workspace=workspace)
             sql_report = ctx.sql_values(sql_statement).write_vortex(sql_target)
@@ -3822,7 +3861,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     """
                 )
             )
-            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
             session = ctx.session(session_id="test-session")
 
             with mock.patch.object(
@@ -3989,8 +4028,10 @@ class ShardLoomClientTests(unittest.TestCase):
                 assert json.loads(value("--source-bindings")) == json.loads({bindings!r}), args
                 assert value("--sql") == {statement!r}, args
                 assert value("--request") == "collect", args
-                assert value("--memory-gb") == "4", args
+                assert value("--memory-bytes") == "4294967296", args
                 assert value("--max-parallelism") == "2", args
+                assert value("--memory-origin") == "execution_call", args
+                assert value("--parallelism-origin") == "execution_call", args
                 assert not any(arg.startswith("--vortex-") for arg in args), args
                 counter = Path({str(count_path)!r})
                 count = int(counter.read_text()) + 1 if counter.exists() else 1
@@ -4015,7 +4056,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "diagnostics": [], "result": {{"fields": fields[:3]}}, "fields": fields,
                 }}))
             """))
-            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
             sess = ctx.session(session_id="ordinary-workflow-session")
             frame = sess.read_csv(source_path).select("id").limit(2)
 
@@ -4091,7 +4132,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fixture_operator_vocabulary", "value": "filter,project,count,count_where,group_count"},
                         {"key": "runtime_execution", "value": "false"},
                     ]
-                elif args == ["live-fixture-run", "project", "key,metric", "--format", "json"]:
+                elif args == ["live-fixture-run", "project", "key,metric", "--memory-bytes", "4294967296", "--max-parallelism", "2", "--memory-origin", "execution_call", "--parallelism-origin", "execution_call", "--format", "json"]:
                     command = "live-fixture-run"
                     fields = [
                         {"key": "fixture_operator", "value": "project"},
@@ -4108,7 +4149,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
-                elif args == ["hybrid-overlay-run", "group-count", "metric", "--format", "json"]:
+                elif args == ["hybrid-overlay-run", "group-count", "metric", "--memory-bytes", "4294967296", "--max-parallelism", "2", "--memory-origin", "execution_call", "--parallelism-origin", "execution_call", "--format", "json"]:
                     command = "hybrid-overlay-run"
                     fields = [
                         {"key": "fixture_operator", "value": "group_count"},
@@ -4128,7 +4169,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
-                elif args == ["live-hybrid-state-transition-smoke", "--format", "json"]:
+                elif args == ["live-hybrid-state-transition-smoke", "--memory-bytes", "4294967296", "--max-parallelism", "2", "--memory-origin", "execution_call", "--parallelism-origin", "execution_call", "--format", "json"]:
                     command = "live-hybrid-state-transition-smoke"
                     fields = [
                         {"key": "schema_version", "value": "shardloom.live_hybrid_state_transition_fixture.v1"},
@@ -4148,7 +4189,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
-                elif args == ["live-hybrid-durable-checkpoint-smoke", "target/live-checkpoint", "--format", "json"]:
+                elif args == ["live-hybrid-durable-checkpoint-smoke", "target/live-checkpoint", "--memory-bytes", "4294967296", "--max-parallelism", "2", "--memory-origin", "execution_call", "--parallelism-origin", "execution_call", "--format", "json"]:
                     command = "live-hybrid-durable-checkpoint-smoke"
                     fields = [
                         {"key": "schema_version", "value": "shardloom.live_hybrid_durable_checkpoint_fixture.v1"},
@@ -4207,7 +4248,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
-                elif args == ["distributed-local-fixture-run", "2", "fault-injection", "--format", "json"]:
+                elif args == ["distributed-local-fixture-run", "2", "fault-injection", "--memory-bytes", "4294967296", "--max-parallelism", "2", "--memory-origin", "execution_call", "--parallelism-origin", "execution_call", "--format", "json"]:
                     command = "distributed-local-fixture-run"
                     fields = [
                         {"key": "schema_version", "value": "shardloom.local_distributed_fixture_run.v1"},
@@ -4254,7 +4295,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
             )
         )
-        client = ShardLoomClient(binary=binary)
+        client = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)
 
         contract = client.live_change_contract_plan()
         fixture = client.live_fixture_run("project", ("key", "metric"))
@@ -6683,10 +6724,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "true",
                     "--vortex-primitive",
                     "count",
-                    "--memory-gb",
-                    "8",
+                    "--memory-bytes",
+                    "8589934592",
                     "--max-parallelism",
                     "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -6733,8 +6778,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "vortex-run",
                     "file.vortex",
                     "project:metric",
-                    "8",
+                    "--memory-bytes",
+                    "8589934592",
+                    "--max-parallelism",
                     "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -6765,14 +6816,33 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
                 import json, sys
                 args = sys.argv[1:]
-                if args == ["vortex-count", "file.vortex", "--format", "json"]:
+                if args == [
+                    "vortex-count",
+                    "file.vortex",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
+                    "--format",
+                    "json",
+                ]:
                     fields = [{"key": "local_execution", "value": "false"}]
                 elif args == [
                     "vortex-count",
                     "file.vortex",
                     "--execute-local-encoded-count",
-                    "8",
+                    "--memory-bytes",
+                    "8589934592",
+                    "--max-parallelism",
                     "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -6792,7 +6862,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
             )
         )
-        client = ShardLoomClient(binary=binary)
+        client = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)
 
         default = client.vortex_count("file.vortex")
         executed = client.vortex_count(
@@ -6838,8 +6908,10 @@ class ShardLoomClientTests(unittest.TestCase):
                 }.get(primitive)
                 if expected_command is None:
                     raise AssertionError(args)
-                assert args[args.index("--memory-gb") + 1] == "4", args
+                assert args[args.index("--memory-bytes") + 1] == "4294967296", args
                 assert args[args.index("--max-parallelism") + 1] == "2", args
+                assert args[args.index("--memory-origin") + 1] == "execution_call", args
+                assert args[args.index("--parallelism-origin") + 1] == "execution_call", args
                 if primitive in {"count_where", "filter", "filter_project"}:
                     assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
                 if primitive in {"project", "filter_project"}:
@@ -6983,8 +7055,10 @@ class ShardLoomClientTests(unittest.TestCase):
                 if matched is None:
                     raise AssertionError(args)
                 command, command_fields = matched
-                assert args[args.index("--memory-gb") + 1] == "3", args
+                assert args[args.index("--memory-bytes") + 1] == "3221225472", args
                 assert args[args.index("--max-parallelism") + 1] == "4", args
+                assert args[args.index("--memory-origin") + 1] == "execution_call", args
+                assert args[args.index("--parallelism-origin") + 1] == "execution_call", args
                 if primitive in {"count_where", "filter", "filter_project"}:
                     assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
                 if primitive in {"project", "filter_project"}:
@@ -7400,6 +7474,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "local-emulator",
                     "--range",
                     "4:8",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -7427,7 +7509,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        envelope = ShardLoomClient(binary=binary).object_store_read_smoke(
+        envelope = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2).object_store_read_smoke(
             "target/object.bin",
             byte_range=(4, 8),
         )
@@ -7445,6 +7527,14 @@ class ShardLoomClientTests(unittest.TestCase):
                 import json, sys
                 assert sys.argv[1:] == [
                     "local-table-metadata-read-smoke",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -7470,7 +7560,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        envelope = ShardLoomClient(binary=binary).local_table_metadata_read_smoke()
+        envelope = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2).local_table_metadata_read_smoke()
 
         self.assertEqual(envelope.command, "local-table-metadata-read-smoke")
         self.assertEqual(envelope.field("support_status"), "runtime_supported")
@@ -7498,6 +7588,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--fixture-listing",
                     "--range",
                     "4:8",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -7530,7 +7628,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        envelope = ShardLoomClient(binary=binary).object_store_read_smoke(
+        envelope = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2).object_store_read_smoke(
             "s3://shardloom-public-fixtures/orders.vortex",
             profile="public-no-credential-fixture",
             public_fixture_path="target/public-fixture.vortex",
@@ -7560,6 +7658,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "local-emulator",
                     "--partition-columns",
                     "region,date",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -7593,7 +7699,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
 
         envelope = ShardLoomClient(
-            binary=binary
+            binary=binary, memory_gb=4, max_parallelism=2
         ).object_store_partition_discovery_smoke(
             "target/table",
             partition_columns=("region", "date"),
@@ -7622,6 +7728,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "local-emulator",
                     "--partition-columns",
                     "region,date",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -7643,7 +7757,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
             )
         )
-        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
         envelope = ctx.object_store_partition_discovery_smoke(
             "target/table",
@@ -7671,6 +7785,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "orders-batch-001",
                     "--allow-overwrite",
                     "--rollback-after-commit",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -7701,7 +7823,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        envelope = ShardLoomClient(binary=binary).object_store_write_smoke(
+        envelope = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2).object_store_write_smoke(
             "source/object.bin",
             "target/object.bin",
             idempotency_key="orders-batch-001",
@@ -7728,6 +7850,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "local-emulator",
                     "--idempotency-key",
                     "orders-batch-001",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -7762,7 +7892,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        envelope = ShardLoomClient(binary=binary).object_store_write_recovery_smoke(
+        envelope = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2).object_store_write_recovery_smoke(
             "target/object.bin",
             idempotency_key="orders-batch-001",
         )
@@ -7833,6 +7963,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "generated-output-001",
                     "--allow-overwrite",
                     "--rollback-after-commit",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -7865,7 +8003,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
 
         report = ShardLoomContext(
-            ShardLoomClient(binary=binary)
+            ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)
         ).generated_output_to_object_store(
             "target/object-store/generated.jsonl",
             rows=[{"id": 1, "label": "alpha"}],
@@ -7951,6 +8089,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--idempotency-key",
                     "partitioned-generated-output-001",
                     "--allow-overwrite",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -7982,6 +8128,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "local-emulator",
                     "--idempotency-key",
                     "partitioned-generated-output-001",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -8017,6 +8171,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "local-emulator",
                     "--partition-columns",
                     "region,date",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -8051,7 +8213,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
 
         report = ShardLoomContext(
-            ShardLoomClient(binary=binary)
+            ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)
         ).generated_output_to_partitioned_object_store(
             "target/object-store/partitioned",
             partition_values={"region": "us", "date": "2026-06-06"},
@@ -8090,7 +8252,7 @@ class ShardLoomClientTests(unittest.TestCase):
             binary = self._foundry_generated_output_fake_cli(result_part)
 
             report = ShardLoomContext(
-                ShardLoomClient(binary=binary)
+                ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)
             ).foundry_generated_output(
                 result_dataset,
                 rows=[{"id": 1, "label": "alpha"}],
@@ -8142,7 +8304,7 @@ class ShardLoomClientTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "symlink"):
                 ShardLoomContext(
-                    ShardLoomClient(binary=binary)
+                    ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)
                 ).foundry_generated_output(
                     result_dataset,
                     rows=[{"id": 1, "label": "alpha"}],
@@ -8167,7 +8329,7 @@ class ShardLoomClientTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "symlink"):
                 ShardLoomContext(
-                    ShardLoomClient(binary=binary)
+                    ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)
                 ).foundry_generated_output(
                     result_dataset,
                     rows=[{"id": 1, "label": "alpha"}],
@@ -8261,6 +8423,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "orders-table-commit-001",
                     "--allow-overwrite",
                     "--rollback-after-commit",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -8293,7 +8463,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
 
         envelope = ShardLoomClient(
-            binary=binary
+            binary=binary, memory_gb=4, max_parallelism=2
         ).local_table_append_commit_rehearsal_smoke(
             "target/table/metadata/v2.json",
             idempotency_key="orders-table-commit-001",
@@ -8321,6 +8491,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "local-manifest",
                     "--idempotency-key",
                     "orders-table-commit-001",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -8352,7 +8530,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
         )
 
-        envelope = ShardLoomClient(binary=binary).local_table_commit_recovery_smoke(
+        envelope = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2).local_table_commit_recovery_smoke(
             "target/table/metadata/v2.json",
             idempotency_key="orders-table-commit-001",
         )
@@ -8381,6 +8559,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "local-emulator",
                     "--range",
                     "2:4",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -8399,6 +8585,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--idempotency-key",
                     "orders-batch-001",
                     "--rollback-after-commit",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -8408,7 +8602,12 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
-                elif args == ["local-table-metadata-read-smoke", "--format", "json"]:
+                elif args == [
+                    "local-table-metadata-read-smoke",
+                    "--memory-bytes", "4294967296", "--max-parallelism", "2",
+                    "--memory-origin", "execution_call", "--parallelism-origin", "execution_call",
+                    "--format", "json",
+                ]:
                     command = "local-table-metadata-read-smoke"
                     fields = [
                         {"key": "table_metadata_read_performed", "value": "true"},
@@ -8423,6 +8622,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--idempotency-key",
                     "orders-table-commit-001",
                     "--rollback-after-commit",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -8439,6 +8646,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "local-manifest",
                     "--idempotency-key",
                     "orders-table-commit-001",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -8460,6 +8675,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--order-by",
                     "id",
                     "--allow-overwrite",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -8485,7 +8708,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
             )
         )
-        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
 
         read = ctx.object_store_read_smoke("target/object.bin", byte_range=(2, 4))
         write = ctx.object_store_write_smoke(
@@ -10320,10 +10543,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "count",
                     "--vortex-primitive",
                     "count",
-                    "--memory-gb",
-                    "4",
+                    "--memory-bytes",
+                    "4294967296",
                     "--max-parallelism",
                     "1",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ], sys.argv
@@ -10940,7 +11167,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
-                elif args == ["udf-local-scalar-fixture-smoke", "3,null,-4", "--format", "json"]:
+                elif args == ["udf-local-scalar-fixture-smoke", "3,null,-4", "--memory-bytes", "4294967296", "--max-parallelism", "2", "--memory-origin", "execution_call", "--parallelism-origin", "execution_call", "--format", "json"]:
                     command = "udf-local-scalar-fixture-smoke"
                     fields = [
                         {"key": "output_values", "value": "6,null,-8"},
@@ -10953,6 +11180,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "alpha;beta;gamma",
                     "--query",
                     "beta",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -10986,6 +11221,14 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--order-by",
                     "id",
                     "--allow-overwrite",
+                    "--memory-bytes",
+                    "4294967296",
+                    "--max-parallelism",
+                    "2",
+                    "--memory-origin",
+                    "execution_call",
+                    "--parallelism-origin",
+                    "execution_call",
                     "--format",
                     "json",
                 ]:
@@ -11007,7 +11250,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
             )
         )
-        client = ShardLoomClient(binary=binary)
+        client = ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2)
 
         self.assertEqual(client.extension_registry().command, "extension-registry")
         udf_registry = client.udf_registry()

@@ -155,7 +155,8 @@ fn exact_distinct_public_native_values_global_order_and_pressure_handoff() {
     let fixture = Fixture::new();
     for parallelism in [1, 2] {
         for entries in [2, 1000] {
-            let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+            let mut policy =
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
             policy.resource_envelope.group_state_soft_item_budget = entries;
             let mut query = fixture.query();
             query
@@ -219,7 +220,7 @@ impl Drop for ScanFaultGuard {
 fn exact_distinct_public_source_pressure_replays_once_and_preserves_corruption() {
     let fixture = Fixture::new();
     let _reset = ScanFaultGuard;
-    let policy = VortexLocalPrimitiveExecutionPolicy::new(1).unwrap();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap();
     SOURCE_SCAN_TEST_FAULT.with(|fault| fault.set(Some(SourceScanTestFault::OwnedDenial)));
     let report = execute_vortex_local_primitive_with_policy(&fixture.query(), policy).unwrap();
     assert!(SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::get).is_none());
@@ -240,7 +241,7 @@ fn exact_distinct_finalized_counts_fail_retained_source_generation_validation() 
         let fixture = Fixture::new();
         let resident = ResidentVortexSession::for_external_cpu_pool(8 << 20, 1).unwrap();
         let prepared = resident.prepare_file(fixture.path()).unwrap();
-        let mut policy = VortexLocalPrimitiveExecutionPolicy::new(1).unwrap();
+        let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap();
         policy.resource_envelope.memory_budget_bytes = 8 << 20;
         let query = fixture.query();
         let result = prepared.with_native_execution(|file, session, runtime| {
@@ -295,12 +296,18 @@ fn exact_distinct_finalized_counts_fail_retained_source_generation_validation() 
 fn exact_distinct_source_shape_preflight_restores_nonadmitted_provider_lanes() {
     let fixture = Fixture::new();
     let query = fixture.query();
-    assert!(aggregate_count_workers::request_may_be_admitted(&query));
+    assert!(aggregate_count_workers::request_may_be_admitted(
+        &query,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
+    ));
     let resident = ResidentVortexSession::new(8 << 20, 1).unwrap();
     let prepared = resident.prepare_file(fixture.path()).unwrap();
     assert!(!aggregate_count_workers::restore_provider_drivers(
         &query,
-        prepared.dtype()
+        prepared.dtype(),
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
     ));
     let nullable = StructArray::try_new(
         FieldNames::from(["cohort_alias", "member_alias"]),
@@ -314,11 +321,15 @@ fn exact_distinct_source_shape_preflight_restores_nonadmitted_provider_lanes() {
     .unwrap();
     assert!(aggregate_count_workers::restore_provider_drivers(
         &query,
-        nullable.dtype()
+        nullable.dtype(),
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
     ));
     let mut unbounded = query.clone();
     unbounded.source_order_limit = None;
     assert!(!aggregate_count_workers::request_may_be_admitted(
-        &unbounded
+        &unbounded,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation")
     ));
 }

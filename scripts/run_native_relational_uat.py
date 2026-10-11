@@ -263,7 +263,10 @@ def main() -> int:
         import shardloom as sl
         from shardloom.query import SqlWorkflow
 
-        context = sl.context(binary=str(binary), cwd=output, timeout=120)
+        # Explicit harness allocation; production entry points provide no defaults.
+        context = sl.context(client=sl.ShardLoomClient(
+            binary=str(binary), cwd=output, timeout=120, memory_gb=4, max_parallelism=2,
+        ))
         client = context.client
         if args.family in ("all", "base"):
             raw_left, raw_right = output / "cargo.jsonl", output / "dimension.jsonl"

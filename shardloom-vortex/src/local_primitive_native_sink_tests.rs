@@ -20,6 +20,103 @@ use vortex::{
 };
 
 struct Fixture(PathBuf);
+
+#[test]
+fn primitive_text_exports_share_source_and_sink_admission() {
+    use VortexLocalPrimitiveRowExportFormat as Format;
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+
+    let fixture = Fixture::new();
+    let source = fixture.source(20);
+    let uri = DatasetUri::new(source.display().to_string()).unwrap();
+    let columns = ProjectionRequest::columns(vec![ColumnRef::new("shipment_sequence").unwrap()]);
+    let predicate = PredicateExpr::Compare {
+        column: ColumnRef::new("shipment_sequence").unwrap(),
+        op: ComparisonOp::GtEq,
+        value: StatValue::UInt64(17),
+    };
+    let requests = [
+        VortexQueryPrimitiveRequest::project(uri.clone(), columns.clone())
+            .with_source_order_limit(3),
+        VortexQueryPrimitiveRequest::filter(uri.clone(), predicate.clone()),
+        VortexQueryPrimitiveRequest::filter_and_project(uri.clone(), predicate, columns.clone()),
+        VortexQueryPrimitiveRequest::filter_and_project(
+            uri,
+            PredicateExpr::StringContains {
+                column: ColumnRef::new("destination").unwrap(),
+                needle: "1".into(),
+                negated: false,
+            },
+            columns,
+        )
+        .with_source_order_limit(3),
+    ];
+    for (index, request) in requests.iter().enumerate() {
+        for format in [Format::Json, Format::Jsonl, Format::Csv] {
+            let stem = format!("text-{index}-{}", format.as_str());
+            let existing = fixture.0.join(format!("{stem}-existing"));
+            fs::write(&existing, b"keep original").unwrap();
+            let absent = fixture.0.join(format!("{stem}-absent")).join("output");
+            let denied = VortexLocalPrimitiveExecutionPolicy::from_resources(
+                ExecutionResources::from_bytes(1, 1, ExecutionResourceOrigin::ExecutionCall)
+                    .unwrap(),
+            )
+            .unwrap();
+            for output in [&existing, &absent] {
+                let error = execute_vortex_local_primitive_row_export_with_policy(
+                    request, output, format, true, denied,
+                )
+                .unwrap_err();
+                assert!(error.to_string().contains("memory"), "{error}");
+                assert_eq!(fs::read(&existing).unwrap(), b"keep original");
+                assert!(!absent.parent().unwrap().exists());
+            }
+            let output = fixture.0.join(stem);
+            let report = execute_vortex_local_primitive_row_export_with_policy(
+                request,
+                &output,
+                format,
+                false,
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 1).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(report.rows_written, 3);
+            assert_eq!(report.primitive_kind, request.kind);
+            assert!(report.evidence.native_array_sink.is_some());
+            assert!(!report.evidence.side_effects.fallback_attempted);
+            let expected = match index {
+                0 => vec![0, 1, 2],
+                1 | 2 => vec![17, 18, 19],
+                _ => vec![1, 10, 11],
+            };
+            let actual = fs::read_to_string(output).unwrap();
+            if format == Format::Csv {
+                let ids = actual
+                    .lines()
+                    .skip(1)
+                    .map(|row| row.split(',').next().unwrap().parse::<u64>().unwrap())
+                    .collect::<Vec<_>>();
+                assert_eq!(ids, expected);
+            } else {
+                let rows: Vec<serde_json::Value> = if format == Format::Json {
+                    serde_json::from_str(&actual).unwrap()
+                } else {
+                    actual
+                        .lines()
+                        .map(|row| serde_json::from_str(row).unwrap())
+                        .collect()
+                };
+                assert_eq!(
+                    rows.iter()
+                        .map(|row| row["shipment_sequence"].as_u64().unwrap())
+                        .collect::<Vec<_>>(),
+                    expected
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn target_created_after_preflight_never_becomes_an_overwrite_admission() {
     use std::io::Write as _;
@@ -97,7 +194,10 @@ impl Fixture {
     }
     fn source_with_padding(&self, rows: usize, padding: usize) -> PathBuf {
         let path = self.0.join("source.vortex");
-        let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+        let runtime = local_vortex_runtime(
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
+        );
         let session = VortexSession::default().with_handle(runtime.handle());
         let suffix = "x".repeat(padding);
         let array = StructArray::new(
@@ -144,7 +244,10 @@ impl Drop for Fixture {
 }
 
 fn read_complete(path: &Path) -> (DType, Vec<serde_json::Value>) {
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let file = runtime
         .block_on(session.open_options().open_path(path))
@@ -198,7 +301,8 @@ fn public_native_sink_streams_nullable_filter_projection_and_ordered_limit_exact
         &output,
         VortexLocalPrimitiveRowExportFormat::Vortex,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
@@ -251,7 +355,8 @@ fn native_sink_preserves_source_alias_schema_and_empty_typed_output() {
             &output,
             VortexLocalPrimitiveRowExportFormat::Vortex,
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         assert!(report.evidence.native_array_sink.is_some());
@@ -305,7 +410,8 @@ fn native_sink_admits_wide_source_aliases_and_footer_before_writing() {
             .collect(),
     ));
     let output = fixture.0.join("wide-aliases.vortex");
-    let mut policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     policy.resource_envelope.memory_budget_bytes = 128 << 20;
     let report = try_execute(&request, &source, &output, false, policy)
         .unwrap()
@@ -361,7 +467,10 @@ fn native_sink_admits_wide_source_aliases_and_footer_before_writing() {
 fn native_sink_schema_admission_preserves_top_level_primitive_files() {
     let fixture = Fixture::new();
     let source = fixture.0.join("primitive.vortex");
-    let runtime = local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let session = VortexSession::default().with_handle(runtime.handle());
     let array =
         PrimitiveArray::from_option_iter([Some(i64::MIN), None, Some(i64::MAX)]).into_array();
@@ -380,7 +489,8 @@ fn native_sink_schema_admission_preserves_top_level_primitive_files() {
         &source,
         &target,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap()
     .unwrap();
@@ -424,7 +534,8 @@ fn pre_limit_count_is_exact_when_filter_scan_exhausts_or_footer_proves_it() {
             &source,
             &fixture.0.join(format!("{name}.vortex")),
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap()
         .unwrap();
@@ -440,7 +551,8 @@ fn source_generation_failure_and_output_failures_preserve_destination() {
     let fixture = Fixture::new();
     let source = fixture.source(37);
     let request = Fixture::request(&source);
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let prepared = prepare(&request, &source, policy).unwrap().unwrap();
     let output = fixture.0.join("existing.vortex");
     fs::write(&output, b"existing destination").unwrap();
@@ -525,7 +637,8 @@ fn source_read_reservation_failure_cleans_staging_after_writer_admission() {
     let fixture = Fixture::new();
     let source = fixture.source(40_000);
     let request = Fixture::request(&source);
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let prepared = prepare(&request, &source, policy).unwrap().unwrap();
     let metadata = 40_000_u64.div_ceil(SCAN_ROWS as u64) * METADATA_BYTES_PER_CHUNK + 128 * 1024;
     let available = policy.resource_envelope().memory_budget_bytes
@@ -559,7 +672,8 @@ fn false_filter_sink_writes_typed_empty_output_without_data_arrays() {
         &source,
         &output,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap()
     .unwrap();
@@ -606,7 +720,8 @@ fn empty_completed_result_writes_native_schema_after_source_owner_drops() {
             &Fixture::request(&source_path),
             &output,
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
     assert_eq!(report.rows_written, 0);
@@ -668,7 +783,8 @@ fn native_source_alias_export_filters_source_fields_before_projection_and_limit(
             &output,
             VortexLocalPrimitiveRowExportFormat::Vortex,
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap();
         assert!(report.evidence.native_array_sink.is_some());
@@ -710,7 +826,8 @@ fn native_sink_declines_complex_structured_expressions_without_effects() {
             &source,
             &output,
             false,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded()
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation")
         )
         .unwrap()
         .is_none()
@@ -722,7 +839,8 @@ fn native_sink_declines_complex_structured_expressions_without_effects() {
         &source,
         &output,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .err()
     .unwrap();

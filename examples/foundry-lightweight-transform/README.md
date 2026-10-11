@@ -10,7 +10,7 @@ Run from a source checkout after building the local CLI:
 
 ```powershell
 cargo build -p shardloom-cli --bin shardloom
-python examples\foundry-lightweight-transform\run.py --repo-root .
+python examples\foundry-lightweight-transform\run.py --repo-root . --memory-gb 16 --max-parallelism 8
 ```
 
 The script resolves the local ShardLoom CLI, runs no-dataset smoke and capability checks, executes

@@ -277,7 +277,8 @@ fn write_observed(
     let mut input = crate::universal_format_io::with_capillary_prefetch_columnar_stream_source(
         input,
         options.grant,
-    );
+    )
+    .unwrap();
     let source_identities = input.source_identities.clone();
     let shape = validate_flat_columnar_stream_source_shape(&input).unwrap();
     let runtime = input.ingest_runtime.clone();
@@ -506,13 +507,24 @@ fn streaming_owned_ipc_lookahead_recovers_capacity_aliasing_without_changing_val
             let source =
                 crate::universal_format_io::stream_flat_arrow_ipc_columnar_source(&input, 8209)
                     .unwrap();
-            let source = crate::universal_format_io::with_capillary_prefetch_columnar_stream_source(
-                source, grant,
-            );
+            let source =
+                crate::universal_format_io::with_capillary_prefetch_columnar_stream_source(
+                    source, grant,
+                )
+                .unwrap();
             let output = directory.0.join(format!("lookahead-{grant}.vortex"));
             let report = write_flat_columnar_vortex_prepared_state_streaming(
-                VortexPreparedStateColumnarStreamWriteRequest::new(&output, source)
-                    .shared_native_memory_budget_bytes(memory_bytes),
+                VortexPreparedStateColumnarStreamWriteRequest::new(
+                    &output,
+                    source,
+                    shardloom_core::ExecutionResources::from_bytes(
+                        memory_bytes,
+                        grant,
+                        shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                    )
+                    .expect("explicit fixture allocation"),
+                )
+                .shared_native_memory_budget_bytes(memory_bytes),
             )
             .unwrap();
             assert_eq!(report.row_count, 8209);
@@ -1145,9 +1157,18 @@ fn streaming_generation_mutation_before_first_pull_preserves_destination_and_dro
                 mutation.apply(&input);
                 fs::write(&output, b"previous destination").unwrap();
                 let error = write_flat_columnar_vortex_prepared_state_streaming(
-                    VortexPreparedStateColumnarStreamWriteRequest::new(&output, source)
-                        .allow_overwrite(true)
-                        .shared_native_memory_budget_bytes(32 << 20),
+                    VortexPreparedStateColumnarStreamWriteRequest::new(
+                        &output,
+                        source,
+                        shardloom_core::ExecutionResources::from_bytes(
+                            32 << 20,
+                            grant,
+                            shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                        )
+                        .expect("explicit fixture allocation"),
+                    )
+                    .allow_overwrite(true)
+                    .shared_native_memory_budget_bytes(32 << 20),
                 )
                 .unwrap_err();
                 assert_generation_failure(&error);
@@ -1218,9 +1239,17 @@ fn streaming_generation_empty_source_mutation_after_eof_cannot_bypass_publicatio
                     SourceMutation::SameSizeWithRestoredMtime,
                 );
                 fs::write(&output, b"previous destination").unwrap();
-                let mut request =
-                    VortexPreparedStateColumnarStreamWriteRequest::new(&output, source)
-                        .allow_overwrite(true);
+                let mut request = VortexPreparedStateColumnarStreamWriteRequest::new(
+                    &output,
+                    source,
+                    shardloom_core::ExecutionResources::from_bytes(
+                        32 << 20,
+                        grant,
+                        shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                    )
+                    .expect("explicit fixture allocation"),
+                )
+                .allow_overwrite(true);
                 if native_memory {
                     request = request.shared_native_memory_budget_bytes(32 << 20);
                 }

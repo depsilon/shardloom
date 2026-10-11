@@ -83,7 +83,8 @@ fn native_typed_reductions_sql_outer_ranges_stop_before_unused_rolling_errors() 
     }
     let prepared = prepare(
         &format!("SELECT value FROM {rolling}"),
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
     )
     .unwrap();
@@ -95,7 +96,8 @@ fn native_typed_reductions_sql_outer_ranges_stop_before_unused_rolling_errors() 
     assert!(
         prepare(
             &format!("SELECT absent FROM {rolling} LIMIT 0"),
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
         )
         .is_err()
@@ -149,7 +151,8 @@ fn native_typed_reductions_sql_grouped_projection_preserves_aliases_order_and_hi
         );
         let prepared = prepare(
             &statement,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
         )
         .unwrap();
@@ -159,7 +162,8 @@ fn native_typed_reductions_sql_grouped_projection_preserves_aliases_order_and_hi
         assert_eq!(output.execution.output_columns, ["total", "id", "raw"]);
         let empty = prepare(
             &format!("{statement} LIMIT 0"),
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
         )
         .unwrap()
@@ -182,7 +186,8 @@ fn native_typed_reductions_sql_grouped_projection_preserves_aliases_order_and_hi
         assert!(
             prepare(
                 &format!("SELECT metric,SUM(value) AS total FROM '{source}' GROUP BY value{tail}"),
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 |path| DatasetUri::new(path.path.to_string_lossy().into_owned()),
             )
             .is_err(),
@@ -221,7 +226,8 @@ fn native_typed_reductions_sql_denies_invalid_empty_bindings_and_ambiguous_scope
         assert!(
             prepare(
                 &statement,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 |path| DatasetUri::new(path.path.to_string_lossy().into_owned())
             )
             .is_err(),

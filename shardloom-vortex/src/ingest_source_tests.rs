@@ -59,7 +59,7 @@ impl Rendezvous {
 #[test]
 fn ready_source_work_uses_the_grant_and_keeps_complete_order() {
     for requested in [1, 2, 3, 6, 8, 17, 64, 128, usize::MAX, 1] {
-        let runtime = IngestRuntime::new(requested);
+        let runtime = IngestRuntime::new(requested).unwrap();
         let grant = runtime.parallelism();
         let _drivers = runtime.start_drivers().unwrap();
         let gate = Rendezvous::new(grant);
@@ -137,7 +137,7 @@ impl Drop for ObservedReader {
 #[test]
 fn full_source_queues_yield_every_driver_to_native_provider_work() {
     for requested in [1, 2, 3, 6, 8, 17, 64, 128, usize::MAX, 1] {
-        let runtime = IngestRuntime::new(requested);
+        let runtime = IngestRuntime::new(requested).unwrap();
         let grant = runtime.parallelism();
         let _drivers = runtime.start_drivers().unwrap();
         let dropped = Arc::new(AtomicUsize::new(0));
@@ -184,7 +184,7 @@ fn full_source_queues_yield_every_driver_to_native_provider_work() {
 #[test]
 fn shared_source_errors_and_panics_are_terminal_and_drain_later_tasks() {
     for panic in [false, true] {
-        let runtime = IngestRuntime::new(2);
+        let runtime = IngestRuntime::new(2).unwrap();
         let _drivers = runtime.start_drivers().unwrap();
         let first: ReaderFactory = Box::new(move || {
             assert!(!panic, "injected source panic");
@@ -223,7 +223,7 @@ fn shared_source_errors_and_panics_are_terminal_and_drain_later_tasks() {
 
 #[test]
 fn empty_shared_source_never_creates_work() {
-    let runtime = IngestRuntime::new(8);
+    let runtime = IngestRuntime::new(8).unwrap();
     let mut reader = IngestSourceReader::new(schema(), runtime, vec![], 8);
     assert!(reader.next().is_none());
     assert!(reader.tasks.is_empty());

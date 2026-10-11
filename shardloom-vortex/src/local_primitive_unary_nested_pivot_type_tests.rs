@@ -434,7 +434,8 @@ fn unary_nested_pivot_rejects_unsupported_empty_nested_leaves_and_policy_shapes(
     request.pivot_projection.as_mut().unwrap().margins = true;
     let error = prepare_unary(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .err()
     .unwrap();

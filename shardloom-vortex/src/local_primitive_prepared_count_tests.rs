@@ -46,7 +46,7 @@ impl Drop for Fixture {
 fn filtered_count_source_handoff_reuses_one_generation() {
     let fixture = Fixture::new();
     let request = fixture.request(2);
-    let policy = VortexLocalPrimitiveExecutionPolicy::new(2).unwrap();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap();
     let source = super::super::prepared_dispatch::prepare_source(&request, policy).unwrap();
     let session = source.retained_session();
     let prepared = prepare_count_where_from_source(&request, policy, source).unwrap();
@@ -73,7 +73,7 @@ fn prepared_count_reexecutes_complete_predicate_with_one_open_and_real_certifica
         let request = fixture.request(threshold);
         let prepared = prepare_count_where_in_session(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
             &session,
         )
         .unwrap();
@@ -124,7 +124,8 @@ fn prepared_unprunable_empty_count_reports_provider_work_and_certifies_zero() {
     );
     let prepared = prepare_count_where_in_session(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &session,
     )
     .unwrap();
@@ -164,7 +165,8 @@ fn prepared_metadata_pruned_count_rejects_generation_change_and_never_replays_ol
     let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
     let prepared = prepare_count_where_in_session(
         &fixture.request(99),
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &session,
     )
     .unwrap();
@@ -185,7 +187,8 @@ fn prepared_metadata_pruned_count_rejects_generation_change_and_never_replays_ol
     assert_eq!(session.snapshot().memory.reserved_bytes, 0);
     let fresh = prepare_count_where_in_session(
         &fixture.request(99),
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &session,
     )
     .unwrap();
@@ -197,7 +200,8 @@ fn prepared_metadata_pruned_count_rejects_generation_change_and_never_replays_ol
 fn prepared_count_rejects_extra_payloads_before_open_and_rejects_wider_runtime_grants() {
     let fixture = Fixture::new();
     let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     for limit in [0, 1] {
         assert!(
             prepare_count_where_in_session(

@@ -267,11 +267,11 @@ The README and benchmark website may show the benchmark ETL scenario snippets on
 scenario runner remains the executable source:
 
 ```powershell
-python examples\local-python-benchmark-scenarios\run.py --repo-root .
-python examples\local-python-benchmark-scenarios\timing_review.py --repo-root .
+python examples\local-python-benchmark-scenarios\run.py --repo-root . --memory-gb 16 --max-parallelism 8
+python examples\local-python-benchmark-scenarios\timing_review.py --repo-root . --memory-gb 16 --max-parallelism 8
 ```
 
-The runner is sequential and local. Its expected scenario ids are:
+The runner is sequential and local. The 16 GiB / 8-lane allocation shown here is illustrative, not a default, recommendation, or measurement. Its expected scenario ids are:
 
 ```text
 selective_filter

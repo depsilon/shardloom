@@ -24,7 +24,7 @@ RESOURCES = {"memory_gb": 3, "max_parallelism": 2, "spill": "disabled"}
 
 class NativeWorkflowDeclarationTests(unittest.TestCase):
     def setUp(self):
-        self.client = sl.ShardLoomClient(binary="unused-shardloom")
+        self.client = sl.ShardLoomClient(binary="unused-shardloom", memory_gb=4, max_parallelism=2)
         self.context = sl.ShardLoomContext(self.client)
         self.envelope = OutputEnvelope.from_field_mapping({
             "result_jsonl": "", "result_payload_complete": "true", "output_row_count": "0",
@@ -44,8 +44,9 @@ class NativeWorkflowDeclarationTests(unittest.TestCase):
         self.assertIsInstance(request["sql_statement"], str)
         for fragment in fragments:
             self.assertIn(fragment, request["sql_statement"])
-        for key, value in RESOURCES.items():
-            self.assertEqual(request[key], value)
+        self.assertEqual(request["resources"].whole_gib, RESOURCES["memory_gb"])
+        self.assertEqual(request["resources"].max_parallelism, RESOURCES["max_parallelism"])
+        self.assertEqual(request["spill"], RESOURCES["spill"])
         self.assertEqual(request["materialization_policy"], "bounded")
         self.assertFalse(any(key.startswith("vortex_") for key in request))
         self.assertFalse(any(key.startswith("generated_") for key in request))

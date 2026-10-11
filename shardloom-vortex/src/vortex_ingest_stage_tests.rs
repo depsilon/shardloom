@@ -89,9 +89,11 @@ fn projected_native_artifact_bytes_match_the_original_projection_path() {
             VortexWriterPhysicalDesignSourceInput::buffered_columnar(1),
         )
         .unwrap();
+        let memory = LiveMemoryPool::new(16 << 20).unwrap();
         let original_report =
-            write_vortex_array(&expected_path, &original, false, &decision).unwrap();
-        let actual_report = write_vortex_array(&actual_path, &actual, false, &decision).unwrap();
+            write_vortex_array(&expected_path, &original, false, &decision, &memory).unwrap();
+        let actual_report =
+            write_vortex_array(&actual_path, &actual, false, &decision, &memory).unwrap();
         assert_eq!(
             actual_report.vortex_encode_write_micros,
             actual_report.vortex_segment_write_micros

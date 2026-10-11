@@ -367,7 +367,7 @@ fn compound_workers_renamed_reordered_offset_ties_and_weighted_handoff() {
                 .iter()
                 .map(|column| column.as_str().to_owned())
                 .collect::<Vec<_>>();
-            let mut policy = VortexLocalPrimitiveExecutionPolicy::new(2).unwrap();
+            let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap();
             policy.resource_envelope.group_state_soft_item_budget = entry_limit;
             let mut states = GroupedAggregateStates::new_with_resource_envelope(
                 &request,
@@ -461,7 +461,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
             &states,
             array.dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
             vortex::array::legacy_session(),
             &memory
         )
@@ -484,7 +484,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
             &states,
             parent_nullable.dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
             vortex::array::legacy_session(),
             &memory,
         )
@@ -576,7 +576,7 @@ fn compound_typed_provider_denial_retries_untouched_chunk_once_after_release() {
             &states,
             chunks[0].dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
             &session,
             &memory,
         )
@@ -661,7 +661,7 @@ fn compound_initial_reservation_race_hands_off_untouched_chunk_exactly_once() {
             &states,
             chunks[0].dtype(),
             &columns,
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             vortex::array::legacy_session(),
             &memory,
         )
@@ -796,7 +796,7 @@ fn compound_public_native_query_filter_exact_values_and_typed_source_replay() {
         SOURCE_SCAN_TEST_FAULT.with(|current| current.set(fault));
         let report = execute_vortex_local_primitive_with_policy(
             &query,
-            VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
         )
         .unwrap();
         assert!(!report.fallback_execution_allowed);
@@ -833,7 +833,7 @@ fn compound_public_native_query_filter_exact_values_and_typed_source_replay() {
         .with(|current| current.set(Some(SourceScanTestFault::CorruptionWithConcurrentDenial)));
     let error = execute_vortex_local_primitive_with_policy(
         &query,
-        VortexLocalPrimitiveExecutionPolicy::new(1).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
     )
     .unwrap_err();
     assert!(error.to_string().contains("injected source corruption"));

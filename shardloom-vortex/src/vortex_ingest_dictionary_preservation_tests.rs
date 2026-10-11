@@ -231,7 +231,8 @@ fn dictionary_preservation_native_epochs_statistics_values_and_public_grouping()
     .with_source_order_limit(expected.len());
     let report = execute_vortex_local_primitive_with_policy(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);

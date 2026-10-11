@@ -73,6 +73,7 @@ const BATCH_ROWS: usize = 2048;
 
 /// The report and certificate describe the same execution as delivered batches.
 pub struct ExecutedVortexRelational {
+    pub resources: shardloom_core::ExecutionResources,
     pub output_rows: u64,
     pub output_batches: u64,
     pub max_output_batch_rows: usize,
@@ -352,6 +353,14 @@ pub struct VortexRelationalPreparation<'a> {
 }
 
 impl VortexRelationalPreparation<'_> {
+    /// Retain this preparation's existing reservation owner for an input adapter.
+    /// Cloning the handle creates no additional grant. Imported buffers, retained
+    /// sources and adapter scratch then compete for the same live capacity.
+    #[must_use]
+    pub fn shared_memory_pool(&self) -> shardloom_exec::live_memory::LiveMemoryPool {
+        self.binding.shared_memory_pool()
+    }
+
     /// Admit source-adapter scratch under the same grant as the eventual plan.
     /// This does not open a source or evaluate rows. A control transport can use
     /// a zero-byte lease as an owner before starting its credited reader.
@@ -931,6 +940,7 @@ impl PreparedVortexRelational {
             spill.as_ref(),
         )?;
         Ok(ExecutedVortexRelational {
+            resources: self.policy.resource_envelope.declared_resources,
             output_rows: rows,
             output_batches: batches,
             max_output_batch_rows: max_rows,

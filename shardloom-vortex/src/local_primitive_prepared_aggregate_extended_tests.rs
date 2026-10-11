@@ -34,7 +34,8 @@ fn assert_repeated(request: &VortexQueryPrimitiveRequest, expected: &serde_json:
         _ => panic!("aggregate expectations require grouped rows or one scalar row"),
     };
     for parallelism in [1, 4] {
-        let policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+        let policy =
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
         let ordinary =
             crate::local_primitives::execute_vortex_local_primitive_with_policy(request, policy)
                 .unwrap();
@@ -116,7 +117,8 @@ fn aggregate_json_collection_rejects_escaped_bytes_and_releases_failed_ownership
     );
     let prepared = prepare_aggregate(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     let owner = prepared.session.clone();
@@ -141,7 +143,8 @@ fn aggregate_json_collection_rejects_escaped_bytes_and_releases_failed_ownership
 
     let limited = prepare_aggregate(
         &request.with_source_order_limit(1),
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     let memory = limited.session.memory().clone();
@@ -212,7 +215,8 @@ fn aggregate_json_topk_reserves_retained_candidates_under_a_tight_budget() {
             )
             .with_source_order_limit(3);
         for parallelism in [1, 4] {
-            let mut policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+            let mut policy =
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
             policy.resource_envelope.memory_budget_bytes = BUDGET;
             let prepared = prepare_aggregate(&request, policy).unwrap();
             let memory = prepared.session.memory().clone();
@@ -459,7 +463,8 @@ fn prepared_residual_state_is_evaluated_again_on_each_execution() {
     let request = fixture.request(scalar());
     let mut prepared = prepare_aggregate(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     // Current public predicates all push down. Exercise the shared lowered

@@ -109,7 +109,10 @@ fn roles(
     Some(result)
 }
 
-pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> bool {
+pub(super) fn request_may_be_admitted(
+    request: &VortexQueryPrimitiveRequest,
+    envelope: VortexLocalPrimitiveResourceEnvelope,
+) -> bool {
     if request.predicate.is_some() {
         return false;
     }
@@ -124,9 +127,6 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
         .iter()
         .map(|c| c.as_str().to_owned())
         .collect::<Vec<_>>();
-    let Ok(envelope) = VortexLocalPrimitiveResourceEnvelope::new(1, 1) else {
-        return false;
-    };
     GroupedAggregateStates::new_with_resource_envelope(
         aggregate,
         request.source_order_limit,
@@ -141,8 +141,9 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
 pub(super) fn request_schema_may_be_admitted(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
+    envelope: VortexLocalPrimitiveResourceEnvelope,
 ) -> bool {
-    if !request_may_be_admitted(request) {
+    if !request_may_be_admitted(request, envelope) {
         return false;
     }
     let Ok(aggregate) = required_simple_aggregate(request) else {
@@ -153,9 +154,6 @@ pub(super) fn request_schema_may_be_admitted(
         .iter()
         .map(|c| c.as_str().to_owned())
         .collect::<Vec<_>>();
-    let Ok(envelope) = VortexLocalPrimitiveResourceEnvelope::new(1, 1) else {
-        return false;
-    };
     GroupedAggregateStates::new_with_resource_envelope(
         aggregate,
         request.source_order_limit,

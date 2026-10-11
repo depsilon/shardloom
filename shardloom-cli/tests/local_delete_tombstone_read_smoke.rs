@@ -2,7 +2,15 @@ use std::process::Command;
 
 fn run_local_delete_tombstone_read_smoke_json() -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["local-delete-tombstone-read-smoke", "--format", "json"])
+        .args([
+            "local-delete-tombstone-read-smoke",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
+            "--format",
+            "json",
+        ])
         .output()
         .expect("local-delete-tombstone-read-smoke command runs");
 

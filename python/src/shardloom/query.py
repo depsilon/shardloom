@@ -39,10 +39,9 @@ from .models import (
     OutputEnvelope,
     RuntimeActivationSummary,
 )
-from .runtime_defaults import (
-    DEFAULT_INTERNAL_SMOKE_MAX_PARALLELISM,
-    DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
-    DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
+from .execution_resources import (
+    ExecutionResourceLimits, ExecutionResources, merge_resource_limits,
+    optional_resources, resolve_resources,
 )
 
 SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc", "avro", "orc")
@@ -108,6 +107,7 @@ class WorkflowOperation:
     source_bindings: tuple[WorkflowSource, ...] = ()
     right_statement: str | None = None
     projection_sql: tuple[str, ...] | None = None
+    resource_limits: ExecutionResourceLimits | None = None
 
     def to_summary(self) -> str:
         """Return a deterministic operation summary."""
@@ -161,6 +161,7 @@ class PredicateExpression:
 
     sql: str
     source_bindings: tuple[WorkflowSource, ...] = ()
+    resource_limits: ExecutionResourceLimits | None = None
 
     def __str__(self) -> str:
         return self.sql
@@ -169,20 +170,22 @@ class PredicateExpression:
         """Return a scoped logical AND predicate."""
 
         return PredicateExpression(
-            f"({self.sql} AND {_predicate_sql(other)})", _predicate_sources(self, other)
+            f"({self.sql} AND {_predicate_sql(other)})", _predicate_sources(self, other),
+            resource_limits=_predicate_limits(self, other),
         )
 
     def __or__(self, other: object) -> "PredicateExpression":
         """Return a scoped logical OR predicate."""
 
         return PredicateExpression(
-            f"({self.sql} OR {_predicate_sql(other)})", _predicate_sources(self, other)
+            f"({self.sql} OR {_predicate_sql(other)})", _predicate_sources(self, other),
+            resource_limits=_predicate_limits(self, other),
         )
 
     def __invert__(self) -> "PredicateExpression":
         """Return a scoped logical NOT predicate."""
 
-        return PredicateExpression(f"NOT {self.sql}", self.source_bindings)
+        return PredicateExpression(f"NOT {self.sql}", self.source_bindings, resource_limits=self.resource_limits)
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,6 +194,7 @@ class WindowExpression:
 
     sql: str
     source_bindings: tuple[WorkflowSource, ...] = ()
+    resource_limits: ExecutionResourceLimits | None = None
 
     def __str__(self) -> str:
         return self.sql
@@ -240,6 +244,7 @@ class ColumnExpression:
 
     sql: str
     source_bindings: tuple[WorkflowSource, ...] = ()
+    resource_limits: ExecutionResourceLimits | None = None
 
     def __str__(self) -> str:
         return self.sql
@@ -272,7 +277,7 @@ class ColumnExpression:
             if isinstance(value, ColumnExpression)
             else _sql_literal(value)
         )
-        return PredicateExpression(f"{self.sql} {operator} {rhs}", _predicate_sources(self, value))
+        return PredicateExpression(f"{self.sql} {operator} {rhs}", _predicate_sources(self, value), resource_limits=_predicate_limits(self, value))
 
     def _numeric_binary(self, operator: str, value: object) -> "ColumnExpression":
         rhs = (
@@ -283,6 +288,7 @@ class ColumnExpression:
         return ColumnExpression(
             f"{_parenthesize_numeric_operand(self.sql)} {operator} {rhs}",
             _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
         )
 
     def __add__(self, value: object) -> "ColumnExpression":
@@ -313,37 +319,37 @@ class ColumnExpression:
     def __neg__(self) -> "ColumnExpression":
         """Return a checked native numeric negation expression."""
 
-        return ColumnExpression(f"-({self.sql})", self.source_bindings)
+        return ColumnExpression(f"-({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def abs(self) -> "ColumnExpression":
         """Return a scoped `ABS(column)` numeric absolute-value expression."""
 
-        return ColumnExpression(f"ABS({self.sql})", self.source_bindings)
+        return ColumnExpression(f"ABS({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def floor(self) -> "ColumnExpression":
         """Return a scoped `FLOOR(column)` numeric rounding expression."""
 
-        return ColumnExpression(f"FLOOR({self.sql})", self.source_bindings)
+        return ColumnExpression(f"FLOOR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def ceil(self) -> "ColumnExpression":
         """Return a scoped `CEIL(column)` numeric rounding expression."""
 
-        return ColumnExpression(f"CEIL({self.sql})", self.source_bindings)
+        return ColumnExpression(f"CEIL({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def round(self) -> "ColumnExpression":
         """Return a scoped `ROUND(column)` numeric rounding expression."""
 
-        return ColumnExpression(f"ROUND({self.sql})", self.source_bindings)
+        return ColumnExpression(f"ROUND({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_null(self) -> PredicateExpression:
         """Return a scoped `IS NULL` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NULL", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS NULL", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_not_null(self) -> PredicateExpression:
         """Return a scoped `IS NOT NULL` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NOT NULL", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS NOT NULL", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_distinct_from(self, value: object) -> PredicateExpression:
         """Return a scoped SQL `IS DISTINCT FROM` null-safe comparison."""
@@ -351,6 +357,7 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} IS DISTINCT FROM {self._null_safe_comparison_rhs(value)}",
             _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
         )
 
     def is_not_distinct_from(self, value: object) -> PredicateExpression:
@@ -359,6 +366,7 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} IS NOT DISTINCT FROM {self._null_safe_comparison_rhs(value)}",
             _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
         )
 
     def _null_safe_comparison_rhs(self, value: object) -> str:
@@ -373,22 +381,22 @@ class ColumnExpression:
     def is_true(self) -> PredicateExpression:
         """Return a scoped SQL boolean truth predicate."""
 
-        return PredicateExpression(f"{self.sql} IS TRUE", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS TRUE", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_false(self) -> PredicateExpression:
         """Return a scoped SQL boolean false predicate."""
 
-        return PredicateExpression(f"{self.sql} IS FALSE", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS FALSE", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_not_true(self) -> PredicateExpression:
         """Return a scoped SQL `IS NOT TRUE` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NOT TRUE", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS NOT TRUE", self.source_bindings, resource_limits=self.resource_limits)
 
     def is_not_false(self) -> PredicateExpression:
         """Return a scoped SQL `IS NOT FALSE` predicate."""
 
-        return PredicateExpression(f"{self.sql} IS NOT FALSE", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IS NOT FALSE", self.source_bindings, resource_limits=self.resource_limits)
 
     def like(self, pattern: object, *, escape: object | None = None) -> PredicateExpression:
         """Return a scoped SQL LIKE predicate.
@@ -402,6 +410,7 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} LIKE {_sql_string_literal(pattern)}{_like_escape_clause(escape)}",
             self.source_bindings,
+            resource_limits=self.resource_limits,
         )
 
     def not_like(self, pattern: object, *, escape: object | None = None) -> PredicateExpression:
@@ -410,17 +419,18 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} NOT LIKE {_sql_string_literal(pattern)}{_like_escape_clause(escape)}",
             self.source_bindings,
+            resource_limits=self.resource_limits,
         )
 
     def rlike(self, pattern: object) -> PredicateExpression:
         """Return a scoped UTF-8 regex predicate lowered to SQL `RLIKE`."""
 
-        return PredicateExpression(f"{self.sql} RLIKE {_sql_string_literal(pattern)}", self.source_bindings)
+        return PredicateExpression(f"{self.sql} RLIKE {_sql_string_literal(pattern)}", self.source_bindings, resource_limits=self.resource_limits)
 
     def not_rlike(self, pattern: object) -> PredicateExpression:
         """Return a scoped UTF-8 regex negation lowered to SQL `NOT RLIKE`."""
 
-        return PredicateExpression(f"{self.sql} NOT RLIKE {_sql_string_literal(pattern)}", self.source_bindings)
+        return PredicateExpression(f"{self.sql} NOT RLIKE {_sql_string_literal(pattern)}", self.source_bindings, resource_limits=self.resource_limits)
 
     def regex(self, pattern: object) -> PredicateExpression:
         """Return a scoped UTF-8 regex predicate."""
@@ -481,22 +491,22 @@ class ColumnExpression:
     def lower(self) -> "ColumnExpression":
         """Return a scoped `LOWER(column)` UTF-8 transform expression."""
 
-        return ColumnExpression(f"LOWER({self.sql})", self.source_bindings)
+        return ColumnExpression(f"LOWER({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def upper(self) -> "ColumnExpression":
         """Return a scoped `UPPER(column)` UTF-8 transform expression."""
 
-        return ColumnExpression(f"UPPER({self.sql})", self.source_bindings)
+        return ColumnExpression(f"UPPER({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def trim(self) -> "ColumnExpression":
         """Return a scoped `TRIM(column)` UTF-8 transform expression."""
 
-        return ColumnExpression(f"TRIM({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TRIM({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def length(self) -> "ColumnExpression":
         """Return a scoped `LENGTH(column)` UTF-8 length expression."""
 
-        return ColumnExpression(f"LENGTH({self.sql})", self.source_bindings)
+        return ColumnExpression(f"LENGTH({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def concat(self, *parts: object) -> "ColumnExpression":
         """Return a scoped `CONCAT(column-or-string-literal, ...)` expression."""
@@ -514,6 +524,7 @@ class ColumnExpression:
         return ColumnExpression(
             f"SUBSTR({column}, {normalized_start}, {normalized_length})",
             self.source_bindings,
+            resource_limits=self.resource_limits,
         )
 
     def substring(self, start: object, length: object) -> "ColumnExpression":
@@ -526,14 +537,14 @@ class ColumnExpression:
 
         column, _ = _normalize_string_scalar_expression_sql(self.sql)
         normalized_count = _normalize_substring_bound("left count", count, minimum=0)
-        return ColumnExpression(f"LEFT({column}, {normalized_count})", self.source_bindings)
+        return ColumnExpression(f"LEFT({column}, {normalized_count})", self.source_bindings, resource_limits=self.resource_limits)
 
     def right(self, count: object) -> "ColumnExpression":
         """Return a scoped `RIGHT(column, count)` UTF-8 expression."""
 
         column, _ = _normalize_string_scalar_expression_sql(self.sql)
         normalized_count = _normalize_substring_bound("right count", count, minimum=0)
-        return ColumnExpression(f"RIGHT({column}, {normalized_count})", self.source_bindings)
+        return ColumnExpression(f"RIGHT({column}, {normalized_count})", self.source_bindings, resource_limits=self.resource_limits)
 
     def replace(self, needle: object, replacement: object) -> "ColumnExpression":
         """Return a scoped `REPLACE(column, needle, replacement)` expression."""
@@ -548,25 +559,26 @@ class ColumnExpression:
         return ColumnExpression(
             f"REPLACE({column}, {needle_literal}, {replacement_literal})",
             self.source_bindings,
+            resource_limits=self.resource_limits,
         )
 
     def unhex(self) -> "ColumnExpression":
         """Return a scoped `UNHEX(<utf8-expression>)` binary helper expression."""
 
         expression = _sql_computed_projection_expression(self)
-        return ColumnExpression(f"UNHEX({expression})", self.source_bindings)
+        return ColumnExpression(f"UNHEX({expression})", self.source_bindings, resource_limits=self.resource_limits)
 
     def from_base64(self) -> "ColumnExpression":
         """Return a scoped `FROM_BASE64(<utf8-expression>)` binary helper expression."""
 
         expression = _sql_computed_projection_expression(self)
-        return ColumnExpression(f"FROM_BASE64({expression})", self.source_bindings)
+        return ColumnExpression(f"FROM_BASE64({expression})", self.source_bindings, resource_limits=self.resource_limits)
 
     def byte_length(self) -> "ColumnExpression":
         """Return a scoped `BYTE_LENGTH(<binary-expression>)` byte-count expression."""
 
         expression = _sql_computed_projection_expression(self)
-        return ColumnExpression(f"BYTE_LENGTH({expression})", self.source_bindings)
+        return ColumnExpression(f"BYTE_LENGTH({expression})", self.source_bindings, resource_limits=self.resource_limits)
 
     def fill_null(self, value: object) -> "ColumnExpression":
         """Return a `COALESCE` expression with a scalar value or expression."""
@@ -574,6 +586,7 @@ class ColumnExpression:
         return ColumnExpression(
             f"COALESCE({self.sql}, {_sql_case_branch(value)})",
             _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
         )
 
     def null_if(self, value: object) -> "ColumnExpression":
@@ -582,6 +595,7 @@ class ColumnExpression:
         return ColumnExpression(
             f"NULLIF({self.sql}, {_sql_case_branch(value)})",
             _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
         )
 
     def isin(self, *values: object) -> PredicateExpression:
@@ -589,7 +603,7 @@ class ColumnExpression:
 
         normalized = _normalize_in_values(values)
         joined = ",".join(_sql_in_literal(value) for value in normalized)
-        return PredicateExpression(f"{self.sql} IN ({joined})", self.source_bindings)
+        return PredicateExpression(f"{self.sql} IN ({joined})", self.source_bindings, resource_limits=self.resource_limits)
 
     def isin_source(
         self,
@@ -619,6 +633,7 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} IN (SELECT {source_column} FROM {source_ref}{tail})",
             _predicate_sources(self, source, where, having),
+            resource_limits=_predicate_limits(self, source, where, having),
         )
 
     def any_source(
@@ -651,7 +666,7 @@ class ColumnExpression:
             descending=descending,
             limit=limit,
         )
-        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate))
+        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate), resource_limits=_predicate_limits(self, predicate))
 
     def all_source(
         self,
@@ -683,14 +698,14 @@ class ColumnExpression:
             descending=descending,
             limit=limit,
         )
-        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate))
+        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate), resource_limits=_predicate_limits(self, predicate))
 
     def not_in(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `NOT IN (...)` predicate."""
 
         normalized = _normalize_in_values(values)
         joined = ",".join(_sql_in_literal(value) for value in normalized)
-        return PredicateExpression(f"{self.sql} NOT IN ({joined})", self.source_bindings)
+        return PredicateExpression(f"{self.sql} NOT IN ({joined})", self.source_bindings, resource_limits=self.resource_limits)
 
     def not_in_source(
         self,
@@ -720,6 +735,7 @@ class ColumnExpression:
         return PredicateExpression(
             f"{self.sql} NOT IN (SELECT {source_column} FROM {source_ref}{tail})",
             _predicate_sources(self, source, where, having),
+            resource_limits=_predicate_limits(self, source, where, having),
         )
 
     def between(self, lower: object, upper: object) -> PredicateExpression:
@@ -732,38 +748,40 @@ class ColumnExpression:
         return PredicateExpression(
             f"({self.sql} >= {_sql_literal(lower)} AND {self.sql} <= {_sql_literal(upper)})",
             _predicate_sources(self, lower, upper),
+            resource_limits=_predicate_limits(self, lower, upper),
         )
 
     def cast(self, dtype: object) -> "ColumnExpression":
         """Return a scoped `CAST(column AS dtype)` expression for comparisons."""
 
         normalized_dtype = _normalize_cast_dtype(dtype)
-        return ColumnExpression(f"CAST({self.sql} AS {normalized_dtype})", self.source_bindings)
+        return ColumnExpression(f"CAST({self.sql} AS {normalized_dtype})", self.source_bindings, resource_limits=self.resource_limits)
 
     def try_cast(self, dtype: object) -> "ColumnExpression":
         """Return a scoped `TRY_CAST(column AS dtype)` expression for dirty values."""
 
         normalized_dtype = _normalize_cast_dtype(dtype)
-        return ColumnExpression(f"TRY_CAST({self.sql} AS {normalized_dtype})", self.source_bindings)
+        return ColumnExpression(f"TRY_CAST({self.sql} AS {normalized_dtype})", self.source_bindings, resource_limits=self.resource_limits)
 
     def date_add_days(self, days: object) -> "ColumnExpression":
         """Return a scoped Date32 day-add expression for date predicates."""
 
         normalized_days = _normalize_date_arithmetic_days(days)
-        return ColumnExpression(f"DATE_ADD_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days))
+        return ColumnExpression(f"DATE_ADD_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days), resource_limits=_predicate_limits(self, days))
 
     def date_sub_days(self, days: object) -> "ColumnExpression":
         """Return a scoped Date32 day-subtract expression for date predicates."""
 
         normalized_days = _normalize_date_arithmetic_days(days)
-        return ColumnExpression(f"DATE_SUB_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days))
+        return ColumnExpression(f"DATE_SUB_DAYS({self.sql}, {normalized_days})", _predicate_sources(self, days), resource_limits=_predicate_limits(self, days))
 
     def timestamp_add_seconds(self, seconds: object) -> "ColumnExpression":
         """Return a scoped UTC timestamp second-add expression for predicates."""
 
         normalized_seconds = _normalize_timestamp_arithmetic_seconds(seconds)
         return ColumnExpression(
-            f"TIMESTAMP_ADD_SECONDS({self.sql}, {normalized_seconds})", _predicate_sources(self, seconds)
+            f"TIMESTAMP_ADD_SECONDS({self.sql}, {normalized_seconds})", _predicate_sources(self, seconds),
+            resource_limits=_predicate_limits(self, seconds),
         )
 
     def timestamp_sub_seconds(self, seconds: object) -> "ColumnExpression":
@@ -771,7 +789,8 @@ class ColumnExpression:
 
         normalized_seconds = _normalize_timestamp_arithmetic_seconds(seconds)
         return ColumnExpression(
-            f"TIMESTAMP_SUB_SECONDS({self.sql}, {normalized_seconds})", _predicate_sources(self, seconds)
+            f"TIMESTAMP_SUB_SECONDS({self.sql}, {normalized_seconds})", _predicate_sources(self, seconds),
+            resource_limits=_predicate_limits(self, seconds),
         )
 
     def date_diff_days(self, other: object) -> "ColumnExpression":
@@ -780,6 +799,7 @@ class ColumnExpression:
         return ColumnExpression(
             f"DATE_DIFF_DAYS({self.sql}, {_sql_temporal_difference_arg(other, 'date32')})",
             _predicate_sources(self, other),
+            resource_limits=_predicate_limits(self, other),
         )
 
     def timestamp_diff_seconds(self, other: object) -> "ColumnExpression":
@@ -788,52 +808,53 @@ class ColumnExpression:
         return ColumnExpression(
             f"TIMESTAMP_DIFF_SECONDS({self.sql}, {_sql_temporal_difference_arg(other, 'timestamp_micros')})",
             _predicate_sources(self, other),
+            resource_limits=_predicate_limits(self, other),
         )
 
     def date_year(self) -> "ColumnExpression":
         """Return a scoped Date32 year-extract expression for date predicates."""
 
-        return ColumnExpression(f"DATE_YEAR({self.sql})", self.source_bindings)
+        return ColumnExpression(f"DATE_YEAR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def date_month(self) -> "ColumnExpression":
         """Return a scoped Date32 month-extract expression for date predicates."""
 
-        return ColumnExpression(f"DATE_MONTH({self.sql})", self.source_bindings)
+        return ColumnExpression(f"DATE_MONTH({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def date_day(self) -> "ColumnExpression":
         """Return a scoped Date32 day-of-month extract expression for date predicates."""
 
-        return ColumnExpression(f"DATE_DAY({self.sql})", self.source_bindings)
+        return ColumnExpression(f"DATE_DAY({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_year(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp year-extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_YEAR({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_YEAR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_month(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp month-extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_MONTH({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_MONTH({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_day(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp day-of-month extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_DAY({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_DAY({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_hour(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp hour extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_HOUR({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_HOUR({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_minute(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp minute extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_MINUTE({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_MINUTE({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
     def timestamp_second(self) -> "ColumnExpression":
         """Return a scoped UTC timestamp second extract expression for predicates."""
 
-        return ColumnExpression(f"TIMESTAMP_SECOND({self.sql})", self.source_bindings)
+        return ColumnExpression(f"TIMESTAMP_SECOND({self.sql})", self.source_bindings, resource_limits=self.resource_limits)
 
 
 @dataclass(frozen=True, slots=True)
@@ -942,6 +963,21 @@ class SqlWorkflow:
     input_uri: str | None = None
     input_format: str | None = None
     source_bindings: tuple[WorkflowSource, ...] = ()
+    resources: ExecutionResources | None = None
+    resource_limits: ExecutionResourceLimits | None = None
+
+    def __post_init__(self) -> None:
+        limits = merge_resource_limits(
+            self.resource_limits, getattr(self.client, "resource_limits", None),
+        )
+        resources = optional_resources(
+            resources=self.resources, inherited=getattr(self.client, "resources", None),
+            limits=limits,
+        )
+        object.__setattr__(self, "resources", resources)
+        object.__setattr__(self, "resource_limits", merge_resource_limits(
+            limits, resources.limits if resources is not None else None,
+        ))
 
     @property
     def operation_summary(self) -> str:
@@ -978,12 +1014,14 @@ class SqlWorkflow:
             statement, self.client, self.input_uri, self.input_format,
             (*self.source_bindings, *(source for operation in operations
                                      for source in operation.source_bindings)),
+            resources=self.resources, resource_limits=_predicate_limits(self, operations),
         )
 
     def select(self, *columns: object) -> "SqlWorkflow":
         """Project the complete preceding SQL result without executing it."""
         return self._compose(WorkflowOperation(
             "select", _normalize_columns(columns), _predicate_sources(columns),
+            resource_limits=_predicate_limits(columns),
         ))
 
     def project(self, *columns: object) -> "SqlWorkflow":
@@ -994,6 +1032,7 @@ class SqlWorkflow:
         return self._compose(WorkflowOperation(
             "filter", (_normalize_raw_or_typed_predicate("filter predicate", predicate),),
             _predicate_sources(predicate),
+            resource_limits=_predicate_limits(predicate),
         ))
 
     def where(self, predicate: object) -> "SqlWorkflow":
@@ -1006,9 +1045,11 @@ class SqlWorkflow:
         self, *columns: object, descending: bool = False, nulls: str | None = None,
         check: bool = False,
     ) -> "SqlWorkflow":
-        return self._compose(WorkflowOperation("sort", _format_sort_operation_values(
-            "desc" if descending else "asc", _normalize_columns(columns), _normalize_sort_nulls(nulls),
-        )))
+        return self._compose(WorkflowOperation(
+            "sort", _format_sort_operation_values(
+                "desc" if descending else "asc", _normalize_columns(columns), _normalize_sort_nulls(nulls),
+            ), _predicate_sources(columns), resource_limits=_predicate_limits(columns),
+        ))
 
     def order_by(
         self, *columns: object, descending: bool = False, nulls: str | None = None,
@@ -1020,10 +1061,14 @@ class SqlWorkflow:
         return self._compose(WorkflowOperation(
             "window", _normalize_window_expressions(expressions),
             _predicate_sources(expressions),
+            resource_limits=_predicate_limits(expressions),
         ))
 
     def group_by(self, *columns: object) -> "GroupedLazyFrame":
-        return GroupedLazyFrame(self, _normalize_columns(columns))
+        return GroupedLazyFrame(
+            self, _normalize_columns(columns), _predicate_sources(columns),
+            resource_limits=_predicate_limits(columns),
+        )
 
     def groupby(self, *columns: object) -> "GroupedLazyFrame":
         return self.group_by(*columns)
@@ -1031,15 +1076,17 @@ class SqlWorkflow:
     def _append_group_by_aggregate(
         self, columns: tuple[str, ...], expressions: tuple[str, ...],
         *, source_bindings: tuple[WorkflowSource, ...] = (),
+        resource_limits: ExecutionResourceLimits | None = None,
     ) -> "SqlWorkflow":
         return self._compose(
             WorkflowOperation("group_by", columns),
-            WorkflowOperation("aggregate", expressions, source_bindings),
+            WorkflowOperation("aggregate", expressions, source_bindings, resource_limits=resource_limits),
         )
 
     def aggregate(self, *expressions: object, check: bool = False) -> "SqlWorkflow":
         return self._compose(WorkflowOperation(
             "aggregate", _normalize_columns(expressions), _predicate_sources(expressions),
+            resource_limits=_predicate_limits(expressions),
         ))
 
     def agg(
@@ -1054,6 +1101,7 @@ class SqlWorkflow:
             raise ValueError("aggregate expressions must not be empty")
         return self._compose(WorkflowOperation(
             "aggregate", tuple(values), _predicate_sources(expressions, named_expressions),
+            resource_limits=_predicate_limits(expressions, named_expressions),
         ))
 
     def having(self, predicate: object, *, check: bool = False) -> "SqlWorkflow":
@@ -1075,6 +1123,7 @@ class SqlWorkflow:
             f"{statement} HAVING {value}",
             self.client, self.input_uri, self.input_format,
             (*self.source_bindings, *_predicate_sources(predicate)),
+            resources=self.resources, resource_limits=_predicate_limits(self, predicate),
         )
 
     def with_column(
@@ -1088,6 +1137,7 @@ class SqlWorkflow:
             expression_sql = _sql_computed_projection_expression(expression)
         return self._compose(WorkflowOperation(
             "with_column", (column, expression_sql), _predicate_sources(expression),
+            resource_limits=_predicate_limits(expression),
         ))
 
     def with_columns(
@@ -1123,6 +1173,7 @@ class SqlWorkflow:
         return self._compose(WorkflowOperation(
             "join", (uri, ",".join(keys), ",".join(keys), kind, "f", "d", predicate),
             _predicate_sources(other, condition), right_statement=right,
+            resource_limits=_predicate_limits(other, condition),
         ))
 
     def _set_operation(
@@ -1135,6 +1186,7 @@ class SqlWorkflow:
             f"SELECT * FROM ({self._relation_statement()}) AS _sl_set_left {keyword} "
             f"SELECT * FROM ({right}) AS _sl_set_right", self.client,
             source_bindings=(*self._declared_sources(), *other._declared_sources()),
+            resources=self.resources, resource_limits=_predicate_limits(self, other),
         )
 
     def union(
@@ -1166,8 +1218,10 @@ class SqlWorkflow:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = False,
     ) -> PublicWorkflowRoute:
@@ -1191,7 +1245,7 @@ class SqlWorkflow:
             evidence_level=evidence_level,
             bounded=normalized_bounded,
             check=check,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources, required=False),
             **workflow_kwargs,
         )
 
@@ -1204,8 +1258,10 @@ class SqlWorkflow:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
@@ -1229,7 +1285,7 @@ class SqlWorkflow:
             evidence_level=evidence_level,
             bounded=normalized_bounded,
             check=check,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources),
             **workflow_kwargs,
         )
 
@@ -1238,8 +1294,10 @@ class SqlWorkflow:
         *,
         limit: int | None = None,
         check: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
     ) -> (
         VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
@@ -1249,7 +1307,7 @@ class SqlWorkflow:
         if limit is not None:
             return self.limit(limit).collect(
                 check=check,
-                memory_gb=memory_gb,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                 max_parallelism=max_parallelism,
                 spill=spill,
             )
@@ -1257,9 +1315,10 @@ class SqlWorkflow:
             self.client, self.statement, surface="sql",
             plan_summary=self.operation_summary,
             input_kwargs=self._declared_or_embedded_vortex_input_kwargs(),
-            check=check, memory_gb=memory_gb, max_parallelism=max_parallelism,
+            check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism,
             spill=spill,
             input_batches=_workflow_batch_inputs(self._declared_sources()),
+            inherited=self.resources, limits=self.resource_limits,
         )
         return VortexWorkflowExecutionReport(
             workflow=self._report_workflow(), operation="collect", envelope=envelope,
@@ -1267,8 +1326,10 @@ class SqlWorkflow:
 
     def iter_batches(
         self, *, batch_rows: int = 2048,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
     ):
         """Consume bounded batches; the final iterator report proves completion.
@@ -1282,7 +1343,7 @@ class SqlWorkflow:
             plan_summary=self.operation_summary,
             input_batches=_workflow_batch_inputs(self._declared_sources()),
             evidence_level="production_admitted_local_workflow",
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources),
             **self._declared_or_embedded_vortex_input_kwargs(),
         )
 
@@ -1302,6 +1363,7 @@ class SqlWorkflow:
             input_uri=self.input_uri,
             input_format=self.input_format,
             source_bindings=self.source_bindings,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
     def _declared_input_kwargs(self) -> dict[str, Any]:
@@ -1331,32 +1393,59 @@ class SqlWorkflow:
         self,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
         """Return a bounded schema report for admitted local-source SQL."""
 
-        return self._bounded_schema_report(check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        return self._bounded_schema_report(check=check, resources=allocation)
 
     def describe_schema(
         self,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
         """Return detailed bounded schema evidence for admitted local-source SQL."""
 
-        return self._bounded_schema_report(check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        return self._bounded_schema_report(check=check, resources=allocation)
 
     def validate_schema(
         self,
         schema: Mapping[str, object],
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaValidationReport | UnsupportedWorkflowOperationReport:
         """Validate an expected schema against admitted local-source SQL rows."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         normalized = _normalize_schema(schema)
         if not normalized:
             raise ValueError("schema validation contract must not be empty")
-        report = self._bounded_schema_report(check=check)
+        report = self._bounded_schema_report(check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _validate_workflow_schema(report, normalized)
@@ -1366,22 +1455,40 @@ class SqlWorkflow:
         schema: Mapping[str, object],
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaValidationReport | UnsupportedWorkflowOperationReport:
         """Alias for exact bounded schema validation over admitted local-source SQL."""
 
-        return self.validate_schema(schema, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        return self.validate_schema(schema, check=check, resources=allocation)
 
     def data_quality_check(
         self,
         *checks: object,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
         """Run bounded data-quality checks for admitted local-source SQL."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         normalized_checks = _normalize_columns(checks)
         parsed_checks = _parse_data_quality_checks(normalized_checks)
         if parsed_checks is not None:
-            report = self._bounded_schema_report(check=check)
+            report = self._bounded_schema_report(check=check, resources=allocation)
             if isinstance(report, UnsupportedWorkflowOperationReport):
                 return report
             return _workflow_data_quality_report(report, parsed_checks)
@@ -1395,19 +1502,37 @@ class SqlWorkflow:
         self,
         *checks: object,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
         """Alias for bounded SQL data-quality checks."""
 
-        return self.data_quality_check(*checks, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        return self.data_quality_check(*checks, check=check, resources=allocation)
 
     def data_quality_summary(
         self,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
         """Return bounded null-count and schema summary for admitted SQL."""
 
-        report = self._bounded_schema_report(check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        report = self._bounded_schema_report(check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return WorkflowDataQualityReport(schema_report=report)
@@ -1417,6 +1542,10 @@ class SqlWorkflow:
         limit: int = 100,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> (
         WorkflowProfileReport
         | VortexWorkflowExecutionReport
@@ -1424,8 +1553,13 @@ class SqlWorkflow:
     ):
         """Return a metadata-first profile for admitted Vortex/prepared SQL."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("profile limit", limit)
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         workflow = self._report_workflow()
@@ -1444,9 +1578,18 @@ class SqlWorkflow:
         limit: int = 100,
         allow_overwrite: bool = False,
         check: bool = True,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowQuarantineReport | UnsupportedWorkflowOperationReport:
         """Return bounded quarantine evidence for admitted local-source SQL."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("quarantine limit", limit)
         parsed_checks: tuple[_WorkflowDataQualityCheckSpec, ...] | None = None
         if checks:
@@ -1458,7 +1601,7 @@ class SqlWorkflow:
                     ",".join(normalized_checks),
                     check=check,
                 )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         workflow = self._report_workflow()
@@ -1484,43 +1627,79 @@ class SqlWorkflow:
         limit: int = 20,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a bounded preview through the native Vortex SQL route when admitted."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("preview limit", limit)
-        return self.limit(limit).collect(check=check)
+        return self.limit(limit).collect(check=check, resources=allocation)
 
     def head(
         self,
         limit: int = 20,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a bounded SQL preview using familiar DataFrame naming."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("head limit", limit)
-        return self.limit(limit).collect(check=check)
+        return self.limit(limit).collect(check=check, resources=allocation)
 
     def take(
         self,
         count: int,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a bounded SQL preview for the requested row count."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("take limit", count)
-        return self.limit(count).collect(check=check)
+        return self.limit(count).collect(check=check, resources=allocation)
 
     def to_python_objects(
         self,
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
         """Return bounded Python row objects for admitted local-source SQL."""
 
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return report.python_objects
@@ -1530,9 +1709,18 @@ class SqlWorkflow:
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a pandas DataFrame at an explicit bounded materialization boundary."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         pandas = _optional_module("pandas")
         if pandas is None:
             return self._unsupported_operation(
@@ -1540,7 +1728,7 @@ class SqlWorkflow:
                 "missing optional dependency: pandas",
                 check=check,
             )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _result_to_pandas(report, pandas)
@@ -1550,9 +1738,18 @@ class SqlWorkflow:
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a PyArrow table at an explicit bounded materialization boundary."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -1560,7 +1757,7 @@ class SqlWorkflow:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _result_to_arrow_table(report, pyarrow)
@@ -1570,9 +1767,18 @@ class SqlWorkflow:
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a PyArrow table for admitted bounded local-source SQL."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -1580,7 +1786,7 @@ class SqlWorkflow:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _result_to_arrow_table(report, pyarrow)
@@ -1590,9 +1796,18 @@ class SqlWorkflow:
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> bytes | UnsupportedWorkflowOperationReport:
         """Return Arrow IPC stream bytes for admitted bounded local-source SQL."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -1600,7 +1815,7 @@ class SqlWorkflow:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _result_to_arrow_ipc(report, pyarrow)
@@ -1610,9 +1825,18 @@ class SqlWorkflow:
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a NumPy array for admitted bounded local-source SQL rows."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         numpy = _optional_module("numpy")
         if numpy is None:
             return self._unsupported_operation(
@@ -1620,7 +1844,7 @@ class SqlWorkflow:
                 "missing optional dependency: numpy",
                 check=check,
             )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _result_to_numpy(report, numpy)
@@ -1630,11 +1854,20 @@ class SqlWorkflow:
         limit: int = 20,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowNotebookPreview | UnsupportedWorkflowOperationReport:
         """Return a bounded notebook/display preview for admitted local-source SQL."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("display limit", limit)
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return WorkflowNotebookPreview(
@@ -1649,8 +1882,10 @@ class SqlWorkflow:
         *,
         output_format: str = "jsonl",
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
@@ -1663,7 +1898,7 @@ class SqlWorkflow:
             target_uri,
             requested_output=_public_write_request_for_format(normalized_output_format),
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -1674,8 +1909,10 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
@@ -1687,7 +1924,7 @@ class SqlWorkflow:
             target_uri,
             output_format="jsonl",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -1698,8 +1935,10 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
@@ -1711,7 +1950,7 @@ class SqlWorkflow:
             target_uri,
             output_format="json",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -1722,8 +1961,10 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
@@ -1735,7 +1976,7 @@ class SqlWorkflow:
             target_uri,
             output_format="csv",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -1746,8 +1987,10 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -1762,7 +2005,7 @@ class SqlWorkflow:
             target_uri,
             requested_output="write_parquet",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -1773,8 +2016,10 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -1789,7 +2034,7 @@ class SqlWorkflow:
             target_uri,
             output_format="arrow-ipc",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -1800,8 +2045,10 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -1816,7 +2063,7 @@ class SqlWorkflow:
             target_uri,
             output_format="avro",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -1827,8 +2074,10 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -1843,7 +2092,7 @@ class SqlWorkflow:
             target_uri,
             output_format="orc",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -1854,8 +2103,10 @@ class SqlWorkflow:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
@@ -1875,7 +2126,7 @@ class SqlWorkflow:
             target_uri,
             requested_output="write_vortex",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -1886,8 +2137,10 @@ class SqlWorkflow:
         outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
@@ -1904,7 +2157,7 @@ class SqlWorkflow:
             requested_output=requested_output,
             allow_overwrite=allow_overwrite,
             fanout_outputs=fanout_outputs,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -1917,8 +2170,10 @@ class SqlWorkflow:
         requested_output: str,
         allow_overwrite: bool,
         check: bool,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> (
@@ -1940,7 +2195,7 @@ class SqlWorkflow:
             evidence_level="production_admitted_local_workflow",
             bounded=True,
             allow_overwrite=allow_overwrite,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources),
             check=check,
             **self._declared_or_embedded_vortex_input_kwargs(),
         )
@@ -1968,6 +2223,7 @@ class SqlWorkflow:
             source=WorkflowSource("sql", "statement"),
             client=self.client,
             operations=(WorkflowOperation("sql", (self.statement,)),),
+            resources=self.resources, resource_limits=self.resource_limits,
         )
         envelope = self.client.workflow_unsupported_plan(
             operation,
@@ -1983,8 +2239,17 @@ class SqlWorkflow:
 
     def _bounded_schema_report(
         self, *, check: bool,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
-        report = self._bounded_materialization_report(limit=100, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        report = self._bounded_materialization_report(limit=100, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _workflow_schema_report(self._report_workflow(), report)
@@ -1994,10 +2259,19 @@ class SqlWorkflow:
         *,
         limit: int | None,
         check: bool,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         if limit is not None:
             _validate_positive_row_count("materialization limit", limit)
-        report = self.collect(limit=limit, check=check)
+        report = self.collect(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         if report.status != "success":
@@ -2012,6 +2286,7 @@ class SqlWorkflow:
             source=WorkflowSource("sql", self.statement),
             client=self.client,
             operations=(WorkflowOperation("sql", (self.statement,)),),
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
 
@@ -3514,6 +3789,22 @@ class LazyFrame:
     client: ShardLoomClient
     operations: tuple[WorkflowOperation, ...] = ()
     engine_mode: str = "auto"
+    resources: ExecutionResources | None = None
+    resource_limits: ExecutionResourceLimits | None = None
+
+    def __post_init__(self) -> None:
+        limits = merge_resource_limits(
+            self.resource_limits, getattr(self.client, "resource_limits", None),
+            _predicate_limits(self.operations),
+        )
+        resources = optional_resources(
+            resources=self.resources, inherited=getattr(self.client, "resources", None),
+            limits=limits,
+        )
+        object.__setattr__(self, "resources", resources)
+        object.__setattr__(self, "resource_limits", merge_resource_limits(
+            limits, resources.limits if resources is not None else None,
+        ))
 
     @property
     def source_format(self) -> str:
@@ -3543,6 +3834,7 @@ class LazyFrame:
             client=self.client,
             operations=self.operations,
             engine_mode=_normalize_engine_mode(engine_mode),
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
     def filter(self, predicate: object) -> "LazyFrame":
@@ -3550,8 +3842,8 @@ class LazyFrame:
 
         value = _normalize_raw_or_typed_predicate("filter predicate", predicate)
         if self._can_append_having():
-            return self._append(WorkflowOperation("having", (value,), _predicate_sources(predicate)))
-        return self._append(WorkflowOperation("filter", (value,), _predicate_sources(predicate)))
+            return self._append(WorkflowOperation("having", (value,), _predicate_sources(predicate), resource_limits=_predicate_limits(predicate)))
+        return self._append(WorkflowOperation("filter", (value,), _predicate_sources(predicate), resource_limits=_predicate_limits(predicate)))
 
     def where(self, predicate: object) -> "LazyFrame":
         """Alias for `filter(...)` using familiar SQL/DataFrame naming."""
@@ -3582,7 +3874,7 @@ class LazyFrame:
 
         value = _normalize_raw_or_typed_predicate("HAVING predicate", predicate)
         if self._can_append_having():
-            return self._append(WorkflowOperation("having", (value,), _predicate_sources(predicate)))
+            return self._append(WorkflowOperation("having", (value,), _predicate_sources(predicate), resource_limits=_predicate_limits(predicate)))
         return self._unsupported_operation("having", value, check=check)
 
     def select(self, *columns: object) -> "LazyFrame":
@@ -3590,6 +3882,7 @@ class LazyFrame:
 
         return self._append(WorkflowOperation(
             "select", _normalize_columns(columns), _predicate_sources(columns),
+            resource_limits=_predicate_limits(columns),
         ))
 
     def project(self, *columns: object) -> "LazyFrame":
@@ -3860,6 +4153,7 @@ class LazyFrame:
                     statement=f"{left} UNION ALL {right}",
                     client=self.client,
                     source_bindings=(*self._declared_sources(), *other._declared_sources()),
+                    resources=self.resources, resource_limits=_predicate_limits(self, other),
                 )
         return self._unsupported_operation("concat", target_ref, check=check)
 
@@ -4741,6 +5035,7 @@ class LazyFrame:
                     client=self.client,
                     operations=_strip_index_metadata_operations(self.operations),
                     engine_mode=self.engine_mode,
+                    resources=self.resources, resource_limits=self.resource_limits,
                 )
             return self
         if not kwargs or kwargs == {"drop": False}:
@@ -4749,6 +5044,7 @@ class LazyFrame:
                 client=self.client,
                 operations=_strip_index_metadata_operations(self.operations),
                 engine_mode=self.engine_mode,
+                resources=self.resources, resource_limits=self.resource_limits,
             )
             projection_columns = base._expression_project_projection_columns(())
             if projection_columns is not None:
@@ -4794,6 +5090,7 @@ class LazyFrame:
 
         column_name = _normalize_output_column_name(name)
         expression_sources = _predicate_sources(expression)
+        expression_limits = _predicate_limits(expression)
         try:
             literal = (
                 expression
@@ -4810,7 +5107,7 @@ class LazyFrame:
                     expression_text
                 ):
                     return self._append(
-                        WorkflowOperation("with_column", (column_name, expression_text), expression_sources)
+                        WorkflowOperation("with_column", (column_name, expression_text), expression_sources, resource_limits=expression_limits)
                     )
                 return self._unsupported_operation(
                     "with-column",
@@ -4825,6 +5122,7 @@ class LazyFrame:
                 self._computed_projection_operation(
                     expression_project_payload, column_name, expression_sql,
                     source_bindings=expression_sources,
+                    resource_limits=expression_limits,
                 )
             )
         if expression_project_payload := self._string_replace_expression_project_payload(
@@ -4835,6 +5133,7 @@ class LazyFrame:
                 self._computed_projection_operation(
                     expression_project_payload, column_name, expression_sql,
                     source_bindings=expression_sources,
+                    resource_limits=expression_limits,
                 )
             )
         if (self.source.source_format == "vortex"
@@ -4842,16 +5141,19 @@ class LazyFrame:
                 and self._can_append_projection_column(column_name, allow_vortex=True)):
             projected = self._append(WorkflowOperation(
                 "with_column", (column_name, expression_sql), expression_sources,
+                resource_limits=expression_limits,
             ))
             if projected._has_structured_binary_export_shape():
                 return projected
         if self._can_append_projection_column(column_name, allow_vortex=True):
             return self._append(WorkflowOperation(
                 "with_column", (column_name, expression_sql), expression_sources,
+                resource_limits=expression_limits,
             ))
         if self.source.source_format == "vortex" and _sql_text_looks_like_cast(expression_sql):
             return self._append(WorkflowOperation(
                 "with_column", (column_name, expression_sql), expression_sources,
+                resource_limits=expression_limits,
             ))
         return self._unsupported_operation(
             "with-column",
@@ -4862,16 +5164,18 @@ class LazyFrame:
     def _computed_projection_operation(
         self, payload: str, name: str, expression: str,
         *, source_bindings: tuple[WorkflowSource, ...] = (),
+        resource_limits: ExecutionResourceLimits | None = None,
     ) -> WorkflowOperation:
         from ._relational_sql import computed_projection
 
         columns = self._expression_project_projection_columns(())
         if columns == ("*",):
-            return WorkflowOperation("with_column", (name, expression), source_bindings)
+            return WorkflowOperation("with_column", (name, expression), source_bindings, resource_limits=resource_limits)
         return WorkflowOperation(
             "expression_project", (payload,),
             source_bindings=source_bindings,
             projection_sql=computed_projection(columns, name, expression) if columns is not None else None,
+            resource_limits=resource_limits,
         )
 
     def with_columns(
@@ -4947,8 +5251,10 @@ class LazyFrame:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = False,
     ) -> PublicWorkflowRoute:
@@ -4985,7 +5291,7 @@ class LazyFrame:
             evidence_level=effective_evidence_level,
             bounded=normalized_bounded,
             check=check,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources, required=False),
         )
 
     def run(
@@ -4997,8 +5303,10 @@ class LazyFrame:
         materialization_policy: str = "bounded",
         evidence_level: str = "runtime_smoke",
         bounded: bool | None = None,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
@@ -5028,7 +5336,7 @@ class LazyFrame:
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=normalized_bounded,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources),
             check=check,
         )
 
@@ -5037,6 +5345,10 @@ class LazyFrame:
         target_vortex_path: str | os.PathLike[str],
         *,
         evidence_level: str = "production_admitted_local_workflow",
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Prepare this source through the shared public route facade."""
@@ -5049,8 +5361,9 @@ class LazyFrame:
             output_ref=target_vortex_path,
             plan_summary=self.operation_summary,
             evidence_level=evidence_level,
-            memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-            max_parallelism=DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism,
+                memory_bytes=memory_bytes, resources=resources,
+                inherited=self.resources, limits=self.resource_limits),
             check=check,
         )
 
@@ -5059,6 +5372,10 @@ class LazyFrame:
         limit: int = 100,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> (
         WorkflowProfileReport
         | VortexWorkflowExecutionReport
@@ -5066,8 +5383,13 @@ class LazyFrame:
     ):
         """Return a metadata-first profile for admitted Vortex/prepared workflows."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("profile limit", limit)
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return WorkflowProfileReport(
@@ -5082,15 +5404,17 @@ class LazyFrame:
         *,
         limit: int | None = None,
         check: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
     ) -> (
         VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
     ):
         """Collect the complete bounded result through the shared native engine."""
         if limit is not None:
-            return self.limit(limit).collect(check=check, memory_gb=memory_gb,
+            return self.limit(limit).collect(check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                                             max_parallelism=max_parallelism, spill=spill)
         statement = self._relation_statement()
         if statement is None:
@@ -5100,15 +5424,18 @@ class LazyFrame:
             input_kwargs={"input_uri": self.source.uri,
                           "input_format": _public_workflow_input_format(self.source),
                           "source_bindings": _workflow_source_bindings(self._declared_sources())},
-            check=check, memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill,
+            check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill,
             input_batches=_workflow_batch_inputs(self._declared_sources()),
+            inherited=self.resources, limits=self.resource_limits,
         )
         return VortexWorkflowExecutionReport(self, "collect", envelope)
 
     def iter_batches(
         self, *, batch_rows: int = 2048,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
     ):
         """Consume native batches incrementally; use a with block for early close.
@@ -5126,15 +5453,17 @@ class LazyFrame:
             source_bindings=_workflow_source_bindings(self._declared_sources()),
             input_batches=_workflow_batch_inputs(self._declared_sources()),
             plan_summary=self.operation_summary, evidence_level="production_admitted_local_workflow",
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources),
         )
 
     def count(
         self,
         *,
         check: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
     ) -> (
         VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
@@ -5143,7 +5472,7 @@ class LazyFrame:
         if self._relation_statement() is None:
             return self._unsupported_operation("count", check=check)
         return self._append(WorkflowOperation("aggregate", ("COUNT(*) AS count",))).collect(
-            check=check, memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill)
+            check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill)
 
     def write(
         self,
@@ -5151,8 +5480,10 @@ class LazyFrame:
         *,
         output_format: str = "jsonl",
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
@@ -5165,7 +5496,7 @@ class LazyFrame:
             return self._unsupported_operation(requested_output, str(target_uri), check=check)
         return self._public_workflow_write_report(
             target_uri, requested_output=requested_output, allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill, check=check,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check,
         )
 
     def write_jsonl(
@@ -5173,8 +5504,10 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -5184,7 +5517,7 @@ class LazyFrame:
             target_uri,
             output_format="jsonl",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -5195,8 +5528,10 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -5206,7 +5541,7 @@ class LazyFrame:
             target_uri,
             output_format="json",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -5217,8 +5552,10 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -5228,7 +5565,7 @@ class LazyFrame:
             target_uri,
             output_format="csv",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -5239,8 +5576,10 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -5254,7 +5593,7 @@ class LazyFrame:
             target_uri,
             output_format="parquet",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -5265,8 +5604,10 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -5280,7 +5621,7 @@ class LazyFrame:
             target_uri,
             output_format="arrow-ipc",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -5291,8 +5632,10 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -5306,7 +5649,7 @@ class LazyFrame:
             target_uri,
             output_format="avro",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -5317,8 +5660,10 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
@@ -5332,7 +5677,7 @@ class LazyFrame:
             target_uri,
             output_format="orc",
             allow_overwrite=allow_overwrite,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             spill=spill,
             check=check,
@@ -5343,8 +5688,10 @@ class LazyFrame:
         outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
@@ -5358,7 +5705,7 @@ class LazyFrame:
         return self._public_workflow_write_report(
             output_path, requested_output=_public_write_request_for_format(output_format),
             allow_overwrite=allow_overwrite, fanout_outputs=normalized_outputs[1:],
-            memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill, check=check,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check,
         )
 
     def to_pandas(
@@ -5366,9 +5713,18 @@ class LazyFrame:
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a pandas DataFrame at an explicit bounded materialization boundary."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         pandas = _optional_module("pandas")
         if pandas is None:
             return self._unsupported_operation(
@@ -5376,7 +5732,7 @@ class LazyFrame:
                 "missing optional dependency: pandas",
                 check=check,
             )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _result_to_pandas(report, pandas)
@@ -5386,9 +5742,18 @@ class LazyFrame:
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a PyArrow table at an explicit bounded materialization boundary."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -5396,7 +5761,7 @@ class LazyFrame:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _result_to_arrow_table(report, pyarrow)
@@ -5406,9 +5771,18 @@ class LazyFrame:
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a PyArrow table for admitted bounded local-source workflows."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -5416,7 +5790,7 @@ class LazyFrame:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _result_to_arrow_table(report, pyarrow)
@@ -5426,9 +5800,18 @@ class LazyFrame:
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> bytes | UnsupportedWorkflowOperationReport:
         """Return Arrow IPC stream bytes for admitted bounded local-source workflows."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         pyarrow = _optional_module("pyarrow")
         if pyarrow is None:
             return self._unsupported_operation(
@@ -5436,7 +5819,7 @@ class LazyFrame:
                 "missing optional dependency: pyarrow",
                 check=check,
             )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _result_to_arrow_ipc(report, pyarrow)
@@ -5446,9 +5829,18 @@ class LazyFrame:
         *,
         limit: int | None = None,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a NumPy array for admitted bounded local-source workflow rows."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         numpy = _optional_module("numpy")
         if numpy is None:
             return self._unsupported_operation(
@@ -5456,7 +5848,7 @@ class LazyFrame:
                 "missing optional dependency: numpy",
                 check=check,
             )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _result_to_numpy(report, numpy)
@@ -5465,10 +5857,19 @@ class LazyFrame:
         self,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
         """Return bounded Python row objects for admitted local-source workflows."""
 
-        report = self._bounded_materialization_report(limit=None, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        report = self._bounded_materialization_report(limit=None, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return report.python_objects
@@ -5480,6 +5881,8 @@ class LazyFrame:
         workspace: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
         memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
@@ -5493,6 +5896,10 @@ class LazyFrame:
         existing artifact with ``allow_overwrite=True`` when the writer admits replacement.
         """
 
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
         if self.engine_mode not in {"auto", "batch"}:
             raise ValueError(
                 "LazyFrame.prepare_vortex currently supports engine_mode='auto' or 'batch' "
@@ -5505,9 +5912,7 @@ class LazyFrame:
             )
             return self.write_vortex(
                 target, allow_overwrite=allow_overwrite, check=check,
-                memory_gb=DEFAULT_LOCAL_RUNTIME_MEMORY_GB if memory_gb is None else memory_gb,
-                max_parallelism=(DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM
-                                 if max_parallelism is None else max_parallelism),
+                resources=resources,
             )
         if self.source.source_format == "vortex":
             raise ValueError(
@@ -5536,7 +5941,7 @@ class LazyFrame:
             schema=_prepare_vortex_schema_hints(self.source),
             allow_overwrite=allow_overwrite,
             certification_level=certification_level,
-            memory_gb=memory_gb,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
             check=check,
         )
@@ -5546,14 +5951,16 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Write native Vortex output through the common output adapter contract."""
         return self.write(target_uri, output_format="vortex", allow_overwrite=allow_overwrite,
-                          memory_gb=memory_gb, max_parallelism=max_parallelism, spill=spill, check=check)
+                          memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
 
 
     def _public_workflow_write_report(
@@ -5563,8 +5970,10 @@ class LazyFrame:
         requested_output: str,
         allow_overwrite: bool,
         check: bool,
-        memory_gb: int = DEFAULT_LOCAL_RUNTIME_MEMORY_GB,
-        max_parallelism: int = DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        resources: ExecutionResources | None = None,
+        max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> VortexWorkflowExecutionReport:
@@ -5589,7 +5998,7 @@ class LazyFrame:
             evidence_level="production_admitted_local_workflow",
             bounded=True,
             allow_overwrite=allow_overwrite,
-            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources),
             check=check,
         )
         return VortexWorkflowExecutionReport(
@@ -5682,6 +6091,7 @@ class LazyFrame:
                     ),
                     source_bindings=_predicate_sources(other, condition),
                     right_statement=right_statement,
+                    resource_limits=_predicate_limits(other, condition),
                 )
             )
         if self.source.source_format == "vortex" or right_source_vortex:
@@ -5694,6 +6104,8 @@ class LazyFrame:
         return GroupedLazyFrame(
             workflow=self,
             columns=_normalize_columns(columns),
+            source_bindings=_predicate_sources(columns),
+            resource_limits=_predicate_limits(columns),
         )
 
     def groupby(self, *columns: object) -> "GroupedLazyFrame":
@@ -5713,6 +6125,7 @@ class LazyFrame:
         if self._can_append_scalar_aggregate():
             return self._append(WorkflowOperation(
                 "aggregate", values, _predicate_sources(expressions),
+                resource_limits=_predicate_limits(expressions),
             ))
         if self.source.source_format == "vortex":
             return self._unsupported_operation("native-vortex-aggregate", target, check=check)
@@ -5742,6 +6155,7 @@ class LazyFrame:
             return self._append(WorkflowOperation(
                 "aggregate", tuple(values),
                 _predicate_sources(expressions, named_expressions),
+                resource_limits=_predicate_limits(expressions, named_expressions),
             ))
         if self.source.source_format == "vortex":
             return self._unsupported_operation(
@@ -5775,6 +6189,8 @@ class LazyFrame:
                         normalized_columns,
                         null_ordering,
                     ),
+                    _predicate_sources(columns),
+                    resource_limits=_predicate_limits(columns),
                 )
             )
         return self._unsupported_operation("sort", target, check=check)
@@ -5824,6 +6240,7 @@ class LazyFrame:
         if self._can_append_window(values):
             return self._append(WorkflowOperation(
                 "window", values, _predicate_sources(expressions),
+                resource_limits=_predicate_limits(expressions),
             ))
         return self._unsupported_operation("window", target, check=check)
 
@@ -5832,41 +6249,77 @@ class LazyFrame:
         schema: Mapping[str, object],
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaValidationReport | UnsupportedWorkflowOperationReport:
         """Alias for exact bounded schema validation over admitted local-source workflows."""
 
-        return self.validate_schema(schema, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        return self.validate_schema(schema, check=check, resources=allocation)
 
     def schema(
         self,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
         """Return a bounded schema report for admitted local-source workflows."""
 
-        return self._bounded_schema_report(check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        return self._bounded_schema_report(check=check, resources=allocation)
 
     def describe_schema(
         self,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
         """Return detailed bounded schema evidence for admitted local-source workflows."""
 
-        return self._bounded_schema_report(check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        return self._bounded_schema_report(check=check, resources=allocation)
 
     def validate_schema(
         self,
         schema: Mapping[str, object],
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaValidationReport | UnsupportedWorkflowOperationReport:
         """Validate an expected schema against admitted local-source rows."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         normalized = _normalize_schema(schema)
         if not normalized:
             raise ValueError("schema validation contract must not be empty")
-        report = self._bounded_schema_report(check=check)
+        report = self._bounded_schema_report(check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _validate_workflow_schema(report, normalized)
@@ -5875,13 +6328,22 @@ class LazyFrame:
         self,
         *checks: object,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
         """Run bounded data-quality checks for admitted local-source workflows."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         normalized_checks = _normalize_columns(checks)
         parsed_checks = _parse_data_quality_checks(normalized_checks)
         if parsed_checks is not None:
-            report = self._bounded_schema_report(check=check)
+            report = self._bounded_schema_report(check=check, resources=allocation)
             if isinstance(report, UnsupportedWorkflowOperationReport):
                 return report
             return _workflow_data_quality_report(report, parsed_checks)
@@ -5895,19 +6357,37 @@ class LazyFrame:
         self,
         *checks: object,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
         """Alias for bounded data-quality checks."""
 
-        return self.data_quality_check(*checks, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        return self.data_quality_check(*checks, check=check, resources=allocation)
 
     def data_quality_summary(
         self,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
         """Return bounded null-count and schema summary for admitted workflows."""
 
-        report = self._bounded_schema_report(check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        report = self._bounded_schema_report(check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return WorkflowDataQualityReport(schema_report=report)
@@ -5920,9 +6400,18 @@ class LazyFrame:
         limit: int = 100,
         allow_overwrite: bool = False,
         check: bool = True,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowQuarantineReport | UnsupportedWorkflowOperationReport:
         """Return bounded quarantine evidence for admitted local-source workflows."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("quarantine limit", limit)
         parsed_checks: tuple[_WorkflowDataQualityCheckSpec, ...] | None = None
         if checks:
@@ -5934,7 +6423,7 @@ class LazyFrame:
                     ",".join(normalized_checks),
                     check=check,
                 )
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         schema_report = _workflow_schema_report(self, report)
@@ -5956,11 +6445,13 @@ class LazyFrame:
                     statement=pushdown_statement,
                     client=self.client,
                     source_bindings=self._declared_sources(),
+                    resources=self.resources, resource_limits=self.resource_limits,
                 ).write(
                     target_uri,
                     output_format=normalized_output_format,
                     allow_overwrite=allow_overwrite,
                     check=check,
+                    resources=allocation,
                 )
                 if sink.envelope.status == "success":
                     sink_report = sink
@@ -5980,44 +6471,80 @@ class LazyFrame:
         limit: int = 20,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a bounded local preview when admitted, otherwise report unsupported."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("preview limit", limit)
-        return self.limit(limit).collect(check=check)
+        return self.limit(limit).collect(check=check, resources=allocation)
 
     def head(
         self,
         limit: int = 20,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a bounded preview report using familiar DataFrame naming."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("head limit", limit)
-        return self.limit(limit).collect(check=check)
+        return self.limit(limit).collect(check=check, resources=allocation)
 
     def take(
         self,
         count: int,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Return a bounded preview report for the requested row count."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("take limit", count)
-        return self.limit(count).collect(check=check)
+        return self.limit(count).collect(check=check, resources=allocation)
 
     def display(
         self,
         limit: int = 20,
         *,
         check: bool = False,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowNotebookPreview | UnsupportedWorkflowOperationReport:
         """Return a bounded notebook/display preview for admitted workflows."""
 
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         _validate_positive_row_count("display limit", limit)
-        report = self._bounded_materialization_report(limit=limit, check=check)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return WorkflowNotebookPreview(
@@ -6071,6 +6598,7 @@ class LazyFrame:
             client=self.client,
             operations=(*self.operations, operation),
             engine_mode=self.engine_mode,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
     def _with_rewritten_projection(self, projection: tuple[str, ...]) -> "LazyFrame":
@@ -6091,6 +6619,7 @@ class LazyFrame:
                     source_bindings=operation.source_bindings,
                     right_statement=operation.right_statement,
                     projection_sql=operation.projection_sql,
+                    resource_limits=operation.resource_limits,
                 )
             )
         if not filter_seen:
@@ -6100,6 +6629,7 @@ class LazyFrame:
             client=self.client,
             operations=tuple(operations),
             engine_mode=self.engine_mode,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
     def _union(
@@ -6124,6 +6654,7 @@ class LazyFrame:
         if isinstance(other, SqlWorkflow) and (left := self._relation_statement()) is not None:
             return SqlWorkflow(
                 left, self.client, source_bindings=self._declared_sources(),
+                resources=self.resources, resource_limits=self.resource_limits,
             )._set_operation(other, operation=operation, keyword=keyword, check=check)
         if isinstance(other, LazyFrame):
             left = self._sql_local_source_union_branch_statement()
@@ -6137,6 +6668,7 @@ class LazyFrame:
                     statement=f"{left} {keyword} {right}",
                     client=self.client,
                     source_bindings=(*self._declared_sources(), *other._declared_sources()),
+                    resources=self.resources, resource_limits=_predicate_limits(self, other),
                 )
             target = f"{self.operation_summary};{other.operation_summary}"
         else:
@@ -7063,8 +7595,17 @@ class LazyFrame:
 
     def _bounded_schema_report(
         self, *, check: bool,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
-        report = self._bounded_materialization_report(limit=100, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        report = self._bounded_materialization_report(limit=100, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         return _workflow_schema_report(self, report)
@@ -7074,10 +7615,19 @@ class LazyFrame:
         *,
         limit: int | None,
         check: bool,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
         if limit is not None:
             _validate_positive_row_count("materialization limit", limit)
-        report = self.collect(limit=limit, check=check)
+        report = self.collect(limit=limit, check=check, resources=allocation)
         if isinstance(report, UnsupportedWorkflowOperationReport):
             return report
         if report.status != "success":
@@ -7119,6 +7669,7 @@ class LazyFrame:
             client=self.client,
             operations=tuple(operations),
             engine_mode=self.engine_mode,
+            resources=self.resources, resource_limits=self.resource_limits,
         )._relation_statement()
 
     def _append_group_by_aggregate(
@@ -7127,6 +7678,7 @@ class LazyFrame:
         expressions: tuple[str, ...],
         *,
         source_bindings: tuple[WorkflowSource, ...] = (),
+        resource_limits: ExecutionResourceLimits | None = None,
     ) -> "LazyFrame":
         return LazyFrame(
             source=self.source,
@@ -7134,9 +7686,10 @@ class LazyFrame:
             operations=(
                 *self.operations,
                 WorkflowOperation("group_by", columns),
-                WorkflowOperation("aggregate", expressions, source_bindings),
+                WorkflowOperation("aggregate", expressions, source_bindings, resource_limits=resource_limits),
             ),
             engine_mode=self.engine_mode,
+            resources=self.resources, resource_limits=self.resource_limits,
         )
 
     def _declared_sources(self) -> tuple[WorkflowSource, ...]:
@@ -7436,6 +7989,8 @@ class GroupedLazyFrame:
 
     workflow: LazyFrame | SqlWorkflow
     columns: tuple[str, ...]
+    source_bindings: tuple[WorkflowSource, ...] = ()
+    resource_limits: ExecutionResourceLimits | None = None
 
     @property
     def operation_summary(self) -> str:
@@ -7464,18 +8019,24 @@ class GroupedLazyFrame:
         if not values:
             raise ValueError("aggregate expressions must not be empty")
         target = f"group_by:{','.join(self.columns)};agg:{','.join(target_values)}"
-        source_bindings = _predicate_sources(expressions, named_expressions)
+        source_bindings = (*self.source_bindings, *_predicate_sources(expressions, named_expressions))
+        resource_limits = merge_resource_limits(
+            self.resource_limits, _predicate_limits(expressions, named_expressions),
+        )
         if isinstance(self.workflow, SqlWorkflow):
             return self.workflow._append_group_by_aggregate(
                 self.columns, tuple(values), source_bindings=source_bindings,
+                resource_limits=resource_limits,
             )
         if self.workflow._can_append_group_by_aggregate(self.columns):
             return self.workflow._append_group_by_aggregate(
                 self.columns, tuple(values), source_bindings=source_bindings,
+                resource_limits=resource_limits,
             )
         if self.workflow.source.source_format == "vortex":
             return self.workflow._append_group_by_aggregate(
                 self.columns, tuple(values), source_bindings=source_bindings,
+                resource_limits=resource_limits,
             )
         envelope = self.workflow.client.workflow_unsupported_plan(
             "agg",
@@ -7612,7 +8173,7 @@ def typed_scalar_udf(udf_id: object, column: object) -> ColumnExpression:
         raise ValueError(
             "typed scalar UDF must be the admitted built-in sl_fixture_double_i64 fixture"
         )
-    return ColumnExpression(f"{source_column} * 2", _predicate_sources(column))
+    return ColumnExpression(f"{source_column} * 2", _predicate_sources(column), resource_limits=_predicate_limits(column))
 
 
 def fixture_double_i64(column: object) -> ColumnExpression:
@@ -7646,7 +8207,7 @@ def scalar_subquery(source: LazyFrame | SqlWorkflow) -> ColumnExpression:
     statement = source._relation_statement()
     if statement is None or not statement.strip():
         raise ValueError("scalar_subquery source has no native relational declaration")
-    return ColumnExpression(f"({statement})", _predicate_sources(source))
+    return ColumnExpression(f"({statement})", _predicate_sources(source), resource_limits=_predicate_limits(source))
 
 
 def interval_days(value: object) -> IntervalLiteral:
@@ -7942,6 +8503,7 @@ def _ranking_window_expression(
     return WindowExpression(
         f"{function_name}() OVER ({partition_clause}ORDER BY {order_clause}) AS {output_alias}",
         _predicate_sources(order_by, partition_by),
+        resource_limits=_predicate_limits(order_by, partition_by),
     )
 
 
@@ -7953,6 +8515,7 @@ def case_when(predicate: object, then_value: object, else_value: object) -> Colu
     return ColumnExpression(
         f"CASE WHEN {_predicate_sql(predicate)} THEN {then_branch} ELSE {else_branch} END",
         _predicate_sources(predicate, then_value, else_value),
+        resource_limits=_predicate_limits(predicate, then_value, else_value),
     )
 
 
@@ -7969,7 +8532,8 @@ def count_distinct(column_expression: object) -> str | ColumnExpression:
         column_sql = _normalize_expression_column(column_expression)
     sql = f"count(DISTINCT {column_sql})"
     sources = _predicate_sources(column_expression)
-    return ColumnExpression(sql, sources) if sources else sql
+    limits = _predicate_limits(column_expression)
+    return ColumnExpression(sql, sources, limits) if sources or limits is not None else sql
 
 
 def null_if(column_expression: object, value: object) -> ColumnExpression:
@@ -8011,7 +8575,7 @@ def concat(*parts: object) -> ColumnExpression:
         has_source_column = has_source_column or is_source_column
     if not has_source_column:
         raise ValueError("concat requires at least one shardloom column expression")
-    return ColumnExpression(f"CONCAT({', '.join(sql_parts)})", _predicate_sources(parts))
+    return ColumnExpression(f"CONCAT({', '.join(sql_parts)})", _predicate_sources(parts), resource_limits=_predicate_limits(parts))
 
 
 def substr(column_expression: object, start: object, length: object) -> ColumnExpression:
@@ -8363,6 +8927,7 @@ def from_batches(
     Results remain provisional until the producer ends and final validation
     succeeds.
     """
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
     from ._batches import BatchInput
     from ._input_schema import normalize_schema, schema_hints, wire_schema
     from uuid import uuid4
@@ -8377,7 +8942,9 @@ def from_batches(
     return LazyFrame(
         source=WorkflowSource("memory", "memory://batches/" + uuid4().hex, schema_hints(fields),
                               (("kind", "batches"), ("schema", declared), ("streaming", streaming)), source),
-        client=_client_from_config(client, client_config),
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -8389,11 +8956,14 @@ def from_rows(
     **client_config: object,
 ) -> LazyFrame:
     """Declare native rows; use an explicit schema for rich types or empty columns."""
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
 
     return _memory_rows_source(
         rows,
-        client=_client_from_config(client, client_config),
+        client=resolved_client,
         schema=schema,
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -8424,10 +8994,13 @@ def dataframe_source_free_projection(
     Literal values become typed native input. Later expressions and output
     use the same native engine as file-backed DataFrame workflows.
     """
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
 
     return _memory_rows_source(
         [_dataframe_source_free_projection_row(expressions)],
-        client=_client_from_config(client, client_config),
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -8445,12 +9018,15 @@ def dataframe_generated_with_column(
     execution; source-backed native rows and range expressions still use
     `from_rows(...).with_column(...)` and `range(...).with_column(...)`.
     """
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
 
     column = _require_non_empty("generated DataFrame column name", name)
     literal = _generated_literal_expression(expression)
     return _memory_rows_source(
         [{column: literal}],
-        client=_client_from_config(client, client_config),
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -8464,6 +9040,7 @@ def range(
     **client_config: object,
 ) -> LazyFrame:
     """Declare a native integer input with an exclusive end for the shared engine."""
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
 
     normalized_start = _require_range_int("start", start)
     normalized_end = _require_range_int("end", end)
@@ -8475,7 +9052,9 @@ def range(
         {"kind": "range", "start": normalized_start, "end": normalized_end,
          "step": normalized_step, "column": normalized_column, "inclusive": False},
         schema=((normalized_column, "int64"),),
-        client=_client_from_config(client, client_config),
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -8500,11 +9079,14 @@ def sql_values(
     **client_config: object,
 ) -> SqlWorkflow:
     """Declare SQL VALUES for the shared native engine."""
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
 
     statement = _require_non_empty("SQL VALUES clause", values_clause)
     return SqlWorkflow(
         statement=statement,
-        client=_client_from_config(client, client_config),
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -8515,11 +9097,14 @@ def sql_literal_select(
     **client_config: object,
 ) -> SqlWorkflow:
     """Declare a source-free SQL projection for the shared native engine."""
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
 
     statement = _require_non_empty("SQL literal SELECT expression", expression)
     return SqlWorkflow(
         statement=statement,
-        client=_client_from_config(client, client_config),
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -8532,6 +9117,7 @@ def sql(
     **client_config: object,
 ) -> SqlWorkflow:
     """Create a scoped SQL workflow over currently admitted ShardLoom SQL paths."""
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
 
     input_uri, normalized_input_format = _normalize_sql_workflow_input(
         input,
@@ -8539,9 +9125,11 @@ def sql(
     )
     return SqlWorkflow(
         statement=_require_non_empty("SQL statement", statement),
-        client=_client_from_config(client, client_config),
+        client=resolved_client,
         input_uri=input_uri,
         input_format=normalized_input_format,
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -8599,6 +9187,7 @@ def calendar(
     certificate because no input dataset is read.
     """
 
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
     start_date = _normalize_date("calendar start", start)
     end_date = _normalize_date("calendar end", end)
     if start_date >= end_date:
@@ -8621,8 +9210,9 @@ def calendar(
         current += timedelta(days=1)
     return from_rows(
         rows,
-        client=client,
-        **client_config,
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -8637,12 +9227,14 @@ def from_pandas(
 ) -> LazyFrame | UnsupportedWorkflowOperationReport:
     """Create a scoped generated-row source from a pandas DataFrame-like object."""
 
-    resolved_client = _client_from_config(client, client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
     workflow = _materialized_boundary_workflow(
         "pandas",
         _python_object_boundary_ref("pandas", dataframe),
         client=resolved_client,
         engine_mode=engine_mode,
+        resources=resources,
+        resource_limits=resource_limits,
     )
     rows = _pandas_like_records(dataframe)
     if rows is None:
@@ -8653,6 +9245,8 @@ def from_pandas(
             client=resolved_client,
             schema=schema,
             engine_mode=engine_mode,
+            resources=resources,
+            resource_limits=resource_limits,
         )
     except (TypeError, ValueError):
         return workflow._unsupported_operation("from-pandas", workflow.uri, check=check)
@@ -8669,12 +9263,14 @@ def from_arrow_table(
 ) -> LazyFrame | UnsupportedWorkflowOperationReport:
     """Create a scoped generated-row source from an Arrow table-like object."""
 
-    resolved_client = _client_from_config(client, client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
     workflow = _materialized_boundary_workflow(
         "arrow_table",
         _python_object_boundary_ref("arrow_table", table),
         client=resolved_client,
         engine_mode=engine_mode,
+        resources=resources,
+        resource_limits=resource_limits,
     )
     rows = _arrow_table_like_records(table)
     if rows is None:
@@ -8685,6 +9281,8 @@ def from_arrow_table(
             client=resolved_client,
             schema=schema,
             engine_mode=engine_mode,
+            resources=resources,
+            resource_limits=resource_limits,
         )
     except (TypeError, ValueError):
         return workflow._unsupported_operation("from-arrow-table", workflow.uri, check=check)
@@ -8701,7 +9299,7 @@ def from_arrow_ipc(
 ) -> LazyFrame | UnsupportedWorkflowOperationReport:
     """Create a scoped generated-row source from an Arrow IPC stream/file."""
 
-    resolved_client = _client_from_config(client, client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
     target = (
         str(source)
         if isinstance(source, (str, os.PathLike))
@@ -8712,6 +9310,8 @@ def from_arrow_ipc(
         target,
         client=resolved_client,
         engine_mode=engine_mode,
+        resources=resources,
+        resource_limits=resource_limits,
     )
     pyarrow = _optional_module("pyarrow")
     if pyarrow is None:
@@ -8732,6 +9332,8 @@ def from_arrow_ipc(
             client=resolved_client,
             schema=schema,
             engine_mode=engine_mode,
+            resources=resources,
+            resource_limits=resource_limits,
         )
     except (TypeError, ValueError):
         return workflow._unsupported_operation("from-arrow-ipc", workflow.uri, check=check)
@@ -8743,8 +9345,15 @@ def _memory_rows_source(
     client: ShardLoomClient,
     schema: Mapping[str, object] | None = None,
     engine_mode: str = "auto",
+    resources: ExecutionResources | None = None,
+    resource_limits: ExecutionResourceLimits | None = None,
 ) -> LazyFrame:
     """Declare bounded native rows without executing any expressions."""
+    limits = merge_resource_limits(resource_limits, getattr(client, "resource_limits", None))
+    resources = resolve_resources(
+        resources=resources, inherited=getattr(client, "resources", None), limits=limits,
+    )
+    limits = merge_resource_limits(limits, resources.limits)
     from ._input_schema import encode_cell, normalize_schema, schema_hints, wire_schema
     from ._result_schema import ResultType
     if isinstance(rows, (str, bytes, bytearray)) or not isinstance(rows, Sequence):
@@ -8781,7 +9390,8 @@ def _memory_rows_source(
     encoded_rows = tuple(tuple(encode_cell(dtype, row[name]) for name, dtype in fields) for row in rows)
     return _native_memory_frame(
         {"kind": "rows", "schema": schema_fields, "rows": encoded_rows},
-        schema=schema_hints(fields), client=client, engine_mode=engine_mode,
+        schema=schema_hints(fields), client=client, engine_mode=engine_mode, resources=resources,
+        resource_limits=limits,
     )
 
 
@@ -8799,6 +9409,8 @@ def _infer_memory_column_type(values: Iterable[object]) -> str:
 def _native_memory_frame(
     declaration: Mapping[str, object], *, schema: tuple[tuple[str, str], ...],
     client: ShardLoomClient, engine_mode: str = "auto",
+    resources: ExecutionResources | None = None,
+    resource_limits: ExecutionResourceLimits | None = None,
 ) -> LazyFrame:
     payload = json.dumps(declaration, sort_keys=True, ensure_ascii=False).encode("utf-8")
     if len(payload) > 8 * 1024 * 1024:
@@ -8806,7 +9418,8 @@ def _native_memory_frame(
     uri = "memory://input/" + hashlib.sha256(payload).hexdigest()
     return LazyFrame(
         source=WorkflowSource("memory", uri, schema, tuple(declaration.items())),
-        client=client, engine_mode=_normalize_engine_mode(engine_mode),
+        client=client, engine_mode=_normalize_engine_mode(engine_mode), resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -9077,6 +9690,7 @@ def _read_source(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
     normalized = source_format.strip().lower().replace("_", "-")
     if normalized not in SUPPORTED_SOURCE_FORMATS:
         raise ValueError(
@@ -9088,8 +9702,10 @@ def _read_source(
             uri=str(uri),
             schema=_normalize_schema(schema),
         ),
-        client=_client_from_config(client, client_config),
+        client=resolved_client,
         engine_mode=_normalize_engine_mode(engine_mode),
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
@@ -9101,19 +9717,44 @@ def _materialized_boundary_workflow(
     engine_mode: str,
     **client_config: object,
 ) -> LazyFrame:
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
     return LazyFrame(
         source=WorkflowSource(
             source_format=source_format,
             uri=uri,
         ),
-        client=_client_from_config(client, client_config),
+        client=resolved_client,
         engine_mode=_normalize_engine_mode(engine_mode),
+        resources=resources,
+        resource_limits=resource_limits,
     )
 
 
 def _python_object_boundary_ref(kind: str, value: object) -> str:
     value_type = type(value)
     return f"{kind}:{value_type.__module__}.{value_type.__qualname__}"
+
+
+def _source_configuration(
+    client: ShardLoomClient | None,
+    client_config: Mapping[str, object],
+    *, required: bool,
+) -> tuple[ShardLoomClient, ExecutionResources | None, ExecutionResourceLimits | None]:
+    """Resolve plan-bound configuration without modifying a shared transport."""
+
+    config = dict(client_config)
+    allocation = {name: config.pop(name, None) for name in (
+        "resources", "memory_gb", "memory_bytes", "max_parallelism",
+    )}
+    limits = config.pop("resource_limits", None)
+    resolved_client = _client_from_config(client, config)
+    limits = merge_resource_limits(limits, getattr(resolved_client, "resource_limits", None))
+    resolver = resolve_resources if required else optional_resources
+    resources = resolver(
+        **allocation, limits=limits, inherited=getattr(resolved_client, "resources", None),
+    )
+    limits = merge_resource_limits(limits, resources.limits if resources is not None else None)
+    return resolved_client, resources, limits
 
 
 def _client_from_config(
@@ -11524,6 +12165,26 @@ def _predicate_sources(*values: object) -> tuple[WorkflowSource, ...]:
     return tuple(sources)
 
 
+def _predicate_limits(*values: object) -> ExecutionResourceLimits | None:
+    """Retain every participating workflow ceiling through lazy composition.
+
+    Ceilings intersect; resource grants keep the receiving workflow's explicit
+    inheritance. This also covers source-free scalar subqueries, which carry no
+    source bindings but still have an execution policy.
+    """
+
+    limits = []
+    for value in values:
+        if isinstance(value, (tuple, list)):
+            limits.append(_predicate_limits(*value))
+        elif isinstance(value, Mapping):
+            limits.append(_predicate_limits(*value.values()))
+        elif isinstance(value, (PredicateExpression, ColumnExpression, WindowExpression,
+                                WorkflowOperation, LazyFrame, SqlWorkflow)):
+            limits.append(value.resource_limits)
+    return merge_resource_limits(*limits)
+
+
 def _normalize_raw_or_typed_predicate(name: str, value: object) -> str:
     if isinstance(value, PredicateExpression):
         return value.sql
@@ -11693,6 +12354,7 @@ def _row_value_in_source_predicate(
     return PredicateExpression(
         f"({column_sql}) {operator} (SELECT {source_column_sql} FROM {source_ref}{tail})",
         _predicate_sources(source, where, having),
+        resource_limits=_predicate_limits(source, where, having),
     )
 
 
@@ -11727,6 +12389,7 @@ def _exists_source_predicate(
     return PredicateExpression(
         f"{operator} (SELECT {projection_sql} FROM {source_ref}{tail})",
         _predicate_sources(source, where, having),
+        resource_limits=_predicate_limits(source, where, having),
     )
 
 
@@ -11764,6 +12427,7 @@ def _quantified_source_predicate(
         f"{column_sql} {operator} {quantifier} "
         f"(SELECT {source_column_sql} FROM {source_ref}{tail})",
         _predicate_sources(source, where, having),
+        resource_limits=_predicate_limits(source, where, having),
     )
 
 
@@ -12410,15 +13074,21 @@ def _single_quoted_sql_strings(statement: str) -> tuple[str, ...]:
 
 
 def _terminal_resource_kwargs(
-    memory_gb: int,
-    max_parallelism: int,
+    memory_gb: int | None,
+    max_parallelism: int | None,
     spill: Mapping[str, object] | str | None = None,
+    *, memory_bytes: int | None = None, resources: ExecutionResources | None = None,
+    inherited: ExecutionResources | None = None,
+    limits: ExecutionResourceLimits | None = None, required: bool = True,
 ) -> dict[str, object]:
-    """Build terminal runtime kwargs while leaving spill policy opaque."""
+    """Validate allocation before dispatch; keep descriptions resource-free."""
 
+    resolver = resolve_resources if required else optional_resources
+    allocation = resolver(memory_gb=memory_gb, memory_bytes=memory_bytes,
+                          max_parallelism=max_parallelism, resources=resources,
+                          inherited=inherited, limits=limits)
     kwargs: dict[str, object] = {
-        "memory_gb": _normalize_positive_int("memory_gb", memory_gb),
-        "max_parallelism": _normalize_positive_int("max_parallelism", max_parallelism),
+        "resources": allocation,
     }
     if spill is not None:
         kwargs["spill"] = spill
@@ -12428,7 +13098,10 @@ def _terminal_resource_kwargs(
 def _collect_native_relational(
     client: ShardLoomClient, statement: str, *, surface: str,
     plan_summary: str, input_kwargs: Mapping[str, Any], check: bool,
-    memory_gb: int, max_parallelism: int,
+    memory_gb: int | None, max_parallelism: int | None,
+    memory_bytes: int | None = None, resources: ExecutionResources | None = None,
+    inherited: ExecutionResources | None = None,
+    limits: ExecutionResourceLimits | None = None,
     spill: Mapping[str, object] | str | None = None,
     input_batches: Mapping[str, object] | None = None,
 ) -> OutputEnvelope:
@@ -12437,7 +13110,9 @@ def _collect_native_relational(
         requested_output="collect", execution_policy="vortex_middle",
         materialization_policy="bounded", evidence_level="production_admitted_local_workflow",
         bounded=True,
-        **_terminal_resource_kwargs(memory_gb, max_parallelism, spill),
+        **_terminal_resource_kwargs(memory_gb, max_parallelism, spill,
+                                    memory_bytes=memory_bytes, resources=resources,
+                                    inherited=inherited, limits=limits),
         check=check, **input_kwargs,
         input_batches=input_batches,
     ).envelope

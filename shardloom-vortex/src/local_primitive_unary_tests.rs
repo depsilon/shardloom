@@ -63,8 +63,10 @@ impl Fixture {
         fs::create_dir(&directory).unwrap();
         let fixture = Self(directory);
         let rows = array.len();
-        let runtime =
-            runtime::local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+        let runtime = runtime::local_vortex_runtime(
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
+        );
         let session = VortexSession::default().with_handle(runtime.handle());
         let mut file = fs::File::create(fixture.path()).unwrap();
         let mut writer = session
@@ -117,7 +119,8 @@ fn projection(names: &[&str]) -> ProjectionRequest {
 fn prepare(request: &VortexQueryPrimitiveRequest) -> PreparedVortexUnary {
     prepare_unary(
         request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap()
 }
@@ -415,7 +418,8 @@ fn unary_rolling_reserves_state_before_allocating_and_limits_centered_output() {
     let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
     let prepared = prepare_unary_in_session(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &session,
     )
     .unwrap();
@@ -607,7 +611,8 @@ fn unary_request_memory_and_predicate_depth_are_denied_before_opening() {
     );
     let error = prepare_unary_in_session(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &session,
     )
     .err()
@@ -622,7 +627,8 @@ fn unary_request_memory_and_predicate_depth_are_denied_before_opening() {
     request.predicate = Some(predicate);
     let error = prepare_unary_in_session(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &session,
     )
     .err()
@@ -663,8 +669,10 @@ fn unary_variant_provider_preserves_mixed_scalars_through_native_file() {
     )
     .into_array();
     let path = fixture.0.join("mixed.vortex");
-    let provider_runtime =
-        runtime::local_vortex_runtime(VortexLocalPrimitiveExecutionPolicy::single_threaded());
+    let provider_runtime = runtime::local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
     let provider = VortexSession::default().with_handle(provider_runtime.handle());
     let mut file = fs::File::create(&path).unwrap();
     let mut writer = provider
@@ -718,7 +726,8 @@ fn unary_result_stream_crosses_collect_bound_and_cleans_up_denied_consumers() {
         VortexQueryPrimitiveRequest::distinct_rows(fixture.uri(), projection(&[KEY]), None);
     let prepared = prepare_unary_in_session(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
         &session,
     )
     .unwrap();

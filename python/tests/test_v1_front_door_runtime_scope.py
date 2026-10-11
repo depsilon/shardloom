@@ -276,6 +276,7 @@ class V1FrontDoorRuntimeScopeTests(unittest.TestCase):
             original_cwd = Path.cwd()
 
             payload = scenario_support.run_scenarios(
+                memory_gb=4, max_parallelism=2,
                 repo_root=REPO_ROOT,
                 run_dir=run_dir,
                 binary=self.fake_cli(calls_path),
@@ -341,6 +342,7 @@ class V1FrontDoorRuntimeScopeTests(unittest.TestCase):
             failed_run_dir = Path(tempdir) / "failed-run"
             failed_calls_path = Path(tempdir) / "commands.jsonl"
             failed = scenario_support.run_scenarios(
+                memory_gb=4, max_parallelism=2,
                 repo_root=REPO_ROOT,
                 run_dir=failed_run_dir,
                 binary=self.fake_cli(failed_calls_path, fail_write=True),
@@ -373,6 +375,7 @@ class V1FrontDoorRuntimeScopeTests(unittest.TestCase):
             marker.write_text("preserve", encoding="utf-8")
             with self.assertRaises(FileExistsError):
                 scenario_support.run_scenarios(
+                    memory_gb=4, max_parallelism=2,
                     repo_root=REPO_ROOT,
                     run_dir=existing_run_dir,
                     binary=self.fake_cli(),

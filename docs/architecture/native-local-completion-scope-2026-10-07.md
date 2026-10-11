@@ -112,11 +112,18 @@ has complete local engine acceptance and independent inspection for exact widths
 binary, Decimal128, Date32, full-domain microsecond timestamps and recursive
 lists/structs through resident, buffered and finite single-use workflows. Its
 Python result correction preserves exact temporal storage values outside Python's
-calendar. Hosted integration remains pending in PR #1540. Broader type/source/
-destination composition remains open; this extends the historical scalar intake.
+calendar. [PR #1540](https://github.com/depsilon/shardloom/pull/1540) merged at
+`316f52de` after all 39 hosted checks passed; its
+[hosted receipt](../benchmarks/evidence/native-typed-input-hosted-2026-10-10.json)
+records the unchanged reviewed/merged tree and production verification. Broader
+type/source/destination composition remains open; this extends the historical
+scalar intake.
 
 The October 10 direction prioritizes [required explicit resources](required-execution-resources-2026-10-10.md)
-before data inspection or execution, followed by [native Python ownership and
+before data inspection or execution. Its
+[local acceptance](../benchmarks/required-execution-resources-2026-10-10.md)
+and independent inspection are complete. Support and rendered-guide checks
+pass; hosted acceptance remains pending. It is followed by [native Python ownership and
 columnar exchange](native-python-surface-2026-10-10.md). Both extend existing
 owners. Safe full-domain timestamp statistics/compression stays attached to ingest
 and pruning. The unbuilt native-binding experiment was not a failed benchmark.

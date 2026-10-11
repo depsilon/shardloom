@@ -17,8 +17,6 @@ PYTHON_SRC = ROOT / "python" / "src"
 if str(PYTHON_SRC) not in sys.path:
     sys.path.insert(0, str(PYTHON_SRC))
 
-from shardloom import DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM
-
 DEFAULT_QUERY_MANIFEST = ROOT / "benchmarks" / "clickbench" / "queries.sql"
 DEFAULT_OUTPUT = ROOT / "target" / "clickbench-olap-runtime-coverage.json"
 SCHEMA_VERSION = "shardloom.clickbench_olap_runtime_coverage.v1"
@@ -387,7 +385,8 @@ def scale_fixture_strategy() -> dict[str, Any]:
         "strategy_id": "clickbench_scale_fixture_strategy_v1",
         "default_pr_fast_lane_tier": "small_deterministic_local",
         "performance_claim_allowed": False,
-        "max_parallelism_default": DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+        "max_parallelism_default": None,
+        "resource_allocation_policy": "explicit_memory_and_parallelism_required_before_execution",
         "tiers": [
             {
                 "tier_id": "small_deterministic_local",
@@ -530,7 +529,8 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
                 "timing_surface": "route_readiness_no_timing",
                 "scale_fixture_strategy_id": "clickbench_scale_fixture_strategy_v1",
                 "scale_fixture_default_tier": "small_deterministic_local",
-                "max_parallelism_default": DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM,
+                "max_parallelism_default": None,
+                "resource_allocation_policy": "explicit_memory_and_parallelism_required_before_execution",
                 **state_budget,
                 "fallback_attempted": False,
                 "external_engine_invoked": False,
@@ -684,9 +684,9 @@ def validate(report: dict[str, Any]) -> list[str]:
         blockers.append("ClickBench scale fixture strategy has invalid schema version")
     if strategy.get("default_pr_fast_lane_tier") != "small_deterministic_local":
         blockers.append("ClickBench scale fixture strategy must keep PR fast lane small/local")
-    if strategy.get("max_parallelism_default") != DEFAULT_LOCAL_RUNTIME_MAX_PARALLELISM:
+    if strategy.get("max_parallelism_default") is not None or strategy.get("resource_allocation_policy") != "explicit_memory_and_parallelism_required_before_execution":
         blockers.append(
-            "ClickBench scale fixture strategy must use the shared public local runtime default"
+            "ClickBench scale fixture strategy must require explicit execution resources without numeric defaults"
         )
     return blockers
 

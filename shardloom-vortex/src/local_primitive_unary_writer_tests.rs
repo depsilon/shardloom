@@ -189,7 +189,8 @@ fn unary_fanout_preserves_filtered_expression_results_through_all_eight_formats(
         &request,
         &targets,
         false,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert_eq!(reports.len(), targets.len());

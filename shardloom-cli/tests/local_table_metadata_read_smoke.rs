@@ -2,7 +2,15 @@ use std::process::Command;
 
 fn run_local_table_metadata_read_smoke_json() -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["local-table-metadata-read-smoke", "--format", "json"])
+        .args([
+            "local-table-metadata-read-smoke",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
+            "--format",
+            "json",
+        ])
         .output()
         .expect("local-table-metadata-read-smoke command runs");
 

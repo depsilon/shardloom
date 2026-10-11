@@ -133,8 +133,12 @@ pub(crate) fn validate(binding: &str) -> Result<()> {
 /// Missing or mismatched metadata rejects reuse and never permits an overwrite.
 /// # Errors
 /// Rejects stale source generations, invalid Vortex files, and unbound artifacts.
-pub fn reuse_local_preparation(path: &Path, expected: &str) -> Result<u64> {
-    Ok(local_preparation_identity(path, expected)?.row_count)
+pub fn reuse_local_preparation(
+    path: &Path,
+    expected: &str,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+) -> Result<u64> {
+    Ok(local_preparation_identity(path, expected, memory)?.row_count)
 }
 
 /// Public preparation identities bound to the validated source and artifact generations.
@@ -146,6 +150,7 @@ pub struct LocalPreparationIdentity {
     pub prepared_digest: String,
     artifact: SourceIdentity,
     source_binding: String,
+    _metadata: shardloom_exec::live_memory::MemoryLease,
 }
 
 impl LocalPreparationIdentity {
@@ -218,20 +223,52 @@ fn identity_digest(bytes: &[u8]) -> Result<String> {
     Ok(encoded)
 }
 
+#[test]
+fn preparation_identity_reserves_before_binding_validation_or_source_access() {
+    let memory = shardloom_exec::live_memory::LiveMemoryPool::new(1).unwrap();
+    let error =
+        local_preparation_identity(Path::new("must-not-be-opened"), "{}", &memory).unwrap_err();
+    assert!(
+        error.to_string().contains("memory reservation denied"),
+        "{error}"
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    assert_eq!(memory.snapshot().denied_reservations, 1);
+}
+
 /// Resolve the same public identity after creation and on subsequent reuse.
 /// Only the footer and bounded source-binding metadata are read.
 /// # Errors
 /// Rejects missing bindings, changed source/artifact generations and invalid Vortex files.
-pub fn local_preparation_identity(path: &Path, expected: &str) -> Result<LocalPreparationIdentity> {
+pub fn local_preparation_identity(
+    path: &Path,
+    expected: &str,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+) -> Result<LocalPreparationIdentity> {
     use vortex::{
         VortexSessionDefault as _,
+        array::memory::MemorySessionExt as _,
         file::OpenOptionsSessionExt as _,
         io::{runtime::BlockingRuntime as _, session::RuntimeSessionExt as _},
     };
+    if expected.len() > MAX_BYTES {
+        return Err(error("metadata exceeds 64 KiB"));
+    }
+    let metadata = memory.reserve(
+        u64::try_from(expected.len())
+            .map_err(error)?
+            .checked_mul(4)
+            .and_then(|bytes| bytes.checked_add(4096))
+            .ok_or_else(|| error("metadata reservation overflow"))?,
+    )?;
     validate(expected)?;
     let identity = SourceIdentity::capture(path)?;
     let runtime = vortex::io::runtime::current::CurrentThreadRuntime::new();
-    let session = vortex::session::VortexSession::default().with_handle(runtime.handle());
+    let session = vortex::session::VortexSession::default()
+        .with_handle(runtime.handle())
+        .with_allocator(std::sync::Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+        ));
     let file = runtime
         .block_on(session.open_options().open_path(path))
         .map_err(error)?;
@@ -246,6 +283,7 @@ pub fn local_preparation_identity(path: &Path, expected: &str) -> Result<LocalPr
     if usize::try_from(segment.length).map_err(error)? > MAX_BYTES {
         return Err(error("existing source binding exceeds 64 KiB"));
     }
+    let _binding_scratch = memory.reserve(u64::from(segment.length))?;
     let mut bytes = vec![0; usize::try_from(segment.length).map_err(error)?];
     std::os::unix::fs::FileExt::read_exact_at(&identity.file, &mut bytes, segment.offset)
         .map_err(error)?;
@@ -270,5 +308,6 @@ pub fn local_preparation_identity(path: &Path, expected: &str) -> Result<LocalPr
         prepared_digest: identity_digest(prepared_binding.to_string().as_bytes())?,
         artifact: identity,
         source_binding: expected.to_owned(),
+        _metadata: metadata,
     })
 }

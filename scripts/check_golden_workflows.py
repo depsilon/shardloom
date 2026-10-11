@@ -401,7 +401,8 @@ import sys
 from shardloom import context
 
 repo_root, binary, source_path, target_path = sys.argv[1:5]
-ctx = context(repo_root=repo_root, binary=binary, profile_order=("debug",))
+ctx = context(repo_root=repo_root, binary=binary, profile_order=("debug",),
+              memory_gb=1, max_parallelism=1)
 report = ctx.prepare_vortex(source_path, target_path, allow_overwrite=True)
 print(json.dumps({
     "schema_version": "shardloom.python_golden_workflow_prepare_vortex.v1",
@@ -592,6 +593,10 @@ def workflow_local_csv_to_prepared_and_fanout(
                 str(local_source),
                 str(target_vortex),
                 "--allow-overwrite",
+                "--memory-gb",
+                "1",
+                "--max-parallelism",
+                "1",
             ],
             expected_fields={
                 "schema_version": "shardloom.vortex_prepare.v1",

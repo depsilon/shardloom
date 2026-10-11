@@ -5,6 +5,7 @@
 //! they do not probe catalogs, invoke external engines, or provide fallback
 //! execution.
 
+use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -14,8 +15,6 @@ use std::{
 
 #[cfg(feature = "universal-format-io")]
 use arrow_array::Array as _;
-#[cfg(feature = "universal-format-io")]
-use shardloom_core::ScalarValue;
 use shardloom_core::{
     ByteRange, CapabilityCertificationReport, CatalogKind, CatalogMetadataIntegrationGateEntry,
     CatalogMetadataIntegrationGateReport, CatalogRef, CdcEventKind, CdcEventSummary,
@@ -475,9 +474,18 @@ pub(crate) fn handle_catalog_metadata_gate(
 }
 
 pub(crate) fn handle_local_table_metadata_read_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "local-table-metadata-read-smoke",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-table-metadata-read-smoke",
@@ -509,7 +517,10 @@ pub(crate) fn handle_local_table_metadata_read_smoke(
         "local manifest-backed table metadata read smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        local_table_metadata_read_smoke_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            local_table_metadata_read_smoke_fields(&report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -522,6 +533,20 @@ pub(crate) fn handle_iceberg_metadata_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "iceberg-metadata-read-smoke",
+        &[
+            "--snapshot-id",
+            "--as-of-timestamp-ms",
+            "--manifest-list",
+            "--manifest",
+        ],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let request = match parse_iceberg_metadata_read_smoke_args(args) {
         Ok(request) => request,
         Err(error) => {
@@ -533,14 +558,23 @@ pub(crate) fn handle_iceberg_metadata_read_smoke(
             );
         }
     };
-    let report = match run_iceberg_metadata_read_smoke(&request) {
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        "iceberg-metadata-read-smoke",
+        format,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let report = match run_iceberg_metadata_read_smoke(&request, &pool) {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "iceberg-metadata-read-smoke",
                 format,
                 "Iceberg metadata read smoke failed",
                 &error,
+                crate::fixture_io::with_observation_fields(Vec::new(), resources, &pool),
             );
         }
     };
@@ -556,7 +590,11 @@ pub(crate) fn handle_iceberg_metadata_read_smoke(
         "source-reviewed Iceberg metadata JSON read smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        iceberg_metadata_read_smoke_fields(&report),
+        crate::fixture_io::with_observation_fields(
+            iceberg_metadata_read_smoke_fields(&report),
+            resources,
+            &pool,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -569,6 +607,15 @@ pub(crate) fn handle_delta_log_metadata_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "delta-log-metadata-read-smoke",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let request = match parse_delta_log_metadata_read_smoke_args(args) {
         Ok(request) => request,
         Err(error) => {
@@ -580,14 +627,23 @@ pub(crate) fn handle_delta_log_metadata_read_smoke(
             );
         }
     };
-    let report = match run_delta_log_metadata_read_smoke(&request) {
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        "delta-log-metadata-read-smoke",
+        format,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let report = match run_delta_log_metadata_read_smoke(&request, &pool) {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "delta-log-metadata-read-smoke",
                 format,
                 "Delta log metadata read smoke failed",
                 &error,
+                crate::fixture_io::with_observation_fields(Vec::new(), resources, &pool),
             );
         }
     };
@@ -603,7 +659,11 @@ pub(crate) fn handle_delta_log_metadata_read_smoke(
         "source-reviewed Delta transaction log metadata smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        delta_log_metadata_read_smoke_fields(&report),
+        crate::fixture_io::with_observation_fields(
+            delta_log_metadata_read_smoke_fields(&report),
+            resources,
+            &pool,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -616,6 +676,15 @@ pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "hudi-timeline-metadata-read-smoke",
+        &["--metadata-json"],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let request = match parse_hudi_timeline_metadata_read_smoke_args(args) {
         Ok(request) => request,
         Err(error) => {
@@ -627,14 +696,23 @@ pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
             );
         }
     };
-    let report = match run_hudi_timeline_metadata_read_smoke(&request) {
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        "hudi-timeline-metadata-read-smoke",
+        format,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let report = match run_hudi_timeline_metadata_read_smoke(&request, &pool) {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 "hudi-timeline-metadata-read-smoke",
                 format,
                 "Hudi timeline metadata read smoke failed",
                 &error,
+                crate::fixture_io::with_observation_fields(Vec::new(), resources, &pool),
             );
         }
     };
@@ -650,7 +728,11 @@ pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
         "source-reviewed Hudi timeline metadata smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        hudi_timeline_metadata_read_smoke_fields(&report),
+        crate::fixture_io::with_observation_fields(
+            hudi_timeline_metadata_read_smoke_fields(&report),
+            resources,
+            &pool,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -660,9 +742,18 @@ pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
 }
 
 pub(crate) fn handle_local_delete_tombstone_read_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "local-delete-tombstone-read-smoke",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-delete-tombstone-read-smoke",
@@ -694,7 +785,10 @@ pub(crate) fn handle_local_delete_tombstone_read_smoke(
         "local manifest-backed delete/tombstone read smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        local_delete_tombstone_read_smoke_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            local_delete_tombstone_read_smoke_fields(&report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -704,9 +798,18 @@ pub(crate) fn handle_local_delete_tombstone_read_smoke(
 }
 
 pub(crate) fn handle_local_append_only_cdc_overlay_smoke(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "local-append-only-cdc-overlay-smoke",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     if let Some(extra) = args.next() {
         return emit_error(
             "local-append-only-cdc-overlay-smoke",
@@ -738,7 +841,10 @@ pub(crate) fn handle_local_append_only_cdc_overlay_smoke(
         "local append-only CDC overlay smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        local_append_only_cdc_overlay_smoke_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            local_append_only_cdc_overlay_smoke_fields(&report),
+            resources,
+        ),
     );
     if has_errors {
         ExitCode::from(1)
@@ -7601,16 +7707,24 @@ fn parse_iceberg_metadata_read_smoke_args(
 
 fn run_iceberg_metadata_read_smoke(
     request: &IcebergMetadataReadSmokeRequest,
+    pool: &LiveMemoryPool,
 ) -> Result<IcebergMetadataReadSmokeReport, ShardLoomError> {
     reject_non_local_metadata_path(&request.metadata_path)?;
-    let metadata = fs::read_to_string(Path::new(&request.metadata_path)).map_err(|error| {
+    let owner = crate::fixture_io::read_utf8(
+        Path::new(&request.metadata_path),
+        pool.snapshot().limit_bytes,
+        "Iceberg metadata JSON",
+        pool,
+    )
+    .map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to read Iceberg metadata JSON {}: {error}",
             request.metadata_path
         ))
     })?;
-    let root = parse_iceberg_metadata_json(&metadata)?;
-    build_iceberg_metadata_report(request, &metadata, &root)
+    let metadata = owner.value();
+    let root = parse_iceberg_metadata_json(metadata)?;
+    build_iceberg_metadata_report(request, metadata, &root, pool)
 }
 
 fn reject_non_local_metadata_path(path: &str) -> Result<(), ShardLoomError> {
@@ -7632,9 +7746,12 @@ fn parse_iceberg_metadata_json(
     let value: serde_json::Value = serde_json::from_str(metadata).map_err(|error| {
         ShardLoomError::InvalidOperation(format!("invalid Iceberg metadata JSON: {error}"))
     })?;
-    value.as_object().cloned().ok_or_else(|| {
-        ShardLoomError::InvalidOperation("Iceberg metadata JSON must be an object".to_string())
-    })
+    match value {
+        serde_json::Value::Object(root) => Ok(root),
+        _ => Err(ShardLoomError::InvalidOperation(
+            "Iceberg metadata JSON must be an object".to_string(),
+        )),
+    }
 }
 
 fn parse_delta_log_metadata_read_smoke_args(
@@ -7662,15 +7779,23 @@ fn parse_delta_log_metadata_read_smoke_args(
 
 fn run_delta_log_metadata_read_smoke(
     request: &DeltaLogMetadataReadSmokeRequest,
+    pool: &LiveMemoryPool,
 ) -> Result<DeltaLogMetadataReadSmokeReport, ShardLoomError> {
     reject_non_local_metadata_path_for(&request.log_path, "delta-log-metadata-read-smoke")?;
-    let log = fs::read_to_string(Path::new(&request.log_path)).map_err(|error| {
+    let owner = crate::fixture_io::read_utf8(
+        Path::new(&request.log_path),
+        pool.snapshot().limit_bytes,
+        "Delta transaction log JSON",
+        pool,
+    )
+    .map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to read Delta transaction log JSON {}: {error}",
             request.log_path
         ))
     })?;
-    let actions = parse_delta_log_json_lines(&log, &request.log_path)?;
+    let log = owner.value();
+    let actions = parse_delta_log_json_lines(log, &request.log_path)?;
     let protocol_summary = delta_protocol_summary(&actions);
     let table_metadata_summary = delta_table_metadata_summary(&actions);
     let action_summary = delta_log_action_summary(&actions);
@@ -8111,15 +8236,17 @@ fn parse_hudi_timeline_metadata_read_smoke_args(
 
 fn run_hudi_timeline_metadata_read_smoke(
     request: &HudiTimelineMetadataReadSmokeRequest,
+    pool: &LiveMemoryPool,
 ) -> Result<HudiTimelineMetadataReadSmokeReport, ShardLoomError> {
     reject_non_local_metadata_path_for(&request.timeline_dir, "hudi-timeline-metadata-read-smoke")?;
     if let Some(path) = &request.metadata_json_path {
         reject_non_local_metadata_path_for(path, "hudi-timeline-metadata-read-smoke")?;
     }
-    let timeline_files = read_hudi_timeline_file_names(&request.timeline_dir)?;
-    let action_summary = hudi_timeline_action_summary(&timeline_files);
+    let timeline_owner = read_hudi_timeline_file_names(&request.timeline_dir, pool)?;
+    let timeline_files = timeline_owner.value();
+    let action_summary = hudi_timeline_action_summary(timeline_files);
     let metadata_table_summary =
-        read_hudi_metadata_table_summary(request.metadata_json_path.as_deref())?;
+        read_hudi_metadata_table_summary(request.metadata_json_path.as_deref(), pool)?;
     let unsupported_feature_order =
         hudi_timeline_unsupported_feature_order(&action_summary, &metadata_table_summary);
     let blocked_paths = hudi_timeline_blocked_paths();
@@ -8183,7 +8310,9 @@ struct HudiTimelineFileEntry {
 
 fn read_hudi_timeline_file_names(
     timeline_dir: &str,
-) -> Result<Vec<HudiTimelineFileEntry>, ShardLoomError> {
+    pool: &LiveMemoryPool,
+) -> Result<Budgeted<Vec<HudiTimelineFileEntry>>, ShardLoomError> {
+    let mut lease = pool.reserve(0)?;
     let mut files = Vec::new();
     for entry in fs::read_dir(Path::new(timeline_dir)).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -8204,7 +8333,8 @@ fn read_hudi_timeline_file_names(
         if !metadata.is_file() {
             continue;
         }
-        let file_name = entry.file_name().to_string_lossy().to_string();
+        let os_name = entry.file_name();
+        let file_name = os_name.to_string_lossy();
         if file_name.starts_with('.') {
             continue;
         }
@@ -8214,46 +8344,37 @@ fn read_hudi_timeline_file_names(
                 entry.path().display()
             ))
         })?;
-        files.push(parse_hudi_timeline_file_name(&file_name, file_len));
+        let (instant, action, state) = hudi_timeline_file_name_parts(&file_name);
+        crate::fixture_io::reserve_additional(&mut files, 1, &mut lease)?;
+        files.push(HudiTimelineFileEntry {
+            file_name: crate::fixture_io::copy_text(&file_name, &mut lease)?,
+            file_len,
+            instant: crate::fixture_io::copy_text(instant, &mut lease)?,
+            action: crate::fixture_io::copy_text(action, &mut lease)?,
+            state: crate::fixture_io::copy_text(state, &mut lease)?,
+        });
     }
-    files.sort_by(|left, right| left.file_name.cmp(&right.file_name));
+    // Directory names are unique, so an in-place unstable sort has the same
+    // result without an additional temporary vector.
+    files.sort_unstable_by(|left, right| left.file_name.cmp(&right.file_name));
     if files.is_empty() {
         return Err(ShardLoomError::InvalidOperation(format!(
             "Hudi timeline directory {timeline_dir} did not contain any timeline files"
         )));
     }
-    Ok(files)
+    Ok(Budgeted::new(files, lease))
 }
 
-fn parse_hudi_timeline_file_name(file_name: &str, file_len: usize) -> HudiTimelineFileEntry {
-    let parts = file_name.split('.').collect::<Vec<_>>();
-    let (instant, action, state) =
-        if parts.len() >= 3 && hudi_timeline_state_known(parts[parts.len() - 1]) {
-            (
-                parts[..parts.len() - 2].join("."),
-                parts[parts.len() - 2].to_string(),
-                parts[parts.len() - 1].to_string(),
-            )
-        } else if parts.len() >= 2 {
-            (
-                parts[..parts.len() - 1].join("."),
-                parts[parts.len() - 1].to_string(),
-                "completed".to_string(),
-            )
-        } else {
-            (
-                file_name.to_string(),
-                "unknown".to_string(),
-                "unknown".to_string(),
-            )
-        };
-    HudiTimelineFileEntry {
-        file_name: file_name.to_string(),
-        file_len,
-        instant,
-        action,
-        state,
+fn hudi_timeline_file_name_parts(file_name: &str) -> (&str, &str, &str) {
+    let Some((stem, suffix)) = file_name.rsplit_once('.') else {
+        return (file_name, "unknown", "unknown");
+    };
+    if hudi_timeline_state_known(suffix)
+        && let Some((instant, action)) = stem.rsplit_once('.')
+    {
+        return (instant, action, suffix);
     }
+    (stem, suffix, "completed")
 }
 
 fn hudi_timeline_action_summary(files: &[HudiTimelineFileEntry]) -> HudiTimelineActionSummary {
@@ -8325,6 +8446,7 @@ fn hudi_timeline_state_known(state: &str) -> bool {
 
 fn read_hudi_metadata_table_summary(
     metadata_json_path: Option<&str>,
+    pool: &LiveMemoryPool,
 ) -> Result<HudiMetadataTableSummary, ShardLoomError> {
     let Some(path) = metadata_json_path else {
         return Ok(HudiMetadataTableSummary {
@@ -8339,12 +8461,19 @@ fn read_hudi_metadata_table_summary(
             record_index_file_count: 0,
         });
     };
-    let metadata = fs::read_to_string(Path::new(path)).map_err(|error| {
+    let owner = crate::fixture_io::read_utf8(
+        Path::new(path),
+        pool.snapshot().limit_bytes,
+        "Hudi metadata-table summary JSON",
+        pool,
+    )
+    .map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to read Hudi metadata-table summary JSON {path}: {error}"
         ))
     })?;
-    let root = parse_hudi_metadata_table_json(&metadata)?;
+    let metadata = owner.value();
+    let root = parse_hudi_metadata_table_json(metadata)?;
     let partition_order = root
         .get("partitions")
         .or_else(|| root.get("metadataPartitions"))
@@ -8390,11 +8519,12 @@ fn parse_hudi_metadata_table_json(
             "invalid Hudi metadata-table summary JSON: {error}"
         ))
     })?;
-    value.as_object().cloned().ok_or_else(|| {
-        ShardLoomError::InvalidOperation(
+    match value {
+        serde_json::Value::Object(root) => Ok(root),
+        _ => Err(ShardLoomError::InvalidOperation(
             "Hudi metadata-table summary JSON must be an object".to_string(),
-        )
-    })
+        )),
+    }
 }
 
 fn json_bool_from_keys(root: &serde_json::Map<String, serde_json::Value>, keys: &[&str]) -> bool {
@@ -8531,8 +8661,9 @@ fn build_iceberg_metadata_report(
     request: &IcebergMetadataReadSmokeRequest,
     metadata: &str,
     root: &serde_json::Map<String, serde_json::Value>,
+    pool: &LiveMemoryPool,
 ) -> Result<IcebergMetadataReadSmokeReport, ShardLoomError> {
-    let context = prepare_iceberg_metadata_report_context(request, root)?;
+    let context = prepare_iceberg_metadata_report_context(request, root, pool)?;
     Ok(assemble_iceberg_metadata_report(
         request,
         metadata.len(),
@@ -8544,14 +8675,15 @@ fn build_iceberg_metadata_report(
 fn prepare_iceberg_metadata_report_context<'a>(
     request: &IcebergMetadataReadSmokeRequest,
     root: &'a serde_json::Map<String, serde_json::Value>,
+    pool: &LiveMemoryPool,
 ) -> Result<IcebergMetadataReportBuildContext<'a>, ShardLoomError> {
     let root_parts = parse_iceberg_metadata_root_parts(root, &request.selection)?;
     let manifest_list_reader_feature_enabled = iceberg_manifest_list_reader_feature_enabled();
     let manifest_list_summary =
-        maybe_read_iceberg_manifest_list_summary(request.manifest_list_path.as_deref())?;
+        maybe_read_iceberg_manifest_list_summary(request.manifest_list_path.as_deref(), pool)?;
     let manifest_file_reader_feature_enabled = iceberg_manifest_file_reader_feature_enabled();
     let manifest_file_summary =
-        maybe_read_iceberg_manifest_file_summary(request.manifest_file_path.as_deref())?;
+        maybe_read_iceberg_manifest_file_summary(request.manifest_file_path.as_deref(), pool)?;
     let data_file_scan_reader_feature_enabled = iceberg_data_file_scan_reader_feature_enabled();
     let schema_evolution_summary = iceberg_schema_evolution_summary(root_parts.schemas);
     let partition_evolution_summary =
@@ -8583,6 +8715,7 @@ fn prepare_iceberg_metadata_report_context<'a>(
         root_parts.current_schema,
         manifest_file_summary.as_ref(),
         &unsupported_feature_order,
+        pool,
     )?;
     let metadata_summary = iceberg_metadata_summary(&IcebergMetadataSummaryContext {
         table_uuid: &root_parts.table_uuid,
@@ -8815,6 +8948,7 @@ fn iceberg_manifest_list_reader_feature_enabled() -> bool {
 
 fn maybe_read_iceberg_manifest_list_summary(
     manifest_list_path: Option<&str>,
+    pool: &LiveMemoryPool,
 ) -> Result<Option<IcebergManifestListSummary>, ShardLoomError> {
     let Some(path) = manifest_list_path else {
         return Ok(None);
@@ -8823,45 +8957,46 @@ fn maybe_read_iceberg_manifest_list_summary(
     if !iceberg_manifest_list_reader_feature_enabled() {
         return Ok(None);
     }
-    read_iceberg_manifest_list_summary(path).map(Some)
+    read_iceberg_manifest_list_summary(path, pool).map(Some)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn read_iceberg_source_bytes(
+    path: &Path,
+    pool: &LiveMemoryPool,
+) -> Result<Budgeted<Vec<u8>>, ShardLoomError> {
+    let metadata = fs::metadata(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to stat Iceberg source '{}': {error}",
+            path.display()
+        ))
+    })?;
+    crate::fixture_io::read_bytes(path, None, metadata.len(), pool).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read admitted Iceberg source '{}': {error}",
+            path.display()
+        ))
+    })
 }
 
 #[cfg(feature = "universal-format-io")]
 fn read_iceberg_manifest_list_summary(
     path: &str,
+    pool: &LiveMemoryPool,
 ) -> Result<IcebergManifestListSummary, ShardLoomError> {
     let projection_columns: Vec<String> = ICEBERG_MANIFEST_LIST_PROJECTION_COLUMNS
         .iter()
         .map(|column| (*column).to_string())
         .collect();
     let manifest_list_path = Path::new(path);
-    let bytes_read = usize::try_from(
-        fs::metadata(manifest_list_path)
-            .map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "failed to stat Iceberg manifest-list Avro '{}': {error}",
-                    manifest_list_path.display()
-                ))
-            })?
-            .len(),
-    )
-    .map_err(|_| {
-        ShardLoomError::InvalidOperation(format!(
-            "Iceberg manifest-list Avro '{}' is too large for this platform",
-            manifest_list_path.display()
-        ))
-    })?;
-    let table = shardloom_vortex::read_flat_avro_source_with_projection(
-        manifest_list_path,
-        ICEBERG_MANIFEST_LIST_MAX_ROWS,
-        &projection_columns,
-    )?;
+    let source = read_iceberg_source_bytes(manifest_list_path, pool)?;
+    let bytes_read = source.value().len();
     let mut summary = IcebergManifestListSummary {
         path: path.to_string(),
         bytes_read,
-        schema_column_count: table.header.len(),
-        projected_column_count: table.reader_projection_columns.len(),
-        entry_count: table.rows.len(),
+        schema_column_count: 0,
+        projected_column_count: 0,
+        entry_count: 0,
         partition_spec_id_order: Vec::new(),
         missing_partition_spec_id_count: 0,
         data_manifest_count: 0,
@@ -8878,9 +9013,26 @@ fn read_iceberg_manifest_list_summary(
         planned_data_file_count: 0,
         manifest_summary_pruning_rule: "data_manifests_only_delete_and_unknown_content_blocked",
     };
-    for row in &table.rows {
-        observe_iceberg_manifest_list_row(&mut summary, row, manifest_list_path)?;
-    }
+    let visit = shardloom_vortex::visit_budgeted_avro_source_with_projection(
+        source,
+        manifest_list_path,
+        ICEBERG_MANIFEST_LIST_MAX_ROWS,
+        &projection_columns,
+        |batch| {
+            for index in 0..batch.value().num_rows() {
+                observe_iceberg_manifest_list_row(
+                    &mut summary,
+                    batch.value(),
+                    index,
+                    manifest_list_path,
+                )?;
+            }
+            Ok(())
+        },
+    )?;
+    summary.schema_column_count = visit.header.len();
+    summary.projected_column_count = visit.reader_projection_columns.len();
+    summary.entry_count = visit.row_count;
     summary.planned_manifest_split_count = summary.data_manifest_count;
     summary.planned_data_file_count = summary
         .added_data_file_count
@@ -8891,6 +9043,7 @@ fn read_iceberg_manifest_list_summary(
 #[cfg(not(feature = "universal-format-io"))]
 fn read_iceberg_manifest_list_summary(
     _path: &str,
+    _pool: &LiveMemoryPool,
 ) -> Result<IcebergManifestListSummary, ShardLoomError> {
     Err(ShardLoomError::NotImplemented(
         "Iceberg manifest-list Avro summary reads require building shardloom-cli with --features universal-format-io"
@@ -8901,10 +9054,24 @@ fn read_iceberg_manifest_list_summary(
 #[cfg(feature = "universal-format-io")]
 fn observe_iceberg_manifest_list_row(
     summary: &mut IcebergManifestListSummary,
-    row: &BTreeMap<String, ScalarValue>,
+    row: &arrow_array::RecordBatch,
+    row_index: usize,
     manifest_list_path: &Path,
 ) -> Result<(), ShardLoomError> {
-    let manifest_path = iceberg_manifest_row_string(row, "manifest_path").ok_or_else(|| {
+    let string = |key| {
+        row.column_by_name(key)
+            .and_then(|column| iceberg_arrow_string(column.as_ref(), row_index))
+    };
+    let unsigned = |key| {
+        row.column_by_name(key)
+            .and_then(|column| iceberg_arrow_u64(column.as_ref(), row_index))
+            .or_else(|| string(key).and_then(|value| value.parse::<u64>().ok()))
+    };
+    let signed = |key| {
+        row.column_by_name(key)
+            .and_then(|column| iceberg_arrow_i64(column.as_ref(), row_index))
+    };
+    let manifest_path = string("manifest_path").ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
             "Iceberg manifest-list Avro '{}' row is missing manifest_path",
             manifest_list_path.display()
@@ -8919,8 +9086,8 @@ fn observe_iceberg_manifest_list_row(
 
     summary.total_manifest_bytes = summary
         .total_manifest_bytes
-        .saturating_add(iceberg_manifest_row_u64(row, "manifest_length").unwrap_or(0));
-    if let Some(partition_spec_id) = iceberg_manifest_row_i64(row, "partition_spec_id") {
+        .saturating_add(unsigned("manifest_length").unwrap_or(0));
+    if let Some(partition_spec_id) = signed("partition_spec_id") {
         push_unique_string(
             &mut summary.partition_spec_id_order,
             &partition_spec_id.to_string(),
@@ -8930,60 +9097,29 @@ fn observe_iceberg_manifest_list_row(
     }
     summary.added_data_file_count = summary
         .added_data_file_count
-        .saturating_add(iceberg_manifest_row_u64(row, "added_data_files_count").unwrap_or(0));
+        .saturating_add(unsigned("added_data_files_count").unwrap_or(0));
     summary.existing_data_file_count = summary
         .existing_data_file_count
-        .saturating_add(iceberg_manifest_row_u64(row, "existing_data_files_count").unwrap_or(0));
+        .saturating_add(unsigned("existing_data_files_count").unwrap_or(0));
     summary.deleted_data_file_count = summary
         .deleted_data_file_count
-        .saturating_add(iceberg_manifest_row_u64(row, "deleted_data_files_count").unwrap_or(0));
+        .saturating_add(unsigned("deleted_data_files_count").unwrap_or(0));
     summary.added_delete_file_count = summary
         .added_delete_file_count
-        .saturating_add(iceberg_manifest_row_u64(row, "added_delete_files_count").unwrap_or(0));
+        .saturating_add(unsigned("added_delete_files_count").unwrap_or(0));
     summary.existing_delete_file_count = summary
         .existing_delete_file_count
-        .saturating_add(iceberg_manifest_row_u64(row, "existing_delete_files_count").unwrap_or(0));
+        .saturating_add(unsigned("existing_delete_files_count").unwrap_or(0));
     summary.deleted_delete_file_count = summary
         .deleted_delete_file_count
-        .saturating_add(iceberg_manifest_row_u64(row, "deleted_delete_files_count").unwrap_or(0));
+        .saturating_add(unsigned("deleted_delete_files_count").unwrap_or(0));
 
-    match iceberg_manifest_row_i64(row, "content") {
+    match signed("content") {
         Some(0) => summary.data_manifest_count += 1,
         Some(1) => summary.delete_manifest_count += 1,
         _ => summary.unknown_content_manifest_count += 1,
     }
     Ok(())
-}
-
-#[cfg(feature = "universal-format-io")]
-fn iceberg_manifest_row_string<'a>(
-    row: &'a BTreeMap<String, ScalarValue>,
-    key: &str,
-) -> Option<&'a str> {
-    match row.get(key)? {
-        ScalarValue::Utf8(value) => Some(value.as_str()),
-        _ => None,
-    }
-}
-
-#[cfg(feature = "universal-format-io")]
-fn iceberg_manifest_row_u64(row: &BTreeMap<String, ScalarValue>, key: &str) -> Option<u64> {
-    match row.get(key)? {
-        ScalarValue::UInt64(value) => Some(*value),
-        ScalarValue::Int64(value) => u64::try_from(*value).ok(),
-        ScalarValue::Utf8(value) => value.parse::<u64>().ok(),
-        _ => None,
-    }
-}
-
-#[cfg(feature = "universal-format-io")]
-fn iceberg_manifest_row_i64(row: &BTreeMap<String, ScalarValue>, key: &str) -> Option<i64> {
-    match row.get(key)? {
-        ScalarValue::Int64(value) => Some(*value),
-        ScalarValue::UInt64(value) => i64::try_from(*value).ok(),
-        ScalarValue::Utf8(value) => value.parse::<i64>().ok(),
-        _ => None,
-    }
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -8997,6 +9133,7 @@ fn iceberg_manifest_file_reader_feature_enabled() -> bool {
 
 fn maybe_read_iceberg_manifest_file_summary(
     manifest_file_path: Option<&str>,
+    pool: &LiveMemoryPool,
 ) -> Result<Option<IcebergManifestFileSummary>, ShardLoomError> {
     let Some(path) = manifest_file_path else {
         return Ok(None);
@@ -9005,45 +9142,27 @@ fn maybe_read_iceberg_manifest_file_summary(
     if !iceberg_manifest_file_reader_feature_enabled() {
         return Ok(None);
     }
-    read_iceberg_manifest_file_summary(path).map(Some)
+    read_iceberg_manifest_file_summary(path, pool).map(Some)
 }
 
 #[cfg(feature = "universal-format-io")]
 fn read_iceberg_manifest_file_summary(
     path: &str,
+    pool: &LiveMemoryPool,
 ) -> Result<IcebergManifestFileSummary, ShardLoomError> {
     let projection_columns: Vec<String> = ICEBERG_MANIFEST_FILE_PROJECTION_COLUMNS
         .iter()
         .map(|column| (*column).to_string())
         .collect();
     let manifest_file_path = Path::new(path);
-    let bytes_read = usize::try_from(
-        fs::metadata(manifest_file_path)
-            .map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "failed to stat Iceberg manifest Avro '{}': {error}",
-                    manifest_file_path.display()
-                ))
-            })?
-            .len(),
-    )
-    .map_err(|_| {
-        ShardLoomError::InvalidOperation(format!(
-            "Iceberg manifest Avro '{}' is too large for this platform",
-            manifest_file_path.display()
-        ))
-    })?;
-    let source = shardloom_vortex::read_flat_avro_columnar_source_with_projection(
-        manifest_file_path,
-        ICEBERG_MANIFEST_FILE_MAX_ROWS,
-        &projection_columns,
-    )?;
+    let source = read_iceberg_source_bytes(manifest_file_path, pool)?;
+    let bytes_read = source.value().len();
     let mut summary = IcebergManifestFileSummary {
         path: path.to_string(),
         bytes_read,
-        schema_column_count: source.header.len(),
-        projected_column_count: source.reader_projection_columns.len(),
-        entry_count: source.row_count,
+        schema_column_count: 0,
+        projected_column_count: 0,
+        entry_count: 0,
         added_data_file_count: 0,
         existing_data_file_count: 0,
         deleted_data_file_count: 0,
@@ -9062,15 +9181,25 @@ fn read_iceberg_manifest_file_summary(
         non_parquet_data_file_count: 0,
         split_planning_rule: "added_and_existing_data_files_only_deleted_delete_and_unknown_entries_blocked",
     };
-    for batch in &source.batches {
-        observe_iceberg_manifest_file_batch(&mut summary, batch, manifest_file_path)?;
-    }
+    let visit = shardloom_vortex::visit_budgeted_avro_source_with_projection(
+        source,
+        manifest_file_path,
+        ICEBERG_MANIFEST_FILE_MAX_ROWS,
+        &projection_columns,
+        |batch| {
+            observe_iceberg_manifest_file_batch(&mut summary, batch.value(), manifest_file_path)
+        },
+    )?;
+    summary.schema_column_count = visit.header.len();
+    summary.projected_column_count = visit.reader_projection_columns.len();
+    summary.entry_count = visit.row_count;
     Ok(summary)
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn read_iceberg_manifest_file_summary(
     _path: &str,
+    _pool: &LiveMemoryPool,
 ) -> Result<IcebergManifestFileSummary, ShardLoomError> {
     Err(ShardLoomError::NotImplemented(
         "Iceberg manifest Avro split planning requires building shardloom-cli with --features universal-format-io"
@@ -9298,6 +9427,7 @@ fn maybe_execute_iceberg_data_file_scan(
     current_schema: &serde_json::Map<String, serde_json::Value>,
     manifest_file_summary: Option<&IcebergManifestFileSummary>,
     unsupported_feature_order: &[&'static str],
+    pool: &LiveMemoryPool,
 ) -> Result<Option<IcebergDataFileScanSummary>, ShardLoomError> {
     if !request.execute_data_file_scan
         || !iceberg_data_file_scan_reader_feature_enabled()
@@ -9308,7 +9438,7 @@ fn maybe_execute_iceberg_data_file_scan(
     let Some(manifest_file_summary) = manifest_file_summary else {
         return Ok(None);
     };
-    execute_iceberg_data_file_scan(current_schema, manifest_file_summary).map(Some)
+    execute_iceberg_data_file_scan(current_schema, manifest_file_summary, pool).map(Some)
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -9318,6 +9448,7 @@ const ICEBERG_DATA_FILE_SCAN_MAX_ROWS_PER_FILE: usize = 1_000_000;
 fn execute_iceberg_data_file_scan(
     current_schema: &serde_json::Map<String, serde_json::Value>,
     manifest_file_summary: &IcebergManifestFileSummary,
+    pool: &LiveMemoryPool,
 ) -> Result<IcebergDataFileScanSummary, ShardLoomError> {
     let projection_columns = iceberg_schema_projection_columns(current_schema);
     if projection_columns.is_empty() {
@@ -9345,19 +9476,16 @@ fn execute_iceberg_data_file_scan(
             .as_deref()
             .expect("scannable local parquet split has local path");
         let path = Path::new(local_path);
-        let metadata = fs::metadata(path).map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to stat Iceberg local Parquet data file '{}': {error}",
-                path.display()
-            ))
-        })?;
-        bytes_read = bytes_read.saturating_add(metadata.len());
+        let encoded = read_iceberg_source_bytes(path, pool)?;
+        bytes_read = bytes_read.saturating_add(encoded.value().len() as u64);
         manifest_record_count = manifest_record_count.saturating_add(split.record_count);
         manifest_file_size_bytes = manifest_file_size_bytes.saturating_add(split.file_size_bytes);
-        let source = shardloom_vortex::read_flat_parquet_columnar_source_with_projection(
+        let source = shardloom_vortex::visit_budgeted_parquet_source_with_projection(
+            encoded,
             path,
             ICEBERG_DATA_FILE_SCAN_MAX_ROWS_PER_FILE,
             &projection_columns,
+            |_| Ok(()),
         )?;
         let missing_projection_columns =
             missing_iceberg_projection_columns(&projection_columns, &source.materialized_columns);
@@ -9369,7 +9497,7 @@ fn execute_iceberg_data_file_scan(
             )));
         }
         actual_row_count = actual_row_count.saturating_add(source.row_count);
-        record_batch_count = record_batch_count.saturating_add(source.batches.len());
+        record_batch_count = record_batch_count.saturating_add(source.record_batch_count);
         file_path_order.push(split.file_path.clone());
         local_path_order.push(local_path.to_string());
     }
@@ -9379,7 +9507,7 @@ fn execute_iceberg_data_file_scan(
         reader_feature_enabled: true,
         provider_decision: "implement_shardloom_kernel",
         provider_kind: "compatibility_import",
-        provider_surface: "shardloom_vortex::read_flat_parquet_columnar_source_with_projection",
+        provider_surface: "shardloom_vortex::visit_budgeted_parquet_source_with_projection",
         support_status: "runtime_supported",
         native_io_certificate_status: "certified_local_iceberg_parquet_data_file_scan",
         native_io_certificate_ref: "iceberg.local-parquet-data-file-scan.native-io.v1",
@@ -9405,6 +9533,7 @@ fn execute_iceberg_data_file_scan(
 fn execute_iceberg_data_file_scan(
     _current_schema: &serde_json::Map<String, serde_json::Value>,
     _manifest_file_summary: &IcebergManifestFileSummary,
+    _pool: &LiveMemoryPool,
 ) -> Result<IcebergDataFileScanSummary, ShardLoomError> {
     Err(ShardLoomError::NotImplemented(
         "Iceberg local data-file scan execution requires building shardloom-cli with --features universal-format-io"
@@ -13091,6 +13220,79 @@ fn cdc_change_set_between() -> Result<ChangeSet, ShardLoomError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn table_metadata_files_require_credit_before_reading_and_parsing() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-table-metadata-credit-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("metadata.json");
+        fs::write(&path, "deliberately invalid metadata larger than one byte").unwrap();
+        let tiny = LiveMemoryPool::new(1).unwrap();
+        let iceberg =
+            parse_iceberg_metadata_read_smoke_args([path.display().to_string()].into_iter())
+                .unwrap();
+        let delta = DeltaLogMetadataReadSmokeRequest {
+            log_path: path.display().to_string(),
+        };
+        for error in [
+            run_iceberg_metadata_read_smoke(&iceberg, &tiny).unwrap_err(),
+            run_delta_log_metadata_read_smoke(&delta, &tiny).unwrap_err(),
+            read_hudi_metadata_table_summary(Some(path.to_str().unwrap()), &tiny).unwrap_err(),
+        ] {
+            assert!(error.to_string().contains("scoped read budget"), "{error}");
+        }
+        assert_eq!(tiny.snapshot().reserved_bytes, 0);
+        let valid = r#"{"metadataTableEnabled":true,"partitions":["files"]}"#;
+        fs::write(&path, valid).unwrap();
+        let pool = LiveMemoryPool::new(valid.len() as u64).unwrap();
+        let retained = pool.reserve(1).unwrap();
+        assert!(read_hudi_metadata_table_summary(Some(path.to_str().unwrap()), &pool).is_err());
+        drop(retained);
+        let summary =
+            read_hudi_metadata_table_summary(Some(path.to_str().unwrap()), &pool).unwrap();
+        assert_eq!(summary.partition_order, ["files"]);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn hudi_directory_names_retain_credit_and_preserve_filename_semantics() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-hudi-listing-credit-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        for name in [
+            "10.commit",
+            "20.extra.deltacommit.inflight",
+            "unknown",
+            ".ignored",
+        ] {
+            fs::write(root.join(name), []).unwrap();
+        }
+        let tiny = LiveMemoryPool::new(1).unwrap();
+        assert!(read_hudi_timeline_file_names(root.to_str().unwrap(), &tiny).is_err());
+        assert_eq!(tiny.snapshot().reserved_bytes, 0);
+        let pool = LiveMemoryPool::new(8192).unwrap();
+        let names = read_hudi_timeline_file_names(root.to_str().unwrap(), &pool).unwrap();
+        assert_eq!(names.value().len(), 3);
+        assert_eq!(
+            (
+                &*names.value()[1].instant,
+                &*names.value()[1].action,
+                &*names.value()[1].state
+            ),
+            ("20.extra", "deltacommit", "inflight")
+        );
+        assert_eq!(names.value()[2].action, "unknown");
+        assert!(pool.snapshot().reserved_bytes > 0);
+        drop(names);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn native_vortex_unsupported_operations_emit_route_unification_blockers() {

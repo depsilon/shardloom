@@ -125,8 +125,8 @@ REQUIRED_PYTHON_METHODS = (
 REQUIRED_SQL_ENTRYPOINTS = (
     "ctx.sql",
     "sl.sql",
-    'shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --format json',
-    'shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --format json',
+    'shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json',
+    'shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json',
 )
 
 

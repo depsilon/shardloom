@@ -138,7 +138,8 @@ fn native_scalar_subqueries_bind_every_branch_and_fail_on_a_second_row() {
     ] {
         let prepared = prepare(
             sql,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |_| panic!("memory only"),
         )
         .unwrap();
@@ -160,7 +161,8 @@ fn native_scalar_subqueries_bind_every_branch_and_fail_on_a_second_row() {
         assert!(
             prepare(
                 sql,
-                VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                    .expect("explicit fixture allocation"),
                 |_| panic!("memory only")
             )
             .is_err(),
@@ -190,9 +192,10 @@ fn native_scalar_subqueries_reject_dynamic_schemas_before_input_preparation() {
     ] {
         let error = prepare_with_inputs(
             &sql,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             |_| panic!("schema rejection must precede input preparation: {sql}"),
-            |_| panic!("schema rejection must precede source resolution: {sql}"),
+            |_, _| panic!("schema rejection must precede source resolution: {sql}"),
         )
         .err()
         .expect("dynamic scalar schema must be rejected during preparation");

@@ -25,7 +25,9 @@ mod engine_fabric_planning;
 mod engine_runtime_planning;
 mod evidence_certificates;
 mod evidence_schema_registry;
+mod execution_resources;
 mod extension_planning;
+mod fixture_io;
 mod gar_0029_evidence;
 mod input_planning;
 mod native_memory_input;
@@ -42,7 +44,6 @@ mod public_workflow_route;
 mod python_batch_protocol;
 mod python_worker_protocol;
 mod rest_api_planning;
-mod runtime_defaults;
 mod semantic_conformance;
 mod sql_local_source_runtime;
 mod sqlite_local_runtime;
@@ -1616,22 +1617,14 @@ mod tests {
         CliTempWorkspace { root, workspace }
     }
 
-    fn fake_vortex_file_plans_should_succeed() -> bool {
-        // Any enabled native I/O feature makes a made-up file invalid, while
-        // the feature-free metadata plan remains available.
-        !cfg!(any(
-            feature = "vortex-encoded-read-spike",
-            feature = "vortex-local-primitives",
-            feature = "vortex-write"
-        ))
+    fn assert_fake_vortex_file_io_plan_code(code: ExitCode) {
+        // Inert planning must not inspect even a missing file without resources.
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
-    fn assert_fake_vortex_file_io_plan_code(code: ExitCode) {
-        if fake_vortex_file_plans_should_succeed() {
-            assert_eq!(code, ExitCode::SUCCESS);
-        } else {
-            assert_ne!(code, ExitCode::SUCCESS);
-        }
+    fn run_with_fixture_resources(mut args: Vec<String>) -> ExitCode {
+        args.extend(["--memory-gb", "4", "--max-parallelism", "2"].map(str::to_owned));
+        run(args)
     }
 
     #[test]
@@ -2233,7 +2226,7 @@ mod tests {
             std::process::id()
         ));
         std::fs::write(&fixture, b"abcdef").expect("fixture write");
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "object-store-read-smoke".to_string(),
             fixture.to_string_lossy().into_owned(),
             "--range".to_string(),
@@ -2245,7 +2238,7 @@ mod tests {
 
     #[test]
     fn object_store_read_smoke_remote_provider_returns_non_zero() {
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "object-store-read-smoke".to_string(),
             "s3://bucket/object.vortex".to_string(),
         ]);
@@ -2259,7 +2252,7 @@ mod tests {
             std::process::id()
         ));
         std::fs::write(&fixture, b"abcdef").expect("fixture write");
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "object-store-read-smoke".to_string(),
             "s3://shardloom-public-fixtures/object.vortex".to_string(),
             "--profile".to_string(),
@@ -2283,7 +2276,7 @@ mod tests {
         let source = temp_dir.join("source.bin");
         let target = temp_dir.join("target.bin");
         std::fs::write(&source, b"abcdef").expect("fixture write");
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "object-store-write-smoke".to_string(),
             source.to_string_lossy().into_owned(),
             target.to_string_lossy().into_owned(),
@@ -2303,7 +2296,7 @@ mod tests {
         std::fs::create_dir_all(&temp_dir).expect("temp dir");
         let source = temp_dir.join("source.bin");
         std::fs::write(&source, b"abcdef").expect("fixture write");
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "object-store-write-smoke".to_string(),
             source.to_string_lossy().into_owned(),
             "s3://bucket/object.vortex".to_string(),
@@ -2320,7 +2313,7 @@ mod tests {
         ));
         std::fs::create_dir_all(&temp_dir).expect("temp dir");
         let target = temp_dir.join("committed-table-manifest.json");
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "local-table-append-commit-rehearsal-smoke".to_string(),
             target.to_string_lossy().into_owned(),
             "--idempotency-key".to_string(),
@@ -2333,7 +2326,7 @@ mod tests {
 
     #[test]
     fn local_table_append_commit_rehearsal_remote_provider_returns_non_zero() {
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "local-table-append-commit-rehearsal-smoke".to_string(),
             "s3://bucket/table/metadata/v2.json".to_string(),
         ]);
@@ -2348,14 +2341,14 @@ mod tests {
         ));
         std::fs::create_dir_all(&temp_dir).expect("temp dir");
         let target = temp_dir.join("committed-table-manifest.json");
-        let commit_code = run(vec![
+        let commit_code = run_with_fixture_resources(vec![
             "local-table-append-commit-rehearsal-smoke".to_string(),
             target.to_string_lossy().into_owned(),
             "--idempotency-key".to_string(),
             "main-unit-table-recovery".to_string(),
         ]);
         assert_eq!(commit_code, ExitCode::SUCCESS);
-        let recovery_code = run(vec![
+        let recovery_code = run_with_fixture_resources(vec![
             "local-table-commit-recovery-smoke".to_string(),
             target.to_string_lossy().into_owned(),
             "--idempotency-key".to_string(),
@@ -2367,7 +2360,7 @@ mod tests {
 
     #[test]
     fn local_table_commit_recovery_remote_provider_returns_non_zero() {
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "local-table-commit-recovery-smoke".to_string(),
             "s3://bucket/table/metadata/v2.json".to_string(),
         ]);
@@ -3469,7 +3462,7 @@ mod tests {
     }
     #[test]
     fn live_fixture_run_returns_success() {
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "live-fixture-run".to_string(),
             "group-count".to_string(),
             "metric".to_string(),
@@ -3478,7 +3471,7 @@ mod tests {
     }
     #[test]
     fn hybrid_overlay_run_returns_success() {
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "hybrid-overlay-run".to_string(),
             "group-count".to_string(),
             "metric".to_string(),
@@ -3487,7 +3480,8 @@ mod tests {
     }
     #[test]
     fn live_hybrid_state_transition_smoke_returns_success() {
-        let code = run(vec!["live-hybrid-state-transition-smoke".to_string()]);
+        let code =
+            run_with_fixture_resources(vec!["live-hybrid-state-transition-smoke".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]
@@ -3497,7 +3491,7 @@ mod tests {
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&checkpoint_dir);
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "live-hybrid-durable-checkpoint-smoke".to_string(),
             checkpoint_dir.display().to_string(),
         ]);
@@ -3506,7 +3500,7 @@ mod tests {
     }
     #[test]
     fn distributed_local_fixture_run_returns_success() {
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "distributed-local-fixture-run".to_string(),
             "2".to_string(),
             "fault-injection".to_string(),
@@ -5642,7 +5636,7 @@ mod tests {
     }
 
     #[test]
-    fn vortex_execution_readiness_with_vortex_uri_returns_non_zero_when_blocked() {
+    fn vortex_execution_readiness_defers_file_inspection_and_respects_feature_gate() {
         let code = run_with_larger_stack(
             "vortex-execution-readiness-vortex-uri",
             vec![
@@ -5652,11 +5646,15 @@ mod tests {
                 "2".to_string(),
             ],
         );
-        assert_ne!(code, ExitCode::SUCCESS);
+        if shardloom_vortex::vortex_file_io_feature_enabled() {
+            assert_eq!(code, ExitCode::SUCCESS);
+        } else {
+            assert_ne!(code, ExitCode::SUCCESS);
+        }
     }
 
     #[test]
-    fn vortex_dry_run_with_vortex_uri_returns_non_zero_when_readiness_blocked() {
+    fn vortex_dry_run_defers_file_inspection_and_respects_feature_gate() {
         let code = run_with_larger_stack(
             "vortex-dry-run-vortex-uri",
             vec![
@@ -5666,7 +5664,11 @@ mod tests {
                 "2".to_string(),
             ],
         );
-        assert_ne!(code, ExitCode::SUCCESS);
+        if shardloom_vortex::vortex_file_io_feature_enabled() {
+            assert_eq!(code, ExitCode::SUCCESS);
+        } else {
+            assert_ne!(code, ExitCode::SUCCESS);
+        }
     }
 
     #[test]
@@ -5936,11 +5938,84 @@ mod tests {
         assert_eq!(parsed.0.as_str(), "file:///tmp/example.vortex");
         assert_eq!(
             parsed.1,
-            vortex_primitive_execution::VortexCountExecutionRequest::LocalEncodedCount {
-                memory_gb: 1,
-                max_parallelism: 2
-            }
+            vortex_primitive_execution::VortexCountExecutionRequest::LocalEncodedCount(
+                shardloom_core::ExecutionResources::from_gib(
+                    1,
+                    2,
+                    shardloom_core::ExecutionResourceOrigin::ExecutionCall
+                )
+                .unwrap()
+            )
         );
+    }
+
+    #[test]
+    fn vortex_count_inspection_and_execution_require_exact_resources() {
+        for execute in [false, true] {
+            for tail in [
+                vec![],
+                vec!["--memory-gb", "4"],
+                vec!["--max-parallelism", "2"],
+                vec!["--memory-gb", "4", "--max-parallelism", "eight"],
+                vec!["--memory-gb", "4", "--max-parallelism", "0"],
+                vec![
+                    "--memory-bytes",
+                    "18446744073709551616",
+                    "--max-parallelism",
+                    "2",
+                ],
+            ] {
+                let mut args = vec!["/dev/null/absent.vortex"];
+                if execute {
+                    args.push("--execute-local-encoded-count");
+                }
+                args.extend(tail);
+                let diagnostic = vortex_primitive_execution::parse_vortex_count_args(
+                    args.into_iter()
+                        .map(str::to_owned)
+                        .collect::<Vec<_>>()
+                        .into_iter(),
+                )
+                .unwrap_err()
+                .to_diagnostic();
+                assert_eq!(diagnostic.code.as_str(), "SL_CONFIGURATION_ERROR");
+                assert!(!diagnostic.fallback.attempted);
+            }
+            let mut args = vec!["/dev/null/absent.vortex"];
+            if execute {
+                args.push("--execute-local-encoded-count");
+            }
+            args.extend([
+                "--memory-bytes",
+                "1500000001",
+                "--max-parallelism",
+                "3",
+                "--memory-origin",
+                "platform",
+                "--parallelism-origin",
+                "session",
+            ]);
+            let (_, parsed) = vortex_primitive_execution::parse_vortex_count_args(
+                args.into_iter()
+                    .map(str::to_owned)
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+            )
+            .unwrap();
+            let resources = match parsed {
+                vortex_primitive_execution::VortexCountExecutionRequest::MetadataOnly(
+                    resources,
+                )
+                | vortex_primitive_execution::VortexCountExecutionRequest::LocalEncodedCount(
+                    resources,
+                ) => resources,
+            };
+            assert_eq!(resources.memory_bytes(), 1_500_000_001);
+            assert_eq!(resources.whole_gib(), None);
+            assert_eq!(resources.max_parallelism(), 3);
+            assert_eq!(resources.memory_origin().as_str(), "platform");
+            assert_eq!(resources.parallelism_origin().as_str(), "session");
+        }
     }
 
     #[test]
@@ -6032,8 +6107,11 @@ mod tests {
     fn executed_local_primitive_report(
         kind: shardloom_vortex::VortexQueryPrimitiveKind,
     ) -> shardloom_vortex::VortexLocalPrimitiveExecutionReport {
-        let mut report =
-            shardloom_vortex::VortexLocalPrimitiveExecutionReport::feature_disabled(kind);
+        let mut report = shardloom_vortex::VortexLocalPrimitiveExecutionReport::feature_disabled(
+            kind,
+            shardloom_vortex::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+                .expect("explicit fixture allocation"),
+        );
         report.status = shardloom_vortex::VortexLocalPrimitiveExecutionStatus::Executed;
         report
     }
@@ -6145,7 +6223,16 @@ mod tests {
         shardloom_vortex::VortexEncodedReadExecutionReport,
         VortexLocalExecutionReport,
     ) {
-        let readiness = build_vortex_encoded_count_readiness(uri.clone(), 1, 1).expect("readiness");
+        let readiness = build_vortex_encoded_count_readiness(
+            uri.clone(),
+            shardloom_core::ExecutionResources::from_gib(
+                1,
+                1,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .unwrap(),
+        )
+        .expect("readiness");
         let mut encoded_report =
             shardloom_vortex::VortexEncodedReadExecutionReport::feature_disabled(
                 shardloom_vortex::VortexEncodedReadExecutionInput::new(readiness)
@@ -6194,8 +6281,16 @@ mod tests {
         std::fs::copy(&fixture_path, &temp_path).expect("copy fixture");
         let uri = DatasetUri::new(temp_path.to_string_lossy().to_string()).expect("uri");
 
-        let (encoded_report, local_report) =
-            run_vortex_approved_local_encoded_count(uri, 1, 2).expect("local count");
+        let (encoded_report, local_report) = run_vortex_approved_local_encoded_count(
+            uri,
+            shardloom_core::ExecutionResources::from_gib(
+                1,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .unwrap(),
+        )
+        .expect("local count");
         let evidence =
             vortex_count_local_encoded_evidence(&encoded_report, &local_report).expect("evidence");
         let _ = std::fs::remove_file(&temp_path);
@@ -6257,7 +6352,11 @@ mod tests {
         capillary_units: Vec<&str>,
         pressure_signals: Vec<&str>,
     ) -> VortexLocalPrimitiveExecutionReport {
-        let mut report = VortexLocalPrimitiveExecutionReport::feature_disabled(kind);
+        let mut report = VortexLocalPrimitiveExecutionReport::feature_disabled(
+            kind,
+            shardloom_vortex::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+                .expect("explicit fixture allocation"),
+        );
         report.status = VortexLocalPrimitiveExecutionStatus::Executed;
         report.mode = VortexLocalPrimitiveExecutionMode::VortexScanPushdown;
         report.result_summary = Some("surface-neutral shared runtime evidence".to_string());
@@ -6667,8 +6766,8 @@ mod tests {
         .expect("parsed")
         .expect("request");
 
-        assert_eq!(parsed.memory_gb, 2);
-        assert_eq!(parsed.max_parallelism, 4);
+        assert_eq!(parsed.resources.whole_gib(), Some(2));
+        assert_eq!(parsed.resources.max_parallelism(), 4);
     }
 
     #[test]
@@ -6738,8 +6837,12 @@ mod tests {
             },
         );
         let local_request = VortexCountWhereLocalExecutionRequest {
-            memory_gb: 1,
-            max_parallelism: 2,
+            resources: shardloom_core::ExecutionResources::from_gib(
+                1,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         };
 
         let evidence = vortex_count_where_local_execution_evidence(&request, &local_request)
@@ -6811,8 +6914,12 @@ mod tests {
             ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
         );
         let local_request = VortexLocalPrimitiveCliExecutionRequest {
-            memory_gb: 1,
-            max_parallelism: 2,
+            resources: shardloom_core::ExecutionResources::from_gib(
+                1,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         };
 
         let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
@@ -6883,8 +6990,12 @@ mod tests {
             ProjectionRequest::columns(vec![ColumnRef::new("value").expect("column")]),
         );
         let local_request = VortexLocalPrimitiveCliExecutionRequest {
-            memory_gb: 1,
-            max_parallelism: 2,
+            resources: shardloom_core::ExecutionResources::from_gib(
+                1,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         };
 
         let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
@@ -6927,8 +7038,12 @@ mod tests {
             ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
         );
         let local_request = VortexLocalPrimitiveCliExecutionRequest {
-            memory_gb: 1,
-            max_parallelism: 2,
+            resources: shardloom_core::ExecutionResources::from_gib(
+                1,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         };
 
         let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
@@ -7016,8 +7131,12 @@ mod tests {
             ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
         );
         let local_request = VortexLocalPrimitiveCliExecutionRequest {
-            memory_gb: 1,
-            max_parallelism: 2,
+            resources: shardloom_core::ExecutionResources::from_gib(
+                1,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         };
 
         let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
@@ -7063,8 +7182,12 @@ mod tests {
             },
         );
         let local_request = VortexLocalPrimitiveCliExecutionRequest {
-            memory_gb: 1,
-            max_parallelism: 2,
+            resources: shardloom_core::ExecutionResources::from_gib(
+                1,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         };
 
         let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
@@ -7132,8 +7255,12 @@ mod tests {
             },
         );
         let local_request = VortexLocalPrimitiveCliExecutionRequest {
-            memory_gb: 1,
-            max_parallelism: 2,
+            resources: shardloom_core::ExecutionResources::from_gib(
+                1,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         };
 
         let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
@@ -8177,7 +8304,7 @@ mod tests {
 
     #[test]
     fn vortex_file_metadata_open_non_vortex_uri_returns_non_zero() {
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "vortex-file-metadata-open".to_string(),
             "file://tmp/not-vortex.parquet".to_string(),
         ]);
@@ -8194,6 +8321,10 @@ mod tests {
                 workspace.workspace.to_string_lossy().into_owned(),
                 "payload-1".to_string(),
                 "hello".to_string(),
+                "--memory-gb".to_string(),
+                "4".to_string(),
+                "--max-parallelism".to_string(),
+                "2".to_string(),
             ],
         );
         assert_eq!(code, ExitCode::SUCCESS);
@@ -8201,7 +8332,7 @@ mod tests {
 
     #[test]
     fn spill_payload_roundtrip_invalid_payload_id_returns_non_zero() {
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "spill-payload-roundtrip".to_string(),
             "/tmp/shardloom_spill_payload".to_string(),
             "../bad".to_string(),
@@ -8212,7 +8343,7 @@ mod tests {
 
     #[test]
     fn spill_payload_roundtrip_empty_payload_text_returns_non_zero() {
-        let code = run(vec![
+        let code = run_with_fixture_resources(vec![
             "spill-payload-roundtrip".to_string(),
             "/tmp/shardloom_spill_payload".to_string(),
             "payload-1".to_string(),

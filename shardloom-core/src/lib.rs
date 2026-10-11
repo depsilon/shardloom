@@ -28,6 +28,7 @@ pub mod effect_budget;
 pub mod encoded;
 pub mod engine_modes;
 pub mod execution_certificate;
+pub mod execution_resources;
 pub mod expression;
 pub mod extension;
 pub mod feature_footprint;
@@ -166,6 +167,10 @@ pub use execution_certificate::{
     ExecutionEvidenceArtifactRequirement, ExecutionEvidenceArtifactStatus,
     plan_execution_certificate_evidence_surface,
 };
+pub use execution_resources::{
+    BYTES_PER_GIB, ExecutionResourceLimits, ExecutionResourceOrigin, ExecutionResourceRequest,
+    ExecutionResources,
+};
 pub use extension::{
     DeterministicEmbeddingVectorFixtureReport, DeterministicScalarUdfFixtureReport,
     ExtensionAuditContract, ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory,
@@ -227,8 +232,9 @@ pub use live_engine::{
     LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport,
     LiveHybridDurableCheckpointFixtureReport, LiveHybridStateTransitionFixtureReport,
     LiveOutputRow, OutputChangelogEntry, OutputChangelogMode, StateCertificate, StateTtlPolicy,
-    WatermarkPolicy, plan_live_change_contract, run_live_fixture,
-    run_live_hybrid_durable_checkpoint_fixture, run_live_hybrid_state_transition_fixture,
+    WatermarkPolicy, live_hybrid_durable_checkpoint_workspace_bytes, plan_live_change_contract,
+    run_live_fixture, run_live_hybrid_durable_checkpoint_fixture,
+    run_live_hybrid_state_transition_fixture,
 };
 
 pub use manifest::{

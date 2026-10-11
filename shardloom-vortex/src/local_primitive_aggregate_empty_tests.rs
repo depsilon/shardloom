@@ -23,7 +23,8 @@ fn unprunable_empty_aggregate_preserves_zero_values_and_certifies_scan_scope() {
     });
     let report = execute_vortex_local_primitive_with_policy(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert!(!report.has_errors());

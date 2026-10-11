@@ -55,7 +55,16 @@ fn public_aggregate_spill_sql_dataframe_exact_values_cleanup_and_effect_admissio
     drop(writer);
     let columnar = shardloom_vortex::read_flat_arrow_ipc_columnar_source(&ipc, ROWS).unwrap();
     shardloom_vortex::write_flat_columnar_vortex_prepared_state(
-        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(&source, columnar),
+        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
+            &source,
+            columnar,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        ),
     )
     .unwrap();
     let mut oracle = BTreeMap::<i64, BTreeSet<u64>>::new();
@@ -119,6 +128,8 @@ fn public_aggregate_spill_sql_dataframe_exact_values_cleanup_and_effect_admissio
             "native_vortex",
             "--vortex-aggregate",
             &payload,
+            "--memory-gb",
+            "4",
             "--max-parallelism",
             "2",
             "--format",
@@ -212,6 +223,8 @@ fn public_aggregate_spill_sql_dataframe_exact_values_cleanup_and_effect_admissio
             "--allow-overwrite",
             "--vortex-aggregate",
             &payload,
+            "--memory-gb",
+            "4",
             "--max-parallelism",
             "2",
             "--format",
@@ -305,6 +318,10 @@ fn public_aggregate_spill_sql_dataframe_exact_values_cleanup_and_effect_admissio
         "7",
         "--vortex-aggregate",
         &payload,
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);

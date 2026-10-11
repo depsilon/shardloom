@@ -426,6 +426,13 @@ fn append_execution(
     result: &ExecutedVortexRelational,
     reused: bool,
 ) {
+    crate::execution_resources::append_declaration_fields(fields, result.resources);
+    crate::execution_resources::append_resident_snapshot_fields(fields, &result.runtime);
+    crate::execution_resources::append_spill_observation_fields(
+        fields,
+        result.native_io_certificate.side_effects.spill_io_performed,
+        None,
+    );
     append_spill(fields, result);
     fields.extend([
         (

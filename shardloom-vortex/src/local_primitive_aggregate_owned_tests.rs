@@ -50,7 +50,8 @@ impl Fixture {
     fn source(&self, keys: ArrayRef, values: Vec<u64>) -> PathBuf {
         let path = self.0.join("source.vortex");
         let runtime = super::super::local_vortex_runtime(
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         );
         let session = VortexSession::default().with_handle(runtime.handle());
         let rows = keys.len();
@@ -90,7 +91,8 @@ impl Fixture {
     fn physical_pair_batches(&self, pairs: &[(i64, u64)]) -> PathBuf {
         let path = self.0.join("source.vortex");
         let runtime = super::super::local_vortex_runtime(
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         );
         let session = VortexSession::default().with_handle(runtime.handle());
         let arrays = pairs
@@ -207,7 +209,7 @@ fn owned_distinct_preserves_complete_order_offsets_and_fresh_execution_under_wor
         for (offset, limit) in [(0, 10), (1, 1), (2, 3), (8, 2)] {
             let prepared = prepare_aggregate(
                 &request(&path, offset, limit),
-                VortexLocalPrimitiveExecutionPolicy::new(workers).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap(),
             )
             .unwrap();
             for (index, pressure) in [false, true, false].into_iter().enumerate() {
@@ -283,7 +285,8 @@ fn owned_distinct_finalizes_committed_pairs_and_later_source_rows_after_mid_scan
     assert_eq!(oracle, vec![(0, 24), (7, 24), (i64::MIN, 2), (i64::MAX, 2)]);
     for workers in [1, 2, 4] {
         for (offset, limit) in [(0, 10), (1, 2), (3, 4), (8, 2)] {
-            let mut policy = VortexLocalPrimitiveExecutionPolicy::new(workers).unwrap();
+            let mut policy =
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap();
             policy.resource_envelope.group_state_soft_item_budget = 2;
             let prepared = prepare_aggregate(&request(&path, offset, limit), policy).unwrap();
             let memory = prepared.session.memory().clone();
@@ -339,7 +342,7 @@ fn owned_distinct_preserves_every_original_integer_width_and_extreme_value() {
             let fixture = Fixture::new();
             let keys = vec![<$t>::MAX, <$t>::MIN, <$t>::MAX, <$t>::MIN];
             let path = fixture.source(PrimitiveArray::new(keys, Validity::NonNullable).into_array(), vec![1, 1, 2, 2]);
-            let prepared = prepare_aggregate(&request(&path, 0, 5), VortexLocalPrimitiveExecutionPolicy::new(2).unwrap()).unwrap();
+            let prepared = prepare_aggregate(&request(&path, 0, 5), VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap()).unwrap();
             let completed = prepared.execute_owned().unwrap();
             assert_eq!(completed.result.arrays()[0].dtype().as_struct_fields_opt().unwrap().field(KEY), Some(DType::Primitive($ptype, Nullability::NonNullable)));
             assert_eq!(rendered(&completed.result), serde_json::json!([{KEY: <$t>::MIN, COUNT: 2}, {KEY: <$t>::MAX, COUNT: 2}]));
@@ -381,7 +384,7 @@ fn owned_distinct_empty_and_fully_pruned_results_keep_typed_empty_schema() {
         }
         let prepared = prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         let completed = prepared.execute_owned().unwrap();
@@ -421,7 +424,7 @@ fn owned_distinct_declines_unsupported_shapes_and_memory_before_execution() {
     for request in requests {
         let prepared = prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         assert!(prepared.execute_owned().is_err());
@@ -429,7 +432,7 @@ fn owned_distinct_declines_unsupported_shapes_and_memory_before_execution() {
     }
     let prepared = prepare_aggregate(
         &request(&path, 0, 10),
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
     let memory = prepared.session.memory();
@@ -452,7 +455,7 @@ fn owned_distinct_declines_unsupported_shapes_and_memory_before_execution() {
     );
     let prepared = prepare_aggregate(
         &request(&path, 0, 10),
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
     let result = prepared.execute_owned().unwrap();
@@ -470,7 +473,7 @@ fn owned_distinct_payload_and_credits_survive_source_and_handle_lifetimes() {
     let path = standard(&fixture);
     let prepared = prepare_aggregate(
         &request(&path, 0, 10),
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
     let memory = prepared.session.memory().clone();
@@ -491,7 +494,7 @@ fn owned_distinct_native_sink_roundtrips_without_reopening_source_or_executing_a
     let path = standard(&fixture);
     let prepared = prepare_aggregate(
         &request(&path, 0, 10),
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
     let completed = prepared.execute_owned().unwrap();
@@ -528,7 +531,7 @@ fn owned_distinct_sink_pressure_and_existing_target_preserve_destination_and_rel
     let path = standard(&fixture);
     let prepared = prepare_aggregate(
         &request(&path, 0, 10),
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
     let memory = prepared.session.memory();
@@ -589,7 +592,7 @@ fn owned_distinct_public_exports_roundtrip_all_values_through_existing_compatibi
             &target,
             format,
             false,
-            VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         )
         .unwrap();
         let expected = expected()

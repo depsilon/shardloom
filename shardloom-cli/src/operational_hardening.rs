@@ -360,6 +360,15 @@ pub(crate) fn handle_spill_payload_roundtrip(
         );
         return ExitCode::from(2);
     };
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "spill-payload-roundtrip",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let mut cleanup_after = false;
     if let Some(extra) = args.next() {
         if extra == "--cleanup" {
@@ -443,7 +452,7 @@ pub(crate) fn handle_spill_payload_roundtrip(
             );
         }
     };
-    emit_spill_payload_roundtrip(format, &report)
+    emit_spill_payload_roundtrip(format, &report, resources)
 }
 
 #[allow(clippy::too_many_lines)]
@@ -956,6 +965,7 @@ fn emit_security_style_plan(
 fn emit_spill_payload_roundtrip(
     format: OutputFormat,
     report: &SpillPayloadRoundTripReport,
+    resources: shardloom_core::ExecutionResources,
 ) -> ExitCode {
     let bytes_read = report.read_report.as_ref().map_or(0, |v| v.bytes_read);
     let verification_passed = report
@@ -973,50 +983,53 @@ fn emit_spill_payload_roundtrip(
         "spill payload roundtrip report".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        vec![
-            (
-                "fallback_execution_allowed".to_string(),
-                "false".to_string(),
-            ),
-            ("mode".to_string(), "spill_payload_roundtrip".to_string()),
-            (
-                "spill_payload_feature_enabled".to_string(),
-                spill_payload_fs_feature_enabled().to_string(),
-            ),
-            (
-                "payload_written".to_string(),
-                report.payload_written().to_string(),
-            ),
-            (
-                "payload_read".to_string(),
-                report.payload_read().to_string(),
-            ),
-            (
-                "cleanup_performed".to_string(),
-                report.cleanup_performed().to_string(),
-            ),
-            (
-                "object_store_io".to_string(),
-                report.object_store_io().to_string(),
-            ),
-            (
-                "output_dataset_write".to_string(),
-                report.output_dataset_write().to_string(),
-            ),
-            (
-                "execution".to_string(),
-                "spill_payload_roundtrip_or_not_performed".to_string(),
-            ),
-            (
-                "bytes_written".to_string(),
-                report.write_report.bytes_written.to_string(),
-            ),
-            ("bytes_read".to_string(), bytes_read.to_string()),
-            (
-                "verification_passed".to_string(),
-                verification_passed.to_string(),
-            ),
-        ],
+        crate::execution_resources::with_declaration_fields(
+            vec![
+                (
+                    "fallback_execution_allowed".to_string(),
+                    "false".to_string(),
+                ),
+                ("mode".to_string(), "spill_payload_roundtrip".to_string()),
+                (
+                    "spill_payload_feature_enabled".to_string(),
+                    spill_payload_fs_feature_enabled().to_string(),
+                ),
+                (
+                    "payload_written".to_string(),
+                    report.payload_written().to_string(),
+                ),
+                (
+                    "payload_read".to_string(),
+                    report.payload_read().to_string(),
+                ),
+                (
+                    "cleanup_performed".to_string(),
+                    report.cleanup_performed().to_string(),
+                ),
+                (
+                    "object_store_io".to_string(),
+                    report.object_store_io().to_string(),
+                ),
+                (
+                    "output_dataset_write".to_string(),
+                    report.output_dataset_write().to_string(),
+                ),
+                (
+                    "execution".to_string(),
+                    "spill_payload_roundtrip_or_not_performed".to_string(),
+                ),
+                (
+                    "bytes_written".to_string(),
+                    report.write_report.bytes_written.to_string(),
+                ),
+                ("bytes_read".to_string(), bytes_read.to_string()),
+                (
+                    "verification_passed".to_string(),
+                    verification_passed.to_string(),
+                ),
+            ],
+            resources,
+        ),
     );
     exit_for_errors(report.has_errors())
 }

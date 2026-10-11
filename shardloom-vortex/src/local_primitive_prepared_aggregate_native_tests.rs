@@ -106,7 +106,9 @@ fn prepared_extrema_and_average_preserve_nullable_integer_values_and_fresh_state
                         value: StatValue::Int64(5),
                     });
                 }
-                let policy = VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap();
+                let policy =
+                    VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4)
+                        .unwrap();
                 let ordinary = crate::local_primitives::execute_vortex_local_primitive_with_policy(
                     &request, policy,
                 )
@@ -189,7 +191,7 @@ fn true_empty_prepared_aggregates_certify_complete_values_and_reexecute_without_
         for parallelism in [1, 2] {
             let prepared = prepare_aggregate(
                 &request,
-                VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             )
             .unwrap();
             let owner = prepared.session.clone();
@@ -273,7 +275,8 @@ fn true_empty_ordinary_aggregate_preserves_extrema_and_rejects_nonempty_missing_
     let request = fixture.request(aggregate);
     let report = crate::local_primitives::execute_vortex_local_primitive_with_policy(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert_eq!(
@@ -346,7 +349,7 @@ fn optional_preparation_retains_text_and_float_schema_without_executing_or_reope
     );
     let disposition = prepare_aggregate_for_optional_reuse(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap()
     .unwrap();
@@ -515,7 +518,7 @@ fn retained_grouped_count_distinct_sum_preserve_nulls_and_adjacent_large_identit
             let session = ResidentVortexSession::new(32 << 20, parallelism).unwrap();
             let prepared = prepare_aggregate_in_session(
                 &request,
-                VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
                 &session,
             )
             .unwrap();
@@ -569,7 +572,7 @@ fn retained_exact_distinct_worker_admission_reuses_generation_with_fresh_partiti
     for parallelism in [1, 2, 4] {
         let prepared = prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
         )
         .unwrap();
         assert!(prepared.worker_pool);

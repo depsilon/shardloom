@@ -135,6 +135,7 @@ fn render(
         Some(&result.native_io_certificate),
         None,
     );
+    crate::execution_resources::append_resident_snapshot_fields(&mut fields, &result.runtime);
     let (jsonl, _json_ownership) = executed.value.result_jsonl.into_parts();
     let (schema, _schema_ownership) = executed.value.result_schema_json.into_parts();
     append_native_result_schema_fields(&mut fields, schema);

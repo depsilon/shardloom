@@ -336,7 +336,16 @@ fn write_empty_source(root: &Path, source: &Path) {
     let columnar = shardloom_vortex::read_flat_arrow_ipc_columnar_source(&ipc, 1).unwrap();
     assert_eq!(columnar.row_count, 0);
     shardloom_vortex::write_flat_columnar_vortex_prepared_state(
-        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(source, columnar),
+        shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
+            source,
+            columnar,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        ),
     )
     .unwrap();
 }

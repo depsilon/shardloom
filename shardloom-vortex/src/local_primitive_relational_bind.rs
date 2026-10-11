@@ -59,6 +59,10 @@ enum SourceIndex {
 }
 
 impl<'a> Binder<'a> {
+    pub(super) fn shared_memory_pool(&self) -> shardloom_exec::live_memory::LiveMemoryPool {
+        self.session.memory().clone()
+    }
+
     pub(super) fn reserve_input_scratch(&self, bytes: u64) -> Result<MemoryLease> {
         self.session.reserve_input_scratch(bytes)
     }

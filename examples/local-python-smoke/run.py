@@ -15,6 +15,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run ShardLoom's local Python smoke.")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--shardloom-bin")
+    parser.add_argument("--memory-gb", type=int, required=True, help="Caller allocation in GiB.")
+    parser.add_argument("--max-parallelism", type=int, required=True, help="Caller execution-lane ceiling.")
     return parser.parse_args(argv)
 
 
@@ -31,7 +33,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.shardloom_bin
         else ShardLoomClient.from_repo(repo_root)
     )
-    ctx = sl.context(client=client)
+    ctx = sl.context(client=client, memory_gb=args.memory_gb, max_parallelism=args.max_parallelism)
     status = client.status()
     smoke = client.smoke_check()
     capabilities = client.capabilities()

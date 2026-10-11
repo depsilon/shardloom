@@ -47,6 +47,12 @@ mod unary;
 
 type NativeResult<T> = Result<T, ShardLoomError>;
 
+type SourceResolver<'a> = dyn FnMut(
+        &ParsedRelationLeaf,
+        Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    ) -> NativeResult<Vec<DatasetUri>>
+    + 'a;
+
 #[cfg(test)]
 pub(crate) fn prepare(
     raw: &str,
@@ -57,7 +63,7 @@ pub(crate) fn prepare(
         raw,
         policy,
         |_| Ok(()),
-        |leaf| resolve_source(leaf).map(|uri| vec![uri]),
+        |leaf, _| resolve_source(leaf).map(|uri| vec![uri]),
     )
 }
 
@@ -65,7 +71,10 @@ pub(crate) fn prepare_with_inputs(
     raw: &str,
     policy: VortexLocalPrimitiveExecutionPolicy,
     inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
-    mut resolve_source: impl FnMut(&ParsedRelationLeaf) -> NativeResult<Vec<DatasetUri>>,
+    mut resolve_source: impl FnMut(
+        &ParsedRelationLeaf,
+        Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    ) -> NativeResult<Vec<DatasetUri>>,
 ) -> NativeResult<PreparedVortexRelational> {
     let (parsed, offset) = parsed_native_query(raw)?;
     if dynamic::required(&parsed) {
@@ -127,7 +136,10 @@ pub(crate) fn prepare_from_source(
     uri: DatasetUri,
     source: shardloom_vortex::resident_session::PreparedVortexSource,
     inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
-    mut resolve_source: impl FnMut(&ParsedRelationLeaf) -> NativeResult<Vec<DatasetUri>>,
+    mut resolve_source: impl FnMut(
+        &ParsedRelationLeaf,
+        Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    ) -> NativeResult<Vec<DatasetUri>>,
 ) -> NativeResult<PreparedVortexRelational> {
     let (parsed, offset) = parsed_native_query(raw)?;
     if dynamic::required(&parsed) {
@@ -375,7 +387,7 @@ impl Lowered {
 struct Lowerer<'a, 'session> {
     schemas: &'a mut VortexRelationalPreparation<'session>,
     serial: usize,
-    resolve_source: &'a mut dyn FnMut(&ParsedRelationLeaf) -> NativeResult<Vec<DatasetUri>>,
+    resolve_source: &'a mut SourceResolver<'a>,
     declaration: Option<dynamic::Declaration>,
     outer: Option<Vec<String>>,
 }
@@ -418,7 +430,7 @@ impl Lowerer<'_, '_> {
         let sources = if leaf.memory_input.is_some() {
             vec![DatasetUri::new(leaf.path.to_string_lossy())?]
         } else {
-            (self.resolve_source)(leaf)?
+            (self.resolve_source)(leaf, Some(&self.schemas.shared_memory_pool()))?
         };
         let source_uri = sources
             .first()

@@ -249,38 +249,6 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-TYPED-INPUT` extend exact typed values through the shared native
-  resident and finite batch source.
-  - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-03/07/11/12 and CG-19/20/21; this extends the current
-    local implementation phase, without changing the CG-1 through CG-23 queue.
-  - Contract: [typed native input](native-typed-input-2026-10-10.md).
-    Preserve the existing four scalar declarations and add explicit exact
-    widths, decimal, binary, temporal and nested schemas to ordinary rows,
-    buffered batches and the existing finite single-use stream.
-  - Shared family: normalize all declarations into the existing native source,
-    resource pool, relational binder and sinks. Reuse Vortex DType and native
-    arrays inside shardloom-vortex; no new execution provider or fallback.
-  - ShardLoom technique review: dynamic shared-grant admission owns schema,
-    conversion and native-buffer overlap; capillary demand bounds each input
-    frame; PulseWeave retains the same resource policy; metadata-first binding
-    checks typed empty schemas before demand. Separate wrapper conversion from
-    execution timing and require complete values and certificates at the same
-    evidence tier. No speedup claim accompanies this capability unit.
-  - Execution checklist:
-    - [x] Finalize the provider reuse and exact schema/value wire contract.
-    - [x] Implement native typed construction, retained credits and source reuse.
-    - [x] Add Python declarations/conversion and preserve legacy wire identities.
-    - [x] Verify every admitted type through resident/buffered/streamed workflows,
-      native write/reopen, compatibility contracts and resource/failure controls.
-    - [x] Complete source/public regression acceptance, independent packet
-      inspection and affected documentation with rendered guide checks.
-    - [ ] Complete hosted integration against the final reviewed PR head.
-  - Preserve finite completion, per-frame and small-result boundaries, explicit
-    `fallback_attempted=false` and `external_engine_invoked=false`. Multiple or
-    repeated producers, dynamic schemas, streaming sink composition and deeper
-    traversal retain their existing owners. Keep version 0.5.1 fixed.
-
 - [ ] `REQUIRED-EXECUTION-RESOURCES` require an explicit shared allocation before
   any data inspection, preparation, producer consumption or execution.
   - V1 scope classification: `required_for_v1`.
@@ -297,10 +265,58 @@ the ledger.
     operate inside explicit permission; metadata-first descriptions stay inert.
     Preserve timing-surface and evidence-tier distinctions for observed usage.
   - Execution checklist:
-    - [ ] Implement shared resource resolution, origin and authorization limits.
-    - [ ] Wire all Python, SQL, CLI, worker and native execution boundaries.
-    - [ ] Prove no-consumption rejection, inherited/overridden configuration,
-      ownership, reports and complete workflows; update guides and hosted checks.
+    - [x] Implement shared resource resolution, origin and authorization limits.
+    - [x] Wire all Python, SQL, CLI, worker and native execution boundaries.
+    - [x] Prove no-consumption rejection, inherited/overridden configuration,
+      ownership, reports and complete workflows. The
+      [local acceptance](../benchmarks/required-execution-resources-2026-10-10.md)
+      records all 16 fresh source gates, 32,497 public cases and 129 Full43
+      results; complete independent readback verifies 66,055 declarations.
+    - [x] Refresh support/guide acceptance: all 14 documentation checks, ten
+      site steps and desktop/mobile rendered navigation/search checks pass.
+    - [x] Close both PR allocation-bypass findings with shared native-copy
+      ownership, explicit refusal for unbudgeted legacy facade variants, and
+      all 14 fresh source gates. The correction evidence remains separate from
+      the initial complete-workflow measurements.
+    - [x] Correct the further exact-byte aggregate-policy finding: remove candidate
+      and cache floors and preserve nonaggregate preparation. All 14 fresh source
+      gates pass, including 2,539 native Vortex and 1,338 CLI tests; the correction
+      packet preserves the failed first attempt. Hosted acceptance remains below.
+    - [x] Correct direct context resource forwarding and independent ceiling-only
+      configuration. All 660 Python tests and eight native wrapper workflows pass;
+      the separate evidence preserves failed intermediate checks and unchanged
+      Rust gate coverage. Context, client and session ceilings remain independent
+      of job grants and survive lazy plan construction.
+    - [x] Refuse non-Unix primitive execution before source/output access where
+      the shared resource owner is unavailable; do not report a declaration as
+      admitted. Default and native CLI checks pass locally. The three platform
+      regressions compile on Unix and are registered in Windows CI; actual
+      Windows execution subsequently passed all three cases on the reviewed
+      `1acbd5d6` source. That result does not certify later writer changes.
+    - [x] Close the Unix reader/export and reduced writer-profile review findings.
+      Synchronous readers, preparation identities, buffered writers and streamed
+      writers retain the admitted owner. Structured Vortex output shares its
+      retained reader's pool; reduced builds without the accounted compatibility
+      reader refuse before source access. All 16 fresh source gates pass,
+      including 2,546 native Vortex, 1,339 native CLI and 1,104 reduced-profile
+      tests. The separate correction packet preserves failed/interrupted attempts
+      and the original complete-workflow source identity.
+    - [x] Close the local fixture I/O allocation bypass and related owned-buffer
+      paths. Exact file extents, SQLite buffers, metadata, directory names,
+      table recovery and workspace writers share the command's grant. Iceberg
+      compatibility readers retain encoded ownership and visit admitted batches.
+      The fixed checkpoint reservation and uninstrumented provider/metadata
+      exclusions remain explicit. All 16 fresh source/feature gates pass,
+      including 3,181 default, 1,355 native CLI, 2,551 native Vortex and 1,118
+      reduced writer-profile tests. The separate evidence preserves failed
+      attempts and the original public-workflow/Full43 source identity.
+    - [x] Preserve all participating authorization ceilings through SQL/DataFrame
+      set operations, joins, concatenation and typed expressions, including
+      source-free subqueries and grouping/ordering. Keep the receiver's explicit
+      grant and reject incompatible allocations before input or output. Focused
+      regressions and complete native wrapper checks cover this correction;
+      its original Rust and Full43 evidence keeps separate source identities.
+    - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations
   directly through Python after required resources.
@@ -328,6 +344,9 @@ the ledger.
   - Both units preserve all six remaining areas, eight investigations and
     CG-1 through CG-23 under their existing owners. Keep version 0.5.1 fixed.
 
+`NATIVE-TYPED-INPUT` completed in PR #1540 after all 39 hosted checks passed;
+its accepted source, merge and production verification are recorded in the
+[completed ledger](phased-execution-completed-ledger.md).
 `NATIVE-INPUT-GROWTH` completed in PR #1539 after all 39 hosted checks passed;
 the [completed ledger](phased-execution-completed-ledger.md) records the accepted
 runtime, unchanged merge tree and actual production verification.

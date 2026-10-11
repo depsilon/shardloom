@@ -506,6 +506,8 @@ fn footer_aggregate_report_requires_exact_completion_and_zero_scan_work() {
     completion.annotate(&mut summary).unwrap();
     let mut report = VortexLocalPrimitiveExecutionReport::feature_disabled(
         VortexQueryPrimitiveKind::SimpleAggregate,
+        crate::VortexLocalPrimitiveResourceEnvelope::new(4, 1)
+            .expect("explicit fixture allocation"),
     );
     report.mode = VortexLocalPrimitiveExecutionMode::MetadataPreservingAggregate;
     report.embedded_layout.metadata_persisted_in_artifact = true;

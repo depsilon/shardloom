@@ -1,8 +1,15 @@
 use std::{fs, path::PathBuf, process::Command};
 
 fn run_partition_discovery_json(args: &[String]) -> (bool, String, String) {
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
+    let mut command = Command::new(env!("CARGO_BIN_EXE_shardloom"));
+    command.args(args);
+    if matches!(
+        args.first().map(String::as_str),
+        Some("object-store-partition-discovery-smoke")
+    ) {
+        command.args(["--memory-gb", "4", "--max-parallelism", "2"]);
+    }
+    let output = command
         .output()
         .expect("object-store partition discovery command runs");
     (

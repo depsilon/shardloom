@@ -16,7 +16,7 @@ from shardloom.models import OutputEnvelope
 
 class NativeUnaryCollectionTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.client = ShardLoomClient(binary="unused-shardloom")
+        self.client = ShardLoomClient(binary="unused-shardloom", memory_gb=4, max_parallelism=2)
         self.frame = ShardLoomContext(self.client).read_vortex(
             "renamed-source.vortex",
             schema={"shipment": "int64", "amount": "int64", "label": "utf8", "items": "list<int64>"},

@@ -6,14 +6,16 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-#[cfg(all(unix, feature = "vortex-write", feature = "vortex-local-primitives"))]
+#[cfg(all(
+    unix,
+    feature = "vortex-write",
+    feature = "vortex-local-primitives",
+    feature = "universal-format-io"
+))]
 #[path = "support/complete_result.rs"]
 mod complete_result;
 
-#[cfg(any(
-    all(unix, feature = "vortex-write", feature = "vortex-local-primitives"),
-    all(feature = "vortex-write", feature = "universal-format-io")
-))]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use std::path::Path;
 
 #[cfg(feature = "universal-format-io")]
@@ -33,7 +35,7 @@ fn unique_path(name: &str, extension: &str) -> PathBuf {
     ))
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn unique_extensionless_path(name: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -46,7 +48,7 @@ fn unique_extensionless_path(name: &str) -> PathBuf {
     ))
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn unique_dir(name: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -62,11 +64,12 @@ fn unique_dir(name: &str) -> PathBuf {
     path
 }
 
+#[cfg(any(not(feature = "vortex-write"), feature = "universal-format-io"))]
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn assert_ingest_array_build(stdout: &str, streaming: bool) {
     let expected = if streaming {
         [
@@ -133,7 +136,12 @@ fn assert_ingest_array_build(stdout: &str, streaming: bool) {
     }
 }
 
-#[cfg(all(unix, feature = "vortex-write", feature = "vortex-local-primitives"))]
+#[cfg(all(
+    unix,
+    feature = "vortex-write",
+    feature = "vortex-local-primitives",
+    feature = "universal-format-io"
+))]
 fn assert_prepared_collect_values(path: &Path, sql: &str, expected: &serde_json::Value) {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
@@ -149,6 +157,10 @@ fn assert_prepared_collect_values(path: &Path, sql: &str, expected: &serde_json:
             "collect",
             "--bounded",
             "true",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -184,7 +196,7 @@ fn assert_prepared_collect_values(path: &Path, sql: &str, expected: &serde_json:
     );
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[derive(Clone, Copy)]
 struct ExpectedAdapterEvidence<'a> {
     source_format: &'a str,
@@ -207,7 +219,7 @@ type StructuredVortexIngestCase = (
     fn(&Path),
 );
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn assert_inferred_adapter_evidence(stdout: &str, expected: ExpectedAdapterEvidence<'_>) {
     assert!(stdout.contains(&field("source_format", expected.source_format)));
     assert!(stdout.contains(&field("source_format_inferred", "true")));
@@ -249,6 +261,10 @@ fn vortex_prepare_blocks_without_vortex_write_feature() {
             "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -348,6 +364,10 @@ fn vortex_prepare_native_source_blocks_with_structured_feature_gate() {
             &target_path.display().to_string(),
             "--input-format",
             "vortex",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -408,7 +428,7 @@ fn vortex_prepare_missing_args_emits_json_error_without_stderr() {
     assert!(stdout.contains("no fallback execution was attempted"));
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 #[allow(clippy::too_many_lines)]
 fn vortex_prepare_writes_reopens_vortex_prepared_state() {
@@ -427,6 +447,10 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--allow-overwrite",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -713,7 +737,7 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     fs::remove_file(target_path).expect("remove target vortex");
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 fn vortex_prepare_normalizes_nested_jsonl_as_utf8_payload() {
     let source_path = unique_path("vortex-ingest-nested-source", "jsonl");
@@ -727,6 +751,10 @@ fn vortex_prepare_normalizes_nested_jsonl_as_utf8_payload() {
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--allow-overwrite",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -771,7 +799,7 @@ fn vortex_prepare_normalizes_nested_jsonl_as_utf8_payload() {
     fs::remove_file(target_path).expect("remove normalized Vortex artifact");
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 fn vortex_prepare_applies_append_only_differential_overlay() {
     let source_path = unique_path("vortex-ingest-delta-base", "csv");
@@ -791,6 +819,10 @@ fn vortex_prepare_applies_append_only_differential_overlay() {
             &delta_source_path.display().to_string(),
             "--delta-target",
             &delta_target_path.display().to_string(),
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -873,7 +905,7 @@ fn vortex_prepare_applies_append_only_differential_overlay() {
     fs::remove_file(delta_target_path).expect("remove delta vortex");
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 fn vortex_prepare_preserves_declared_input_format_for_extensionless_delta() {
     let source_path = unique_extensionless_path("vortex-ingest-delta-extensionless-base");
@@ -897,6 +929,10 @@ fn vortex_prepare_preserves_declared_input_format_for_extensionless_delta() {
             &delta_source_path.display().to_string(),
             "--delta-target",
             &delta_target_path.display().to_string(),
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -953,8 +989,9 @@ fn vortex_prepare_preserves_declared_input_format_for_extensionless_delta() {
     fs::remove_file(delta_target_path).expect("remove delta vortex");
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
+#[allow(clippy::too_many_lines)] // Keep the complete source-drift/overwrite lifecycle together.
 fn vortex_prepare_source_drift_requires_explicit_overwrite_without_sidecars() {
     let root = unique_dir("vortex-ingest-auto-refinement");
     let source_path = root.join("input.csv");
@@ -967,6 +1004,10 @@ fn vortex_prepare_source_drift_requires_explicit_overwrite_without_sidecars() {
             "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -990,6 +1031,10 @@ fn vortex_prepare_source_drift_requires_explicit_overwrite_without_sidecars() {
             "vortex-prepare",
             &source_path.display().to_string(),
             &target_path.display().to_string(),
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -1022,6 +1067,10 @@ fn vortex_prepare_source_drift_requires_explicit_overwrite_without_sidecars() {
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--allow-overwrite",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -1054,7 +1103,7 @@ fn vortex_prepare_source_drift_requires_explicit_overwrite_without_sidecars() {
     fs::remove_dir_all(root).expect("remove auto refinement root");
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 fn vortex_prepare_blocks_update_mode_differential_overlay() {
     let source_path = unique_path("vortex-ingest-delta-update-base", "csv");
@@ -1076,6 +1125,10 @@ fn vortex_prepare_blocks_update_mode_differential_overlay() {
             &delta_target_path.display().to_string(),
             "--delta-update-mode",
             "update",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -1149,6 +1202,10 @@ fn vortex_prepare_rejects_differential_minimal_certification_before_writes() {
             &delta_target_path.display().to_string(),
             "--certification-level",
             "ingest_minimal",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -1207,6 +1264,10 @@ fn vortex_prepare_rejects_shared_differential_target_before_writes() {
             &delta_source_path.display().to_string(),
             "--delta-target",
             &target_path.display().to_string(),
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -1242,7 +1303,7 @@ fn vortex_prepare_rejects_shared_differential_target_before_writes() {
     fs::remove_file(delta_source_path).expect("remove delta source csv");
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 fn vortex_prepare_rejects_differential_overlay_with_mismatched_normalized_schema() {
     let source_path = unique_path("vortex-ingest-delta-scout-base", "csv");
@@ -1265,6 +1326,10 @@ fn vortex_prepare_rejects_differential_overlay_with_mismatched_normalized_schema
             &delta_source_path.display().to_string(),
             "--delta-target",
             &delta_target_path.display().to_string(),
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -1314,7 +1379,7 @@ fn vortex_prepare_rejects_differential_overlay_with_mismatched_normalized_schema
     fs::remove_file(delta_target_path).expect("remove normalized delta vortex");
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 #[allow(clippy::too_many_lines)]
 fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry() {
@@ -1358,6 +1423,10 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()
                 &source_path.display().to_string(),
                 &target_path.display().to_string(),
                 "--allow-overwrite",
+                "--memory-gb",
+                "4",
+                "--max-parallelism",
+                "2",
                 "--format",
                 "json",
             ])
@@ -1459,7 +1528,7 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()
     }
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 fn vortex_prepare_minimal_certification_skips_reopen_scan() {
     let source_path = unique_path("vortex-ingest-minimal-source", "csv");
@@ -1474,6 +1543,10 @@ fn vortex_prepare_minimal_certification_skips_reopen_scan() {
             "--allow-overwrite",
             "--certification-level",
             "ingest_minimal",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -1548,7 +1621,7 @@ fn vortex_prepare_minimal_certification_skips_reopen_scan() {
     fs::remove_file(target_path).expect("remove target vortex");
 }
 
-#[cfg(feature = "vortex-write")]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 fn vortex_prepare_full_replay_requires_output_replay_evidence() {
     let source_path = unique_path("vortex-ingest-full-replay-source", "csv");
@@ -1562,6 +1635,10 @@ fn vortex_prepare_full_replay_requires_output_replay_evidence() {
             &target_path.display().to_string(),
             "--certification-level",
             "ingest_full_replay",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -1610,6 +1687,10 @@ fn vortex_prepare_preserves_columnar_source_state_for_parquet() {
             &source_path.display().to_string(),
             &target_path.display().to_string(),
             "--allow-overwrite",
+            "--memory-gb",
+            "4",
+            "--max-parallelism",
+            "2",
             "--format",
             "json",
         ])
@@ -1773,6 +1854,10 @@ fn vortex_prepare_preserves_columnar_source_state_for_all_structured_formats() {
                 &source_path.display().to_string(),
                 &target_path.display().to_string(),
                 "--allow-overwrite",
+                "--memory-gb",
+                "4",
+                "--max-parallelism",
+                "2",
                 "--format",
                 "json",
             ])

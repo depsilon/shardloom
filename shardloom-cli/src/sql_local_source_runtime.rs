@@ -30,8 +30,8 @@ use arrow_schema::DataType;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_schema::{ArrowError, Field, Schema, SchemaRef, TimeUnit};
 use shardloom_core::{
-    CommandStatus, ExpressionInputRow, LogicalDType, OutputFormat, ScalarValue, ShardLoomError,
-    decimal128_dtype,
+    CommandStatus, ExecutionResources, ExpressionInputRow, LogicalDType, OutputFormat, ScalarValue,
+    ShardLoomError, decimal128_dtype,
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use shardloom_core::{parse_iso_date32, parse_iso_timestamp_micros};
@@ -39,9 +39,7 @@ use shardloom_core::{parse_iso_date32, parse_iso_timestamp_micros};
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
-    runtime_defaults::{
-        default_public_local_runtime_max_parallelism, default_public_local_runtime_memory_gb,
-    },
+    execution_resources::ResourceArguments,
 };
 #[cfg(any(test, all(feature = "vortex-local-primitives", unix)))]
 #[path = "sql_syntax.rs"]
@@ -1910,7 +1908,7 @@ fn schema_declared_text_arrow_dtype(
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 struct VortexIngestRequest {
     source_path: PathBuf,
     source_format_override: Option<LocalSourceFormat>,
@@ -1918,11 +1916,33 @@ struct VortexIngestRequest {
     allow_overwrite: bool,
     certification_level: shardloom_vortex::VortexIngestCertificationLevel,
     runtime_profile: SqlLocalSourceRuntimeProfile,
-    memory_gb: u64,
-    max_parallelism: usize,
+    resources: ExecutionResources,
+    shared_memory_pool: Option<shardloom_exec::live_memory::LiveMemoryPool>,
     source_fingerprint_policy: SourceFingerprintPolicy,
     delta: Option<VortexIngestDeltaRequest>,
+    // Retained by the request in every build; only the native writer consumes it.
+    #[cfg_attr(
+        not(all(feature = "vortex-write", feature = "universal-format-io")),
+        allow(dead_code)
+    )]
     prepared_source_binding: Option<String>,
+}
+
+impl VortexIngestRequest {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn native_memory_pool(
+        &self,
+    ) -> Result<shardloom_exec::live_memory::LiveMemoryPool, ShardLoomError> {
+        match &self.shared_memory_pool {
+            Some(pool) if pool.snapshot().limit_bytes > self.resources.memory_bytes() => {
+                Err(ShardLoomError::new(
+                    "preparation memory owner exceeds the declared allocation; no input was read and no fallback execution was attempted",
+                ))
+            }
+            Some(pool) => Ok(pool.clone()),
+            None => shardloom_exec::live_memory::LiveMemoryPool::new(self.resources.memory_bytes()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1936,6 +1956,18 @@ struct VortexIngestDeltaRequest {
 enum SourceFingerprintPolicy {
     MetadataOnly,
     ContentDigest,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+const SOURCE_FINGERPRINT_BUFFER_BYTES: usize = 1024 * 1024;
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn preparation_control_bytes(policy: SourceFingerprintPolicy) -> u64 {
+    4096 + if policy == SourceFingerprintPolicy::ContentDigest {
+        SOURCE_FINGERPRINT_BUFFER_BYTES as u64
+    } else {
+        0
+    }
 }
 
 impl SourceFingerprintPolicy {
@@ -1977,7 +2009,7 @@ impl SourceFingerprintPolicy {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 struct VortexIngestReport {
     request: VortexIngestRequest,
     source: VortexIngestSourceData,
@@ -1999,7 +2031,7 @@ struct VortexIngestReport {
     prepared_olap_state: Option<shardloom_vortex::VortexPreparedOlapStateReport>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 enum VortexIngestOutcome {
     Prepared(Box<VortexIngestReport>),
 }
@@ -2147,62 +2179,18 @@ pub(crate) fn handle_vortex_prepare_with_facade(
     let mut delta_target_path = None;
     let mut delta_update_mode = shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly;
     let mut runtime_profile = SqlLocalSourceRuntimeProfile::ProductLocalWorkflow;
-    let mut memory_gb = default_public_local_runtime_memory_gb();
-    let mut max_parallelism = default_public_local_runtime_max_parallelism();
+    let mut resource_arguments = ResourceArguments::default();
     let mut source_fingerprint_policy = SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE;
     while let Some(arg) = args.next() {
+        match resource_arguments.parse_flag(&arg, &mut args) {
+            Ok(true) => continue,
+            Ok(false) => {}
+            Err(error) => return emit_error(emit_command, format, "vortex prepare failed", &error),
+        }
         match arg.as_str() {
             "--allow-overwrite" => allow_overwrite = true,
             "--internal-smoke-local-source" => {
                 runtime_profile = SqlLocalSourceRuntimeProfile::Smoke;
-            }
-            "--max-parallelism" => {
-                let Some(value) = args.next() else {
-                    return emit_error(
-                        emit_command,
-                        format,
-                        "vortex prepare failed",
-                        &ShardLoomError::InvalidOperation(
-                            "--max-parallelism requires a positive integer".to_string(),
-                        ),
-                    );
-                };
-                max_parallelism = match value.parse::<usize>() {
-                    Ok(parsed) if parsed > 0 => parsed,
-                    _ => {
-                        return emit_error(
-                            emit_command,
-                            format,
-                            "vortex prepare failed",
-                            &ShardLoomError::InvalidOperation(
-                                "max_parallelism must be >= 1".to_string(),
-                            ),
-                        );
-                    }
-                };
-            }
-            "--memory-gb" => {
-                let Some(value) = args.next() else {
-                    return emit_error(
-                        emit_command,
-                        format,
-                        "vortex prepare failed",
-                        &ShardLoomError::InvalidOperation(
-                            "--memory-gb requires a positive integer".to_string(),
-                        ),
-                    );
-                };
-                memory_gb = match value.parse::<u64>() {
-                    Ok(parsed) if parsed > 0 => parsed,
-                    _ => {
-                        return emit_error(
-                            emit_command,
-                            format,
-                            "vortex prepare failed",
-                            &ShardLoomError::InvalidOperation("memory_gb must be >= 1".to_string()),
-                        );
-                    }
-                };
             }
             "--input-format" | "--source-format" => {
                 let Some(value) = args.next() else {
@@ -2365,6 +2353,17 @@ pub(crate) fn handle_vortex_prepare_with_facade(
         }
     }
 
+    let resources = match resource_arguments.resolve() {
+        Ok(resources) => resources,
+        Err(error) => {
+            return emit_error(
+                emit_command,
+                format,
+                "vortex prepare requires execution resources",
+                &error,
+            );
+        }
+    };
     let source_path = Path::new(source_path_raw.trim()).to_path_buf();
     let target_path = match normalize_local_vortex_ingest_target_path(&target_path_raw) {
         Ok(path) => path,
@@ -2411,8 +2410,8 @@ pub(crate) fn handle_vortex_prepare_with_facade(
         allow_overwrite,
         certification_level,
         runtime_profile,
-        memory_gb,
-        max_parallelism,
+        resources,
+        shared_memory_pool: None,
         source_fingerprint_policy,
         delta,
         prepared_source_binding: None,
@@ -2444,19 +2443,24 @@ pub(crate) fn handle_vortex_prepare_with_facade(
                 ),
             );
         }
-        let native_request = match shardloom_vortex::VortexNativeArtifactPrepareRequest::new_local(
-            &request.source_path,
-            &request.target_path,
-            request.allow_overwrite,
-            shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
-            "vortex-write",
-            request.certification_level.as_str(),
-        ) {
-            Ok(request) => request,
-            Err(error) => {
-                return emit_error(emit_command, format, "vortex prepare failed", &error);
-            }
-        };
+        let mut native_request =
+            match shardloom_vortex::VortexNativeArtifactPrepareRequest::new_local(
+                &request.source_path,
+                &request.target_path,
+                request.allow_overwrite,
+                request.resources,
+                shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
+                "vortex-write",
+                request.certification_level.as_str(),
+            ) {
+                Ok(request) => request,
+                Err(error) => {
+                    return emit_error(emit_command, format, "vortex prepare failed", &error);
+                }
+            };
+        native_request
+            .shared_memory_pool
+            .clone_from(&request.shared_memory_pool);
         let report = match shardloom_vortex::prepare_native_vortex_artifact(&native_request) {
             Ok(report) => report,
             Err(error) => {
@@ -2541,13 +2545,24 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
     memory_gb: Option<u64>,
     source_fingerprint_policy: Option<&str>,
 ) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
+    let resources = ExecutionResources::resolve(
+        shardloom_core::ExecutionResourceRequest {
+            memory_gb,
+            max_parallelism: Some(max_parallelism),
+            ..shardloom_core::ExecutionResourceRequest::new(
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+        },
+        None,
+        None,
+    )?;
     prepare_local_source_as_vortex_for_public_workflow_with_schema(
         source_path,
         target_path,
         source_format,
         allow_overwrite,
-        max_parallelism,
-        memory_gb,
+        resources,
+        None,
         source_fingerprint_policy,
         None,
     )
@@ -2559,11 +2574,17 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
     target_path: impl AsRef<Path>,
     source_format: Option<&str>,
     allow_overwrite: bool,
-    max_parallelism: usize,
-    memory_gb: Option<u64>,
+    resources: ExecutionResources,
+    shared_memory_pool: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     source_fingerprint_policy: Option<&str>,
     source_schema: Option<&str>,
 ) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
+    if shared_memory_pool.is_some_and(|pool| pool.snapshot().limit_bytes > resources.memory_bytes())
+    {
+        return Err(ShardLoomError::new(
+            "shared preparation memory owner exceeds the declared allocation",
+        ));
+    }
     let source_schema_hints = source_schema
         .map(parse_vortex_ingest_schema_hints)
         .transpose()?
@@ -2587,10 +2608,13 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
             source_path.as_ref(),
             &target_path,
             allow_overwrite,
+            resources,
             shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION,
             "vortex-write",
             shardloom_vortex::VortexIngestCertificationLevel::IngestCertified.as_str(),
         )?;
+        let mut request = request;
+        request.shared_memory_pool = shared_memory_pool.cloned();
         let report = shardloom_vortex::prepare_native_vortex_artifact(&request)?;
         let raw_fields = report.evidence_fields();
         return Ok(PublicWorkflowVortexPreparation {
@@ -2600,6 +2624,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
             identity: None,
         });
     }
+    require_shared_vortex_preparation_owner()?;
     let source_format_override = match source_format {
         Some(value) => Some(LocalSourceFormat::parse(value).ok_or_else(|| {
             ShardLoomError::InvalidOperation(format!(
@@ -2615,12 +2640,24 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     let binding_started = Instant::now();
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    let preparation_memory = shared_memory_pool.cloned().map_or_else(
+        || shardloom_exec::live_memory::LiveMemoryPool::new(resources.memory_bytes()),
+        Ok,
+    )?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    let shared_memory_pool = Some(&preparation_memory);
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    let binding_control =
+        preparation_memory.reserve(preparation_control_bytes(source_fingerprint_policy))?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     let prepared_source_binding = Some(public_preparation_source_binding(
         source_path.as_ref(),
         source_format_override,
         source_fingerprint_policy,
         source_schema,
     )?);
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    drop(binding_control);
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io", unix)))]
     let prepared_source_binding: Option<String> = None;
     let target_path =
@@ -2633,6 +2670,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
         let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
             &target_path,
             binding,
+            &preparation_memory,
         )?;
         return Ok(public_workflow_reused_preparation(
             target_path,
@@ -2656,8 +2694,8 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
         allow_overwrite,
         certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
         runtime_profile: SqlLocalSourceRuntimeProfile::ProductLocalWorkflow,
-        memory_gb: memory_gb.unwrap_or_else(default_public_local_runtime_memory_gb),
-        max_parallelism,
+        resources,
+        shared_memory_pool: shared_memory_pool.cloned(),
         source_fingerprint_policy,
         delta: None,
         prepared_source_binding: prepared_source_binding.clone(),
@@ -2680,6 +2718,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_schema(
             let identity = shardloom_vortex::prepared_source_binding::local_preparation_identity(
                 &target_path,
                 &binding,
+                &preparation_memory,
             )?;
             public_preparation_identity_fields(&mut fields, &identity, false);
             Some(std::sync::Arc::new(identity))
@@ -3198,6 +3237,14 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
                 .map(|value| (format!("public_workflow_preparation_{key}"), value))
         })
         .collect();
+    for (key, value) in &raw_map {
+        if key.starts_with("execution_resource_") {
+            selected.push((
+                format!("public_workflow_preparation_{key}"),
+                (*value).to_string(),
+            ));
+        }
+    }
     // Derive the allowlist from the typed report, but forward only observed
     // fields. A route without instrumentation must not manufacture zero work.
     for (key, _) in
@@ -3364,8 +3411,8 @@ fn run_vortex_prepare_with_schema(
                 allow_overwrite: base_report.request.allow_overwrite,
                 certification_level: base_report.request.certification_level,
                 runtime_profile: base_report.request.runtime_profile,
-                memory_gb: base_report.request.memory_gb,
-                max_parallelism: base_report.request.max_parallelism,
+                resources: base_report.request.resources,
+                shared_memory_pool: base_report.request.shared_memory_pool.clone(),
                 source_fingerprint_policy: base_report.request.source_fingerprint_policy,
                 delta: None,
                 prepared_source_binding: None,
@@ -3483,6 +3530,18 @@ fn run_vortex_ingest_prepare_once_with_adapter(
     source_adapter: LocalInputAdapterSelection,
     source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
+    require_shared_vortex_preparation_owner()?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    let (request, _preparation_control) = {
+        let memory = request.native_memory_pool()?;
+        let control =
+            memory.reserve(preparation_control_bytes(request.source_fingerprint_policy))?;
+        let mut request = request;
+        // Every preparation stage retains this owner, including older text
+        // readers and the final writer. A later helper cannot issue a new grant.
+        request.shared_memory_pool = Some(memory);
+        (request, control)
+    };
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
     let _ = &source_adapter;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -3495,6 +3554,18 @@ fn run_vortex_ingest_prepare_once_with_adapter(
         }
     }
     run_scalar_vortex_prepare(request, source_adapter, source_schema_hints)
+}
+
+fn require_shared_vortex_preparation_owner() -> Result<(), ShardLoomError> {
+    if cfg!(all(
+        feature = "vortex-write",
+        not(feature = "universal-format-io")
+    )) {
+        return Err(ShardLoomError::NotImplemented(
+            "native Vortex compatibility preparation requires universal-format-io for shared resource admission; no input was read, no output was created and no fallback execution was attempted".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn differential_preparation_report(
@@ -3630,7 +3701,7 @@ fn layout_write_advisor_report(
             writer_admission_policy:
                 shardloom_vortex::VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY
                     .to_string(),
-            writer_parallelism_budget: max_parallelism.max(1),
+            writer_parallelism_budget: max_parallelism,
             writer_compression_candidate_fields: layout_writer_compression_candidate_fields(source),
             write_reopen_verification_depth: layout_verification_depth(certification_level)
                 .to_string(),
@@ -3965,7 +4036,7 @@ fn capillary_preparation_report(
     source_state_digest: &str,
     prepared_state_id: &str,
     prepared_state_digest: &str,
-    memory_gb: u64,
+    memory_budget_bytes: u64,
     max_parallelism: usize,
 ) -> Result<shardloom_vortex::VortexCapillaryPreparationReport, ShardLoomError> {
     let native_io_certificate_status =
@@ -4027,7 +4098,7 @@ fn capillary_preparation_report(
                 .native_io_certificate_refs
                 .clone(),
             correctness_digest,
-            memory_budget_bytes: memory_gb_to_bytes(memory_gb),
+            memory_budget_bytes,
             max_parallelism,
             result_sink_requested: false,
             result_sink_replay_verified: false,
@@ -4044,7 +4115,7 @@ fn capillary_prewrite_input(
     certification_level: shardloom_vortex::VortexIngestCertificationLevel,
     source_state_id: &str,
     source_state_digest: &str,
-    memory_gb: u64,
+    memory_budget_bytes: u64,
     max_parallelism: usize,
 ) -> shardloom_vortex::VortexCapillaryPreparationInput {
     let prewrite_prepared_state_digest = fnv64_digest(&format!(
@@ -4118,7 +4189,7 @@ fn capillary_prewrite_input(
             "prewrite_source_shape_local_sink_policy_final_certificate_required_after_write"
                 .to_string(),
         correctness_digest,
-        memory_budget_bytes: memory_gb_to_bytes(memory_gb),
+        memory_budget_bytes,
         max_parallelism,
         result_sink_requested: false,
         result_sink_replay_verified: false,
@@ -4126,14 +4197,6 @@ fn capillary_prewrite_input(
         fallback_attempted: false,
         external_engine_invoked: false,
     }
-}
-
-fn memory_gb_to_bytes(memory_gb: u64) -> u64 {
-    memory_gb
-        .max(1)
-        .saturating_mul(1024)
-        .saturating_mul(1024)
-        .saturating_mul(1024)
 }
 
 fn prepared_artifact_segment_refs_for(
@@ -4383,7 +4446,7 @@ fn run_scalar_rows_vortex_prepare(
         &source_state_digest,
         &source_schema_digest,
         request.certification_level,
-        request.max_parallelism,
+        request.resources.max_parallelism(),
     );
     let rows = ordered_source_rows(&source.header, &source.rows)?;
     let prewrite_input = capillary_prewrite_input(
@@ -4392,13 +4455,14 @@ fn run_scalar_rows_vortex_prepare(
         request.certification_level,
         &source_state_id,
         &source_state_digest,
-        request.memory_gb,
-        request.max_parallelism,
+        request.resources.memory_bytes(),
+        request.resources.max_parallelism(),
     );
     let vortex_request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
         &request.target_path,
         source.header.clone(),
         rows,
+        request.resources,
     )
     .column_dtypes(source.column_dtypes.clone())
     .allow_overwrite(request.allow_overwrite)
@@ -4430,8 +4494,8 @@ fn run_scalar_rows_vortex_prepare(
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
-        request.memory_gb,
-        request.max_parallelism,
+        request.resources.memory_bytes(),
+        request.resources.max_parallelism(),
     )?;
     let copy_budget = copy_budget_report(
         &source_evidence,
@@ -4567,8 +4631,8 @@ fn try_run_schema_declared_text_vortex_prepare(
         );
     let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
         columnar_source,
-        request.max_parallelism,
-    );
+        request.resources.max_parallelism(),
+    )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     let mut prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
         source_adapter,
@@ -4601,13 +4665,14 @@ fn try_run_schema_declared_text_vortex_prepare(
         &prewrite_source_state_digest,
         &source_schema_digest,
         request.certification_level,
-        request.max_parallelism,
+        request.resources.max_parallelism(),
     );
     let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
         &request.target_path,
         columnar_source,
+        request.resources,
     )
-    .shared_native_memory_budget_bytes(memory_gb_to_bytes(request.memory_gb))
+    .shared_native_memory_pool(request.native_memory_pool()?)
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
     .layout_write_advisor(layout_write_advisor.clone())
@@ -4617,8 +4682,8 @@ fn try_run_schema_declared_text_vortex_prepare(
         request.certification_level,
         &prewrite_source_state_id,
         &prewrite_source_state_digest,
-        request.memory_gb,
-        request.max_parallelism,
+        request.resources.memory_bytes(),
+        request.resources.max_parallelism(),
     ));
     let mut vortex_request = vortex_request;
     vortex_request
@@ -4663,8 +4728,8 @@ fn try_run_schema_declared_text_vortex_prepare(
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
-        request.memory_gb,
-        request.max_parallelism,
+        request.resources.memory_bytes(),
+        request.resources.max_parallelism(),
     )?;
     let copy_budget = copy_budget_report(
         &source,
@@ -4795,8 +4860,8 @@ fn try_run_inferred_text_vortex_prepare(
         );
     let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
         columnar_source,
-        request.max_parallelism,
-    );
+        request.resources.max_parallelism(),
+    )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     let mut prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
         source_adapter,
@@ -4829,13 +4894,14 @@ fn try_run_inferred_text_vortex_prepare(
         &prewrite_source_state_digest,
         &source_schema_digest,
         request.certification_level,
-        request.max_parallelism,
+        request.resources.max_parallelism(),
     );
     let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
         &request.target_path,
         columnar_source,
+        request.resources,
     )
-    .shared_native_memory_budget_bytes(memory_gb_to_bytes(request.memory_gb))
+    .shared_native_memory_pool(request.native_memory_pool()?)
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
     .layout_write_advisor(layout_write_advisor.clone())
@@ -4845,8 +4911,8 @@ fn try_run_inferred_text_vortex_prepare(
         request.certification_level,
         &prewrite_source_state_id,
         &prewrite_source_state_digest,
-        request.memory_gb,
-        request.max_parallelism,
+        request.resources.memory_bytes(),
+        request.resources.max_parallelism(),
     ));
     let mut vortex_request = vortex_request;
     vortex_request
@@ -4891,8 +4957,8 @@ fn try_run_inferred_text_vortex_prepare(
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
-        request.memory_gb,
-        request.max_parallelism,
+        request.resources.memory_bytes(),
+        request.resources.max_parallelism(),
     )?;
     let copy_budget = copy_budget_report(
         &source,
@@ -4979,8 +5045,8 @@ fn run_text_streaming_vortex_prepare(
         )?;
     let columnar_source = shardloom_vortex::with_capillary_prefetch_columnar_stream_source(
         columnar_source,
-        request.max_parallelism,
-    );
+        request.resources.max_parallelism(),
+    )?;
     let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
     let mut prewrite_source = VortexIngestSourceData::from_columnar_stream_source(
         source.source_adapter.clone(),
@@ -5026,13 +5092,14 @@ fn finish_text_streaming_vortex_prepare(
         &prewrite_source_state_digest,
         &source_schema_digest,
         request.certification_level,
-        request.max_parallelism,
+        request.resources.max_parallelism(),
     );
     let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
         &request.target_path,
         columnar_source,
+        request.resources,
     )
-    .shared_native_memory_budget_bytes(memory_gb_to_bytes(request.memory_gb))
+    .shared_native_memory_pool(request.native_memory_pool()?)
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
     .layout_write_advisor(layout_write_advisor.clone())
@@ -5042,8 +5109,8 @@ fn finish_text_streaming_vortex_prepare(
         request.certification_level,
         &prewrite_source_state_id,
         &prewrite_source_state_digest,
-        request.memory_gb,
-        request.max_parallelism,
+        request.resources.memory_bytes(),
+        request.resources.max_parallelism(),
     ));
     let mut vortex_request = vortex_request;
     vortex_request
@@ -5088,8 +5155,8 @@ fn finish_text_streaming_vortex_prepare(
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
-        request.memory_gb,
-        request.max_parallelism,
+        request.resources.memory_bytes(),
+        request.resources.max_parallelism(),
     )?;
     let copy_budget = copy_budget_report(
         &source,
@@ -5165,12 +5232,12 @@ fn run_columnar_vortex_prepare(
         &request.source_path,
         max_rows,
         read_limits.source_bytes,
-        request.max_parallelism,
+        request.resources.max_parallelism(),
         request.source_fingerprint_policy,
-        request.memory_gb.saturating_mul(1024 * 1024 * 1024)
+        request.resources.memory_bytes()
             / 8
             / u64::try_from(shardloom_exec::compute_pool::bounded_cpu_parallelism(
-                request.max_parallelism,
+                request.resources.max_parallelism(),
             ))
             .unwrap_or(u64::MAX),
     )?;
@@ -5194,13 +5261,14 @@ fn run_columnar_vortex_prepare(
         &prewrite_source_state_digest,
         &source_schema_digest,
         request.certification_level,
-        request.max_parallelism,
+        request.resources.max_parallelism(),
     );
     let vortex_request = shardloom_vortex::VortexPreparedStateColumnarStreamWriteRequest::new(
         &request.target_path,
         columnar_source,
+        request.resources,
     )
-    .shared_native_memory_budget_bytes(memory_gb_to_bytes(request.memory_gb))
+    .shared_native_memory_pool(request.native_memory_pool()?)
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level)
     .layout_write_advisor(layout_write_advisor.clone())
@@ -5210,8 +5278,8 @@ fn run_columnar_vortex_prepare(
         request.certification_level,
         &prewrite_source_state_id,
         &prewrite_source_state_digest,
-        request.memory_gb,
-        request.max_parallelism,
+        request.resources.memory_bytes(),
+        request.resources.max_parallelism(),
     ));
     let mut vortex_request = vortex_request;
     vortex_request
@@ -5256,8 +5324,8 @@ fn run_columnar_vortex_prepare(
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
-        request.memory_gb,
-        request.max_parallelism,
+        request.resources.memory_bytes(),
+        request.resources.max_parallelism(),
     )?;
     let copy_budget = copy_budget_report(
         &source,
@@ -5320,7 +5388,7 @@ fn stream_columnar_vortex_ingest_source(
         batch_budget_bytes,
     )?;
     let source = with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
-    Ok(shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism))
+    shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism)
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -5700,7 +5768,7 @@ fn stream_columnar_vortex_ingest_partition_source(
         }),
     };
     let source = with_layout_advised_embedded_derived_columns_columnar_stream_source(source);
-    Ok(shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism))
+    shardloom_vortex::with_capillary_prefetch_columnar_stream_source(source, max_parallelism)
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -6048,11 +6116,11 @@ impl VortexIngestReport {
             ),
             (
                 "vortex_ingest_requested_max_parallelism".to_string(),
-                self.request.max_parallelism.to_string(),
+                self.request.resources.max_parallelism().to_string(),
             ),
             (
                 "vortex_ingest_requested_memory_gb".to_string(),
-                self.request.memory_gb.to_string(),
+                self.request.resources.whole_gib().map_or_else(|| "unavailable".into(), |value| value.to_string()),
             ),
             (
                 "certification_policy".to_string(),
@@ -7029,11 +7097,33 @@ impl VortexIngestReport {
                 "false".to_string(),
             ),
         ];
+        crate::execution_resources::append_declaration_fields(
+            &mut fields,
+            self.vortex_report.resources,
+        );
+        crate::execution_resources::append_admission_fields(
+            &mut fields,
+            self.vortex_report
+                .shared_native_memory
+                .as_ref()
+                .map_or(self.vortex_report.resources.memory_bytes(), |memory| {
+                    memory.limit_bytes
+                }),
+            self.vortex_report.writer_runtime_applied_parallelism,
+            "shared_native_ingest_runtime;integer_lanes_bounded_by_declared_allocation_and_local_capacity",
+        );
+        crate::execution_resources::append_spill_observation_fields(&mut fields, false, Some(0));
         fields.extend(self.scout_ingress.evidence_fields());
         fields.extend(self.layout_write_advisor.evidence_fields());
         fields.extend(self.vortex_report.writer_physical_design.evidence_fields());
         fields.extend(self.vortex_report.stage_work.evidence_fields());
         if let Some(memory) = &self.vortex_report.shared_native_memory {
+            crate::execution_resources::append_memory_observation_fields(
+                &mut fields,
+                Some(memory.final_reserved_bytes),
+                memory.peak_reserved_bytes,
+                "shared_pool_lifetime_including_other_retained_native_owners;excludes_source_reader_internals_provider_bypass_allocations_and_process_rss",
+            );
             fields.extend(memory.evidence_fields());
         }
         fields.extend(
@@ -7438,11 +7528,14 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
         ),
         (
             "vortex_ingest_requested_memory_gb".to_string(),
-            request.memory_gb.to_string(),
+            request
+                .resources
+                .whole_gib()
+                .map_or_else(|| "unavailable".into(), |value| value.to_string()),
         ),
         (
             "vortex_ingest_requested_max_parallelism".to_string(),
-            request.max_parallelism.to_string(),
+            request.resources.max_parallelism().to_string(),
         ),
         (
             "certification_level".to_string(),
@@ -7636,11 +7729,14 @@ fn vortex_ingest_scout_blocked_fields(
         ),
         (
             "vortex_ingest_requested_memory_gb".to_string(),
-            blocked_request.memory_gb.to_string(),
+            blocked_request
+                .resources
+                .whole_gib()
+                .map_or_else(|| "unavailable".into(), |value| value.to_string()),
         ),
         (
             "vortex_ingest_requested_max_parallelism".to_string(),
-            blocked_request.max_parallelism.to_string(),
+            blocked_request.resources.max_parallelism().to_string(),
         ),
         (
             "certification_level".to_string(),
@@ -7747,8 +7843,8 @@ fn vortex_ingest_scout_blocked_request(
             allow_overwrite: request.allow_overwrite,
             certification_level: request.certification_level,
             runtime_profile: request.runtime_profile,
-            memory_gb: request.memory_gb,
-            max_parallelism: request.max_parallelism,
+            resources: request.resources,
+            shared_memory_pool: request.shared_memory_pool.clone(),
             source_fingerprint_policy: request.source_fingerprint_policy,
             delta: None,
             prepared_source_binding: None,
@@ -7921,7 +8017,7 @@ fn vortex_ingest_feature_blocked_layout_write_advisor_fields(
             writer_provider_kind: "none_feature_gate_blocked".to_string(),
             writer_provider_surface: "none_feature_gate_blocked".to_string(),
             writer_admission_policy: "blocked_before_vortex_write_feature".to_string(),
-            writer_parallelism_budget: request.max_parallelism,
+            writer_parallelism_budget: request.resources.max_parallelism(),
             writer_compression_candidate_fields: Vec::new(),
             write_reopen_verification_depth: "not_started_feature_gate_blocked".to_string(),
             materialization_boundary_status: "not_started_feature_gate_blocked".to_string(),
@@ -8004,7 +8100,7 @@ fn vortex_ingest_scout_blocked_layout_write_advisor_fields(
             writer_provider_kind: "none_scout_ingress_blocked".to_string(),
             writer_provider_surface: "none_scout_ingress_blocked".to_string(),
             writer_admission_policy: "blocked_before_vortex_write_by_scout_ingress".to_string(),
-            writer_parallelism_budget: request.max_parallelism,
+            writer_parallelism_budget: request.resources.max_parallelism(),
             writer_compression_candidate_fields: Vec::new(),
             write_reopen_verification_depth: "not_started_scout_ingress_blocked".to_string(),
             materialization_boundary_status: "not_started_scout_ingress_blocked".to_string(),
@@ -8141,11 +8237,11 @@ fn vortex_ingest_feature_blocked_capillary_fields(
         ),
         (
             "vortex_capillary_preparation_memory_budget_bytes".to_string(),
-            memory_gb_to_bytes(request.memory_gb).to_string(),
+            request.resources.memory_bytes().to_string(),
         ),
         (
             "vortex_capillary_preparation_max_parallelism".to_string(),
-            request.max_parallelism.to_string(),
+            request.resources.max_parallelism().to_string(),
         ),
         (
             "vortex_capillary_preparation_execution_window_ids".to_string(),
@@ -9591,7 +9687,7 @@ fn fingerprint_local_source_file_with_budget_report(
     })?;
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
     let mut total = 0_u64;
-    let mut buffer = vec![0_u8; 1024 * 1024].into_boxed_slice();
+    let mut buffer = vec![0_u8; SOURCE_FINGERPRINT_BUFFER_BYTES].into_boxed_slice();
     loop {
         let read = file.read(&mut buffer).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(

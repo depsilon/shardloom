@@ -321,8 +321,13 @@ pub(super) fn aggregate_session(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<ResidentVortexSession> {
+    // Unary/sort preparation also shares this runtime-owner constructor. Only
+    // an actual aggregate payload has an aggregate-state admission requirement.
+    if let Some(aggregate) = &request.simple_aggregate {
+        super::admit_aggregate_state_policy(aggregate, policy.resource_envelope())?;
+    }
     let (effective, _) = policy.with_physical_policy_for_request(request);
-    if external_workers(request) {
+    if external_workers(request, effective.resource_envelope()) {
         ResidentVortexSession::for_external_cpu_pool(
             effective.resource_envelope.memory_budget_bytes,
             effective.resource_envelope.max_parallelism,
@@ -335,7 +340,10 @@ pub(super) fn aggregate_session(
     }
 }
 
-fn external_workers(request: &VortexQueryPrimitiveRequest) -> bool {
+fn external_workers(
+    request: &VortexQueryPrimitiveRequest,
+    envelope: super::VortexLocalPrimitiveResourceEnvelope,
+) -> bool {
     #[cfg(feature = "vortex-write")]
     if request
         .simple_aggregate
@@ -344,7 +352,7 @@ fn external_workers(request: &VortexQueryPrimitiveRequest) -> bool {
     {
         return super::weighted_count_spill_query::worker_request_admitted(request);
     }
-    aggregate_count_workers::request_may_be_admitted(request)
+    aggregate_count_workers::request_may_be_admitted(request, envelope)
 }
 
 /// Prepare in an existing session without opening another runtime. If that
@@ -413,6 +421,10 @@ fn prepared_policy(
 )> {
     canonical(request)?;
     validate_policy(policy)?;
+    super::admit_aggregate_state_policy(
+        required_simple_aggregate(request)?,
+        policy.resource_envelope(),
+    )?;
     let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     let snapshot = session.snapshot();
     if snapshot.memory.limit_bytes > policy.resource_envelope.memory_budget_bytes {
@@ -497,17 +509,21 @@ fn prepare_bound_aggregate(
     let (policy, physical_policy) = cap_session_cpu(policy, physical_policy, parallelism);
     #[cfg(feature = "vortex-write")]
     if required_simple_aggregate(request)?.spill.is_some() {
-        spill::validate_schema(request, source.dtype())?;
+        spill::validate_schema(request, source.dtype(), policy.resource_envelope())?;
     }
-    let lowering = AggregateLowering::new(request, source.dtype())?;
+    let lowering = AggregateLowering::new(request, source.dtype(), policy.resource_envelope())?;
     // Validate measure aliases/functions without retaining any aggregate state.
     drop(SimpleAggregateStates::new(
         &lowering.rewrite.aggregate,
         &lowering.plan.projected_columns,
     )?);
     let worker_pool = snapshot.provider_background_workers == 0
-        && external_workers(request)
-        && !aggregate_count_workers::restore_provider_drivers(request, source.dtype());
+        && external_workers(request, policy.resource_envelope())
+        && !aggregate_count_workers::restore_provider_drivers(
+            request,
+            source.dtype(),
+            policy.resource_envelope(),
+        );
     let temporary_provider_drivers =
         snapshot.provider_background_workers == 0 && parallelism > 1 && !worker_pool;
     let reuse = match &source {

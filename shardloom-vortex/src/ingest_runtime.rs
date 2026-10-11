@@ -27,13 +27,16 @@ struct IngestState {
 }
 
 impl IngestRuntime {
-    pub(crate) fn new(parallelism: usize) -> Self {
-        Self(Arc::new(IngestState {
+    pub(crate) fn new(parallelism: usize) -> Result<Self> {
+        if parallelism == 0 {
+            return Err(ShardLoomError::new("max_parallelism must be positive"));
+        }
+        Ok(Self(Arc::new(IngestState {
             runtime: CurrentThreadRuntime::new(),
-            requested_parallelism: parallelism.max(1),
+            requested_parallelism: parallelism,
             parallelism: shardloom_exec::compute_pool::bounded_cpu_parallelism(parallelism),
             drivers_active: AtomicBool::new(false),
-        }))
+        })))
     }
 
     pub(crate) fn requested_parallelism(&self) -> usize {
@@ -132,9 +135,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn zero_parallelism_cannot_create_a_runtime() {
+        let error = IngestRuntime::new(0).err().expect("zero must be rejected");
+        assert_eq!(
+            error.to_diagnostic().code,
+            shardloom_core::DiagnosticCode::ConfigurationError
+        );
+        assert!(!error.to_diagnostic().fallback.attempted);
+    }
+
+    #[test]
     fn cloned_runtime_cannot_admit_overlapping_driver_groups() {
         for grant in [1, 2, 3, 8, 17, 64, 128, usize::MAX, 1] {
-            let runtime = IngestRuntime::new(grant);
+            let runtime = IngestRuntime::new(grant).unwrap();
             assert_eq!(runtime.requested_parallelism(), grant);
             assert_eq!(
                 runtime.parallelism(),

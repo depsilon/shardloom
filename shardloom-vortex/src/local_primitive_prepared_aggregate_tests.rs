@@ -110,7 +110,8 @@ fn optional_preparation_is_nonexecuting_and_shape_declines_before_source_open() 
     let Some(PreparedAggregateDisposition::Reusable(prepared)) =
         prepare_aggregate_for_optional_reuse(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap()
     else {
@@ -126,7 +127,8 @@ fn optional_preparation_is_nonexecuting_and_shape_declines_before_source_open() 
     assert!(
         prepare_aggregate_for_optional_reuse(
             &unsupported,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .unwrap()
         .is_none()
@@ -147,7 +149,7 @@ fn aggregate_source_handoff_preserves_worker_ownership_and_generation() {
             .with_offset(1),
         )
         .with_source_order_limit(2);
-    let policy = VortexLocalPrimitiveExecutionPolicy::new(2).unwrap();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap();
     let source = super::super::prepared_dispatch::prepare_source(&request, policy).unwrap();
     let session = source.retained_session();
     let memory = session.memory().clone();
@@ -186,7 +188,7 @@ fn prepared_scalar_reexecutes_complete_values_and_retains_only_source_and_loweri
         let session = ResidentVortexSession::new(16 << 20, parallelism).unwrap();
         let prepared = prepare_aggregate_in_session(
             &fixture.request(scalar()),
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &session,
         )
         .unwrap();
@@ -230,7 +232,7 @@ fn prepared_grouped_count_preserves_complete_global_order_offset_and_limit() {
     for parallelism in [1, 2, 4] {
         let prepared = prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
         )
         .unwrap();
         assert_eq!(prepared.snapshot().provider_background_workers, 0);
@@ -269,13 +271,14 @@ fn prepared_admission_denial_reports_actual_drivers_and_releases_them_before_reu
     for parallelism in [1, 2, 4] {
         let prepared = prepare_aggregate(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(parallelism).unwrap(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
         )
         .unwrap();
         let session = prepared.session.clone();
         assert!(request_schema_may_be_admitted(
             &request,
-            prepared.source.dtype()
+            prepared.source.dtype(),
+            prepared.policy.resource_envelope(),
         ));
         assert!(prepared.worker_pool);
         assert_eq!(prepared.snapshot().completed_executions, 0);
@@ -361,7 +364,7 @@ fn supplied_provider_session_does_not_also_launch_an_aggregate_worker_pool() {
     ));
     let prepared = prepare_aggregate_in_session(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         &session,
     )
     .unwrap();
@@ -389,7 +392,7 @@ fn supplied_narrower_session_remains_the_aggregate_cpu_ceiling() {
         .with_source_order_limit(5);
     let prepared = prepare_aggregate_in_session(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::new(4).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
         &session,
     )
     .unwrap();
@@ -425,7 +428,7 @@ fn unsupported_two_key_worker_shape_restores_provider_lanes_on_the_same_source()
     ));
     let prepared = prepare_aggregate(
         &request,
-        VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
     )
     .unwrap();
     // The compound worker family requires one text key; both fields here are
@@ -464,7 +467,8 @@ fn prepared_pruned_and_unprunable_empty_results_are_fresh_certified_and_invalida
         });
         let prepared = prepare_aggregate_in_session(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             &session,
         )
         .unwrap();
@@ -494,7 +498,8 @@ fn prepared_pruned_and_unprunable_empty_results_are_fresh_certified_and_invalida
         assert_eq!(session.snapshot().memory.reserved_bytes, 0);
         let fresh = prepare_aggregate_in_session(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
             &session,
         )
         .unwrap();
@@ -510,7 +515,8 @@ fn prepared_pruned_and_unprunable_empty_results_are_fresh_certified_and_invalida
 fn prepared_measure_width_boundary_returns_complete_values_and_rejects_before_open() {
     let fixture = Fixture::new();
     let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let measures = (0..MAX_PREPARED_AGGREGATE_MEASURES)
         .map(|index| measure("count", None, &format!("count_{index}")))
         .collect();
@@ -555,7 +561,8 @@ fn prepared_measure_width_boundary_returns_complete_values_and_rejects_before_op
 fn prepared_grouping_shape_is_bounded_before_projection_or_source_open() {
     let fixture = Fixture::new();
     let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let column = ColumnRef::new("key").unwrap();
     let expression =
         super::super::VortexAggregateExpression::new("derived".into(), column.clone(), "identity");
@@ -601,7 +608,8 @@ fn prepared_grouping_shape_is_bounded_before_projection_or_source_open() {
 fn prepared_aggregate_rejects_extra_payload_spill_and_wider_resource_grants() {
     let fixture = Fixture::new();
     let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
-    let policy = VortexLocalPrimitiveExecutionPolicy::single_threaded();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
     let request = fixture.request(scalar());
     let mut projection = request.clone();
     projection.projection =

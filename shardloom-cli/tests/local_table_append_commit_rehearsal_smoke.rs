@@ -8,8 +8,15 @@ use std::{
 use std::os::unix::fs as unix_fs;
 
 fn run_local_table_append_commit_json(args: &[String]) -> (bool, String, String) {
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
+    let mut command = Command::new(env!("CARGO_BIN_EXE_shardloom"));
+    command.args(args);
+    if matches!(
+        args.first().map(String::as_str),
+        Some("local-table-append-commit-rehearsal-smoke" | "local-table-commit-recovery-smoke")
+    ) {
+        command.args(["--memory-gb", "4", "--max-parallelism", "2"]);
+    }
+    let output = command
         .arg("--format")
         .arg("json")
         .output()
@@ -23,8 +30,15 @@ fn run_local_table_append_commit_json(args: &[String]) -> (bool, String, String)
 }
 
 fn run_local_table_commit_recovery_json(args: &[String]) -> (bool, String, String) {
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(args)
+    let mut command = Command::new(env!("CARGO_BIN_EXE_shardloom"));
+    command.args(args);
+    if matches!(
+        args.first().map(String::as_str),
+        Some("local-table-append-commit-rehearsal-smoke" | "local-table-commit-recovery-smoke")
+    ) {
+        command.args(["--memory-gb", "4", "--max-parallelism", "2"]);
+    }
+    let output = command
         .arg("--format")
         .arg("json")
         .output()

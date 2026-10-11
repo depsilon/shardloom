@@ -20,6 +20,9 @@ mod unary;
 #[path = "support/resident_relational.rs"]
 mod relational;
 
+#[path = "support/resident_resources.rs"]
+mod resources;
+
 struct Worker {
     child: Child,
     output: BufReader<ChildStdout>,
@@ -145,7 +148,7 @@ fn field<'a>(result: &'a Value, name: &str) -> &'a str {
         .unwrap()
         .iter()
         .find(|field| field["key"] == name)
-        .unwrap()["value"]
+        .unwrap_or_else(|| panic!("missing {name}: {result}"))["value"]
         .as_str()
         .unwrap()
 }
@@ -720,6 +723,10 @@ fn worker_releases_memory_runtime_on_a_different_public_run_route() {
         "collect",
         "--bounded",
         "true",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
     ];
     let mut worker = Worker::new();
     assert_eq!(
@@ -743,6 +750,10 @@ fn worker_releases_memory_runtime_on_a_different_public_run_route() {
         "collect",
         "--bounded",
         "true",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
     ]);
     // Profile is an unsupported native operation here. Its failed admission must
     // still release the preceding declared-memory runtime.

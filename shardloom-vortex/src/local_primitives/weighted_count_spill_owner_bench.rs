@@ -59,7 +59,7 @@ fn complete_spill_key_owner_workflows() {
             let start = Instant::now();
             let report = execute_vortex_local_primitive_with_policy(
                 &request,
-                VortexLocalPrimitiveExecutionPolicy::new(2).unwrap(),
+                VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
             )
             .unwrap();
             let call_nanos = start.elapsed().as_nanos();

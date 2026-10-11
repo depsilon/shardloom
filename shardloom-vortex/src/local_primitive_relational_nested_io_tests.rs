@@ -505,12 +505,28 @@ fn write_nested_intake(
     if mode == "buffered" {
         let source = crate::read_flat_arrow_ipc_columnar_source(ipc, 100).unwrap();
         write_flat_columnar_vortex_prepared_state(VortexPreparedStateColumnarWriteRequest::new(
-            native, source,
+            native,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         ))
     } else {
         assert!(matches!(mode, "streamed" | "budgeted"));
         let source = crate::stream_flat_arrow_ipc_columnar_source(ipc, 100).unwrap();
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(native, source);
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            native,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
         write_flat_columnar_vortex_prepared_state_streaming(if mode == "budgeted" {
             request.shared_native_memory_budget_bytes(16 << 20)
         } else {
@@ -656,7 +672,16 @@ fn native_nested_empty_intake_retains_nonnullable_lists_and_structs() {
         no_fields.batches.clear();
         let denied = fixture.0.join(format!("missing-fields-{nullable}.vortex"));
         let error = write_flat_columnar_vortex_prepared_state(
-            VortexPreparedStateColumnarWriteRequest::new(&denied, no_fields),
+            VortexPreparedStateColumnarWriteRequest::new(
+                &denied,
+                no_fields,
+                shardloom_core::ExecutionResources::from_gib(
+                    4,
+                    8,
+                    shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                )
+                .expect("explicit fixture allocation"),
+            ),
         )
         .unwrap_err();
         assert!(error.to_string().contains("retaining field nullability"));

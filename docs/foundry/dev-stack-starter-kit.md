@@ -35,7 +35,7 @@ Run from a source checkout:
 
 ```powershell
 cargo build -p shardloom-cli --bin shardloom
-python examples\foundry-lightweight-transform\run.py --repo-root .
+python examples\foundry-lightweight-transform\run.py --repo-root . --memory-gb 16 --max-parallelism 8
 python scripts\foundry_proof_of_use.py --rows 64 --iterations 1
 ```
 

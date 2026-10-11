@@ -113,6 +113,8 @@ jobs:
             command: cargo test -p shardloom-vortex --lib --features release-user-surfaces
           - lane: native_public_surface_tests
             command: cargo test -p shardloom-cli --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces
+          - lane: preparation_resource_profile
+            command: cargo test -p shardloom-cli --all-targets --no-default-features --features vortex-write
           - lane: native_release_clippy
             command: cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings
           - lane: packaging_deployment
@@ -281,6 +283,9 @@ jobs:
       - name: Windows native CLI version smoke
         if: ${{ matrix.os == 'windows-latest' }}
         run: ./target/release/shardloom.exe --version
+      - name: Windows native resource admission refusal
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: cargo test --release -p shardloom-cli --test non_unix_resource_admission --features release-user-surfaces
       - name: Python compatibility lane report
         run: python scripts/write_release_compatibility_lane_report.py --lane ${{ matrix.lane }} --surface python --python-version ${{ matrix.python-version }} --os-name ${{ matrix.os }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7

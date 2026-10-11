@@ -11,12 +11,17 @@ run in ShardLoom. Unsupported work returns a diagnostic without fallback executi
 ## Run a local query
 
 Create the small CSV in the [getting-started walkthrough](/start) before running this example.
-The public `run()` report exposes the result and native execution evidence.
+The public `run()` report exposes the result and native execution evidence. The 16 GiB / 8 lane allocation below is an illustrative caller choice, not a recommendation, default, or measurement.
+The configured-context examples target the current source build; published v0.5.1 packages have not been replaced.
+Missing or malformed resources fail before data access. Configure once as below,
+or pass an explicit allocation on the execution call. Environment loading is
+deliberate through `sl.ExecutionResources.from_env()`; importing ShardLoom does
+not choose a budget. See [resources and recovery](/field-guide/runtime-and-io/#resources-and-recovery).
 
 ```python
 import shardloom as sl
 
-ctx = sl.context()
+ctx = sl.context(memory_gb=16, max_parallelism=8)
 result = (
     ctx.read("data/orders.csv")
        .filter(sl.col("status") == "paid")
@@ -62,7 +67,7 @@ def orders():
 
 frame = sl.from_batches(
     orders, schema={"order_id": "int64", "amount": "float64"},
-    streaming=True,
+    streaming=True, memory_gb=16, max_parallelism=8,
 )
 with frame.iter_batches(batch_rows=1024) as batches:
     for batch in batches:

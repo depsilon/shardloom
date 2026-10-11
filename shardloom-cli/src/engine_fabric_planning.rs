@@ -130,6 +130,15 @@ pub(crate) fn handle_live_change_contract_plan(
 }
 
 pub(crate) fn handle_live_fixture_run(args: IntoIter<String>, format: OutputFormat) -> ExitCode {
+    let (args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "live-fixture-run",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let input = match parse_live_fixture_run_args(args, format) {
         Ok(input) => input,
         Err(exit_code) => return exit_code,
@@ -156,7 +165,10 @@ pub(crate) fn handle_live_fixture_run(args: IntoIter<String>, format: OutputForm
         "live fixture run".to_string(),
         report.to_human_text(),
         vec![],
-        live_fixture_run_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            live_fixture_run_fields(&report),
+            resources,
+        ),
     );
     if report.has_errors() {
         ExitCode::from(1)
@@ -166,6 +178,15 @@ pub(crate) fn handle_live_fixture_run(args: IntoIter<String>, format: OutputForm
 }
 
 pub(crate) fn handle_hybrid_overlay_run(args: IntoIter<String>, format: OutputFormat) -> ExitCode {
+    let (args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "hybrid-overlay-run",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let input = match parse_hybrid_fixture_run_args(args, format) {
         Ok(input) => input,
         Err(exit_code) => return exit_code,
@@ -192,7 +213,10 @@ pub(crate) fn handle_hybrid_overlay_run(args: IntoIter<String>, format: OutputFo
         "hybrid overlay run".to_string(),
         report.to_human_text(),
         vec![],
-        hybrid_fixture_run_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            hybrid_fixture_run_fields(&report),
+            resources,
+        ),
     );
     if report.has_errors() {
         ExitCode::from(1)
@@ -202,9 +226,18 @@ pub(crate) fn handle_hybrid_overlay_run(args: IntoIter<String>, format: OutputFo
 }
 
 pub(crate) fn handle_live_hybrid_state_transition_smoke(
-    mut args: IntoIter<String>,
+    args: IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (mut args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "live-hybrid-state-transition-smoke",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     if let Some(extra) = args.next() {
         return emit_error(
             LIVE_HYBRID_STATE_TRANSITION_COMMAND,
@@ -235,7 +268,10 @@ pub(crate) fn handle_live_hybrid_state_transition_smoke(
         "live/hybrid state transition fixture smoke".to_string(),
         report.to_human_text(),
         vec![],
-        live_hybrid_state_transition_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            live_hybrid_state_transition_fields(&report),
+            resources,
+        ),
     );
     if report.has_errors() {
         ExitCode::from(1)
@@ -248,21 +284,57 @@ pub(crate) fn handle_live_hybrid_durable_checkpoint_smoke(
     args: IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "live-hybrid-durable-checkpoint-smoke",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let checkpoint_dir = match parse_live_hybrid_durable_checkpoint_args(args, format) {
         Ok(checkpoint_dir) => checkpoint_dir,
         Err(exit_code) => return exit_code,
     };
+    let pool = match crate::fixture_io::owner_for_command(
+        resources,
+        LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND,
+        format,
+    ) {
+        Ok(pool) => pool,
+        Err(code) => return code,
+    };
+    let _workspace =
+        match pool.reserve(shardloom_core::live_hybrid_durable_checkpoint_workspace_bytes()) {
+            Ok(workspace) => workspace,
+            Err(error) => {
+                return crate::cli_output::emit_error_with_fields(
+                    LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND,
+                    format,
+                    LIVE_HYBRID_DURABLE_CHECKPOINT_SUMMARY,
+                    &error,
+                    checkpoint_resource_fields(Vec::new(), resources, &pool),
+                );
+            }
+        };
     let report = match run_live_hybrid_durable_checkpoint_fixture(&checkpoint_dir) {
         Ok(report) => report,
         Err(error) => {
-            return emit_error(
+            return crate::cli_output::emit_error_with_fields(
                 LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND,
                 format,
                 LIVE_HYBRID_DURABLE_CHECKPOINT_SUMMARY,
                 &error,
+                checkpoint_resource_fields(Vec::new(), resources, &pool),
             );
         }
     };
+    let fields = checkpoint_resource_fields(
+        live_hybrid_durable_checkpoint_fields(&report),
+        resources,
+        &pool,
+    );
     emit(
         LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND,
         format,
@@ -274,7 +346,7 @@ pub(crate) fn handle_live_hybrid_durable_checkpoint_smoke(
         "live/hybrid durable checkpoint fixture smoke".to_string(),
         report.to_human_text(),
         vec![],
-        live_hybrid_durable_checkpoint_fields(&report),
+        fields,
     );
     if report.has_errors() {
         ExitCode::from(1)
@@ -283,10 +355,35 @@ pub(crate) fn handle_live_hybrid_durable_checkpoint_smoke(
     }
 }
 
+fn checkpoint_resource_fields(
+    fields: Vec<(String, String)>,
+    resources: shardloom_core::ExecutionResources,
+    pool: &shardloom_exec::live_memory::LiveMemoryPool,
+) -> Vec<(String, String)> {
+    let mut fields = crate::fixture_io::with_observation_fields(fields, resources, pool);
+    let snapshot = pool.snapshot();
+    crate::execution_resources::append_memory_observation_fields(
+        &mut fields,
+        Some(snapshot.reserved_bytes),
+        snapshot.peak_reserved_bytes,
+        "conservative_fixed_ten_record_checkpoint_workspace_estimate;bounded_readback;excludes_paths_reports_filesystem_bookkeeping_and_process_rss",
+    );
+    fields
+}
+
 pub(crate) fn handle_distributed_local_fixture_run(
     args: IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
+    let (args, resources) = match crate::execution_resources::require_for_command(
+        args,
+        format,
+        "distributed-local-fixture-run",
+        &[],
+    ) {
+        Ok(admitted) => admitted,
+        Err(code) => return code,
+    };
     let input = match parse_distributed_local_fixture_run_args(args, format) {
         Ok(input) => input,
         Err(exit_code) => return exit_code,
@@ -313,7 +410,10 @@ pub(crate) fn handle_distributed_local_fixture_run(
         "distributed local fixture run".to_string(),
         report.to_human_text(),
         vec![],
-        distributed_local_fixture_run_fields(&report),
+        crate::execution_resources::with_declaration_fields(
+            distributed_local_fixture_run_fields(&report),
+            resources,
+        ),
     );
     if report.has_errors() {
         ExitCode::from(1)

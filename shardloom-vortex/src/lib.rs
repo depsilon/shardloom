@@ -615,8 +615,8 @@ pub use output_payload::{
 
 #[cfg(feature = "universal-format-io")]
 pub use universal_format_io::{
-    FlatLocalColumnarSource, FlatLocalColumnarStreamSource, FlatLocalSourceTable,
-    encode_flat_arrow_ipc_rows, encode_flat_arrow_ipc_rows_with_arrow_dtypes,
+    ColumnarSourceVisit, FlatLocalColumnarSource, FlatLocalColumnarStreamSource,
+    FlatLocalSourceTable, encode_flat_arrow_ipc_rows, encode_flat_arrow_ipc_rows_with_arrow_dtypes,
     encode_flat_arrow_ipc_rows_with_dtypes, encode_flat_avro_rows,
     encode_flat_avro_rows_with_arrow_dtypes, encode_flat_avro_rows_with_dtypes,
     encode_flat_orc_rows, encode_flat_orc_rows_with_arrow_dtypes, encode_flat_orc_rows_with_dtypes,
@@ -633,6 +633,7 @@ pub use universal_format_io::{
     read_flat_parquet_source_with_projection, stream_flat_arrow_ipc_columnar_source,
     stream_flat_avro_columnar_source, stream_flat_orc_columnar_source,
     stream_flat_parquet_columnar_source, stream_flat_parquet_columnar_source_with_parallelism,
+    visit_budgeted_avro_source_with_projection, visit_budgeted_parquet_source_with_projection,
     with_capillary_prefetch_columnar_stream_source,
     with_source_native_lean_runtime_embedded_derived_columns_columnar_stream_source,
 };

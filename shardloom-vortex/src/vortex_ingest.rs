@@ -32,10 +32,12 @@ use std::sync::{OnceLock, atomic::AtomicUsize};
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 use std::sync::Mutex;
 
+#[cfg(feature = "vortex-write")]
+use shardloom_exec::live_memory::LiveMemoryPool;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use shardloom_exec::{
     compute_pool::{CancellationToken, ComputePool, ComputeTask, WorkerContext},
-    live_memory::{Budgeted, LiveMemoryPool, MemoryLease},
+    live_memory::{Budgeted, MemoryLease},
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -129,11 +131,18 @@ impl NativeIngestMemory {
         limit_bytes: u64,
         runtime: Option<&crate::ingest_runtime::IngestRuntime>,
     ) -> Result<Self> {
+        Ok(Self::with_pool(LiveMemoryPool::new(limit_bytes)?, runtime))
+    }
+
+    fn with_pool(
+        pool: LiveMemoryPool,
+        runtime: Option<&crate::ingest_runtime::IngestRuntime>,
+    ) -> Self {
         use vortex::{
             VortexSessionDefault as _, array::memory::MemorySessionExt as _,
             io::runtime::BlockingRuntime as _, io::session::RuntimeSessionExt as _,
         };
-        let pool = LiveMemoryPool::new(limit_bytes)?;
+        let limit_bytes = pool.snapshot().limit_bytes;
         let handle = runtime.map_or_else(
             || LOCAL_VORTEX_WRITE_CONTEXT.with(|context| context.borrow().runtime.handle()),
             |runtime| runtime.runtime().handle(),
@@ -145,7 +154,7 @@ impl NativeIngestMemory {
             .with_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
                 pool.clone(),
             )));
-        Ok(Self {
+        Self {
             pool,
             session,
             max_chunks: usize::try_from(
@@ -154,7 +163,7 @@ impl NativeIngestMemory {
                         .unwrap_or(u64::MAX),
             )
             .unwrap_or(usize::MAX),
-        })
+        }
     }
 
     fn reserve_input(&self, slots: usize) -> Result<MemoryLease> {
@@ -1122,11 +1131,14 @@ pub struct VortexPreparedStateReuseReport {
 
 /// Request to admit an existing local `.vortex` artifact as a prepared Vortex
 /// state without parsing a compatibility source or rewriting encoded layouts.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct VortexNativeArtifactPrepareRequest {
     pub source_path: PathBuf,
     pub target_path: PathBuf,
     pub allow_overwrite: bool,
+    pub resources: shardloom_core::ExecutionResources,
+    /// An existing preparation/execution owner, never an additional allocation.
+    pub shared_memory_pool: Option<shardloom_exec::live_memory::LiveMemoryPool>,
     pub provider_version: String,
     pub feature_gates: String,
     pub certification_level: String,
@@ -1137,6 +1149,9 @@ pub struct VortexNativeArtifactPrepareRequest {
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexNativeArtifactPrepareReport {
     pub schema_version: &'static str,
+    pub resources: shardloom_core::ExecutionResources,
+    /// Shared-pool accounting at completion, not process RSS or exclusive usage.
+    pub memory: shardloom_exec::live_memory::LiveMemorySnapshot,
     pub status: String,
     pub policy: String,
     pub source_path: PathBuf,
@@ -1379,6 +1394,7 @@ impl VortexNativeArtifactPrepareRequest {
         source_path: impl AsRef<Path>,
         target_path: impl AsRef<Path>,
         allow_overwrite: bool,
+        resources: shardloom_core::ExecutionResources,
         provider_version: impl Into<String>,
         feature_gates: impl Into<String>,
         certification_level: impl Into<String>,
@@ -1391,6 +1407,8 @@ impl VortexNativeArtifactPrepareRequest {
             source_path,
             target_path,
             allow_overwrite,
+            resources,
+            shared_memory_pool: None,
             provider_version: provider_version.into(),
             feature_gates: feature_gates.into(),
             certification_level: certification_level.into(),
@@ -1540,7 +1558,7 @@ impl VortexNativeArtifactPrepareReport {
             ),
             (
                 "vortex_ingest_requested_max_parallelism".to_string(),
-                "not_applicable_native_vortex_artifact".to_string(),
+                self.resources.max_parallelism().to_string(),
             ),
             (
                 "prepared_state_id".to_string(),
@@ -1918,6 +1936,23 @@ impl VortexNativeArtifactPrepareReport {
         fields.extend(self.segment_metadata_primitive.evidence_fields());
         if let Some(write_report) = &self.workspace_write_report {
             fields.extend(write_report.evidence_fields("vortex_to_vortex_copy"));
+        }
+        fields.extend(self.resources.evidence_fields());
+        for (key, value) in [
+            ("admission_status", "admitted".into()),
+            ("admitted_memory_bytes", self.memory.limit_bytes.to_string()),
+            ("admitted_max_parallelism", "1".into()),
+            ("admission_policy", "shared_native_footer_and_copy_buffers_serial".into()),
+            ("observed_native_reserved_bytes", self.memory.reserved_bytes.to_string()),
+            ("observed_native_peak_reserved_bytes", self.memory.peak_reserved_bytes.to_string()),
+            ("memory_observation_scope", "shared_pool_native_footer_copy_and_staging_buffers;excludes_report_objects_and_uninstrumented_provider_metadata".into()),
+            ("observed_peak_active_lanes", "unavailable".into()),
+            ("observed_spill_io_performed", "false".into()),
+            ("observed_spill_bytes", "0".into()),
+            ("spill_observation_scope", "no_spill_io".into()),
+            ("observed_process_peak_rss_bytes", "unavailable".into()),
+        ] {
+            fields.push((format!("execution_resource_{key}"), value));
         }
         fields
     }
@@ -3695,6 +3730,18 @@ pub fn prepare_native_vortex_artifact(
     request: &VortexNativeArtifactPrepareRequest,
 ) -> Result<VortexNativeArtifactPrepareReport> {
     let prepare_start = Instant::now();
+    let memory = match &request.shared_memory_pool {
+        Some(pool) if pool.snapshot().limit_bytes > request.resources.memory_bytes() => {
+            return Err(ShardLoomError::new(
+                "shared native preparation memory owner exceeds the declared allocation",
+            ));
+        }
+        Some(pool) => pool.clone(),
+        None => shardloom_exec::live_memory::LiveMemoryPool::new(request.resources.memory_bytes())?,
+    };
+    // Admit copy scratch before inspecting the source or creating a target. The
+    // same pool also owns provider footer reads. This is not a file-size limit.
+    let copy_credit = memory.reserve(8192)?;
     ensure_native_vortex_artifact_extension(&request.source_path, "native Vortex source")?;
     ensure_native_vortex_artifact_extension(&request.target_path, "prepared Vortex target")?;
     let source_metadata = fs::metadata(&request.source_path).map_err(|error| {
@@ -3726,7 +3773,10 @@ pub fn prepare_native_vortex_artifact(
 
     let metadata_open_start = Instant::now();
     let prepared_olap_layout_inventory =
-        read_prepared_vortex_artifact_layout_inventory(&request.source_path)?;
+        read_prepared_vortex_artifact_layout_inventory_with_memory(
+            &request.source_path,
+            Some(&memory),
+        )?;
     let metadata_open_micros = metadata_open_start.elapsed().as_micros();
     let row_count = prepared_olap_layout_inventory.row_count.ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
@@ -3767,7 +3817,9 @@ pub fn prepare_native_vortex_artifact(
             "no_copy_same_vortex_artifact".to_string(),
         )
     } else {
-        let source_file = fs::File::open(&request.source_path).map_err(|error| {
+        let _writer_credit = memory
+            .reserve(shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes())?;
+        let mut source_file = fs::File::open(&request.source_path).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to open native Vortex source '{}' for workspace-safe copy: {error}; no fallback execution was attempted",
                 request.source_path.display()
@@ -3783,8 +3835,22 @@ pub fn prepare_native_vortex_artifact(
                 request.allow_overwrite,
                 "native vortex artifact workspace-safe copy",
                 |writer| {
-                    let mut reader = std::io::BufReader::new(source_file);
-                    std::io::copy(&mut reader, writer).map_err(|error| {
+                    let mut buffer = vec![0_u8; 8192];
+                    let copy = (|| -> std::io::Result<u64> {
+                        let mut bytes = 0_u64;
+                        loop {
+                            let read = source_file.read(&mut buffer)?;
+                            if read == 0 {
+                                break;
+                            }
+                            std::io::Write::write_all(writer, &buffer[..read])?;
+                            bytes = bytes.checked_add(read as u64).ok_or_else(|| {
+                                std::io::Error::other("native artifact copy size overflow")
+                            })?;
+                        }
+                        Ok(bytes)
+                    })();
+                    copy.map_err(|error| {
                         ShardLoomError::InvalidOperation(format!(
                             "failed to copy native Vortex artifact '{}' to '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
                             request.source_path.display(),
@@ -3848,8 +3914,11 @@ pub fn prepare_native_vortex_artifact(
         "not_applicable_native_vortex_artifact",
     );
     let prepare_once_micros = prepare_start.elapsed().as_micros();
+    drop(copy_credit);
     Ok(VortexNativeArtifactPrepareReport {
         schema_version: VORTEX_NATIVE_ARTIFACT_PREPARE_SCHEMA_VERSION,
+        resources: request.resources,
+        memory: memory.snapshot(),
         status,
         policy,
         source_path: request.source_path.clone(),
@@ -4842,6 +4911,7 @@ fn invalid_manifest_escape() -> ShardLoomError {
 /// Request to write one flat scalar local source into a local Vortex artifact.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexPreparedStateWriteRequest {
+    pub resources: shardloom_core::ExecutionResources,
     pub target_path: PathBuf,
     pub columns: Vec<String>,
     pub column_dtypes: Vec<Option<LogicalDType>>,
@@ -4858,6 +4928,7 @@ pub struct VortexPreparedStateWriteRequest {
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexPreparedStateColumnarWriteRequest {
+    pub resources: shardloom_core::ExecutionResources,
     pub target_path: PathBuf,
     pub source: FlatLocalColumnarSource,
     pub allow_overwrite: bool,
@@ -4869,6 +4940,7 @@ pub struct VortexPreparedStateColumnarWriteRequest {
 /// Request to stream one flat columnar local source into a Vortex artifact.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 pub struct VortexPreparedStateColumnarStreamWriteRequest {
+    pub resources: shardloom_core::ExecutionResources,
     pub target_path: PathBuf,
     pub source: FlatLocalColumnarStreamSource,
     pub allow_overwrite: bool,
@@ -4879,6 +4951,7 @@ pub struct VortexPreparedStateColumnarStreamWriteRequest {
     /// Source-reader internals and native allocations bypassing that allocator
     /// remain outside the admitted scope.
     pub shared_native_memory_budget_bytes: Option<u64>,
+    shared_native_memory_pool: Option<LiveMemoryPool>,
     /// Optional single-artifact preparation provenance, validated before commit.
     pub prepared_source_binding: Option<String>,
 }
@@ -4887,8 +4960,13 @@ pub struct VortexPreparedStateColumnarStreamWriteRequest {
 impl VortexPreparedStateColumnarWriteRequest {
     /// Create a request for a columnar local `VortexPreparedState` artifact write.
     #[must_use]
-    pub fn new(target_path: impl Into<PathBuf>, source: FlatLocalColumnarSource) -> Self {
+    pub fn new(
+        target_path: impl Into<PathBuf>,
+        source: FlatLocalColumnarSource,
+        resources: shardloom_core::ExecutionResources,
+    ) -> Self {
         Self {
+            resources,
             target_path: target_path.into(),
             source,
             allow_overwrite: false,
@@ -4936,8 +5014,13 @@ impl VortexPreparedStateColumnarStreamWriteRequest {
     /// Create a request for a streaming columnar local `VortexPreparedState`
     /// artifact write.
     #[must_use]
-    pub fn new(target_path: impl Into<PathBuf>, source: FlatLocalColumnarStreamSource) -> Self {
+    pub fn new(
+        target_path: impl Into<PathBuf>,
+        source: FlatLocalColumnarStreamSource,
+        resources: shardloom_core::ExecutionResources,
+    ) -> Self {
         Self {
+            resources,
             target_path: target_path.into(),
             source,
             allow_overwrite: false,
@@ -4945,6 +5028,7 @@ impl VortexPreparedStateColumnarStreamWriteRequest {
             layout_write_advisor: None,
             capillary_prewrite_input: None,
             shared_native_memory_budget_bytes: None,
+            shared_native_memory_pool: None,
             prepared_source_binding: None,
         }
     }
@@ -4957,6 +5041,15 @@ impl VortexPreparedStateColumnarStreamWriteRequest {
     #[must_use]
     pub const fn shared_native_memory_budget_bytes(mut self, bytes: u64) -> Self {
         self.shared_native_memory_budget_bytes = Some(bytes);
+        self
+    }
+
+    /// Retain an existing native reservation owner instead of creating a new
+    /// memory grant. Retained inputs and writer buffers share its capacity.
+    #[must_use]
+    pub fn shared_native_memory_pool(mut self, pool: LiveMemoryPool) -> Self {
+        self.shared_native_memory_budget_bytes = Some(pool.snapshot().limit_bytes);
+        self.shared_native_memory_pool = Some(pool);
         self
     }
 
@@ -5000,11 +5093,13 @@ impl VortexPreparedStateWriteRequest {
         target_path: impl Into<PathBuf>,
         columns: Vec<String>,
         rows: Vec<Vec<(String, ScalarValue)>>,
+        resources: shardloom_core::ExecutionResources,
     ) -> Self {
         let column_dtypes = vec![None; columns.len()];
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         let column_arrow_dtypes = vec![None; columns.len()];
         Self {
+            resources,
             target_path: target_path.into(),
             columns,
             column_dtypes,
@@ -6279,7 +6374,7 @@ impl VortexWriterPhysicalDesignSourceInput {
             }
             _ => 0,
         };
-        let requested = source.ingest_executor_requested_parallelism.max(1);
+        let requested = source.ingest_executor_requested_parallelism;
         let cpu_lanes = if let Some(runtime) = &source.ingest_runtime {
             if runtime.requested_parallelism() != requested || source_workers > 0 {
                 return Err(ShardLoomError::InvalidOperation(
@@ -7361,7 +7456,7 @@ fn admitted_layout_writer_runtime_requested_parallelism(
     advisor: &VortexLayoutWriteAdvisorReport,
 ) -> usize {
     if advisor.row_count >= VORTEX_PREPARED_OLAP_WRITER_LARGE_SOURCE_ROW_THRESHOLD {
-        advisor.writer_parallelism_budget.max(1)
+        advisor.writer_parallelism_budget
     } else {
         1
     }
@@ -7822,7 +7917,7 @@ pub fn evaluate_vortex_layout_write_advisor(
     } else {
         input.unsupported_diagnostic_code.clone()
     };
-    let writer_parallelism_budget = input.writer_parallelism_budget.max(1);
+    let writer_parallelism_budget = input.writer_parallelism_budget;
     let strategy_decision_digest = fnv64_digest_text(&format!(
         "layout_write_advisor_evaluation|{}|{}|{}|{}|{}|{}|{}",
         input.source_state_digest,
@@ -7883,7 +7978,9 @@ pub fn evaluate_vortex_layout_write_advisor(
 }
 
 fn layout_write_advisor_status(input: &VortexLayoutWriteAdvisorInput) -> &'static str {
-    if input.unsupported_diagnostic_code == "vortex_ingest.requires_vortex_write_feature" {
+    if input.writer_parallelism_budget == 0 {
+        "blocked_resource_configuration"
+    } else if input.unsupported_diagnostic_code == "vortex_ingest.requires_vortex_write_feature" {
         "blocked_feature_gate"
     } else if input.writer_admission_policy
         != VORTEX_PRODUCT_LOCAL_INGEST_PREPARE_ONCE_ADMISSION_POLICY
@@ -9592,8 +9689,8 @@ fn capillary_pulseweave_report(
         "vortex_cold_preparation_local_capillary_io",
         format!("vortex_ingest:{}", input.source_state_digest),
         task_shapes,
-        input.memory_budget_bytes.max(1),
-        input.max_parallelism.max(1),
+        input.memory_budget_bytes,
+        input.max_parallelism,
         target_task_bytes,
     )?
     .with_task_byte_limits(4 * 1024, target_task_bytes.saturating_mul(4).max(4 * 1024))
@@ -9765,6 +9862,7 @@ fn capillary_role_list_contains(roles: &str, role: &str) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexPreparedStateWriteReport {
+    pub resources: shardloom_core::ExecutionResources,
     pub target_path: PathBuf,
     pub row_count: u64,
     pub column_count: usize,
@@ -9831,6 +9929,9 @@ pub struct VortexPreparedStateWriteReport {
 /// Scoped allocation ownership evidence, not a process-RSS or all-provider cap.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexIngestMemoryOwnershipReport {
+    /// Buffered conversion reserves a conservative construction estimate;
+    /// streamed imports instead retain credits on their copied native buffers.
+    pub buffered_conversion: bool,
     pub limit_bytes: u64,
     pub peak_reserved_bytes: u64,
     pub final_reserved_bytes: u64,
@@ -9845,15 +9946,27 @@ impl VortexIngestMemoryOwnershipReport {
     #[must_use]
     pub fn evidence_fields(&self) -> Vec<(String, String)> {
         vec![
-            ("vortex_shared_native_memory_scope".into(), "copied_native_input_buffers;prefetch_admission;native_host_allocator;root_layout_references".into()),
+            ("vortex_shared_native_memory_scope".into(), if self.buffered_conversion {
+                "shared_pool_lifetime_including_other_retained_native_owners;buffered_conversion_estimate;native_host_allocator;workspace_writer_buffer;reopen_footer"
+            } else {
+                "shared_pool_lifetime_including_other_retained_native_owners;copied_native_input_buffers;prefetch_admission;native_host_allocator;root_layout_references;workspace_writer_buffer;reopen_footer"
+            }.into()),
             ("vortex_shared_native_memory_exclusions".into(), "original_source_and_arrow_input_owners_until_conversion;source_reader_internals;codec_and_metadata_allocations_bypassing_host_allocator;process_rss".into()),
             ("vortex_shared_native_memory_limit_bytes".into(), self.limit_bytes.to_string()),
             ("vortex_shared_native_memory_peak_reserved_bytes".into(), self.peak_reserved_bytes.to_string()),
             ("vortex_shared_native_memory_final_reserved_bytes".into(), self.final_reserved_bytes.to_string()),
             ("vortex_shared_native_memory_denied_reservations".into(), self.denied_reservations.to_string()),
             ("vortex_shared_native_memory_max_source_batches".into(), self.max_source_batches.to_string()),
-            ("vortex_opaque_arrow_owner_policy".into(), "all_imported_arrow_buffers_copy_referenced_regions_into_admitted_native_storage".into()),
-            ("vortex_native_memory_physical_policy".into(), "one_source_batch_subtree_at_a_time;local_child_eof;no_cross_batch_coalescing_or_dictionary_domain".into()),
+            ("vortex_opaque_arrow_owner_policy".into(), if self.buffered_conversion {
+                "buffered_request_retains_input_owners_until_write_completion;conversion_estimate_reserved_before_build"
+            } else {
+                "all_imported_arrow_buffers_copy_referenced_regions_into_admitted_native_storage"
+            }.into()),
+            ("vortex_native_memory_physical_policy".into(), if self.buffered_conversion {
+                "buffered_array_and_writer_share_one_allocation;construction_estimate_is_not_measured_payload_bytes"
+            } else {
+                "one_source_batch_subtree_at_a_time;local_child_eof;no_cross_batch_coalescing_or_dictionary_domain"
+            }.into()),
         ]
     }
 }
@@ -10048,6 +10161,105 @@ pub const fn vortex_ingest_write_feature_enabled() -> bool {
     cfg!(feature = "vortex-write")
 }
 
+#[cfg(feature = "vortex-write")]
+fn validate_declared_ingest_resources(
+    resources: shardloom_core::ExecutionResources,
+    capillary: Option<&VortexCapillaryPreparationInput>,
+    advisor: Option<&VortexLayoutWriteAdvisorReport>,
+) -> Result<()> {
+    if capillary.is_some_and(|input| {
+        input.memory_budget_bytes == 0
+            || input.memory_budget_bytes > resources.memory_bytes()
+            || input.max_parallelism == 0
+            || input.max_parallelism > resources.max_parallelism()
+    }) {
+        return Err(ShardLoomError::new(
+            "capillary preparation resources must be positive and within the declared execution allocation",
+        ));
+    }
+    if advisor.is_some_and(|report| {
+        report.writer_parallelism_budget == 0
+            || report.writer_parallelism_budget > resources.max_parallelism()
+    }) {
+        return Err(ShardLoomError::new(
+            "writer parallelism must be positive and within the declared execution allocation",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-write")]
+fn buffered_ingest_size_overflow() -> ShardLoomError {
+    ShardLoomError::new(
+        "buffered Vortex preparation construction reservation overflowed; no output was created and no fallback execution was attempted",
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+fn buffered_scalar_conversion_bytes(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<u64> {
+    fn value_bytes(value: &ScalarValue) -> Result<u64> {
+        let payload = match value {
+            ScalarValue::Utf8(value) => usize_to_u64(value.len())?,
+            ScalarValue::Binary(value) => usize_to_u64(value.len())?,
+            ScalarValue::List(values) => values.iter().try_fold(0_u64, |bytes, value| {
+                bytes
+                    .checked_add(value_bytes(value)?)
+                    .ok_or_else(buffered_ingest_size_overflow)
+            })?,
+            ScalarValue::Struct(values) => {
+                values.iter().try_fold(0_u64, |bytes, (name, value)| {
+                    bytes
+                        .checked_add(usize_to_u64(name.len())?)
+                        .and_then(|bytes| bytes.checked_add(value_bytes(value).ok()?))
+                        .ok_or_else(buffered_ingest_size_overflow)
+                })?
+            }
+            _ => 0,
+        };
+        // Covers validity, offsets, transient value vectors and growth during
+        // scalar/Arrow construction. This is explicitly an admission estimate.
+        payload
+            .checked_add(128)
+            .ok_or_else(buffered_ingest_size_overflow)
+    }
+    let metadata = columns.iter().try_fold(4096_u64, |bytes, name| {
+        bytes
+            .checked_add(4096)
+            .and_then(|bytes| bytes.checked_add(u64::try_from(name.len()).ok()?))
+            .ok_or_else(buffered_ingest_size_overflow)
+    })?;
+    let values = rows
+        .iter()
+        .flatten()
+        .try_fold(metadata, |bytes, (_, value)| {
+            bytes
+                .checked_add(value_bytes(value)?)
+                .ok_or_else(buffered_ingest_size_overflow)
+        })?;
+    values
+        .checked_mul(4)
+        .ok_or_else(buffered_ingest_size_overflow)
+}
+
+#[cfg(feature = "vortex-write")]
+fn buffered_ingest_memory_report(memory: &LiveMemoryPool) -> VortexIngestMemoryOwnershipReport {
+    let snapshot = memory.snapshot();
+    VortexIngestMemoryOwnershipReport {
+        buffered_conversion: true,
+        limit_bytes: snapshot.limit_bytes,
+        peak_reserved_bytes: snapshot.peak_reserved_bytes,
+        final_reserved_bytes: snapshot.reserved_bytes,
+        denied_reservations: snapshot.denied_reservations,
+        max_source_batches: usize::try_from(
+            snapshot.limit_bytes / std::mem::size_of::<vortex::layout::LayoutRef>() as u64,
+        )
+        .unwrap_or(usize::MAX),
+    }
+}
+
 /// Write flat scalar rows into a local Vortex artifact and reopen it for row-count proof.
 ///
 /// # Errors
@@ -10075,6 +10287,31 @@ pub fn write_flat_scalar_vortex_prepared_state(
 pub fn write_flat_scalar_vortex_prepared_state(
     request: VortexPreparedStateWriteRequest,
 ) -> Result<VortexPreparedStateWriteReport> {
+    let memory = LiveMemoryPool::new(request.resources.memory_bytes())?;
+    write_flat_scalar_vortex_prepared_state_with_memory(request, &memory)
+}
+
+/// Keep an existing source/operation owner while constructing buffered output.
+#[cfg(feature = "vortex-write")]
+pub(crate) fn write_flat_scalar_vortex_prepared_state_with_memory(
+    request: VortexPreparedStateWriteRequest,
+    memory: &LiveMemoryPool,
+) -> Result<VortexPreparedStateWriteReport> {
+    validate_declared_ingest_resources(
+        request.resources,
+        request.capillary_prewrite_input.as_ref(),
+        request.layout_write_advisor.as_ref(),
+    )?;
+    if memory.snapshot().limit_bytes > request.resources.memory_bytes() {
+        return Err(ShardLoomError::new(
+            "buffered Vortex writer memory owner exceeds the declared allocation; no output was created and no fallback execution was attempted",
+        ));
+    }
+    let control_memory = memory.reserve(4096)?;
+    let conversion_memory = memory.reserve(buffered_scalar_conversion_bytes(
+        &request.columns,
+        &request.rows,
+    )?)?;
     if request.certification_level == VortexIngestCertificationLevel::IngestFullReplay {
         return Err(ShardLoomError::InvalidOperation(
             "local vortex_ingest ingest_full_replay requires downstream result replay/output evidence; use ingest_certified for prepare-once proof or run an output/replay workflow; no fallback execution was attempted"
@@ -10099,7 +10336,6 @@ pub fn write_flat_scalar_vortex_prepared_state(
         request.certification_level,
         VortexWriterPhysicalDesignSourceInput::scalar(row_count),
     )?;
-    prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let mut capillary_prewrite_control =
         plan_capillary_prewrite_control(request.capillary_prewrite_input.as_ref())?;
     capillary_prewrite_control
@@ -10116,7 +10352,9 @@ pub fn write_flat_scalar_vortex_prepared_state(
         &column_families,
     )?;
     let array_build_micros = array_build_start.elapsed().as_micros();
-    finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
+    let mut report = finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
+        memory,
+        resources: request.resources,
         target_path: request.target_path,
         column_count: request.columns.len(),
         column_families,
@@ -10145,7 +10383,12 @@ pub fn write_flat_scalar_vortex_prepared_state(
             materialization_boundary_status: array_build.materialization_boundary_status,
             decode_boundary_status: array_build.decode_boundary_status,
         },
-    })
+    })?;
+    drop(array_build);
+    drop(conversion_memory);
+    drop(control_memory);
+    report.shared_native_memory = Some(buffered_ingest_memory_report(memory));
+    Ok(report)
 }
 
 /// Write flat columnar Arrow batches into a local Vortex artifact and
@@ -10156,9 +10399,29 @@ pub fn write_flat_scalar_vortex_prepared_state(
 /// the scoped contract, the target already exists without overwrite
 /// permission, or upstream Vortex write/reopen APIs fail.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)] // Preserve buffered provider evidence with one resource lifetime.
 pub fn write_flat_columnar_vortex_prepared_state(
     request: VortexPreparedStateColumnarWriteRequest,
 ) -> Result<VortexPreparedStateWriteReport> {
+    validate_declared_ingest_resources(
+        request.resources,
+        request.capillary_prewrite_input.as_ref(),
+        request.layout_write_advisor.as_ref(),
+    )?;
+    let memory = LiveMemoryPool::new(request.resources.memory_bytes())?;
+    let control_memory = memory.reserve(4096)?;
+    let conversion_bytes = request.source.batches.iter().try_fold(
+        usize_to_u64(request.source.header.len())?
+            .checked_mul(4096)
+            .ok_or_else(buffered_ingest_size_overflow)?,
+        |bytes, batch| {
+            usize_to_u64(batch.get_array_memory_size())?
+                .checked_mul(4)
+                .and_then(|batch_bytes| bytes.checked_add(batch_bytes))
+                .ok_or_else(buffered_ingest_size_overflow)
+        },
+    )?;
+    let conversion_memory = memory.reserve(conversion_bytes)?;
     if request.certification_level == VortexIngestCertificationLevel::IngestFullReplay {
         return Err(ShardLoomError::InvalidOperation(
             "local vortex_ingest ingest_full_replay requires downstream result replay/output evidence; use ingest_certified for prepare-once proof or run an output/replay workflow; no fallback execution was attempted"
@@ -10183,7 +10446,6 @@ pub fn write_flat_columnar_vortex_prepared_state(
         request.certification_level,
         VortexWriterPhysicalDesignSourceInput::buffered_columnar(request.source.batches.len()),
     )?;
-    prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let mut capillary_prewrite_control =
         plan_capillary_prewrite_control(request.capillary_prewrite_input.as_ref())?;
     capillary_prewrite_control
@@ -10214,10 +10476,12 @@ pub fn write_flat_columnar_vortex_prepared_state(
                 "empty_source_no_data_decode",
             )
         };
-    finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
+    let mut report = finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
+        memory: &memory,
+        resources: request.resources,
         target_path: request.target_path,
         column_count: request.source.materialized_columns.len(),
-        column_families: array_build.column_families,
+        column_families: array_build.column_families.clone(),
         row_count,
         array: &array_build.array,
         array_build_micros,
@@ -10243,7 +10507,12 @@ pub fn write_flat_columnar_vortex_prepared_state(
             materialization_boundary_status,
             decode_boundary_status,
         },
-    })
+    })?;
+    drop(array_build);
+    drop(conversion_memory);
+    drop(control_memory);
+    report.shared_native_memory = Some(buffered_ingest_memory_report(&memory));
+    Ok(report)
 }
 
 /// Stream flat columnar Arrow batches into a local Vortex artifact and
@@ -10258,6 +10527,46 @@ pub fn write_flat_columnar_vortex_prepared_state(
 pub fn write_flat_columnar_vortex_prepared_state_streaming(
     request: VortexPreparedStateColumnarStreamWriteRequest,
 ) -> Result<VortexPreparedStateWriteReport> {
+    validate_declared_ingest_resources(
+        request.resources,
+        request.capillary_prewrite_input.as_ref(),
+        request.layout_write_advisor.as_ref(),
+    )?;
+    if request
+        .shared_native_memory_budget_bytes
+        .is_some_and(|bytes| bytes == 0 || bytes > request.resources.memory_bytes())
+    {
+        return Err(ShardLoomError::new(
+            "native writer memory admission must be positive and within the declared execution allocation",
+        ));
+    }
+    if request.source.ingest_executor_requested_parallelism == 0
+        || request.source.ingest_executor_requested_parallelism
+            > request.resources.max_parallelism()
+    {
+        return Err(ShardLoomError::new(
+            "native source parallelism must be positive and within the declared execution allocation",
+        ));
+    }
+    if let Some(pool) = &request.shared_native_memory_pool
+        && Some(pool.snapshot().limit_bytes) != request.shared_native_memory_budget_bytes
+    {
+        return Err(ShardLoomError::new(
+            "native writer memory owner differs from its admitted allocation",
+        ));
+    }
+    if request
+        .source
+        .ingest_runtime
+        .as_ref()
+        .is_some_and(|runtime| {
+            runtime.requested_parallelism() > request.resources.max_parallelism()
+        })
+    {
+        return Err(ShardLoomError::new(
+            "existing source runtime exceeds or differs from the requested grant; configure the source and writer with the same allocation",
+        ));
+    }
     if let Some(binding) = &request.prepared_source_binding {
         #[cfg(unix)]
         crate::prepared_source_binding::validate(binding)?;
@@ -10279,17 +10588,35 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     let mut writer_physical_design_source =
         VortexWriterPhysicalDesignSourceInput::streaming_columnar(&request.source)?;
     let ingest_runtime = request.source.ingest_runtime.clone();
-    let _drivers = ingest_runtime
+    let native_memory = if let Some(pool) = request.shared_native_memory_pool.clone() {
+        Some(NativeIngestMemory::with_pool(pool, ingest_runtime.as_ref()))
+    } else {
+        // An omitted narrower suballocation inherits the required declaration;
+        // it never disables the writer's existing reservation owner.
+        Some(NativeIngestMemory::with_runtime(
+            request
+                .shared_native_memory_budget_bytes
+                .unwrap_or(request.resources.memory_bytes()),
+            ingest_runtime.as_ref(),
+        )?)
+    };
+    let prefetch_memory_bytes = native_memory
         .as_ref()
-        .map(crate::ingest_runtime::IngestRuntime::start_drivers)
-        .transpose()?;
-    let native_memory = request
-        .shared_native_memory_budget_bytes
-        .map(|bytes| NativeIngestMemory::with_runtime(bytes, ingest_runtime.as_ref()))
-        .transpose()?;
+        .map_or(request.resources.memory_bytes() / 4, |memory| {
+            memory.pool.snapshot().limit_bytes / 4
+        });
+    if prefetch_memory_bytes == 0 {
+        return Err(ShardLoomError::new(
+            "native writer allocation cannot admit a positive prefetch budget",
+        ));
+    }
     let mut first_input_lease = native_memory
         .as_ref()
         .map(|memory| memory.reserve_input(1))
+        .transpose()?;
+    let _drivers = ingest_runtime
+        .as_ref()
+        .map(crate::ingest_runtime::IngestRuntime::start_drivers)
         .transpose()?;
     let mut capillary_prewrite_control =
         plan_capillary_prewrite_control(request.capillary_prewrite_input.as_ref())?;
@@ -10309,63 +10636,12 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
         embedded_derived_build_micros,
     );
     let first_source_pull_start = Instant::now();
+    // Empty input keeps its schema, native provider and the same admitted owner.
+    // It must not create an independent buffered-writer allocation.
     let first_batch =
-        match next_streaming_record_batch(reader.as_mut(), "streaming local columnar source")? {
-            Some(batch) => batch,
-            None if native_memory.is_some()
-                || ingest_runtime.is_some()
-                || !source_identities.is_empty()
-                || request.prepared_source_binding.is_some()
-                || reader.schema().fields().iter().any(|field| {
-                    matches!(
-                        field.data_type(),
-                        ArrowDataType::List(_)
-                            | ArrowDataType::LargeList(_)
-                            | ArrowDataType::FixedSizeList(..)
-                            | ArrowDataType::Struct(_)
-                    )
-                }) =>
-            {
-                RecordBatch::new_empty(reader.schema())
-            }
-            None => {
-                stream_timing.add_source_pull_elapsed(first_source_pull_start.elapsed());
-                let empty_source = FlatLocalColumnarSource {
-                    header: request.source.header,
-                    column_dtypes: request.source.column_dtypes,
-                    column_arrow_dtypes: request.source.column_arrow_dtypes,
-                    materialized_columns: request.source.materialized_columns,
-                    reader_projection_columns: request.source.reader_projection_columns,
-                    batches: Vec::new(),
-                    row_count: 0,
-                };
-                let mut empty_request = VortexPreparedStateColumnarWriteRequest::new(
-                    &request.target_path,
-                    empty_source,
-                )
-                .allow_overwrite(request.allow_overwrite)
-                .certification_level(request.certification_level);
-                if let Some(report) = request.layout_write_advisor {
-                    empty_request = empty_request.layout_write_advisor(report);
-                }
-                if let Some(input) = request.capillary_prewrite_input {
-                    empty_request = empty_request.capillary_prewrite_input(input);
-                }
-                return write_flat_columnar_vortex_prepared_state(empty_request);
-            }
-        };
+        next_streaming_record_batch(reader.as_mut(), "streaming local columnar source")?
+            .unwrap_or_else(|| RecordBatch::new_empty(reader.schema()));
     stream_timing.add_source_pull_elapsed(first_source_pull_start.elapsed());
-    let prefetch_memory_bytes = native_memory.as_ref().map_or_else(
-        || {
-            request
-                .capillary_prewrite_input
-                .as_ref()
-                .map_or(1024 * 1024 * 1024, |input| {
-                    (input.memory_budget_bytes / 4).max(1)
-                })
-        },
-        |memory| (memory.pool.snapshot().limit_bytes / 4).max(1),
-    );
     if let Some(lanes) = writer_physical_design_source.cpu_lanes.as_mut() {
         lanes.admit_conversion_memory(
             prefetch_memory_bytes,
@@ -10409,7 +10685,6 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
     } else {
         underlying_provider_surface
     };
-    prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let first_array = record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
         &first_batch,
         &source_shape,
@@ -10452,6 +10727,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming(
             "full_projection"
         };
     finalize_vortex_prepared_state_stream_write(VortexPreparedStateStreamFinalizeInput {
+        resources: request.resources,
         target_path: request.target_path,
         prepared_source_binding: request.prepared_source_binding,
         column_count: request.source.materialized_columns.len(),
@@ -10722,6 +10998,8 @@ fn validate_flat_columnar_stream_source_shape(
 
 #[cfg(feature = "vortex-write")]
 struct VortexPreparedStateFinalizeInput<'a> {
+    memory: &'a LiveMemoryPool,
+    resources: shardloom_core::ExecutionResources,
     target_path: PathBuf,
     column_count: usize,
     column_families: Vec<(String, String)>,
@@ -10751,6 +11029,7 @@ where
         + Send
         + 'static,
 {
+    resources: shardloom_core::ExecutionResources,
     target_path: PathBuf,
     prepared_source_binding: Option<String>,
     column_count: usize,
@@ -11744,6 +12023,7 @@ fn finalize_vortex_prepared_state_write(
         input.array,
         input.allow_overwrite,
         &input.layout_write_decision,
+        input.memory,
     )?;
     cleanup_legacy_prepared_olap_state_sidecars(&input.target_path)?;
 
@@ -11761,6 +12041,7 @@ fn finalize_vortex_prepared_state_write(
                 write_result.writer_row_count,
                 write_result.bytes_written,
                 &input.layout_write_decision,
+                Some(input.memory),
             )?;
         let reopen_row_count = prepared_olap_layout_inventory.row_count.unwrap_or(0);
         if write_result.writer_row_count != input.row_count || reopen_row_count != input.row_count {
@@ -11791,7 +12072,10 @@ fn finalize_vortex_prepared_state_write(
                     &input.layout_write_decision,
                 )
             } else {
-                read_prepared_vortex_artifact_layout_inventory(&input.target_path)?
+                read_prepared_vortex_artifact_layout_inventory_with_memory(
+                    &input.target_path,
+                    Some(input.memory),
+                )?
             };
         if write_result.writer_row_count != input.row_count {
             return Err(ShardLoomError::InvalidOperation(format!(
@@ -11824,6 +12108,7 @@ fn finalize_vortex_prepared_state_write(
     );
 
     Ok(VortexPreparedStateWriteReport {
+        resources: input.resources,
         target_path: input.target_path,
         shared_native_memory: None,
         row_count: input.row_count,
@@ -11945,6 +12230,7 @@ where
                 write_result.writer_row_count,
                 write_result.bytes_written,
                 &input.layout_write_decision,
+                input.native_memory.as_ref().map(|memory| &memory.pool),
             )?;
         let reopen_row_count = prepared_olap_layout_inventory.row_count.unwrap_or(0);
         if reopen_row_count != row_count {
@@ -11974,7 +12260,10 @@ where
                     &input.layout_write_decision,
                 )
             } else {
-                read_prepared_vortex_artifact_layout_inventory(&target_path)?
+                read_prepared_vortex_artifact_layout_inventory_with_memory(
+                    &target_path,
+                    input.native_memory.as_ref().map(|memory| &memory.pool),
+                )?
             };
         (
             prepared_olap_layout_inventory.row_count.unwrap_or(0),
@@ -12005,10 +12294,12 @@ where
     );
 
     Ok(VortexPreparedStateWriteReport {
+        resources: input.resources,
         target_path,
         shared_native_memory: input.native_memory.as_ref().map(|memory| {
             let snapshot = memory.pool.snapshot();
             VortexIngestMemoryOwnershipReport {
+                buffered_conversion: false,
                 limit_bytes: snapshot.limit_bytes,
                 peak_reserved_bytes: snapshot.peak_reserved_bytes,
                 final_reserved_bytes: snapshot.reserved_bytes,
@@ -13756,6 +14047,7 @@ impl LocalVortexWriteContext {
         ))
     }
 
+    #[allow(clippy::too_many_lines)] // Admission, publication and measured writer evidence stay together.
     fn write_array(
         &self,
         path: &Path,
@@ -13763,7 +14055,14 @@ impl LocalVortexWriteContext {
         allow_overwrite: bool,
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_context_reuse_status: impl Into<String>,
+        memory: &LiveMemoryPool,
     ) -> Result<LocalVortexWriteResult> {
+        use vortex::array::memory::MemorySessionExt as _;
+        let _writer_memory = memory
+            .reserve(shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes())?;
+        let writer_session = self.session.clone().with_allocator(Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+        ));
         let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
         let write_start = Instant::now();
         let expected_rows = usize_to_u64(array.len())?;
@@ -13792,11 +14091,13 @@ impl LocalVortexWriteContext {
             &mut writer_coalescing_policy_status,
             &mut writer_compression_policy,
         );
-        let write_options = self.write_options_for_decision(
+        let write_options = self.write_options_for_session(
             layout_write_decision,
             &writer_stage_timing,
             array.dtype(),
+            &writer_session,
         );
+        prepare_vortex_target(path, allow_overwrite)?;
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -13886,6 +14187,13 @@ impl LocalVortexWriteContext {
             + Send
             + 'static,
     {
+        let _writer_memory = native_memory
+            .map(|memory| {
+                memory.pool.reserve(
+                    shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes(),
+                )
+            })
+            .transpose()?;
         let writer_context_reuse_status = self.next_reuse_status();
         let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
         let write_start = Instant::now();
@@ -13937,6 +14245,7 @@ impl LocalVortexWriteContext {
         };
         #[cfg(not(unix))]
         let _ = prepared_source_binding;
+        prepare_vortex_target(path, allow_overwrite)?;
         let (summary, workspace_write_report) =
             shardloom_core::write_workspace_safe_bytes_with_validated_producer(
                 workspace_root,
@@ -14035,15 +14344,31 @@ impl LocalVortexWriteContext {
         )
     }
 
+    #[cfg(feature = "universal-format-io")]
     fn write_options_for_decision(
         &self,
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_stage_timing: &VortexWriterStageTiming,
         dtype: &vortex::array::dtype::DType,
     ) -> vortex::file::VortexWriteOptions {
+        self.write_options_for_session(
+            layout_write_decision,
+            writer_stage_timing,
+            dtype,
+            &self.session,
+        )
+    }
+
+    fn write_options_for_session(
+        &self,
+        layout_write_decision: &VortexLayoutWriteRuntimeDecision,
+        writer_stage_timing: &VortexWriterStageTiming,
+        dtype: &vortex::array::dtype::DType,
+        writer_session: &vortex::session::VortexSession,
+    ) -> vortex::file::VortexWriteOptions {
         use vortex::file::WriteOptionsSessionExt as _;
-        let options = nested_layout::file_statistics(self.session.write_options(), dtype);
-        if let Some(writer) = nested_layout::root_writer(dtype, &self.session) {
+        let options = nested_layout::file_statistics(writer_session.write_options(), dtype);
+        if let Some(writer) = nested_layout::root_writer(dtype, writer_session) {
             return options.with_strategy(writer);
         }
         if vortex_layout_write_strategy_applies(layout_write_decision)
@@ -14052,7 +14377,7 @@ impl LocalVortexWriteContext {
             options.with_strategy(self.strategy_for_decision(
                 layout_write_decision,
                 writer_stage_timing,
-                &self.session,
+                writer_session,
                 false,
                 dtype,
             ))
@@ -14653,6 +14978,7 @@ fn write_vortex_array(
     array: &vortex::array::ArrayRef,
     allow_overwrite: bool,
     layout_write_decision: &VortexLayoutWriteRuntimeDecision,
+    memory: &LiveMemoryPool,
 ) -> Result<LocalVortexWriteResult> {
     LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
         let context = context.borrow();
@@ -14663,6 +14989,7 @@ fn write_vortex_array(
             allow_overwrite,
             layout_write_decision,
             reuse_status,
+            memory,
         )
     })
 }
@@ -15061,7 +15388,17 @@ fn compact_field_evidence_token(value: &str) -> String {
 fn read_prepared_vortex_artifact_layout_inventory(
     path: &Path,
 ) -> Result<VortexPreparedOlapLayoutInventory> {
+    read_prepared_vortex_artifact_layout_inventory_with_memory(path, None)
+}
+
+#[cfg(feature = "vortex-write")]
+#[allow(clippy::too_many_lines)]
+fn read_prepared_vortex_artifact_layout_inventory_with_memory(
+    path: &Path,
+    memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+) -> Result<VortexPreparedOlapLayoutInventory> {
     use vortex::VortexSessionDefault as _;
+    use vortex::array::memory::MemorySessionExt as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
     use vortex::io::runtime::single::SingleThreadRuntime;
@@ -15069,7 +15406,12 @@ fn read_prepared_vortex_artifact_layout_inventory(
     use vortex::session::VortexSession;
 
     let runtime = SingleThreadRuntime::default();
-    let session = VortexSession::default().with_handle(runtime.handle());
+    let mut session = VortexSession::default().with_handle(runtime.handle());
+    if let Some(memory) = memory {
+        session = session.with_allocator(Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+        ));
+    }
     let file = runtime
         .block_on(
             session
@@ -15178,6 +15520,7 @@ fn prepared_vortex_artifact_layout_inventory_after_write(
     row_count: u64,
     bytes_written: u64,
     layout_write_decision: &VortexLayoutWriteRuntimeDecision,
+    memory: Option<&LiveMemoryPool>,
 ) -> Result<(VortexPreparedOlapLayoutInventory, u128, String)> {
     if should_defer_prepared_vortex_artifact_layout_inventory(
         row_count,
@@ -15196,7 +15539,8 @@ fn prepared_vortex_artifact_layout_inventory_after_write(
         ));
     }
     let reopen_start = Instant::now();
-    let prepared_olap_layout_inventory = read_prepared_vortex_artifact_layout_inventory(path)?;
+    let prepared_olap_layout_inventory =
+        read_prepared_vortex_artifact_layout_inventory_with_memory(path, memory)?;
     let reopen_scan_micros = reopen_start.elapsed().as_micros();
     Ok((
         prepared_olap_layout_inventory,
@@ -15266,6 +15610,115 @@ mod tests {
     use super::*;
 
     #[test]
+    fn buffered_scalar_writer_shares_retained_source_credits_and_retries_after_release() {
+        let root = temp_test_root("buffered-shared-source-owner");
+        std::fs::create_dir_all(&root).unwrap();
+        let existing = root.join("existing.vortex");
+        let absent = root.join("absent").join("new.vortex");
+        std::fs::write(&existing, b"keep existing output").unwrap();
+        let resources = shardloom_core::ExecutionResources::from_bytes(
+            16 << 20,
+            1,
+            shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+        )
+        .unwrap();
+        let memory = LiveMemoryPool::new(resources.memory_bytes()).unwrap();
+        let retained_source = memory.reserve(resources.memory_bytes() - 4096).unwrap();
+        let request = |path: &std::path::Path| {
+            VortexPreparedStateWriteRequest::new(
+                path,
+                vec!["value".into()],
+                vec![vec![("value".into(), ScalarValue::UInt64(37))]],
+                resources,
+            )
+            .allow_overwrite(true)
+        };
+        for output in [&existing, &absent] {
+            let error = write_flat_scalar_vortex_prepared_state_with_memory(
+                request(output),
+                retained_source.pool(),
+            )
+            .unwrap_err();
+            assert!(
+                error.to_string().contains("memory reservation denied"),
+                "{error}"
+            );
+            assert_eq!(memory.snapshot().reserved_bytes, retained_source.bytes());
+            assert_eq!(std::fs::read(&existing).unwrap(), b"keep existing output");
+            assert!(!absent.parent().unwrap().exists());
+        }
+        drop(retained_source);
+        let other_source = memory.reserve(128).unwrap();
+        let report = write_flat_scalar_vortex_prepared_state_with_memory(
+            request(&absent),
+            other_source.pool(),
+        )
+        .unwrap();
+        assert_eq!(report.row_count, 1);
+        assert_eq!(report.reopen_row_count, 1);
+        let ownership = report.shared_native_memory.unwrap();
+        assert_eq!(ownership.final_reserved_bytes, 128);
+        assert_eq!(ownership.denied_reservations, 2);
+        assert!(ownership.peak_reserved_bytes <= resources.memory_bytes());
+        assert_eq!(memory.snapshot().reserved_bytes, 128);
+        drop(other_source);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn buffered_scalar_ingest_reserves_before_validation_and_destination_changes() {
+        let root = temp_test_root("buffered-resource-owner");
+        std::fs::create_dir_all(&root).unwrap();
+        let existing = root.join("existing.vortex");
+        let absent = root.join("absent").join("new.vortex");
+        std::fs::write(&existing, b"keep existing output").unwrap();
+        for path in [&existing, &absent] {
+            for (bytes, payload) in [(1, "small".to_string()), (128 << 10, "x".repeat(128 << 10))] {
+                let request = VortexPreparedStateWriteRequest::new(
+                    path,
+                    vec!["value".into()],
+                    vec![vec![("value".into(), ScalarValue::Utf8(payload))]],
+                    shardloom_core::ExecutionResources::from_bytes(
+                        bytes,
+                        1,
+                        shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                    )
+                    .unwrap(),
+                )
+                .allow_overwrite(true);
+                let error = write_flat_scalar_vortex_prepared_state(request).unwrap_err();
+                assert!(error.to_string().contains("memory"), "{error}");
+                assert_eq!(std::fs::read(&existing).unwrap(), b"keep existing output");
+                assert!(!absent.parent().unwrap().exists());
+            }
+        }
+        let request = VortexPreparedStateWriteRequest::new(
+            &absent,
+            vec!["value".into()],
+            vec![vec![("value".into(), ScalarValue::Utf8("admitted".into()))]],
+            shardloom_core::ExecutionResources::from_bytes(
+                16 << 20,
+                1,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .unwrap(),
+        );
+        let report = write_flat_scalar_vortex_prepared_state(request).unwrap();
+        assert_eq!(report.row_count, 1);
+        assert_eq!(report.reopen_row_count, 1);
+        let memory = report.shared_native_memory.unwrap();
+        assert!(memory.buffered_conversion);
+        assert!(
+            memory.peak_reserved_bytes
+                >= shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes()
+        );
+        assert!(memory.peak_reserved_bytes <= memory.limit_bytes);
+        assert_eq!(memory.final_reserved_bytes, 0);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn reopened_inventory_schema_is_compact_and_digest_is_deterministic() {
         let path = std::env::temp_dir().join(format!(
             "shardloom-compact-inventory-{}.vortex",
@@ -15278,6 +15731,12 @@ mod tests {
                 ("id".into(), ScalarValue::Int64(1)),
                 ("payload".into(), ScalarValue::Utf8("alpha".into())),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
         write_flat_scalar_vortex_prepared_state(request).unwrap();
         let first = read_prepared_vortex_artifact_layout_inventory(&path).unwrap();
@@ -15399,6 +15858,12 @@ mod tests {
                     ("metric".to_string(), ScalarValue::Float64(seed_f64 + 1.5)),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .allow_overwrite(true);
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write test vortex");
@@ -15424,6 +15889,12 @@ mod tests {
             &source,
             &source,
             false,
+            shardloom_core::ExecutionResources::from_bytes(
+                1024 * 1024,
+                2,
+                shardloom_core::ExecutionResourceOrigin::Context,
+            )
+            .unwrap(),
             "test-vortex-provider",
             "vortex-write",
             "ingest_certified",
@@ -15488,6 +15959,12 @@ mod tests {
             &source,
             &target,
             false,
+            shardloom_core::ExecutionResources::from_bytes(
+                1024 * 1024,
+                2,
+                shardloom_core::ExecutionResourceOrigin::Context,
+            )
+            .unwrap(),
             "test-vortex-provider",
             "vortex-write",
             "ingest_certified",
@@ -15523,6 +16000,130 @@ mod tests {
         );
         assert!(!legacy_prepared_olap_state_manifest_path(&target).exists());
         std::fs::remove_dir_all(root).expect("remove temp root");
+    }
+
+    #[test]
+    fn native_vortex_artifact_resources_refuse_before_input_and_preserve_shared_ownership() {
+        use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+        use shardloom_exec::live_memory::LiveMemoryPool;
+        let root = temp_test_root("native-vortex-resources");
+        let source = root.join("source.vortex");
+        let target = root.join("target.vortex");
+        let resources = |bytes| {
+            ExecutionResources::from_bytes(bytes, 3, ExecutionResourceOrigin::Platform).unwrap()
+        };
+        let mut request = VortexNativeArtifactPrepareRequest::new_local(
+            &source,
+            &target,
+            true,
+            resources(1),
+            "test-provider",
+            "vortex-write",
+            "ingest_certified",
+        )
+        .unwrap();
+        // A missing source would return a stat error if any inspection ran first.
+        let error = prepare_native_vortex_artifact(&request).unwrap_err();
+        assert!(error.to_string().contains("memory reservation denied"));
+        assert!(!source.exists());
+        assert!(!target.exists());
+
+        write_test_prepared_vortex_artifact(&source, 41);
+        fs::write(&target, b"preserve existing output").unwrap();
+        let pool = LiveMemoryPool::new(1024 * 1024).unwrap();
+        request.resources = resources(1024 * 1024);
+        request.shared_memory_pool = Some(pool.clone());
+        let retained = pool.reserve(1024 * 1024 - 4096).unwrap();
+        assert!(
+            prepare_native_vortex_artifact(&request)
+                .unwrap_err()
+                .to_string()
+                .contains("memory reservation denied")
+        );
+        assert_eq!(fs::read(&target).unwrap(), b"preserve existing output");
+        assert_eq!(pool.snapshot().reserved_bytes, retained.bytes());
+        drop(retained);
+
+        // The copy slot fits, but the provider footer does not. It must use the
+        // same pool and still fail before replacing the existing target.
+        let retained = pool.reserve(1024 * 1024 - 8192).unwrap();
+        assert!(prepare_native_vortex_artifact(&request).is_err());
+        assert_eq!(pool.snapshot().reserved_bytes, retained.bytes());
+        assert_eq!(fs::read(&target).unwrap(), b"preserve existing output");
+        drop(retained);
+
+        request.resources = resources(1024 * 1024 - 1);
+        assert!(
+            prepare_native_vortex_artifact(&request)
+                .unwrap_err()
+                .to_string()
+                .contains("exceeds the declared allocation")
+        );
+        request.resources = resources(1024 * 1024);
+        let retained = pool.reserve(2048).unwrap();
+        for pass_through in [false, true] {
+            request.target_path = if pass_through {
+                source.clone()
+            } else {
+                target.clone()
+            };
+            let report = prepare_native_vortex_artifact(&request).unwrap();
+            assert_eq!(report.memory.reserved_bytes, retained.bytes());
+            assert_eq!(pool.snapshot().reserved_bytes, retained.bytes());
+            assert_eq!(report.resources, request.resources);
+            assert!(report.memory.peak_reserved_bytes <= report.memory.limit_bytes);
+            let fields: BTreeMap<_, _> = report.evidence_fields().into_iter().collect();
+            assert_eq!(fields["execution_resource_memory_origin"], "platform");
+            assert_eq!(fields["execution_resource_declared_max_parallelism"], "3");
+            assert_eq!(fields["execution_resource_admitted_max_parallelism"], "1");
+            assert_eq!(
+                fields["execution_resource_admitted_memory_bytes"],
+                "1048576"
+            );
+            assert_eq!(
+                fields["execution_resource_whole_process_memory_limit_enforced"],
+                "false"
+            );
+            assert_eq!(
+                fields["execution_resource_observed_spill_io_performed"],
+                "false"
+            );
+        }
+        assert_eq!(fs::read(&source).unwrap(), fs::read(&target).unwrap());
+        drop(retained);
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_vortex_artifact_copy_reserves_workspace_staging_capacity() {
+        use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+        let root = temp_test_root("native-vortex-staging-resources");
+        let source = root.join("source.vortex");
+        let target = root.join("target.vortex");
+        write_test_prepared_vortex_artifact(&source, 41);
+        fs::write(&target, b"preserve existing output").unwrap();
+        let request = VortexNativeArtifactPrepareRequest::new_local(
+            &source,
+            &target,
+            true,
+            ExecutionResources::from_bytes(128 * 1024, 1, ExecutionResourceOrigin::Context)
+                .unwrap(),
+            "test-provider",
+            "vortex-write",
+            "ingest_certified",
+        )
+        .unwrap();
+        // Footer reads and the copy buffer fit, but the staged writer must also
+        // obtain credits before output creation or replacement.
+        let error = prepare_native_vortex_artifact(&request).unwrap_err();
+        let writer_bytes = shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes();
+        assert!(error.to_string().contains(&format!(
+            "memory reservation denied: requested={writer_bytes}, reserved=8192, limit=131072"
+        )));
+        assert_eq!(fs::read(&target).unwrap(), b"preserve existing output");
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+        fs::remove_dir_all(root).unwrap();
     }
 
     fn reuse_request_for_test(
@@ -15577,6 +16178,12 @@ mod tests {
                     ("active".to_string(), ScalarValue::Boolean(false)),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -15749,6 +16356,12 @@ mod tests {
                     ("label".to_string(), ScalarValue::Utf8("omega".to_string())),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -15807,6 +16420,12 @@ mod tests {
                 vec![("id".to_string(), ScalarValue::Null)],
                 vec![("id".to_string(), ScalarValue::Int64(42))],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -15830,6 +16449,12 @@ mod tests {
             &path,
             vec!["value".to_string()],
             vec![vec![("value".to_string(), ScalarValue::Null)]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -15857,6 +16482,12 @@ mod tests {
                 vec![("metric".to_string(), ScalarValue::Float64(2.5))],
                 vec![("metric".to_string(), ScalarValue::UInt64(3))],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -15887,6 +16518,12 @@ mod tests {
                 vec![("payload".to_string(), ScalarValue::Null)],
                 vec![("payload".to_string(), ScalarValue::Null)],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .column_dtypes(vec![Some(LogicalDType::Binary)]);
 
@@ -15952,17 +16589,26 @@ mod tests {
                 ("event_ts".to_string(), ScalarValue::Null),
             ]
         };
-        let request =
-            VortexPreparedStateWriteRequest::new(&path, columns, vec![null_row(), null_row()])
-                .column_dtypes(vec![
-                    Some(LogicalDType::Boolean),
-                    Some(LogicalDType::Int64),
-                    Some(LogicalDType::UInt64),
-                    Some(LogicalDType::Float64),
-                    Some(LogicalDType::Utf8),
-                    Some(LogicalDType::Date32),
-                    Some(LogicalDType::TimestampMicros),
-                ]);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            columns,
+            vec![null_row(), null_row()],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .column_dtypes(vec![
+            Some(LogicalDType::Boolean),
+            Some(LogicalDType::Int64),
+            Some(LogicalDType::UInt64),
+            Some(LogicalDType::Float64),
+            Some(LogicalDType::Utf8),
+            Some(LogicalDType::Date32),
+            Some(LogicalDType::TimestampMicros),
+        ]);
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
 
@@ -16128,6 +16774,12 @@ mod tests {
                     ),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -16264,6 +16916,12 @@ mod tests {
                     ),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
@@ -16324,6 +16982,12 @@ mod tests {
                 vec![("amount".to_string(), ScalarValue::Null)],
                 vec![("amount".to_string(), ScalarValue::Null)],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .column_dtypes(vec![Some(LogicalDType::Extension(
             "decimal128(10,2)".to_string(),
@@ -16388,6 +17052,12 @@ mod tests {
                     },
                 )],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         );
 
         let error = write_flat_scalar_vortex_prepared_state(request)
@@ -16418,6 +17088,12 @@ mod tests {
                 ("id".to_string(), ScalarValue::Int64(1)),
                 ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .layout_write_advisor(advisor);
 
@@ -16715,6 +17391,12 @@ mod tests {
                     ScalarValue::Utf8("alpha".to_string()),
                 ),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .layout_write_advisor(advisor);
 
@@ -16820,6 +17502,12 @@ mod tests {
                     ScalarValue::Utf8("https://example.test".to_string()),
                 ),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .layout_write_advisor(advisor);
 
@@ -16888,6 +17576,12 @@ mod tests {
                 ("id".to_string(), ScalarValue::Int64(1)),
                 ("metric".to_string(), ScalarValue::Float64(2.5)),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .layout_write_advisor(advisor);
 
@@ -16950,6 +17644,12 @@ mod tests {
                 ("id".to_string(), ScalarValue::Int64(1)),
                 ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .layout_write_advisor(advisor);
 
@@ -16981,6 +17681,12 @@ mod tests {
                 ("id".to_string(), ScalarValue::Int64(1)),
                 ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .certification_level(VortexIngestCertificationLevel::IngestMinimal);
 
@@ -17040,6 +17746,12 @@ mod tests {
                     ("label".to_string(), ScalarValue::Utf8("beta".to_string())),
                 ],
             ],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 2));
 
@@ -17117,8 +17829,17 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 4));
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 4));
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -17288,8 +18009,17 @@ mod tests {
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
         };
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 3, 2));
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 3, 2));
 
         let report =
             write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
@@ -17343,7 +18073,7 @@ mod tests {
         );
         assert_eq!(
             report.writer_coalescing_policy_status,
-            "upstream_vortex_default_writer_coalescing_policy"
+            "native_within_source_batch_only;cross_batch_coalescing_disabled"
         );
         assert_eq!(
             report.preparation_spine.source_surface,
@@ -17469,8 +18199,17 @@ mod tests {
                 batches: VecDeque::from([batch_1, batch_2]),
             }),
         };
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 3, 2));
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 3, 2));
 
         let report =
             write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
@@ -17615,8 +18354,17 @@ mod tests {
                 .data_type(),
             &DataType::Int64
         );
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 1));
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 1));
 
         let report =
             write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
@@ -17789,8 +18537,17 @@ mod tests {
                 .data_type(),
             &DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8))
         );
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 1));
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 2, 1));
 
         let report =
             write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
@@ -17840,7 +18597,7 @@ mod tests {
 
     #[cfg(feature = "universal-format-io")]
     #[test]
-    fn local_empty_flat_columnar_stream_source_uses_empty_writer_provider() {
+    fn local_empty_flat_columnar_stream_source_uses_admitted_native_array_provider() {
         use std::collections::VecDeque;
         use std::sync::Arc;
 
@@ -17909,34 +18666,49 @@ mod tests {
         };
         let mut advisor_input = layout_advisor_input(true, "none");
         advisor_input.row_count = 0;
-        advisor_input.writer_provider_kind = "shardloom_kernel".to_string();
+        advisor_input.writer_provider_kind = "vortex_array_kernel".to_string();
         advisor_input.writer_provider_surface =
-            "shardloom_empty_columnar_struct_builder;VortexSession::write_options().write(ArrayStream)"
+            "ArrayRef::from_arrow(RecordBatch);streaming ArrayIterator;VortexSession::write_options().write(ArrayStream)"
                 .to_string();
         advisor_input.materialization_boundary_status =
             "empty_columnar_source_state_preserved_to_vortex_struct".to_string();
         advisor_input.decode_boundary_status =
             "no_scalar_row_decode_for_empty_columnar_source".to_string();
         let advisor = evaluate_vortex_layout_write_advisor(advisor_input);
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source)
-            .layout_write_advisor(advisor)
-            .capillary_prewrite_input(capillary_prewrite_test_input(&path, 0, 0));
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .layout_write_advisor(advisor)
+        .capillary_prewrite_input(capillary_prewrite_test_input(&path, 0, 0));
 
         let report =
             write_flat_columnar_vortex_prepared_state_streaming(request).expect("stream report");
 
         assert_eq!(report.row_count, 0);
         assert_eq!(report.reopen_row_count, 0);
-        assert_eq!(report.array_build_record_batch_count, 0);
-        assert_eq!(report.array_build_provider_kind, "shardloom_kernel");
-        assert_eq!(
-            report.array_build_provider_surface,
-            "shardloom_empty_columnar_struct_builder"
+        assert_eq!(report.array_build_record_batch_count, 1);
+        assert_eq!(report.array_build_provider_kind, "vortex_array_kernel");
+        assert!(
+            report
+                .array_build_provider_surface
+                .starts_with("ArrayRef::from_arrow(RecordBatch)")
         );
         assert_eq!(
             report.preparation_spine.source_surface,
-            "local_columnar_source_state_arrow_record_batches"
+            "streaming_local_columnar_source_state_arrow_record_batches"
         );
+        let memory = report
+            .shared_native_memory
+            .expect("empty input owns its declared grant");
+        assert!(memory.peak_reserved_bytes > 0);
+        assert_eq!(memory.final_reserved_bytes, 0);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }
@@ -17982,7 +18754,16 @@ mod tests {
             batches: vec![batch],
             row_count: 3,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18084,7 +18865,16 @@ mod tests {
             batches: vec![batch],
             row_count: 3,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18209,7 +18999,16 @@ mod tests {
             batches: vec![batch],
             row_count: 4,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18336,7 +19135,16 @@ mod tests {
             batches: Vec::new(),
             row_count: 0,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18465,7 +19273,16 @@ mod tests {
             batches: vec![batch],
             row_count: 4,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18581,12 +19398,22 @@ mod tests {
                 ),
             ],
         ];
-        let request = VortexPreparedStateWriteRequest::new(&path, columns.clone(), rows)
-            .column_dtypes(vec![
-                Some(LogicalDType::Int64),
-                Some(LogicalDType::List),
-                Some(LogicalDType::Struct),
-            ]);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            columns.clone(),
+            rows,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        )
+        .column_dtypes(vec![
+            Some(LogicalDType::Int64),
+            Some(LogicalDType::List),
+            Some(LogicalDType::Struct),
+        ]);
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
 
@@ -18758,7 +19585,16 @@ mod tests {
             batches: vec![batch],
             row_count: 4,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
 
@@ -18855,7 +19691,16 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state(request).expect_err("blocked");
 
@@ -18910,7 +19755,16 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state(request)
             .expect_err("boolean dictionary blocked")
@@ -18957,7 +19811,16 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state(request)
             .expect_err("non-finite float should be rejected");
@@ -19043,7 +19906,16 @@ mod tests {
                 crate::universal_format_io::new_embedded_derived_build_micros_counter(),
             reader: Box::new(reader),
         };
-        let request = VortexPreparedStateColumnarStreamWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarStreamWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state_streaming(request)
             .expect_err("non-finite streaming float should be rejected");
@@ -19088,7 +19960,16 @@ mod tests {
             batches: vec![batch],
             row_count: 2,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state(request)
             .expect_err("short batch must be rejected before column access");
@@ -19142,7 +20023,16 @@ mod tests {
             batches: vec![batch],
             row_count: 3,
         };
-        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+        let request = VortexPreparedStateColumnarWriteRequest::new(
+            &path,
+            source,
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+        );
 
         let error = write_flat_columnar_vortex_prepared_state(request)
             .expect_err("row count mismatch must be rejected");
@@ -19175,6 +20065,12 @@ mod tests {
                 ("id".to_string(), ScalarValue::Int64(1)),
                 ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
             ]],
+            shardloom_core::ExecutionResources::from_gib(
+                4,
+                8,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
         )
         .certification_level(VortexIngestCertificationLevel::IngestFullReplay);
 

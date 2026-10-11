@@ -21,7 +21,7 @@ Local-emulator object-store read smoke only; public no-credential fixture reads 
 ## How To Try It
 
 ```text
-target\debug\shardloom object-store-read-smoke target\object-store-fixture.bin --profile local-emulator --range 0:16 --format json
+target\debug\shardloom object-store-read-smoke target\object-store-fixture.bin --profile local-emulator --range 0:16 --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 ## Blocker

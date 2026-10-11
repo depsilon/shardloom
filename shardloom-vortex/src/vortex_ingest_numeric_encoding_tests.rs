@@ -643,7 +643,8 @@ fn encoded_numeric_file_serves_exact_public_projection_filter_count_and_sort() {
     );
     let sorted = execute_vortex_local_primitive_with_policy(
         &sort,
-        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
     )
     .unwrap();
     assert_eq!(sorted.status, VortexLocalPrimitiveExecutionStatus::Executed);

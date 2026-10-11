@@ -1306,6 +1306,10 @@ fn embedding_vector_local_fixture_smoke_exposes_no_effect_vector_evidence() {
         "alpha;beta;gamma",
         "--query",
         "beta",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);
@@ -1416,6 +1420,10 @@ fn udf_fixture_plan_and_smoke_expose_admitted_deterministic_scalar_fixture() {
     let smoke = run_json(&[
         "udf-local-scalar-fixture-smoke",
         "3,null,-4",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
         "--format",
         "json",
     ]);

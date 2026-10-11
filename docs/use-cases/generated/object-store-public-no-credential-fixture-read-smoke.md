@@ -21,7 +21,7 @@ Public no-credential fixture read smoke only. ShardLoom parses a supported S3/GC
 ## How To Try It
 
 ```text
-target\debug\shardloom object-store-read-smoke s3://shardloom-public-fixtures/orders.vortex --profile public-no-credential-fixture --public-fixture-path target\object-store-public-fixture.vortex --fixture-listing --range 0:16 --format json
+target\debug\shardloom object-store-read-smoke s3://shardloom-public-fixtures/orders.vortex --profile public-no-credential-fixture --public-fixture-path target\object-store-public-fixture.vortex --fixture-listing --range 0:16 --memory-gb 16 --max-parallelism 8 --format json
 ```
 
 ## Blocker

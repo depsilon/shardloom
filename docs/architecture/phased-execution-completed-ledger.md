@@ -17,6 +17,35 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-TYPED-INPUT` — exact typed resident and finite batch input under
+  PERF-03/07/11/12 and CG-19/20/21. Explicit integer widths, Float32/Float64,
+  binary, Decimal128, Date32, full-domain microsecond timestamps and recursive
+  lists/structs share the existing native source, binder, resource owners and
+  writers. The original four scalar declarations remain compatible. No external
+  execution provider is added.
+  - The [acceptance report](../benchmarks/native-typed-input-2026-10-10.md)
+    records 16 source gates, 87 typed workflows, all five input-pressure
+    controls, 32,497 complete public cases with 18,595,284 row comparisons,
+    retained streaming/growth/adapter/unary regressions and all 129 Full43
+    comparisons. Independent inspection validates both the base packet and
+    the Python temporal-result correction. This is capability/correctness
+    evidence without a speedup or whole-process memory claim.
+  - [PR #1540](https://github.com/depsilon/shardloom/pull/1540) merged at
+    `316f52de` after all 39 hosted checks passed on `d9ceba02`. The
+    [hosted receipt](../benchmarks/evidence/native-typed-input-hosted-2026-10-10.json)
+    verifies identical reviewed/merged trees and the successful production
+    deployment. Actual production review confirms the full-domain temporal
+    explanation, acceptance link and working calendar search without console
+    errors. The recorded hosted viewport is 685 pixels; the separate local
+    support receipt retains the 390-pixel mobile proof.
+  - Shared grants, capillary input frames, PulseWeave admission and metadata-first
+    typed-empty binding retain their existing contracts. Object results use
+    Python calendar types where representable and exact epoch integers otherwise.
+    Timestamp statistics/compression, direct native Python ownership, broader
+    producer/destination composition and deep traversal remain with their
+    existing Planned owners. All six areas, eight investigations and CG-1
+    through CG-23 remain visible. Published 0.5.1 packages are unchanged.
+
 - [x] `NATIVE-INPUT-GROWTH` — finite engine, documentation and hosted acceptance
   under PERF-03/06/07/10/11/12 and CG-3/5/19/20/21. Runtime `61a813b7`
   admits cumulative input and

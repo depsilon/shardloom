@@ -1165,7 +1165,7 @@ struct ParsedSqlLocalSourceUnion {
     limit: usize,
 }
 
-#[cfg(all(test, feature = "vortex-write"))]
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 fn run_vortex_prepare(request: VortexIngestRequest) -> Result<VortexIngestOutcome, ShardLoomError> {
     run_vortex_prepare_with_schema(request, &[])
 }
@@ -12116,7 +12116,7 @@ mod tests {
         assert!(reader.next().is_none());
     }
 
-    #[cfg(feature = "vortex-write")]
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn vortex_ingest_reuse_test_root(name: &str) -> PathBuf {
         let mut path = std::env::temp_dir();
         let nanos = std::time::SystemTime::now()
@@ -12132,7 +12132,7 @@ mod tests {
         path
     }
 
-    #[cfg(feature = "vortex-write")]
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn vortex_ingest_reuse_request(
         source_path: PathBuf,
         target_path: PathBuf,
@@ -12145,21 +12145,26 @@ mod tests {
             allow_overwrite,
             certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
             runtime_profile: SqlLocalSourceRuntimeProfile::Smoke,
-            memory_gb: 4,
-            max_parallelism: 2,
+            resources: shardloom_core::ExecutionResources::from_gib(
+                4,
+                2,
+                shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+            )
+            .expect("explicit fixture allocation"),
+            shared_memory_pool: None,
             source_fingerprint_policy: SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE,
             delta: None,
             prepared_source_binding: None,
         }
     }
 
-    #[cfg(feature = "vortex-write")]
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn prepared_vortex_ingest_report(outcome: VortexIngestOutcome) -> Box<VortexIngestReport> {
         let VortexIngestOutcome::Prepared(report) = outcome;
         report
     }
 
-    #[cfg(feature = "vortex-write")]
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[test]
     #[allow(clippy::too_many_lines)]
     fn vortex_ingest_public_prepare_writes_only_single_vortex_artifact() {
@@ -12453,8 +12458,12 @@ mod tests {
         fs::write(&source, "id,label\n1,alpha\n2,beta\n").expect("write csv source");
 
         let mut request = vortex_ingest_reuse_request(source, target, false);
-        request.memory_gb = 6;
-        request.max_parallelism = 4;
+        request.resources = shardloom_core::ExecutionResources::from_gib(
+            6,
+            4,
+            shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+        )
+        .expect("explicit fixture allocation");
 
         let outcome = run_vortex_prepare(request)
             .expect("csv source writes Vortex artifact with explicit max parallelism");
@@ -12753,8 +12762,7 @@ mod tests {
         writer.write(&batch).expect("write parquet batch");
         writer.close().expect("close parquet writer");
 
-        let mut request = vortex_ingest_reuse_request(source, target, false);
-        request.max_parallelism = 2;
+        let request = vortex_ingest_reuse_request(source, target, false);
         let outcome = run_vortex_prepare(request)
             .expect("parquet source writes Vortex artifact through public prepare");
         let report = prepared_vortex_ingest_report(outcome);
@@ -13512,7 +13520,7 @@ mod tests {
         fs::remove_dir_all(root).expect("remove schema declared product cap root");
     }
 
-    #[cfg(feature = "vortex-write")]
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[test]
     fn vortex_ingest_source_drift_with_overwrite_rewrites_single_artifact_without_sidecars() {
         let root = vortex_ingest_reuse_test_root("drift-rewrite");

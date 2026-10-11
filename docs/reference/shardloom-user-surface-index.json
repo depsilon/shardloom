@@ -53,10 +53,10 @@
       "shardloom workflow-unsupported-plan <operation> --format json"
     ],
     "common_executable_local_proof_commands": [
-      "shardloom run sql --sql \"SELECT 1 AS value\" --request collect --bounded true --format json",
-      "shardloom run sql --input events.csv --input-format csv --sql \"SELECT * FROM events\" --request collect --bounded true --format json",
-      "shardloom vortex-prepare --format json",
-      "shardloom sqlite-local-import-export-smoke --format json"
+      "shardloom run sql --sql \"SELECT 1 AS value\" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json",
+      "shardloom run sql --input events.csv --input-format csv --sql \"SELECT * FROM events\" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json",
+      "shardloom vortex-prepare examples/foundry-lightweight-transform/fixtures/staged_input.csv /tmp/shardloom-staged-input.vortex --allow-overwrite --memory-gb 16 --max-parallelism 8 --format json",
+      "shardloom sqlite-local-import-export-smoke local.sqlite --table events --export-jsonl target/events-export.jsonl --roundtrip-db target/events-roundtrip.sqlite --memory-gb 16 --max-parallelism 8 --format json"
     ]
   },
   "resident_native_results": {
@@ -818,8 +818,8 @@
       "ctx.sql",
       "ctx.sql(..., input=...)",
       "sl.sql",
-      "shardloom run sql --sql \"SELECT 1 AS value\" --request collect --bounded true --format json",
-      "shardloom run sql --input events.csv --input-format csv --sql \"SELECT * FROM events\" --request collect --bounded true --format json"
+      "shardloom run sql --sql \"SELECT 1 AS value\" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json",
+      "shardloom run sql --input events.csv --input-format csv --sql \"SELECT * FROM events\" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json"
     ],
     "admitted_shapes": [
       "local-source SELECT over local file references",

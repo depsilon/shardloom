@@ -73,9 +73,14 @@ pub struct VortexGeneralizedFilterExecutionReport {
 }
 
 impl VortexGeneralizedFilterExecutionReport {
-    fn unsupported(request: &VortexQueryPrimitiveRequest) -> Self {
-        let local_primitive_report =
-            VortexLocalPrimitiveExecutionReport::feature_disabled(request.kind);
+    fn unsupported(
+        request: &VortexQueryPrimitiveRequest,
+        policy: VortexLocalPrimitiveExecutionPolicy,
+    ) -> Self {
+        let local_primitive_report = VortexLocalPrimitiveExecutionReport::feature_disabled(
+            request.kind,
+            policy.resource_envelope(),
+        );
         let mut diagnostics = request.diagnostics.clone();
         diagnostics.push(Diagnostic::not_implemented(
             "vortex_generalized_filter_execution",
@@ -269,7 +274,9 @@ pub fn execute_vortex_generalized_filter_from_local_scan_pushdown(
         request.kind,
         VortexQueryPrimitiveKind::CountWhere | VortexQueryPrimitiveKind::FilterPredicate
     ) {
-        return Ok(VortexGeneralizedFilterExecutionReport::unsupported(request));
+        return Ok(VortexGeneralizedFilterExecutionReport::unsupported(
+            request, policy,
+        ));
     }
     let local_primitive_report = execute_vortex_local_primitive_with_policy(request, policy)?;
     let native_io_certificate = Some(local_primitive_native_io_certificate(
@@ -370,7 +377,7 @@ mod tests {
 
         let report = execute_vortex_generalized_filter_from_local_scan_pushdown(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).expect("policy"),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).expect("policy"),
         )
         .expect("report");
         let _ = std::fs::remove_file(&path);
@@ -412,7 +419,7 @@ mod tests {
 
         let report = execute_vortex_generalized_filter_from_local_scan_pushdown(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).expect("policy"),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).expect("policy"),
         )
         .expect("report");
         let _ = std::fs::remove_file(&path);
@@ -447,7 +454,7 @@ mod tests {
 
         let report = execute_vortex_generalized_filter_from_local_scan_pushdown(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::new(2).expect("policy"),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).expect("policy"),
         )
         .expect("report");
 
@@ -482,7 +489,8 @@ mod tests {
 
         let report = execute_vortex_generalized_filter_from_local_scan_pushdown(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .expect("report");
 
@@ -520,7 +528,8 @@ mod tests {
 
         let report = execute_vortex_generalized_filter_from_local_scan_pushdown(
             &request,
-            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+                .expect("explicit fixture allocation"),
         )
         .expect("report");
 
