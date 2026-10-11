@@ -148,8 +148,8 @@ class NativeBackend:
         )
 
     def _plan(self, request, allocation, deadline=None):
-        if request.get("fanout_outputs"):
-            raise ValueError("native fanout binding is not available for this request")
+        if request.get("fanout_outputs") and request.get("requested_output", "collect") == "collect":
+            raise ValueError("native fanout requires an explicit primary output")
         for name, expected in (("execution_policy", "vortex_middle"),
                                ("materialization_policy", "bounded")):
             if request.get(name, expected) != expected:
@@ -243,11 +243,19 @@ class NativeBackend:
                 path = request.get("output_ref")
                 if path is None:
                     raise ValueError("native output requires output_ref")
-                fields = plan.write(
-                    path, output, overwrite=request.get("allow_overwrite", False),
-                    resources=resources,
-                    timeout=_remaining(deadline),
-                )
+                from .client import _iter_fanout_outputs
+                fanout = _iter_fanout_outputs(request.get("fanout_outputs"))
+                options = dict(overwrite=request.get("allow_overwrite", False),
+                               resources=resources, timeout=_remaining(deadline))
+                if fanout:
+                    from .query import _public_write_request_for_format
+                    targets = [(path, output)] + [
+                        (target, _public_write_request_for_format(format_name))
+                        for format_name, target in fanout
+                    ]
+                    fields = plan.write_many(targets, **options)
+                else:
+                    fields = plan.write(path, output, **options)
                 envelope = execution_envelope(fields, operation=output)
         except Exception as error:
             envelope = _failure(error, check=check)

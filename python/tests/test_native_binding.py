@@ -735,6 +735,133 @@ assert later.row_count == 2
                     with self.assertRaises(RuntimeError):
                         plan.write(path, "write_" + output)
 
+    def test_native_fanout_reopens_complete_values_and_preserves_empty_outputs(self):
+        session = self.session(64 << 20, 2)
+        source = session.from_range("id", -4, 3, 129)
+        formats = ("vortex", "parquet", "arrow_ipc", "csv", "json", "jsonl", "avro", "orc")
+        with tempfile.TemporaryDirectory(prefix="shardloom-native-fanout-") as directory:
+            for empty in (False, True):
+                statement = "SELECT id FROM 'memory://fanout'"
+                if empty:
+                    statement += " WHERE id < -100"
+                plan = session.sql(statement, sources=[("memory://fanout", source)])
+                expected = [] if empty else [{"id": -4 + 3 * index} for index in range(129)]
+                retained = plan.collect()
+                targets = [(Path(directory) / f"{empty}.{name}", "write_" + name) for name in formats]
+                report = plan.write_many(targets)
+                self.assertEqual(report["native_vortex_result_export_target_count"], "8")
+                self.assertEqual(report["native_vortex_result_export_fanout_count"], "7")
+                self.assertEqual(report["native_vortex_result_export_execution_count"], "8")
+                self.assertEqual(report["native_vortex_result_export_execution_model"],
+                                 "native_query_replayed_once_per_output_adapter")
+                self.assertEqual(report["execution_resource_declared_memory_bytes"], str(64 << 20))
+                self.assertEqual(report["native_vortex_result_export_target_roles"],
+                                 "primary," + ",".join(["fanout"] * 7))
+                self.assertEqual(retained.row_export()[0], expected)
+                for (path, _), name in zip(targets, formats):
+                    with self.subTest(empty=empty, format=name):
+                        if empty and name in {"json", "jsonl"}:
+                            # Empty JSON has no embedded schema. The shared input
+                            # adapter currently requires a row even with a schema.
+                            if name == "json":
+                                self.assertEqual(json.loads(path.read_text()), [])
+                            else:
+                                self.assertEqual(path.read_text(), "")
+                            continue
+                        reader = session.sql(
+                            f"SELECT id FROM '{path}'",
+                            files=[(str(path), name.replace("_", "-"),
+                                    "id:int64" if name in {"csv", "json", "jsonl"} else None)],
+                        )
+                        reopened = reader.collect()
+                        self.assertEqual(reopened.row_export()[0], expected)
+                        self.assertEqual(self.arrow().RecordBatchReader.from_stream(reopened)
+                                         .read_all().schema.field("id").type, self.arrow().int64())
+            self.assertEqual(len(list(Path(directory).glob("False.*"))), 8)
+            self.assertEqual(len(list(Path(directory).glob("True.*"))), 8)
+            self.assertFalse(list(Path(directory).glob(".shardloom-fanout-*")))
+
+    def test_public_native_fanout_validates_before_factory_and_preserves_shared_owners(self):
+        import shardloom as sl
+        from shardloom.errors import ShardLoomCommandError
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        events = []
+
+        def producer():
+            events.append("opened")
+            try:
+                yield [{"id": value} for value in range(257)]
+            finally:
+                events.append("closed")
+
+        frame = sl.from_batches(producer, schema={"id": "int64"}, streaming=False, client=client)
+        retained = sl.from_rows([{"id": 999}], schema={"id": "int64"}, client=client).collect(check=True)
+        with tempfile.TemporaryDirectory(prefix="shardloom-native-fanout-public-") as directory:
+            root = Path(directory)
+            existing = root / "existing.jsonl"
+            existing.write_text("keep me")
+            for overwrite in (False, True):
+                with self.assertRaises(ShardLoomCommandError):
+                    frame.fanout([("vortex", root / "uncreated/out.vortex"), ("jsonl", existing)],
+                                 allow_overwrite=overwrite)
+                self.assertEqual(existing.read_text(), "keep me")
+                self.assertFalse((root / "uncreated").exists())
+                self.assertEqual(events, [])
+            with self.assertRaises(ShardLoomCommandError):
+                frame.fanout([("vortex", root / "same"), ("jsonl", root / "same")])
+            with self.assertRaises(ValueError):
+                frame.fanout([])
+            with self.assertRaises(ShardLoomCommandError):
+                frame.fanout([("vortex", root / "uncreated/a"), ("jsonl", root / "uncreated/b")],
+                             memory_bytes=1)
+            streaming = sl.from_batches(producer, schema={"id": "int64"}, streaming=True, client=client)
+            with self.assertRaises(ShardLoomCommandError) as rejected:
+                streaming.fanout([("vortex", root / "stream"), ("jsonl", root / "stream.jsonl")])
+            self.assertIn("resident", str(rejected.exception))
+            self.assertEqual(events, [])
+            self.assertEqual(list(root.iterdir()), [existing])
+            outputs = {"vortex": root / "complete.vortex", "jsonl": root / "complete.jsonl"}
+            with patch("subprocess.Popen", side_effect=AssertionError("child process")), \
+                 patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON input")):
+                report = frame.fanout(outputs)
+                self.assertEqual(report.envelope.field_int("native_vortex_result_export_target_count"), 2)
+                self.assertEqual(report.envelope.field_int("native_vortex_result_export_fanout_count"), 1)
+                self.assertEqual(sl.read_vortex(outputs["vortex"], client=client).collect(check=True)
+                                 .to_arrow()["id"].to_pylist(), list(range(257)))
+                self.assertEqual([json.loads(line) for line in outputs["jsonl"].read_text().splitlines()],
+                                 [{"id": value} for value in range(257)])
+            self.assertEqual(events, ["opened", "closed"])
+            self.assertEqual(set(root.iterdir()), {existing, *outputs.values()})
+        client.close()
+        self.assertEqual(retained.to_arrow()["id"].to_pylist(), [999])
+
+    def test_public_native_fanout_producer_failure_publishes_no_prefix(self):
+        import shardloom as sl
+
+        class ProducerFailure(Exception):
+            pass
+
+        events = []
+
+        def producer():
+            try:
+                yield [{"id": 1}]
+                raise ProducerFailure("fanout input failed")
+            finally:
+                events.append("closed")
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(client.close)
+        frame = sl.from_batches(producer, schema={"id": "int64"}, streaming=False, client=client)
+        with tempfile.TemporaryDirectory(prefix="shardloom-native-fanout-failure-") as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(ProducerFailure, "fanout input failed"):
+                frame.fanout({"vortex": root / "new/one.vortex", "jsonl": root / "new/two.jsonl"})
+            self.assertEqual(list(root.iterdir()), [])
+            self.assertEqual(events, ["closed"])
+
     def test_public_native_object_intake_infers_and_converts_without_json_cells(self):
         import shardloom as sl
         from collections import UserDict, UserList
@@ -899,8 +1026,8 @@ assert later.row_count == 2
         with tempfile.TemporaryDirectory(prefix="shardloom-native-spill-") as directory:
             spill = json.dumps({"workspace": directory, "quota_bytes": 64 << 20,
                                 "buffer_bytes": 1 << 20})
-            plan = session.sql("SELECT id FROM input ORDER BY id DESC",
-                               sources=[("input", source)], spill=spill)
+            plan = session.sql("SELECT id FROM 'memory://spill' ORDER BY id DESC",
+                               sources=[("memory://spill", source)], spill=spill)
             self.assertEqual(list(Path(directory).iterdir()), [])
             result = plan.collect()
             self.assertEqual(result.report["relational_spill_requested"], "true")
@@ -951,10 +1078,11 @@ assert later.row_count == 2
                     self.assertEqual(actual, expected)
                     self.assertTrue(batches.report.envelope.field_bool("relational_spill_requested"))
                 self.assertEqual(list(root.iterdir()), [])
-                target = root / "out.jsonl"
-                report = frame.write_jsonl(target, spill=options, check=True)
+                target = root / "out.vortex"
+                report = frame.write_vortex(target, spill=options, check=True)
                 self.assertTrue(report.envelope.field_bool("relational_spill_requested"))
-                self.assertEqual([json.loads(line)["id"] for line in target.read_text().splitlines()], expected)
+                reopened = sl.read_vortex(target, client=client).collect(check=True)
+                self.assertEqual(reopened.to_arrow()["id"].to_pylist(), expected)
                 self.assertEqual(list(root.iterdir()), [target])
             self.assertEqual(events, ["opened"] * 3)
 

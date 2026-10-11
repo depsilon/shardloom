@@ -153,9 +153,23 @@ ordering/aggregate/join/window/pivot spill provider retains the same session;
 the binding adds no spill implementation or independent resource pool.
 Python plan reuse includes the spill declaration so changed permissions cannot
 reuse stale preparation. Collection, incremental delivery and writers use that
-same prepared operation. Focused runtime verification of this connection is
-pending; it does not close the separate generic-command ownership, fanout,
-primitive-option or native-expression completion obligations.
+same prepared operation. Focused integration verifies complete 24,001-row spilled
+ordering, retained result lifetime and cleanup, plus 4,097-row public collection,
+incremental delivery and native Vortex output. Invalid spill options refuse before
+producer demand or output creation. These results leave generic-command
+ownership, primitive options and native expressions as separate completion work.
+
+Native multi-output writing uses the existing shared `write_many_controlled`
+provider and its staged publication/recovery contract. Target validation precedes
+factory demand; duplicate, existing and invalid destinations refuse before input
+or staging. One retained session and cancellation owner cover all targets. The
+provider replays the native query once per adapter, as its report states; the
+binding does not introduce result caching. Focused checks reopen all eight output
+formats and verify every value, empty outputs, retained owners and producer
+failure without prefix publication. Streaming batch fanout retains the shared
+provider's explicit refusal; a streaming writer admits one native Vortex target.
+All 37 current native binding integration tests and the six provider fanout tests
+pass locally; complete source, wheel and hosted acceptance remain required.
 
 ## Object and factory intake
 
@@ -224,8 +238,8 @@ The public native client exposes `cancel()` for active and queued operations.
 It renews the session cancellation owner for subsequent calls while retaining
 completed results. A timed-out child operation does not revoke its parent session
 or sibling operations. Native generic command ownership/deadline wiring remains a
-separate completion obligation. Compilation and runtime proof of the new deadline
-paths remain pending.
+separate completion obligation. Focused integration checks prove deadline and
+cancellation behavior for the typed plan, input, result and stream methods.
 
 Results must retain arrays, runtime and credits after session/plan handles drop.
 Explicit close revokes new work without invalidating independently retained

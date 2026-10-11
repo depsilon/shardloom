@@ -88,6 +88,39 @@ pub fn written_fields(
     fields
 }
 
+/// Shared per-target commit, adapter and execution fields for a completed fanout.
+/// # Errors
+/// Rejects a mismatched or empty completion before constructing success evidence.
+#[cfg(feature = "vortex-write")]
+pub fn written_many_fields(
+    targets: &[(
+        std::path::PathBuf,
+        shardloom_vortex::VortexLocalPrimitiveRowExportFormat,
+    )],
+    written: Vec<shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelational>,
+    reused: bool,
+) -> Result<Vec<(String, String)>> {
+    if targets.is_empty() || targets.len() != written.len() {
+        return Err(failed(
+            "fanout completion does not match its declared targets",
+        ));
+    }
+    let targets = targets
+        .iter()
+        .enumerate()
+        .map(
+            |(index, (path, format))| super::NativeVortexPrimitiveRowExportTarget {
+                role: if index == 0 { "primary" } else { "fanout" },
+                format: *format,
+                path: path.clone(),
+            },
+        )
+        .collect::<Vec<_>>();
+    let mut fields = Vec::new();
+    resident_relational::append_written(&mut fields, &targets, written, reused);
+    Ok(fields)
+}
+
 /// Prepare a complete SQL operation in the caller's already configured session.
 /// All admitted SQL operators share the CLI implementation, including dynamic
 /// schemas. File preparation and retained memory inputs use the same grant.
@@ -119,7 +152,9 @@ pub fn validate_sql_spill(spill: Option<&str>, resources: ExecutionResources) ->
     }
     let policy = super::spill::Options::parse(spill)?.relational()?;
     if policy.buffer_bytes > resources.memory_bytes() {
-        return Err(failed("spill buffer_bytes exceeds the declared query memory budget"));
+        return Err(failed(
+            "spill buffer_bytes exceeds the declared query memory budget",
+        ));
     }
     Ok(())
 }

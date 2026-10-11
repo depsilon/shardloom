@@ -331,22 +331,11 @@ fn execute_write_controlled(
 fn emit_written(
     format: OutputFormat,
     targets: &[super::NativeVortexPrimitiveRowExportTarget],
-    mut written: Vec<
-        shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelational,
-    >,
+    written: Vec<shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelational>,
     mut fields: Vec<(String, String)>,
     reused: bool,
 ) {
-    let final_write = written.pop().expect("at least one target");
-    let reports = written
-        .into_iter()
-        .map(|written| written.output)
-        .chain([final_write.output])
-        .collect::<Vec<_>>();
-    let primary = &reports[0];
-    append_native_vortex_primitive_row_export_fields(&mut fields, primary);
-    append_native_vortex_primitive_row_export_target_fields(&mut fields, targets, &reports);
-    append_execution(&mut fields, &final_write.execution, reused);
+    let primary = append_written(&mut fields, targets, written, reused);
     emit(
         "run",
         format,
@@ -356,9 +345,31 @@ fn emit_written(
             "wrote {} rows to {}",
             primary.rows_written, primary.output_path
         ),
-        primary.diagnostics.clone(),
+        primary.diagnostics,
         fields,
     );
+}
+
+#[cfg(feature = "vortex-write")]
+pub(super) fn append_written(
+    fields: &mut Vec<(String, String)>,
+    targets: &[super::NativeVortexPrimitiveRowExportTarget],
+    mut written: Vec<
+        shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelational,
+    >,
+    reused: bool,
+) -> shardloom_vortex::VortexLocalPrimitiveRowExportReport {
+    let final_write = written.pop().expect("at least one target");
+    let mut reports = written
+        .into_iter()
+        .map(|written| written.output)
+        .chain([final_write.output])
+        .collect::<Vec<_>>();
+    let primary = &reports[0];
+    append_native_vortex_primitive_row_export_fields(fields, primary);
+    append_native_vortex_primitive_row_export_target_fields(fields, targets, &reports);
+    append_execution(fields, &final_write.execution, reused);
+    reports.remove(0)
 }
 
 fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {

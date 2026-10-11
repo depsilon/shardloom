@@ -85,9 +85,11 @@ fn fanout_rejects_existing_duplicate_and_invalid_targets_before_execution() {
         Ok(())
     };
     fs::write(&targets[0].0, "existing").unwrap();
+    assert!(preflight_targets(&targets, true).is_err());
     assert!(write(&targets, true, |_| Ok(()), &mut adapter).is_err());
     assert_eq!(fs::read_to_string(&targets[0].0).unwrap(), "existing");
     fs::remove_file(&targets[0].0).unwrap();
+    assert!(preflight_targets(&[targets[0].clone(), targets[0].clone()], false).is_err());
     assert!(
         write(
             &[targets[0].clone(), targets[0].clone()],
@@ -107,6 +109,8 @@ fn fanout_rejects_existing_duplicate_and_invalid_targets_before_execution() {
         .is_err()
     );
     assert!(write(&[], false, |_| Ok(()), &mut adapter).is_err());
+    assert!(preflight_targets(&[], false).is_err());
+    assert!(preflight_targets(&vec![targets[0].clone(); 33], false).is_err());
     assert!(
         write(
             &vec![targets[0].clone(); 33],
@@ -117,6 +121,14 @@ fn fanout_rejects_existing_duplicate_and_invalid_targets_before_execution() {
         .is_err()
     );
     assert_eq!(calls.get(), 0);
+}
+
+#[test]
+fn fanout_preflight_does_not_create_output_parents_or_staging() {
+    let fixture = Fixture::new();
+    let targets = [(fixture.0.join("missing/one"), Format::Vortex)];
+    preflight_targets(&targets, false).unwrap();
+    assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 0);
 }
 
 #[test]

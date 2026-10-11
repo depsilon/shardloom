@@ -70,12 +70,23 @@ impl PlanCore {
         cancellation: &CancellationToken,
         execute: impl FnOnce(&PreparedVortexRelational, bool, Option<&mut BatchReader<'_>>) -> Result<T>,
     ) -> PyResult<T> {
+        self.with_prepared_and_preflight(resources, cancellation, || Ok(()), execute)
+    }
+
+    fn with_prepared_and_preflight<T>(
+        &self,
+        resources: ExecutionResources,
+        cancellation: &CancellationToken,
+        preflight: impl FnOnce() -> Result<()>,
+        execute: impl FnOnce(&PreparedVortexRelational, bool, Option<&mut BatchReader<'_>>) -> Result<T>,
+    ) -> PyResult<T> {
         let errors = Arc::new(Mutex::new(None));
         self.session
             .controller
             .with_resources(resources, cancellation, |session, resources| {
                 cancellation.check()?;
                 native::validate_sql_spill(self.spill.as_deref(), resources)?;
+                preflight()?;
                 let mut prepared = self
                     .prepared
                     .lock()
@@ -225,6 +236,48 @@ impl NativePlan {
                 };
                 Ok(native::written_fields(&written, reused))
             })
+        })?;
+        super::result::fields_dict(py, fields)
+    }
+
+    /// Stage every declared output through the existing native fanout writer.
+    /// Input preparation, all outputs and publication use one admitted operation.
+    #[pyo3(signature = (outputs, *, overwrite=false, resources=None, timeout=None))]
+    fn write_many(
+        &self,
+        py: Python<'_>,
+        outputs: Vec<(PathBuf, String)>,
+        overwrite: bool,
+        resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyDict>> {
+        let cancellation = self.session.begin_operation(timeout)?;
+        let resources = self.session.resources(resources);
+        let targets = outputs
+            .into_iter()
+            .map(|(path, format)| native::output_format(&format).map(|format| (path, format)))
+            .collect::<Result<Vec<_>>>()
+            .map_err(native_error)?;
+        let fields = py.detach(|| {
+            self.with_prepared_and_preflight(
+                resources,
+                &cancellation,
+                || {
+                    if self.batches.iter().any(|input| input.streaming) {
+                        return Err(failed(
+                            "streaming input requires one native Vortex destination; choose explicit resident mode for fanout",
+                        ));
+                    }
+                    shardloom_vortex::local_primitives::output_fanout::preflight_targets(
+                        &targets, overwrite,
+                    )
+                },
+                |operation, reused, _| {
+                    let written =
+                        operation.write_many_controlled(&targets, overwrite, &cancellation)?;
+                    native::written_many_fields(&targets, written, reused)
+                },
+            )
         })?;
         super::result::fields_dict(py, fields)
     }
