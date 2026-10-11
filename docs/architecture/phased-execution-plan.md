@@ -310,6 +310,12 @@ the ledger.
       including 3,181 default, 1,355 native CLI, 2,551 native Vortex and 1,118
       reduced writer-profile tests. The separate evidence preserves failed
       attempts and the original public-workflow/Full43 source identity.
+    - [x] Preserve all participating authorization ceilings through SQL/DataFrame
+      set operations, joins, concatenation and typed expressions, including
+      source-free subqueries and grouping/ordering. Keep the receiver's explicit
+      grant and reject incompatible allocations before input or output. Focused
+      regressions and complete native wrapper checks cover this correction;
+      its original Rust and Full43 evidence keeps separate source identities.
     - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations
