@@ -1,18 +1,26 @@
 //! Public admission must precede input inspection, fixture execution and output.
 
-use std::{fs, path::PathBuf, process::Command, time::SystemTime};
+use std::{
+    fs,
+    path::PathBuf,
+    process::Command,
+    sync::atomic::{AtomicU64, Ordering},
+    time::SystemTime,
+};
 
 struct TestDirectory(PathBuf);
 
 impl TestDirectory {
     fn new() -> Self {
+        static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
         let nonce = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
         let path = std::env::temp_dir().join(format!(
-            "shardloom-required-resources-{}-{nonce}",
-            std::process::id()
+            "shardloom-required-resources-{}-{nonce}-{}",
+            std::process::id(),
+            NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&path).unwrap();
         Self(path)
@@ -38,6 +46,40 @@ fn run(args: &[&str]) -> (bool, String) {
         output.status.success(),
         String::from_utf8(output.stdout).unwrap(),
     )
+}
+
+#[test]
+fn durable_checkpoint_workspace_is_admitted_before_directory_creation() {
+    let directory = TestDirectory::new();
+    let target = directory.0.join("checkpoint");
+    let (success, report) = run(&[
+        "live-hybrid-durable-checkpoint-smoke",
+        target.to_str().unwrap(),
+        "--memory-bytes",
+        "1",
+        "--max-parallelism",
+        "1",
+    ]);
+    assert!(!success);
+    assert!(report.contains("memory reservation denied"), "{report}");
+    assert!(!target.exists());
+    let grant = shardloom_core::live_hybrid_durable_checkpoint_workspace_bytes().to_string();
+    let (success, report) = run(&[
+        "live-hybrid-durable-checkpoint-smoke",
+        target.to_str().unwrap(),
+        "--memory-bytes",
+        &grant,
+        "--max-parallelism",
+        "1",
+    ]);
+    assert!(success, "{report}");
+    assert!(report.contains("conservative_fixed_ten_record_checkpoint_workspace_estimate"));
+    assert!(target.join("cg22-live-hybrid-checkpoint.json").is_file());
+    assert!(
+        !target
+            .join("cg22-live-hybrid-checkpoint.partial.json")
+            .exists()
+    );
 }
 
 #[test]
@@ -114,7 +156,7 @@ fn data_commands_reject_invalid_resources_before_input_or_output() {
 }
 
 #[test]
-fn legacy_data_report_preserves_exact_declaration_without_inventing_usage() {
+fn fixture_data_report_distinguishes_declaration_admission_and_observation() {
     let directory = TestDirectory::new();
     let input = directory.0.join("object.bin");
     fs::write(&input, b"abc").unwrap();
@@ -137,11 +179,18 @@ fn legacy_data_report_preserves_exact_declaration_without_inventing_usage() {
         ("execution_resource_declared_max_parallelism", "3"),
         ("execution_resource_memory_origin", "platform"),
         ("execution_resource_parallelism_origin", "context"),
-        ("execution_resource_admitted_memory_bytes", "unavailable"),
+        ("execution_resource_admitted_memory_bytes", "1500000001"),
+        ("execution_resource_admitted_max_parallelism", "1"),
+        ("execution_resource_observed_native_reserved_bytes", "0"),
         (
             "execution_resource_observed_native_peak_reserved_bytes",
-            "unavailable",
+            "3",
         ),
+        (
+            "execution_resource_memory_observation_scope",
+            "fixture_owned_buffers_and_workspace_writer;excludes_uninstrumented_metadata_provider_decode_transients_reports_and_process_rss",
+        ),
+        ("fixture_io_denied_reservations", "0"),
         (
             "execution_resource_observed_peak_active_lanes",
             "unavailable",

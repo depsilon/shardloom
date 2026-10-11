@@ -934,5 +934,43 @@
         "ignored": 0
       }
     }
+  },
+  "fixture_io_review_correction": {
+    "path": "required-execution-resources-fixture-io-2026-10-10.json",
+    "sha256": "9fbd82002f462186f4022bc578e066137c8e558bc15c6f91d9a493b875fab165",
+    "status": "passed_local_source_and_documentation_checks_pending_hosted",
+    "source_identity_sha256": "3c8250977f18e26ea372281bde929b1ae898dc3a4d960eb90afb22e05cbf618d",
+    "source_checks": 16,
+    "documentation_checks": 14,
+    "ci_registration_passed": true,
+    "original_complete_workflows_rerun": false,
+    "performance_claim": false,
+    "rust_test_totals": {
+      "default-tests": {
+        "passed": 3181,
+        "failed": 0,
+        "ignored": 0
+      },
+      "native-cli-tests": {
+        "passed": 1355,
+        "failed": 0,
+        "ignored": 3
+      },
+      "native-vortex-tests": {
+        "passed": 2551,
+        "failed": 0,
+        "ignored": 24
+      },
+      "native-examples": {
+        "passed": 17,
+        "failed": 0,
+        "ignored": 0
+      },
+      "reduced-writer-tests": {
+        "passed": 1118,
+        "failed": 0,
+        "ignored": 0
+      }
+    }
   }
 }

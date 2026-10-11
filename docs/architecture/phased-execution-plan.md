@@ -301,6 +301,15 @@ the ledger.
       including 2,546 native Vortex, 1,339 native CLI and 1,104 reduced-profile
       tests. The separate correction packet preserves failed/interrupted attempts
       and the original complete-workflow source identity.
+    - [x] Close the local fixture I/O allocation bypass and related owned-buffer
+      paths. Exact file extents, SQLite buffers, metadata, directory names,
+      table recovery and workspace writers share the command's grant. Iceberg
+      compatibility readers retain encoded ownership and visit admitted batches.
+      The fixed checkpoint reservation and uninstrumented provider/metadata
+      exclusions remain explicit. All 16 fresh source/feature gates pass,
+      including 3,181 default, 1,355 native CLI, 2,551 native Vortex and 1,118
+      reduced writer-profile tests. The separate evidence preserves failed
+      attempts and the original public-workflow/Full43 source identity.
     - [ ] Complete hosted integration.
 
 - [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations

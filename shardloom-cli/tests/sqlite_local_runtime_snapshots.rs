@@ -98,6 +98,63 @@ fn run_json_error(args: &[String]) -> String {
 }
 
 #[test]
+fn sqlite_declared_bytes_guard_source_and_preserve_existing_outputs() {
+    let dir = unique_target_dir("sqlite-explicit-byte-budget");
+    let source = dir.join("orders.sqlite");
+    let export = dir.join("orders.jsonl");
+    let roundtrip = dir.join("roundtrip.sqlite");
+    create_sqlite_fixture(&source);
+    fs::write(&export, "preserve export").unwrap();
+    fs::write(&roundtrip, "preserve roundtrip").unwrap();
+    let run = |bytes: &str| {
+        Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args([
+                "sqlite-local-import-export-smoke",
+                source.to_str().unwrap(),
+                "--table",
+                "orders",
+                "--export-jsonl",
+                export.to_str().unwrap(),
+                "--roundtrip-db",
+                roundtrip.to_str().unwrap(),
+                "--allow-overwrite",
+                "--memory-bytes",
+                bytes,
+                "--max-parallelism",
+                "1",
+                "--format",
+                "json",
+            ])
+            .output()
+            .unwrap()
+    };
+    let denied = run("1");
+    assert!(!denied.status.success());
+    assert!(String::from_utf8_lossy(&denied.stdout).contains("memory reservation denied"));
+    assert_eq!(fs::read_to_string(&export).unwrap(), "preserve export");
+    assert_eq!(
+        fs::read_to_string(&roundtrip).unwrap(),
+        "preserve roundtrip"
+    );
+    assert_eq!(fs::read_dir(&dir).unwrap().count(), 3);
+    let success = run("16777216");
+    assert!(
+        success.status.success(),
+        "{}",
+        String::from_utf8_lossy(&success.stdout)
+    );
+    let output = String::from_utf8(success.stdout).unwrap();
+    assert!(output.contains(&field("roundtrip_replay_verified", "true")));
+    assert!(output.contains(&field("fixture_io_denied_reservations", "0")));
+    assert!(
+        fs::read_to_string(&export)
+            .unwrap()
+            .contains("\"label\":\"alpha\"")
+    );
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn sqlite_local_import_export_smoke_exports_jsonl_and_roundtrips_without_effects() {
     let dir = unique_target_dir("sqlite-local-import-export-smoke");
     let source_db = dir.join("orders.sqlite");

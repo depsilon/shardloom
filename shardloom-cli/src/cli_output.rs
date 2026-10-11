@@ -124,8 +124,19 @@ pub(crate) fn emit_error(
     summary: &str,
     error: &ShardLoomError,
 ) -> ExitCode {
+    emit_error_with_fields(command, format, summary, error, Vec::new())
+}
+
+pub(crate) fn emit_error_with_fields(
+    command: &str,
+    format: OutputFormat,
+    summary: &str,
+    error: &ShardLoomError,
+    fields: Vec<(String, String)>,
+) -> ExitCode {
     let envelope = OutputEnvelope::from_error(command, summary, error)
         .with_lifecycle_field("command_family", classify_command(command).as_str());
+    let envelope = apply_typed_envelope_fields(envelope, command, fields);
     match format {
         OutputFormat::Text => write_output_line(PendingLine::Stderr {
             message: error.to_string(),

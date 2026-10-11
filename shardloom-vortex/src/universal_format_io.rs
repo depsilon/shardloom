@@ -54,6 +54,12 @@ use shardloom_core::{LogicalDType, Result, ScalarValue, ShardLoomError};
 
 pub use crate::source_identity::SourceIdentity;
 
+mod budgeted_projection;
+pub use budgeted_projection::{
+    ColumnarSourceVisit, visit_budgeted_avro_source_with_projection,
+    visit_budgeted_parquet_source_with_projection,
+};
+
 const SCOPED_COMPAT_RECORD_BATCH_ROWS: usize = 8_192;
 pub const PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS: usize = 65_536;
 pub const PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS: usize = 262_144;
