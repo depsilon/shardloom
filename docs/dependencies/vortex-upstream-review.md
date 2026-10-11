@@ -22,6 +22,28 @@ upgrade is introduced. The [implementation contract](../architecture/native-time
 requires endpoint, statistics, compression, pruning, resource and complete-workflow
 proof before acceptance. This entry records reviewed intake, not completed proof.
 
+The same timestamp acceptance also reproduces a null-semantics defect in the
+published `vortex-datetime-parts` 0.85.0 comparison kernel. Timestamp validity
+lives in its days child, but equality/inequality combine non-null seconds and
+subseconds through Kleene Boolean operations. A false/true component can
+therefore replace a null timestamp result. The complete native file filter and
+whole-array comparison regressions both reproduce the defect; scalar-at-a-time
+evaluation alone does not exercise that encoded kernel.
+
+Its reviewed published archive has SHA-256
+`bbc70f1030c5f6d4ebf498694b844666ddd7573bf7239949539f75eb06c57b41`,
+21 regular files and 139,162 uncompressed bytes. All 16 Rust files retain
+Apache-2.0/Vortex copyright headers; the manifest declares Apache-2.0 and the
+recorded dirty VCS revision is the same reviewed revision above. Retain the
+original hashes, license, manifest and metadata in a focused provider patch.
+Reapply the days validity to handled encoded comparison results using the
+existing native mask operation. Keep array identities, compression, file
+representation, resource ownership and dependency versions unchanged. The
+current upstream [comparison implementation](https://github.com/vortex-data/vortex/blob/develop/encodings/datetime-parts/src/compute/compare.rs)
+also combines these components without that final validity mask; upgrading is
+not an established remedy. This is reviewed patch intake, with final regression
+and complete-workflow acceptance still pending.
+
 ## October 7, 2026 FSST admission correction
 
 The input-completion integration retains Vortex 0.85.0 and `fsst-rs` 0.6.0.

@@ -1681,7 +1681,7 @@ mod source_reuse_bench;
 
 #[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "resident_file_pruning_tests.rs"]
-mod file_pruning_tests;
+pub(crate) mod file_pruning_tests;
 
 #[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "memory_file_composition_tests.rs"]

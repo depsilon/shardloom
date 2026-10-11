@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom, 2026-10-11: escape a snapshot's trailing space without
+// changing its expected bytes.
 
 mod kernel;
 
@@ -503,9 +505,9 @@ mod tests {
             .execute::<Columnar>(&mut ctx)?
             .into_array();
 
-        insta::assert_snapshot!(result.display_tree(), @r"
+        insta::assert_snapshot!(result.display_tree(), @"
         root: vortex.varbinview(utf8?, len=100) nbytes=1.66 kB (100.00%) [all_valid]
-          metadata: 
+          metadata:\x20
           buffer: buffer_0 host 29 B (align=1) (1.75%)
           buffer: buffer_1 host 28 B (align=1) (1.69%)
           buffer: views host 1.60 kB (align=16) (96.56%)

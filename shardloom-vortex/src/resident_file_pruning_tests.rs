@@ -277,6 +277,33 @@ fn check_predicate(
     fixture: &Fixture,
     predicate: Predicate,
 ) -> (bool, usize) {
+    let expected = fixture
+        .numbers
+        .iter()
+        .zip(&fixture.texts)
+        .enumerate()
+        .filter_map(|(row, (number, text))| predicate.matches(*number, *text).then_some(row))
+        .collect::<Vec<_>>();
+    check_native_predicate(
+        source,
+        &fixture.expected,
+        &["renamed_row_id", "renamed_numeric", "renamed_text"],
+        &predicate.expression(),
+        &expected,
+        &format!("{predicate:?}"),
+    )
+}
+
+// Share the actual scoped-reader observation with writer round-trip regressions.
+// The caller supplies an independent complete-row oracle for its own dtype.
+pub(crate) fn check_native_predicate(
+    source: &PreparedVortexSource,
+    expected_source: &ArrayRef,
+    columns: &[&str],
+    expression: &Expression,
+    expected: &[usize],
+    label: &str,
+) -> (bool, usize) {
     // Decorate the actual per-operation segment source after its scoped reader
     // is installed; the prepared footer/source template is no longer executed.
     let SegmentCounts {
@@ -290,9 +317,8 @@ fn check_predicate(
         });
     });
     let _observe = ObserveSegments;
-    let expression = predicate.expression();
     let can_prune = source
-        .with_native_execution(|file, _, _| file.can_prune(&expression).map_err(native_error))
+        .with_native_execution(|file, _, _| file.can_prune(expression).map_err(native_error))
         .unwrap();
     assert_eq!(
         requested.load(Ordering::SeqCst),
@@ -302,39 +328,36 @@ fn check_predicate(
     let filter = expression.bind(source.dtype()).unwrap();
     let result = source
         .prepare_projection(
-            &["renamed_row_id", "renamed_numeric", "renamed_text"],
-            u64::try_from(fixture.numbers.len().max(1)).unwrap(),
+            columns,
+            u64::try_from(expected_source.len().max(1)).unwrap(),
             1 << 20,
         )
         .unwrap()
         .with_filter(Some(filter))
         .execute()
         .unwrap();
-    let expected = fixture
-        .numbers
-        .iter()
-        .zip(&fixture.texts)
-        .enumerate()
-        .filter_map(|(row, (number, text))| predicate.matches(*number, *text).then_some(row))
-        .collect::<Vec<_>>();
     let mut context = source.0.runtime.session.create_execution_ctx();
     let mut selected = expected.iter();
     for array in result.arrays() {
         for row in 0..array.len() {
-            let expected_row = *selected.next().expect("no extra selected row");
+            let expected_row = *selected.next().unwrap_or_else(|| {
+                panic!(
+                    "{label}: extra selected row {row}: {}; metadata_pruned={can_prune}",
+                    array.execute_scalar(row, &mut context).unwrap()
+                )
+            });
             assert_eq!(
                 array.execute_scalar(row, &mut context).unwrap(),
-                fixture
-                    .expected
+                expected_source
                     .execute_scalar(expected_row, &mut context)
                     .unwrap(),
-                "{predicate:?}"
+                "{label}"
             );
         }
     }
     assert!(
         selected.next().is_none(),
-        "missing selected row for {predicate:?}"
+        "missing selected row for {label}"
     );
     assert_eq!(result.row_count(), u64::try_from(expected.len()).unwrap());
     let requests = requested.load(Ordering::SeqCst);

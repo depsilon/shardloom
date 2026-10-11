@@ -1,6 +1,11 @@
 //! Full storage-domain round trips, native compression and exact file statistics.
 
 use super::*;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "vortex_ingest_temporal_file_tests.rs"]
+mod files;
+#[path = "vortex_ingest_temporal_resource_tests.rs"]
+mod resources;
 use serde_json::{Value, json};
 use vortex::array::{
     ExecutionCtx,

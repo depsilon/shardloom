@@ -47,6 +47,16 @@ values outside the display calendar use exact epoch microseconds. Other temporal
 units, timezone handling, storage-type validation and unsupported metadata retain
 their existing policy. Do not bypass scalar validation with unsafe construction.
 
+The encoded comparison acceptance also requires a focused patch of the existing
+`vortex-datetime-parts` 0.85.0 provider. Its timestamp validity belongs to the days
+child. Combining equality/inequality of non-null seconds and subseconds through
+Kleene Boolean operations can turn a null timestamp comparison into false or
+true. Preserve the existing component comparisons and reapply the days validity
+to their handled results through the native mask operation. Test whole-array
+execution and actual filtered files; scalar-at-a-time evaluation can bypass this
+kernel. The dependency review records the authoritative 21-file archive, license
+and original member hashes. No temporal encoding or file-format identity changes.
+
 ## Shared writer integration
 
 Once scalar construction, min/max aggregation and metadata reopen are verified,

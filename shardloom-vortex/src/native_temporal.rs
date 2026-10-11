@@ -171,7 +171,7 @@ mod tests {
             VortexSessionDefault as _,
             array::{
                 IntoArray as _, VortexSessionExecute as _,
-                arrays::{ConstantArray, ExtensionArray, PrimitiveArray, TemporalArray},
+                arrays::{BoolArray, ConstantArray, ExtensionArray, PrimitiveArray, TemporalArray},
                 builtins::ArrayBuiltins as _,
                 expr::stats::Stat,
                 scalar_fn::fns::operators::Operator,
@@ -211,8 +211,14 @@ mod tests {
         let profiles = [
             boundary.into_iter().map(Some).chain([None]).collect(),
             vec![Some(i64::MAX); 64],
-            (0..257).map(|offset| Some(i64::MIN + offset)).collect(),
-            (0..257).map(|offset| Some(i64::MAX - offset)).collect(),
+            (0..257)
+                .map(|offset| Some(i64::MIN + offset))
+                .chain([None])
+                .collect(),
+            (0..257)
+                .map(|offset| Some(i64::MAX - offset))
+                .chain([None])
+                .collect(),
             vec![None; 64],
             Vec::new(),
         ];
@@ -263,7 +269,7 @@ mod tests {
                         });
                     assert_eq!(actual, expected_bound);
                 }
-                for threshold in boundary {
+                for threshold in boundary.into_iter().map(Some).chain([None]) {
                     for operator in [
                         Operator::Eq,
                         Operator::NotEq,
@@ -272,29 +278,55 @@ mod tests {
                         Operator::Gt,
                         Operator::Gte,
                     ] {
-                        let rhs =
-                            ConstantArray::new(scalar(source.dtype(), threshold), encoded.len())
+                        let rhs = ConstantArray::new(
+                            threshold.map_or_else(
+                                || Scalar::null(source.dtype().clone()),
+                                |value| scalar(source.dtype(), value),
+                            ),
+                            encoded.len(),
+                        )
+                        .into_array();
+                        for reversed in [false, true] {
+                            let comparison = if reversed {
+                                rhs.binary(encoded.clone(), operator)
+                            } else {
+                                encoded.binary(rhs.clone(), operator)
+                            };
+                            // Execute the whole encoded comparison. Scalar-at-a-time
+                            // evaluation can bypass the encoding-specific kernel.
+                            let result = comparison
+                                .unwrap()
+                                .execute::<BoolArray>(&mut execution)
+                                .unwrap()
                                 .into_array();
-                        let result = encoded.binary(rhs, operator).unwrap();
-                        for (row, value) in expected.iter().enumerate() {
-                            let expected = value.map(|value| match operator {
-                                Operator::Eq => value == threshold,
-                                Operator::NotEq => value != threshold,
-                                Operator::Lt => value < threshold,
-                                Operator::Lte => value <= threshold,
-                                Operator::Gt => value > threshold,
-                                Operator::Gte => value >= threshold,
-                                _ => unreachable!(),
-                            });
-                            assert_eq!(
-                                result
-                                    .execute_scalar(row, &mut execution)
-                                    .unwrap()
-                                    .as_bool()
-                                    .value(),
-                                expected,
-                                "{operator:?} {threshold} at row {row}"
-                            );
+                            for (row, value) in expected.iter().enumerate() {
+                                let expected = value.zip(threshold).map(|(value, threshold)| {
+                                    let (left, right) = if reversed {
+                                        (threshold, value)
+                                    } else {
+                                        (value, threshold)
+                                    };
+                                    match operator {
+                                        Operator::Eq => left == right,
+                                        Operator::NotEq => left != right,
+                                        Operator::Lt => left < right,
+                                        Operator::Lte => left <= right,
+                                        Operator::Gt => left > right,
+                                        Operator::Gte => left >= right,
+                                        _ => unreachable!(),
+                                    }
+                                });
+                                assert_eq!(
+                                    result
+                                        .execute_scalar(row, &mut execution)
+                                        .unwrap()
+                                        .as_bool()
+                                        .value(),
+                                    expected,
+                                    "{operator:?} {threshold:?} at row {row}; reversed={reversed}; encoding={}",
+                                    encoded.encoding_id()
+                                );
+                            }
                         }
                     }
                 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom, 2026-10-11: remove trailing whitespace from a doc line.
 
 //! An array that partially "patches" another array with new values.
 //!
@@ -43,7 +44,7 @@
 //! `indices` and `values` are aligned and accessed together.
 //!
 //! ```text
-//! 
+//!
 //!                  chunk 0      chunk 0      chunk 0     chunk 0       chunk 0     chunk 0
 //!                  lane  0      lane 1       lane  2     lane 3        lane  4     lane  5
 //!              ┌────────────┬────────────┬────────────┬────────────┬────────────┬────────────┐

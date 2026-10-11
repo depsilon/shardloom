@@ -7,7 +7,7 @@ calendar span that can panic on valid storage values. Its display path repeats
 the conversion. This prevents safe extrema statistics and compression for the
 full storage domain already admitted by ShardLoom.
 
-The changes are confined to `src/extension/datetime/timestamp.rs`:
+The behavioral changes are confined to `src/extension/datetime/timestamp.rs`:
 
 - `Timestamp::unpack_native` retains every Int64 value for microseconds without
   a timezone after the existing storage type validation.
@@ -27,8 +27,12 @@ hashes, VCS metadata and verified Apache license. The archive is authoritative
 because its recorded VCS state is dirty. `Cargo.toml.orig` remains unchanged;
 the normalized manifest adds `publish = false`. The original crate-local lockfile
 is recorded but not copied because the workspace owns dependency resolution.
-Upstream copyright headers remain in every source file and the modified file
-has an explicit change notice.
+Upstream copyright headers remain in every source file and each modified source
+file has an explicit change notice. Two original trailing-whitespace lines are
+also normalized: a blank documentation line in `src/arrays/patched/mod.rs`, and a
+snapshot literal in `src/scalar_fn/fns/zip/mod.rs`. The latter uses an explicit
+space escape in an ordinary string to preserve exactly the original expected
+snapshot bytes. Neither normalization changes provider behavior.
 
 The adapter regressions live in `shardloom-vortex/src/native_temporal.rs` and
 the existing writer tests. The full acceptance contract is
