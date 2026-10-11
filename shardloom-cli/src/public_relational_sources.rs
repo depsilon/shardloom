@@ -61,6 +61,12 @@ pub(crate) fn prepare_in_session(
     )?;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     let operation = operation.with_preparation_sources(sources.preparations)?;
+    #[cfg(feature = "vortex-write")]
+    let operation = if let Some(spill) = &request.spill {
+        operation.with_spill(spill.relational()?)?
+    } else {
+        operation
+    };
     Ok(operation)
 }
 

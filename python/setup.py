@@ -7,12 +7,26 @@ from pathlib import Path
 import platform
 import re
 
-from setuptools import setup
+from setuptools import Distribution, setup
+
+
+def _has_native_library() -> bool:
+    return (Path(__file__).resolve().parent / "src/shardloom/_native.abi3.so").is_file()
+
+
+class ShardLoomDistribution(Distribution):
+    """Install the staged native binding into the platform-library root."""
+
+    def has_ext_modules(self) -> bool:
+        # The binding is built before staging. The distribution must agree with
+        # the wheel's Root-Is-Purelib flag so install_lib chooses platlib.
+        return _has_native_library() or super().has_ext_modules()
+
 
 try:
     from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
 except ImportError:  # pragma: no cover - setuptools sdist path without wheel
-    setup()
+    setup(distclass=ShardLoomDistribution)
 else:
     _ARCH_ALIASES = {
         "amd64": "x86_64",
@@ -74,7 +88,7 @@ else:
 
         def get_tag(self) -> tuple[str, str, str]:
             interpreter, abi, platform_tag = super().get_tag()
-            if (Path(__file__).resolve().parent / "src/shardloom/_native.abi3.so").is_file():
+            if _has_native_library():
                 # The optional PyO3 crate is built with abi3-py310. Ordinary
                 # CLI-only wheels retain their existing py3/none tag.
                 # A host glibc version does not establish manylinux compliance
@@ -85,4 +99,4 @@ else:
                 return "cp310", "abi3", platform_tag
             return interpreter, abi, platform_tag
 
-    setup(cmdclass={"bdist_wheel": bdist_wheel})
+    setup(cmdclass={"bdist_wheel": bdist_wheel}, distclass=ShardLoomDistribution)

@@ -7,9 +7,11 @@ data or resolve a binary. Native values stay outside report serialization.
 from __future__ import annotations
 
 import importlib
+import json
 import math
 import threading
 import time
+from collections.abc import Mapping
 
 from .execution_resources import ExecutionResources
 from .models import OutputEnvelope
@@ -162,8 +164,9 @@ class NativeBackend:
         statement = request.get("sql_statement")
         if not isinstance(statement, str) or not statement.strip():
             raise ValueError("native execution requires a complete SQL or DataFrame plan")
-        if request.get("spill") is not None:
-            raise ValueError("native spill binding is not available for this request")
+        spill = request.get("spill")
+        if isinstance(spill, Mapping):
+            spill = json.dumps(dict(spill), sort_keys=True)
         bindings = dict(request.get("source_bindings") or {})
         reference = request.get("input_uri")
         if reference is not None:
@@ -203,7 +206,7 @@ class NativeBackend:
                 files.append((reference, format_name, schema))
                 declarations.append((reference, format_name, schema))
         state = request.get("_native_plan") or NativePlanState()
-        key = (id(self), statement, tuple(declarations))
+        key = (id(self), statement, tuple(declarations), spill)
         with state.lock:
             if state.key == key:
                 return state.plan
@@ -219,7 +222,9 @@ class NativeBackend:
                         timeout=_remaining(deadline),
                     )
                     sources.append((reference, owner))
-            plan = self.session.sql(statement, files=files, sources=sources, batches=batches)
+            plan = self.session.sql(
+                statement, files=files, sources=sources, batches=batches, spill=spill,
+            )
             state.key, state.plan = key, plan
             return plan
 

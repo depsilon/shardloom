@@ -30,6 +30,7 @@ pub(super) struct PlanCore {
     statement: String,
     bindings: Vec<SqlSourceBinding>,
     batches: Vec<BatchDeclaration>,
+    spill: Option<String>,
     prepared: Mutex<Option<Prepared>>,
 }
 
@@ -47,6 +48,7 @@ impl NativePlan {
         statement: String,
         bindings: Vec<SqlSourceBinding>,
         batches: Vec<BatchDeclaration>,
+        spill: Option<String>,
     ) -> Self {
         Self {
             core: Arc::new(PlanCore {
@@ -54,6 +56,7 @@ impl NativePlan {
                 statement,
                 bindings,
                 batches,
+                spill,
                 prepared: Mutex::new(None),
             }),
         }
@@ -72,6 +75,7 @@ impl PlanCore {
             .controller
             .with_resources(resources, cancellation, |session, resources| {
                 cancellation.check()?;
+                native::validate_sql_spill(self.spill.as_deref(), resources)?;
                 let mut prepared = self
                     .prepared
                     .lock()
@@ -105,11 +109,12 @@ impl PlanCore {
                     });
                 }
                 if !reused {
-                    let operation = native::prepare_sql(
+                    let operation = native::prepare_sql_with_spill(
                         &self.statement,
                         resources,
                         session,
                         &bindings,
+                        self.spill.as_deref(),
                         cancellation,
                     )?;
                     *prepared = Some(Prepared {

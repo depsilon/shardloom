@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -294,16 +295,13 @@ class NativeBindingTests(unittest.TestCase):
 
     def test_arrow_import_copies_source_buffers_and_accepts_empty_batches(self):
         pa = self.arrow()
-        try:
-            import numpy as np
-        except ImportError:
-            _unavailable("NumPy is required for the Arrow source-buffer ownership check")
+        import struct
 
         session = self.session(64 << 20, 2)
-        backing = np.array([2, 7, 11], dtype=np.int64)
+        backing = bytearray(struct.pack("<3q", 2, 7, 11))
         batch = pa.record_batch(
             [
-                pa.array(backing),
+                pa.Array.from_buffers(pa.int64(), 3, [None, pa.py_buffer(backing)]),
                 pa.array([True, None, False], type=pa.bool_()),
                 pa.array(["alpha", None, "λ"], type=pa.string()),
             ],
@@ -311,7 +309,8 @@ class NativeBindingTests(unittest.TestCase):
         )
         producer = pa.RecordBatchReader.from_batches(batch.schema, [batch])
         source = session.from_arrow(producer)
-        backing[:] = -99
+        struct.pack_into("<3q", backing, 0, -99, -99, -99)
+        self.assertEqual(batch.column(0).to_pylist(), [-99, -99, -99])
         self.assertGreater(source.input_columnar_buffer_bytes_copied, 0)
         result = session.sql(
             "SELECT id, enabled, label FROM 'memory://input' ORDER BY id",
@@ -890,6 +889,74 @@ assert later.row_count == 2
                     self.assertTrue(second.envelope.field_bool("native_input_end_observed"))
                     self.assertEqual(second.envelope.field_int("native_input_batch_rows"), 3001)
                     self.assertEqual(second.envelope.field_int("native_input_max_retained_batches"), 1)
+
+    def test_native_spill_plan_preserves_values_owners_and_cleanup(self):
+        pa = self.arrow()
+        session = self.session(64 << 20, 1)
+        self.addCleanup(session.close)
+        rows = 24_001
+        source = session.from_range("id", 0, 1, rows)
+        with tempfile.TemporaryDirectory(prefix="shardloom-native-spill-") as directory:
+            spill = json.dumps({"workspace": directory, "quota_bytes": 64 << 20,
+                                "buffer_bytes": 1 << 20})
+            plan = session.sql("SELECT id FROM input ORDER BY id DESC",
+                               sources=[("input", source)], spill=spill)
+            self.assertEqual(list(Path(directory).iterdir()), [])
+            result = plan.collect()
+            self.assertEqual(result.report["relational_spill_requested"], "true")
+            self.assertGreater(int(result.report["relational_spill_runs_written"]), 0)
+            self.assertEqual(result.report["relational_spill_owned_cleanup_completed"], "true")
+            self.assertEqual(list(Path(directory).iterdir()), [])
+            self.assertEqual(pa.RecordBatchReader.from_stream(result).read_all()["id"].to_pylist(),
+                             list(reversed(range(rows))))
+            session.close()
+            self.assertEqual(pa.RecordBatchReader.from_stream(result).read_all()["id"].to_pylist(),
+                             list(reversed(range(rows))))
+
+    def test_public_native_spill_collect_stream_write_and_invalid_options(self):
+        import shardloom as sl
+        from shardloom.errors import ShardLoomCommandError
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(client.close)
+        events = []
+
+        def producer():
+            events.append("opened")
+            yield [{"id": value} for value in range(4097)]
+
+        frame = sl.from_batches(producer, schema={"id": "int64"}, streaming=True,
+                                client=client).sort("id", descending=True)
+        with tempfile.TemporaryDirectory(prefix="shardloom-native-public-spill-") as directory:
+            root = Path(directory)
+            options = {"workspace": directory, "quota_bytes": 64 << 20, "buffer_bytes": 1 << 20}
+            for invalid in ("not-json", {**options, "buffer_bytes": 64 << 20},
+                            {**options, "quota_bytes": 0}, {**options, "unknown": True}):
+                with self.subTest(spill=invalid), self.assertRaises(ShardLoomCommandError):
+                    frame.collect(spill=invalid, check=True)
+                self.assertEqual(events, [])
+                self.assertEqual(list(root.iterdir()), [])
+            with self.assertRaises(ShardLoomCommandError):
+                frame.write_jsonl(root / "uncreated" / "out.jsonl", spill="not-json", check=True)
+            self.assertEqual(events, [])
+            self.assertFalse((root / "uncreated").exists())
+            expected = list(reversed(range(4097)))
+            with patch("subprocess.Popen", side_effect=AssertionError("child process")), \
+                 patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON input")):
+                result = frame.collect(spill=options, check=True)
+                self.assertEqual(result.to_arrow()["id"].to_pylist(), expected)
+                self.assertTrue(result.envelope.field_bool("relational_spill_requested"))
+                with frame.iter_batches(batch_rows=257, spill=options) as batches:
+                    actual = [value for batch in batches for value in batch.to_arrow()["id"].to_pylist()]
+                    self.assertEqual(actual, expected)
+                    self.assertTrue(batches.report.envelope.field_bool("relational_spill_requested"))
+                self.assertEqual(list(root.iterdir()), [])
+                target = root / "out.jsonl"
+                report = frame.write_jsonl(target, spill=options, check=True)
+                self.assertTrue(report.envelope.field_bool("relational_spill_requested"))
+                self.assertEqual([json.loads(line)["id"] for line in target.read_text().splitlines()], expected)
+                self.assertEqual(list(root.iterdir()), [target])
+            self.assertEqual(events, ["opened"] * 3)
 
     def test_public_native_columnar_batches_preserve_large_batches_and_empty_input(self):
         import shardloom as sl

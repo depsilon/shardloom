@@ -145,6 +145,18 @@ calendar range. Caller-owned Python containers are outside native reservations.
 Neither Arrow export nor continued native execution invokes this endpoint.
 Compilation, integration tests and packaging remain required before acceptance.
 
+The embedded SQL plan now carries the existing explicit native spill declaration
+into the shared relational preparation path. Validation uses the CLI's strict
+spill parser and rejects a buffer larger than the effective call grant before
+demanding a batch producer or inspecting file input. The existing Vortex-native
+ordering/aggregate/join/window/pivot spill provider retains the same session;
+the binding adds no spill implementation or independent resource pool.
+Python plan reuse includes the spill declaration so changed permissions cannot
+reuse stale preparation. Collection, incremental delivery and writers use that
+same prepared operation. Focused runtime verification of this connection is
+pending; it does not close the separate generic-command ownership, fanout,
+primitive-option or native-expression completion obligations.
+
 ## Object and factory intake
 
 The optional in-process adapter accepts the public `from_rows`, `from_arrow_table`

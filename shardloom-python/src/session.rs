@@ -146,13 +146,14 @@ impl NativeSession {
     }
 
     /// Construct a native plan declaration without inspecting any source.
-    #[pyo3(signature = (statement, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new()))]
+    #[pyo3(signature = (statement, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new(), spill=None))]
     fn sql(
         &self,
         statement: String,
         files: Vec<(String, String, Option<String>)>,
         sources: Vec<(String, PyRef<'_, NativeSource>)>,
         batches: Vec<super::batch_input::BatchArgument>,
+        spill: Option<String>,
     ) -> PyResult<NativePlan> {
         self.owner.begin().map_err(native_error)?;
         let mut bindings = files
@@ -175,6 +176,7 @@ impl NativeSession {
             statement,
             bindings,
             batches.into_iter().map(Into::into).collect(),
+            spill,
         ))
     }
 

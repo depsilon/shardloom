@@ -103,7 +103,42 @@ pub fn prepare_sql(
     bindings: &[SqlSourceBinding],
     cancellation: &CancellationToken,
 ) -> Result<PreparedVortexRelational> {
+    prepare_sql_with_spill(statement, resources, session, bindings, None, cancellation)
+}
+
+/// Validate the existing public spill declaration without opening its workspace.
+/// Embedded batch callers use this before demanding any producer input.
+/// # Errors
+/// Rejects malformed options, unsupported builds and a buffer beyond the grant.
+pub fn validate_sql_spill(spill: Option<&str>, resources: ExecutionResources) -> Result<()> {
+    let Some(spill) = spill else {
+        return Ok(());
+    };
+    if !cfg!(feature = "vortex-write") {
+        return Err(failed("native spill requires vortex-write"));
+    }
+    let policy = super::spill::Options::parse(spill)?.relational()?;
+    if policy.buffer_bytes > resources.memory_bytes() {
+        return Err(failed("spill buffer_bytes exceeds the declared query memory budget"));
+    }
+    Ok(())
+}
+
+/// Prepare SQL with the same explicit native spill policy as the CLI.
+/// Validation precedes source access; the resulting plan retains the caller's
+/// session for state, spill buffers and output. No workspace is opened here.
+/// # Errors
+/// Returns the preparation errors of `prepare_sql` and invalid spill declarations.
+pub fn prepare_sql_with_spill(
+    statement: &str,
+    resources: ExecutionResources,
+    session: &ResidentVortexSession,
+    bindings: &[SqlSourceBinding],
+    spill: Option<&str>,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexRelational> {
     cancellation.check()?;
+    validate_sql_spill(spill, resources)?;
     shardloom_vortex::local_primitives::prepared_relational::validate_session_policy(
         shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::from_resources(resources)?,
         session,
@@ -119,6 +154,7 @@ pub fn prepare_sql(
     }
     request.sql_statement = Some(statement.into());
     request.bounded = true;
+    request.spill = spill.map(super::spill::Options::parse).transpose()?;
     for binding in bindings {
         let (format, schema) = match &binding.source {
             SqlSource::File { format, schema } => (format.clone(), schema.clone()),
