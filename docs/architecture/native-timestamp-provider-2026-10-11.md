@@ -18,6 +18,26 @@ and array semantics, complete file reopen, conservative pruning, preserved
 validity and metadata, bounded resource ownership and reproducible writer costs.
 Smaller files alone do not establish faster complete workflows.
 
+The first paired public writer cohort preserves every value in all 84 samples,
+but its nested nullable case exposes a read-cost regression. A frozen-file
+crossover using the same candidate executable reproduces it: median native
+collection is 1.253 seconds for the earlier layout and 1.438 seconds for the
+compressed layout. Sampling identifies the existing compact-result builder's
+per-value dictionary/selection traversal as the dominant cost. This is a result
+ownership boundary already copying selected payloads, not a reason to decode
+intermediate native operations or to disable timestamp compression wholesale.
+
+Reuse the existing `NativeNumericOwner` after selection for numeric and temporal
+leaves in that shared builder. Execute each selected native storage block and
+its validity once, then construct the existing allocator-owned output with its
+original dtype. Keep decimal validation and unobserved floating-point movement
+on their existing paths. The change must retain hidden-parent null semantics,
+selection exactness, resource denial/cancellation and owner lifetimes. Retain it
+only if complete nested collection improves by at least 10% against the frozen
+candidate, with exact results and no material regression in the flat controls.
+The original cohort remains evidence of the rejected first candidate; refreshed
+complete writer workflows decide the final compression cost/storage tradeoff.
+
 ## Provider decision and provenance
 
 Vortex-first decision: `use_vortex_native_provider`. Retain the pinned Vortex
