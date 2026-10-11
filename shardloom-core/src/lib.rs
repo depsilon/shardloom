@@ -232,8 +232,9 @@ pub use live_engine::{
     LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport,
     LiveHybridDurableCheckpointFixtureReport, LiveHybridStateTransitionFixtureReport,
     LiveOutputRow, OutputChangelogEntry, OutputChangelogMode, StateCertificate, StateTtlPolicy,
-    WatermarkPolicy, plan_live_change_contract, run_live_fixture,
-    run_live_hybrid_durable_checkpoint_fixture, run_live_hybrid_state_transition_fixture,
+    WatermarkPolicy, live_hybrid_durable_checkpoint_workspace_bytes, plan_live_change_contract,
+    run_live_fixture, run_live_hybrid_durable_checkpoint_fixture,
+    run_live_hybrid_state_transition_fixture,
 };
 
 pub use manifest::{

@@ -88,6 +88,50 @@ and certificates, with no external executor or fallback.
 
 ## Report contract
 
+### Scoped fixture reader ownership
+
+The object-store, SQLite, local table manifest, metadata and checkpoint smoke
+commands must use their resolved allocation for owned input and staging buffers.
+Their fixture status does not permit an independent unbudgeted file read.
+Iceberg's optional Avro manifest and Parquet data-file readers must consume an
+already admitted encoded buffer and visit decoded batches individually, carrying
+the same pool into each batch owner. They must not collect the complete decoded
+source before checking its size or turn it into scalar row maps merely to count
+metadata fields. Overlapping metadata input and decoded data compete for credits.
+
+Vortex-first decision: `implement_shardloom_kernel` for this existing compatibility
+import boundary. The pinned Vortex array/scan providers do not parse Iceberg Avro
+manifests or Parquet input; the already approved Arrow Avro/Parquet readers remain
+isolated in `shardloom-vortex`. Reuse their schema/projection helpers and the
+existing `LiveMemoryPool`/`Budgeted` owners. No external execution or new memory
+allocator is introduced. `Bytes::from_owner` retains the admitted encoded payload
+through all Parquet slices without another payload copy.
+
+These upstream decoders do not expose a general allocation hook. Encoded input is
+reserved before allocation/read; a decoded batch is charged before handoff to the
+caller, after the provider constructs it. Batch rows are shaped by available
+credits, but this estimate cannot bound variable-width values or decompression.
+Provider decode/decompression temporaries, metadata trees, report containers,
+allocator overhead and process RSS remain outside the measured ownership scope.
+The report must name this limitation. Tests must prove pre-read input denial,
+shared-owner batch denial/retry, retained batch lifetime, projection correctness
+and sequential reuse without whole-source decoded collection. Focused regressions
+and all 16 source/feature gates pass for this correction; hosted checks remain
+required before integration.
+
+The local fixture implementation uses one `LiveMemoryPool` per complete command.
+File and byte-range reads reserve their fixed extent before opening a payload;
+size changes and invalid text release the reservation. SQLite's owned columns,
+rows, cell strings, formatting and sort workspace compete for that same grant.
+Object writes release the source buffer before readback, and table recovery keeps
+overlapping manifest and sidecar buffers charged together. Partition and Hudi
+directory names retain their credits until the owning report or traversal ends.
+The fixed ten-record checkpoint smoke uses a separately named conservative
+workspace reservation before directory creation, with exact-size readback. That
+estimate is not an allocation measurement or permission for general query spill.
+Success and post-admission error envelopes retain the declaration, admission,
+live/peak reservations, denied-reservation count and explicit observation scope.
+
 Preserve existing public evidence while distinguishing requested memory bytes
 and maximum execution lanes, per-field configuration origin, admitted allocation
 and policy reasons, measured live/peak native reservations, actual lane use when
@@ -266,7 +310,7 @@ complete-workflow source identity and does not attribute its timings to the
 changed copy path. Hosted acceptance remains required before this implementation
 unit is marked complete.
 
-The final shared reader/writer correction passes 16 fresh source gates: 3,166
+The preceding shared reader/writer correction passes 16 fresh source gates: 3,166
 default workspace tests, 1,339 native CLI tests, 2,546 native Vortex tests,
 1,104 CLI tests in the reduced writer profile and 17 example tests, plus strict
 lint, formatting, feature-isolation and Rust 1.96 checks. The native suites
@@ -275,3 +319,11 @@ this host. Those three platform refusal cases separately passed on Windows for
 the preceding reviewed commit; later writer changes still require hosted checks.
 The correction evidence preserves failed and deliberately interrupted attempts,
 without assigning the original complete-workflow timings to this changed source.
+
+The subsequent fixture I/O correction also passes all 16 fresh source gates:
+3,181 default workspace tests, 1,355 native CLI tests, 2,551 native Vortex tests,
+1,118 reduced writer-profile tests and 17 example tests. Formatting, strict lint,
+feature isolation and Rust 1.96 checks pass. The 24 existing ignored Vortex cases
+and three non-Unix CLI cases remain excluded from local pass counts. Its separate
+evidence binds 1,041 runtime source files and preserves failed intermediate checks;
+the original public-workflow and Full43 source identities remain unchanged.

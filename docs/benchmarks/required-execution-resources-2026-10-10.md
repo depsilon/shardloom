@@ -334,6 +334,55 @@ receives no coverage credit. The original public workflows and Full43 results
 were not rerun or retimed for this correction. No performance gain or package
 publication is claimed; hosted checks for the final source remain pending.
 
+## Scoped fixture I/O follow-up
+
+The next review reproduced a valid allocation bypass: an object-store smoke read
+could accept a one-byte grant and then materialize a larger file. Both the local
+emulator and public local-fixture profile now reserve the requested extent before
+opening the payload. Fixed-capacity reads reject file-size changes and retain
+their credits through the last buffer owner. This changes local fixture I/O;
+it does not enable a remote object-store provider.
+
+The same ownership correction covers adjacent SQLite input/export, local table
+manifest commits and recovery, partition discovery, Iceberg/Delta/Hudi metadata,
+and the fixed checkpoint smoke. SQLite's owned rows, strings, output formatting
+and sort workspace share its command grant. Object writes release source credits
+before readback. Overlapping table-manifest and sidecar reads compete for the
+same pool. Checkpoint admission uses an explicitly named conservative workspace
+estimate before directory creation, followed by exact-size readback.
+
+Optional Iceberg Avro and Parquet reads consume an already admitted encoded
+buffer and visit projected columnar batches individually. Encoded byte slices
+retain the original owner, and callers retaining a delivered batch also retain
+its credits. There is no complete decoded-source collection or intermediate
+scalar-row conversion. The approved decoders expose no general allocation hook:
+batch admission follows provider construction and precedes caller handoff.
+Variable-width/decompression temporaries, metadata/report containers, allocator
+overhead and process RSS remain outside these reservation counters. Reports name
+the scope on success and post-admission failure; they do not claim a process
+memory ceiling.
+
+Focused regressions pass for pre-read denial, overlapping owners, released-credit
+retry, existing-output preservation, projection/nullable values, retained batch
+lifetimes and sequential reuse. All 16 fresh source/feature gates pass: 3,181
+default workspace tests, 1,355 native CLI tests, 2,551 native Vortex tests,
+1,118 reduced writer-profile tests and 17 example tests. Formatting, strict
+Clippy, feature isolation and Rust 1.96 checks pass. There are 24 existing ignored
+Vortex cases and three non-Unix CLI cases ignored on this host.
+
+The separate fixture I/O correction in the
+[evidence index](evidence/required-execution-resources-2026-10-10.json) binds
+1,041 runtime source hashes, the 16 gate receipts and logs, 22 named regression
+checks and documentation validation. Earlier compile/lint failures, the
+insufficient-headroom test fixture, and the stale report assertion/temporary-
+directory collision remain preserved as failed attempts. No incomplete broad
+run receives acceptance credit. Hosted checks for the new correction remain
+required before merge.
+
+Original public-workflow and Full43 evidence keeps its original source identity;
+those workflows have not been rerun or retimed for this fixture correction.
+There is no new performance claim, package version or publication.
+
 ## Remaining work
 
 Hosted acceptance remains pending. The next implementation

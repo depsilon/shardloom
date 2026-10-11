@@ -23,6 +23,153 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+#[cfg(feature = "universal-format-io")]
+fn run_with_exact_memory(args: &[String], memory_bytes: u64) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(args)
+        .args([
+            "--memory-bytes",
+            &memory_bytes.to_string(),
+            "--max-parallelism",
+            "1",
+        ])
+        .output()
+        .expect("Iceberg command runs with an exact allocation")
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn iceberg_manifest_buffers_share_the_metadata_allocation_and_allow_retry() {
+    for list in [true, false] {
+        let metadata = write_metadata_fixture(
+            if list {
+                "list-budget"
+            } else {
+                "manifest-budget"
+            },
+            0,
+        );
+        let source = temp_manifest_file_path(if list {
+            "list-budget"
+        } else {
+            "manifest-budget"
+        });
+        if list {
+            write_manifest_list_fixture(&source, false);
+        } else {
+            write_manifest_file_fixture(&source, false);
+        }
+        let metadata_bytes = fs::metadata(&metadata).unwrap().len();
+        let source_bytes = fs::metadata(&source).unwrap().len();
+        let args = vec![
+            "iceberg-metadata-read-smoke".into(),
+            metadata.to_string_lossy().into_owned(),
+            if list {
+                "--manifest-list"
+            } else {
+                "--manifest"
+            }
+            .into(),
+            source.to_string_lossy().into_owned(),
+            "--format".into(),
+            "json".into(),
+        ];
+        // Either file fits independently, but both live payloads cannot fit.
+        let denied = run_with_exact_memory(&args, metadata_bytes.max(source_bytes));
+        assert!(!denied.status.success());
+        let text = String::from_utf8(denied.stdout).unwrap();
+        assert!(text.contains("memory reservation denied"), "{text}");
+        assert!(
+            text.contains(&field(
+                "execution_resource_declared_memory_bytes",
+                &metadata_bytes.max(source_bytes).to_string()
+            )),
+            "{text}"
+        );
+        assert!(
+            text.contains(&field("fixture_io_denied_reservations", "1")),
+            "{text}"
+        );
+        assert!(
+            text.contains(&field(
+                "execution_resource_observed_native_reserved_bytes",
+                "0"
+            )),
+            "{text}"
+        );
+        assert!(
+            text.contains(&format!(
+                "requested={source_bytes}, reserved={metadata_bytes}"
+            )),
+            "{text}"
+        );
+        let retried = run_with_exact_memory(&args, metadata_bytes + source_bytes + (1 << 20));
+        assert!(
+            retried.status.success(),
+            "{}",
+            String::from_utf8_lossy(&retried.stdout)
+        );
+        let text = String::from_utf8(retried.stdout).unwrap();
+        assert!(text.contains("provider_decode_transients"));
+        assert!(text.contains(&field("fallback_attempted", "false")));
+        fs::remove_file(metadata).unwrap();
+        fs::remove_file(source).unwrap();
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn iceberg_parquet_scan_requires_remaining_shared_credits_and_allows_retry() {
+    let metadata = write_metadata_fixture("parquet-budget", 0);
+    let manifest = temp_manifest_file_path("parquet-budget");
+    let first = temp_iceberg_path("parquet-budget-first", "parquet");
+    let second = temp_iceberg_path("parquet-budget-second", "parquet");
+    write_iceberg_parquet_data_file(
+        &first,
+        (0..20_000).collect(),
+        vec!["east"; 20_000],
+        vec![1.0; 20_000],
+    );
+    write_iceberg_parquet_data_file(&second, vec![20_000], vec!["west"], vec![2.0]);
+    write_manifest_file_scan_fixture(&manifest, &first, &second);
+    let metadata_bytes = fs::metadata(&metadata).unwrap().len();
+    let manifest_bytes = fs::metadata(&manifest).unwrap().len();
+    let data_bytes = fs::metadata(&first).unwrap().len();
+    let args = vec![
+        "iceberg-metadata-read-smoke".into(),
+        metadata.to_string_lossy().into_owned(),
+        "--manifest".into(),
+        manifest.to_string_lossy().into_owned(),
+        "--execute-data-file-scan".into(),
+        "--format".into(),
+        "json".into(),
+    ];
+    let limit = metadata_bytes + manifest_bytes + 65_536;
+    assert!(data_bytes > limit);
+    let denied = run_with_exact_memory(&args, limit);
+    assert!(!denied.status.success());
+    let text = String::from_utf8(denied.stdout).unwrap();
+    assert!(text.contains("memory reservation denied"), "{text}");
+    assert!(
+        text.contains(&format!(
+            "requested={data_bytes}, reserved={metadata_bytes}"
+        )),
+        "{text}"
+    );
+    let retried = run_with_exact_memory(&args, 16 << 20);
+    assert!(
+        retried.status.success(),
+        "{}",
+        String::from_utf8_lossy(&retried.stdout)
+    );
+    let text = String::from_utf8(retried.stdout).unwrap();
+    assert!(text.contains(&field("data_file_scan_actual_row_count", "20001")));
+    assert!(text.contains(&field("external_engine_invoked", "false")));
+    for path in [metadata, manifest, first, second] {
+        fs::remove_file(path).unwrap();
+    }
+}
+
 fn temp_metadata_path(name: &str) -> PathBuf {
     temp_iceberg_path(name, "json")
 }

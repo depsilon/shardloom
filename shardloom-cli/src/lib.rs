@@ -27,6 +27,7 @@ mod evidence_certificates;
 mod evidence_schema_registry;
 mod execution_resources;
 mod extension_planning;
+mod fixture_io;
 mod gar_0029_evidence;
 mod input_planning;
 mod native_memory_input;

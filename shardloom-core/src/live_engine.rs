@@ -19,6 +19,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
     fs,
+    io::Read as _,
     path::{Path, PathBuf},
 };
 
@@ -1074,6 +1075,14 @@ pub fn run_live_hybrid_state_transition_fixture() -> Result<LiveHybridStateTrans
     })
 }
 
+/// Conservative workspace reservation for the fixed ten-record checkpoint
+/// fixture, including retained state, serialization temporaries and readback.
+/// This is an internal estimate, not a default caller allocation or an RSS bound.
+/// Caller paths, report strings and filesystem bookkeeping are outside its scope.
+pub const fn live_hybrid_durable_checkpoint_workspace_bytes() -> u64 {
+    10 * 4 * 4096
+}
+
 pub fn run_live_hybrid_durable_checkpoint_fixture(
     checkpoint_dir: impl AsRef<Path>,
 ) -> Result<LiveHybridDurableCheckpointFixtureReport> {
@@ -1172,14 +1181,19 @@ pub fn run_live_hybrid_durable_checkpoint_fixture(
     })?;
     let partial_checkpoint_cleanup_completed = !partial_checkpoint_path.exists();
 
-    let restored_checkpoint_payload = read_local_fixture_artifact(&checkpoint_path, "checkpoint")?;
+    let restored_checkpoint_payload =
+        read_local_fixture_artifact(&checkpoint_path, "checkpoint", checkpoint_payload.len())?;
     let restored_state_store_payload =
-        read_local_fixture_artifact(&state_store_path, "state store")?;
-    let restored_micro_segment_payload =
-        read_local_fixture_artifact(&micro_segment_path, "microsegment")?;
+        read_local_fixture_artifact(&state_store_path, "state store", state_store_payload.len())?;
+    let restored_micro_segment_payload = read_local_fixture_artifact(
+        &micro_segment_path,
+        "microsegment",
+        micro_segment_payload.len(),
+    )?;
     let restored_cold_vortex_segment_manifest_payload = read_local_fixture_artifact(
         &cold_vortex_segment_manifest_path,
         "cold Vortex segment manifest",
+        cold_vortex_segment_manifest_payload.len(),
     )?;
     let checkpoint_payload_digest = stable_digest(&checkpoint_payload);
     let restored_checkpoint_payload_digest = stable_digest(&restored_checkpoint_payload);
@@ -1664,8 +1678,31 @@ fn write_local_fixture_artifact(path: &Path, label: &str, payload: &str) -> Resu
     Ok(usize_to_u64(payload.len()))
 }
 
-fn read_local_fixture_artifact(path: &Path, label: &str) -> Result<String> {
-    fs::read_to_string(path).map_err(|error| {
+fn read_local_fixture_artifact(path: &Path, label: &str, expected_bytes: usize) -> Result<String> {
+    let read = || -> std::io::Result<String> {
+        let mut file = fs::File::open(path)?;
+        let metadata = file.metadata()?;
+        if !metadata.is_file() || metadata.len() != usize_to_u64(expected_bytes) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "checkpoint fixture size changed before readback",
+            ));
+        }
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(expected_bytes)
+            .map_err(std::io::Error::other)?;
+        bytes.resize(expected_bytes, 0);
+        file.read_exact(&mut bytes)?;
+        if file.metadata()?.len() != metadata.len() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "checkpoint fixture size changed during readback",
+            ));
+        }
+        String::from_utf8(bytes).map_err(std::io::Error::other)
+    };
+    read().map_err(|error| {
         ShardLoomError::Message(format!(
             "failed to read local {label} fixture '{}': {error}",
             path.display()
@@ -2188,6 +2225,19 @@ mod tests {
             report.checkpoint_store_kind,
             "local_filesystem_fixture_store"
         );
+        let serialized_workspace_bytes = report.checkpoint_bytes_written
+            + report.changelog_bytes_written
+            + report.state_store_bytes_written
+            + report.micro_segment_bytes_written
+            + report.cold_vortex_segment_manifest_bytes_written
+            + report.partial_checkpoint_bytes_written
+            + report.checkpoint_bytes_read
+            + report.state_store_bytes_read
+            + report.micro_segment_bytes_read
+            + report.cold_vortex_segment_manifest_bytes_read;
+        // Retain headroom for the fixed record/state copies and formatting
+        // temporaries. Fixture growth must update the declared estimate.
+        assert!(serialized_workspace_bytes * 4 < live_hybrid_durable_checkpoint_workspace_bytes());
         assert_eq!(report.input_change_record_count, 10);
         assert_eq!(report.active_state_key_count, 3);
         assert_eq!(report.checkpoint_record_count, 3);
@@ -2324,5 +2374,25 @@ mod tests {
             .expect_err("remote checkpoint path is rejected");
 
         assert!(error.message().contains("local filesystem paths only"));
+    }
+
+    #[test]
+    fn durable_checkpoint_readback_refuses_size_changes() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-checkpoint-read-size-{}",
+            std::process::id()
+        ));
+        fs::write(&path, b"expected").unwrap();
+        assert_eq!(
+            read_local_fixture_artifact(&path, "checkpoint", 8).unwrap(),
+            "expected"
+        );
+        for expected in [1, 9] {
+            let error = read_local_fixture_artifact(&path, "checkpoint", expected).unwrap_err();
+            assert!(error.to_string().contains("size changed before readback"));
+        }
+        fs::write(&path, [0xff]).unwrap();
+        assert!(read_local_fixture_artifact(&path, "checkpoint", 1).is_err());
+        fs::remove_file(path).unwrap();
     }
 }
