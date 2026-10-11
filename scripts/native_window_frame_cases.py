@@ -8,7 +8,9 @@ import subprocess
 from decimal import Decimal
 from itertools import product
 
-from native_report_evidence import has_diagnostic_detail, require_native_resource_admission
+from native_report_evidence import (
+    has_diagnostic_detail, require_native_resource_admission, require_relational_source_evidence,
+)
 from native_window_frame_reference import fixture_rows, frame_rows
 from native_workflow_materialization import verify_materializations
 from native_workflow_outputs import LOCAL_FORMATS, write_outputs
@@ -235,6 +237,7 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
                                                         source_bindings=workflow._declared_sources()))]
         for surface, declared in variants:
             label = f"{prefix}-{name}-{surface}"
+            previous_counters = None
             for run in (1, 2):
                 guard()
                 collect_name = f"{label}-collect-{run}"
@@ -250,10 +253,9 @@ def run(context, output, guard, accepted, complete, sources, identity, *,
                 complete(collect_name, list(report.result_rows), expected)
                 if report.result_columns != tuple(columns):
                     raise ValueError(f"{collect_name}: result column order differs")
-                for field, value in {
-                    "resident_source_opens": str(opens), "source_io_performed": str(opens > 0).lower(),
-                    "result_payload_complete": "true",
-                }.items():
+                previous_counters = require_relational_source_evidence(
+                    collect_name, envelope, opens, previous=previous_counters)
+                for field, value in {"result_payload_complete": "true"}.items():
                     if envelope.field(field) != value:
                         raise ValueError(f"{collect_name}: {field} differs from the declared source")
                 if columns == COLUMNS:

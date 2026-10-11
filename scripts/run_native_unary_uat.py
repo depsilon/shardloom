@@ -19,6 +19,7 @@ import sys
 
 from local_uat_storage import GIB, MIB, check_budgets, require_local_path
 from run_clickbench_query_uat import file_sha256, strict_json
+from native_report_evidence import require_relational_source_evidence
 
 
 def csv_cell(value):
@@ -198,15 +199,17 @@ def main() -> int:
 
         for family, workflow, expected in cases(context, source, exploded):
             dynamic_schema = family in {"pivot", "filtered-pivot"}
+            previous_counters = None
             for execution in range(1, 4):
                 guard()
                 name = f"{family}-collect-{execution}"
                 report = workflow.collect(check=False)
                 envelope = accepted(name, report)
                 complete(name, list(report.result_rows), expected)
+                previous_counters = require_relational_source_evidence(
+                    name, envelope, 1, previous=previous_counters)
                 for field, value in {
-                    "resident_source_opens": "1", "resident_relational_handle_retained": "true",
-                    "resident_completed_executions": str(execution), "result_payload_complete": "true",
+                    "resident_relational_handle_retained": "true", "result_payload_complete": "true",
                     "resident_relational_declaration_reused": str(execution > 1).lower(),
                     "resident_relational_lowering_reused": str(execution > 1 and not dynamic_schema).lower(),
                     "relational_schema_binding": "during_execution" if dynamic_schema else "during_preparation",

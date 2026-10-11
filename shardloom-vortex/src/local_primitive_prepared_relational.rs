@@ -90,6 +90,9 @@ pub struct ExecutedVortexRelational {
     pub scan_rows_delivered: u64,
     pub scan_batches: u64,
     pub prepared_sources: usize,
+    /// Held file sources for this plan, excluding memory and batch inputs.
+    /// Session-lifetime open counters may include unrelated earlier plans.
+    pub prepared_file_sources: usize,
     /// Data-dependent declarations are lowered afresh inside this execution.
     pub schema_binding_deferred: bool,
     pub dynamic_schema_stages: u64,
@@ -138,6 +141,7 @@ pub struct ExecutedVortexRelational {
     /// Physical decoder work inside upstream providers is not measured here.
     pub bytes_decoded: Option<u64>,
     pub native_io_certificate: NativeIoCertificate,
+    /// Cumulative observations of the shared session, not per-plan counters.
     pub runtime: ResidentSessionSnapshot,
     pub spill: Option<crate::relational_query::VortexRelationalSpillReport>,
     /// Present only after a streaming source's explicit end-of-input was observed.
@@ -1038,6 +1042,7 @@ impl PreparedVortexRelational {
             prepared_sources: self.sources.len()
                 + self.memory_sources.len()
                 + usize::from(input.is_some()),
+            prepared_file_sources: self.sources.len(),
             schema_binding_deferred: matches!(self.root, PreparedRoot::Dynamic(_)),
             dynamic_schema_stages: metrics.schema_discovery_stages.get(),
             spilled_pivot_stages: metrics.spilled_pivot_stages.get(),

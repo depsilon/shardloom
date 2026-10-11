@@ -34,6 +34,7 @@ from native_window_frame_cases import run as window_frame_cases
 from native_scalar_subquery_cases import run as scalar_subquery_cases
 from native_workflow_outputs import write_outputs
 from native_workflow_materialization import MATERIALIZATIONS, dependencies
+from native_report_evidence import require_relational_source_evidence
 
 
 def cases(context, left: Path, right: Path, raw_right: Path, typed_left: Path, typed_right: Path):
@@ -283,6 +284,7 @@ def main() -> int:
                 sources.extend((path, file_sha256(path), identity(path)) for path in [raw, native])
 
             for family, workflow, expected, opens in cases(context, left, right, raw_right, typed_left, typed_right):
+                previous_counters = None
                 columns = list(expected[0]) if expected else {
                     "sql-empty": ["cargo_id"], "composition-empty-window": ["renamed", "rn"],
                 }[family]
@@ -292,9 +294,10 @@ def main() -> int:
                     report = workflow.collect(check=False)
                     envelope = accepted(name, report)
                     complete(name, list(report.result_rows), expected)
+                    previous_counters = require_relational_source_evidence(
+                        name, envelope, opens, previous=previous_counters)
                     for field, value in {
                         "output_columns": ",".join(columns),
-                        "resident_source_opens": str(opens), "resident_completed_executions": str(execution),
                         "resident_relational_handle_retained": "true", "result_payload_complete": "true",
                         "resident_relational_lowering_reused": str(execution > 1).lower(),
                     }.items():

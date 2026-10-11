@@ -9,6 +9,35 @@ def has_diagnostic_detail(envelope, detail):
                for key in ("message", "reason"))
 
 
+def require_relational_source_evidence(name, envelope, file_sources, *, previous=None):
+    """Check this plan's file sources and, when repeated, exact lifetime deltas.
+
+    The worker retains one resource owner across different plans and writers.
+    Its cumulative counters therefore cannot be compared with this plan's source
+    count or repetition number. A previous snapshot must be from the immediately
+    preceding execution of the same declaration, with no intervening commands.
+    """
+    for key, expected in {
+        "relational_prepared_file_source_count": str(file_sources),
+        "resident_counter_scope": "shared_session_lifetime",
+        "source_io_performed": str(file_sources > 0).lower(),
+    }.items():
+        if envelope.field(key) != expected:
+            raise ValueError(f"{name}: {key} differs from the declared source scope")
+    counters = []
+    for key in ("resident_source_opens", "resident_completed_executions"):
+        value = envelope.field(key)
+        if not isinstance(value, str) or not value.isascii() or not value.isdecimal():
+            raise ValueError(f"{name}: missing or malformed lifetime counter {key}")
+        counters.append(int(value))
+    opens, executions = counters
+    if opens < file_sources or executions == 0:
+        raise ValueError(f"{name}: lifetime counters omit this completed plan")
+    if previous is not None and (opens != previous[0] or executions != previous[1] + 1):
+        raise ValueError(f"{name}: repeated declaration reopened sources or changed completion count")
+    return opens, executions
+
+
 def require_native_resource_admission(name, envelope, *, memory_gb=1):
     """Check the caller's declared grant, never a budget inferred from the report."""
     budget = memory_gb << 30

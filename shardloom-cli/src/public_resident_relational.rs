@@ -495,7 +495,7 @@ pub(super) fn append_execution(
         ),
         (
             "source_io_performed".into(),
-            (result.runtime.prepared_source_opens > 0).to_string(),
+            (result.prepared_file_sources > 0).to_string(),
         ),
         ("fallback_attempted".into(), "false".into()),
         ("external_engine_invoked".into(), "false".into()),
@@ -609,6 +609,14 @@ pub(super) fn append_execution(
             result.runtime.prepared_source_opens.to_string(),
         ),
         (
+            "resident_counter_scope".into(),
+            "shared_session_lifetime".into(),
+        ),
+        (
+            "relational_prepared_file_source_count".into(),
+            result.prepared_file_sources.to_string(),
+        ),
+        (
             "public_workflow_native_vortex_plan_source_count".into(),
             result.prepared_sources.to_string(),
         ),
@@ -630,7 +638,7 @@ pub(super) fn append_execution(
         ),
         (
             "resident_footer_open_performed_this_call".into(),
-            (!reused && result.runtime.prepared_source_opens > 0).to_string(),
+            (!reused && result.prepared_file_sources > 0).to_string(),
         ),
         ("resident_relational_handle_retained".into(), "true".into()),
         (

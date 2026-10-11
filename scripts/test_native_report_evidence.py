@@ -8,10 +8,47 @@ from types import SimpleNamespace
 from run_native_unary_uat import require_unique_report_fields
 from native_report_evidence import (
     has_diagnostic_detail, require_native_pivot_spill, require_native_resource_admission,
+    require_relational_source_evidence,
 )
 
 
 class NativeReportEvidenceTests(unittest.TestCase):
+    def test_plan_sources_and_repeated_activity_are_separate_from_session_totals(self):
+        fields = {
+            "relational_prepared_file_source_count": "2",
+            "resident_counter_scope": "shared_session_lifetime",
+            "source_io_performed": "true",
+            "resident_source_opens": "30",
+            "resident_completed_executions": "23",
+        }
+        def verify(values, files=2, previous=None):
+            return require_relational_source_evidence(
+                "query", SimpleNamespace(field=values.get), files, previous=previous)
+
+        self.assertEqual(verify(fields), (30, 23))
+        self.assertEqual(verify(fields, previous=(30, 22)), (30, 23))
+        memory = fields | {"relational_prepared_file_source_count": "0", "source_io_performed": "false"}
+        self.assertEqual(verify(memory, files=0), (30, 23))
+        for previous in ((29, 22), (31, 22), (30, 21), (30, 23), (30, 24)):
+            with self.subTest(previous=previous), self.assertRaises(ValueError):
+                verify(fields, previous=previous)
+        changes = [
+            {"relational_prepared_file_source_count": "1"},
+            {"resident_counter_scope": "per_plan"},
+            {"source_io_performed": "false"},
+            {"resident_source_opens": "1"},
+            {"resident_completed_executions": "0"},
+        ] + [
+            {key: value}
+            for key in ("resident_source_opens", "resident_completed_executions")
+            for value in (None, "", "-1", "1.5", "NaN", "١")
+        ]
+        for change in changes:
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                verify(fields | change)
+        with self.assertRaises(ValueError):
+            verify(memory | {"source_io_performed": "true"}, files=0)
+
     def test_pivot_spill_requires_exact_strategy_counters_quota_and_cleanup(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory)
