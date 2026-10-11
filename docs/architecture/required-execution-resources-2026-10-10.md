@@ -145,6 +145,14 @@ the workspace lease remains alive while the error report captures its fields.
 Synthetic spill constructor failures report zero payload I/O; failures after
 entering the I/O operation leave unmeasured activity unavailable.
 
+Generated object commit manifests and table sidecar records also retain their
+text capacity in the command's pool. JSON escaping writes directly into the
+admitted builder, including caller-controlled keys and paths. The shared writer
+checks both reservation identity and payload capacity before admitting its
+staging buffer. Static fixture literals own no heap capacity. A denied object
+manifest restores the prior object and sidecar, while table records are admitted
+before replacing the manifest. Source-write credits remain reusable for readback.
+
 The text-based UDF and embedding fixtures reserve a conservative workspace before
 parsing values. Its size grows with input rows and, for embeddings, UTF-8 input
 and query bytes. It covers the input/output containers and overlapping numeric

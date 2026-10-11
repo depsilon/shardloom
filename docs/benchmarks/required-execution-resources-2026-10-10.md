@@ -487,6 +487,36 @@ field, and a strict-lint failure corrected before final acceptance. Original
 complete-workflow and Full43 evidence retains its original identity. Hosted
 acceptance remains required; no performance, RSS-limit or package claim changes.
 
+## Generated commit payload ownership
+
+A later review identified unaccounted generated object manifests: the writer
+reserved staging capacity but accepted an ordinary byte slice, while formatting
+and escaping a caller-controlled idempotency key allocated separately. Object
+manifests and table sidecar records now use the existing admitted text builder.
+Escaping writes directly into that builder, including path displays. The shared
+writer accepts an owned payload and verifies both its pool identity and actual
+capacity before admitting staging. Static fixture literals carry no heap charge.
+
+Eight new regressions cover foreign-pool and under-reserved payload refusal,
+competing retained credit, released-credit reuse, exact output, escaping,
+oversized generated text and successful object/table recovery. An object commit
+denied during manifest construction or staging restores its prior object and
+sidecar; fresh targets are removed. Table records are constructed before any
+manifest replacement, so the same denials leave prior files untouched. The
+existing one-MiB object test still uses only source capacity plus staging and
+reuses the source credits for readback.
+
+All 14 fresh applicable source/feature gates pass, including 3,201 default
+workspace tests, 1,372 native CLI tests and 1,135 reduced writer-profile tests.
+The separate evidence supplement binds all 1,042 source hashes, commands and
+logs. It preserves a test-target invocation error and two incorrect new test
+expectations that trimmed a key the existing contract preserves verbatim.
+Both were corrected before final acceptance. Four CLI source files and a
+read-only reservation accessor changed; Vortex execution, Python, examples and
+dependencies remain unchanged. Their prior validation retains its original
+identity, as do the complete-workflow and Full43 observations. No performance
+or whole-process memory claim is added. Hosted acceptance remains required.
+
 ## Remaining work
 
 Hosted acceptance remains pending. The next implementation

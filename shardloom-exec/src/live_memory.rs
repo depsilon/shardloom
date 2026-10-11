@@ -198,6 +198,12 @@ impl<T> Budgeted<T> {
         self.lease.bytes()
     }
 
+    /// Inspect the reservation identity without releasing or transferring credit.
+    #[must_use]
+    pub const fn lease(&self) -> &MemoryLease {
+        &self.lease
+    }
+
     #[must_use]
     pub fn into_parts(self) -> (T, MemoryLease) {
         (self.value, self.lease)

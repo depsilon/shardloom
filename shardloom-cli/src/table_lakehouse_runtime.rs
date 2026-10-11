@@ -17,11 +17,12 @@ use shardloom_core::{
     CommandStatus, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
     FallbackStatus, OutputFormat, ShardLoomError,
 };
-use shardloom_exec::live_memory::LiveMemoryPool;
+use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool};
 
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
+    fixture_io::JsonEscaped,
 };
 
 const COMMAND: &str = "local-table-append-commit-rehearsal-smoke";
@@ -1830,7 +1831,7 @@ fn perform_local_manifest_append_commit(
     target_path: &Path,
     commit_record_path: &Path,
     idempotency_key: &str,
-    manifest_payload: &str,
+    manifest_payload: &'static str,
     manifest_payload_digest: &str,
     correctness_digest: &str,
     conflict_evidence: &LocalTableCommitConflictEvidence,
@@ -1842,12 +1843,29 @@ fn perform_local_manifest_append_commit(
     validate_workspace_safe_output(&workspace_root, target_path, allow_overwrite)?;
     validate_workspace_safe_output(&workspace_root, commit_record_path, true)?;
 
+    // Admit the generated record before replacing a prior manifest. Its expected
+    // digest is checked against readback before the sidecar can be published.
+    let commit_record = build_commit_record(
+        target_uri,
+        target_path,
+        idempotency_key,
+        manifest_payload.len(),
+        manifest_payload_digest,
+        manifest_payload_digest,
+        correctness_digest,
+        conflict_evidence,
+        pool,
+    )?;
+    let manifest = Budgeted::new(
+        manifest_payload,
+        pool.reserve(0).map_err(std::io::Error::other)?,
+    );
     let manifest_write_report = crate::fixture_io::write_bytes(
         &workspace_root,
         target_path,
         allow_overwrite,
         "local table append commit manifest",
-        manifest_payload.as_bytes(),
+        &manifest,
         pool,
     )?;
     let committed_manifest = match crate::fixture_io::read_utf8(
@@ -1864,24 +1882,20 @@ fn perform_local_manifest_append_commit(
     };
     let committed_manifest_digest = fnv64_digest(committed_manifest.value());
     drop(committed_manifest);
-    let commit_record = build_commit_record(
-        target_uri,
-        target_path,
-        idempotency_key,
-        manifest_payload.len(),
-        manifest_payload_digest,
-        &committed_manifest_digest,
-        correctness_digest,
-        conflict_evidence,
-    );
-    let commit_record_digest = fnv64_digest(&commit_record);
-    let commit_record_bytes = commit_record.len();
+    if committed_manifest_digest != manifest_payload_digest {
+        let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
+        return Err(std::io::Error::other(
+            "committed table manifest digest changed during readback",
+        ));
+    }
+    let commit_record_digest = fnv64_digest(commit_record.value());
+    let commit_record_bytes = commit_record.value().len();
     if let Err(error) = crate::fixture_io::write_bytes(
         &workspace_root,
         commit_record_path,
         true,
         "local table append commit sidecar record",
-        commit_record.as_bytes(),
+        &commit_record,
         pool,
     ) {
         let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
@@ -2176,12 +2190,15 @@ fn build_commit_record(
     committed_manifest_digest: &str,
     correctness_digest: &str,
     conflict_evidence: &LocalTableCommitConflictEvidence,
-) -> String {
+    pool: &LiveMemoryPool,
+) -> std::io::Result<Budgeted<String>> {
     let expected_current_manifest_digest = conflict_evidence
         .expected_current_manifest_digest
         .as_deref()
         .unwrap_or("not_requested");
-    format!(
+    let mut record = crate::fixture_io::Text::new(pool).map_err(std::io::Error::other)?;
+    let _ = write!(
+        record,
         concat!(
             "{{\n",
             "  \"schema_version\": \"shardloom.local_table_commit_rehearsal_record.v1\",\n",
@@ -2203,17 +2220,18 @@ fn build_commit_record(
             "  \"table_catalog_commit_performed\": false\n",
             "}}\n"
         ),
-        escape_json(target_uri),
-        escape_json(&target_path.to_string_lossy()),
-        escape_json(idempotency_key),
-        escape_json(expected_current_manifest_digest),
-        escape_json(&conflict_evidence.observed_current_manifest_digest),
+        JsonEscaped(target_uri),
+        JsonEscaped(target_path.display()),
+        JsonEscaped(idempotency_key),
+        JsonEscaped(expected_current_manifest_digest),
+        JsonEscaped(&conflict_evidence.observed_current_manifest_digest),
         conflict_evidence.existing_manifest_present_before_commit,
         manifest_bytes,
-        escape_json(manifest_payload_digest),
-        escape_json(committed_manifest_digest),
-        escape_json(correctness_digest),
-    )
+        JsonEscaped(manifest_payload_digest),
+        JsonEscaped(committed_manifest_digest),
+        JsonEscaped(correctness_digest),
+    );
+    record.finish().map_err(std::io::Error::other)
 }
 
 fn fixture_correctness_digest() -> String {
@@ -2371,24 +2389,6 @@ fn fnv64_digest_bytes(value: &[u8]) -> String {
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
     format!("fnv64:{hash:016x}")
-}
-
-fn escape_json(value: &str) -> String {
-    let mut escaped = String::new();
-    for character in value.chars() {
-        match character {
-            '"' => escaped.push_str("\\\""),
-            '\\' => escaped.push_str("\\\\"),
-            '\n' => escaped.push_str("\\n"),
-            '\r' => escaped.push_str("\\r"),
-            '\t' => escaped.push_str("\\t"),
-            value if value.is_control() => {
-                let _ = write!(escaped, "\\u{:04x}", value as u32);
-            }
-            value => escaped.push(value),
-        }
-    }
-    escaped
 }
 
 fn support_status(has_errors: bool) -> &'static str {
@@ -2725,6 +2725,103 @@ mod tests {
         assert!(denied.has_errors());
         assert_eq!(shared.snapshot().denied_reservations, 1);
         assert_eq!(shared.snapshot().reserved_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn generated_table_record_denial_precedes_manifest_replacement() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-table-record-admission-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let limit = shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes() + 1;
+        for (index, key) in ["small".to_string(), "\u{0001}".repeat(65_536)]
+            .iter()
+            .enumerate()
+        {
+            for overwrite in [false, true] {
+                let target = root.join(format!("manifest-{index}-{overwrite}.json"));
+                let sidecar = commit_record_sidecar_path(&target);
+                if overwrite {
+                    fs::write(&target, b"prior-manifest").unwrap();
+                    fs::write(&sidecar, b"prior-record").unwrap();
+                }
+                let count_before = fs::read_dir(&root).unwrap().count();
+                let pool = LiveMemoryPool::new(limit).unwrap();
+                let report = execute_local_table_append_commit_rehearsal(
+                    target.to_str().unwrap(),
+                    DEFAULT_PROFILE,
+                    Some(key),
+                    None,
+                    overwrite,
+                    false,
+                    &pool,
+                );
+                assert_eq!(
+                    report.status,
+                    LocalTableAppendCommitStatus::BlockedWriteError
+                );
+                assert!(format!("{:?}", report.diagnostics).contains("memory reservation denied"));
+                assert_eq!(pool.snapshot().reserved_bytes, 0);
+                assert_eq!(pool.snapshot().denied_reservations, 1);
+                assert!(pool.snapshot().peak_reserved_bytes <= limit);
+                if overwrite {
+                    assert_eq!(fs::read(&target).unwrap(), b"prior-manifest");
+                    assert_eq!(fs::read(&sidecar).unwrap(), b"prior-record");
+                } else {
+                    assert!(!target.exists());
+                    assert!(!sidecar.exists());
+                }
+                assert_eq!(fs::read_dir(&root).unwrap().count(), count_before);
+            }
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn generated_table_record_keeps_escaped_capacity_charged_through_write() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-table-record-accounted-{}",
+            std::process::id()
+        ));
+        fs::create_dir(&root).unwrap();
+        let target = root.join("manifest.json");
+        let key = "Unicode-λ-quote\"-slash\\-line\n".repeat(256);
+        let pool = LiveMemoryPool::new(2 << 20).unwrap();
+        let report = execute_local_table_append_commit_rehearsal(
+            target.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            Some(&key),
+            None,
+            false,
+            false,
+            &pool,
+        );
+        assert!(!report.has_errors(), "{report:?}");
+        let sidecar = fs::read(commit_record_sidecar_path(&target)).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&sidecar).unwrap();
+        assert_eq!(json["idempotency_key"], key);
+        assert_eq!(
+            json["committed_manifest_digest"],
+            report.committed_manifest_digest
+        );
+        assert_eq!(report.commit_record_bytes, sidecar.len());
+        assert!(
+            pool.snapshot().peak_reserved_bytes
+                >= sidecar.len() as u64
+                    + shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes()
+        );
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        assert_eq!(pool.snapshot().denied_reservations, 0);
+        let recovered = execute_local_table_commit_recovery_smoke(
+            target.to_str().unwrap(),
+            DEFAULT_PROFILE,
+            Some(&key),
+            &pool,
+        );
+        assert!(!recovered.has_errors(), "{recovered:?}");
+        assert_eq!(pool.snapshot().reserved_bytes, 0);
         fs::remove_dir_all(root).unwrap();
     }
 
