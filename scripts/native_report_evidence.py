@@ -44,9 +44,6 @@ def require_native_allocation_peak(name, envelope, budget):
         "execution_resource_admission_status": "admitted",
         "execution_resource_declared_memory_bytes": str(budget),
         "execution_resource_admitted_memory_bytes": str(budget),
-        "execution_resource_memory_observation_scope":
-            "session_pool_lifetime_including_preparation_and_retained_owners;"
-            "excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss",
         "execution_resource_allocation_memory_observation_scope":
             "current_allocation_including_preparation_and_retained_owners;"
             "excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss",
@@ -54,6 +51,17 @@ def require_native_allocation_peak(name, envelope, budget):
     for key, expected in required.items():
         if envelope.field(key) != expected:
             raise ValueError(f"{name}: {key} differs from the declared allocation scope")
+    # Native array sinks publish the same shared pool's lifetime peak using
+    # their existing sink scope. Command admission supplies the allocation
+    # observation after the writer completes; neither scope resets history.
+    lifetime_scopes = (
+        "session_pool_lifetime_including_preparation_and_retained_owners;"
+        "excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss",
+        "session_pool_lifetime_including_retained_owners;"
+        "excludes_provider_bypass_allocations_and_process_rss",
+    )
+    if envelope.field("execution_resource_memory_observation_scope") not in lifetime_scopes:
+        raise ValueError(f"{name}: memory observation is not the shared native pool lifetime")
     values = []
     for suffix in ("reserved_bytes", "allocation_peak_reserved_bytes", "peak_reserved_bytes"):
         key = f"execution_resource_observed_native_{suffix}"

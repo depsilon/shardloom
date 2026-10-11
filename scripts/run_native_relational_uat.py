@@ -407,7 +407,9 @@ def main() -> int:
         finally:
             try:
                 if output.exists():
-                    (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+                    # Preserve every field without repeating indentation across
+                    # the complete envelope and source inventories.
+                    (output / "summary.json").write_text(json.dumps(summary, separators=(",", ":")) + "\n")
                     print(output / "summary.json", flush=True)
             finally:
                 lock.rmdir()

@@ -1,8 +1,8 @@
 # Native Python ownership and complete-workflow acceptance
 
-Status: source implementation, complete local source/runtime checks, isolated
-wheel proof and paired Python workflow acceptance complete; hosted integration
-remains pending. This implements the four priorities in the
+Status: implementation, local source/runtime checks, isolated wheel proof,
+paired Python workflows and hosted integration complete in PR #1541. This
+implements the four priorities in the
 [native Python contract](../architecture/native-python-surface-2026-10-10.md)
 under PERF-02/03/07/11/12 and CG-19/20/21. Published v0.5.1 packages are unchanged.
 The [six-area/eight-investigation completion contract](../architecture/native-local-completion-scope-2026-10-07.md)
@@ -247,7 +247,8 @@ the new wheel-download command contained a YAML-significant colon. The
 that original parser failure and verifies all 16 jobs and three native wheel
 lanes after changing only the command's YAML representation. The required-lane
 validator passes; runtime/package sources remain unchanged. Actual hosted
-execution must still pass on the corrected commit.
+execution was still pending at this syntax-only checkpoint. The final hosted
+receipt below records the later passing corrected-source integration.
 
 ## Native failure and hosted-integration corrections
 
@@ -293,9 +294,10 @@ These suites overlap. The correction freezes 1,319 selected source files.
 Compared with the initial acceptance, 1,306 files are unchanged, twelve existing
 files change and `shardloom-python/src/failure.rs` is added. All Vortex source and
 dependency-graph hashes remain unchanged. The corrected local extension uses the
-debug profile; fresh release-wheel installation and all native tests remain
-required in each hosted matrix job. Prior installed-wheel and complete-workflow
-timings keep their original identities. No new ingest, Full43 or Python speedup
+debug profile; fresh release-wheel installation and all native tests were
+still required at that checkpoint. The final hosted receipt records those
+later passing jobs. Prior installed-wheel and complete-workflow timings keep
+their original identities. No new ingest, Full43 or Python speedup
 is asserted from these reporting fixes.
 
 The [correction index](evidence/native-python-integration-corrections-2026-10-11.json)
@@ -314,7 +316,8 @@ Its regression executes the allocator twice with cached proof data present,
 verifies distinct fresh destinations and preserves both earlier reports. All
 163 release-script tests, all 16 CI contract lanes and workflow YAML parsing pass.
 Runtime sources and the earlier measured executable identities are unchanged;
-the corrected hosted wheel matrix still must pass before acceptance.
+the corrected hosted wheel matrix was pending at this checkpoint and
+subsequently passed, as recorded in the final hosted receipt below.
 
 Review of `e689d69c` found that columnar import probed arbitrary producers for a
 `native_result` attribute before native admission. The adapter now unwraps only
@@ -332,7 +335,9 @@ without skips. It retains the regression logs and identifies the initial test
 harness's missing optional dependency separately from the reproduced defects.
 All Rust, Vortex and dependency sources match the corrected extension above;
 only the Python adapter/tests and the prior CI validator/tests differ among the
-1,319 selected files. Hosted release-wheel checks must accept this final adapter.
+1,319 selected files. Subsequent installed release-wheel checks accepted this
+adapter together with the following ownership correction; the final hosted
+receipt retains the tested source and complete result counts.
 
 Review of `721cc072` then found that native frames from different clients passed
 foreign source owners to the receiving binder unchanged. Valid joins, unions and
@@ -368,8 +373,37 @@ the first full Python run's incorrect test expectation: incompatible resource
 ceilings are correctly rejected at composition, before collection. The corrected
 test verifies both early refusal and valid execution within the smaller grant.
 Earlier workflow, installed-wheel and performance observations retain their own
-identities. Fresh hosted release wheels must pass all 75 native methods before
-integration; this correction makes no new performance claim.
+identities. Fresh hosted release wheels subsequently pass all 75 native methods
+before integration; this correction makes no new performance claim.
+
+## Hosted integration
+
+[PR #1541](https://github.com/depsilon/shardloom/pull/1541) merged at
+`88b44c1366d85d216a069def1d8315124e63ff41` after all 44 checks passed on
+`f0e9404702469f997de0bd813fe51b5ea02161df`. The reviewed and merged trees are
+identical (`7fac54d76cc26b5ff9c86708d9998d15173fc015`), and all 18 review
+threads are resolved. The
+[hosted receipt](evidence/native-python-surface-hosted-2026-10-11.json) and
+[packet](evidence/native-python-surface-hosted-2026-10-11.tar.xz) preserve the
+final checks, review record, three complete wheel job logs and their proof reports.
+All 21 payload members were reopened byte-for-byte after packaging.
+
+Each isolated release wheel passes 75 native integration tests with zero
+failures, errors or skips: Ubuntu x86-64 on Python 3.10.22 and 3.13.16, and
+macOS arm64 on Python 3.13.15. These are actual installed-module and CLI loads.
+The complete proof reports were independently decoded from the retained job
+logs; the individual method transcripts were uploaded separately and are not
+recounted from these logs. This establishes the named host matrix, not general
+Linux portability or Windows native-extension support.
+
+The production deployment succeeds on the exact merge. Actual desktop review
+at 1280 by 720 verifies the native ownership example, optional Arrow boundary,
+unchanged published-package scope, report/install links and site search without
+console errors or horizontal overflow. Both captured guide responses match
+the merged source except one 1,305-byte Cloudflare challenge/analytics insertion;
+raw deployed HTML is therefore not byte-identical to the repository HTML.
+Earlier local mobile checks and all original workflow timings keep their own
+source and observation identities. No package was published.
 
 ## Portable evidence and replay
 
@@ -399,8 +433,7 @@ reuse completed output paths or old build receipts for different binaries.
 
 ## Remaining work
 
-Hosted integration must accept the final source and wheel matrix. Broader
-streaming source/fanout gaps, resource-owner coverage, platform execution,
+Broader streaming source/fanout gaps, resource-owner coverage, platform execution,
 full-domain timestamp statistics/compression and the six-area/eight-investigation
 queue keep their existing owners. Legacy/reduced-profile refusals are admission
 evidence, not completion of useful workloads: connect useful paths to accounted

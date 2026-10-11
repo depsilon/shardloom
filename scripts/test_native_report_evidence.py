@@ -191,15 +191,25 @@ class NativeReportEvidenceTests(unittest.TestCase):
             "native_vortex_result_export_kind": "owned_native_array_stream",
             "native_vortex_array_sink_source_generation_validated": "true",
             "local_primitive_resource_memory_budget_bytes": "1073741824",
-            "native_vortex_array_sink_peak_reserved_bytes": "279803",
+            "native_vortex_array_sink_peak_reserved_bytes": "1076735292",
+            "execution_resource_observed_native_peak_reserved_bytes": "1076735292",
+            "execution_resource_memory_observation_scope":
+                "session_pool_lifetime_including_retained_owners;"
+                "excludes_provider_bypass_allocations_and_process_rss",
         }
         require_native_resource_admission("test", SimpleNamespace(field=fields.get))
         changes = [
             {key: value}
             for key in ("native_vortex_array_sink_peak_reserved_bytes",
                         "execution_resource_observed_native_allocation_peak_reserved_bytes")
-            for value in [None, "", "-1", "1.5", "NaN", "١", "1073741825"]
+            for value in [None, "", "-1", "1.5", "NaN", "١", str(1 << 64)]
         ] + [
+            {"native_vortex_array_sink_peak_reserved_bytes": "1076735293"},
+            {"execution_resource_observed_native_allocation_peak_reserved_bytes": "1073741825"},
+            {"execution_resource_observed_native_allocation_peak_reserved_bytes": "511"},
+            {"execution_resource_observed_native_peak_reserved_bytes": "279802"},
+            {"execution_resource_allocation_memory_observation_scope": "session_pool_lifetime"},
+            {"execution_resource_memory_observation_scope": "current_allocation"},
             {"native_vortex_result_export_kind": "primitive_row_stream"},
             {"native_vortex_array_sink_source_generation_validated": "false"},
             {"local_primitive_resource_memory_budget_bytes": "2147483648"},

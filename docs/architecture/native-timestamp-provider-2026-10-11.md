@@ -1,6 +1,10 @@
 # Full-domain timestamp statistics and compression
 
-Status: implementation in progress under PERF-07/08/11/12 and CG-19/20/21.
+Status: implementation and local acceptance complete under PERF-07/08/11/12 and
+CG-19/20/21, including fresh full UAT and independent evidence verification.
+Hosted integration remains pending. The
+[acceptance report](../benchmarks/native-timestamp-provider-2026-10-11.md)
+separates paired measurements from final runtime verification.
 This follows the exact typed-input contract and the October 10–11 maintainer
 direction. Native Python/resource integration retains its separate tested
 commit and hosted acceptance. Version 0.5.1 and package publication are unchanged.
@@ -35,8 +39,64 @@ on their existing paths. The change must retain hidden-parent null semantics,
 selection exactness, resource denial/cancellation and owner lifetimes. Retain it
 only if complete nested collection improves by at least 10% against the frozen
 candidate, with exact results and no material regression in the flat controls.
-The original cohort remains evidence of the rejected first candidate; refreshed
-complete writer workflows decide the final compression cost/storage tradeoff.
+The original cohort remains evidence of the rejected first candidate. The fresh
+comparison satisfies this threshold: both release wheels read identical frozen
+compressed files, with nested collection medians of 1.448568 and 0.151805 seconds.
+The ordinary-timestamp control medians are effectively unchanged at 0.002175 and
+0.002179 seconds. One candidate control sample takes 0.032410 seconds; it remains
+in the five-pair results and median calculation. Its cause is not established,
+and this cohort does not establish a tail-latency guarantee. All 24 samples pass
+complete independent value/schema readback and release their shared reservations
+after close.
+
+The refreshed complete writer cohort also passes every value in all 84 samples.
+Nested preparation, collection and requested columnar export together decrease
+from 1.297664 to 0.182027 seconds, with file size decreasing from 5,345,665 to
+1,516,537 bytes. This comparison's earlier baseline predates other native-interface
+corrections; only the same-file comparison isolates the numeric-copy change.
+Retain native timestamp compression and restored statistics for the observed
+57–88% smaller files and the complete nested-workflow improvement. This is an
+explicit tradeoff: the ordinary-timestamp workflow increases from 0.012300 to
+0.014621 seconds, including extra compression and export work. Smaller files do
+not imply faster preparation or faster execution for every workload. Broad
+source/native gates and complete public/retained-file Full43 runs pass. Fresh
+full UAT also passes a new 99,997,497-row ingest, all 129 query calls and 704
+native format-workflow records. Independent inspections preserve the exact
+runtime and measurement identities. Hosted integration remains pending.
+
+The complete public rerun identified a stale harness assumption after shared
+session ownership landed: resident opens and completions accumulate across plans,
+writers and output reopenings. Keep those lifetime observations and verify reader
+reuse through exact deltas between consecutive calls of one declaration. A related
+reporting defect let a previous file query mark a later memory-only query as
+performing source I/O. The relational report now carries its actual held file
+source count and derives source/initial-footer flags from that plan. This is a
+`wrap_vortex_concept` report correction around existing prepared file handles;
+it creates no new reader, resource pool or execution path. A regression alternates
+file, generated-memory and source-free plans in one worker, checking exact global
+counts, per-plan effects and repeated preparation reuse. The final complete
+public run covers this correction on its separately rebuilt runtime.
+
+The next complete rerun exposes a second scope mismatch: the retained session's
+1,076,174,900-byte lifetime peak was already present under a 4-GiB declaration,
+then incorrectly compared with a later 1-GiB operation. Preserve that history.
+Extend the existing shared reservation pool with a peak since its last successful
+allocation admission, initialized to all retained reservations. Rejected changes
+must preserve both observations; successful admission of the same limit starts
+a new observation too. Fixed pools keep their lifetime scope. Keep allocation
+changes atomic with reservations and snapshot reads. Native reports expose this
+additional allocation peak and its scope while preserving the existing lifetime
+fields; acceptance compares the caller's limit with the allocation peak.
+This is `wrap_vortex_concept` reporting around the existing ShardLoom-owned Vortex
+allocator: no new pool, owner, provider, conversion or execution strategy. The
+pinned provider does not own ShardLoom's per-operation allocation policy. Tests
+must cover retained owners, transient peaks, lower and repeated grants, denied
+changes and concurrent reservations. Those tests and fresh complete public
+acceptance pass with the augmented measurement; failed attempts remain evidence.
+Report readers accept both existing resident and writer lifetime-scope labels
+and compare the new allocation peak with its own admitted grant. A compact JSON
+summary correction preserves every case and report field under the unchanged
+log ceiling.
 
 ## Provider decision and provenance
 
@@ -84,6 +144,12 @@ remove the global min/max omission for these timestamps. Use the standard writer
 field statistics, with exact bounds only when the provider proves them. Empty and
 all-null inputs do not acquire invented extrema. Ordinary columns in the same
 file regain their own valid statistics.
+
+This restores the ingest/preparation writer's timestamp-specific omission.
+The existing computed-result writer separately requests no file statistics.
+Its useful-output-metadata and fresh-process reuse work is tracked by
+[`NATIVE-PERSISTED-REUSE`](native-persisted-reuse-2026-10-11.md); completing the
+timestamp contract does not close that broader writer/reader obligation.
 
 Use existing native compression and layout selection, retaining the same dtype,
 extension metadata and validity. Check both ordinary storage compression and

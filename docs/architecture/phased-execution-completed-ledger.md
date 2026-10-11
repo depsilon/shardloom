@@ -17,6 +17,49 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `REQUIRED-EXECUTION-RESOURCES` and `NATIVE-PYTHON-SURFACE` — explicit
+  allocation and current native Python owners, completed together under
+  PERF-02/03/06/07/11/12 and CG-19/20/21/23. The
+  [resource report](../benchmarks/required-execution-resources-2026-10-10.md)
+  records exact grants, origin and authorization ceilings across preparation,
+  retained state, execution and output. Missing configuration fails before input
+  or effects; shared owners replace independent pools and numeric defaults.
+  - The resource acceptance records all 16 initial source gates, 32,497 public
+    cases, all 129 Full43 results and complete readback of 66,055 declarations.
+    Separate correction packets cover native preparation, exact-byte policy,
+    client/context forwarding, platform refusal, accounted readers/writers,
+    local fixture I/O, composition ceilings, synthetic spill, failure reporting
+    and commit-text allocation. Each preserves its actual source, gates and
+    failed attempts; counts from overlapping suites are not added together.
+  - The [native Python report](../benchmarks/native-python-surface-2026-10-11.md)
+    proves native session/result/stream lifetimes, direct columnar intake/export,
+    complete in-process operations and typed expression/prepared-plan handles
+    through the shared engine. Native-to-native work retains native arrays;
+    Arrow and Python rows remain requested endpoints. Initial acceptance
+    includes 63 installed native tests, 733 Python tests, the applicable Rust
+    gates and 72 complete paired workflow observations. Later corrections cover
+    cancellation/deadlines, operation/source ownership and resource transfer;
+    earlier timings retain their frozen source rather than being reassigned.
+  - [PR #1541](https://github.com/depsilon/shardloom/pull/1541) merged at
+    `88b44c1366d85d216a069def1d8315124e63ff41` after all 44 checks passed on
+    `f0e9404702469f997de0bd813fe51b5ea02161df`. The reviewed and merged trees
+    are identical, and all 18 review threads are resolved. The
+    [hosted receipt](../benchmarks/evidence/native-python-surface-hosted-2026-10-11.json)
+    and fully reopened 21-member packet retain final check and wheel evidence.
+    Ubuntu Python 3.10/3.13 and macOS arm64 Python 3.13 each pass 75 installed
+    native integration tests with no skips, failures or errors. Runner counters
+    and actual isolated loads are proven; individual method transcripts are
+    not independently recounted from the downloaded job logs.
+  - Production deployment succeeds on the exact merge. Actual 1280-by-720 guide
+    and search checks pass without console errors or horizontal overflow.
+    Captured HTML preserves the merged source except one 1,305-byte Cloudflare
+    challenge/analytics insertion; no raw HTML identity claim is made. Earlier
+    local mobile proof remains separate. Published v0.5.1 packages are unchanged.
+  - Full-domain timestamp compression/statistics, further accounted providers,
+    source/destination composition and deep traversal remain Planned. Legacy
+    refusals do not complete useful workloads. All six areas, eight investigations
+    and CG-1 through CG-23 remain visible under their existing owners.
+
 - [x] `NATIVE-TYPED-INPUT` — exact typed resident and finite batch input under
   PERF-03/07/11/12 and CG-19/20/21. Explicit integer widths, Float32/Float64,
   binary, Decimal128, Date32, full-domain microsecond timestamps and recursive

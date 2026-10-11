@@ -1,10 +1,10 @@
 # Native Python data and operation ownership
 
-Status: implementation and complete local acceptance, October 11; hosted
-integration pending. This contract follows the accepted local typed-input work.
+Status: implementation, complete local acceptance and hosted integration in
+PR #1541, October 11. This contract follows the accepted typed-input work.
 The current source implements the optional binding against the shared engine.
 The [acceptance report](../benchmarks/native-python-surface-2026-10-11.md) records
-source gates, the isolated installed wheel, lifetime/failure checks and six paired
+source gates, installed local/hosted wheels, lifetime/failure checks and six paired
 Python workflows. Distribution retains its own gates. The old experiment remains
 historical; its unbuilt status is not a measured rejection.
 Owners remain PERF-02/03/07/11/12 and the existing capability gates. Version 0.5.1
@@ -148,8 +148,9 @@ headers refer to the Arrow project notice. The exact-version upstream
 in the already cached Arrow 58.3.0 sibling crates. Binary packaging must carry
 these notices plus the selected dependency license texts; a component-only SBOM
 does not supply those texts. Wheel staging, actual isolated loading and license
-bundle verification pass locally. Hosted platform acceptance and public
-distribution retain separate requirements.
+bundle verification pass locally. PR #1541 also completes the named Linux/macOS
+installed-wheel matrix; public distribution and untested platforms retain
+separate requirements. The linked hosted receipt governs that finite scope.
 
 The published 58.x adapter still requires PyO3 0.28. The reviewed
 [`vendor/arrow-pyarrow`](../../vendor/arrow-pyarrow/README.shardloom.md) patch
@@ -289,12 +290,13 @@ binding does not introduce result caching. Focused checks reopen all eight outpu
 formats and verify every value, empty outputs, retained owners and producer
 failure without prefix publication. Streaming batch fanout retains the shared
 provider's explicit refusal; a streaming writer admits one native Vortex target.
-The six provider fanout tests passed during implementation. The final installed
-native binding suite passes all 63 tests, including command ownership, primitive
-and partitioned operation options, typed expressions and shared SQL provider
-selection. Complete local source, runtime and wheel gates also pass; hosted
-acceptance remains separate. These counts overlap and are not independent
-workload or performance observations.
+The six provider fanout tests passed during implementation. The original local
+installed native binding suite passed all 63 tests, including command ownership,
+primitive and partitioned operation options, typed expressions and shared SQL
+provider selection. Complete local source, runtime and wheel gates also passed.
+The later hosted receipt records all 75 methods on each of three installed
+wheels. These counts overlap and are not independent workload or performance
+observations.
 
 ## Object and factory intake
 
@@ -352,8 +354,9 @@ An earlier local wheel passed a clean install and all 32 then-current integratio
 tests; its record remains historical. The final `native-wheel-proof-300b` verifies
 the release extension and CLI, every wheel RECORD entry and notice, isolated
 imports, and all 63 native integration tests without skips. Its exact source and
-artifact hashes appear in the acceptance report. Hosted CI acceptance remains
-required for the expanded surface.
+artifact hashes appear in the acceptance report. Subsequent PR corrections
+retain separate source identities; the final hosted receipt records the expanded
+75-method suite passing on all three named Linux/macOS wheel lanes.
 
 ## Lifetime, conversion and evidence
 
