@@ -277,6 +277,121 @@ class NativeBindingTests(unittest.TestCase):
             with self.assertRaises(sl.ShardLoomResourceConfigurationError):
                 limited.from_arrow_table(Producer(), resources=sl.ExecutionResources(8192, 1))
 
+    def test_public_native_frames_compose_across_clients(self):
+        import shardloom as sl
+
+        left = sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        right = sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        local = left.from_rows([{"id": 1}, {"id": 3}])
+        foreign = right.from_rows([{"id": 3}, {"id": 5}])
+        right.client.close()
+        cases = [
+            (local.union_all(foreign).sort("id"), [{"id": 1}, {"id": 3}, {"id": 3}, {"id": 5}]),
+            (local.join(foreign, on="id").select("f.id AS id"), [{"id": 3}]),
+            (local.filter(sl.col("id").isin_source(foreign, "id")), [{"id": 3}]),
+        ]
+        with (
+            patch("shardloom.client.subprocess.run", side_effect=AssertionError("process launch")),
+            patch("shardloom.client.subprocess.Popen", side_effect=AssertionError("worker launch")),
+            patch("shardloom.query._arrow_table_like_records", side_effect=AssertionError("input rows")),
+            patch("shardloom.query.arrow_table", side_effect=AssertionError("output row bridge")),
+            patch("shardloom.query.python_rows", side_effect=AssertionError("Python row conversion")),
+        ):
+            for workflow, expected in cases:
+                with self.subTest(operation=workflow.operation_summary):
+                    first = workflow.collect(check=True)
+                    self.assertEqual(first.to_arrow().to_pylist(), expected)
+                    repeated = workflow.collect(check=True)
+                    self.assertEqual(repeated.to_arrow().to_pylist(), expected)
+                    self.assertEqual(repeated.envelope.field("resident_relational_declaration_reused"), "true")
+        limited = sl.context(
+            transport="native", memory_bytes=32 << 20, max_parallelism=1,
+            resource_limits=sl.ExecutionResourceLimits(memory_bytes=32 << 20, max_parallelism=1),
+        )
+        limited_source = limited.from_rows([{"id": 9}])
+        with self.assertRaises(sl.ShardLoomResourceConfigurationError):
+            local.union_all(limited_source)
+        constrained = limited_source.union_all(local).sort("id")
+        with self.assertRaises(sl.ShardLoomResourceConfigurationError):
+            constrained.collect(memory_bytes=64 << 20, max_parallelism=2, check=True)
+        admitted = constrained.collect(memory_bytes=32 << 20, max_parallelism=1, check=True)
+        self.assertEqual(admitted.to_arrow().to_pylist(), [{"id": 1}, {"id": 3}, {"id": 9}])
+        limited.client.close()
+        left.client.close()
+
+    def test_native_source_transfer_preserves_rich_values_and_lifetimes(self):
+        pa = self.arrow()
+        producer = self.session(64 << 20)
+        receiver = self.session(64 << 20)
+        schema = pa.schema([
+            pa.field("id", pa.int64()),
+            pa.field("binary", pa.binary()),
+            pa.field("items", pa.list_(pa.int16())),
+            pa.field("record", pa.struct([pa.field("text", pa.string())])),
+            pa.field("instant", pa.timestamp("us")),
+        ])
+        table = pa.Table.from_arrays([
+            pa.array([-(1 << 63), None, (1 << 63) - 1], type=pa.int64()),
+            pa.array([b"\x00\xff", None, b"last"], type=pa.binary()),
+            pa.array([[-32768, None, 32767], None, []], type=pa.list_(pa.int16())),
+            pa.array([{"text": "λ\x00猫"}, None, {"text": None}], type=schema.field("record").type),
+            pa.array([-(1 << 63), None, (1 << 63) - 1], type=pa.int64()).cast(pa.timestamp("us")),
+        ], schema=schema)
+        source = producer.from_arrow(table)
+        imported = receiver.from_arrow(source)
+        self.assertGreater(imported.input_columnar_buffer_bytes_copied, 0)
+        self.assertEqual(imported.schema_json, source.schema_json)
+        self.assertEqual(imported.row_count, 3)
+        producer.close()
+        del source, producer
+        plan = receiver.plan(self.native.Relation.scan("memory://transferred"), sources=[("memory://transferred", imported)])
+        result = plan.collect()
+        del plan, imported
+        receiver.close()
+        restored = pa.RecordBatchReader.from_stream(result).read_all()
+        self.assertTrue(restored.equals(table), (restored.schema, table.schema))
+
+    def test_cross_client_binding_refusal_releases_target_copy_and_keeps_source(self):
+        producer = self.session(64 << 20)
+        source = producer.from_rows([{"id": n} for n in range(4099)])
+        producer_before = producer.snapshot()["reserved_bytes"]
+        receiver = self.session(64 << 20)
+        receiver_before = receiver.snapshot()["reserved_bytes"]
+        plan = receiver.sql("SELECT id FROM 'memory://foreign'", sources=[("memory://foreign", source)])
+        with self.assertRaises(RuntimeError):
+            plan.collect(timeout=0)
+        self.assertEqual(receiver.snapshot()["reserved_bytes"], receiver_before)
+        with self.assertRaises(RuntimeError):
+            plan.collect(resources=self.resources(32768, 1))
+        self.assertEqual(receiver.snapshot()["reserved_bytes"], 0)
+        self.assertEqual(producer.snapshot()["reserved_bytes"], producer_before)
+        result = plan.collect()
+        self.assertEqual(result.row_count, 4099)
+        self.assertEqual(result.row_export()[0], [{"id": n} for n in range(4099)])
+        producer.close()
+        self.assertEqual(plan.collect().row_export()[0], [{"id": n} for n in range(4099)])
+
+    def test_cross_client_native_result_import_does_not_reenter_producer(self):
+        producer = self.session(64 << 20)
+        source = producer.from_range("id", 0, 1, 4099)
+        plan = producer.sql("SELECT id FROM 'memory://original'", sources=[("memory://original", source)])
+        completed = plan.collect()
+        receiver = self.session(64 << 20)
+        with plan.iter_batches() as busy:
+            self.assertGreater(next(busy).row_count, 0)
+            # The producer's grant is held by the unfinished stream. Transfer
+            # must read immutable native arrays without opening its Arrow stream.
+            imported = receiver.from_arrow(completed, timeout=2)
+            self.assertGreater(imported.input_columnar_buffer_bytes_copied, 0)
+            received = receiver.plan(self.native.Relation.scan("memory://received"), sources=[("memory://received", imported)])
+            self.assertEqual(received.collect().row_export()[0], [{"id": n} for n in range(4099)])
+        compact = receiver.from_arrow(producer.from_range("id", -(1 << 63), 1, 1_000_017))
+        self.assertEqual(compact.row_count, 1_000_017)
+        self.assertEqual(compact.input_columnar_buffer_bytes_copied, 0)
+        producer.close()
+        del source, plan, completed, producer
+        self.assertEqual(received.collect().row_export()[0], [{"id": n} for n in range(4099)])
+
     def test_public_native_columnar_refusal_does_not_probe_producer_attributes(self):
         import shardloom as sl
 
@@ -607,6 +722,10 @@ assert later.row_count == 2
         result = session.sql("SELECT * FROM 'memory://rich'", sources=[("memory://rich", source)]).collect()
         exported = pa.RecordBatchReader.from_stream(result).read_all()
         self.assertTrue(exported.equals(pa.Table.from_batches([batch])))
+        receiver = self.session(64 << 20, 2)
+        imported = receiver.from_arrow(result)
+        transferred = receiver.sql("SELECT * FROM 'memory://rich-transfer'", sources=[("memory://rich-transfer", imported)]).collect()
+        self.assertTrue(pa.RecordBatchReader.from_stream(transferred).read_all().equals(exported))
         with localcontext() as context:
             context.prec = 3  # Row conversion must not round exact Decimal128.
             rows, report = result.row_export()

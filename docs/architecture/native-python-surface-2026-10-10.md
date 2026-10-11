@@ -80,6 +80,19 @@ admitted native ownership when safe borrowing is unavailable; results from the
 same controller reuse their existing owner. Vortex remains the execution substrate
 and native persistence; Arrow is an optional compatibility boundary.
 
+Native frames from different clients compose through the receiving operation's
+existing resource admission. Preparation shares sources already owned by that
+session and copies foreign input with the existing bounded native payload copier;
+prepared reuse retains that transferred input. The transfer may materialize
+encoded fields into private native buffers, and its columnar copy counter includes
+the resulting value, offset and validity bytes. It does not export through Arrow,
+construct Python rows, enter the source client's execution grant or create a new
+pool. Generated ranges retain compact range metadata. Native source/result import
+uses this same boundary, including after the source client closes. Original
+source output bounds survive transfer; incomplete copies release their receiving
+credits on cancellation or memory denial. This is an ownership-transfer contract,
+not a claim that cross-client composition is zero-copy or preserves all encodings.
+
 Official primary references checked October 10:
 
 - [Arrow C Data interface](https://arrow.apache.org/docs/format/CDataInterface.html):

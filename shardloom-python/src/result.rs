@@ -20,13 +20,8 @@ pub(super) struct NativeResult {
 }
 
 impl NativeResult {
-    pub(super) fn retained_for(
-        &self,
-        controller: &ConfigurableResidentSession,
-    ) -> Option<Arc<OwnedVortexResultBatch>> {
-        controller
-            .has_same_owner(&self.controller)
-            .then(|| Arc::clone(&self.data))
+    pub(super) fn retained(&self) -> Arc<OwnedVortexResultBatch> {
+        Arc::clone(&self.data)
     }
 
     pub(super) fn new(

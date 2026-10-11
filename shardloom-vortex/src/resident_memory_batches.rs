@@ -185,6 +185,26 @@ impl MemoryBatchSourceBuilder {
         })
     }
 
+    /// Private trusted-native transfer. Each output buffer owns receiving memory
+    /// and schema credit; no source credit or caller buffer escapes into it.
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn push_native_copy(&mut self, array: &ArrayRef) -> Result<()> {
+        let session = self.session.clone();
+        let cancellation = self.cancellation.clone();
+        session.with_native_execution_context(&cancellation, |context| {
+            for start in (0..array.len().max(1)).step_by(MAX_BATCH_ROWS) {
+                context.check_cancelled()?;
+                let end = start.saturating_add(MAX_BATCH_ROWS).min(array.len());
+                let input = array.slice(start..end).map_err(native_error)?;
+                let output = crate::local_primitives::native_payload::detach(&input, context)?;
+                let copied = output.nbytes();
+                let bytes = usize::try_from(copied).map_err(native_error)?;
+                self.push_array(output, bytes, 0, copied)?;
+            }
+            context.check_cancelled()
+        })
+    }
+
     fn push_array(
         &mut self,
         array: ArrayRef,

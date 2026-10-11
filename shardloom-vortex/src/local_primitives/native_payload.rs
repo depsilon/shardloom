@@ -45,7 +45,7 @@ pub(super) fn is_nested(dtype: &DType) -> bool {
 }
 
 /// Copy one bounded native payload, retaining schema credits on every child.
-pub(super) fn detach(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
+pub(crate) fn detach(array: &ArrayRef, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
     detach_with_policy(array, CopyPolicy::ValidateValues, context)
 }
 

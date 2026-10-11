@@ -124,6 +124,26 @@ fn encoded_values(start: i64, step: i64, rows: usize) -> Result<ArrayRef> {
 }
 
 impl GeneratedInt64Range {
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn in_session(
+        &self,
+        owner: &MemorySourceOwner,
+        session: &ResidentVortexSession,
+    ) -> Result<ResidentMemorySource> {
+        let fields = owner
+            .array
+            .dtype()
+            .as_struct_fields_opt()
+            .ok_or_else(|| memory_error("generated range omitted its native schema"))?;
+        source(
+            session,
+            fields.names()[0].as_ref(),
+            self.start,
+            self.step,
+            owner.array.len(),
+        )
+    }
+
     pub(super) fn materialize(
         &self,
         source: &MemorySourceOwner,

@@ -239,11 +239,20 @@ impl NativeSession {
             let source = super::failure::with_resources(&self.owner.runtime, resources, &cancellation, |session, _, controller| {
                 let native_result = Python::attach(|py| {
                     producer.bind(py).extract::<PyRef<'_, NativeResult>>()
-                        .ok().and_then(|result| result.retained_for(controller))
+                        .ok().map(|result| result.retained())
                 });
                 if let Some(result) = &native_result {
                     return Ok(NativeSource {
-                        source: ResidentMemorySource::from_completed_result(result, &cancellation)?,
+                        source: ResidentMemorySource::from_completed_result_in_session(session, result, &cancellation)?,
+                        _controller: controller.clone(),
+                    });
+                }
+                let native_source = Python::attach(|py| {
+                    producer.bind(py).extract::<PyRef<'_, NativeSource>>().ok().map(|source| source.source.clone())
+                });
+                if let Some(source) = native_source {
+                    return Ok(NativeSource {
+                        source: source.in_session(session, &cancellation)?,
                         _controller: controller.clone(),
                     });
                 }

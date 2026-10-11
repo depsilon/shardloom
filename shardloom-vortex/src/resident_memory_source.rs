@@ -40,6 +40,10 @@ pub use batches::MemoryBatchSourceBuilder;
 #[path = "resident_memory_range.rs"]
 mod generated_range;
 
+#[cfg(feature = "vortex-write")]
+#[path = "resident_memory_transfer.rs"]
+mod transfer;
+
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "resident_memory_arrow.rs"]
 mod arrow_intake;
@@ -376,9 +380,10 @@ impl ResidentMemorySource {
         self.0.intake_payload_bytes_copied
     }
 
-    /// Bytes copied by direct Arrow intake, including validity, offsets and
-    /// referenced child buffers. Original producer capacity and allocation
-    /// alignment headroom are excluded. Native-result composition copies none.
+    /// Columnar bytes copied by direct Arrow intake or native owner transfer,
+    /// including validity, offsets and referenced child buffers. Original
+    /// producer capacity and allocation alignment headroom are excluded.
+    /// Same-owner native-result composition copies none.
     #[must_use]
     pub fn intake_columnar_buffer_bytes_copied(&self) -> u64 {
         self.0.intake_columnar_buffer_bytes_copied

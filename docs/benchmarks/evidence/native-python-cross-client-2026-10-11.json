@@ -1,0 +1,1246 @@
+{
+  "status": "passed_local_correction",
+  "parent_commit": "721cc072e9094bf229471d35777d293c1717a7b9",
+  "review_comment_id": 4242144612,
+  "behavior": "Native sources from different clients transfer under receiving admission; same-owner sources share ownership and prepared reuse retains transferred input.",
+  "provider_decision": "Reuse the existing bounded native payload copier and compact generated-range provider. No Arrow or Python-row bridge, source-session execution or new resource pool.",
+  "representation_boundary": "Foreign native arrays may materialize into charged native buffers; columnar copy counts include value, offset and validity buffers. Cross-client transfers are not claimed as zero-copy or encoding-preserving.",
+  "proof_scope": "Cross-client complete SQL/typed results, resource-policy ceilings, denial/cancellation cleanup, escaped child credits, source close, busy producer, rich native types, empty input and compact large/extreme ranges.",
+  "source_baseline": "native-release-source-305.json in native-python-integration-corrections-2026-10-11.tar.xz",
+  "selected_source_count": 1321,
+  "unchanged_baseline_source_count": 1308,
+  "changed_selected_sources": {
+    "python/src/shardloom/_native_backend.py": {
+      "previous_sha256": "d09ddba97097af1fa057ad1cbea5a983bb84ee4aa965e15937c838eadac8f218",
+      "current_sha256": "2d7dcd45a923b20e1d15a6ee4111fad1a0e70756ecd977782c159ac7eedf8712"
+    },
+    "python/tests/test_native_binding.py": {
+      "previous_sha256": "7ffad8532df9c890d99b4eff5b1585d55862436f5520d3604e3e74a103fc52fe",
+      "current_sha256": "13714f9ec79351a667801314dd79f7fbf4eeda12329145b70e5f722226005073"
+    },
+    "python/tests/test_release_scripts.py": {
+      "previous_sha256": "504f58dcd0332349f18cce5754add7d1e453e679fe310aab47defb3aa77ec301",
+      "current_sha256": "166863219f4acb9580126709145daaaf7755dd63ca5106c8de9304707fcb6dd5"
+    },
+    "scripts/check_ci_gate_matrix.py": {
+      "previous_sha256": "9a4c45ba46279c6c2139dc0960873f6120a52d5c40756428468055fd46789447",
+      "current_sha256": "4928969581f186593538ca582e973f60c9cab29f4bb345914cfc0a70736dcf5b"
+    },
+    "shardloom-python/src/plan.rs": {
+      "previous_sha256": "06ef8d914085d824a5b8bd7b4d97a1ef6baf5f9ccdd1c81f7bc9e5b41e1b54d6",
+      "current_sha256": "da92a08740454f9e266cecf398d499d98e9df10568bcff15e75226a5adccab49"
+    },
+    "shardloom-python/src/result.rs": {
+      "previous_sha256": "bc521b845643c0b1cf0e3f1293d1555d3b74a343d06194130354bc6c6f612a5d",
+      "current_sha256": "b635255f9e1da570b70dbf16739777241cffe50b3c3b9bbd484b4228b3ae5cb8"
+    },
+    "shardloom-python/src/session.rs": {
+      "previous_sha256": "880eeda4cd630d42075c0f146f6b6d5795fe103ae4d7ce5ea29e2e5cf11a7e5f",
+      "current_sha256": "9997bc4142c31dcc63b3ccb6ecbe31a07109f4716187bd1b4f402b8c53e1f80c"
+    },
+    "shardloom-vortex/src/local_primitives/native_payload.rs": {
+      "previous_sha256": "8662f3152280341e6974fae52377b3a0a0a59b367b757a5ccfc65714bd801868",
+      "current_sha256": "3f976d7d26e0f5ac7f1867f7dc9e6e7cc3cd9f096897c337fe6c44442d9490b3"
+    },
+    "shardloom-vortex/src/resident_memory_batches.rs": {
+      "previous_sha256": "4d08ef057a444e14e6ba172843367f4a58de6b3e0f5080b0214a4e7787d9340a",
+      "current_sha256": "f8b54fba0361251d55508178f19d7398d3f25dd71c98b1ac3fefc28248336b33"
+    },
+    "shardloom-vortex/src/resident_memory_range.rs": {
+      "previous_sha256": "11d3d8c8f196f3b4e30060c15893d6747b1d88ca002762b367bde03962c2faca",
+      "current_sha256": "7960b5af9ccf5ffd3759fabf709d09871ee82d8e585cb0eeb387f8394a3c721f"
+    },
+    "shardloom-vortex/src/resident_memory_source.rs": {
+      "previous_sha256": "b378256fd768edbbb000ad887f839abb9302c5889753baea6fe1425155e5a2ef",
+      "current_sha256": "857adf1806002b01e43b689e31505bddb7442a4bc239d90b60026f5be294eece"
+    }
+  },
+  "new_selected_sources": {
+    "shardloom-vortex/src/resident_memory_transfer.rs": "560d93c59362199ff716c1c49327b2be0bab51312038af724dce9ae50536f731",
+    "shardloom-vortex/src/resident_memory_transfer_tests.rs": "6cbc0c55a255eedff96f304a7ea5adaabbeef76bd9960f8da024eb1f705b6efc"
+  },
+  "change_since_final_native_build_source_inventory": "Only python/tests/test_native_binding.py changed; all Rust/provider/dependency and Python implementation hashes match inventory 309.",
+  "full_source_sha256_member": "source-sha256.json",
+  "library": {
+    "filename": "_native.abi3.so",
+    "profile": "debug",
+    "bytes": 357370400,
+    "sha256": "f3dada595b092d07f7cd91631b7b61201da86b1852adc59249e6fbaf5b2730cf"
+  },
+  "python_test_count": 746,
+  "native_integration_test_count": 75,
+  "check_interpretation": {
+    "red-309": "Original extension reproduces foreign-owner composition failures and NativeSource import failure. The initial resource test also had an incorrect uninitialized-session expectation and a nonexistent exception name; those are test defects, not added production defects.",
+    "callback-red-309": "Original extension rejects completed-result import while the source session has an active stream because it reenters the busy producer for Arrow export.",
+    "clippy-309": "Initial lint run identifies function length and a potentially wrapping test cast. A helper and checked test conversion correct both; the next native workspace lint passes.",
+    "full-python-309": "The final resource-policy test expected a refusal at collection, but the existing public API correctly refuses the incompatible composition earlier. Only the test is corrected.",
+    "full-python-310": "All 746 Python tests pass against the exact final debug extension, including 75 native methods without skips.",
+    "prior-timing-evidence": "Earlier paired Python, public workflow and Full43 observations retain their original source/executable identities; no new speedup is inferred from this correction."
+  },
+  "checks": [
+    {
+      "name": "native-cross-client-red-309",
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/usr/bin/env",
+          "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+          "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-305/_native.abi3.so",
+          "PYTHONPATH=/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/python-deps:python/src:scripts:python/tests",
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "test_native_binding.NativeBindingTests.test_public_native_frames_compose_across_clients",
+          "test_native_binding.NativeBindingTests.test_native_source_transfer_preserves_rich_values_and_lifetimes",
+          "test_native_binding.NativeBindingTests.test_cross_client_binding_refusal_releases_target_copy_and_keeps_source"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M python/tests/test_native_binding.py\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5744460480,
+            "log_bytes": 0,
+            "free_bytes": 14331006976,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57429303296,
+            "log_bytes": 0,
+            "free_bytes": 14331039744,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 180.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 48601,
+        "output_bytes": 9933,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 0.6780952080152929,
+        "log_sha256": "0a35c70dea3bb1fb5fa377cc08f3e7891b49de31c30864a2188f244ebfc41646"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-rust-309",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-vortex",
+          "--features",
+          "release-user-surfaces",
+          "resident_memory_source::transfer::tests",
+          "--",
+          "--nocapture"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5744583360,
+            "log_bytes": 0,
+            "free_bytes": 14107811840,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57651474432,
+            "log_bytes": 0,
+            "free_bytes": 14107811840,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 48785,
+        "output_bytes": 1636,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 39.4218377500074,
+        "log_sha256": "e2c1ce4e07b57884f35c66d303cb185c6b1b10fafa8204241577503c567859a7"
+      },
+      "rust_test_counts": {
+        "summaries": 2,
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "native-cross-client-binding-build-309",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "scripts/build_native_python.py",
+          "--offline",
+          "--output-dir",
+          "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-309"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5744591552,
+            "log_bytes": 0,
+            "free_bytes": 14123356160,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57710559232,
+            "log_bytes": 0,
+            "free_bytes": 13887221760,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1200.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 48855,
+        "output_bytes": 1723,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 21.10271600005217,
+        "log_sha256": "ed91fbc5cc95ad4371808607f7b63b7307f391783cb31b92c26a6f44af86bd27"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-green-309",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+          "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-309/_native.abi3.so",
+          "PYTHONPATH=/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/python-deps:python/src:scripts:python/tests",
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "test_native_binding.NativeBindingTests.test_public_native_frames_compose_across_clients",
+          "test_native_binding.NativeBindingTests.test_native_source_transfer_preserves_rich_values_and_lifetimes",
+          "test_native_binding.NativeBindingTests.test_cross_client_binding_refusal_releases_target_copy_and_keeps_source"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 6101967552,
+            "log_bytes": 0,
+            "free_bytes": 13528850432,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57871822848,
+            "log_bytes": 0,
+            "free_bytes": 13528276992,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 180.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 48916,
+        "output_bytes": 101,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 2.4797306249965914,
+        "log_sha256": "d666def12f07df22672a3af799882bbc5dec088ff9a8fb9f18f4fb64c36d9c1d"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-callback-red-309",
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/usr/bin/env",
+          "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+          "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-305/_native.abi3.so",
+          "PYTHONPATH=/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/python-deps:python/src:scripts:python/tests",
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "test_native_binding.NativeBindingTests.test_cross_client_native_result_import_does_not_reenter_producer"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 6101996224,
+            "log_bytes": 0,
+            "free_bytes": 13529501696,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57872969728,
+            "log_bytes": 0,
+            "free_bytes": 13529493504,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 60.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 49111,
+        "output_bytes": 975,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 0.20345441700192168,
+        "log_sha256": "f17af0e1f26b880a59cc3261422429402260bbf6fa0e4711f5c6191e7ff0bef2"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-callback-green-309",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+          "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-309/_native.abi3.so",
+          "PYTHONPATH=/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/python-deps:python/src:scripts:python/tests",
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "test_native_binding.NativeBindingTests.test_cross_client_native_result_import_does_not_reenter_producer",
+          "test_native_binding.NativeBindingTests.test_native_source_transfer_preserves_rich_values_and_lifetimes"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 6101975744,
+            "log_bytes": 0,
+            "free_bytes": 13532196864,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57871822848,
+            "log_bytes": 0,
+            "free_bytes": 13532192768,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 180.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 48934,
+        "output_bytes": 100,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 0.2769742080126889,
+        "log_sha256": "0de00add7fb05307b00c4586d927026af283085e6f81c4a80d70d6ef7c87af67"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-clippy-309",
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "clippy",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets",
+          "--features",
+          "release-user-surfaces",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 6101992128,
+            "log_bytes": 0,
+            "free_bytes": 13528821760,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57872969728,
+            "log_bytes": 0,
+            "free_bytes": 13528821760,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 48993,
+        "output_bytes": 2684,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 101,
+        "seconds": 17.961484458995983,
+        "log_sha256": "c1ab2efc6f0fe01c8dc30f629faa29ad7668c5059132a317dad66c6431eee01f"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-clippy-309b",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "clippy",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets",
+          "--features",
+          "release-user-surfaces",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5556097728,
+            "log_bytes": 0,
+            "free_bytes": 14081011712,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57874014208,
+            "log_bytes": 0,
+            "free_bytes": 14081011712,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 49180,
+        "output_bytes": 873,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 16.266346624994185,
+        "log_sha256": "4cfb093122c0c3c26c44102b9c7f01625fb7ffb26bfa344d9ddb5b1ea1097a4c"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-format-309",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "fmt",
+          "--all"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5744575168,
+            "log_bytes": 0,
+            "free_bytes": 14332227584,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57429303296,
+            "log_bytes": 0,
+            "free_bytes": 14332219392,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 120.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 48745,
+        "output_bytes": 0,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 2.587893875024747,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-format-final-309",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "fmt",
+          "--all"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 6101983936,
+            "log_bytes": 0,
+            "free_bytes": 13532037120,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57871822848,
+            "log_bytes": 0,
+            "free_bytes": 13532037120,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 120.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 48959,
+        "output_bytes": 0,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 2.655387624981813,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-format-check-309",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/.cargo/bin/rustup",
+          "run",
+          "1.99.0",
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5556089536,
+            "log_bytes": 0,
+            "free_bytes": 14075396096,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57872969728,
+            "log_bytes": 0,
+            "free_bytes": 14075396096,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 120.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 49162,
+        "output_bytes": 0,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 2.6039289999753237,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-binding-build-309b",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "scripts/build_native_python.py",
+          "--offline",
+          "--output-dir",
+          "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-309b"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5913477824,
+            "log_bytes": 0,
+            "free_bytes": 13707866112,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57889480704,
+            "log_bytes": 0,
+            "free_bytes": 13707866112,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1200.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 49278,
+        "output_bytes": 1724,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 21.667858250031713,
+        "log_sha256": "c4f9ffedbf2f6ac2abca2fb3f7135089511eca9e1c4a2807a44e788c717d7a66"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-full-python-309",
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/usr/bin/env",
+          "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+          "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-309b/_native.abi3.so",
+          "PYTHONPATH=/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/python-deps:python/src:scripts",
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_*.py"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5913666240,
+            "log_bytes": 0,
+            "free_bytes": 13684379648,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57889480704,
+            "log_bytes": 0,
+            "free_bytes": 13685039104,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 600.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 49391,
+        "output_bytes": 3939,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 26.08695175003959,
+        "log_sha256": "1f149ad07a7f749f36f550feb92d16b18790bfe0e7ec9a088a1d59da6509a4fd"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-full-python-310",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/usr/bin/env",
+          "SHARDLOOM_REQUIRE_NATIVE_PYTHON=1",
+          "SHARDLOOM_NATIVE_TEST_LIBRARY=/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-binding-debug-309b/_native.abi3.so",
+          "PYTHONPATH=/Users/dylan/LocalData/shardloom/native-typed-reductions-20261004/python-deps:python/src:scripts",
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "python/tests",
+          "-p",
+          "test_*.py"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5913674432,
+            "log_bytes": 0,
+            "free_bytes": 13683597312,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57889480704,
+            "log_bytes": 0,
+            "free_bytes": 13683978240,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 600.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 50121,
+        "output_bytes": 1217,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 24.14784483402036,
+        "log_sha256": "3d8afdb4d13ebfdd430bee353a66d5fa5b7adafb14b4b4dc061773d8a1091af2"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-native-vortex-310",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "-p",
+          "shardloom-vortex",
+          "--features",
+          "release-user-surfaces",
+          "--all-targets"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5914239680,
+            "log_bytes": 0,
+            "free_bytes": 13680168960,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57906778112,
+            "log_bytes": 0,
+            "free_bytes": 13680168960,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1800.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 50892,
+        "output_bytes": 314611,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 582.2511093750363,
+        "log_sha256": "8c2cc8149f7d574bdc9198b9fffa8a1ae611293ab7a3d5cbed66b62d49ac5c9e"
+      },
+      "rust_test_counts": {
+        "summaries": 13,
+        "passed": 2639,
+        "failed": 0,
+        "ignored": 24
+      }
+    },
+    {
+      "name": "native-cross-client-default-clippy-310",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "cargo",
+          "clippy",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5914247872,
+            "log_bytes": 0,
+            "free_bytes": 13679210496,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57906774016,
+            "log_bytes": 0,
+            "free_bytes": 13679206400,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1200.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 51543,
+        "output_bytes": 1002,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 12.55059458303731,
+        "log_sha256": "8d8b6f99e8768ba9021e4fec5e1a3a86990a5dc513e611372fe3f510c57a9784"
+      },
+      "rust_test_counts": null
+    },
+    {
+      "name": "native-cross-client-default-tests-310",
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "cargo",
+          "test",
+          "--offline",
+          "--locked",
+          "--workspace",
+          "--all-targets"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+        "head": "721cc072e9094bf229471d35777d293c1717a7b9",
+        "working_tree": " M docs/architecture/native-python-surface-2026-10-10.md\n M docs/benchmarks/native-python-surface-2026-10-11.md\n M python/tests/test_native_binding.py\n M shardloom-python/src/plan.rs\n M shardloom-python/src/result.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/local_primitives/native_payload.rs\n M shardloom-vortex/src/resident_memory_batches.rs\n M shardloom-vortex/src/resident_memory_range.rs\n M shardloom-vortex/src/resident_memory_source.rs\n?? shardloom-vortex/src/resident_memory_transfer.rs\n?? shardloom-vortex/src/resident_memory_transfer_tests.rs\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 5914587840,
+            "log_bytes": 0,
+            "free_bytes": 13648113664,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 57594544128,
+            "log_bytes": 0,
+            "free_bytes": 13647814656,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 1200.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 51697,
+        "output_bytes": 478786,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 32.06386024999665,
+        "log_sha256": "c9d8f59059117254267c9f384cb3b148218b9d8c0888f5f642a80ae783146052"
+      },
+      "rust_test_counts": {
+        "summaries": 106,
+        "passed": 3214,
+        "failed": 0,
+        "ignored": 0
+      }
+    }
+  ],
+  "archive": {
+    "filename": "native-python-cross-client-2026-10-11.tar.xz",
+    "bytes": 265768,
+    "sha256": "22b29915f22074efc92a3ddd3268f8833d92ab0555bbbfce9e8054e0d0dec322",
+    "member_count": 52,
+    "all_members_reopened_and_verified": true,
+    "members": {
+      "checks/native-cross-client-binding-build-309.json": {
+        "bytes": 1994,
+        "sha256": "bc06b10663bbac94031a6e2620f27df73ab13d83bd04f27981354304ee7b7564"
+      },
+      "checks/native-cross-client-binding-build-309.log": {
+        "bytes": 1723,
+        "sha256": "ed91fbc5cc95ad4371808607f7b63b7307f391783cb31b92c26a6f44af86bd27"
+      },
+      "checks/native-cross-client-binding-build-309b.json": {
+        "bytes": 2054,
+        "sha256": "fe162ba4e21e8674c974a2770d4bdee31137c36fed5cb4cdfd8e3dd442d54652"
+      },
+      "checks/native-cross-client-binding-build-309b.log": {
+        "bytes": 1724,
+        "sha256": "c4f9ffedbf2f6ac2abca2fb3f7135089511eca9e1c4a2807a44e788c717d7a66"
+      },
+      "checks/native-cross-client-callback-green-309.json": {
+        "bytes": 2400,
+        "sha256": "21ceba32b9c0114a6ddd93c82164b5e6455dd014738519b4e7bc6a116bbb3b31"
+      },
+      "checks/native-cross-client-callback-green-309.log": {
+        "bytes": 100,
+        "sha256": "0de00add7fb05307b00c4586d927026af283085e6f81c4a80d70d6ef7c87af67"
+      },
+      "checks/native-cross-client-callback-red-309.json": {
+        "bytes": 2348,
+        "sha256": "0283b656c6e7d02519745f9c8d66743e2d7be77d6d3aac3d88299faf5e5051b6"
+      },
+      "checks/native-cross-client-callback-red-309.log": {
+        "bytes": 975,
+        "sha256": "f17af0e1f26b880a59cc3261422429402260bbf6fa0e4711f5c6191e7ff0bef2"
+      },
+      "checks/native-cross-client-clippy-309.json": {
+        "bytes": 2023,
+        "sha256": "f09b03aedf3fc222699f6803765b8b62fed0606f7125eac97efa0d903249fcbb"
+      },
+      "checks/native-cross-client-clippy-309.log": {
+        "bytes": 2684,
+        "sha256": "c1ab2efc6f0fe01c8dc30f629faa29ad7668c5059132a317dad66c6431eee01f"
+      },
+      "checks/native-cross-client-clippy-309b.json": {
+        "bytes": 2020,
+        "sha256": "59149806f61e02d3acc8b41394f93fcab2f92adc0c1eb0f240a20c351441d1fe"
+      },
+      "checks/native-cross-client-clippy-309b.log": {
+        "bytes": 873,
+        "sha256": "4cfb093122c0c3c26c44102b9c7f01625fb7ffb26bfa344d9ddb5b1ea1097a4c"
+      },
+      "checks/native-cross-client-default-clippy-310.json": {
+        "bytes": 1911,
+        "sha256": "6ea30f7be084b714a0aa2a57a728c3083aaecd9407cb621d91b47dceac03bf02"
+      },
+      "checks/native-cross-client-default-clippy-310.log": {
+        "bytes": 1002,
+        "sha256": "8d8b6f99e8768ba9021e4fec5e1a3a86990a5dc513e611372fe3f510c57a9784"
+      },
+      "checks/native-cross-client-default-tests-310.json": {
+        "bytes": 1931,
+        "sha256": "87944d3b2ab85c49e62da3c32589f9f605523250eb273fe29ed0f33388fe6138"
+      },
+      "checks/native-cross-client-default-tests-310.log": {
+        "bytes": 478786,
+        "sha256": "c9d8f59059117254267c9f384cb3b148218b9d8c0888f5f642a80ae783146052"
+      },
+      "checks/native-cross-client-format-309.json": {
+        "bytes": 1813,
+        "sha256": "dc6258639a805869b35a9e844f2961c4383d43575a99c8083f9cddb43aefd905"
+      },
+      "checks/native-cross-client-format-309.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "checks/native-cross-client-format-check-309.json": {
+        "bytes": 1897,
+        "sha256": "c27720f597b1a974f52da720f6221c42611f3c31e42049cd2a11e839896f9a5c"
+      },
+      "checks/native-cross-client-format-check-309.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "checks/native-cross-client-format-final-309.json": {
+        "bytes": 1871,
+        "sha256": "744f553d2a518a57e3a560b3a7e721608ea89d89b8c2a09b0c8d88b87de1689a"
+      },
+      "checks/native-cross-client-format-final-309.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "checks/native-cross-client-full-python-309.json": {
+        "bytes": 2298,
+        "sha256": "7b9b351944b0f54ed9187b73555cbe2d89fb6774dc336c0a5bfb918d222c1686"
+      },
+      "checks/native-cross-client-full-python-309.log": {
+        "bytes": 3939,
+        "sha256": "1f149ad07a7f749f36f550feb92d16b18790bfe0e7ec9a088a1d59da6509a4fd"
+      },
+      "checks/native-cross-client-full-python-310.json": {
+        "bytes": 2298,
+        "sha256": "ffb894f8ab8f89ddddff38b808f73567eba213e23eaaf512826a73c60b6d3dfa"
+      },
+      "checks/native-cross-client-full-python-310.log": {
+        "bytes": 1217,
+        "sha256": "3d8afdb4d13ebfdd430bee353a66d5fa5b7adafb14b4b4dc061773d8a1091af2"
+      },
+      "checks/native-cross-client-green-309.json": {
+        "bytes": 2502,
+        "sha256": "e3ceea89bf84c56c6595bfda21793af1176adba8e8373f4c067712aa323f0ecb"
+      },
+      "checks/native-cross-client-green-309.log": {
+        "bytes": 101,
+        "sha256": "d666def12f07df22672a3af799882bbc5dec088ff9a8fb9f18f4fb64c36d9c1d"
+      },
+      "checks/native-cross-client-native-vortex-310.json": {
+        "bytes": 1937,
+        "sha256": "49886109bb10449df07740fc3fd2db1ac4eaa052cde8f6876b0f6daf18cee77c"
+      },
+      "checks/native-cross-client-native-vortex-310.log": {
+        "bytes": 314611,
+        "sha256": "8c2cc8149f7d574bdc9198b9fffa8a1ae611293ab7a3d5cbed66b62d49ac5c9e"
+      },
+      "checks/native-cross-client-red-309.json": {
+        "bytes": 2074,
+        "sha256": "6173acff1d693e2fb9eb5d2e83e65fe01bd08f9d4ccc6af58b19036ea4a6bd20"
+      },
+      "checks/native-cross-client-red-309.log": {
+        "bytes": 9933,
+        "sha256": "0a35c70dea3bb1fb5fa377cc08f3e7891b49de31c30864a2188f244ebfc41646"
+      },
+      "checks/native-cross-client-rust-309.json": {
+        "bytes": 1993,
+        "sha256": "a3df4e1842fcd6094e65ec45c5fb22b1600bda5fd49a0fd04ed4f39970ba1d3a"
+      },
+      "checks/native-cross-client-rust-309.log": {
+        "bytes": 1636,
+        "sha256": "e2c1ce4e07b57884f35c66d303cb185c6b1b10fafa8204241577503c567859a7"
+      },
+      "driver/package_native_cross_client_310.py": {
+        "bytes": 9143,
+        "sha256": "76651a446f31cac18b1a971dcef3972d18adcd46b162ce74f09eaa47c19237c6"
+      },
+      "inventories/native-array-copy-api-inventory-309.json": {
+        "bytes": 7433,
+        "sha256": "d6dbe9849673c62af6bb07a7d371b5b5aef300dab5fa89777d60d3ac9d4ca6a0"
+      },
+      "inventories/native-cross-client-source-and-receipt-inventory-310.json": {
+        "bytes": 203408,
+        "sha256": "a1cb15773e92c92518c6167619d5e38991b45cab0feda091b07711ac25b1a704"
+      },
+      "inventories/native-cross-client-source-inventory-309.json": {
+        "bytes": 179506,
+        "sha256": "ffab604d5826f69c1735d593112eb2fe4b170f697aac0d5daf45626930e84b6c"
+      },
+      "source-sha256.json": {
+        "bytes": 174550,
+        "sha256": "a6a8f76cd763a7a0e03dece5340686b0c77154b933fae49d72a9c8248d3cf50b"
+      },
+      "sources/python/src/shardloom/_native_backend.py": {
+        "bytes": 20082,
+        "sha256": "2d7dcd45a923b20e1d15a6ee4111fad1a0e70756ecd977782c159ac7eedf8712"
+      },
+      "sources/python/tests/test_native_binding.py": {
+        "bytes": 96658,
+        "sha256": "13714f9ec79351a667801314dd79f7fbf4eeda12329145b70e5f722226005073"
+      },
+      "sources/python/tests/test_release_scripts.py": {
+        "bytes": 421220,
+        "sha256": "166863219f4acb9580126709145daaaf7755dd63ca5106c8de9304707fcb6dd5"
+      },
+      "sources/scripts/check_ci_gate_matrix.py": {
+        "bytes": 27588,
+        "sha256": "4928969581f186593538ca582e973f60c9cab29f4bb345914cfc0a70736dcf5b"
+      },
+      "sources/shardloom-python/src/plan.rs": {
+        "bytes": 14719,
+        "sha256": "da92a08740454f9e266cecf398d499d98e9df10568bcff15e75226a5adccab49"
+      },
+      "sources/shardloom-python/src/result.rs": {
+        "bytes": 6028,
+        "sha256": "b635255f9e1da570b70dbf16739777241cffe50b3c3b9bbd484b4228b3ae5cb8"
+      },
+      "sources/shardloom-python/src/session.rs": {
+        "bytes": 18001,
+        "sha256": "9997bc4142c31dcc63b3ccb6ecbe31a07109f4716187bd1b4f402b8c53e1f80c"
+      },
+      "sources/shardloom-vortex/src/local_primitives/native_payload.rs": {
+        "bytes": 17231,
+        "sha256": "3f976d7d26e0f5ac7f1867f7dc9e6e7cc3cd9f096897c337fe6c44442d9490b3"
+      },
+      "sources/shardloom-vortex/src/resident_memory_batches.rs": {
+        "bytes": 14918,
+        "sha256": "f8b54fba0361251d55508178f19d7398d3f25dd71c98b1ac3fefc28248336b33"
+      },
+      "sources/shardloom-vortex/src/resident_memory_range.rs": {
+        "bytes": 6518,
+        "sha256": "7960b5af9ccf5ffd3759fabf709d09871ee82d8e585cb0eeb387f8394a3c721f"
+      },
+      "sources/shardloom-vortex/src/resident_memory_source.rs": {
+        "bytes": 37467,
+        "sha256": "857adf1806002b01e43b689e31505bddb7442a4bc239d90b60026f5be294eece"
+      },
+      "sources/shardloom-vortex/src/resident_memory_transfer.rs": {
+        "bytes": 3184,
+        "sha256": "560d93c59362199ff716c1c49327b2be0bab51312038af724dce9ae50536f731"
+      },
+      "sources/shardloom-vortex/src/resident_memory_transfer_tests.rs": {
+        "bytes": 7554,
+        "sha256": "6cbc0c55a255eedff96f304a7ea5adaabbeef76bd9960f8da024eb1f705b6efc"
+      }
+    }
+  },
+  "hosted_final_head_acceptance": "pending",
+  "performance_claim": null
+}

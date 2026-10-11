@@ -334,6 +334,43 @@ All Rust, Vortex and dependency sources match the corrected extension above;
 only the Python adapter/tests and the prior CI validator/tests differ among the
 1,319 selected files. Hosted release-wheel checks must accept this final adapter.
 
+Review of `721cc072` then found that native frames from different clients passed
+foreign source owners to the receiving binder unchanged. Valid joins, unions and
+subqueries failed the owner check. Preparation now transfers foreign input through
+the existing bounded native payload copier under the receiving operation's grant.
+Same-owner sources remain shared, prepared reuse retains the transferred input,
+and generated ranges retain compact metadata. Native source and completed-result
+import use the same transfer, including when the producer is closed or has a busy
+stream. No Arrow export, Python-row bridge, source-session execution or independent
+pool is required. Foreign encoded values may materialize into private native
+buffers; the columnar copy counter reports their value, offset and validity bytes.
+This boundary is not claimed as zero-copy or encoding-preserving.
+
+The [cross-client correction index](evidence/native-python-cross-client-2026-10-11.json)
+and [portable packet](evidence/native-python-cross-client-2026-10-11.tar.xz)
+retain the original foreign-owner and busy-producer failures, six Rust ownership
+regressions and four new Python integration methods. Tests verify complete rich
+values, empty inputs, large/extreme compact ranges, merged resource ceilings,
+partial-copy cleanup, original output bounds and escaped child-buffer credits.
+All 746 Python tests pass against the exact corrected debug extension, including
+75 native integration methods without skips. The complete native Vortex run passes
+2,639 tests across all targets; its 24 existing manual/platform fixtures remain
+explicitly ignored. Required formatting, default and native workspace Clippy pass
+with warnings denied; the default workspace passes all 3,214 tests without ignored
+cases. The suites overlap and are not additive workloads. Every one of the 52
+portable packet members is reopened and verified against its recorded size/hash.
+
+The correction freezes 1,321 selected source files. Against the earlier integration
+baseline, 1,308 files are unchanged, eleven change and two transfer files are added;
+all dependency and vendored-provider hashes are unchanged. Only the Python test
+file changes after the final native build's source inventory. The packet preserves
+the first full Python run's incorrect test expectation: incompatible resource
+ceilings are correctly rejected at composition, before collection. The corrected
+test verifies both early refusal and valid execution within the smaller grant.
+Earlier workflow, installed-wheel and performance observations retain their own
+identities. Fresh hosted release wheels must pass all 75 native methods before
+integration; this correction makes no new performance claim.
+
 ## Portable evidence and replay
 
 The [portable packet](evidence/native-python-surface-2026-10-11.tar.xz) and

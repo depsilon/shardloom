@@ -143,7 +143,11 @@ impl PlanCore {
                 if !reused {
                     *prepared = None;
                 }
-                let mut bindings = self.bindings.clone();
+                let mut bindings = if reused {
+                    Vec::new()
+                } else {
+                    self.bindings_in_session(session, cancellation)?
+                };
                 let mut streaming = None;
                 for declaration in &self.batches {
                     let reader = BatchReader::new(declaration, session, cancellation, &errors)?;
@@ -214,6 +218,20 @@ impl PlanCore {
             },
         )
         .map_err(|error| error.into_python(|error| batch_input::map_failure(&errors, error)))
+    }
+
+    fn bindings_in_session(
+        &self,
+        session: &shardloom_vortex::resident_session::ResidentVortexSession,
+        cancellation: &CancellationToken,
+    ) -> Result<Vec<SqlSourceBinding>> {
+        let mut bindings = self.bindings.clone();
+        for binding in &mut bindings {
+            if let SqlSource::Memory(source) = &binding.source {
+                binding.source = SqlSource::Memory(source.in_session(session, cancellation)?);
+            }
+        }
+        Ok(bindings)
     }
 
     pub(super) fn controller(
