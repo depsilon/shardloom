@@ -9,7 +9,7 @@ use super::{
 };
 use shardloom_vortex::local_primitives::prepared_relational::{
     VortexRelationalPreparation, prepare_relational_with_dynamic_inputs,
-    prepare_relational_with_dynamic_inputs_in_session,
+    prepare_relational_with_dynamic_inputs_in_session_controlled,
 };
 
 #[derive(Clone)]
@@ -87,7 +87,9 @@ pub(super) fn prepare(
     session: Option<&shardloom_vortex::resident_session::ResidentVortexSession>,
     inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
     resolve_source: &mut SourceResolver<'_>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
 ) -> NativeResult<PreparedVortexRelational> {
+    cancellation.check()?;
     let mut leaves = BTreeSet::new();
     declared_query_sources(&parsed, &mut leaves);
     if leaves.is_empty() || leaves.len() > 128 {
@@ -102,6 +104,7 @@ pub(super) fn prepare(
         session.map(shardloom_vortex::resident_session::ResidentVortexSession::shared_memory_pool);
     let mut sources = BTreeMap::new();
     for leaf in leaves {
+        cancellation.check()?;
         let uris = if leaf.memory_input.is_some() {
             vec![DatasetUri::new(leaf.path.to_string_lossy())?]
         } else {
@@ -153,13 +156,14 @@ pub(super) fn prepare(
         Ok(query.plan)
     };
     match session {
-        Some(session) => prepare_relational_with_dynamic_inputs_in_session(
+        Some(session) => prepare_relational_with_dynamic_inputs_in_session_controlled(
             &uris,
             policy,
             session,
             declaration_bytes,
             initialize,
             lower,
+            cancellation,
         ),
         None => prepare_relational_with_dynamic_inputs(
             &uris,

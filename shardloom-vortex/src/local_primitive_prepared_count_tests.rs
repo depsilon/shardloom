@@ -1,5 +1,6 @@
 use super::*;
 use shardloom_core::{ColumnRef, ComparisonOp, DatasetUri, PredicateExpr, StatValue};
+use shardloom_exec::compute_pool::CancellationToken;
 use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
@@ -225,6 +226,145 @@ fn prepared_count_rejects_extra_payloads_before_open_and_rejects_wider_runtime_g
             .contains("exceeds the scan resource policy")
     );
     assert_eq!(session.snapshot().completed_executions, 0);
+    drop(prepared);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn cancelled_count_preparation_rejects_missing_source_before_open() {
+    let fixture = Fixture::new();
+    let missing = fixture.0.join("missing.vortex");
+    let request = VortexQueryPrimitiveRequest::count_where(
+        DatasetUri::new(missing.display().to_string()).unwrap(),
+        PredicateExpr::Compare {
+            column: ColumnRef::new("value").unwrap(),
+            op: ComparisonOp::Gt,
+            value: StatValue::UInt64(2),
+        },
+    );
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+
+    let cancelled = CancellationToken::default();
+    cancelled.cancel();
+    let expired = CancellationToken::default().with_deadline(std::time::Instant::now());
+    for (token, expected) in [
+        (&cancelled, "execution cancelled"),
+        (&expired, "execution deadline exceeded"),
+    ] {
+        let error = prepare_count_where_in_session_controlled(&request, policy, &session, token)
+            .err()
+            .expect("cancelled preparation must fail");
+        assert!(error.to_string().contains(expected), "{error}");
+        assert_eq!(session.snapshot().prepared_source_opens, 0);
+        assert_eq!(session.snapshot().completed_executions, 0);
+    }
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn cancelled_count_execution_and_collection_keep_prepared_credits_and_counters() {
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let prepared = prepare_count_where_in_session(
+        &fixture.request(2),
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+        &session,
+    )
+    .unwrap();
+    let prepared_credits = session.snapshot().memory.reserved_bytes;
+    assert!(prepared_credits > 0);
+    assert_eq!(session.snapshot().completed_executions, 0);
+
+    let cancelled = CancellationToken::default();
+    cancelled.cancel();
+    assert!(prepared.execute_with_cancellation(&cancelled).is_err());
+    assert!(prepared.collect_jsonl_controlled(&cancelled).is_err());
+    assert_eq!(session.snapshot().memory.reserved_bytes, prepared_credits);
+    assert_eq!(session.snapshot().completed_executions, 0);
+    assert_eq!(session.snapshot().prepared_source_opens, 1);
+
+    drop(prepared);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn live_count_token_preserves_exact_counts_json_and_metadata_pruned_zero() {
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
+    let cancellation = CancellationToken::default();
+
+    for (index, (threshold, expected, pruned, json)) in [
+        (2, 3, false, "{\"count_all\":3}\n"),
+        (99, 0, true, "{\"count_all\":0}\n"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let prepared = prepare_count_where_in_session_controlled(
+            &fixture.request(threshold),
+            policy,
+            &session,
+            &cancellation,
+        )
+        .unwrap();
+        let execution = prepared.execute_with_cancellation(&cancellation).unwrap();
+        assert_eq!(execution.count, expected);
+        assert_eq!(execution.report.rows_selected, Some(expected));
+        assert_eq!(
+            execution
+                .report
+                .embedded_layout
+                .metadata_pruned_entire_input,
+            pruned
+        );
+        assert_eq!(execution.runtime.prepared_source_opens, (index + 1) as u64);
+        assert!(execution.native_io_certificate.is_certified());
+
+        let (collected, rows) = prepared.collect_jsonl_controlled(&cancellation).unwrap();
+        assert_eq!(collected.count, expected);
+        let (jsonl, _ownership) = rows.result_jsonl.into_parts();
+        assert_eq!(jsonl, json);
+        assert_eq!(
+            session.snapshot().completed_executions,
+            ((index + 1) * 2) as u64
+        );
+        drop(prepared);
+    }
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn live_count_token_preserves_null_predicate_on_nonnullable_fixture() {
+    let fixture = Fixture::new();
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+        .expect("explicit fixture allocation");
+    let request = VortexQueryPrimitiveRequest::count_where(
+        DatasetUri::new(fixture.path().display().to_string()).unwrap(),
+        PredicateExpr::IsNull {
+            column: ColumnRef::new("value").unwrap(),
+        },
+    );
+    let cancellation = CancellationToken::default();
+    let prepared =
+        prepare_count_where_in_session_controlled(&request, policy, &session, &cancellation)
+            .unwrap();
+    let (execution, rows) = prepared.collect_jsonl_controlled(&cancellation).unwrap();
+    assert_eq!(execution.count, 0);
+    assert_eq!(execution.report.rows_selected, Some(0));
+    assert!(
+        execution
+            .report
+            .embedded_layout
+            .metadata_pruned_entire_input
+    );
+    let (jsonl, _ownership) = rows.result_jsonl.into_parts();
+    assert_eq!(jsonl, "{\"count_all\":0}\n");
     drop(prepared);
     assert_eq!(session.snapshot().memory.reserved_bytes, 0);
 }

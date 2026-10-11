@@ -256,6 +256,38 @@ impl VortexLocalEngineReport {
     /// # Errors
     /// Returns an error when nested planning/execution report creation fails.
     pub fn from_request(request: VortexLocalEngineRequest) -> Result<Self> {
+        Self::from_request_impl(
+            request,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            None,
+        )
+    }
+
+    /// Build the same local-engine report while retaining the caller's native owner.
+    /// # Errors
+    /// Returns an error when nested planning/execution report creation fails.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub fn from_request_in_session(
+        request: VortexLocalEngineRequest,
+        session: &crate::resident_session::ResidentVortexSession,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<Self> {
+        cancellation.check()?;
+        crate::local_primitives::prepared_relational::validate_session_policy(
+            VortexLocalPrimitiveExecutionPolicy::from_resources(request.resources)?,
+            session,
+        )?;
+        Self::from_request_impl(request, Some((session, cancellation)))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn from_request_impl(
+        request: VortexLocalEngineRequest,
+        #[cfg(all(feature = "vortex-local-primitives", unix))] owner: Option<(
+            &crate::resident_session::ResidentVortexSession,
+            &shardloom_exec::compute_pool::CancellationToken,
+        )>,
+    ) -> Result<Self> {
         let query_request = primitive_to_query_request(&request)?;
         let metadata_open_report = open_vortex_metadata_only(
             VortexMetadataOpenRequest::metadata_only(request.uri.clone(), request.resources),
@@ -288,8 +320,13 @@ impl VortexLocalEngineReport {
         } else {
             None
         };
-        let local_primitive_execution_report =
-            execute_local_primitive_when_needed(&query_request, &query_result, &request)?;
+        let local_primitive_execution_report = execute_local_primitive_when_needed(
+            &query_request,
+            &query_result,
+            &request,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            owner,
+        )?;
         let status = map_status(
             metadata_open_report.as_ref(),
             local_execution_report.as_ref(),
@@ -946,14 +983,28 @@ fn execute_local_primitive_when_needed(
     query_request: &VortexQueryPrimitiveRequest,
     query_result: &VortexQueryPrimitiveResult,
     engine_request: &VortexLocalEngineRequest,
+    #[cfg(all(feature = "vortex-local-primitives", unix))] owner: Option<(
+        &crate::resident_session::ResidentVortexSession,
+        &shardloom_exec::compute_pool::CancellationToken,
+    )>,
 ) -> Result<Option<VortexLocalPrimitiveExecutionReport>> {
     if query_result.value.is_known() {
         return Ok(None);
     }
-    let report = execute_vortex_local_primitive_with_policy(
-        query_request,
-        VortexLocalPrimitiveExecutionPolicy::from_resources(engine_request.resources)?,
-    )?;
+    let policy = VortexLocalPrimitiveExecutionPolicy::from_resources(engine_request.resources)?;
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let report = if let Some((session, cancellation)) = owner {
+        crate::local_primitives::execution::execute_in_session(
+            query_request,
+            policy,
+            session,
+            cancellation,
+        )?
+    } else {
+        execute_vortex_local_primitive_with_policy(query_request, policy)?
+    };
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+    let report = execute_vortex_local_primitive_with_policy(query_request, policy)?;
     if matches!(
         report.status,
         VortexLocalPrimitiveExecutionStatus::FeatureDisabled
@@ -1550,6 +1601,19 @@ pub fn run_vortex_local_engine(
 ) -> Result<VortexLocalEngineReport> {
     VortexLocalEngineReport::from_request(request)
 }
+
+/// Run the existing local-engine strategy under a caller-owned native session.
+/// # Errors
+/// Returns an error when report construction, cancellation, or native execution fails.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub fn run_vortex_local_engine_in_session(
+    request: VortexLocalEngineRequest,
+    session: &crate::resident_session::ResidentVortexSession,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> Result<VortexLocalEngineReport> {
+    VortexLocalEngineReport::from_request_in_session(request, session, cancellation)
+}
+
 pub const fn vortex_local_engine_is_side_effect_free(report: &VortexLocalEngineReport) -> bool {
     report.is_side_effect_free()
 }

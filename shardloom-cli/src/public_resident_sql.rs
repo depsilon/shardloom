@@ -69,6 +69,7 @@ pub(super) fn write_if_needed(
     format: OutputFormat,
     extra_fields: &mut Vec<(String, String)>,
     preparations: PublicSourcePreparations,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Option<ExitCode> {
     if request.sql_statement.is_none()
         || !request.fanout_outputs.is_empty()
@@ -88,7 +89,8 @@ pub(super) fn write_if_needed(
         return None;
     }
     let result = (|| {
-        let binding = native_vortex_input_binding_for_request(request)?;
+        admission.check()?;
+        let binding = native_vortex_input_binding_for_request(request, admission)?;
         if binding.mode != "single_file" {
             return Ok(Some(run_file_collection(
                 request,
@@ -97,6 +99,7 @@ pub(super) fn write_if_needed(
                 &mut PublicExecutionSession::default(),
                 preparations,
                 &binding,
+                admission,
             )?));
         }
         let targets = native_vortex_primitive_row_export_targets(request, "run").map_err(|_| {
@@ -108,20 +111,27 @@ pub(super) fn write_if_needed(
         let (primitive_request, _, _) =
             native_vortex_bound_request_and_arg(request, primitive, &binding)?;
         let policy = native_vortex_materializing_policy(request)?;
-        let source = prepared_dispatch::prepare_source(&primitive_request, policy)?;
+        let cancellation = admission.cancellation();
+        let source = prepared_dispatch::prepare_source_in_session(
+            &primitive_request,
+            policy,
+            admission.native_session()?,
+            &cancellation,
+        )?;
         #[cfg(feature = "universal-format-io")]
         let (source, preparations) = (
             source.with_preparation_sources(preparations.sources)?,
             PublicSourcePreparations::default(),
         );
         if !prepared_dispatch::request_requires_relational(&source, &primitive_request)?
-            && let Some(report) = prepared_dispatch::try_write_source(
+            && let Some(report) = prepared_dispatch::try_write_source_controlled(
                 &primitive_request,
                 &target.path,
                 target.format,
                 request.allow_overwrite,
                 policy,
                 source.clone(),
+                &cancellation,
             )?
         {
             return Ok(Some(emit_native_vortex_primitive_row_export(
@@ -147,6 +157,7 @@ pub(super) fn write_if_needed(
             std::mem::take(extra_fields),
             Some(source),
             preparations,
+            admission,
         )))
     })();
     match result {
@@ -163,6 +174,7 @@ pub(super) fn run_if_needed(
     extra_fields: &mut Vec<(String, String)>,
     session: &mut PublicExecutionSession,
     preparations: PublicSourcePreparations,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Option<ExitCode> {
     if request.sql_statement.is_none() || request.requested_output != "collect" {
         return None;
@@ -180,7 +192,11 @@ pub(super) fn run_if_needed(
     ) {
         return None;
     }
-    let binding = match native_vortex_input_binding_for_request(request) {
+    if let Err(error) = admission.check() {
+        session.clear();
+        return Some(native_vortex_materializing_error(format, primitive, &error));
+    }
+    let binding = match native_vortex_input_binding_for_request(request, admission) {
         Ok(binding) => binding,
         Err(error) => {
             session.clear();
@@ -196,6 +212,7 @@ pub(super) fn run_if_needed(
                 session,
                 preparations,
                 &binding,
+                admission,
             ) {
                 Ok(exit) => exit,
                 Err(error) => {
@@ -223,6 +240,7 @@ pub(super) fn run_if_needed(
             std::mem::take(extra_fields),
             None,
             preparations,
+            admission,
         ));
     }
     if session
@@ -245,7 +263,13 @@ pub(super) fn run_if_needed(
             native_vortex_bound_request_and_arg(request, primitive, &binding)?;
         let policy = native_vortex_materializing_policy(request)?;
         session.clear();
-        let source = prepared_dispatch::prepare_source(&primitive_request, policy)?;
+        let cancellation = admission.cancellation();
+        let source = prepared_dispatch::prepare_source_in_session(
+            &primitive_request,
+            policy,
+            admission.native_session()?,
+            &cancellation,
+        )?;
         let extended = prepared_dispatch::request_requires_relational(&source, &primitive_request)?;
         let fields = std::mem::take(extra_fields);
         let exit = if extended {
@@ -265,9 +289,12 @@ pub(super) fn run_if_needed(
                 fields,
                 Some(source),
                 preparations,
+                admission,
             )
         } else {
-            run_optimized_source(request, plan, format, fields, &binding, session, source)?
+            run_optimized_source(
+                request, plan, format, fields, &binding, session, source, admission,
+            )?
         };
         Ok(Some(exit))
     })();
@@ -287,7 +314,9 @@ fn run_file_collection(
     session: &mut PublicExecutionSession,
     preparations: PublicSourcePreparations,
     binding: &NativeVortexInputBinding,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Result<ExitCode, ShardLoomError> {
+    admission.check()?;
     let selected = resident_relational::route_admitted_statement(request).ok_or_else(|| {
         ShardLoomError::InvalidOperation("native file collection SQL is not admitted".into())
     })?;
@@ -304,9 +333,11 @@ fn run_file_collection(
         std::mem::take(extra_fields),
         None,
         preparations,
+        admission,
     ))
 }
 
+#[allow(clippy::too_many_arguments)] // Preserve the route/report contract while borrowing its admission.
 fn run_optimized_source(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -315,7 +346,9 @@ fn run_optimized_source(
     binding: &NativeVortexInputBinding,
     session: &mut PublicExecutionSession,
     source: shardloom_vortex::resident_session::PreparedVortexSource,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Result<ExitCode, ShardLoomError> {
+    admission.check()?;
     let primitive = normalized_vortex_primitive(request).ok_or_else(|| {
         ShardLoomError::InvalidOperation("native source strategy is absent".into())
     })?;
@@ -327,6 +360,7 @@ fn run_optimized_source(
             fields,
             session,
             Some(source),
+            admission,
         ),
         PublicVortexPrimitive::CountWhere => resident_count_where::run_with_source(
             request,
@@ -336,6 +370,7 @@ fn run_optimized_source(
             binding,
             session,
             Some(source),
+            admission,
         ),
         PublicVortexPrimitive::SortRows => execute_native_vortex_materializing_with_source(
             request,
@@ -344,6 +379,7 @@ fn run_optimized_source(
             fields,
             primitive,
             Some(source),
+            admission,
         ),
         _ => execute_native_vortex_owned_collect_with_source(
             request,
@@ -354,6 +390,7 @@ fn run_optimized_source(
             binding,
             session,
             Some(source),
+            admission,
         ),
     })
 }

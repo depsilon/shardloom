@@ -244,7 +244,22 @@ pub fn prepare_unary_in_session(
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexUnary> {
-    prepare_candidate(request, policy, session, false)?
+    prepare_unary_in_session_controlled(request, policy, session, &CancellationToken::default())
+}
+
+/// Prepare a unary operation in the supplied native session under the caller's
+/// cancellation and deadline token. No second session or resource owner is created.
+///
+/// # Errors
+/// Rejects cancellation, a wider session, malformed requests, and invalid native
+/// lowering or source generations.
+pub fn prepare_unary_in_session_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexUnary> {
+    prepare_candidate(request, policy, session, false, cancellation)?
         .ok_or_else(|| failed("retained unary schema is not admitted"))
 }
 
@@ -268,7 +283,35 @@ pub fn prepare_unary_for_optional_reuse(
         effective.resource_envelope.memory_budget_bytes,
         effective.max_parallelism,
     )?;
-    prepare_candidate(request, policy, &session, true)
+    prepare_unary_for_optional_reuse_in_session(
+        request,
+        policy,
+        &session,
+        &CancellationToken::default(),
+    )
+}
+
+/// Choose retained native execution from the source schema using an existing
+/// session and the caller's cancellation/deadline token. Structured projection
+/// remains assigned to its separate native provider and returns `None`.
+///
+/// # Errors
+/// Rejects cancellation, malformed requests, policy failures, missing sources,
+/// and invalid source schemas without creating another session.
+pub fn prepare_unary_for_optional_reuse_in_session(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<Option<PreparedVortexUnary>> {
+    // Structured projection has its own native provider and result schema.
+    if request.structured_projection.is_some() {
+        return Ok(None);
+    }
+    canonical(request, true)?;
+    validate_policy(policy)?;
+    cancellation.check()?;
+    prepare_candidate(request, policy, session, true, cancellation)
 }
 
 fn prepare_candidate(
@@ -276,9 +319,12 @@ fn prepare_candidate(
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
     optional: bool,
+    cancellation: &CancellationToken,
 ) -> Result<Option<PreparedVortexUnary>> {
+    cancellation.check()?;
     canonical(request, true)?;
     validate_policy(policy)?;
+    cancellation.check()?;
     let (policy, physical_policy) = policy.with_physical_policy_for_request(request);
     if session.snapshot().memory.limit_bytes > policy.resource_envelope.memory_budget_bytes
         || session.parallelism() > policy.max_parallelism
@@ -288,20 +334,25 @@ fn prepare_candidate(
         ));
     }
     let metadata = session.memory().reserve(memory::request_bytes(request)?)?;
+    cancellation.check()?;
     let uri = request
         .source_uri
         .as_ref()
         .ok_or_else(|| failed("source URI is required"))?;
     let path = super::local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("requires one local Vortex file"))?;
-    let source = session.prepare_file(path)?;
+    let source = session.prepare_file_with_cancellation(path, cancellation)?;
+    cancellation.check()?;
     if optional {
         let plan = super::row_export_scan_plan(request, source.dtype())?;
         if !schema::retained_source_admitted(request, source.dtype(), &plan)? {
+            cancellation.check()?;
             return Ok(None);
         }
     }
-    bind_unary(request, policy, physical_policy, source, session, metadata).map(Some)
+    let prepared = bind_unary(request, policy, physical_policy, source, session, metadata)?;
+    cancellation.check()?;
+    Ok(Some(prepared))
 }
 
 fn bind_unary(
@@ -534,11 +585,22 @@ impl PreparedVortexUnary {
     /// # Errors
     /// Rejects changed sources, resource pressure, cancellation and operator errors.
     pub fn execute(&self) -> Result<ExecutedVortexUnary> {
+        self.execute_cancellable(&CancellationToken::default())
+    }
+
+    /// Run fresh state without retaining output rows under caller cancellation.
+    /// # Errors
+    /// Rejects changed sources, resource pressure, cancellation and operator errors.
+    pub fn execute_cancellable(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<ExecutedVortexUnary> {
+        cancellation.check()?;
         if self.bound.pivot.is_some() {
-            return self.execute_pivot();
+            return self.execute_pivot(cancellation);
         }
         let mut output = UnaryOutput::discard(&self.bound.output_columns);
-        self.execute_output(&CancellationToken::default(), &mut output)
+        self.execute_output(cancellation, &mut output)
     }
 
     /// Deliver complete typed batches, including one typed batch for empty output.

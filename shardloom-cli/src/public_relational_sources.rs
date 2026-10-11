@@ -10,6 +10,7 @@ use super::{
     native_vortex_materializing_policy,
 };
 use shardloom_core::DatasetUri;
+use shardloom_exec::compute_pool::CancellationToken;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -18,10 +19,12 @@ use std::{
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use super::super::{
     PreparationFacadeError, auto_prepared_vortex_target_path_with_schema,
-    prepare_local_source_for_public_workflow, public_workflow_effective_resource_envelope,
+    prepare_local_source_for_public_workflow_controlled,
+    public_workflow_effective_resource_envelope,
 };
 
-pub(super) fn prepare_with_source(
+#[cfg(test)]
+fn prepare_with_source(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
@@ -48,17 +51,24 @@ pub(crate) fn prepare_in_session(
             '_,
         >,
     ) -> Result<(), ShardLoomError>,
+    cancellation: &CancellationToken,
 ) -> Result<PreparedVortexRelational, ShardLoomError> {
+    cancellation.check()?;
     validate_bindings(statement, request)?;
     let policy = native_vortex_materializing_policy(request)?;
-    let mut sources = Sources::default();
+    let mut sources = Sources {
+        cancellation: cancellation.clone(),
+        ..Sources::default()
+    };
     let operation = native_relational::prepare_in_session(
         statement,
         policy,
         session,
         inputs,
         |leaf, memory| sources.resolve(leaf, request, memory),
+        cancellation,
     )?;
+    cancellation.check()?;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     let operation = operation.with_preparation_sources(sources.preparations)?;
     #[cfg(feature = "vortex-write")]
@@ -68,6 +78,68 @@ pub(crate) fn prepare_in_session(
         operation
     };
     Ok(operation)
+}
+
+/// General commands reuse the same owner as embedded plans and retained results.
+pub(super) fn prepare_with_source_in_session(
+    statement: &str,
+    request: &PublicWorkflowRouteRequest,
+    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
+    preparations: PublicSourcePreparations,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
+    cancellation.check()?;
+    validate_bindings(statement, request)?;
+    let policy = native_vortex_materializing_policy(request)?;
+    let mut sources = Sources {
+        cancellation: cancellation.clone(),
+        ..Sources::default()
+    };
+    let operation = native_relational::prepare_in_session(
+        statement,
+        policy,
+        session,
+        |schemas| {
+            if let Some(source) = source {
+                let uri = request
+                    .input_uri
+                    .as_ref()
+                    .ok_or_else(|| failed("source URI is absent"))?;
+                schemas.register_prepared_source(&DatasetUri::new(uri)?, source)?;
+            }
+            register_memory_inputs(schemas, request, &mut |_, input, owner| {
+                cancellation.check()?;
+                let result = input.build(owner)?;
+                cancellation.check()?;
+                Ok(result)
+            })
+        },
+        |leaf, memory| sources.resolve(leaf, request, memory),
+        cancellation,
+    )?;
+    cancellation.check()?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    sources.preparations.extend(preparations.sources);
+    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
+    let _ = preparations;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    let operation = operation.with_preparation_sources(sources.preparations)?;
+    #[cfg(feature = "vortex-write")]
+    let operation = if let Some(spill) = &request.spill {
+        operation.with_spill(spill.relational()?)?
+    } else {
+        operation
+    };
+    Ok((
+        operation,
+        sources.normalized
+            + request
+                .source_bindings
+                .values()
+                .filter(|binding| binding.memory_input.is_some())
+                .count(),
+    ))
 }
 
 // Preparation owners transfer into the plan when format preparation is enabled.
@@ -310,7 +382,10 @@ fn declared_format<'a>(source: &str, request: &'a PublicWorkflowRouteRequest) ->
 pub(super) fn has_file_collection(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    cancellation: &CancellationToken,
 ) -> Result<bool, ShardLoomError> {
+    cancellation.check()?;
     for leaf in native_relational::source_leaves(statement)? {
         if leaf.memory_input.is_some() {
             continue;
@@ -320,7 +395,7 @@ pub(super) fn has_file_collection(
             .to_str()
             .ok_or_else(|| failed("source paths must be UTF8"))?;
         if declared_format(raw, request) == Some("vortex")
-            && native_vortex_input_binding_for_uri(raw)?.mode != "single_file"
+            && super::super::input_binding::is_collection(raw, memory, cancellation)?
         {
             return Ok(true);
         }
@@ -331,7 +406,9 @@ pub(super) fn has_file_collection(
 #[derive(Default)]
 struct Sources {
     bound: BTreeMap<PathBuf, Vec<DatasetUri>>,
+    metadata: Option<shardloom_exec::live_memory::MemoryLease>,
     normalized: usize,
+    cancellation: CancellationToken,
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     preparations:
         Vec<std::sync::Arc<shardloom_vortex::prepared_source_binding::LocalPreparationIdentity>>,
@@ -344,8 +421,14 @@ impl Sources {
         request: &PublicWorkflowRouteRequest,
         memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     ) -> Result<Vec<DatasetUri>, ShardLoomError> {
+        self.cancellation.check()?;
+        let memory = memory
+            .ok_or_else(|| failed("source expansion requires the native preparation owner"))?;
         let path = declared_path(leaf, request)?;
         if let Some(uri) = self.bound.get(&path) {
+            let bytes = source_metadata_bytes(&path, uri.iter().map(DatasetUri::as_str))?;
+            self.reserve_metadata(memory, bytes)?;
+            let uri = self.bound.get(&path).expect("source remains cached");
             return Ok(uri.clone());
         }
         if self.bound.len() >= 128 {
@@ -357,21 +440,50 @@ impl Sources {
         let format = declared_format(raw, request)
             .ok_or_else(|| failed("source format is not declared or recognized"))?;
         let uris = if format == "vortex" {
-            native_vortex_input_binding_for_uri(raw)?
+            let binding = native_vortex_input_binding_for_uri(raw, memory, &self.cancellation)?;
+            self.reserve_metadata(
+                memory,
+                source_metadata_bytes(&path, binding.sources.iter().map(String::as_str))?,
+            )?;
+            binding
                 .sources
                 .into_iter()
                 .map(DatasetUri::new)
                 .collect::<Result<Vec<_>, _>>()?
         } else if format == "memory" {
+            self.reserve_metadata(memory, source_metadata_bytes(&path, std::iter::once(raw))?)?;
             vec![DatasetUri::new(raw)?]
         } else {
-            vec![self.prepare_compatibility(raw, format, request, memory)?]
+            let uri = self.prepare_compatibility(raw, format, request, Some(memory))?;
+            self.reserve_metadata(
+                memory,
+                source_metadata_bytes(&path, std::iter::once(uri.as_str()))?,
+            )?;
+            vec![uri]
         };
+        self.cancellation.check()?;
         if self.bound.values().map(Vec::len).sum::<usize>() + uris.len() > 128 {
             return Err(failed("SQL exceeds 128 source files"));
         }
         self.bound.insert(path, uris.clone());
         Ok(uris)
+    }
+
+    fn reserve_metadata(
+        &mut self,
+        memory: &shardloom_exec::live_memory::LiveMemoryPool,
+        bytes: u64,
+    ) -> Result<(), ShardLoomError> {
+        if self.metadata.is_none() {
+            self.metadata = Some(memory.reserve(0)?);
+        }
+        let lease = self.metadata.as_mut().expect("metadata owner initialized");
+        lease.resize(
+            lease
+                .bytes()
+                .checked_add(bytes)
+                .ok_or_else(|| failed("source metadata overflow"))?,
+        )
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -393,7 +505,7 @@ impl Sources {
             });
         let target = auto_prepared_vortex_target_path_with_schema(source, format, schema);
         let resources = public_workflow_effective_resource_envelope(request)?;
-        let preparation = prepare_local_source_for_public_workflow(
+        let preparation = prepare_local_source_for_public_workflow_controlled(
             source,
             format,
             &target,
@@ -402,6 +514,7 @@ impl Sources {
             memory,
             request.source_fingerprint_policy.as_deref(),
             schema,
+            &self.cancellation,
         )
         .map_err(|error| match error {
             PreparationFacadeError::Runtime(error) => error,
@@ -433,6 +546,24 @@ impl Sources {
     }
 }
 
+// Cover the resolver's cache, returned URI copies and the temporary lowering
+// declaration until the prepared plan retains its own metadata reservation.
+fn source_metadata_bytes<'a>(
+    path: &Path,
+    mut sources: impl Iterator<Item = &'a str>,
+) -> Result<u64, ShardLoomError> {
+    let bytes = sources
+        .try_fold(path.as_os_str().len(), |sum, source| {
+            sum.checked_add(source.len())
+                .and_then(|n| n.checked_add(std::mem::size_of::<DatasetUri>()))
+        })
+        .and_then(|n| n.checked_mul(8))
+        .and_then(|n| n.checked_add(4096))
+        .and_then(|n| u64::try_from(n).ok())
+        .ok_or_else(|| failed("source metadata overflow"))?;
+    Ok(bytes)
+}
+
 fn failed(message: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native SQL source preparation: {message}; no fallback execution was attempted"
@@ -443,6 +574,37 @@ fn failed(message: &str) -> ShardLoomError {
 mod tests {
     use super::super::super::PublicSourceBinding;
     use super::*;
+
+    #[test]
+    fn native_source_resolution_observes_cancellation_after_input_registration() {
+        let mut request = PublicWorkflowRouteRequest::new("sql".into());
+        request.resources.memory_bytes = Some((8_u64 << 20).to_string());
+        request.resources.max_parallelism = Some("1".into());
+        request.input_uri = Some("/missing/native-source-cancel.csv".into());
+        request.input_format = Some("csv".into());
+        request.source_schema = Some("value:int64".into());
+        request.bounded = true;
+        let session =
+            shardloom_vortex::resident_session::ResidentVortexSession::new(8 << 20, 1).unwrap();
+        let retained = session.shared_memory_pool().reserve(17).unwrap();
+        let token = CancellationToken::default();
+        let error = prepare_in_session(
+            "SELECT value FROM '/missing/native-source-cancel.csv'",
+            &request,
+            &session,
+            |_| {
+                token.cancel();
+                Ok(())
+            },
+            &token,
+        )
+        .err()
+        .expect("cancel before source resolution");
+        assert!(error.to_string().contains("cancelled"), "{error}");
+        assert_eq!(session.shared_memory_pool().snapshot().reserved_bytes, 17);
+        drop(retained);
+        assert_eq!(session.shared_memory_pool().snapshot().reserved_bytes, 0);
+    }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     #[test]

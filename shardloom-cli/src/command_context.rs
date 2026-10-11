@@ -14,6 +14,7 @@ pub(crate) struct CommandContext<'a> {
 }
 
 pub(crate) struct CommandAdmission<'a> {
+    _output: crate::cli_output::AdmittedOutput,
     resources: ExecutionResources,
     memory: LiveMemoryPool,
     cancellation: Option<&'a CancellationToken>,
@@ -30,6 +31,18 @@ impl<'a> CommandContext<'a> {
         Self {
             owner: Some(owner),
             cancellation: Some(cancellation),
+        }
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn with_default_owner<'b>(
+        &'b self,
+        owner: &'b crate::native::EmbeddedExecutionOwner,
+        cancellation: &'b CancellationToken,
+    ) -> CommandContext<'b> {
+        CommandContext {
+            owner: Some(self.owner.unwrap_or(owner)),
+            cancellation: Some(self.cancellation.unwrap_or(cancellation)),
         }
     }
 
@@ -54,15 +67,27 @@ impl<'a> CommandContext<'a> {
                 .controller(resources, cancellation)?
                 .admit(resources, cancellation)?;
             return Ok(CommandAdmission {
+                _output: crate::cli_output::AdmittedOutput::new(
+                    native.resources(),
+                    &native.session().shared_memory_pool(),
+                    Some(native.session()),
+                ),
                 resources: native.resources(),
                 memory: native.session().shared_memory_pool().clone(),
                 cancellation: Some(cancellation),
                 native: Some(native),
             });
         }
+        let memory = LiveMemoryPool::new(resources.memory_bytes())?;
         Ok(CommandAdmission {
+            _output: crate::cli_output::AdmittedOutput::new(
+                resources,
+                &memory,
+                #[cfg(all(feature = "vortex-local-primitives", unix))]
+                None,
+            ),
             resources,
-            memory: LiveMemoryPool::new(resources.memory_bytes())?,
+            memory,
             cancellation: self.cancellation,
             #[cfg(all(feature = "vortex-local-primitives", unix))]
             native: None,
@@ -102,10 +127,13 @@ impl CommandAdmission<'_> {
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn native_session(
         &self,
-    ) -> Option<&shardloom_vortex::resident_session::ResidentVortexSession> {
+    ) -> Result<&shardloom_vortex::resident_session::ResidentVortexSession> {
         self.native
             .as_ref()
             .map(shardloom_vortex::resident_session::ResidentOperationAdmission::session)
+            .ok_or_else(|| shardloom_core::ShardLoomError::InvalidOperation(
+                "native command requires its admitted session owner; no fallback execution was attempted".into(),
+            ))
     }
 }
 

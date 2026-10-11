@@ -79,6 +79,33 @@ pub fn prepare_relational_with_dynamic_inputs_in_session(
     + Send
     + 'static,
 ) -> Result<PreparedVortexRelational> {
+    prepare_relational_with_dynamic_inputs_in_session_controlled(
+        sources,
+        policy,
+        session,
+        declaration_bytes,
+        inputs,
+        lower,
+        &shardloom_exec::compute_pool::CancellationToken::default(),
+    )
+}
+
+/// Retain a dynamic declaration with the caller's cancellation owner.
+/// # Errors
+/// Rejects cancellation and ordinary source, resource or schema failures.
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_relational_with_dynamic_inputs_in_session_controlled(
+    sources: &[DatasetUri],
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    declaration_bytes: usize,
+    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<()>,
+    lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>
+    + Send
+    + 'static,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> Result<PreparedVortexRelational> {
+    cancellation.check()?;
     validate_session_policy(policy, session)?;
     if declaration_bytes == 0 {
         return Err(failed(
@@ -87,7 +114,7 @@ pub fn prepare_relational_with_dynamic_inputs_in_session(
     }
     validate_sources(sources)?;
     let mut preparation = VortexRelationalPreparation {
-        binding: bind::Binder::new(session)?,
+        binding: bind::Binder::new_with_cancellation(session, cancellation)?,
     };
     inputs(&mut preparation)?;
     preparation.binding.reject_dynamic_batch_input()?;

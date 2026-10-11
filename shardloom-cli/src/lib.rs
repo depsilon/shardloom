@@ -1038,6 +1038,24 @@ fn run_with_session_and_context(
     context: &command_context::CommandContext<'_>,
 ) -> ExitCode {
     let requested_format = detect_requested_output_format(&args);
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let default_owner = match execution_session.command_owner() {
+        Ok(owner) => owner,
+        Err(error) => {
+            return emit_error(
+                "cli",
+                requested_format,
+                "command owner creation failed",
+                &error,
+            );
+        }
+    };
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let default_cancellation = shardloom_exec::compute_pool::CancellationToken::default();
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let owned_context = context.with_default_owner(&default_owner, &default_cancellation);
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let context = &owned_context;
     if let Err(error) = context.check() {
         return emit_error(
             args.first().map_or("cli", String::as_str),
@@ -1085,9 +1103,12 @@ fn run_with_session_and_context(
         Some("command-metadata") => command_registry::handle_command_metadata(args, format),
         Some("evidence-schema") => evidence_schema_registry::handle_evidence_schema(args, format),
         Some("route") => public_workflow_route::handle_public_workflow_route(args, format),
-        Some("run") => {
-            public_workflow_route::handle_public_workflow_run(args, format, execution_session)
-        }
+        Some("run") => public_workflow_route::handle_public_workflow_run(
+            args,
+            format,
+            execution_session,
+            context,
+        ),
         Some("prepare") => {
             public_workflow_route::handle_public_workflow_prepare(args, format, context)
         }
@@ -1497,25 +1518,31 @@ fn run_with_session_and_context(
         Some("vortex-projection-readiness-plan") => {
             vortex_planning::handle_vortex_projection_readiness_plan(args, format)
         }
-        Some("vortex-count") => vortex_primitive_execution::handle_vortex_count(args, format),
+        Some("vortex-count") => {
+            vortex_primitive_execution::handle_vortex_count(args, format, context)
+        }
         Some("vortex-count-benchmark") => {
             benchmark_runtime::handle_vortex_count_benchmark(args, format)
         }
         Some("vortex-count-where") => {
-            vortex_primitive_execution::handle_vortex_count_where(args, format)
+            vortex_primitive_execution::handle_vortex_count_where(args, format, context)
         }
-        Some("vortex-project") => vortex_primitive_execution::handle_vortex_project(args, format),
+        Some("vortex-project") => {
+            vortex_primitive_execution::handle_vortex_project(args, format, context)
+        }
         Some("vortex-filter-project") => {
-            vortex_primitive_execution::handle_vortex_filter_project(args, format)
+            vortex_primitive_execution::handle_vortex_filter_project(args, format, context)
         }
-        Some("vortex-filter") => vortex_primitive_execution::handle_vortex_filter(args, format),
+        Some("vortex-filter") => {
+            vortex_primitive_execution::handle_vortex_filter(args, format, context)
+        }
         Some("vortex-local-exec") => {
             vortex_primitive_execution::handle_vortex_local_exec(args, format)
         }
         Some("vortex-bounded-local-exec") => {
             vortex_primitive_execution::handle_vortex_bounded_local_exec(args, format)
         }
-        Some("vortex-run") => vortex_primitive_execution::handle_vortex_run(args, format),
+        Some("vortex-run") => vortex_primitive_execution::handle_vortex_run(args, format, context),
         Some("vortex-query-trace") => {
             vortex_primitive_execution::handle_vortex_query_trace(args, format)
         }
@@ -6882,8 +6909,11 @@ mod tests {
             .expect("explicit fixture allocation"),
         };
 
-        let evidence = vortex_count_where_local_execution_evidence(&request, &local_request)
-            .expect("evidence");
+        let evidence = vortex_primitive_execution::fixture_primitive_execution_evidence(
+            &request,
+            &local_request,
+        )
+        .expect("evidence");
         let mut fields = Vec::new();
         append_vortex_count_where_local_execution_fields(&mut fields, Some(&evidence));
 
@@ -6959,8 +6989,11 @@ mod tests {
             .expect("explicit fixture allocation"),
         };
 
-        let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
-            .expect("evidence");
+        let evidence = vortex_primitive_execution::fixture_primitive_execution_evidence(
+            &request,
+            &local_request,
+        )
+        .expect("evidence");
         let mut fields = Vec::new();
         append_vortex_project_local_execution_fields(&mut fields, Some(&evidence));
 
@@ -7035,8 +7068,11 @@ mod tests {
             .expect("explicit fixture allocation"),
         };
 
-        let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
-            .expect("evidence");
+        let evidence = vortex_primitive_execution::fixture_primitive_execution_evidence(
+            &request,
+            &local_request,
+        )
+        .expect("evidence");
         let mut fields = Vec::new();
         append_vortex_project_local_execution_fields(&mut fields, Some(&evidence));
 
@@ -7083,8 +7119,11 @@ mod tests {
             .expect("explicit fixture allocation"),
         };
 
-        let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
-            .expect("evidence");
+        let evidence = vortex_primitive_execution::fixture_primitive_execution_evidence(
+            &request,
+            &local_request,
+        )
+        .expect("evidence");
         let mut fields = Vec::new();
         append_vortex_filter_project_local_execution_fields(&mut fields, Some(&evidence));
 
@@ -7176,8 +7215,11 @@ mod tests {
             .expect("explicit fixture allocation"),
         };
 
-        let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
-            .expect("evidence");
+        let evidence = vortex_primitive_execution::fixture_primitive_execution_evidence(
+            &request,
+            &local_request,
+        )
+        .expect("evidence");
         let mut fields = Vec::new();
         append_vortex_filter_project_local_execution_fields(&mut fields, Some(&evidence));
 
@@ -7227,8 +7269,11 @@ mod tests {
             .expect("explicit fixture allocation"),
         };
 
-        let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
-            .expect("evidence");
+        let evidence = vortex_primitive_execution::fixture_primitive_execution_evidence(
+            &request,
+            &local_request,
+        )
+        .expect("evidence");
         let mut fields = Vec::new();
         append_vortex_filter_local_execution_fields(&mut fields, Some(&evidence));
 
@@ -7300,8 +7345,11 @@ mod tests {
             .expect("explicit fixture allocation"),
         };
 
-        let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
-            .expect("evidence");
+        let evidence = vortex_primitive_execution::fixture_primitive_execution_evidence(
+            &request,
+            &local_request,
+        )
+        .expect("evidence");
         let mut fields = Vec::new();
         append_vortex_filter_local_execution_fields(&mut fields, Some(&evidence));
 

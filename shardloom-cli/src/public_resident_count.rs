@@ -25,8 +25,9 @@ pub(super) fn execute_native_vortex_resident_count(
     mut extra_fields: Vec<(String, String)>,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> ExitCode {
-    let result = execute(request, binding, execution_session);
+    let result = execute(request, binding, execution_session, admission);
     let ExecutedCount {
         count,
         snapshot,
@@ -171,7 +172,9 @@ fn execute(
     request: &PublicWorkflowRouteRequest,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Result<ExecutedCount, ShardLoomError> {
+    admission.check()?;
     if request.vortex_predicate.is_some()
         || request.vortex_columns.is_some()
         || request.vortex_source_order_limit.is_some()
@@ -187,15 +190,14 @@ fn execute(
         execution_session.clear();
         let (primitive_request, _, _) =
             native_vortex_bound_request_and_arg(request, PublicVortexPrimitive::Count, binding)?;
-        let policy = native_vortex_materializing_policy(request)?;
-        let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
-            policy.resource_envelope.memory_budget_bytes,
-            policy.max_parallelism,
-        )?;
-        let operation = shardloom_vortex::local_primitives::collect::prepare_count_in_session(
-            &primitive_request,
-            &session,
-        )?;
+        native_vortex_materializing_policy(request)?;
+        let session = admission.native_session()?.clone();
+        let operation =
+            shardloom_vortex::local_primitives::collect::prepare_count_in_session_controlled(
+                &primitive_request,
+                &session,
+                &admission.cancellation(),
+            )?;
         execution_session.count = Some(PreparedPublicCount {
             request: request.clone(),
             operation,
@@ -207,9 +209,12 @@ fn execute(
             "prepared count was not admitted; no fallback execution was attempted".into(),
         )
     })?;
-    let count = prepared.operation.execute()?;
+    let count = prepared
+        .operation
+        .execute_with_cancellation(&admission.cancellation())?;
     let rows =
         shardloom_vortex::local_primitives::collect::render_count_rows(count, &prepared.session)?;
+    admission.check()?;
     let snapshot = prepared.session.snapshot();
     // Issue evidence only after the retained operation completed both generation
     // checks. Repeated calls still execute against the retained native footer.

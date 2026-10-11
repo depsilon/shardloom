@@ -1134,11 +1134,19 @@ fn execute_vortex_count_all_from_local_scan_readiness_with_session<B>(
     target_uri: &DatasetUri,
     runtime: &B,
     session: &vortex::session::VortexSession,
+    #[cfg(all(feature = "vortex-local-primitives", unix))] context: Option<
+        &crate::resident_session::NativeExecutionContext<'_>,
+    >,
 ) -> Result<VortexEncodedReadExecutionReport>
 where
     B: vortex::io::runtime::BlockingRuntime,
 {
     use vortex::file::OpenOptionsSessionExt as _;
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if let Some(context) = context {
+        context.check_cancelled()?;
+    }
 
     let input = VortexEncodedReadExecutionInput::new(readiness_report.clone())
         .allow_encoded_read_execution(true);
@@ -1168,7 +1176,13 @@ where
         report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
         return Ok(report);
     };
-    let file = match runtime.block_on(session.open_options().open_path(&path)) {
+    let file = match runtime.block_on(async {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        if let Some(context) = context {
+            return context.open_local_file(&path).await;
+        }
+        session.open_options().open_path(&path).await
+    }) {
         Ok(file) => file,
         Err(error) => {
             report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
@@ -1195,7 +1209,7 @@ where
             return Ok(report);
         }
     };
-    let iter = match scan.into_array_iter(runtime) {
+    let mut iter = match scan.into_array_iter(runtime) {
         Ok(iter) => iter,
         Err(error) => {
             report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
@@ -1211,7 +1225,18 @@ where
     };
     let mut arrays_read_count = 0usize;
     let mut rows_counted = 0u64;
-    for array_result in iter {
+    loop {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        if let Some(context) = context {
+            context.check_cancelled()?;
+        }
+        let Some(array_result) = iter.next() else {
+            break;
+        };
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        if let Some(context) = context {
+            context.check_cancelled()?;
+        }
         let array = match array_result {
             Ok(array) => array,
             Err(error) => {
@@ -1291,6 +1316,33 @@ pub fn execute_vortex_count_all_from_local_scan_with_session<B>(
 where
     B: vortex::io::runtime::BlockingRuntime,
 {
+    execute_vortex_count_all_from_local_scan_with_context(
+        approval_report,
+        readiness_report,
+        runtime,
+        session,
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        None,
+    )
+}
+
+#[cfg(feature = "vortex-encoded-read-spike")]
+fn execute_vortex_count_all_from_local_scan_with_context<B>(
+    approval_report: &VortexEncodedCountDataPathApprovalReport,
+    readiness_report: &VortexEncodedReadReadinessReport,
+    runtime: &B,
+    session: &vortex::session::VortexSession,
+    #[cfg(all(feature = "vortex-local-primitives", unix))] context: Option<
+        &crate::resident_session::NativeExecutionContext<'_>,
+    >,
+) -> Result<VortexEncodedReadExecutionReport>
+where
+    B: vortex::io::runtime::BlockingRuntime,
+{
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    if let Some(context) = context {
+        context.check_cancelled()?;
+    }
     let target_uri = &approval_report
         .input
         .count_readiness_report
@@ -1336,7 +1388,39 @@ where
         target_uri,
         runtime,
         session,
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        context,
     )
+}
+
+/// Execute the approved array-length scan with the caller's existing runtime,
+/// source generation tracking, resource allocation and cancellation token.
+/// # Errors
+/// Propagates cancellation, source identity, admission and report construction errors.
+#[cfg(all(
+    feature = "vortex-encoded-read-spike",
+    feature = "vortex-local-primitives",
+    unix
+))]
+pub fn execute_vortex_count_all_from_approved_local_scan_in_session(
+    approval_report: &VortexEncodedCountDataPathApprovalReport,
+    readiness_report: &VortexEncodedReadReadinessReport,
+    session: &crate::resident_session::ResidentVortexSession,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
+) -> Result<VortexEncodedReadExecutionReport> {
+    let report = session.with_native_execution_context(cancellation, |context| {
+        execute_vortex_count_all_from_local_scan_with_context(
+            approval_report,
+            readiness_report,
+            context.runtime(),
+            context.native_session(),
+            Some(context),
+        )
+    })?;
+    if report.data_read && !report.has_errors() {
+        session.record_completed_execution();
+    }
+    Ok(report)
 }
 
 /// Executes approved local `.vortex` `CountAll` by scanning Vortex arrays and
@@ -1592,6 +1676,66 @@ mod tests {
         assert!(!report.fallback_execution_allowed);
         assert!(!report.has_errors());
         assert!(!report.is_side_effect_free());
+    }
+
+    #[cfg(all(
+        feature = "vortex-encoded-read-spike",
+        feature = "vortex-local-primitives",
+        unix
+    ))]
+    #[test]
+    fn approved_local_scan_retains_caller_admission_and_cancellation() {
+        use crate::resident_session::ResidentVortexSession;
+        use shardloom_exec::compute_pool::CancellationToken;
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/metadata_footer_u64_20000.vortex");
+        let uri = DatasetUri::new(path.to_string_lossy()).unwrap();
+        let approval = approved_encoded_count_path_for_uri(uri.clone());
+        let readiness = ready_readiness_for_uri(uri);
+        let session = ResidentVortexSession::new(8 << 20, 2).unwrap();
+        let cancelled = CancellationToken::default();
+        cancelled.cancel();
+        let expired = CancellationToken::default().with_deadline(std::time::Instant::now());
+        for cancellation in [&cancelled, &expired] {
+            assert!(
+                execute_vortex_count_all_from_approved_local_scan_in_session(
+                    &approval,
+                    &readiness,
+                    &session,
+                    cancellation,
+                )
+                .is_err()
+            );
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+            assert_eq!(session.snapshot().completed_executions, 0);
+        }
+        let retained = session.reserve_input_scratch((8 << 20) - 1).unwrap();
+        let refused = execute_vortex_count_all_from_approved_local_scan_in_session(
+            &approval,
+            &readiness,
+            &session,
+            &CancellationToken::default(),
+        )
+        .unwrap();
+        assert!(refused.has_errors());
+        assert!(!refused.data_read);
+        assert_eq!(refused.count_result, None);
+        assert_eq!(session.snapshot().memory.reserved_bytes, (8 << 20) - 1);
+        drop(retained);
+        let report = execute_vortex_count_all_from_approved_local_scan_in_session(
+            &approval,
+            &readiness,
+            &session,
+            &CancellationToken::default(),
+        )
+        .unwrap();
+        assert_eq!(report.count_result, Some(20_000));
+        assert!(report.arrays_read_count > 0);
+        assert!(report.data_read && report.upstream_scan_called);
+        assert!(!report.data_decoded && !report.data_materialized);
+        assert!(!report.row_read && !report.arrow_converted);
+        assert!(!report.fallback_execution_allowed && !report.has_errors());
+        assert_eq!(session.snapshot().memory.reserved_bytes, 0);
     }
 
     #[cfg(feature = "vortex-encoded-read-spike")]

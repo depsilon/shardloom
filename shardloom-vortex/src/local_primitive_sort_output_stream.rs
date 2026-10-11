@@ -8,6 +8,9 @@ use super::{
     VortexQueryPrimitiveRequest, completed_result::CompletedRows, result_batch::Value,
     vortex_error,
 };
+use crate::resident_session::NativeExecutionContext;
+use shardloom_core::StatValue;
+use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
         ArrayRef, VortexSessionExecute as _,
@@ -104,7 +107,100 @@ pub(super) fn add_utf8_scratch_bytes(
         })
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Account scalar conversion while the provider continues to own its arrays.
+pub(super) fn reserve_scratch(
+    context: Option<&NativeExecutionContext<'_>>,
+    array: &ArrayRef,
+    columns: &[String],
+) -> Result<Option<MemoryLease>> {
+    context
+        .map(|context| {
+            context.check_cancelled()?;
+            let bytes = scratch_bytes(
+                array,
+                columns,
+                &mut context.native_session().create_execution_ctx(),
+            )?;
+            context.memory().reserve(bytes)
+        })
+        .transpose()
+}
+
+/// Selection maps, row descriptors and transferred child leases. Payload bytes
+/// are added before each selected value is cloned into the retained rows.
+pub(super) fn selection_memory(
+    context: Option<&NativeExecutionContext<'_>>,
+    rows: usize,
+    columns: usize,
+) -> Result<Option<MemoryLease>> {
+    context
+        .map(|context| {
+            context.check_cancelled()?;
+            context.memory().reserve(
+                (rows as u64)
+                    .saturating_mul(512)
+                    .saturating_add((columns as u64).saturating_mul(512))
+                    .saturating_add(64 * 1024),
+            )
+        })
+        .transpose()
+}
+
+pub(super) fn reserve_materialized_row(
+    memory: &mut Option<MemoryLease>,
+    columns: &[Vec<StatValue>],
+    row: usize,
+    copies: usize,
+) -> Result<()> {
+    if let Some(memory) = memory {
+        let bytes = columns.iter().try_fold(256_u64, |bytes, column| {
+            let value = column
+                .get(row)
+                .ok_or_else(|| failed("selected row is absent"))?;
+            bytes
+                .checked_add(match value {
+                    StatValue::Utf8(value) => 128_u64.saturating_add(value.len() as u64),
+                    _ => 128,
+                })
+                .ok_or_else(|| failed("selected payload size overflow"))
+        })?;
+        // Include the temporary row and retained clones; no allocation occurs
+        // before its capacity is admitted alongside the scalar scratch.
+        let bytes = bytes
+            .checked_mul((copies as u64).saturating_add(1))
+            .and_then(|bytes| memory.bytes().checked_add(bytes))
+            .ok_or_else(|| failed("selected payload size overflow"))?;
+        memory.resize(bytes)?;
+    }
+    Ok(())
+}
+
+pub(super) fn reserve_candidates(
+    memory: &mut MemoryLease,
+    candidates: &[SortRowCandidate],
+    scratch_bytes: u64,
+    arrays_read: usize,
+) -> Result<()> {
+    let retained = candidates.iter().fold(0_u64, |total, row| {
+        row.values
+            .iter()
+            .fold(total.saturating_add(256), |total, value| {
+                total.saturating_add(match value {
+                    StatValue::Utf8(value) => 128_u64.saturating_add(value.len() as u64),
+                    _ => 128,
+                })
+            })
+    });
+    // A truncated candidate vector retains capacity. Keep the high-water grant
+    // until the operator retires instead of shrinking it to the current length.
+    let bytes = retained
+        .saturating_add(scratch_bytes)
+        .saturating_mul(2)
+        .saturating_add((arrays_read as u64 + 1).saturating_mul(8192));
+    memory.resize(memory.bytes().max(bytes))
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // Keep each bounded payload delivery inside the same cancellation and output scope.
 pub(super) fn deliver(
     file: &VortexFile,
     runtime: &impl BlockingRuntime,
@@ -164,7 +260,12 @@ pub(super) fn deliver(
         let mut arrays = Vec::new();
         let mut ends = Vec::new();
         let mut rows = 0;
-        for array in scan.into_array_iter(runtime).map_err(vortex_error)? {
+        let mut iter = scan.into_array_iter(runtime).map_err(vortex_error)?;
+        loop {
+            context.check_cancelled()?;
+            let Some(array) = iter.next() else {
+                break;
+            };
             context.check_cancelled()?;
             let array = array.map_err(vortex_error)?;
             chunks_scanned += 1;
@@ -209,5 +310,6 @@ pub(super) fn deliver(
         min_selected_source_ordinal: selected.iter().map(|row| row.source_ordinal).min(),
         max_selected_source_ordinal: selected.iter().map(|row| row.source_ordinal).max(),
         selected_row_materialization_used: !selected.is_empty(),
+        memory: Vec::new(),
     })
 }

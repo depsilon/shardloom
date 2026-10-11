@@ -820,6 +820,7 @@ impl ObjectStoreReadSmokeReport {
     }
 }
 
+#[allow(clippy::too_many_lines)] // Keep admission and the existing fixture report in the same boundary.
 pub(crate) fn handle_object_store_read_smoke(
     args: impl Iterator<Item = String>,
     format: OutputFormat,

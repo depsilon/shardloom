@@ -16,6 +16,7 @@ use super::{
     row_export_materialized_row_count, vortex_error,
 };
 use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
+use shardloom_exec::compute_pool::CancellationToken;
 
 /// Preserve the existing planner callback and reports while owning the source,
 /// provider drivers, and native allocator for the complete operation.
@@ -48,9 +49,35 @@ pub(super) fn read_prepared(
     source_uri: &DatasetUri,
     source: &PreparedVortexSource,
     primitive_kind: VortexQueryPrimitiveKind,
-    mut policy: VortexLocalPrimitiveExecutionPolicy,
+    policy: VortexLocalPrimitiveExecutionPolicy,
     configure: impl FnOnce(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
 ) -> Result<LocalVortexScan> {
+    read_prepared_controlled(
+        source_uri,
+        source,
+        primitive_kind,
+        policy,
+        &CancellationToken::default(),
+        configure,
+    )
+}
+
+/// Execute against a caller-retained source with its operation cancellation token.
+/// The source generation, provider I/O drain, and execution admission remain owned
+/// by the source's existing resident session.
+///
+/// # Errors
+/// Rejects cancellation, resource-policy disagreement, source mutation, and native
+/// provider failures without reopening the source or changing scan semantics.
+pub(super) fn read_prepared_controlled(
+    source_uri: &DatasetUri,
+    source: &PreparedVortexSource,
+    primitive_kind: VortexQueryPrimitiveKind,
+    mut policy: VortexLocalPrimitiveExecutionPolicy,
+    cancellation: &CancellationToken,
+    configure: impl FnOnce(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
+) -> Result<LocalVortexScan> {
+    cancellation.check()?;
     let preparation_started = Instant::now();
     let (memory_bytes, parallelism) = source.resource_limits();
     if memory_bytes > policy.resource_envelope.memory_budget_bytes
@@ -70,21 +97,23 @@ pub(super) fn read_prepared(
         .min(parallelism);
     let plan = configure(source.dtype())?;
     let preparation_micros = preparation_started.elapsed().as_micros();
-    source.with_native_execution(|file, _, runtime| {
+    cancellation.check()?;
+    source.with_native_execution_controlled(cancellation, |file, context| {
         execute(
             source_uri,
             primitive_kind,
             policy,
             file,
-            runtime,
+            context.runtime(),
             plan,
             preparation_micros,
+            cancellation,
         )
     })
 }
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
-fn execute(
+pub(super) fn execute(
     source_uri: &DatasetUri,
     primitive_kind: VortexQueryPrimitiveKind,
     policy: VortexLocalPrimitiveExecutionPolicy,
@@ -92,7 +121,9 @@ fn execute(
     runtime: &impl vortex::io::runtime::BlockingRuntime,
     mut plan: LocalVortexScanPlan,
     preparation_micros: u128,
+    cancellation: &CancellationToken,
 ) -> Result<LocalVortexScan> {
+    cancellation.check()?;
     let control_plane_started = Instant::now();
     let mut control_plane_micros = preparation_micros;
     let mut evidence_collection_micros = 0_u128;
@@ -117,7 +148,9 @@ fn execute(
         projection_pushdown_applied,
     );
     if let Some(filter) = plan.filter.as_ref() {
+        cancellation.check()?;
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
+        cancellation.check()?;
         embedded_layout.mark_pruning_consulted(metadata_pruned);
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
@@ -125,11 +158,12 @@ fn execute(
             let evidence_started = Instant::now();
             let reader_generated_prepared_batch_report =
                 plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
+            cancellation.check()?;
             evidence_collection_micros =
                 evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
             control_plane_micros =
                 control_plane_micros.saturating_add(control_plane_started.elapsed().as_micros());
-            return Ok(LocalVortexScan {
+            let scan = LocalVortexScan {
                 source_row_count,
                 result_row_count: 0,
                 pre_limit_result_row_count: 0,
@@ -152,7 +186,9 @@ fn execute(
                 source_order_limit,
                 embedded_layout,
                 embedded_derived_column_rewrites: plan.embedded_derived_column_rewrites.clone(),
-            });
+            };
+            cancellation.check()?;
+            return Ok(scan);
         }
     }
     let mut scan = file.scan().map_err(vortex_error)?;
@@ -177,8 +213,15 @@ fn execute(
     let mut reader_splits = Vec::new();
     let mut max_chunk_rows = 0usize;
     let mut residual_predicate_materialized = false;
-    for chunk in scan.into_array_iter(runtime).map_err(vortex_error)? {
+    let mut chunks = scan.into_array_iter(runtime).map_err(vortex_error)?;
+    loop {
+        cancellation.check()?;
+        let Some(chunk) = chunks.next() else {
+            break;
+        };
+        cancellation.check()?;
         let chunk = chunk.map_err(vortex_error)?;
+        cancellation.check()?;
         let rows = chunk.len();
         let evidence_started = Instant::now();
         let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
@@ -205,6 +248,9 @@ fn execute(
                 let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
                 let mut selected = 0usize;
                 for row_index in 0..materialized_rows {
+                    if row_index % 4096 == 0 {
+                        cancellation.check()?;
+                    }
                     if predicate.matches(&columns, row_index)? {
                         selected = selected.checked_add(1).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
@@ -248,9 +294,10 @@ fn execute(
     // Certify the reader boundary without copying executable values for reporting.
     let reader_generated_prepared_batch_report =
         plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
+    cancellation.check()?;
     evidence_collection_micros =
         evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
-    Ok(LocalVortexScan {
+    let result = LocalVortexScan {
         source_row_count,
         result_row_count,
         pre_limit_result_row_count,
@@ -273,7 +320,9 @@ fn execute(
         source_order_limit,
         embedded_layout,
         embedded_derived_column_rewrites: plan.embedded_derived_column_rewrites,
-    })
+    };
+    cancellation.check()?;
+    Ok(result)
 }
 
 #[cfg(test)]

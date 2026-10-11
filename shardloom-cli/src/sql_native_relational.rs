@@ -76,7 +76,18 @@ pub(crate) fn prepare_with_inputs(
         Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     ) -> NativeResult<Vec<DatasetUri>>,
 ) -> NativeResult<PreparedVortexRelational> {
-    prepare_with_owner(raw, policy, None, inputs, resolve_source)
+    let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
+        policy.resource_envelope.memory_budget_bytes,
+        policy.max_parallelism,
+    )?;
+    prepare_with_owner(
+        raw,
+        policy,
+        Some(&session),
+        inputs,
+        resolve_source,
+        &shardloom_exec::compute_pool::CancellationToken::default(),
+    )
 }
 
 pub(crate) fn prepare_in_session(
@@ -88,8 +99,16 @@ pub(crate) fn prepare_in_session(
         &ParsedRelationLeaf,
         Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     ) -> NativeResult<Vec<DatasetUri>>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
 ) -> NativeResult<PreparedVortexRelational> {
-    prepare_with_owner(raw, policy, Some(session), inputs, resolve_source)
+    prepare_with_owner(
+        raw,
+        policy,
+        Some(session),
+        inputs,
+        resolve_source,
+        cancellation,
+    )
 }
 
 fn prepare_with_owner(
@@ -101,7 +120,9 @@ fn prepare_with_owner(
         &ParsedRelationLeaf,
         Option<&shardloom_exec::live_memory::LiveMemoryPool>,
     ) -> NativeResult<Vec<DatasetUri>>,
+    cancellation: &shardloom_exec::compute_pool::CancellationToken,
 ) -> NativeResult<PreparedVortexRelational> {
+    cancellation.check()?;
     let (parsed, offset) = parsed_native_query(raw)?;
     if dynamic::required(&parsed) {
         if offset != 0 {
@@ -109,9 +130,17 @@ fn prepare_with_owner(
                 "dynamic native SQL does not admit a trailing OFFSET",
             ));
         }
-        return dynamic::prepare(parsed, policy, session, inputs, &mut resolve_source);
+        return dynamic::prepare(
+            parsed,
+            policy,
+            session,
+            inputs,
+            &mut resolve_source,
+            cancellation,
+        );
     }
     let lower = |schemas: &mut VortexRelationalPreparation<'_>| {
+        cancellation.check()?;
         register_sql_memory_inputs(&parsed, schemas)?;
         inputs(schemas)?;
         let mut lowerer = Lowerer {
@@ -126,8 +155,8 @@ fn prepare_with_owner(
         Ok(query.plan)
     };
     match session {
-        Some(session) => shardloom_vortex::local_primitives::prepared_relational::prepare_relational_with_schema_in_session(
-            policy, session, lower,
+        Some(session) => shardloom_vortex::local_primitives::prepared_relational::prepare_relational_with_schema_in_session_controlled(
+            policy, session, lower, cancellation,
         ),
         None => prepare_relational_with_schema(policy, lower),
     }

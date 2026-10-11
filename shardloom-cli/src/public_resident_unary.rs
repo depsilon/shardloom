@@ -8,11 +8,11 @@ use super::{
     native_vortex_bound_request_and_arg, native_vortex_input_binding_for_request,
     native_vortex_materializing_error, native_vortex_materializing_policy,
 };
-use shardloom_exec::compute_pool::CancellationToken;
+use crate::command_context::CommandAdmission;
 use shardloom_vortex::{
     VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,
     local_primitives::prepared_unary::{
-        CollectedVortexUnary, PreparedVortexUnary, prepare_unary_for_optional_reuse,
+        CollectedVortexUnary, PreparedVortexUnary, prepare_unary_for_optional_reuse_in_session,
     },
 };
 
@@ -36,7 +36,12 @@ pub(super) fn run(
     extra_fields: Vec<(String, String)>,
     execution_session: &mut PublicExecutionSession,
     primitive: PublicVortexPrimitive,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
+    if let Err(error) = admission.check() {
+        execution_session.clear();
+        return native_vortex_materializing_error(format, primitive, &error);
+    }
     if request.materialization_policy == "zero_decode" {
         execution_session.clear();
         return execute_native_vortex_materializing_primitive_run_with_extra(
@@ -45,9 +50,10 @@ pub(super) fn run(
             format,
             extra_fields,
             primitive,
+            admission,
         );
     }
-    let binding = match native_vortex_input_binding_for_request(request) {
+    let binding = match native_vortex_input_binding_for_request(request, admission) {
         Ok(binding) => binding,
         Err(error) => {
             execution_session.clear();
@@ -55,7 +61,7 @@ pub(super) fn run(
         }
     };
     if binding.mode == "single_file" {
-        match execute(request, primitive, &binding, execution_session) {
+        match execute(request, primitive, &binding, execution_session, admission) {
             Ok(Some(executed)) => {
                 return render(request, plan, format, extra_fields, &binding, executed);
             }
@@ -75,6 +81,7 @@ pub(super) fn run(
         format,
         extra_fields,
         primitive,
+        admission,
     )
 }
 
@@ -83,7 +90,10 @@ fn execute(
     kind: PublicVortexPrimitive,
     binding: &NativeVortexInputBinding,
     execution_session: &mut PublicExecutionSession,
+    admission: &CommandAdmission<'_>,
 ) -> Result<Option<Executed>, ShardLoomError> {
+    admission.check()?;
+    let cancellation = admission.cancellation();
     let (primitive, primitive_arg, _) =
         native_vortex_bound_request_and_arg(request, kind, binding)?;
     let policy = native_vortex_materializing_policy(request)?;
@@ -92,7 +102,13 @@ fn execute(
     });
     if !matches {
         execution_session.clear();
-        let Some(operation) = prepare_unary_for_optional_reuse(&primitive, policy)? else {
+        let Some(operation) = prepare_unary_for_optional_reuse_in_session(
+            &primitive,
+            policy,
+            admission.native_session()?,
+            &cancellation,
+        )?
+        else {
             return Ok(None);
         };
         execution_session.unary = Some(PreparedPublicUnary {
@@ -108,9 +124,7 @@ fn execute(
         )
     })?;
     Ok(Some(Executed {
-        value: entry
-            .operation
-            .collect_jsonl(&CancellationToken::default())?,
+        value: entry.operation.collect_jsonl(&cancellation)?,
         primitive_arg,
         opened: !matches,
     }))

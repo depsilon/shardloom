@@ -5,6 +5,8 @@
 
 use super::native_sink::OwnedOutput;
 use super::{Result, ShardLoomError, VortexLocalPrimitiveRowExportFormat as Format};
+use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
+use shardloom_exec::compute_pool::CancellationToken;
 use std::{
     collections::BTreeSet,
     fs,
@@ -24,24 +26,71 @@ pub fn write_primitive(
     policy: super::VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<Vec<super::VortexLocalPrimitiveRowExportReport>> {
     let source = super::prepared_dispatch::prepare_source(request, policy)?;
+    write_primitive_with_source(
+        request,
+        targets,
+        overwrite,
+        policy,
+        &source,
+        &CancellationToken::default(),
+    )
+}
+
+/// Coordinate primitive outputs with a caller-owned resident session and its
+/// cancellation/deadline token. Source preparation and each adapter use that same
+/// operation context; target staging and publication retain their existing order.
+/// # Errors
+/// Rejects cancellation, source/destination aliasing and propagates admission,
+/// execution and publication failures.
+pub fn write_primitive_in_session(
+    request: &super::VortexQueryPrimitiveRequest,
+    targets: &[(PathBuf, Format)],
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<Vec<super::VortexLocalPrimitiveRowExportReport>> {
+    cancellation.check()?;
+    let source = super::prepared_dispatch::prepare_source_in_session(
+        request,
+        policy,
+        session,
+        cancellation,
+    )?;
+    write_primitive_with_source(request, targets, overwrite, policy, &source, cancellation)
+}
+
+fn write_primitive_with_source(
+    request: &super::VortexQueryPrimitiveRequest,
+    targets: &[(PathBuf, Format)],
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    source: &PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<Vec<super::VortexLocalPrimitiveRowExportReport>> {
     let mut reports = write(
         targets,
         overwrite,
         |path| {
+            cancellation.check()?;
             source.validate_generation()?;
+            cancellation.check()?;
             if source.aliases_file(path)? {
                 return Err(failed("source and output must be different files"));
             }
+            cancellation.check()?;
             Ok(())
         },
         |path, format| {
-            super::prepared_dispatch::try_write_source(
+            cancellation.check()?;
+            super::prepared_dispatch::try_write_source_controlled(
                 request,
                 path,
                 format,
                 false,
                 policy,
                 source.clone(),
+                cancellation,
             )?
             .ok_or_else(|| failed("native primitive output schema is not admitted"))
         },

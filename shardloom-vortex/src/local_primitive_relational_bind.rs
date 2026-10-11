@@ -30,6 +30,7 @@ mod window;
 
 pub(super) struct Binder<'a> {
     session: &'a ResidentVortexSession,
+    cancellation: shardloom_exec::compute_pool::CancellationToken,
     sources: ReservedVec<PreparedVortexSource>,
     paths: ReservedVec<PathBuf>,
     memory_sources: ReservedVec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
@@ -68,8 +69,20 @@ impl<'a> Binder<'a> {
     }
 
     pub(super) fn new(session: &'a ResidentVortexSession) -> Result<Self> {
+        Self::new_with_cancellation(
+            session,
+            &shardloom_exec::compute_pool::CancellationToken::default(),
+        )
+    }
+
+    pub(super) fn new_with_cancellation(
+        session: &'a ResidentVortexSession,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> Result<Self> {
+        cancellation.check()?;
         Ok(Self {
             session,
+            cancellation: cancellation.clone(),
             sources: ReservedVec::new(session.memory())?,
             paths: ReservedVec::new(session.memory())?,
             memory_sources: ReservedVec::new(session.memory())?,
@@ -85,6 +98,7 @@ impl<'a> Binder<'a> {
     }
 
     pub(super) fn charge(&mut self, bytes: usize) -> Result<()> {
+        self.cancellation.check()?;
         self.metadata.resize(
             self.metadata
                 .bytes()
@@ -106,6 +120,7 @@ impl<'a> Binder<'a> {
     }
 
     pub(super) fn finish(mut self) -> Result<BoundSources> {
+        self.cancellation.check()?;
         let (sources, mut source_credit) = self.sources.into_parts();
         let (paths, mut path_credit) = self.paths.into_parts();
         let (memory_sources, mut memory_credit) = self.memory_sources.into_parts();
@@ -245,6 +260,7 @@ impl<'a> Binder<'a> {
     }
 
     pub(super) fn bind(&mut self, input: &VortexRelationalPlan, depth: usize) -> Result<Node> {
+        self.cancellation.check()?;
         if depth > 24 {
             return Err(failed("recursive plan exceeds 24 levels"));
         }
@@ -323,6 +339,7 @@ impl<'a> Binder<'a> {
         uri: &shardloom_core::DatasetUri,
         source: PreparedVortexSource,
     ) -> Result<()> {
+        self.cancellation.check()?;
         if uri.as_str().len() > 16_384 {
             return Err(failed("source URI exceeds 16384 bytes"));
         }
@@ -351,6 +368,7 @@ impl<'a> Binder<'a> {
     }
 
     pub(super) fn source(&mut self, uri: &shardloom_core::DatasetUri) -> Result<usize> {
+        self.cancellation.check()?;
         if uri.as_str().len() > 16_384 {
             return Err(failed("source URI exceeds 16384 bytes"));
         }
@@ -372,7 +390,9 @@ impl<'a> Binder<'a> {
             }
             self.paths.reserve_one()?;
             self.sources.reserve_one()?;
-            let source = self.session.prepare_file(&path)?;
+            let source = self
+                .session
+                .prepare_file_with_cancellation(&path, &self.cancellation)?;
             self.paths.values.push(path);
             self.sources.values.push(source);
             self.sources.values.len() - 1

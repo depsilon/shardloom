@@ -3286,7 +3286,6 @@ pub fn stream_flat_parquet_columnar_source_with_parallelism(
 ///
 /// # Errors
 /// Rejects zero batch budgets, invalid sources, and sources exceeding `max_rows`.
-#[allow(clippy::too_many_lines)]
 pub fn stream_flat_parquet_columnar_source_with_batch_budget(
     path: &Path,
     max_rows: usize,
@@ -3305,6 +3304,7 @@ pub fn stream_flat_parquet_columnar_source_with_batch_budget(
 /// Open the same Parquet source under an existing cancellation owner.
 /// # Errors
 /// Returns source/admission errors or cancellation before opening or demanding data.
+#[allow(clippy::too_many_lines)]
 pub fn stream_flat_parquet_columnar_source_with_batch_budget_controlled(
     path: &Path,
     max_rows: usize,

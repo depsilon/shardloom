@@ -27,6 +27,44 @@ thread_local! {
     static OPERATION_DEPTH: Cell<usize> = const { Cell::new(0) };
 }
 
+/// Lock-order dependency captured before a caller synchronously joins another
+/// thread. It carries no allocation or session ownership. Work on the joined
+/// thread must not wait for a session while its caller holds an operation.
+#[derive(Clone, Copy)]
+pub struct ResidentOperationDependency {
+    nested: bool,
+}
+
+impl ResidentOperationDependency {
+    /// Capture whether this thread holds an operation or inherited dependency.
+    #[must_use]
+    pub fn capture() -> Self {
+        Self {
+            nested: OPERATION_DEPTH.with(|depth| depth.get() != 0),
+        }
+    }
+
+    /// Preserve the caller's lock-order constraint while running joined work.
+    /// Resource-free work and admission to an available other owner remain valid.
+    pub fn run<T>(self, operation: impl FnOnce() -> T) -> T {
+        struct RestoreDepth(usize);
+        impl Drop for RestoreDepth {
+            fn drop(&mut self) {
+                OPERATION_DEPTH.with(|depth| depth.set(self.0));
+            }
+        }
+        let previous = OPERATION_DEPTH.with(|depth| {
+            let previous = depth.get();
+            if self.nested {
+                depth.set(previous + 1);
+            }
+            previous
+        });
+        let _restore = RestoreDepth(previous);
+        operation()
+    }
+}
+
 struct ConsumerWait<'a>(&'a AtomicBool);
 
 impl Drop for ConsumerWait<'_> {

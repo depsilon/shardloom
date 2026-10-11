@@ -127,6 +127,7 @@ pub(super) fn run(
     plan: &PublicWorkflowRoutePlan,
     format: OutputFormat,
     session: &mut PublicExecutionSession,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> ExitCode {
     run_with_source(
         request,
@@ -136,9 +137,11 @@ pub(super) fn run(
         Vec::new(),
         None,
         PublicSourcePreparations::default(),
+        admission,
     )
 }
 
+#[allow(clippy::too_many_arguments)] // Preserve the shared route/report contract and its caller-owned admission.
 pub(super) fn run_with_source(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -147,6 +150,7 @@ pub(super) fn run_with_source(
     extra_fields: Vec<(String, String)>,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
     preparations: PublicSourcePreparations,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> ExitCode {
     match execute(
         request,
@@ -156,6 +160,7 @@ pub(super) fn run_with_source(
         extra_fields,
         source,
         preparations,
+        admission,
     ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
@@ -165,6 +170,7 @@ pub(super) fn run_with_source(
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Reuse the route's prepared source, result cache and admission together.
 fn execute(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -173,17 +179,30 @@ fn execute(
     extra_fields: Vec<(String, String)>,
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
     preparations: PublicSourcePreparations,
+    admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Result<(), ShardLoomError> {
+    admission.check()?;
     let statement = request.sql_statement.as_deref().ok_or_else(|| {
         ShardLoomError::InvalidOperation("native relational SQL is absent".into())
     })?;
     let reused = session.relational.as_ref().is_some_and(|entry| {
         entry.request == *request && entry.preparations.same_generations(&preparations)
-    }) && !sources::has_file_collection(statement, request)?;
+    }) && !sources::has_file_collection(
+        statement,
+        request,
+        admission,
+        &admission.cancellation(),
+    )?;
     if !reused {
         session.clear();
-        let (operation, prepared_sources) =
-            sources::prepare_with_source(statement, request, source, preparations.clone())?;
+        let (operation, prepared_sources) = sources::prepare_with_source_in_session(
+            statement,
+            request,
+            source,
+            preparations.clone(),
+            admission.native_session()?,
+            &admission.cancellation(),
+        )?;
         session.relational = Some(PreparedPublicRelational {
             request: request.clone(),
             operation,
@@ -214,19 +233,20 @@ fn execute(
     ));
     if is_write_request(request) {
         #[cfg(feature = "vortex-write")]
-        return execute_write(request, format, operation, fields, reused);
+        return execute_write_controlled(
+            request,
+            format,
+            operation,
+            fields,
+            reused,
+            &admission.cancellation(),
+        );
         #[cfg(not(feature = "vortex-write"))]
         return Err(ShardLoomError::InvalidOperation(
             "native relational writers require vortex-write".into(),
         ));
     }
-    execute_collect(
-        format,
-        operation,
-        fields,
-        reused,
-        &CancellationToken::default(),
-    )
+    execute_collect(format, operation, fields, reused, &admission.cancellation())
 }
 
 fn execute_collect(
@@ -269,24 +289,6 @@ fn emit_collected(
         vec![],
         fields,
     );
-}
-
-#[cfg(feature = "vortex-write")]
-fn execute_write(
-    request: &PublicWorkflowRouteRequest,
-    format: OutputFormat,
-    operation: &PreparedVortexRelational,
-    fields: Vec<(String, String)>,
-    reused: bool,
-) -> Result<(), ShardLoomError> {
-    execute_write_controlled(
-        request,
-        format,
-        operation,
-        fields,
-        reused,
-        &CancellationToken::default(),
-    )
 }
 
 #[cfg(feature = "vortex-write")]

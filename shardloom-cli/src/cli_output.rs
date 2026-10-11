@@ -27,6 +27,73 @@ thread_local! {
     // Native public routes emit on their caller thread. A nested scope releases
     // into its parent, so no envelope escapes an outer generation check.
     static PENDING_OUTPUT: RefCell<Vec<Vec<PendingLine>>> = const { RefCell::new(Vec::new()) };
+    static ADMITTED_OUTPUT: RefCell<Vec<CommandObservation>> = const { RefCell::new(Vec::new()) };
+}
+
+struct CommandObservation {
+    resources: shardloom_core::ExecutionResources,
+    memory: shardloom_exec::live_memory::LiveMemoryPool,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    native: Option<shardloom_vortex::resident_session::ResidentVortexSession>,
+}
+
+/// Only actual admission installs this scope. Both success and error envelopes
+/// observe the same pool while the operation and retained inputs remain alive.
+pub(crate) struct AdmittedOutput {
+    index: usize,
+    _caller_thread: std::marker::PhantomData<std::rc::Rc<()>>,
+}
+
+impl AdmittedOutput {
+    pub(crate) fn new(
+        resources: shardloom_core::ExecutionResources,
+        memory: &shardloom_exec::live_memory::LiveMemoryPool,
+        #[cfg(all(feature = "vortex-local-primitives", unix))] native: Option<
+            &shardloom_vortex::resident_session::ResidentVortexSession,
+        >,
+    ) -> Self {
+        let index = ADMITTED_OUTPUT.with_borrow_mut(|observations| {
+            let index = observations.len();
+            observations.push(CommandObservation {
+                resources,
+                memory: memory.clone(),
+                #[cfg(all(feature = "vortex-local-primitives", unix))]
+                native: native.cloned(),
+            });
+            index
+        });
+        Self {
+            index,
+            _caller_thread: std::marker::PhantomData,
+        }
+    }
+}
+
+impl Drop for AdmittedOutput {
+    fn drop(&mut self) {
+        ADMITTED_OUTPUT.with_borrow_mut(|observations| observations.truncate(self.index));
+    }
+}
+
+fn append_admitted_observation(fields: &mut Vec<(String, String)>) {
+    ADMITTED_OUTPUT.with_borrow(|observations| {
+        let Some(observation) = observations.last() else { return; };
+        crate::execution_resources::append_declaration_fields(fields, observation.resources);
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        if let Some(native) = &observation.native {
+            crate::execution_resources::append_resident_snapshot_fields(fields, &native.snapshot());
+            return;
+        }
+        let snapshot = observation.memory.snapshot();
+        crate::execution_resources::append_admission_fields(
+            fields, snapshot.limit_bytes, observation.resources.max_parallelism(),
+            "shared_command_allocation;maximum_parallelism_is_permission_not_observed_utilization",
+        );
+        crate::execution_resources::append_memory_observation_fields(
+            fields, Some(snapshot.reserved_bytes), snapshot.peak_reserved_bytes,
+            "command_pool_lifetime_including_preparation_and_retained_owners;excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss",
+        );
+    });
 }
 
 struct PendingOutput {
@@ -114,8 +181,9 @@ fn envelope_from_fields(
     summary: String,
     text: String,
     diagnostics: Vec<Diagnostic>,
-    fields: Vec<(String, String)>,
+    mut fields: Vec<(String, String)>,
 ) -> OutputEnvelope {
+    append_admitted_observation(&mut fields);
     let envelope = base_envelope_from_fields(command, status, summary, text, diagnostics);
     apply_typed_envelope_fields(envelope, command, fields)
 }
@@ -147,8 +215,9 @@ pub(crate) fn emit_error_with_fields(
     format: OutputFormat,
     summary: &str,
     error: &ShardLoomError,
-    fields: Vec<(String, String)>,
+    mut fields: Vec<(String, String)>,
 ) -> ExitCode {
+    append_admitted_observation(&mut fields);
     let envelope = OutputEnvelope::from_error(command, summary, error)
         .with_lifecycle_field("command_family", classify_command(command).as_str());
     let envelope = apply_typed_envelope_fields(envelope, command, fields);

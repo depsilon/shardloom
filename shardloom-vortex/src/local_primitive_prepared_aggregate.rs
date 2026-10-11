@@ -13,6 +13,7 @@ use crate::resident_session::{
     NativeExecutionContext, PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
     segment_reuse::SegmentReusePolicy,
 };
+use shardloom_exec::compute_pool::CancellationToken;
 use std::fmt::Write as _;
 
 // Bound width-dependent validation/template vectors before cloning the request
@@ -195,6 +196,24 @@ impl UnretainedVortexAggregate {
         );
         Ok(executed)
     }
+
+    /// Execute an unretained lowering under the caller's operation token.
+    /// # Errors
+    /// Rejects cancellation, changed inputs, resource pressure and native errors.
+    pub fn execute_cancellable(
+        self,
+        cancellation: &CancellationToken,
+    ) -> Result<ExecutedVortexAggregate> {
+        let cancellation = self.0.operation_cancellation(cancellation)?;
+        let mut executed = self
+            .0
+            .session
+            .with_owned_execution(&cancellation, |context| self.0.execute_in_context(context))?;
+        executed.native_io_certificate.source_pushdown_report.proof_basis.push_str(
+            ";aggregate_preparation_disposition=unretained_source;aggregate_lowering_reused=false;aggregate_state_reused=false;no_query_answer_cache=true;independent_oracle_not_run",
+        );
+        Ok(executed)
+    }
 }
 
 fn canonical(request: &VortexQueryPrimitiveRequest) -> Result<()> {
@@ -313,7 +332,33 @@ pub fn prepare_aggregate_for_optional_reuse(
     }
     validate_policy(policy)?;
     let session = aggregate_session(request, policy)?;
-    let operation = prepare_candidate_in_session(request, policy, &session)?;
+    prepare_aggregate_for_optional_reuse_in_session(
+        request,
+        policy,
+        &session,
+        &CancellationToken::default(),
+    )
+}
+
+/// Prepare an optional retained aggregate using the caller's native session and
+/// cancellation/deadline token. Canonically inadmissible requests return `None`
+/// before the source is opened; admitted aggregates retain the reusable lowering.
+///
+/// # Errors
+/// Rejects cancellation, invalid resource grants, unreadable or changed sources,
+/// and invalid native lowering. Admission failures never retry through another path.
+pub fn prepare_aggregate_for_optional_reuse_in_session(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<Option<PreparedAggregateDisposition>> {
+    if canonical(request).is_err() {
+        return Ok(None);
+    }
+    validate_policy(policy)?;
+    cancellation.check()?;
+    let operation = prepare_candidate_in_session(request, policy, session, cancellation)?;
     Ok(Some(PreparedAggregateDisposition::Reusable(operation)))
 }
 
@@ -365,30 +410,51 @@ pub fn prepare_aggregate_in_session(
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
 ) -> Result<PreparedVortexAggregate> {
-    prepare_candidate_in_session(request, policy, session)
+    prepare_aggregate_in_session_controlled(request, policy, session, &CancellationToken::default())
+}
+
+/// Prepare in the existing native session under the caller's cancellation and
+/// deadline token. The source, provider drivers, and memory pool are reused.
+///
+/// # Errors
+/// Rejects cancellation, a wider supplied session, unsupported native shape,
+/// source changes, and native lowering or resource-admission failures.
+pub fn prepare_aggregate_in_session_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexAggregate> {
+    prepare_candidate_in_session(request, policy, session, cancellation)
 }
 
 fn prepare_candidate_in_session(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
     session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
 ) -> Result<PreparedVortexAggregate> {
+    cancellation.check()?;
     let (policy, physical_policy) = prepared_policy(request, policy, session)?;
+    cancellation.check()?;
     let uri = request
         .source_uri
         .as_ref()
         .ok_or_else(|| failed("source URI is required"))?;
     let path = local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("requires one local Vortex file"))?;
-    let source = session.prepare_file(path)?;
-    prepare_bound_aggregate(
+    let source = session.prepare_file_with_cancellation(path, cancellation)?;
+    cancellation.check()?;
+    let prepared = prepare_bound_aggregate(
         request,
         policy,
         physical_policy,
         session,
         PreparedAggregateSource::File(source),
         None,
-    )
+    )?;
+    cancellation.check()?;
+    Ok(prepared)
 }
 
 /// Bind the optimized aggregate to an existing source without reopening it.

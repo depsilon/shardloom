@@ -4,6 +4,7 @@ use super::{
     Result, ShardLoomError, VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,
 };
 use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
+use shardloom_exec::compute_pool::CancellationToken;
 use vortex::array::dtype::DType;
 
 /// Prepare the source with the same CPU ownership as the optimized operation.
@@ -15,13 +16,33 @@ pub fn prepare_source(
     policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<PreparedVortexSource> {
     let session = super::prepared_aggregate::aggregate_session(request, policy)?;
+    prepare_source_in_session(request, policy, &session, &CancellationToken::default())
+}
+
+/// Prepare a source in a caller-owned resident session under its parent
+/// cancellation/deadline token. This validates the same operation policy without
+/// creating another session or changing native strategy selection.
+///
+/// # Errors
+/// Rejects cancellation, invalid session grants, nonlocal sources and source-open
+/// failures.
+pub fn prepare_source_in_session(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexSource> {
+    cancellation.check()?;
+    super::prepared_relational::validate_session_policy(policy, session)?;
     let uri = request
         .source_uri
         .as_ref()
         .ok_or_else(|| failed("source URI is absent"))?;
     let path = super::local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("requires one local native source"))?;
-    session.prepare_file(path)
+    let source = session.prepare_file_with_cancellation(path, cancellation)?;
+    cancellation.check()?;
+    Ok(source)
 }
 
 /// Select extended native semantics from authoritative referenced field types.
@@ -137,7 +158,22 @@ pub fn execute_sort(
     policy: VortexLocalPrimitiveExecutionPolicy,
     source: &PreparedVortexSource,
 ) -> Result<super::VortexLocalPrimitiveExecutionReport> {
-    execute_sort_with_sink(request, policy, source, None)
+    execute_sort_controlled(request, policy, source, &CancellationToken::default())
+}
+
+/// Run the existing optimized order strategy under the caller's operation token.
+/// Source selection, sort strategy and output semantics are unchanged.
+/// # Errors
+/// Rejects cancellation, mismatched generations, resource grants and unsupported
+/// sort requests.
+pub fn execute_sort_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: &PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<super::VortexLocalPrimitiveExecutionReport> {
+    cancellation.check()?;
+    execute_sort_with_sink(request, policy, source, None, cancellation)
 }
 
 /// Complete sort output through the shared bounded JSON sink. The same native
@@ -158,12 +194,33 @@ pub fn collect_sort(
     policy: VortexLocalPrimitiveExecutionPolicy,
     source: &PreparedVortexSource,
 ) -> Result<CollectedVortexSort> {
+    collect_sort_controlled(request, policy, source, &CancellationToken::default())
+}
+
+/// Collect the optimized native sort result under the caller's operation token.
+/// JSON output remains bounded and owned by the retained source's session.
+/// # Errors
+/// Rejects cancellation, invalid sources, resource pressure, changed generations,
+/// and results exceeding the existing row/JSON bounds.
+pub fn collect_sort_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: &PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<CollectedVortexSort> {
+    cancellation.check()?;
     let session = source_session(source, request, Some(policy))?;
+    cancellation.check()?;
     let mut sink = super::collect::JsonRows::new(session.memory(), 8 * 1024 * 1024, true)?;
-    let report = execute_sort_with_sink(request, policy, source, Some(&mut sink))?;
+    cancellation.check()?;
+    let report = execute_sort_with_sink(request, policy, source, Some(&mut sink), cancellation)?;
+    cancellation.check()?;
     let mut native_io_certificate = super::local_primitive_native_io_certificate(request, &report)?;
+    cancellation.check()?;
     let (result_jsonl, result_schema_json) = sink.finish_certified(&mut native_io_certificate)?;
+    cancellation.check()?;
     source.validate_generation()?;
+    cancellation.check()?;
     Ok(CollectedVortexSort {
         report,
         native_io_certificate,
@@ -177,7 +234,9 @@ fn execute_sort_with_sink(
     policy: VortexLocalPrimitiveExecutionPolicy,
     source: &PreparedVortexSource,
     mut sink: Option<&mut super::collect::JsonRows>,
+    parent_cancellation: &CancellationToken,
 ) -> Result<super::VortexLocalPrimitiveExecutionReport> {
+    parent_cancellation.check()?;
     if request.kind != super::VortexQueryPrimitiveKind::SortRows {
         return Err(failed("requires a sort request"));
     }
@@ -191,14 +250,16 @@ fn execute_sort_with_sink(
     let path = super::local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("sort source is not local"))?;
     let cancellation = sort.spill.as_ref().map_or_else(
-        shardloom_exec::compute_pool::CancellationToken::default,
+        || parent_cancellation.clone(),
         |spill| {
-            shardloom_exec::compute_pool::CancellationToken::from_shared_flag(
+            shardloom_exec::compute_pool::CancellationToken::from_shared_flag_with_parent(
                 std::sync::Arc::clone(&spill.cancellation),
+                parent_cancellation,
             )
         },
     );
-    session.with_native_execution_context(&cancellation, |context| {
+    cancellation.check()?;
+    let report = session.with_native_execution_context(&cancellation, |context| {
         source.with_admitted_native_execution(context, |file, context| {
             let collect = sink.is_some();
             let columns =
@@ -249,7 +310,9 @@ fn execute_sort_with_sink(
             super::sort_rows_report(request, &scan)
                 .map(|report| report.with_physical_policy(physical))
         })
-    })
+    })?;
+    cancellation.check()?;
+    Ok(report)
 }
 
 fn failed(message: &str) -> ShardLoomError {
@@ -273,16 +336,50 @@ pub fn try_write_source(
     policy: VortexLocalPrimitiveExecutionPolicy,
     source: PreparedVortexSource,
 ) -> Result<Option<super::VortexLocalPrimitiveRowExportReport>> {
+    try_write_source_controlled(
+        request,
+        output,
+        format,
+        overwrite,
+        policy,
+        source,
+        &CancellationToken::default(),
+    )
+}
+
+/// Write through an existing optimized provider under the operation's parent
+/// cancellation/deadline token. Native writer selection is unchanged.
+/// # Errors
+/// Rejects cancellation, changed sources, unsupported requests, resource pressure
+/// and failed output.
+#[cfg(feature = "vortex-write")]
+pub fn try_write_source_controlled(
+    request: &VortexQueryPrimitiveRequest,
+    output: &std::path::Path,
+    format: super::VortexLocalPrimitiveRowExportFormat,
+    overwrite: bool,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+    cancellation: &CancellationToken,
+) -> Result<Option<super::VortexLocalPrimitiveRowExportReport>> {
+    cancellation.check()?;
     let (policy, physical) = policy.with_writer_sink_physical_policy_for_request(request);
     source_session(&source, request, Some(policy))?;
+    cancellation.check()?;
     let report = match request.kind {
         super::VortexQueryPrimitiveKind::SimpleAggregate => {
             super::prepared_aggregate::prepare_aggregate_from_source(request, policy, source)?
-                .write(output, format, overwrite)?
+                .write_controlled(output, format, overwrite, cancellation)?
         }
         super::VortexQueryPrimitiveKind::SortRows => {
-            super::completed_result::export_sort_from_source(
-                request, output, format, overwrite, policy, &source,
+            super::completed_result::export_sort_from_source_controlled(
+                request,
+                output,
+                format,
+                overwrite,
+                policy,
+                &source,
+                cancellation,
             )?
         }
         super::VortexQueryPrimitiveKind::ProjectColumns
@@ -292,19 +389,33 @@ pub fn try_write_source(
             else {
                 return Ok(None);
             };
-            super::completed_result::write_plan(plan, request, output, format, overwrite, policy)?
+            super::completed_result::write_plan_controlled(
+                plan,
+                request,
+                output,
+                format,
+                overwrite,
+                policy,
+                cancellation,
+            )?
         }
         _ => {
             if super::prepared_unary::supports(request.kind)
                 && request.structured_projection.is_none()
             {
                 super::prepared_unary::prepare_unary_from_source(request, policy, source)?
-                    .write(output, format, overwrite)?
+                    .write_controlled(output, format, overwrite, cancellation)?
             } else if let Some(plan) =
                 super::native_sink::prepare_from_source(request, source.clone(), policy)?
             {
-                super::completed_result::write_plan(
-                    plan, request, output, format, overwrite, policy,
+                super::completed_result::write_plan_controlled(
+                    plan,
+                    request,
+                    output,
+                    format,
+                    overwrite,
+                    policy,
+                    cancellation,
                 )?
             } else {
                 return Err(failed(
@@ -313,5 +424,6 @@ pub fn try_write_source(
             }
         }
     };
+    cancellation.check()?;
     Ok(Some(report.with_physical_policy(physical)))
 }

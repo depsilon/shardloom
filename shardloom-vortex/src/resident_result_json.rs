@@ -61,6 +61,22 @@ impl OwnedVortexResultBatch {
         columns: &[String],
         max_bytes: usize,
     ) -> Result<Budgeted<String>> {
+        self.render_admitted_json_controlled(columns, max_bytes, &CancellationToken::default())
+    }
+
+    /// Render an already admitted result with the caller's operation cancellation
+    /// or deadline token, using the result's original resident owner.
+    ///
+    /// # Errors
+    /// Rejects cancellation, invalid result schema/fields, provider failures, and
+    /// row/byte/shared-memory bounds.
+    pub(crate) fn render_admitted_json_controlled(
+        &self,
+        columns: &[String],
+        max_bytes: usize,
+        cancellation: &CancellationToken,
+    ) -> Result<Budgeted<String>> {
+        cancellation.check()?;
         self.validate_schema_and_rows()?;
         let fields = self
             .dtype()
@@ -77,13 +93,17 @@ impl OwnedVortexResultBatch {
         // handle closes; concurrent result sinks must not bypass that grant.
         let _context = self
             .runtime
-            .enter(CallClass::General, CancellationToken::default())?;
-        crate::local_primitives::collect::render_owned_json(
+            .enter(CallClass::General, cancellation.clone())?;
+        cancellation.check()?;
+        let output = crate::local_primitives::collect::render_owned_json_controlled(
             self,
             columns,
             &self.runtime.memory,
             max_bytes,
-        )
+            cancellation,
+        )?;
+        cancellation.check()?;
+        Ok(output)
     }
 }
 

@@ -21,7 +21,7 @@ impl<'a> Binder<'a> {
         metrics: &'a Metrics<'a>,
         parameter: Option<&'a ArrayRef>,
     ) -> Result<Self> {
-        let mut binder = Self::new(&owner.session)?;
+        let mut binder = Self::new_with_cancellation(&owner.session, context.cancellation())?;
         for (source, path) in owner.sources.iter().zip(&owner.source_paths) {
             binder.charge(
                 path.as_os_str()

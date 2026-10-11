@@ -54,7 +54,9 @@ pub use serving_admission::{ResidentAdmissionSnapshot, ResidentServingPolicy};
 
 #[path = "resident_operation_resources.rs"]
 mod operation_resources;
-pub use operation_resources::{ConfigurableResidentSession, ResidentOperationAdmission};
+pub use operation_resources::{
+    ConfigurableResidentSession, ResidentOperationAdmission, ResidentOperationDependency,
+};
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "resident_result_json.rs"]
@@ -168,6 +170,13 @@ impl ResidentVortexSession {
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn parallelism(&self) -> usize {
         self.0.cpu_limit()
+    }
+
+    /// Report-based primitive paths call this only after successful native work,
+    /// final source validation and I/O drain. A blocked report is not completion.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn record_completed_execution(&self) {
+        self.0.executions.fetch_add(1, Ordering::Relaxed);
     }
 
     /// Array-backed queries share the same outer admission and completion
@@ -302,8 +311,7 @@ impl ResidentVortexSession {
     ) -> Result<T> {
         let context = self.0.enter(CallClass::General, cancellation.clone())?;
         let result = execute(&context);
-        context.drain_io();
-        let completion = context.check_cancelled();
+        let completion = context.finish_opened_sources();
         let result = result?;
         completion?;
         Ok(result)
@@ -554,7 +562,10 @@ impl ResidentVortexSession {
     }
 
     #[cfg(all(feature = "vortex-local-primitives", unix))]
-    pub(crate) fn same_owner(&self, other: &Self) -> bool {
+    /// Whether both handles retain the same runtime and native allocation owner.
+    /// Equal numeric grants do not establish shared ownership.
+    #[must_use]
+    pub fn same_owner(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
     }
 
@@ -565,10 +576,23 @@ impl ResidentVortexSession {
     /// Rejects inaccessible/nonregular files, unsupported generation identity,
     /// concurrent mutation, invalid Vortex files, and memory admission failures.
     pub fn prepare_file(&self, path: impl AsRef<Path>) -> Result<PreparedVortexSource> {
-        let context = self
-            .0
-            .enter(CallClass::General, CancellationToken::default())?;
+        self.prepare_file_with_cancellation(path, &CancellationToken::default())
+    }
+
+    /// Open a retained file under the complete operation's cancellation owner.
+    /// Native I/O drains before returning or releasing its allocation.
+    /// # Errors
+    /// Returns cancellation, generation, input or admission failures. A token
+    /// already cancelled refuses before file inspection or provider work.
+    pub fn prepare_file_with_cancellation(
+        &self,
+        path: impl AsRef<Path>,
+        cancellation: &CancellationToken,
+    ) -> Result<PreparedVortexSource> {
+        cancellation.check()?;
+        let context = self.0.enter(CallClass::General, cancellation.clone())?;
         let identity = Arc::new(SourceIdentity::capture(path.as_ref())?);
+        cancellation.check()?;
         let input = identity.reader_scoped(
             self.0.session.allocator(),
             self.0.runtime.handle(),
@@ -587,7 +611,9 @@ impl ResidentVortexSession {
             )
             .map_err(native_error)?;
         context.drain_io();
+        context.check_cancelled()?;
         identity.validate()?;
+        cancellation.check()?;
         self.0.opens.fetch_add(1, Ordering::Relaxed);
         Ok(PreparedVortexSource(Arc::new(PreparedSourceOwner {
             file,

@@ -53,6 +53,7 @@ pub(super) use bind::{
 mod dynamic;
 pub use dynamic::{
     prepare_relational_with_dynamic_inputs, prepare_relational_with_dynamic_inputs_in_session,
+    prepare_relational_with_dynamic_inputs_in_session_controlled,
     prepare_relational_with_dynamic_schema,
 };
 #[path = "local_primitive_relational_correlated.rs"]
@@ -362,6 +363,17 @@ pub struct VortexRelationalPreparation<'a> {
 }
 
 impl VortexRelationalPreparation<'_> {
+    /// Register an already admitted native file without reopening its provider.
+    /// # Errors
+    /// Rejects a changed source, mismatched URI or a different resource owner.
+    pub fn register_prepared_source(
+        &mut self,
+        uri: &shardloom_core::DatasetUri,
+        source: PreparedVortexSource,
+    ) -> Result<()> {
+        self.binding.seed_source(uri, source)
+    }
+
     /// Retain this preparation's existing reservation owner for an input adapter.
     /// Cloning the handle creates no additional grant. Imported buffers, retained
     /// sources and adapter scratch then compete for the same live capacity.
@@ -433,7 +445,7 @@ pub fn prepare_relational_with_schema(
         policy.resource_envelope.memory_budget_bytes,
         policy.max_parallelism,
     )?;
-    prepare_relational_with_owner(policy, session, None, lower)
+    prepare_relational_with_owner(policy, session, None, lower, &CancellationToken::default())
 }
 
 /// Lower a frontend inside an existing session's allocation. Input conversion,
@@ -447,7 +459,24 @@ pub fn prepare_relational_with_schema_in_session(
     session: &ResidentVortexSession,
     lower: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>,
 ) -> Result<PreparedVortexRelational> {
-    prepare_relational_with_owner(policy, session.clone(), None, lower)
+    prepare_relational_with_schema_in_session_controlled(
+        policy,
+        session,
+        lower,
+        &CancellationToken::default(),
+    )
+}
+
+/// Lower a frontend using the caller's allocation and cancellation owner.
+/// # Errors
+/// Rejects cancellation, resource denial and all ordinary native binding failures.
+pub fn prepare_relational_with_schema_in_session_controlled(
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    lower: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>,
+    cancellation: &CancellationToken,
+) -> Result<PreparedVortexRelational> {
+    prepare_relational_with_owner(policy, session.clone(), None, lower, cancellation)
 }
 
 /// Lower against an already admitted source and retain its generation and grant.
@@ -462,7 +491,13 @@ pub fn prepare_relational_from_source(
     let request =
         VortexQueryPrimitiveRequest::project(uri.clone(), shardloom_plan::ProjectionRequest::All);
     let session = super::prepared_dispatch::source_session(&source, &request, Some(policy))?;
-    prepare_relational_with_owner(policy, session, Some((uri, source)), lower)
+    prepare_relational_with_owner(
+        policy,
+        session,
+        Some((uri, source)),
+        lower,
+        &CancellationToken::default(),
+    )
 }
 
 fn prepare_relational_with_owner(
@@ -470,15 +505,18 @@ fn prepare_relational_with_owner(
     session: ResidentVortexSession,
     source: Option<(shardloom_core::DatasetUri, PreparedVortexSource)>,
     lower: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>,
+    cancellation: &CancellationToken,
 ) -> Result<PreparedVortexRelational> {
+    cancellation.check()?;
     validate_session_policy(policy, &session)?;
     let mut preparation = VortexRelationalPreparation {
-        binding: bind::Binder::new(&session)?,
+        binding: bind::Binder::new_with_cancellation(&session, cancellation)?,
     };
     if let Some((uri, source)) = source {
         preparation.binding.seed_source(&uri, source)?;
     }
     let plan = lower(&mut preparation)?;
+    cancellation.check()?;
     preparation.binding.validate_batch_plan(&plan)?;
     let root = preparation.binding.bind(&plan, 0)?;
     let bind::BoundSources {

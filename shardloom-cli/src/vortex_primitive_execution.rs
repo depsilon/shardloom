@@ -46,19 +46,21 @@ use shardloom_vortex::{
     evaluate_vortex_query_primitive, evaluate_vortex_query_primitive_with_analysis,
     evaluate_vortex_selection_vector_filter_kernel, execute_vortex_bounded_local_query,
     execute_vortex_count_all_from_approved_local_scan,
-    execute_vortex_count_all_from_approved_local_scan_result,
-    execute_vortex_local_primitive_with_policy, execute_vortex_local_query_primitive,
+    execute_vortex_count_all_from_approved_local_scan_result, execute_vortex_local_query_primitive,
     local_encoded_count_execution_certificate, local_encoded_count_native_io_certificate,
     local_primitive_execution_certificate, local_primitive_native_io_certificate,
     open_vortex_metadata_only, parse_vortex_local_engine_primitive,
     plan_native_vortex_universal_input, plan_vortex_count_readiness,
     plan_vortex_encoded_count_data_path_approval, plan_vortex_memory_safety,
-    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue, run_vortex_local_engine,
+    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
     vortex_encoded_read_local_scan_count_api_boundary, vortex_encoded_read_spike_feature_enabled,
 };
 
 use crate::cli_output::{emit, emit_error};
+use crate::command_context::{CommandAdmission, CommandContext};
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+use shardloom_vortex::{execute_vortex_local_primitive_with_policy, run_vortex_local_engine};
 
 #[path = "vortex_aggregate_spill_policy.rs"]
 mod aggregate_spill_policy;
@@ -503,6 +505,7 @@ impl VortexLocalPrimitiveCliExecutionEvidence {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn parse_vortex_count_where_local_execution_args(
     mut args: impl Iterator<Item = String>,
 ) -> shardloom_core::Result<Option<VortexCountWhereLocalExecutionRequest>> {
@@ -519,8 +522,16 @@ fn primitive_metadata_request(
     }
 }
 
+#[cfg(test)]
 pub(crate) fn parse_vortex_local_primitive_cli_execution_args(
     args: &mut impl Iterator<Item = String>,
+) -> shardloom_core::Result<Option<VortexLocalPrimitiveCliExecutionRequest>> {
+    parse_vortex_local_primitive_cli_execution_args_in_context(args, &CommandContext::default())
+}
+
+fn parse_vortex_local_primitive_cli_execution_args_in_context(
+    args: &mut impl Iterator<Item = String>,
+    context: &CommandContext<'_>,
 ) -> shardloom_core::Result<Option<VortexLocalPrimitiveCliExecutionRequest>> {
     let Some(option) = args.next() else {
         return Ok(None);
@@ -530,7 +541,8 @@ pub(crate) fn parse_vortex_local_primitive_cli_execution_args(
             "unknown option: {option}"
         )));
     }
-    let resources = crate::execution_resources::ResourceArguments::parse_complete(args)?;
+    let resources =
+        crate::execution_resources::ResourceArguments::parse_complete_in_context(args, context)?;
     Ok(Some(VortexLocalPrimitiveCliExecutionRequest { resources }))
 }
 
@@ -551,15 +563,26 @@ pub(crate) fn vortex_count_where_filter_evidence(
 pub(crate) fn vortex_count_where_local_execution_evidence(
     request: &VortexQueryPrimitiveRequest,
     local_request: &VortexCountWhereLocalExecutionRequest,
+    admission: &CommandAdmission<'_>,
 ) -> shardloom_core::Result<VortexCountWhereLocalExecutionEvidence> {
-    vortex_local_primitive_cli_execution_evidence(request, local_request)
+    vortex_local_primitive_cli_execution_evidence(request, local_request, admission)
 }
 
 pub(crate) fn vortex_local_primitive_cli_execution_evidence(
     request: &VortexQueryPrimitiveRequest,
     local_request: &VortexLocalPrimitiveCliExecutionRequest,
+    admission: &CommandAdmission<'_>,
 ) -> shardloom_core::Result<VortexLocalPrimitiveCliExecutionEvidence> {
+    admission.check()?;
     let policy = VortexLocalPrimitiveExecutionPolicy::from_resources(local_request.resources)?;
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let report = shardloom_vortex::local_primitives::execution::execute_in_session(
+        request,
+        policy,
+        admission.native_session()?,
+        &admission.cancellation(),
+    )?;
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
     let report = execute_vortex_local_primitive_with_policy(request, policy)?;
     let native_io_certificate = local_primitive_native_io_certificate(request, &report)?;
     let execution_certificate = local_primitive_correctness_fixture_for_request(request, &report)
@@ -571,6 +594,42 @@ pub(crate) fn vortex_local_primitive_cli_execution_evidence(
         native_io_certificate,
         execution_certificate,
     })
+}
+
+#[cfg(test)]
+pub(crate) fn fixture_primitive_execution_evidence(
+    request: &VortexQueryPrimitiveRequest,
+    local_request: &VortexLocalPrimitiveCliExecutionRequest,
+) -> shardloom_core::Result<VortexLocalPrimitiveCliExecutionEvidence> {
+    let context = CommandContext::default();
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let mut cache = crate::public_workflow_route::PublicExecutionSession::default();
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let owner = cache.command_owner()?;
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let cancellation = shardloom_exec::compute_pool::CancellationToken::default();
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let context = context.with_default_owner(&owner, &cancellation);
+    let admission = context.admit(local_request.resources)?;
+    vortex_local_primitive_cli_execution_evidence(request, local_request, &admission)
+}
+
+fn admit_primitive_if_needed<'a>(
+    existing: Option<&CommandAdmission<'_>>,
+    request: Option<&VortexLocalPrimitiveCliExecutionRequest>,
+    context: &CommandContext<'a>,
+    command: &'static str,
+    format: OutputFormat,
+) -> std::result::Result<Option<CommandAdmission<'a>>, ExitCode> {
+    if let Some(admission) = existing {
+        admission
+            .check()
+            .map_err(|error| emit_error(command, format, "primitive cancelled", &error))?;
+        return Ok(None);
+    }
+    request
+        .map(|request| context.admit_for_command(request.resources, command, format))
+        .transpose()
 }
 
 pub(crate) fn vortex_count_where_human_text(
@@ -4564,6 +4623,20 @@ pub(crate) fn run_vortex_approved_local_encoded_count_from_readiness(
     shardloom_vortex::VortexEncodedReadExecutionReport,
     VortexLocalExecutionReport,
 )> {
+    run_vortex_approved_local_encoded_count_with_admission(uri, readiness_report, None)
+}
+
+fn run_vortex_approved_local_encoded_count_with_admission(
+    uri: DatasetUri,
+    readiness_report: &shardloom_vortex::VortexEncodedReadReadinessReport,
+    admission: Option<&CommandAdmission<'_>>,
+) -> shardloom_core::Result<(
+    shardloom_vortex::VortexEncodedReadExecutionReport,
+    VortexLocalExecutionReport,
+)> {
+    if let Some(admission) = admission {
+        admission.check()?;
+    }
     let count_report = plan_vortex_count_readiness(
         VortexCountReadinessRequest::new(uri, VortexCountCandidateSource::EncodedDataPath)
             .feature_gate_enabled(true)
@@ -4575,7 +4648,27 @@ pub(crate) fn run_vortex_approved_local_encoded_count_from_readiness(
         count_report,
         vortex_encoded_read_local_scan_count_api_boundary(),
     )?;
+    #[cfg(all(
+        feature = "vortex-encoded-read-spike",
+        feature = "vortex-local-primitives",
+        unix
+    ))]
+    let report = if let Some(admission) = admission {
+        shardloom_vortex::encoded_read_executor::execute_vortex_count_all_from_approved_local_scan_in_session(
+            &approval, readiness_report, admission.native_session()?, &admission.cancellation(),
+        )?
+    } else {
+        execute_vortex_count_all_from_approved_local_scan(&approval, readiness_report)?
+    };
+    #[cfg(not(all(
+        feature = "vortex-encoded-read-spike",
+        feature = "vortex-local-primitives",
+        unix
+    )))]
     let report = execute_vortex_count_all_from_approved_local_scan(&approval, readiness_report)?;
+    if let Some(admission) = admission {
+        admission.check()?;
+    }
     let local_execution_report =
         execute_vortex_count_all_from_approved_local_scan_result(&approval, &report)?;
     Ok((report, local_execution_report))
@@ -6547,8 +6640,16 @@ pub(crate) enum VortexCountExecutionRequest {
     LocalEncodedCount(ExecutionResources),
 }
 
+#[cfg(test)]
 pub(crate) fn parse_vortex_count_args(
+    args: std::vec::IntoIter<String>,
+) -> shardloom_core::Result<(DatasetUri, VortexCountExecutionRequest)> {
+    parse_vortex_count_args_in_context(args, &CommandContext::default())
+}
+
+fn parse_vortex_count_args_in_context(
     mut args: std::vec::IntoIter<String>,
+    context: &CommandContext<'_>,
 ) -> shardloom_core::Result<(DatasetUri, VortexCountExecutionRequest)> {
     let dataset_uri = args.next().ok_or_else(|| ShardLoomError::new(
         "vortex-count requires a dataset URI and explicit memory_gb (or memory_bytes) and max_parallelism"
@@ -6561,7 +6662,8 @@ pub(crate) fn parse_vortex_count_args(
     if execute {
         args.next();
     }
-    let resources = crate::execution_resources::ResourceArguments::parse_complete(args)?;
+    let resources =
+        crate::execution_resources::ResourceArguments::parse_complete_in_context(args, context)?;
     Ok((
         uri,
         if execute {
@@ -6575,8 +6677,9 @@ pub(crate) fn parse_vortex_count_args(
 pub(crate) fn handle_vortex_count(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &CommandContext<'_>,
 ) -> ExitCode {
-    let (uri, execution_request) = match parse_vortex_count_args(args) {
+    let (uri, execution_request) = match parse_vortex_count_args_in_context(args, context) {
         Ok(parsed) => parsed,
         Err(error) => {
             return emit_error(
@@ -6587,12 +6690,20 @@ pub(crate) fn handle_vortex_count(
             );
         }
     };
+    let resources = match execution_request {
+        VortexCountExecutionRequest::MetadataOnly(resources)
+        | VortexCountExecutionRequest::LocalEncodedCount(resources) => resources,
+    };
+    let admission = match context.admit_for_command(resources, "vortex-count", format) {
+        Ok(admission) => admission,
+        Err(code) => return code,
+    };
     match execution_request {
         VortexCountExecutionRequest::MetadataOnly(resources) => {
-            handle_vortex_count_metadata(uri, resources, format)
+            handle_vortex_count_metadata(uri, resources, format, &admission)
         }
         VortexCountExecutionRequest::LocalEncodedCount(resources) => {
-            handle_vortex_count_local_encoded(uri, resources, format)
+            handle_vortex_count_local_encoded(uri, resources, format, &admission)
         }
     }
 }
@@ -6680,8 +6791,16 @@ pub(crate) fn handle_vortex_query_trace(
 pub(crate) fn handle_vortex_count_where(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &CommandContext<'_>,
 ) -> ExitCode {
-    handle_vortex_count_where_with_facade(args, format, "vortex-count-where", Vec::new())
+    handle_vortex_count_where_dispatch(
+        args,
+        format,
+        "vortex-count-where",
+        Vec::new(),
+        None,
+        context,
+    )
 }
 
 pub(crate) fn handle_vortex_count_where_with_facade(
@@ -6689,12 +6808,43 @@ pub(crate) fn handle_vortex_count_where_with_facade(
     format: OutputFormat,
     emit_command: &'static str,
     extra_fields: Vec<(String, String)>,
+    admission: &CommandAdmission<'_>,
+) -> ExitCode {
+    handle_vortex_count_where_dispatch(
+        args,
+        format,
+        emit_command,
+        extra_fields,
+        Some(admission),
+        &CommandContext::default(),
+    )
+}
+
+#[allow(clippy::too_many_lines)] // Preserve the complete primitive report while forwarding admission.
+fn handle_vortex_count_where_dispatch(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
+    admission: Option<&CommandAdmission<'_>>,
+    context: &CommandContext<'_>,
 ) -> ExitCode {
     let (uri, predicate_arg, predicate, local_execution_request) =
-        match parse_vortex_count_where_args(args, format) {
+        match parse_vortex_count_where_args(args, format, context) {
             Ok(parsed) => parsed,
             Err(code) => return code,
         };
+    let owned_admission = match admit_primitive_if_needed(
+        admission,
+        local_execution_request.as_ref(),
+        context,
+        emit_command,
+        format,
+    ) {
+        Ok(admission) => admission,
+        Err(code) => return code,
+    };
+    let admission = admission.or(owned_admission.as_ref());
     let request = VortexQueryPrimitiveRequest::count_where(uri.clone(), predicate.clone());
     let open = open_vortex_metadata_only(primitive_metadata_request(
         uri,
@@ -6715,7 +6865,11 @@ pub(crate) fn handle_vortex_count_where_with_facade(
     };
     let local_execution = match local_execution_request.as_ref() {
         Some(local_request) => {
-            match vortex_count_where_local_execution_evidence(&request, local_request) {
+            match vortex_count_where_local_execution_evidence(
+                &request,
+                local_request,
+                admission.expect("executing primitive has admission"),
+            ) {
                 Ok(evidence) => Some(evidence),
                 Err(error) => {
                     return emit_error(
@@ -6806,15 +6960,36 @@ fn primitive_facade_diagnostics(
 pub(crate) fn handle_vortex_project(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &CommandContext<'_>,
 ) -> ExitCode {
-    handle_vortex_project_with_facade(args, format, "vortex-project", Vec::new())
+    handle_vortex_project_dispatch(args, format, "vortex-project", Vec::new(), None, context)
 }
 
 pub(crate) fn handle_vortex_project_with_facade(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
+    admission: &CommandAdmission<'_>,
+) -> ExitCode {
+    handle_vortex_project_dispatch(
+        args,
+        format,
+        emit_command,
+        extra_fields,
+        Some(admission),
+        &CommandContext::default(),
+    )
+}
+
+#[allow(clippy::too_many_lines)] // Preserve the complete primitive report while forwarding admission.
+fn handle_vortex_project_dispatch(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
     emit_command: &'static str,
     extra_fields: Vec<(String, String)>,
+    admission: Option<&CommandAdmission<'_>>,
+    context: &CommandContext<'_>,
 ) -> ExitCode {
     let Some(uri_arg) = args.next() else {
         eprintln!(
@@ -6840,12 +7015,23 @@ pub(crate) fn handle_vortex_project_with_facade(
             return emit_error(emit_command, format, "vortex project failed", &error);
         }
     };
-    let options = match parse_vortex_filter_project_options(&mut args) {
+    let options = match parse_vortex_filter_project_options_in_context(&mut args, context) {
         Ok(options) => options,
         Err(error) => {
             return emit_error(emit_command, format, "vortex project failed", &error);
         }
     };
+    let owned_admission = match admit_primitive_if_needed(
+        admission,
+        options.local_execution_request.as_ref(),
+        context,
+        emit_command,
+        format,
+    ) {
+        Ok(admission) => admission,
+        Err(code) => return code,
+    };
+    let admission = admission.or(owned_admission.as_ref());
     let mut request = VortexQueryPrimitiveRequest::project(uri.clone(), projection);
     if let Some(limit) = options.source_order_limit {
         request = request.with_source_order_limit(limit);
@@ -6867,7 +7053,11 @@ pub(crate) fn handle_vortex_project_with_facade(
     };
     let local_execution = match options.local_execution_request.as_ref() {
         Some(local_request) => {
-            match vortex_local_primitive_cli_execution_evidence(&request, local_request) {
+            match vortex_local_primitive_cli_execution_evidence(
+                &request,
+                local_request,
+                admission.expect("executing primitive has admission"),
+            ) {
                 Ok(evidence) => Some(evidence),
                 Err(error) => {
                     return emit_error(
@@ -6936,8 +7126,16 @@ struct VortexBoundedLocalExecArgs {
 pub(crate) fn handle_vortex_filter_project(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &CommandContext<'_>,
 ) -> ExitCode {
-    handle_vortex_filter_project_with_facade(args, format, "vortex-filter-project", Vec::new())
+    handle_vortex_filter_project_dispatch(
+        args,
+        format,
+        "vortex-filter-project",
+        Vec::new(),
+        None,
+        context,
+    )
 }
 
 pub(crate) fn handle_vortex_filter_project_with_facade(
@@ -6945,8 +7143,27 @@ pub(crate) fn handle_vortex_filter_project_with_facade(
     format: OutputFormat,
     emit_command: &'static str,
     extra_fields: Vec<(String, String)>,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
-    let parsed = match parse_vortex_filter_project_args(args, format) {
+    handle_vortex_filter_project_dispatch(
+        args,
+        format,
+        emit_command,
+        extra_fields,
+        Some(admission),
+        &CommandContext::default(),
+    )
+}
+
+fn handle_vortex_filter_project_dispatch(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
+    admission: Option<&CommandAdmission<'_>>,
+    context: &CommandContext<'_>,
+) -> ExitCode {
+    let parsed = match parse_vortex_filter_project_args(args, format, context) {
         Ok(parsed) => parsed,
         Err(code) => return code,
     };
@@ -6959,6 +7176,17 @@ pub(crate) fn handle_vortex_filter_project_with_facade(
         source_order_limit,
         local_execution_request,
     } = parsed;
+    let owned_admission = match admit_primitive_if_needed(
+        admission,
+        local_execution_request.as_ref(),
+        context,
+        emit_command,
+        format,
+    ) {
+        Ok(admission) => admission,
+        Err(code) => return code,
+    };
+    let admission = admission.or(owned_admission.as_ref());
     let mut request =
         VortexQueryPrimitiveRequest::filter_and_project(uri.clone(), predicate, projection);
     if let Some(limit) = source_order_limit {
@@ -6984,6 +7212,7 @@ pub(crate) fn handle_vortex_filter_project_with_facade(
         local_execution_request.as_ref(),
         format,
         emit_command,
+        admission,
     ) {
         Ok(local_execution) => local_execution,
         Err(code) => return code,
@@ -7039,8 +7268,9 @@ pub(crate) fn handle_vortex_filter_project_with_facade(
 pub(crate) fn handle_vortex_filter(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &CommandContext<'_>,
 ) -> ExitCode {
-    handle_vortex_filter_with_facade(args, format, "vortex-filter", Vec::new())
+    handle_vortex_filter_dispatch(args, format, "vortex-filter", Vec::new(), None, context)
 }
 
 pub(crate) fn handle_vortex_filter_with_facade(
@@ -7048,8 +7278,27 @@ pub(crate) fn handle_vortex_filter_with_facade(
     format: OutputFormat,
     emit_command: &'static str,
     extra_fields: Vec<(String, String)>,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
-    let parsed = match parse_vortex_filter_args(args, format) {
+    handle_vortex_filter_dispatch(
+        args,
+        format,
+        emit_command,
+        extra_fields,
+        Some(admission),
+        &CommandContext::default(),
+    )
+}
+
+fn handle_vortex_filter_dispatch(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
+    admission: Option<&CommandAdmission<'_>>,
+    context: &CommandContext<'_>,
+) -> ExitCode {
+    let parsed = match parse_vortex_filter_args(args, format, context) {
         Ok(parsed) => parsed,
         Err(code) => return code,
     };
@@ -7060,6 +7309,17 @@ pub(crate) fn handle_vortex_filter_with_facade(
         source_order_limit,
         local_execution_request,
     } = parsed;
+    let owned_admission = match admit_primitive_if_needed(
+        admission,
+        local_execution_request.as_ref(),
+        context,
+        emit_command,
+        format,
+    ) {
+        Ok(admission) => admission,
+        Err(code) => return code,
+    };
+    let admission = admission.or(owned_admission.as_ref());
     let mut request = VortexQueryPrimitiveRequest::filter(uri.clone(), predicate);
     if let Some(limit) = source_order_limit {
         request = request.with_source_order_limit(limit);
@@ -7084,6 +7344,7 @@ pub(crate) fn handle_vortex_filter_with_facade(
         local_execution_request.as_ref(),
         format,
         emit_command,
+        admission,
     ) {
         Ok(local_execution) => local_execution,
         Err(code) => return code,
@@ -7296,8 +7557,9 @@ pub(crate) fn handle_vortex_bounded_local_exec(
 pub(crate) fn handle_vortex_run(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &CommandContext<'_>,
 ) -> ExitCode {
-    handle_vortex_run_with_facade(args, format, "vortex-run", Vec::new())
+    handle_vortex_run_dispatch(args, format, "vortex-run", Vec::new(), None, context)
 }
 
 pub(crate) fn handle_vortex_run_with_facade(
@@ -7305,8 +7567,27 @@ pub(crate) fn handle_vortex_run_with_facade(
     format: OutputFormat,
     emit_command: &'static str,
     extra_fields: Vec<(String, String)>,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
-    let parsed = match parse_vortex_run_args(args, format) {
+    handle_vortex_run_dispatch(
+        args,
+        format,
+        emit_command,
+        extra_fields,
+        Some(admission),
+        &CommandContext::default(),
+    )
+}
+
+fn handle_vortex_run_dispatch(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
+    admission: Option<&CommandAdmission<'_>>,
+    context: &CommandContext<'_>,
+) -> ExitCode {
+    let parsed = match parse_vortex_run_args(args, format, context) {
         Ok(parsed) => parsed,
         Err(code) => return code,
     };
@@ -7315,7 +7596,32 @@ pub(crate) fn handle_vortex_run_with_facade(
         resources,
         request,
     } = parsed;
-    let report = match run_vortex_local_engine(request) {
+    let owned_admission = if admission.is_none() {
+        match context.admit_for_command(resources, emit_command, format) {
+            Ok(admission) => Some(admission),
+            Err(code) => return code,
+        }
+    } else {
+        None
+    };
+    let admission = admission
+        .or(owned_admission.as_ref())
+        .expect("run has admission");
+    if let Err(error) = admission.check() {
+        return emit_error(emit_command, format, "vortex run cancelled", &error);
+    }
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    let report_result = match admission.native_session() {
+        Ok(session) => shardloom_vortex::local_engine::run_vortex_local_engine_in_session(
+            request,
+            session,
+            &admission.cancellation(),
+        ),
+        Err(error) => Err(error),
+    };
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+    let report_result = run_vortex_local_engine(request);
+    let report = match report_result {
         Ok(v) => v,
         Err(error) => return emit_error(emit_command, format, "vortex run failed", &error),
     };
@@ -7382,6 +7688,7 @@ struct VortexRunFieldContext<'a> {
 fn parse_vortex_run_args(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &CommandContext<'_>,
 ) -> std::result::Result<VortexRunArgs, ExitCode> {
     let Some(uri_arg) = args.next() else {
         eprintln!(
@@ -7396,14 +7703,15 @@ fn parse_vortex_run_args(
         return Err(ExitCode::from(2));
     };
     let resources =
-        crate::execution_resources::ResourceArguments::parse_complete(args).map_err(|error| {
-            emit_error(
-                "vortex-run",
-                format,
-                "vortex run requires execution resources",
-                &error,
-            )
-        })?;
+        crate::execution_resources::ResourceArguments::parse_complete_in_context(args, context)
+            .map_err(|error| {
+                emit_error(
+                    "vortex-run",
+                    format,
+                    "vortex run requires execution resources",
+                    &error,
+                )
+            })?;
     let uri = DatasetUri::new(uri_arg)
         .map_err(|error| emit_error("vortex-run", format, "vortex run failed", &error))?;
     let primitive = parse_vortex_local_engine_primitive(&primitive_arg)
@@ -8455,6 +8763,7 @@ fn vortex_run_human_text(
 fn parse_vortex_filter_project_args(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &CommandContext<'_>,
 ) -> std::result::Result<VortexFilterProjectArgs, ExitCode> {
     let Some(uri_arg) = args.next() else {
         eprintln!(
@@ -8498,14 +8807,15 @@ fn parse_vortex_filter_project_args(
             &error,
         )
     })?;
-    let options = parse_vortex_filter_project_options(&mut args).map_err(|error| {
-        emit_error(
-            "vortex-filter-project",
-            format,
-            "vortex filter project failed",
-            &error,
-        )
-    })?;
+    let options =
+        parse_vortex_filter_project_options_in_context(&mut args, context).map_err(|error| {
+            emit_error(
+                "vortex-filter-project",
+                format,
+                "vortex filter project failed",
+                &error,
+            )
+        })?;
     Ok(VortexFilterProjectArgs {
         uri,
         predicate_arg,
@@ -8517,8 +8827,9 @@ fn parse_vortex_filter_project_args(
     })
 }
 
-fn parse_vortex_filter_project_options(
+fn parse_vortex_filter_project_options_in_context(
     args: &mut impl Iterator<Item = String>,
+    context: &CommandContext<'_>,
 ) -> shardloom_core::Result<VortexFilterProjectCliOptions> {
     let mut args = args.peekable();
     let mut execute = false;
@@ -8570,7 +8881,7 @@ fn parse_vortex_filter_project_options(
     }
     let local_execution_request = if execute {
         Some(VortexLocalPrimitiveCliExecutionRequest {
-            resources: resources.resolve()?,
+            resources: context.resolve(&resources)?,
         })
     } else {
         if resources.optional()?.is_some() {
@@ -8591,25 +8902,31 @@ fn vortex_filter_project_local_execution(
     local_execution_request: Option<&VortexLocalPrimitiveCliExecutionRequest>,
     format: OutputFormat,
     emit_command: &'static str,
+    admission: Option<&CommandAdmission<'_>>,
 ) -> std::result::Result<Option<VortexLocalPrimitiveCliExecutionEvidence>, ExitCode> {
     let Some(local_request) = local_execution_request else {
         return Ok(None);
     };
-    vortex_local_primitive_cli_execution_evidence(request, local_request)
-        .map(Some)
-        .map_err(|error| {
-            emit_error(
-                emit_command,
-                format,
-                "vortex filter project local primitive execution failed",
-                &error,
-            )
-        })
+    vortex_local_primitive_cli_execution_evidence(
+        request,
+        local_request,
+        admission.expect("executing primitive has admission"),
+    )
+    .map(Some)
+    .map_err(|error| {
+        emit_error(
+            emit_command,
+            format,
+            "vortex filter project local primitive execution failed",
+            &error,
+        )
+    })
 }
 
 fn parse_vortex_filter_args(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &CommandContext<'_>,
 ) -> std::result::Result<VortexFilterArgs, ExitCode> {
     let Some(uri_arg) = args.next() else {
         eprintln!(
@@ -8627,7 +8944,7 @@ fn parse_vortex_filter_args(
         .map_err(|error| emit_error("vortex-filter", format, "vortex filter failed", &error))?;
     let predicate = parse_tiny_predicate(&predicate_arg)
         .map_err(|error| emit_error("vortex-filter", format, "vortex filter failed", &error))?;
-    let options = parse_vortex_filter_project_options(&mut args)
+    let options = parse_vortex_filter_project_options_in_context(&mut args, context)
         .map_err(|error| emit_error("vortex-filter", format, "vortex filter failed", &error))?;
     Ok(VortexFilterArgs {
         uri,
@@ -8692,25 +9009,31 @@ fn vortex_filter_local_execution(
     local_execution_request: Option<&VortexLocalPrimitiveCliExecutionRequest>,
     format: OutputFormat,
     emit_command: &'static str,
+    admission: Option<&CommandAdmission<'_>>,
 ) -> std::result::Result<Option<VortexLocalPrimitiveCliExecutionEvidence>, ExitCode> {
     let Some(local_request) = local_execution_request else {
         return Ok(None);
     };
-    vortex_local_primitive_cli_execution_evidence(request, local_request)
-        .map(Some)
-        .map_err(|error| {
-            emit_error(
-                emit_command,
-                format,
-                "vortex filter local primitive execution failed",
-                &error,
-            )
-        })
+    vortex_local_primitive_cli_execution_evidence(
+        request,
+        local_request,
+        admission.expect("executing primitive has admission"),
+    )
+    .map(Some)
+    .map_err(|error| {
+        emit_error(
+            emit_command,
+            format,
+            "vortex filter local primitive execution failed",
+            &error,
+        )
+    })
 }
 
 fn parse_vortex_count_where_args(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    context: &CommandContext<'_>,
 ) -> std::result::Result<
     (
         DatasetUri,
@@ -8754,17 +9077,18 @@ fn parse_vortex_count_where_args(
             ));
         }
     };
-    let local_execution_request = match parse_vortex_count_where_local_execution_args(args) {
-        Ok(request) => request,
-        Err(error) => {
-            return Err(emit_error(
-                "vortex-count-where",
-                format,
-                "vortex count where failed",
-                &error,
-            ));
-        }
-    };
+    let local_execution_request =
+        match parse_vortex_local_primitive_cli_execution_args_in_context(&mut args, context) {
+            Ok(request) => request,
+            Err(error) => {
+                return Err(emit_error(
+                    "vortex-count-where",
+                    format,
+                    "vortex count where failed",
+                    &error,
+                ));
+            }
+        };
     Ok((uri, predicate_arg, predicate, local_execution_request))
 }
 
@@ -8772,7 +9096,11 @@ fn handle_vortex_count_metadata(
     uri: DatasetUri,
     resources: ExecutionResources,
     format: OutputFormat,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
+    if let Err(error) = admission.check() {
+        return emit_error("vortex-count", format, "vortex count failed", &error);
+    }
     let request = VortexQueryPrimitiveRequest::count_all(uri.clone());
     let open = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri, resources));
     let summary = if let Ok(report) = open {
@@ -8860,14 +9188,25 @@ fn handle_vortex_count_local_encoded(
     uri: DatasetUri,
     resources: ExecutionResources,
     format: OutputFormat,
+    admission: &CommandAdmission<'_>,
 ) -> ExitCode {
-    let (encoded_report, local_report) =
-        match run_vortex_approved_local_encoded_count(uri.clone(), resources) {
-            Ok(reports) => reports,
-            Err(error) => {
-                return emit_error("vortex-count", format, "vortex count failed", &error);
-            }
-        };
+    if let Err(error) = admission.check() {
+        return emit_error("vortex-count", format, "vortex count failed", &error);
+    }
+    let result =
+        build_vortex_encoded_count_readiness(uri.clone(), resources).and_then(|readiness| {
+            run_vortex_approved_local_encoded_count_with_admission(
+                uri.clone(),
+                &readiness,
+                Some(admission),
+            )
+        });
+    let (encoded_report, local_report) = match result {
+        Ok(reports) => reports,
+        Err(error) => {
+            return emit_error("vortex-count", format, "vortex count failed", &error);
+        }
+    };
     let streaming_plan = match build_vortex_count_local_streaming_batch_plan(uri, resources) {
         Ok(report) => report,
         Err(error) => {

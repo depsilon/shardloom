@@ -69,6 +69,14 @@ impl ResourceArguments {
     /// Read a complete resource tail. Historical explicit GiB/lane positionals
     /// remain accepted; named options provide bytes, origins and ceilings.
     pub(crate) fn parse_complete(args: impl Iterator<Item = String>) -> Result<ExecutionResources> {
+        Self::parse_complete_in_context(args, &crate::command_context::CommandContext::default())
+    }
+
+    /// Resolve a complete resource tail against the caller's explicit command context.
+    pub(crate) fn parse_complete_in_context(
+        args: impl Iterator<Item = String>,
+        context: &crate::command_context::CommandContext<'_>,
+    ) -> Result<ExecutionResources> {
         let mut args = args.peekable();
         let mut arguments = Self::default();
         arguments.parse_legacy_prefix(&mut args)?;
@@ -79,7 +87,7 @@ impl ResourceArguments {
                 )));
             }
         }
-        arguments.resolve()
+        context.resolve(&arguments)
     }
 
     pub(crate) fn parse_legacy_prefix(

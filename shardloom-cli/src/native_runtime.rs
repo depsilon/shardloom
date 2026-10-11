@@ -1,5 +1,5 @@
 //! Callable SQL preparation over the CLI's shared parser, source normalization
-//! and native executor. This module does not emit stdout or start a worker.
+//! and native executor. This module does not emit stdout or start a worker process.
 
 use super::{PublicSourceBinding, PublicWorkflowRouteRequest, resident_relational};
 use shardloom_core::{DatasetUri, ExecutionResources, Result, ShardLoomError};
@@ -12,6 +12,10 @@ use shardloom_vortex::{
 #[path = "native_runtime_owner.rs"]
 mod owner;
 pub use owner::EmbeddedExecutionOwner;
+
+#[cfg(test)]
+#[path = "native_command_admission_tests.rs"]
+mod command_admission_tests;
 
 /// An explicitly declared source at the shared SQL boundary.
 #[derive(Clone)]
@@ -72,12 +76,29 @@ fn command_json_in_context(
         ));
     }
     args.extend(["--format".into(), "json".into()]);
-    crate::cli_output::capture_json(|| {
-        crate::run_with_session_and_context(
-            args,
-            &mut super::PublicExecutionSession::default(),
-            context,
-        );
+    // Legacy command reports retain deeply nested planning evidence. Give this
+    // synchronous, joined call the same stack used by CLI command validation;
+    // an embedding thread (including a Python thread) may have a smaller stack.
+    // Capture inside the thread because command output scopes are thread-local.
+    let dependency = shardloom_vortex::resident_session::ResidentOperationDependency::capture();
+    std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .name("shardloom-command".into())
+            .stack_size(crate::CLI_STACK_SIZE)
+            .spawn_scoped(scope, || {
+                dependency.run(|| {
+                    crate::cli_output::capture_json(|| {
+                        crate::run_with_session_and_context(
+                            args,
+                            &mut super::PublicExecutionSession::default(),
+                            context,
+                        );
+                    })
+                })
+            })
+            .map_err(|error| failed(&format!("command thread could not start: {error}")))?
+            .join()
+            .map_err(|_| failed("command thread panicked"))?
     })
 }
 
@@ -243,8 +264,11 @@ pub fn prepare_sql_with_spill(
             return Err(failed("source reference is declared more than once"));
         }
     }
-    let operation =
-        resident_relational::prepare_in_session(statement, &request, session, |schemas| {
+    let operation = resident_relational::prepare_in_session(
+        statement,
+        &request,
+        session,
+        |schemas| {
             for binding in bindings {
                 cancellation.check()?;
                 if let SqlSource::Memory(source) = &binding.source {
@@ -262,7 +286,9 @@ pub fn prepare_sql_with_spill(
                 }
             }
             Ok(())
-        })?;
+        },
+        cancellation,
+    )?;
     cancellation.check()?;
     Ok(operation)
 }
