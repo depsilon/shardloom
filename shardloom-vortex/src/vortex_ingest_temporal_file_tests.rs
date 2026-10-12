@@ -31,7 +31,7 @@ fn flat_control(context: &LocalVortexWriteContext, path: &Path, array: &ArrayRef
         .unwrap();
 }
 
-fn physical_encodings(context: &LocalVortexWriteContext, path: &Path) -> BTreeSet<String> {
+fn physical_inventory(context: &LocalVortexWriteContext, path: &Path) -> Value {
     let file = context
         .runtime
         .block_on(context.session.open_options().open_path(path))
@@ -50,7 +50,11 @@ fn physical_encodings(context: &LocalVortexWriteContext, path: &Path) -> BTreeSe
         ))
         .unwrap();
     assert_eq!(inventory["complete_flat_inspection"], true);
-    inventory["flat_references"]
+    inventory
+}
+
+fn physical_encodings(context: &LocalVortexWriteContext, path: &Path) -> BTreeSet<String> {
+    physical_inventory(context, path)["flat_references"]
         .as_array()
         .unwrap()
         .iter()
@@ -58,6 +62,73 @@ fn physical_encodings(context: &LocalVortexWriteContext, path: &Path) -> BTreeSe
         .flat_map(|entry| entry["stored_array_nodes"].as_array().unwrap())
         .map(|node| node["encoding_id"].as_str().unwrap().to_owned())
         .collect()
+}
+
+#[test]
+fn full_domain_timestamp_nested_compression_certificate_matches_mixed_subtrees() {
+    let directory = Directory::new();
+    LOCAL_VORTEX_WRITE_CONTEXT.with(|cell| {
+        let context = cell.borrow();
+        let _drivers =
+            crate::resident_worker_group::ResidentWorkerGroup::new(&context.runtime, 1).unwrap();
+        let rows = 256;
+        let sibling = PrimitiveArray::from_iter(std::iter::repeat_n(42_i64, rows)).into_array();
+        let mixed = StructArray::new(
+            FieldNames::from(["timestamp", "sibling"]),
+            vec![
+                timestamp(&(0..rows).map(|row| Some(i64::MIN + i64::try_from(row).unwrap())).collect::<Vec<_>>()),
+                sibling.clone(),
+            ],
+            rows,
+            Validity::from_iter((0..rows).map(|row| !row.is_multiple_of(7))),
+        )
+        .into_array();
+        let other = StructArray::new(
+            FieldNames::from(["sibling"]),
+            vec![sibling],
+            rows,
+            Validity::NonNullable,
+        )
+        .into_array();
+        let array = StructArray::new(
+            FieldNames::from(["mixed", "other"]),
+            vec![mixed, other],
+            rows,
+            Validity::NonNullable,
+        )
+        .into_array();
+        let mut execution = context.session.create_execution_ctx();
+        let expected = values(&array, &mut execution);
+        for composition in [Composition::Default, Composition::FastLoad, Composition::Balanced, Composition::SourceText] {
+            let path = directory.0.join(format!("mixed-{composition:?}.vortex"));
+            let result = context.write_array(
+                &path, &array, false, &decision(composition, &path), "test",
+                &LiveMemoryPool::new(16 << 20).unwrap(),
+            ).unwrap();
+            let inventory = physical_inventory(&context, &path);
+            for (field, encoding) in [("mixed", "vortex.constant"), ("other", "vortex.primitive")] {
+                let stored = inventory["flat_references"].as_array().unwrap().iter()
+                    .filter(|entry| entry["column_path"] == json!([field])
+                        && entry["auxiliary_path"].as_array().unwrap().is_empty())
+                    .flat_map(|entry| entry["stored_array_nodes"].as_array().unwrap())
+                    .filter(|node| node["physical_child_path"] == json!(["sibling"]))
+                    .map(|node| node["encoding_id"].as_str().unwrap())
+                    .collect::<Vec<_>>();
+                assert!(!stored.is_empty(), "{composition:?} {field}: {inventory}");
+                assert!(stored.iter().all(|actual| *actual == encoding), "{composition:?} {field}: {stored:?}");
+            }
+            let file = context.runtime.block_on(context.session.open_options().open_path(&path)).unwrap();
+            assert_eq!(file.dtype(), array.dtype());
+            let mut actual = Vec::new();
+            for chunk in file.scan().unwrap().with_ordered(true).into_array_iter(&context.runtime).unwrap() {
+                actual.extend(values(&chunk.unwrap(), &mut execution));
+            }
+            assert_eq!(actual, expected, "{composition:?}");
+            assert!(result.writer_compression_policy.contains(
+                ";nested_fields=timestamp_bearing_top_level_subtrees_native_btrblocks;other_top_level_nested_fields=preserved_uncompressed"
+            ), "{composition:?}: {}", result.writer_compression_policy);
+        }
+    });
 }
 
 fn wrapped_timestamp(values: &[Option<i64>], shape: &str) -> ArrayRef {

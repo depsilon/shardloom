@@ -90,6 +90,8 @@ pub(super) fn field_writers(
         .zip(fields.fields())
         .filter(|(_, dtype)| preserve_field(dtype))
         .map(|(name, dtype)| {
+            // Compression visits every compatible child of this top-level
+            // field, including non-timestamp siblings in its nested subtree.
             let selected: &Arc<dyn LayoutStrategy> = if contains_full_domain_timestamp(&dtype) {
                 timestamp.get_or_insert_with(|| timestamp_writer(session))
             } else {
@@ -129,7 +131,7 @@ pub(super) fn append_evidence(
                 .fields()
                 .any(|child| is_nested(&child) && contains_full_domain_timestamp(&child))
         }) {
-            compression.push_str(";nested_fields=timestamp_subtrees_native_btrblocks;other_nested_fields=preserved_uncompressed");
+            compression.push_str(";nested_fields=timestamp_bearing_top_level_subtrees_native_btrblocks;other_top_level_nested_fields=preserved_uncompressed");
         } else {
             compression.push_str(";scope=scalar_fields;nested_fields=preserved_uncompressed");
         }

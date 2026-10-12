@@ -160,7 +160,11 @@ is admitted. Existing uninstrumented provider scratch and process-RSS exclusions
 remain explicit rather than being relabeled as covered allocations.
 
 Existing writer certificates must identify the applied compression and statistics
-policy. Readers using the unpatched provider may still have its calendar defect;
+policy. Timestamp-bearing top-level nested fields use native compression for the
+whole subtree, including compatible non-timestamp siblings; other top-level
+nested fields retain their uncompressed preservation policy. Serialized sibling
+encodings and complete values are checked across all four write compositions.
+Readers using the unpatched provider may still have its calendar defect;
 this change cannot claim to repair those external readers. Vortex remains native
 input/output, with `fallback_attempted=false` and `external_engine_invoked=false`.
 

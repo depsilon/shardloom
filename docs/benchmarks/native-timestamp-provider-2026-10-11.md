@@ -96,6 +96,29 @@ The final public acceptance uses source identity
 This identity hashes the full current source map, including the three recorded
 verification changes; it is separate from the original compiled source identity.
 
+## Review correction after complete UAT
+
+PR #1543 review identified an overbroad certificate statement: compression visits
+the whole timestamp-bearing top-level nested field, including compatible
+non-timestamp siblings. Only other top-level nested fields retain the uncompressed
+preservation policy. The correction names those scopes explicitly; it changes no
+physical writer algorithm. A new regression writes a mixed nullable struct and
+an unrelated struct through all four compositions, inspects the serialized
+sibling encodings, and compares every reopened dtype, null and value. It fails
+with the previous certificate and passes with the corrected certificate.
+
+The [review receipt](evidence/native-timestamp-certificate-review-2026-10-11.json)
+binds the two changed source files to the prior 2,108-file source map. Formatting,
+default workspace Clippy, all 3,217 default workspace tests, native workspace
+Clippy and all 12 selected full-domain writer tests pass. The
+[complete review packet](evidence/native-timestamp-certificate-review-2026-10-11.json.xz)
+retains the source map, exact patch, checks, logs and failed regression. The first
+regression command selected zero tests and is preserved without acceptance credit.
+Its compressed SHA-256 is
+`554416d397db888ed3cb24cfb218e0315c8fbd8519addafe3cc89f56f7279307`.
+The earlier UAT and performance observations retain their original source and
+binary identities; neither was repeated for this certificate-only correction.
+
 ## Complete writer and reopen comparison
 
 Accepted cohort: `timestamp-writer-measurement-316`. Each of seven workloads
