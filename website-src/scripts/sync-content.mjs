@@ -527,7 +527,12 @@ The [local acceptance report](https://github.com/depsilon/shardloom/blob/main/do
 records installed-wheel checks and paired complete Python workflows for input,
 output, retained chains, short calls, wide plans and a native-file query.
 Those measurements establish their own workflow scope; no new ingest or Full43
-measurement is claimed. Platform and release acceptance remain separate.
+measurement is claimed. PR #1541 subsequently completed all 44 hosted checks,
+including all 75 installed native methods on each Linux Python 3.10/3.13 and
+macOS arm64 Python 3.13 wheel lane. The
+[hosted receipt](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-python-surface-hosted-2026-10-11.json)
+records those builds and production verification. Broader platform/workload
+acceptance and public distribution remain separate.
 
 ## Consume results in batches
 
@@ -625,7 +630,7 @@ page describes current coverage gaps.`,
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 10, 2026.
+Current capabilities, reviewed October 11, 2026.
 
 ## Native Execution
 
@@ -801,6 +806,23 @@ their release-time limits.
 The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
 binds the exact source and complete values across admitted destinations.
 
+Current source builds preserve the full signed Int64 domain of timezone-free
+microsecond timestamps through native compression, available file statistics
+and reopening. The
+[timestamp acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-timestamp-provider-2026-10-11.md)
+records complete local and fresh-UAT checks, measured write/read tradeoffs and
+hosted integration status. Other temporal units and external unpatched readers
+retain their own limits.
+
+A saved native result can be reopened by a later process for another computation.
+Existing native-file admission avoids repeating external-format ingestion.
+Computed-result outputs currently preserve dtype, validity and serializable
+native arrays, but do not recompute file-level statistics or copy source layout
+metadata. The
+[persisted-output reuse plan](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-persisted-reuse-2026-10-11.md)
+tracks useful preparation that survives writer close and is actually used by
+later queries. That work remains distinct from retaining an in-memory result.
+
 Flat aggregate collection and writes use the same native admission, carrying the complete
 filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.
 Explicit SQL \`NULLS FIRST\`/\`NULLS LAST\` and Python \`sort(..., nulls="first")\` or
@@ -870,6 +892,10 @@ aggregates avoid payload and worker admission, including when no spare payload c
 
 Current source builds require explicit memory and parallelism limits before every execution, data inspection, and preparation through Rust, the CLI, or Python. In Python, configure \`memory_gb\` (GiB) and \`max_parallelism\` on a context/session or terminal call; lazy declarations and inert discovery need no allocation. This contract supersedes the numeric defaults in the unchanged v0.5.1 packages. The [required-resource contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/required-execution-resources-2026-10-10.md) defines exact bytes, inheritance, authorization ceilings and reports that separate declared allocation from admitted resources and observed use.
 The [complete local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/required-execution-resources-2026-10-10.md) checks rejection before input demand, shared ownership, complete workflows and every retained resource report. Unmeasured usage remains unavailable; a declared budget is neither a measured peak nor a whole-process memory limit.
+Required-resource and native Python ownership integration completed together in
+[PR #1541](https://github.com/depsilon/shardloom/pull/1541), with all 44 hosted
+checks and the three installed native-wheel lanes recorded in the
+[hosted receipt](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-python-surface-hosted-2026-10-11.json).
 The runtime selects concurrency within the supplied maximum and the CPU capacity available
 to the process; an explicit one-CPU allocation stays one. Streaming ingestion shares this
 grant across ready source, conversion, statistics, and writer tasks. Full bounded queues
@@ -966,7 +992,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 9, 2026**. See the
+Current capabilities, reviewed **October 11, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -980,6 +1006,15 @@ for the detailed evidence behind this scope.
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, nullable multi-key relational ordering spill, and explicit general aggregation, join, analytic-window and relational pivot spill in current source builds. File/resident-memory pivot pressure has complete local acceptance, independent packet inspection and hosted integration in PR #1534. | Spill remains operator-specific; broader reader/codec accounting and whole-process RSS bounds remain separate work. Recovery is owned cleanup and restart, not resuming unfinished execution. |
 | Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
+
+The optional [native Python interface](/field-guide/python-surface#keep-results-native)
+and required-resource contract have completed hosted acceptance in PR #1541.
+Published v0.5.1 packages remain unchanged. The
+[full-domain timestamp change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-timestamp-provider-2026-10-11.md)
+has complete local and fresh-UAT evidence, with hosted status in its report.
+Computed native outputs can be reopened, but useful output statistics and
+physical preparation remain an explicit
+[persisted-output reuse work item](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-persisted-reuse-2026-10-11.md).
 
 The published engine includes reviewed FSST/Zstd buffer accounting and
 [Python batch input/incremental results](/field-guide/python-surface#consume-results-in-batches).
