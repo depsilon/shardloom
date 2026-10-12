@@ -16,6 +16,7 @@ import time
 import shardloom as sl
 from shardloom.errors import ShardLoomCommandError
 from native_streaming_order_pressure_cases import encoded
+from native_report_evidence import require_native_allocation_peak
 
 GROUPS = 16_381
 ROWS = 2 * GROUPS + 7
@@ -113,7 +114,7 @@ def run(harness):
         assert trace["ended"] and trace["closed"] and trace["rows"] == ROWS
         harness.completed(name, envelope, batches=ROWS // BATCH_ROWS + 1, rows=ROWS)
         assert envelope.field_int("resident_memory_limit_bytes") == GRANT
-        assert envelope.field_int("resident_peak_reserved_buffer_bytes") <= GRANT
+        require_native_allocation_peak(name, envelope, GRANT)
         assert envelope.field_int("relational_ordered_aggregate_stages") == int(spilled)
         assert envelope.field_bool("spill_io_performed") is spilled
         if spilled:
@@ -173,6 +174,7 @@ def run(harness):
                                            grouped, trace, slow=grouped and spilled)
                 verified(name, envelope, trace, grouped, spilled)
                 result["peak_reserved_bytes"] = envelope.field_int("resident_peak_reserved_buffer_bytes")
+                result["allocation_peak_reserved_bytes"] = require_native_allocation_peak(name, envelope, GRANT)
                 return result
             harness.case(name, check)
 

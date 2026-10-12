@@ -1,5 +1,49 @@
 # Vortex Upstream Dependency Review
 
+## October 11, 2026 full-domain timestamp provider review
+
+The timestamp follow-up reviews an Apache-2.0 patch of the published
+`vortex-array` 0.85.0 archive, SHA-256
+`e9cf8cf4f7f2fe72b14866ead164a6366933545289fd8f9cf9ce53c47f094393`.
+The normalized manifest declares Apache-2.0, the source retains Vortex copyright
+headers, and the [upstream license at its recorded VCS revision](https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE)
+matches SHA-256 `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`.
+Its dirty VCS marker makes the registry archive authoritative. Retain its original
+member hashes and `Cargo.toml.orig`; the crate-local lockfile is recorded but
+excluded because workspace resolution owns the dependency graph.
+
+The patch keeps the existing timestamp extension identity, Int64 storage,
+metadata format and native provider APIs. It admits timezone-free microsecond
+scalars over their full storage domain and formats values outside the calendar
+as exact epoch microseconds. Other units, timezone policy and storage validation
+retain their existing boundaries. The crate remains optional behind existing
+Vortex features; no query engine, compatibility intermediate or dependency
+upgrade is introduced. The [implementation contract](../architecture/native-timestamp-provider-2026-10-11.md)
+requires endpoint, statistics, compression, pruning, resource and complete-workflow
+proof before acceptance. This entry records reviewed intake, not completed proof.
+
+The same timestamp acceptance also reproduces a null-semantics defect in the
+published `vortex-datetime-parts` 0.85.0 comparison kernel. Timestamp validity
+lives in its days child, but equality/inequality combine non-null seconds and
+subseconds through Kleene Boolean operations. A false/true component can
+therefore replace a null timestamp result. The complete native file filter and
+whole-array comparison regressions both reproduce the defect; scalar-at-a-time
+evaluation alone does not exercise that encoded kernel.
+
+Its reviewed published archive has SHA-256
+`bbc70f1030c5f6d4ebf498694b844666ddd7573bf7239949539f75eb06c57b41`,
+21 regular files and 139,162 uncompressed bytes. All 16 Rust files retain
+Apache-2.0/Vortex copyright headers; the manifest declares Apache-2.0 and the
+recorded dirty VCS revision is the same reviewed revision above. Retain the
+original hashes, license, manifest and metadata in a focused provider patch.
+Reapply the days validity to handled encoded comparison results using the
+existing native mask operation. Keep array identities, compression, file
+representation, resource ownership and dependency versions unchanged. The
+current upstream [comparison implementation](https://github.com/vortex-data/vortex/blob/develop/encodings/datetime-parts/src/compute/compare.rs)
+also combines these components without that final validity mask; upgrading is
+not an established remedy. This is reviewed patch intake, with final regression
+and complete-workflow acceptance still pending.
+
 ## October 7, 2026 FSST admission correction
 
 The input-completion integration retains Vortex 0.85.0 and `fsst-rs` 0.6.0.

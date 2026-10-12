@@ -14,6 +14,7 @@ import time
 
 from shardloom.errors import ShardLoomCommandError
 from native_streaming_order_pressure_cases import encoded
+from native_report_evidence import require_native_allocation_peak
 
 ROWS = 24_013
 BATCH_ROWS = 997
@@ -86,7 +87,7 @@ def run(harness):
         assert trace["ended"] and trace["closed"] and trace["rows"] == ROWS
         harness.completed(name, envelope, batches=(ROWS + BATCH_ROWS - 1) // BATCH_ROWS, rows=ROWS)
         assert envelope.field_int("resident_memory_limit_bytes") == GRANT
-        assert envelope.field_int("resident_peak_reserved_buffer_bytes") <= GRANT
+        require_native_allocation_peak(name, envelope, GRANT)
         assert envelope.field_int("native_input_window_rows_detached") == ROWS
         assert envelope.field_int("native_input_ordering_rows_detached") == 0
         assert envelope.field_int("relational_ordered_window_stages") == int(spilled)
@@ -151,6 +152,7 @@ def run(harness):
             envelope, observation = capture(name, query.iter_batches(batch_rows=257, **requested), trace, slow=spilled)
             verified(name, envelope, trace, spilled)
             observation["peak_reserved_bytes"] = envelope.field_int("resident_peak_reserved_buffer_bytes")
+            observation["allocation_peak_reserved_bytes"] = require_native_allocation_peak(name, envelope, GRANT)
             return observation
         harness.case(name, check)
 

@@ -130,6 +130,57 @@ fn worker_relational_families_reuse_bound_readers_and_deliver_complete_results()
 }
 
 #[test]
+fn worker_relational_source_effects_follow_current_plan_with_shared_session_counters() {
+    let path = fixture();
+    let mut worker = Worker::new();
+    assert_metadata_count_certificate(&worker.count(&path, "2"), "5", "1", "true");
+    let file = format!(
+        "SELECT value FROM (SELECT value FROM '{}') AS source LIMIT 2",
+        path.display()
+    );
+    for (statement, expected, opens, first_execution, source_io) in [
+        (
+            "SELECT value FROM range(7,9)",
+            json!([{"value":7},{"value":8}]),
+            1,
+            2,
+            false,
+        ),
+        (file.as_str(), json!([{"value":1},{"value":2}]), 2, 4, true),
+        ("SELECT 42 AS value", json!([{"value":42}]), 2, 6, false),
+    ] {
+        for repeat in 0..2 {
+            let result = worker.relational(statement, &[]);
+            assert_eq!(result["status"], "success", "{result}");
+            assert_eq!(json!(complete_result::rows(&result)), expected);
+            for (key, value) in [
+                ("resident_source_opens", opens.to_string()),
+                (
+                    "resident_completed_executions",
+                    (first_execution + repeat).to_string(),
+                ),
+                ("resident_counter_scope", "shared_session_lifetime".into()),
+                (
+                    "relational_prepared_file_source_count",
+                    usize::from(source_io).to_string(),
+                ),
+                ("source_io_performed", source_io.to_string()),
+                (
+                    "resident_footer_open_performed_this_call",
+                    (source_io && repeat == 0).to_string(),
+                ),
+                (
+                    "resident_relational_lowering_reused",
+                    (repeat > 0).to_string(),
+                ),
+            ] {
+                assert_eq!(field(&result, key), value, "{key}: {result}");
+            }
+        }
+    }
+}
+
+#[test]
 fn worker_flat_declared_sources_preserve_zero_limit_and_zero_offset() {
     let source = fixture().display().to_string();
     let bindings = json!({source.clone(): {"input_format":"vortex"}}).to_string();

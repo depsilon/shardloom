@@ -249,124 +249,97 @@ the ledger.
 
 ## Planned
 
-- [ ] `REQUIRED-EXECUTION-RESOURCES` require an explicit shared allocation before
-  any data inspection, preparation, producer consumption or execution.
-  - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-03/06/11/12 and CG-19/20/21/23.
-  - Contract: [required execution resources](required-execution-resources-2026-10-10.md).
-    The October 10 maintainer direction makes this the next implementation unit.
-    Remove numeric production defaults; inherit validated context/session or
-    platform configuration, allow authorized call overrides and retain exact bytes
-    and per-field origin. Environment loading is deliberate and strict.
-  - Share actual owners across preparation, retained state, execution and output;
-    report declared/admitted allocation separately from observed use and spill.
-    Missing/invalid configuration must consume no input or create output.
-  - ShardLoom technique review: dynamic scheduling, capillary demand and PulseWeave
-    operate inside explicit permission; metadata-first descriptions stay inert.
-    Preserve timing-surface and evidence-tier distinctions for observed usage.
-  - Execution checklist:
-    - [x] Implement shared resource resolution, origin and authorization limits.
-    - [x] Wire all Python, SQL, CLI, worker and native execution boundaries.
-    - [x] Prove no-consumption rejection, inherited/overridden configuration,
-      ownership, reports and complete workflows. The
-      [local acceptance](../benchmarks/required-execution-resources-2026-10-10.md)
-      records all 16 fresh source gates, 32,497 public cases and 129 Full43
-      results; complete independent readback verifies 66,055 declarations.
-    - [x] Refresh support/guide acceptance: all 14 documentation checks, ten
-      site steps and desktop/mobile rendered navigation/search checks pass.
-    - [x] Close both PR allocation-bypass findings with shared native-copy
-      ownership, explicit refusal for unbudgeted legacy facade variants, and
-      all 14 fresh source gates. The correction evidence remains separate from
-      the initial complete-workflow measurements.
-    - [x] Correct the further exact-byte aggregate-policy finding: remove candidate
-      and cache floors and preserve nonaggregate preparation. All 14 fresh source
-      gates pass, including 2,539 native Vortex and 1,338 CLI tests; the correction
-      packet preserves the failed first attempt. Hosted acceptance remains below.
-    - [x] Correct direct context resource forwarding and independent ceiling-only
-      configuration. All 660 Python tests and eight native wrapper workflows pass;
-      the separate evidence preserves failed intermediate checks and unchanged
-      Rust gate coverage. Context, client and session ceilings remain independent
-      of job grants and survive lazy plan construction.
-    - [x] Refuse non-Unix primitive execution before source/output access where
-      the shared resource owner is unavailable; do not report a declaration as
-      admitted. Default and native CLI checks pass locally. The three platform
-      regressions compile on Unix and are registered in Windows CI; actual
-      Windows execution subsequently passed all three cases on the reviewed
-      `1acbd5d6` source. That result does not certify later writer changes.
-    - [x] Close the Unix reader/export and reduced writer-profile review findings.
-      Synchronous readers, preparation identities, buffered writers and streamed
-      writers retain the admitted owner. Structured Vortex output shares its
-      retained reader's pool; reduced builds without the accounted compatibility
-      reader refuse before source access. All 16 fresh source gates pass,
-      including 2,546 native Vortex, 1,339 native CLI and 1,104 reduced-profile
-      tests. The separate correction packet preserves failed/interrupted attempts
-      and the original complete-workflow source identity.
-    - [x] Close the local fixture I/O allocation bypass and related owned-buffer
-      paths. Exact file extents, SQLite buffers, metadata, directory names,
-      table recovery and workspace writers share the command's grant. Iceberg
-      compatibility readers retain encoded ownership and visit admitted batches.
-      The fixed checkpoint reservation and uninstrumented provider/metadata
-      exclusions remain explicit. All 16 fresh source/feature gates pass,
-      including 3,181 default, 1,355 native CLI, 2,551 native Vortex and 1,118
-      reduced writer-profile tests. The separate evidence preserves failed
-      attempts and the original public-workflow/Full43 source identity.
-    - [x] Preserve all participating authorization ceilings through SQL/DataFrame
-      set operations, joins, concatenation and typed expressions, including
-      source-free subqueries and grouping/ordering. Keep the receiver's explicit
-      grant and reject incompatible allocations before input or output. Focused
-      regressions and complete native wrapper checks cover this correction;
-      its original Rust and Full43 evidence keeps separate source identities.
-    - [x] Close synthetic UDF/spill fixture ownership findings and adjacent
-      embedding, live/hybrid/distributed and local-table fixture gaps. Retain
-      explicit conservative-estimate scopes, payload/readback/staging credits,
-      pre-effect denial, output preservation and released-credit reuse. Fresh
-      source gates and the dedicated synthetic-spill CI commands pass; original
-      complete-workflow and Full43 evidence keeps its own source identity.
-    - [x] Preserve resource observations on post-admission fixed-fixture parse
-      and runtime failures, including synthetic spill constructor failures.
-      Nineteen failure cases verify complete error envelopes, retained workspace
-      observations and accurate pre-I/O spill fields. All 14 applicable fresh
-      source/feature gates pass; unchanged engine and Python evidence retains
-      its earlier identity.
-    - [x] Charge generated object/table commit text and JSON escaping to the
-      existing pool. Reject foreign or under-reserved payloads at the writer,
-      preserve previous artifacts on denial and retain sequential credit reuse.
-      Eight new regressions and all 14 applicable source/feature gates pass;
-      the correction preserves prior complete-workflow evidence identities.
-    - [ ] Complete hosted integration.
 
-- [ ] `NATIVE-PYTHON-SURFACE` expose current native data and complete operations
-  directly through Python after required resources.
+- [ ] `NATIVE-TIMESTAMP-PROVIDER` restore full-domain microsecond timestamp
+  compression and safe statistics through the existing native provider.
   - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-02/03/07/11/12 and CG-19/20/21.
-  - Contract: [native Python ownership](native-python-surface-2026-10-10.md).
-    The October 10 direction resumes native binding against the current shared
-    engine. The earlier unbuilt/unmeasured prototype is a reference, not a failed
-    performance comparison or permission to restore its narrow experimental caps.
-  - ShardLoom technique review: retain dynamic shared grants, capillary batch
-    demand, PulseWeave scheduling and metadata-first plans behind native handles.
-    Separate conversion/native/workflow timing-surface observations at the same
-    evidence-tier before accepting a measured improvement.
+  - Existing owners: PERF-07/08/11/12 and CG-19/20/21.
+  - Source: the October 10–11 maintainer direction and the
+    [provider contract](native-timestamp-provider-2026-10-11.md).
+    The original writer policy preserved valid Int64 storage by omitting
+    file-wide min/max and leaving timestamp subtrees uncompressed. The
+    implementation now restores native compression and safe available statistics
+    without narrowing the supported timestamp domain.
+  - ShardLoom technique review: restore metadata-first pruning and use the
+    existing session, capillary demand and explicit compression concurrency;
+    preserve timing-surface and resource-observation boundaries.
   - Execution checklist:
-    - [x] Retain native result/batch owners and export columnar data directly.
-    - [x] Admit direct columnar input with exact schemas and real producer owners.
-    - [x] Expose in-process sessions and complete operations through shared Rust
-      planning/execution, resources, cancellation and diagnostics.
-    - [x] Add native expression/prepared-plan handles converging with SQL's IR.
-    - [x] Verify lifetimes, failure, complete workflows and paired end-to-end
-      measurements; preserve an explicit subprocess option without semantic drift.
-      The [local acceptance report](../benchmarks/native-python-surface-2026-10-11.md)
-      records 63 installed native integration tests, 733 Python tests, all
-      applicable Rust profiles and 72 independently verified paired-workflow
-      samples. Measurements concern the Python interface, not new ingest or
-      Full43 performance. Original failures and exact source identities remain
-      preserved. The test suites overlap and must not be summed as workloads.
-    - [ ] Complete hosted integration and the native wheel platform matrix.
-  - Adjacent ingest/pruning work under PERF-07/08/11/12 must restore useful
-    full-domain timestamp compression and safe statistics with endpoint and
-    conservative-pruning proof. Do not narrow accepted temporal storage values.
-  - Both units preserve all six remaining areas, eight investigations and
-    CG-1 through CG-23 under their existing owners. Keep version 0.5.1 fixed.
+    - [x] Verify and correct the pinned scalar/calendar boundary with reviewed
+      provider provenance, endpoint construction/display and metadata tests.
+    - [x] Restore exact field statistics and useful native compression across
+      writer compositions, retained streams and nested validity boundaries.
+    - [x] Prove complete reopen/filter results, conservative pruning, resource
+      denial/lifetimes and paired complete writer costs on frozen sources.
+    - [x] Complete required source/native/public/Full43 gates, fresh full UAT
+      and independent packet/source-archive verification.
+    - [ ] Complete support evidence, hosted integration and ledger closeout.
+  - Non-goals: new temporal units or timezone semantics, an alternate engine,
+    package publication, hidden resource pools or changed allocation defaults.
+  - Acceptance: the existing full timestamp domain survives compression,
+    statistics and reopening; pruning never removes a matching value; file
+    statistics and measured writer costs have source-linked evidence.
+  - Keep `fallback_attempted=false`, `external_engine_invoked=false`, version
+    0.5.1, all six remaining areas, eight investigations and CG-1 through CG-23.
+
+- [ ] `NATIVE-PERSISTED-REUSE` make produced native output reusable physical
+  preparation for a fresh process running a different computation.
+  - V1 scope classification: `required_for_v1`.
+  - Existing owners: PERF-02/07/09/10/11/12 and CG-19/20/21.
+  - Source and intake: the October 11 maintainer clarification and
+    [persisted-output contract](native-persisted-reuse-2026-10-11.md). Existing
+    native-file admission and same-owner result intake are already implemented;
+    the computed-result writer's omitted file statistics and layout metadata are
+    the remaining output-to-next-input gap. Cross-owner transfer and independent
+    upstream-producer interchange retain their separate PERF-07 checklists.
+  - Sequence: finish the requested cleanup, fresh full UAT and timestamp PR
+    before another runtime implementation; coordinate this writer/reader work
+    with the existing broader streaming and source-composition dependencies.
+  - Shared runtime and user surface: extend admitted native writers, Vortex
+    reopening and prepared planning underneath ordinary CLI/SQL/Python/DataFrame
+    calls. No special ShardLoom Vortex mode or parallel execution route.
+  - ShardLoom technique review: preserve encoded arrays and metadata-first
+    pruning, charge capillary writer/metadata windows, admit optional preparation
+    through measured work shaping, and separate write, first-use and reuse clocks.
+    PulseWeave use must be evidenced by actual scheduling work and scarcity.
+  - Execution checklist:
+    - [ ] Map ingest-prepared, source-backed, completed, produced, streamed and
+      spill-produced writers to existing pinned Vortex statistics/layout/metadata
+      providers; record the shared extension and remaining semantic differences.
+    - [ ] Define preservation, derivation and invalidation for field identity,
+      validity, encodings, statistics, ordering, partitioning and reusable derived
+      state across projection/filter/limit/aggregate/join/sort and schema changes.
+    - [ ] Produce useful statistics from actual output batches under the shared
+      grant; preserve valid serializable physical state with versioned metadata.
+      Keep exact, conservative and unknown observations distinct.
+    - [ ] Discover and use admitted properties on ordinary reopening before
+      payload work; handle absent, stale, corrupt and incompatible metadata
+      conservatively without incorrect pruning or changed values.
+    - [ ] Verify write, durable close, producer teardown, optional move/copy and
+      fresh-process reopening for at least two different downstream computations.
+      Compare complete schemas/values/nulls/order and actual byte-work counters.
+    - [ ] Verify resource pressure, cancellation, atomic publication, preservation
+      of previous output and cleanup across all changed writer/reader boundaries.
+    - [ ] Freeze and pass complete-lifecycle retain/drop gates that include Job A
+      write/footprint/metadata costs, Job B/C first and repeated computation, and
+      small temporary-output controls before retaining costlier preparation.
+    - [ ] Complete focused writer/reopen tests, required Cargo format/lint/workspace
+      gates, public/format regressions, fresh full UAT, fidelity/support evidence,
+      documentation and hosted integration; then move the finite unit to the ledger.
+  - Acceptance: a closed ShardLoom-written file supplies valid physical preparation
+    to a new process and different computation, with observed reuse and complete
+    results; input properties are never copied blindly.
+  - Non-goals and claim boundary: no incompatible format fork, query-answer
+    tables, unapproved sidecars, implicit cross-owner sharing, new temporal domain,
+    package publication or unmeasured speedup. Keep `fallback_attempted=false`,
+    `external_engine_invoked=false`, version 0.5.1 and all existing PERF/CG owners.
+
+`REQUIRED-EXECUTION-RESOURCES` and `NATIVE-PYTHON-SURFACE` completed together in
+PR #1541 after all 44 hosted checks passed. The
+[completed ledger](phased-execution-completed-ledger.md) records the identical
+reviewed/merged trees, three installed native wheel proofs and actual production
+verification. Their original local timings keep their own source identities.
+The full-domain timestamp provider is the current finite unit; the six remaining
+areas, eight investigations and CG-1 through CG-23 retain their existing owners.
 
 `NATIVE-TYPED-INPUT` completed in PR #1540 after all 39 hosted checks passed;
 its accepted source, merge and production verification are recorded in the
@@ -1072,15 +1045,23 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     the remaining prepared/public families.
     The [relational continuation](native-relational-workflows-2026-10-01.md) adds
     retained typed joins, sets, analytic windows and scoped subqueries plus public
-    collection/writers. The October 10 maintainer direction resumes native Python
-    binding through `NATIVE-PYTHON-SURFACE` after explicit resources; broader
+    collection/writers. `NATIVE-PYTHON-SURFACE` completes the native binding
+    decision and migration in PR #1541 after explicit resources; broader
     composition, types, sources and per-family pressure transitions remain open.
   - Execution checklist:
     - [ ] Extend prepared native execution to the remaining operator families.
-    - [ ] Complete the native Python prototype/binding decision and migration;
-      persistent subprocess-worker reuse does not close this requirement.
+    - [x] Complete the native Python prototype/binding decision and migration.
+      PR #1541 proves native ownership, direct interchange, in-process execution
+      and typed prepared plans through the shared engine, with paired workflows
+      and actual installed native wheels on Linux/macOS.
+    - [ ] Measure remaining high-level builder SQL generation/parsing/lowering
+      against existing typed prepared-plan construction on complete workflows.
+      Reuse the shared native plan boundary where measured overhead is material;
+      preserve semantics, admission and source invalidation without a second route.
     - [ ] Extend separate native, worker, Python and fresh-process latency
       acceptance to remaining families, preserving invalidation and actual execution.
+    - [ ] Consume the persisted output preparation defined by
+      `NATIVE-PERSISTED-REUSE`; keep source-state reuse separate from answer caching.
   - ShardLoom technique review: SourceState reuse and metadata-first execution apply;
     no external engine or hidden result reuse is admitted.
 
@@ -1099,6 +1080,13 @@ records the measured scope and preserved staged work. No PERF or competitive gat
   - Execution checklist:
     - [ ] Extend shared admission to remaining Vortex I/O/codec/operator work
       and prove I/O progress within the CPU ceiling.
+    - [ ] Verify actual provider scheduling across driver-free configurable
+      sessions, including prepared sort/filter/projection paths. The October 11
+      retained-file observation shows a material wall/CPU change in Q24; the
+      examined scheduling path already exists in main, so this is a candidate for matched
+      diagnosis, not attribution to the timestamp patch. Evaluate admitted temporary
+      drivers within the shared grant, coordinate with operator workers, and
+      retain any correction only after complete-operation and control gates pass.
     - [ ] Inventory executable source-split/layout and Capillary/ComputePool seams;
       distinguish actual kernel scheduling from descriptor-only accounting.
     - [ ] Discover safe generation-bound native regions, coalesce actual natural
@@ -1220,6 +1208,25 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     - [ ] Complete compatibility streaming destinations and fanout from one
       single-use execution, with owned retention or spooling where required;
       validate all input before publication and preserve partial-commit recovery.
+    - [ ] Extend foreign-owner transfer to preserve admitted native encodings,
+      dictionaries and validity where possible under receiving-allocation credits;
+      measure copy/decode bytes and first-transfer/reuse cost against the current
+      bounded copier, with same-owner and generated-range controls.
+    - [ ] Reuse completed admitted native transfers/prepared sources across later
+      operations. Admit immutable cross-owner sharing only with explicit charging,
+      lifetime/revocation and isolation semantics; retain the isolated-copy path.
+    - [ ] Make native file/object recognition consistent across public entry
+      points and clarify the existing native special case in `from_arrow`. Keep
+      one shared runtime and make any API spelling change a deliberate migration.
+    - [ ] Complete the `v1_candidate_pending_feasibility` gate for encoded
+      interchange with a real independent upstream-Vortex producer/process.
+      Inspect pinned public file/array/IPC contracts, registries, alignment,
+      versions, resource ownership and corrupt-input behavior; implement a feasible
+      native boundary or record the exact external dependency and native-file
+      alternative. Measure full export/transport/import and subsequent execution.
+    - [ ] Complete `NATIVE-PERSISTED-REUSE` through the existing output writers and
+      reader/planner so fresh-process, different-query acceptance consumes actual
+      output properties; retained in-memory handoff alone does not close it.
     - [ ] Complete close/cancel/slice and copied/decoded-byte acceptance for
       those routes, validating complete requested output.
     - [ ] Replace the legacy reader-generated numeric expansion with an explicit
@@ -1283,6 +1290,9 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       and bounded merge; preserve the current writer until its lifecycle gate passes.
     - [ ] Share array ownership and compression resources with the engine governor.
     - [ ] Bound ordered completed blocks and expose backpressure/head-of-line waits.
+    - [ ] Complete output-property persistence and its write-versus-downstream-use
+      cost gates through `NATIVE-PERSISTED-REUSE`; do not infer optimized result
+      preparation from valid Vortex serialization alone.
     - [ ] Validate single-file integrity/atomicity and ship/drop on lifecycle benefit.
   - ShardLoom technique review: PulseWeave scarcity and encoded representation apply;
     do not repeat rejected huge-artifact or thread-count-only writer candidates.
@@ -3087,6 +3097,21 @@ operating models distinct, and attach them to concrete deployment/workload needs
 All six remaining areas, eight conditional investigations and CG-1 through CG-23
 remain visible; this prioritization does not reduce that scope.
 
+The October 11 intake distinguishes completed native Python/resource ownership
+from remaining streaming composition, cross-client copies and high-level plan
+construction overhead. Original interface timings retain their original builds
+and are not attributed to later package or engine changes. Its subsequent
+clarification promotes `NATIVE-PERSISTED-REUSE`: write and close a native file,
+then reopen it in a fresh process for a different computation. Native-file and
+same-owner object adapters already exist; persist valid output preparation and
+measure its later use rather than create another adapter name. The
+[persisted-output intake](native-persisted-reuse-2026-10-11.md) records every
+candidate disposition, including separately governed ownership and external
+producer interchange. Actual platform-runtime proof remains under the existing
+platform owners; local source or wheel evidence does not substitute for it.
+The requested cleanup, fresh ingest/query/format UAT and timestamp PR precede
+new runtime implementation. Version 0.5.1 and the full remaining scope stay fixed.
+
 The subsequent candidate set's exact decimal screen is dropped below its frozen
 gate, and conservative membership is dropped for high-match control regressions.
 Input completion has passed corrected local engine, documentation and hosted
@@ -3160,8 +3185,9 @@ remain unchanged.
    admission and optimized-build screening. It does not revive rejected weighted
    partials, conversion-owner allocation, topology/coalescing sweeps, universal
    state/bitmap replacements or broad codec sweeps. The later October 10
-   maintainer direction separately resumes native Python binding through
-   `NATIVE-PYTHON-SURFACE`; the older prototype was unbuilt and unmeasured.
+   maintainer direction separately resumed native Python binding through
+   `NATIVE-PYTHON-SURFACE`, completed in PR #1541; the older prototype was unbuilt
+   and unmeasured. Full-domain timestamp provider acceptance now follows.
    Consult the [control ledger](performance-control-progression-2026-09-12.md)
    and linked experiment records instead of restarting completed work.
 6. Keep large builds and UAT serial under

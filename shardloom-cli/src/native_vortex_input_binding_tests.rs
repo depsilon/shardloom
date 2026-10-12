@@ -95,6 +95,7 @@ fn one_byte_pool_denies_bind_and_collection_probe_before_missing_path_inspection
             limit_bytes: 1,
             reserved_bytes: 0,
             peak_reserved_bytes: 0,
+            allocation_peak_reserved_bytes: 0,
             denied_reservations: 2,
         }
     );
@@ -126,6 +127,7 @@ fn cancelled_and_expired_binding_reject_missing_paths_without_retaining_credits(
                 limit_bytes: MEMORY_BYTES,
                 reserved_bytes: 0,
                 peak_reserved_bytes: 0,
+                allocation_peak_reserved_bytes: 0,
                 denied_reservations: 0,
             }
         );
@@ -251,6 +253,7 @@ fn retained_grant_blocks_manifest_and_directory_expansion_then_releases_all_cred
                 limit_bytes: MEMORY_BYTES,
                 reserved_bytes: MEMORY_BYTES - 1,
                 peak_reserved_bytes: MEMORY_BYTES - 1,
+                allocation_peak_reserved_bytes: MEMORY_BYTES - 1,
                 denied_reservations: 0,
             }
         );
@@ -263,6 +266,7 @@ fn retained_grant_blocks_manifest_and_directory_expansion_then_releases_all_cred
                 limit_bytes: MEMORY_BYTES,
                 reserved_bytes: MEMORY_BYTES - 1,
                 peak_reserved_bytes: MEMORY_BYTES - 1,
+                allocation_peak_reserved_bytes: MEMORY_BYTES - 1,
                 denied_reservations: 1,
             }
         );

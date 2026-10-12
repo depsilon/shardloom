@@ -1,6 +1,11 @@
-//! Full storage-domain round trips without the provider's calendar scalar path.
+//! Full storage-domain round trips, native compression and exact file statistics.
 
 use super::*;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "vortex_ingest_temporal_file_tests.rs"]
+mod files;
+#[path = "vortex_ingest_temporal_resource_tests.rs"]
+mod resources;
 use serde_json::{Value, json};
 use vortex::array::{
     ExecutionCtx,
@@ -119,8 +124,7 @@ fn fixture(profile: Values) -> ArrayRef {
     }
 }
 
-// Scalar construction of an extension is precisely the restricted provider
-// boundary under test. Compare its integer storage and separately assert DType,
+// Compare exact integer storage independently of calendar formatting and assert DType,
 // field order, extension metadata, list shape and every parent validity bit.
 fn values(array: &ArrayRef, execution: &mut ExecutionCtx) -> Vec<Value> {
     match array.dtype() {
@@ -241,12 +245,12 @@ fn write_and_verify(
         assert!(
             result
                 .writer_layout_strategy_applied
-                .contains("file_min_max=omitted_for_full_domain_timestamp")
+                .contains("file_min_max=provider_exact_when_present")
         );
         assert!(
             result
                 .writer_compression_policy
-                .contains("timestamp_fields=preserved_uncompressed")
+                .contains("timestamp_fields=native_btrblocks")
         );
     } else {
         let (options, _) = stream_options(
@@ -312,17 +316,42 @@ fn verify_statistics(
     let statistics = file.footer().statistics().unwrap();
     for index in 0..statistics.stats_sets().len() {
         let (stats, _) = statistics.get(index);
-        assert!(stats.get(Stat::Min).is_absent());
-        assert!(stats.get(Stat::Max).is_absent());
+        let source = if array.dtype().is_struct() {
+            array
+                .as_::<vortex::array::arrays::Struct>()
+                .unmasked_field(index)
+                .clone()
+        } else {
+            array.clone()
+        };
+        // The provider does not define struct extrema. For scalar fields use
+        // independently enumerated non-null values, never cached array stats.
+        let values = if source.dtype().is_struct() {
+            Vec::new()
+        } else {
+            (0..source.len())
+                .map(|row| source.execute_scalar(row, execution).unwrap())
+                .filter(|scalar| !scalar.is_null())
+                .collect::<Vec<_>>()
+        };
+        let compare = |left: &&Scalar, right: &&Scalar| left.partial_cmp(right).unwrap();
+        assert_eq!(
+            stats.get(Stat::Min).as_exact(),
+            values
+                .iter()
+                .min_by(compare)
+                .cloned()
+                .and_then(Scalar::into_value)
+        );
+        assert_eq!(
+            stats.get(Stat::Max).as_exact(),
+            values
+                .iter()
+                .max_by(compare)
+                .cloned()
+                .and_then(Scalar::into_value)
+        );
         if !array.is_empty() {
-            let source = if array.dtype().is_struct() {
-                array
-                    .as_::<vortex::array::arrays::Struct>()
-                    .unmasked_field(index)
-                    .clone()
-            } else {
-                array.clone()
-            };
             let nulls = (0..source.len())
                 .filter(|row| {
                     !source

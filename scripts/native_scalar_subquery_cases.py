@@ -6,7 +6,9 @@ from __future__ import annotations
 import json
 import os
 
-from native_report_evidence import has_diagnostic_detail, require_native_resource_admission
+from native_report_evidence import (
+    has_diagnostic_detail, require_native_resource_admission, require_relational_source_evidence,
+)
 from native_workflow_outputs import LOCAL_FORMATS, write_outputs
 from run_clickbench_query_uat import file_sha256
 
@@ -137,6 +139,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
                                                        source_bindings=workflow._declared_sources()))]
         for surface, declared in variants:
             label = f"scalar-{name}-{surface}"
+            previous_counters = None
             for execution in (1, 2):
                 guard()
                 run_name = f"{label}-collect-{execution}"
@@ -145,9 +148,9 @@ def run(context, output, guard, accepted, complete, sources, identity):
                 complete(run_name, list(report.result_rows), expected)
                 if report.result_columns != tuple(columns):
                     raise ValueError(f"{run_name}: column order differs")
-                for field, value in {"resident_source_opens": str(opens),
-                                     "source_io_performed": str(opens > 0).lower(),
-                                     "result_payload_complete": "true"}.items():
+                previous_counters = require_relational_source_evidence(
+                    run_name, envelope, opens, previous=previous_counters)
+                for field, value in {"result_payload_complete": "true"}.items():
                     if envelope.field(field) != value:
                         raise ValueError(f"{run_name}: {field} differs from its declaration")
                 if dtype:

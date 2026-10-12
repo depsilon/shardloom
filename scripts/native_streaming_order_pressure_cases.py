@@ -14,6 +14,7 @@ import json
 import time
 
 from shardloom.errors import ShardLoomCommandError
+from native_report_evidence import require_native_allocation_peak
 
 ROWS = 65 * 1024 + 7
 BATCH_ROWS = 1024
@@ -78,7 +79,7 @@ def run(harness):
         harness.completed(name, envelope, batches=ROWS // BATCH_ROWS + 1, rows=ROWS)
         assert envelope.field_int("native_input_ordering_rows_detached") == ROWS
         assert envelope.field_int("resident_memory_limit_bytes") == GRANT
-        assert envelope.field_int("resident_peak_reserved_buffer_bytes") <= GRANT
+        require_native_allocation_peak(name, envelope, GRANT)
         assert envelope.field_bool("spill_io_performed") is spilled
         if spilled:
             assert envelope.field_int("relational_spill_merge_passes") > 1
@@ -134,6 +135,7 @@ def run(harness):
             verified(name, envelope, trace, spilled=spilled)
             observation.update(native_grant_bytes=GRANT,
                                peak_reserved_bytes=envelope.field_int("resident_peak_reserved_buffer_bytes"),
+                               allocation_peak_reserved_bytes=require_native_allocation_peak(name, envelope, GRANT),
                                larger_than_grant_public_claim=False)
             return observation
         harness.case(name, consume)

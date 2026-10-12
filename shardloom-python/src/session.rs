@@ -417,6 +417,12 @@ impl NativeSession {
                 .map(|value| value.memory.peak_reserved_bytes),
         )?;
         values.set_item(
+            "allocation_peak_reserved_bytes",
+            observed
+                .as_ref()
+                .map(|value| value.memory.allocation_peak_reserved_bytes),
+        )?;
+        values.set_item(
             "denied_reservations",
             observed
                 .as_ref()

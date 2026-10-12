@@ -1,6 +1,7 @@
 //! Compact ownership of admitted Vortex payloads without a decoded row tree.
 
 use super::{
+    NativeNumericOwner,
     native_capacity::ReservedVec,
     native_list,
     native_relational_batch::failed,
@@ -14,7 +15,7 @@ use shardloom_exec::live_memory::MemoryLease;
 use vortex::array::{
     ArrayRef, Columnar, IntoArray, VortexSessionExecute as _,
     arrays::struct_::StructArrayExt as _,
-    arrays::{ChunkedArray, FixedSizeListArray, ListArray, StructArray},
+    arrays::{ChunkedArray, FixedSizeListArray, ListArray, PrimitiveArray, StructArray},
     builtins::ArrayBuiltins as _,
     dtype::{DType, Nullability, PType},
     memory::{HostAllocatorRef, MemorySessionExt as _},
@@ -28,6 +29,10 @@ pub(super) use storage::decimal_key;
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "native_payload_storage_tests.rs"]
 mod storage_tests;
+
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_payload_numeric_tests.rs"]
+mod numeric_tests;
 
 /// Private window records can retain measures that no frame ever observes.
 /// Moving them must not evaluate them. Public result construction still validates.
@@ -348,10 +353,29 @@ fn copy_rows(
             {
                 return storage::copy(selected, rows, dtype, context, allocator);
             }
+            // This boundary already copies every selected value into credited
+            // output buffers. Resolve native numeric storage and validity once
+            // instead of repeatedly traversing encoded dictionaries/selections
+            // for each scalar. Unselected payloads remain outside the copy.
+            let numeric = selected
+                .as_ref()
+                .filter(|_| {
+                    matches!(dtype, DType::Primitive(..))
+                        || crate::native_payload_schema::temporal_storage(dtype).is_some()
+                })
+                .map(|array| {
+                    let primitive = result_batch::scalar_storage(array, &mut execution)?
+                        .execute::<PrimitiveArray>(&mut execution)
+                        .map_err(vortex_error)?;
+                    NativeNumericOwner::new(primitive, &mut execution)
+                })
+                .transpose()?;
             result_batch::build_column(dtype, rows.len(), allocator, |row| {
                 check(row, context)?;
                 if rows[row].is_none() {
                     default_value(dtype)
+                } else if let Some(numeric) = &numeric {
+                    numeric.stat_value(row).map(Value::from)
                 } else {
                     result_batch::scalar_value(
                         selected.as_ref().expect("selected leaf"),

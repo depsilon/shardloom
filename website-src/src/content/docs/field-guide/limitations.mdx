@@ -10,7 +10,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 9, 2026**. See the
+Current capabilities, reviewed **October 11, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -24,6 +24,15 @@ for the detailed evidence behind this scope.
 | Results and writes | Native owned results and admitted local Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON, and JSONL writes. | Operator-to-sink, type, feature, and write-policy restrictions apply. See the specific handoff limit below. |
 | Memory and recovery | Reservations, bounded serving admission, specialized COUNT/DISTINCT/numeric-sort spill, nullable multi-key relational ordering spill, and explicit general aggregation, join, analytic-window and relational pivot spill in current source builds. File/resident-memory pivot pressure has complete local acceptance, independent packet inspection and hosted integration in PR #1534. | Spill remains operator-specific; broader reader/codec accounting and whole-process RSS bounds remain separate work. Recovery is owned cleanup and restart, not resuming unfinished execution. |
 | Physical layout | Native Vortex input preserves its existing layout; compatibility preparation builds a Vortex artifact. | A shared all-I/O layout optimization policy remains follow-up work. |
+
+The optional [native Python interface](/field-guide/python-surface#keep-results-native)
+and required-resource contract have completed hosted acceptance in PR #1541.
+Published v0.5.1 packages remain unchanged. The
+[full-domain timestamp change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-timestamp-provider-2026-10-11.md)
+has complete local and fresh-UAT evidence, with hosted status in its report.
+Computed native outputs can be reopened, but useful output statistics and
+physical preparation remain an explicit
+[persisted-output reuse work item](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-persisted-reuse-2026-10-11.md).
 
 The published engine includes reviewed FSST/Zstd buffer accounting and
 [Python batch input/incremental results](/field-guide/python-surface#consume-results-in-batches).

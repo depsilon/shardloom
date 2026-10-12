@@ -2,15 +2,15 @@
 
 use std::sync::Arc;
 use vortex::{
-    array::{
-        dtype::{DType, FieldPath, PType},
-        stats::PRUNING_STATS,
-    },
+    array::dtype::{DType, FieldPath, PType},
+    compressor::BtrBlocksCompressorBuilder,
     editions::{ComponentKind, EditionSessionExt as _},
-    expr::stats::Stat,
     layout::{
         LayoutStrategy, LayoutStrategyEncodingValidator,
-        layouts::{chunked::writer::ChunkedLayoutStrategy, flat::writer::FlatLayoutStrategy},
+        layouts::{
+            chunked::writer::ChunkedLayoutStrategy, compressed::CompressingStrategy,
+            flat::writer::FlatLayoutStrategy,
+        },
     },
     session::VortexSession,
 };
@@ -48,11 +48,31 @@ fn preserved_writer(session: &VortexSession) -> Arc<dyn LayoutStrategy> {
     ))
 }
 
+fn timestamp_writer(session: &VortexSession) -> Arc<dyn LayoutStrategy> {
+    let allowed = session
+        .enabled_component_ids(ComponentKind::Array)
+        .into_iter()
+        .collect();
+    let compressor = BtrBlocksCompressorBuilder::default()
+        .retain_allowed_encodings(&allowed)
+        .build();
+    Arc::new(
+        CompressingStrategy::new(preserved_writer(session), compressor)
+            // Retain the source-chunk and parent-validity boundary. Compression
+            // executes on the supplied session, with one outstanding task per
+            // field; no extra runtime or independent memory owner is created.
+            .with_concurrency(1)
+            // The compressor computes the statistics it uses, and the file
+            // writer accumulates pruning statistics before this layout stage.
+            .with_stats(&[]),
+    )
+}
+
 pub(super) fn root_writer(
     dtype: &DType,
     session: &VortexSession,
 ) -> Option<Arc<dyn LayoutStrategy>> {
-    is_full_domain_timestamp(dtype).then(|| preserved_writer(session))
+    is_full_domain_timestamp(dtype).then(|| timestamp_writer(session))
 }
 
 pub(super) fn field_writers(
@@ -63,12 +83,22 @@ pub(super) fn field_writers(
         return Vec::new();
     };
     let writer = preserved_writer(session);
+    let mut timestamp = None;
     fields
         .names()
         .iter()
         .zip(fields.fields())
         .filter(|(_, dtype)| preserve_field(dtype))
-        .map(|(name, _)| (FieldPath::from_name(name.clone()), Arc::clone(&writer)))
+        .map(|(name, dtype)| {
+            // Compression visits every compatible child of this top-level
+            // field, including non-timestamp siblings in its nested subtree.
+            let selected: &Arc<dyn LayoutStrategy> = if contains_full_domain_timestamp(&dtype) {
+                timestamp.get_or_insert_with(|| timestamp_writer(session))
+            } else {
+                &writer
+            };
+            (FieldPath::from_name(name.clone()), Arc::clone(selected))
+        })
         .collect()
 }
 
@@ -84,27 +114,6 @@ fn contains_full_domain_timestamp(dtype: &DType) -> bool {
     }
 }
 
-pub(super) fn file_statistics(
-    options: vortex::file::VortexWriteOptions,
-    dtype: &DType,
-) -> vortex::file::VortexWriteOptions {
-    if contains_full_domain_timestamp(dtype) {
-        // Vortex 0.85 validates timestamp min/max scalars through a calendar
-        // domain narrower than i64 microseconds, and may panic on valid storage.
-        // Its public writer has only a file-wide statistics selection. Omit
-        // extrema conservatively; never publish invented or narrowed bounds.
-        options.with_file_statistics(
-            PRUNING_STATS
-                .iter()
-                .copied()
-                .filter(|stat| !matches!(stat, Stat::Min | Stat::Max))
-                .collect(),
-        )
-    } else {
-        options
-    }
-}
-
 pub(super) fn append_evidence(
     dtype: &DType,
     layout: &mut String,
@@ -117,11 +126,21 @@ pub(super) fn append_evidence(
     {
         layout.push_str(";nested_field_layout=chunked_flat_preserving_validity");
         coalescing.push_str(";scope=scalar_fields;nested_fields=source_chunks");
-        compression.push_str(";scope=scalar_fields;nested_fields=preserved_uncompressed");
+        if dtype.as_struct_fields_opt().is_some_and(|fields| {
+            fields
+                .fields()
+                .any(|child| is_nested(&child) && contains_full_domain_timestamp(&child))
+        }) {
+            compression.push_str(";nested_fields=timestamp_bearing_top_level_subtrees_native_btrblocks;other_top_level_nested_fields=preserved_uncompressed");
+        } else {
+            compression.push_str(";scope=scalar_fields;nested_fields=preserved_uncompressed");
+        }
     }
     if contains_full_domain_timestamp(dtype) {
-        layout.push_str(";timestamp_layout=chunked_flat_preserving_storage;file_min_max=omitted_for_full_domain_timestamp;file_other_pruning_stats=retained");
+        layout.push_str(";timestamp_layout=chunked_flat_native_compressed;file_min_max=provider_exact_when_present;file_other_pruning_stats=retained;timestamp_provider=vortex_array_0.85.0_full_domain_microsecond_patch");
         coalescing.push_str(";timestamp_fields=source_chunks");
-        compression.push_str(";timestamp_fields=preserved_uncompressed");
+        compression.push_str(
+            ";timestamp_fields=native_btrblocks;timestamp_compression_concurrency_per_field=1",
+        );
     }
 }

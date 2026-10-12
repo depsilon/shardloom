@@ -15,7 +15,7 @@ defines the implementation and compatibility change. The
 and [inspector review](evidence/required-execution-resources-2026-10-10-inspector-review.json)
 retain the initial source, execution, failure and readback evidence. The PR review
 corrections described below have separate source and check evidence. Hosted
-integration remains pending.
+integration completed in PR #1541, together with the native Python surface.
 Published v0.5.1 packages are unchanged. This unit makes no performance claim.
 
 ## Configuration and ownership
@@ -232,7 +232,8 @@ ignored cases, 1,338 native CLI tests and 17 example tests. Formatting, strict
 Clippy, feature-isolation and minimum-Rust-version checks also pass. The
 [evidence index](evidence/required-execution-resources-2026-10-10.json) retains a
 separate correction packet binding these checks, the failed first attempt and
-the unchanged original evidence. Hosted checks for this correction remain pending.
+the unchanged original evidence. Hosted checks were pending at this local
+checkpoint; the final PR #1541 receipt below records completed integration.
 
 ## Python inheritance follow-up
 
@@ -263,7 +264,8 @@ reports and their complete-result checks. Rust sources and dependency manifests
 are byte-identical to the preceding 14-gate correction, so those expensive Rust
 checks are retained rather than described as newly executed. No Full43 rerun,
 new performance claim or package publication accompanies this Python correction.
-Fresh hosted acceptance remains required.
+Fresh hosted acceptance was still required at this checkpoint and subsequently
+completed with PR #1541; its final receipt is recorded below.
 
 ## Non-Unix admission follow-up
 
@@ -278,7 +280,8 @@ Native workspace lint and all 1,338 CLI tests pass. Three new non-Unix regressio
 tests compile but are explicitly ignored on this Unix host: they cover existing
 and missing inputs, one-byte and larger grants, direct/partitioned APIs, writer
 preservation and the actual CLI envelope. The Windows compatibility lane now
-executes those tests; hosted runtime proof is pending. An initial launcher used
+executes those tests; hosted runtime proof was pending at this local checkpoint.
+The final integration receipt below records the completed hosted run. An initial launcher used
 an older Python without `hashlib.file_digest`, and the first native lint attempt
 caught a test import from the wrong crate. Both failures are retained; the
 corrected invocation and test compile pass.
@@ -332,7 +335,8 @@ found the structured writer's independent pool; after the shared-pool correction
 the entire native suite was rerun successfully. A zero-test filter attempt
 receives no coverage credit. The original public workflows and Full43 results
 were not rerun or retimed for this correction. No performance gain or package
-publication is claimed; hosted checks for the final source remain pending.
+publication is claimed. Hosted checks were pending at this correction checkpoint;
+the final receipt below records the later passing PR #1541 integration.
 
 ## Scoped fixture I/O follow-up
 
@@ -376,8 +380,8 @@ The separate fixture I/O correction in the
 checks and documentation validation. Earlier compile/lint failures, the
 insufficient-headroom test fixture, and the stale report assertion/temporary-
 directory collision remain preserved as failed attempts. No incomplete broad
-run receives acceptance credit. Hosted checks for the new correction remain
-required before merge.
+run receives acceptance credit. Hosted checks were still required before merge
+at this checkpoint; the final PR #1541 receipt below records their completion.
 
 Original public-workflow and Full43 evidence keeps its original source identity;
 those workflows have not been rerun or retimed for this fixture correction.
@@ -411,7 +415,8 @@ The supplemental composition packet in the
 the failing regressions and harness corrections: an ambiguous join projection
 was qualified, and incremental tests explicitly reopened native Vortex input as
 required by the existing batch interface. These were not resource admission
-failures. Hosted checks remain required for the final correction.
+failures. Hosted checks were still pending at this checkpoint; subsequent
+completion is recorded in the final PR #1541 receipt below.
 
 ## Synthetic fixture ownership follow-up
 
@@ -454,7 +459,8 @@ engine source or rerunning tests. Both observations remain preserved.
 Caller arguments, envelope serialization, allocator overhead and process RSS
 remain outside this accounting scope. Original complete-workflow and Full43
 evidence retains its original identity; it was not rerun or retimed for this
-correction. Hosted checks remain required, with no new performance or package claim.
+correction. Hosted checks were still required at this checkpoint and later
+passed in PR #1541, with no new performance or package claim.
 
 ## Post-admission fixture error evidence
 
@@ -485,7 +491,8 @@ final sources, all fresh checks and documentation validation. It preserves the
 initial compile error, an incorrect test lookup for the canonical fallback
 field, and a strict-lint failure corrected before final acceptance. Original
 complete-workflow and Full43 evidence retains its original identity. Hosted
-acceptance remains required; no performance, RSS-limit or package claim changes.
+acceptance was still required at this checkpoint and later completed in PR #1541;
+no performance, RSS-limit or package claim changes.
 
 ## Generated commit payload ownership
 
@@ -515,14 +522,21 @@ Both were corrected before final acceptance. Four CLI source files and a
 read-only reservation accessor changed; Vortex execution, Python, examples and
 dependencies remain unchanged. Their prior validation retains its original
 identity, as do the complete-workflow and Full43 observations. No performance
-or whole-process memory claim is added. Hosted acceptance remains required.
+or whole-process memory claim is added. Hosted acceptance is recorded below.
 
-## Remaining work
+## Hosted integration and remaining work
 
-Hosted acceptance remains pending. The next implementation
-unit exposes native Python result owners, direct columnar input/output,
-in-process operations and shared native expression/prepared-plan handles using
-this resource contract. It has no acceptance credit from the resource packet.
+[PR #1541](https://github.com/depsilon/shardloom/pull/1541) merged at `88b44c13`
+after all 44 hosted checks passed on `f0e94047`; the reviewed and merged trees
+are identical and all 18 review threads are resolved. The
+[shared hosted receipt](evidence/native-python-surface-hosted-2026-10-11.json)
+preserves the final source, checks, actual installed Linux/macOS native wheel
+proofs and production verification. Earlier gate and complete-workflow records
+retain their own source identities; no new timing is inferred from CI success.
+
+The [native Python unit](native-python-surface-2026-10-11.md) separately proves
+result owners, direct columnar input/output, in-process operations and shared
+native expression/prepared-plan handles using this resource contract.
 Safe full-domain timestamp statistics/compression remains attached to ingest and
 pruning. The six remaining areas, eight investigations and CG-1 through CG-23
 retain their existing owners and statuses; version 0.5.1 remains fixed.

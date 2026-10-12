@@ -1,0 +1,116 @@
+{
+  "schema_version": "shardloom.timestamp_certificate_review.v1",
+  "status": "passed",
+  "base_commit": "1df6b4210a9e32106598a2a313143e7541a674e5",
+  "source_files_verified": 2108,
+  "changed_sources": {
+    "shardloom-vortex/src/vortex_ingest_nested_layout.rs": {
+      "before": "7ab9b2760f2d6bf4fb88f509ba824706b58dcc0638b3e6f50e3674d993fc570e",
+      "after": "b43a9c7711e1c28afea7c0748a1822aef17db0b105d2c9b2fcdc0e4501b333c6"
+    },
+    "shardloom-vortex/src/vortex_ingest_temporal_file_tests.rs": {
+      "before": "9497784c5b4f4bf9ffc358b5b9244561065227dc4ab7ca3bbca9b18ea45dd997",
+      "after": "db445ec7608c835441dceab7d4c4417f201ed4743634e0269f2ffc22e4453eb0"
+    }
+  },
+  "checks": [
+    {
+      "check": "format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "returncode": 0,
+      "seconds": 2.6974657079554163
+    },
+    {
+      "check": "workspace-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "returncode": 0,
+      "seconds": 0.33652583399089053
+    },
+    {
+      "check": "workspace-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "returncode": 0,
+      "seconds": 5.008818709000479
+    },
+    {
+      "check": "native-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "returncode": 0,
+      "seconds": 20.205743665981572
+    },
+    {
+      "check": "full-domain-writers",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "release-user-surfaces",
+        "full_domain"
+      ],
+      "returncode": 0,
+      "seconds": 3.047874582989607
+    }
+  ],
+  "regression": {
+    "old_certificate_fails": true,
+    "corrected_certificate_passes": true,
+    "writer_compositions": 4,
+    "physical_sibling_encodings_checked": true,
+    "complete_dtype_null_and_value_readback": true,
+    "initial_exact_filter_selected_zero_tests_and_is_not_acceptance": true
+  },
+  "test_counts": {
+    "workspace": 3217,
+    "focused_native_writers": 12,
+    "failed": 0,
+    "ignored": 0
+  },
+  "fresh_uat_repeated": false,
+  "performance_remeasured": false,
+  "physical_writer_algorithm_changed": false,
+  "name": "native-timestamp-certificate-review-2026-10-11.json.xz",
+  "bytes": 152196,
+  "sha256": "554416d397db888ed3cb24cfb218e0315c8fbd8519addafe3cc89f56f7279307",
+  "uncompressed_bytes": 817464,
+  "uncompressed_sha256": "040595bd0c72cbdaa133a11f03e6ba6176293d846ae2941e15d12fee986ba182"
+}

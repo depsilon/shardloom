@@ -290,6 +290,11 @@ pub(crate) fn append_declaration_fields(
         ("admission_policy", "not_observed"),
         ("observed_native_reserved_bytes", "unavailable"),
         ("observed_native_peak_reserved_bytes", "unavailable"),
+        (
+            "observed_native_allocation_peak_reserved_bytes",
+            "unavailable",
+        ),
+        ("allocation_memory_observation_scope", "not_instrumented"),
         ("observed_native_denied_reservations", "unavailable"),
         ("memory_observation_scope", "not_instrumented"),
         ("observed_peak_active_lanes", "unavailable"),
@@ -350,10 +355,20 @@ pub(crate) fn append_resident_snapshot_fields(
     );
     replace_fields(
         fields,
-        [(
-            "execution_resource_observed_native_denied_reservations".into(),
-            snapshot.memory.denied_reservations.to_string(),
-        )],
+        [
+            (
+                "execution_resource_observed_native_denied_reservations".into(),
+                snapshot.memory.denied_reservations.to_string(),
+            ),
+            (
+                "execution_resource_observed_native_allocation_peak_reserved_bytes".into(),
+                snapshot.memory.allocation_peak_reserved_bytes.to_string(),
+            ),
+            (
+                "execution_resource_allocation_memory_observation_scope".into(),
+                "current_allocation_including_preparation_and_retained_owners;excludes_cli_envelope_formatting_provider_bypass_allocations_and_process_rss".into(),
+            ),
+        ],
     );
 }
 

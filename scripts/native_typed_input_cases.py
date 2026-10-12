@@ -132,8 +132,8 @@ def run(harness):
                     def prepared(label, report):
                         envelope = accepted(label, report)
                         if label.endswith("-prepare"):
-                            assert "file_min_max=omitted_for_full_domain_timestamp" in json.dumps(envelope.raw)
-                            assert "timestamp_fields=preserved_uncompressed" in json.dumps(envelope.raw)
+                            assert "file_min_max=provider_exact_when_present" in json.dumps(envelope.raw)
+                            assert "timestamp_fields=native_btrblocks" in json.dumps(envelope.raw)
                         return envelope
 
                     destinations = write_outputs(

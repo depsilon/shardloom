@@ -9,6 +9,7 @@ import os
 from native_workflow_outputs import LOCAL_FORMATS, write_outputs
 from native_workflow_materialization import verify_materializations
 from run_clickbench_query_uat import file_sha256
+from native_report_evidence import require_relational_source_evidence
 
 
 def run(context, output, guard, accepted, complete, sources, identity, *, materializations=("python",)):
@@ -100,9 +101,9 @@ def run(context, output, guard, accepted, complete, sources, identity, *, materi
             complete(label, list(report.result_rows), expected)
             if report.result_columns != tuple(columns):
                 raise ValueError(f"{label}: structured result column order differs")
+            require_relational_source_evidence(label, envelope, opens)
             for field, value in {
-                "output_columns": ",".join(columns), "resident_source_opens": str(opens),
-                "source_io_performed": str(opens > 0).lower(), "result_payload_complete": "true",
+                "output_columns": ",".join(columns), "result_payload_complete": "true",
             }.items():
                 if envelope.field(field) != value:
                     raise ValueError(f"{label}: {field}={envelope.field(field)!r}; expected {value!r}")

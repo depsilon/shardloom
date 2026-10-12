@@ -185,6 +185,7 @@ impl SegmentReuseSnapshot {
                 limit_bytes: policy.max_retained_bytes,
                 reserved_bytes: 0,
                 peak_reserved_bytes: 0,
+                allocation_peak_reserved_bytes: 0,
                 denied_reservations: 0,
             },
             session: memory.snapshot(),

@@ -1,0 +1,623 @@
+{
+  "schema_version": "shardloom.native_python_hosted_acceptance.v1",
+  "status": "passed",
+  "pr_url": "https://github.com/depsilon/shardloom/pull/1541",
+  "accepted_head": "f0e9404702469f997de0bd813fe51b5ea02161df",
+  "merged_commit": "88b44c1366d85d216a069def1d8315124e63ff41",
+  "merged_at": "2026-10-11T16:47:13Z",
+  "accepted_and_merged_trees": {
+    "f0e9404702469f997de0bd813fe51b5ea02161df": "7fac54d76cc26b5ff9c86708d9998d15173fc015",
+    "88b44c1366d85d216a069def1d8315124e63ff41": "7fac54d76cc26b5ff9c86708d9998d15173fc015"
+  },
+  "accepted_and_merged_tree_identical": true,
+  "checks": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:09Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517046",
+      "name": "CI work shaping plan",
+      "startedAt": "2026-10-11T16:22:08Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:35:46Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160287/job/114516517091",
+      "name": "CodeQL rust",
+      "startedAt": "2026-10-11T16:22:08Z",
+      "status": "COMPLETED",
+      "workflowName": "CodeQL Analysis"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:50Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160287/job/114516516906",
+      "name": "CodeQL python",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CodeQL Analysis"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:16Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516929",
+      "name": "Rust baseline (fmt)",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:27:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517065",
+      "name": "Rust baseline (clippy)",
+      "startedAt": "2026-10-11T16:23:51Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:57Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516953",
+      "name": "Rust baseline (test)",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:55Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517152",
+      "name": "Rust feature matrix (default_features)",
+      "startedAt": "2026-10-11T16:23:17Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:25:21Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517148",
+      "name": "Rust feature matrix (all_features)",
+      "startedAt": "2026-10-11T16:24:24Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:47Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517144",
+      "name": "Rust feature matrix (no_default_features)",
+      "startedAt": "2026-10-11T16:24:09Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:25:12Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517151",
+      "name": "Rust feature matrix (upstream_vortex)",
+      "startedAt": "2026-10-11T16:24:20Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:25:15Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517184",
+      "name": "Rust feature matrix (vortex_file_io)",
+      "startedAt": "2026-10-11T16:23:59Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:25:42Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516996",
+      "name": "Rust feature matrix (vortex_local_primitives)",
+      "startedAt": "2026-10-11T16:24:18Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:53Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517128",
+      "name": "Rust feature matrix (vortex_encoded_read_spike)",
+      "startedAt": "2026-10-11T16:23:19Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:08Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517111",
+      "name": "Rust feature matrix (release_user_surfaces)",
+      "startedAt": "2026-10-11T16:23:18Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:39:54Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517153",
+      "name": "Rust feature matrix (native_vortex_tests)",
+      "startedAt": "2026-10-11T16:23:12Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:16Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517097",
+      "name": "Rust feature matrix (synthetic_spill_resources)",
+      "startedAt": "2026-10-11T16:23:10Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:57Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517106",
+      "name": "Rust feature matrix (native_public_surface_tests)",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:26:34Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517182",
+      "name": "Rust feature matrix (preparation_resource_profile)",
+      "startedAt": "2026-10-11T16:23:57Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:25:46Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517173",
+      "name": "Rust feature matrix (native_release_clippy)",
+      "startedAt": "2026-10-11T16:23:59Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:18Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517109",
+      "name": "Rust feature matrix (packaging_deployment)",
+      "startedAt": "2026-10-11T16:22:08Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:58Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516804",
+      "name": "Rust MSRV validation",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:17Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516978",
+      "name": "Python test shard (core)",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:50Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517057",
+      "name": "Python test shard (front_door_benchmark_publication)",
+      "startedAt": "2026-10-11T16:23:28Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:05Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516960",
+      "name": "Python test shard (release_scripts)",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:23Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517159",
+      "name": "Python compatibility (ubuntu-latest, 3.10)",
+      "startedAt": "2026-10-11T16:23:54Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:11Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517055",
+      "name": "Python compatibility (ubuntu-latest, 3.11)",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:25:02Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517140",
+      "name": "Python compatibility (ubuntu-latest, 3.12)",
+      "startedAt": "2026-10-11T16:23:56Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:29Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517084",
+      "name": "Python compatibility (ubuntu-latest, 3.13)",
+      "startedAt": "2026-10-11T16:22:08Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:47Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517063",
+      "name": "Python compatibility (macos-latest, 3.11)",
+      "startedAt": "2026-10-11T16:23:12Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:37:20Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517062",
+      "name": "Python compatibility (windows-latest, 3.11)",
+      "startedAt": "2026-10-11T16:22:08Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:33:28Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516985",
+      "name": "Native Python wheel (py310_ubuntu)",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:30:15Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516889",
+      "name": "Native Python wheel (py313_ubuntu)",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:33:46Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516952",
+      "name": "Native Python wheel (py313_macos)",
+      "startedAt": "2026-10-11T16:22:11Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:28:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516944",
+      "name": "Python and package smoke",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:54Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516516964",
+      "name": "Dependency and security gates",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:19Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517004",
+      "name": "Release runtime core evidence",
+      "startedAt": "2026-10-11T16:22:08Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:26Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517023",
+      "name": "Website and docs validation",
+      "startedAt": "2026-10-11T16:22:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:23:55Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516517017",
+      "name": "CI gate matrix contract",
+      "startedAt": "2026-10-11T16:23:31Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:26:07Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114516876526",
+      "name": "Python tests",
+      "startedAt": "2026-10-11T16:24:49Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:30:41Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114517756994",
+      "name": "Release package and governance evidence",
+      "startedAt": "2026-10-11T16:28:06Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:41:53Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114517757006",
+      "name": "Release user-surface evidence",
+      "startedAt": "2026-10-11T16:28:06Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:45:07Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/38155160140/job/114520561560",
+      "name": "Release readiness reports",
+      "startedAt": "2026-10-11T16:41:55Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:46Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/depsilon/shardloom/runs/114517060779",
+      "name": "CodeQL",
+      "startedAt": "2026-10-11T16:24:42Z",
+      "status": "COMPLETED",
+      "workflowName": ""
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-11T16:24:06Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/9f598418-1b16-4eb7-8094-3530d049d4d0",
+      "name": "Workers Builds: shardloom",
+      "startedAt": "2026-10-11T16:24:06Z",
+      "status": "COMPLETED",
+      "workflowName": ""
+    }
+  ],
+  "successful_checks": 44,
+  "resolved_review_threads": 18,
+  "wheel_proofs": [
+    {
+      "job_id": "114516516985",
+      "job": "Native Python wheel (py310_ubuntu)",
+      "host": {
+        "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "python": "3.10.22 (main, Oct  1 2026, 14:30:20) [GCC 13.3.0]",
+        "wheel": "shardloom-0.5.1-cp310-abi3-linux_x86_64.whl",
+        "wheel_sha256": "7cf8888a31935315ef0c0a272c9a4db64bf192ac6b30ac61bc444ce78cc5c047",
+        "wheel_bytes": 54877267,
+        "tag": "cp310-abi3-linux_x86_64",
+        "installed_native_module_path": "/home/runner/work/_temp/native-python-nhz9w_qd/proof/venv/lib/python3.10/site-packages/shardloom/_native.abi3.so",
+        "installed_cli_path": "/home/runner/work/_temp/native-python-nhz9w_qd/proof/venv/lib/python3.10/site-packages/shardloom/bin/linux-x86_64/shardloom",
+        "isolated_install": true,
+        "source_citation": "log lines 749-915"
+      },
+      "integration": {
+        "tests": 75,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "status": "passed"
+      },
+      "source_log": "native-wheel-hosted-114516516985-311.log",
+      "proof_report": "native-wheel-hosted-evidence-312-114516516985-report.json",
+      "complete_report_redecoded_from_log": true,
+      "individual_method_name_recount": false
+    },
+    {
+      "job_id": "114516516889",
+      "job": "Native Python wheel (py313_ubuntu)",
+      "host": {
+        "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "python": "3.13.16 (main, Oct  1 2026, 02:37:54) [GCC 13.3.0]",
+        "wheel": "shardloom-0.5.1-cp310-abi3-linux_x86_64.whl",
+        "wheel_sha256": "0a095f6eaa9ecd4dd293f96e10af33edd2b4c9b51e0bbfc973e1c51624272cd4",
+        "wheel_bytes": 54877267,
+        "tag": "cp310-abi3-linux_x86_64",
+        "installed_native_module_path": "/home/runner/work/_temp/native-python-k6xv7rnx/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+        "installed_cli_path": "/home/runner/work/_temp/native-python-k6xv7rnx/proof/venv/lib/python3.13/site-packages/shardloom/bin/linux-x86_64/shardloom",
+        "isolated_install": true,
+        "source_citation": "log lines 743-909"
+      },
+      "integration": {
+        "tests": 75,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "status": "passed"
+      },
+      "source_log": "native-wheel-hosted-114516516889-311.log",
+      "proof_report": "native-wheel-hosted-evidence-312-114516516889-report.json",
+      "complete_report_redecoded_from_log": true,
+      "individual_method_name_recount": false
+    },
+    {
+      "job_id": "114516516952",
+      "job": "Native Python wheel (py313_macos)",
+      "host": {
+        "os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+        "python": "3.13.15 (v3.13.15:4061bc4c35f, Aug  5 2026, 09:08:51) [Clang 21.0.0 (clang-2100.1.1.101)]",
+        "wheel": "shardloom-0.5.1-cp310-abi3-macosx_26_0_arm64.whl",
+        "wheel_sha256": "f847a6904ec839a3d84e0452ab3118fad025387686df804b96b371ba77471650",
+        "wheel_bytes": 48639851,
+        "tag": "cp310-abi3-macosx_26_0_arm64",
+        "installed_native_module_path": "/Users/runner/work/_temp/native-python-_uy6qvn0/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+        "installed_cli_path": "/Users/runner/work/_temp/native-python-_uy6qvn0/proof/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom",
+        "isolated_install": true,
+        "source_citation": "log lines 734-900"
+      },
+      "integration": {
+        "tests": 75,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "status": "passed"
+      },
+      "source_log": "native-wheel-hosted-114516516952-311.log",
+      "proof_report": "native-wheel-hosted-evidence-312-114516516952-report.json",
+      "complete_report_redecoded_from_log": true,
+      "individual_method_name_recount": false
+    }
+  ],
+  "production_deployment": {
+    "id": 114522065429,
+    "head_sha": "88b44c1366d85d216a069def1d8315124e63ff41",
+    "details_url": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/aa041d1b-a62f-4df5-a2af-6b64d2a1e4d6",
+    "status": "completed",
+    "conclusion": "success",
+    "completed_at": "2026-10-11T16:49:17Z"
+  },
+  "production_html": {
+    "observations": [
+      {
+        "name": "python-surface",
+        "url": "https://shardloom.io/field-guide/python-surface/",
+        "source": "website/field-guide/python-surface/index.html",
+        "status": 200,
+        "expected_bytes": 60079,
+        "actual_bytes": 61384,
+        "expected_sha256": "1a8ce225a17d81da9dad81a483559a8e92b095c26d23273f41b2bc498206efdd",
+        "actual_sha256": "639e8e0647dcfd88ce2094c3de899ee606bd4d2723a170102e7cede747a20722",
+        "insertion_offset": 60066,
+        "insertion_bytes": 1305,
+        "insertion_sha256": "034f99ee43708c78fe13d6a8279d6d402dcf49ecb1ac2fec3f283801be12ed85",
+        "source_equal_except_single_insertion": true
+      },
+      {
+        "name": "runtime-and-io",
+        "url": "https://shardloom.io/field-guide/runtime-and-io/",
+        "source": "website/field-guide/runtime-and-io/index.html",
+        "status": 200,
+        "expected_bytes": 55289,
+        "actual_bytes": 56594,
+        "expected_sha256": "8c452b26bc1c28cde5458dcfb056b0a70b9460c68a5e793388d2f286eb3d6492",
+        "actual_sha256": "e7a1a2fdfd9741969904a65940fc7729f2157da41d138a0f84d1b314e0916b7f",
+        "insertion_offset": 55276,
+        "insertion_bytes": 1305,
+        "insertion_sha256": "f5143883e8557238e218609135031bfcba6a8c23000e6454e1e400fc754f7a70",
+        "source_equal_except_single_insertion": true
+      }
+    ],
+    "unconditional_byte_identity_claim": false,
+    "earlier_default_python_user_agent_attempt": "HTTP 403 before writing files; owner-verification User-Agent matches the successful initial capture."
+  },
+  "production_ui": {
+    "observed_at": "2026-10-11T16:57:12.694Z",
+    "page": "https://shardloom.io/field-guide/python-surface/#keep-results-native",
+    "title": "Python | ShardLoom",
+    "viewport": {
+      "bodyWidth": 1265,
+      "documentWidth": 1265,
+      "height": 720,
+      "width": 1280
+    },
+    "native_heading": "Keep results native",
+    "install_href": "https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding",
+    "report_href": "https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-python-surface-2026-10-11.md",
+    "search": {
+      "query": "shardloom.native",
+      "observed_result_count": 2,
+      "matching_heading": "Keep results native",
+      "clicked_result_reached_expected_anchor": true
+    },
+    "console": [],
+    "screenshots": [
+      "native-production-ownership-312.png",
+      "native-production-search-312.png"
+    ],
+    "scope": "Actual production desktop guide, native ownership example, release boundary, search and report/install links. No mobile hosted inspection or new runtime benchmark is inferred."
+  },
+  "packet": {
+    "path": "native-python-surface-hosted-2026-10-11.tar.xz",
+    "bytes": 175296,
+    "sha256": "184ba4d73b86ed9261a04c0afa39f4a20d05105c8cc18f431634ae7288d25b9f",
+    "payload_members": 21,
+    "complete_member_readback_verified": true
+  },
+  "publication_attempted": false,
+  "performance_claim": false,
+  "limitations": [
+    "The three installed native wheel reports prove runner counters and successful gates; individual integration method transcripts were not printed in these job logs.",
+    "Production HTML preserves the merged source except one observed 1305-byte Cloudflare challenge/analytics insertion; raw responses are not byte-identical to source.",
+    "Actual hosted UI proof is desktop at 1280 by 720; earlier local mobile evidence remains separate.",
+    "Original local workflow timings keep their original source identity; final hosted success is not a new benchmark or package release."
+  ]
+}

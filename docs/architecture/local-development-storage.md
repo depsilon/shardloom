@@ -30,6 +30,20 @@ The [October 10 cleanup](local-artifact-cleanup-2026-10-10.md) archives 40,365
 completed input-growth payloads with complete member verification before removing
 their originals, recovering 1.29 GB of accounted space. Source fixtures, summaries,
 failed/incomplete evidence and current build outputs remain retained.
+The [October 11 cleanup](local-artifact-cleanup-2026-10-11.md) retires 8,404
+rebuildable debug compiler intermediates and preserves every other debug file,
+including test executables and dynamic libraries, in a fully verified archive
+before removing originals. Observed free space increases by 33.60 GB. The release
+cache, frozen comparisons, datasets, target-root evidence and failure history
+remain retained; storage ceilings are unchanged. Subsequent local debug validation
+omits debug symbols to reduce regenerated cache size.
+The later same-day cleanup compacts 558 historical and 516 newly accepted
+query-log members with complete hash verification, preserving their summaries
+and failure history. It retires the exact superseded October 5 generated Vortex
+payload after checking its identity and regeneration evidence; the October 9
+replacement, resident Parquet and new October 11 UAT output remain retained.
+The [cleanup record](local-artifact-cleanup-2026-10-11.md#cleanup-before-the-requested-fresh-full-uat)
+distinguishes the different artifact hashes and unchanged storage ceilings.
 On September 27, 5,822 completed historical per-call log files were compacted
 losslessly into three `completed-call-logs-20260927.tar.xz` archives beside their
 original summaries. Per-member size/SHA-256 manifests preserve old path lookup;

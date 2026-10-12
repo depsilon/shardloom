@@ -95,9 +95,13 @@ charged copy into native ownership.
 See the [contract](../architecture/native-python-surface-2026-10-10.md),
 [source build/install guide](../getting-started/source-checkout-install.md#optional-native-python-binding)
 and [local acceptance](../benchmarks/native-python-surface-2026-10-11.md).
-The installed local wheel and complete workflows are accepted; hosted platform
-integration remains pending. Published 0.5.1 packages do not include this
-extension. The older resident and batch adapter entries below describe their
+The installed local wheel and complete workflows are accepted. PR #1541 also
+completed all 44 hosted checks and all 75 installed native methods on each of
+the Linux Python 3.10/3.13 and macOS arm64 Python 3.13 lanes; the
+[hosted receipt](../benchmarks/evidence/native-python-surface-hosted-2026-10-11.json)
+records their exact scope. Published 0.5.1 packages do not include this
+extension. Broader platform/workload acceptance retains its own requirements.
+The older resident and batch adapter entries below describe their
 original Rust/CLI transport contracts, separately from this optional binding.
 
 ## Resident Native Results

@@ -7,6 +7,7 @@ import csv
 import json
 
 from run_clickbench_query_uat import file_sha256, strict_json
+from native_report_evidence import require_native_allocation_peak
 from run_native_unary_uat import csv_cell
 
 
@@ -62,8 +63,7 @@ def run(context, output, guard, accepted, complete, sources, identity):
                 raise ValueError(f"{name}: {field}={envelope.field(field)!r}; expected {value!r}")
         if spilled and int(envelope.field("relational_spill_merge_passes")) < 1:
             raise ValueError(f"{name}: no native run merge was exercised")
-        if int(envelope.field("resident_peak_reserved_buffer_bytes")) > 1 << 30:
-            raise ValueError(f"{name}: reserved memory exceeds the declared grant")
+        require_native_allocation_peak(name, envelope, 1 << 30)
         if int(envelope.field("relational_spill_peak_disk_bytes")) > spill["quota_bytes"]:
             raise ValueError(f"{name}: run storage exceeds the declared quota")
         clean()

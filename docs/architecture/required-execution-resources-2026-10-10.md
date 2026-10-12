@@ -2,8 +2,8 @@
 
 Status: implemented with complete local engine acceptance and independent
 inspection. The [acceptance report](../benchmarks/required-execution-resources-2026-10-10.md)
-records the exact source and evidence. Support and rendered-guide checks pass;
-hosted integration remains pending. This contract was directed by the maintainer
+records the exact source and evidence. Support, rendered-guide checks and hosted
+integration in PR #1541 pass. This contract was directed by the maintainer
 on October 10.
 The typed-input work retains its separately frozen source and evidence.
 Keep version 0.5.1 fixed. This work belongs to existing PERF-03/06/11/12 and
@@ -124,8 +124,9 @@ allocator overhead and process RSS remain outside the measured ownership scope.
 The report must name this limitation. Tests must prove pre-read input denial,
 shared-owner batch denial/retry, retained batch lifetime, projection correctness
 and sequential reuse without whole-source decoded collection. Focused regressions
-and all 16 source/feature gates pass for this correction; hosted checks remain
-required before integration.
+and all 16 source/feature gates passed for this correction. Hosted integration
+subsequently completed in PR #1541, as recorded in the final receipt; the local
+checkpoint retains its own source and test identities.
 
 The local fixture implementation uses one `LiveMemoryPool` per complete command.
 File and byte-range reads reserve their fixed extent before opening a payload;
@@ -190,6 +191,21 @@ measured, and actual spill events/bytes. Requested limits are neither preallocat
 memory nor measured peaks. Maximum parallelism is permission, not utilization.
 Missing measurements remain unavailable rather than zero. Do not claim a
 whole-process RSS bound or complete provider accounting without separate proof.
+
+Retained sessions preserve their lifetime high-water mark when a later operation
+admits a smaller allocation. Keep `observed_native_peak_reserved_bytes` and the
+resident peak fields in that lifetime scope. The additional
+`observed_native_allocation_peak_reserved_bytes` covers reservations since the
+current successful allocation admission, including every retained owner present
+at entry and transient allocations released before reporting. Its separate
+`allocation_memory_observation_scope` names those boundaries. A failed allocation
+change preserves both observations; admitting even the same limit starts a new
+allocation observation without replacing the pool or releasing any credits.
+For a fixed pool, its one allocation spans the pool's lifetime. Native Python's
+owner snapshot exposes both `peak_reserved_bytes` and
+`allocation_peak_reserved_bytes`. Compare a call's grant with its allocation
+peak; an older lifetime peak is not that call's usage. Uninstrumented paths retain
+unavailable allocation measurements. Neither counter is process RSS.
 
 ## Grounded implementation boundaries
 
@@ -358,8 +374,8 @@ also pass. The two subsequent PR admission corrections pass 14 fresh source gate
 including 3,166 default tests, 1,338 native CLI tests, 2,534 native Vortex tests
 and 17 example tests. Their separate correction evidence preserves the initial
 complete-workflow source identity and does not attribute its timings to the
-changed copy path. Hosted acceptance remains required before this implementation
-unit is marked complete.
+changed copy path. Hosted acceptance was still pending at this local checkpoint;
+the final PR #1541 receipt records the subsequently completed integration.
 
 The preceding shared reader/writer correction passes 16 fresh source gates: 3,166
 default workspace tests, 1,339 native CLI tests, 2,546 native Vortex tests,
@@ -367,7 +383,8 @@ default workspace tests, 1,339 native CLI tests, 2,546 native Vortex tests,
 lint, formatting, feature-isolation and Rust 1.96 checks. The native suites
 retain 24 existing ignored Vortex cases and three non-Unix CLI cases ignored on
 this host. Those three platform refusal cases separately passed on Windows for
-the preceding reviewed commit; later writer changes still require hosted checks.
+the preceding reviewed commit. Later writer changes awaited hosted checks at
+this checkpoint; final integration is recorded separately in the PR #1541 receipt.
 The correction evidence preserves failed and deliberately interrupted attempts,
 without assigning the original complete-workflow timings to this changed source.
 

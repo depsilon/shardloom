@@ -18,6 +18,7 @@ import sys
 import time
 
 from local_uat_storage import GIB, require_local_path
+from native_report_evidence import require_native_allocation_peak
 from run_native_streaming_input_uat import Harness, sha
 from shardloom.errors import ShardLoomCommandError
 
@@ -149,7 +150,7 @@ def main():
                 assert envelope.field_int("native_input_batches") == args.batches
                 assert envelope.field_int("native_input_batch_rows") == args.batches * ROWS_PER_BATCH
             assert envelope.field_int("resident_memory_limit_bytes") == args.memory_gb * GIB
-            assert envelope.field_int("resident_peak_reserved_buffer_bytes") <= args.memory_gb * GIB
+            allocation_peak = require_native_allocation_peak("complete", envelope, args.memory_gb * GIB)
             if args.output_mode == "vortex":
                 with harness.context.read_vortex(target).iter_batches(batch_rows=128, **grant) as reopened:
                     for batch in reopened:
@@ -161,6 +162,7 @@ def main():
             harness.values("complete", observed, expected)
             report["complete_output_rows_verified"] = len(observed)
             report["peak_reserved_bytes"] = envelope.field_int("resident_peak_reserved_buffer_bytes")
+            report["allocation_peak_reserved_bytes"] = allocation_peak
         assert all(sha(Path(path)) == digest for path, digest in source_hashes.items())
         assert sha(binary) == protocol["binary_sha256"]
         harness.guard()

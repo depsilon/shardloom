@@ -120,18 +120,29 @@ type/source/destination composition remains open; this extends the historical
 scalar intake.
 
 The October 10 direction prioritizes [required explicit resources](required-execution-resources-2026-10-10.md)
-before data inspection or execution. Its
-[local acceptance](../benchmarks/required-execution-resources-2026-10-10.md)
-and independent inspection are complete. Support and rendered-guide checks
-pass; hosted acceptance remains pending. The follow-on [native Python ownership and
-columnar exchange](native-python-surface-2026-10-10.md) now has complete
-[local acceptance](../benchmarks/native-python-surface-2026-10-11.md): native
-results/input, in-process operations, typed plans, an isolated installed wheel and
-six paired complete Python workflows. Its hosted integration remains pending.
-Both extend existing owners. Useful legacy/reduced-profile workloads that still
-refuse resource admission remain implementation work; an admission refusal does
-not close them. Safe full-domain timestamp statistics/compression stays attached to ingest
-and pruning. The unbuilt native-binding experiment was not a failed benchmark.
+before data inspection or execution. That unit and [native Python ownership and
+columnar exchange](native-python-surface-2026-10-10.md) completed together in
+[PR #1541](https://github.com/depsilon/shardloom/pull/1541), merged at `88b44c13`
+after all 44 hosted checks passed. The
+[hosted receipt](../benchmarks/evidence/native-python-surface-hosted-2026-10-11.json)
+records the identical reviewed/merged trees, three installed Linux/macOS wheels
+passing all 75 native methods, and actual production verification. Original
+local workflow measurements keep their own source identities. This completes
+the native binding/resource unit, not the six remaining areas below.
+
+The October 11 follow-up distinguishes broader streaming/source composition,
+encoding-preserving cross-client transfer, high-level plan-construction overhead
+and actual platform-runtime proof from that completed unit.
+[Persisted-output reuse](native-persisted-reuse-2026-10-11.md) adds a specific
+lifecycle under the same owners: write and close a native file, release the
+producer, then reopen it in a fresh process for a different computation. Native
+file/object intake already exists; useful output statistics and physical
+preparation must be persisted, recognized and used without blindly inheriting
+input properties. The phase plan owns that implementation and its cost gates.
+Useful existing workloads that still refuse resource admission remain
+implementation work; an admission refusal does not close them. Full-domain
+timestamp statistics/compression retains its separate provider acceptance. The
+unbuilt earlier native-binding experiment was not a failed benchmark.
 
 Reviewed FSST/Zstd payload buffers, actual Zstd decoder/prepared-dictionary
 workspaces, and primitive/Boolean/decimal builder output and finalization overlap
@@ -144,9 +155,9 @@ coverage remains open. A native grant is not a process-RSS limit.
 | --- | --- | --- |
 | Stateful pressure and recovery — PERF-03/06/10/12 | General high-cardinality grouping/DISTINCT and relational ordering are accepted in PR #1531. Oversized join build/intermediate state has complete local and hosted acceptance in PR #1532. Analytic windows have complete local and hosted pressure/workflow acceptance in PR #1533. Growing relational pivot domain/cell state has complete local pressure/workflow acceptance, independent packet inspection and hosted integration in PR #1534. Other unadmitted state and broader recovery retain their own contracts. Reuse shared native mechanisms only where each family's semantics permit. | Complete exact workloads beyond the admitted resident allowance; native reservations/runs and disk quota; cancellation, corruption, exhausted resources, owned cleanup and publication. Distinguish cleanup/restart from actual execution resume. An intentionally resident-only supported shape may close with a documented bound and deterministic growth denial, not a spill claim. |
 | Remaining allocation coverage — PERF-03/06/08/09 | Merge into current resource inventory: child-decoder and selection scratch, structural metadata, compression contexts, dictionary training and other unreviewed reader/provider/builder allocations. Preserve completed provider fixes. | Valid credits before allocation, an implemented bounded/spill transition, or deterministic denial with cleanup for the supported workflow. Identify Python retention, conversion-library memory, allocator overhead and excluded providers separately. |
-| Broader streaming — PERF-03/06/07/11/12 | Extend the existing single-use finite source deliberately: compatibility destinations and fanout; remaining bounded/spill stateful families and safe dynamic-schema admission; declared retention or spool for repeated batch sources/self-joins; exact decimal, binary, temporal and nested intake. Ordering/aggregation, complete drain for limits, joins and analytic windows are implemented and integrated. Preserve that completion contract when admitting further shapes. Dynamic pivot input still rejects before producer demand; ordinary pivot spill does not remove that admission boundary. These are separate missing contracts, not larger constants. | Single-pass input, bounded owners, complete schema/value/order checks, late failure and cancellation, sink cleanup/publication, and no silent replay. Cumulative input and top-level schema metadata now use shared-grant admission; preserve the 2,048-row / 8-MiB frame boundaries and explicit finite completion. Ordinary file-backed datasets do not inherit these transport bounds. |
-| Adapter and composition coverage — PERF-02/07/10/11/12 and CG-19/20/21 | Merge into the universal-workflow matrix: typed/nested format boundaries, partition/schema evolution, prepared/public parity and remaining operator/type result streams. Connect automatic compatibility preparation to the incremental transaction's external cancellation owner before removing its explicit prepare-to-Vortex step. | Read → transform → retain or spill → consume again → write → reopen, checking intended types and every value. Format existence alone is insufficient. Small-result collect may remain deliberately bounded. |
-| Defined local support and release — PERF-12 and existing local-engine/release gates | Bind a specific release to declared workloads, operators/types/formats/resource conditions and supported OS/architectures. Add actual platform runtime evidence, pressure/failure/slow-consumer acceptance, recovery promises, known issues, compatibility, upgrade/rollback and install guidance. | The [local-engine exit criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria), workload-scoped runtime records, supported/unsupported matrix and normal publication gates. Current batch runtime acceptance is macOS arm64 with Unix facilities. A successful cross-platform build alone is insufficient. Package publication itself is already implemented. |
+| Broader streaming — PERF-03/06/07/11/12 | Extend the existing single-use finite source deliberately: compatibility destinations and fanout; remaining bounded/spill stateful families and safe dynamic-schema admission; declared retention or spool for repeated batch sources/self-joins; remaining compositions of decimal, binary, temporal and nested input, preserving the completed exact typed-intake contract. Ordering/aggregation, complete drain for limits, joins and analytic windows are implemented and integrated. Preserve that completion contract when admitting further shapes. Dynamic pivot input still rejects before producer demand; ordinary pivot spill does not remove that admission boundary. These are separate missing contracts, not larger constants. | Single-pass input, bounded owners, complete schema/value/order checks, late failure and cancellation, sink cleanup/publication, and no silent replay. Cumulative input and top-level schema metadata now use shared-grant admission; preserve the 2,048-row / 8-MiB frame boundaries and explicit finite completion. Ordinary file-backed datasets do not inherit these transport bounds. |
+| Adapter and composition coverage — PERF-02/07/10/11/12 and CG-19/20/21 | Merge into the universal-workflow matrix: typed/nested format boundaries, partition/schema evolution, prepared/public parity and remaining operator/type result streams. Connect automatic compatibility preparation to the incremental transaction's external cancellation owner before removing its explicit prepare-to-Vortex step. Complete `NATIVE-PERSISTED-REUSE`: output preparation must survive writer close and producer teardown and be used by a fresh process running a different computation. Keep native retained-object transfer and independent-producer interchange separately evidenced. | Read → transform → retain or spill → consume again → write → reopen, checking intended types and every value. Format existence alone is insufficient. Small-result collect may remain deliberately bounded. |
+| Defined local support and release — PERF-12 and existing local-engine/release gates | Bind a specific release to declared workloads, operators/types/formats/resource conditions and supported OS/architectures. Add actual platform runtime evidence, pressure/failure/slow-consumer acceptance, recovery promises, known issues, compatibility, upgrade/rollback and install guidance. | The [local-engine exit criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria), workload-scoped runtime records, supported/unsupported matrix and normal publication gates. Current full-size local UAT is macOS arm64 with Unix facilities. PR #1541 additionally proves 75 installed native methods on each named Linux/macOS wheel lane; that finite evidence does not complete the broader platform/workload contract. A successful cross-platform build alone is insufficient. Package publication itself is already implemented. |
 | Conditional performance investigations — existing campaign/PERF owners | Preserve all eight rows below, attached to the components they may improve. Evidence prerequisites decide whether to prototype; each retained implementation still needs its frozen complete-operation gate. | Complete output, mechanism counters, grants and controls, original failures, all samples and an explicit retain/drop/defer decision. No investigation is a promised speedup. |
 
 Cloud connectors, distributed execution, table transactions, full SQL/DataFrame
