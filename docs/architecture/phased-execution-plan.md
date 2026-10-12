@@ -250,37 +250,6 @@ the ledger.
 ## Planned
 
 
-- [ ] `NATIVE-TIMESTAMP-PROVIDER` restore full-domain microsecond timestamp
-  compression and safe statistics through the existing native provider.
-  - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-07/08/11/12 and CG-19/20/21.
-  - Source: the October 10–11 maintainer direction and the
-    [provider contract](native-timestamp-provider-2026-10-11.md).
-    The original writer policy preserved valid Int64 storage by omitting
-    file-wide min/max and leaving timestamp subtrees uncompressed. The
-    implementation now restores native compression and safe available statistics
-    without narrowing the supported timestamp domain.
-  - ShardLoom technique review: restore metadata-first pruning and use the
-    existing session, capillary demand and explicit compression concurrency;
-    preserve timing-surface and resource-observation boundaries.
-  - Execution checklist:
-    - [x] Verify and correct the pinned scalar/calendar boundary with reviewed
-      provider provenance, endpoint construction/display and metadata tests.
-    - [x] Restore exact field statistics and useful native compression across
-      writer compositions, retained streams and nested validity boundaries.
-    - [x] Prove complete reopen/filter results, conservative pruning, resource
-      denial/lifetimes and paired complete writer costs on frozen sources.
-    - [x] Complete required source/native/public/Full43 gates, fresh full UAT
-      and independent packet/source-archive verification.
-    - [ ] Complete support evidence, hosted integration and ledger closeout.
-  - Non-goals: new temporal units or timezone semantics, an alternate engine,
-    package publication, hidden resource pools or changed allocation defaults.
-  - Acceptance: the existing full timestamp domain survives compression,
-    statistics and reopening; pruning never removes a matching value; file
-    statistics and measured writer costs have source-linked evidence.
-  - Keep `fallback_attempted=false`, `external_engine_invoked=false`, version
-    0.5.1, all six remaining areas, eight investigations and CG-1 through CG-23.
-
 - [ ] `NATIVE-PERSISTED-REUSE` make produced native output reusable physical
   preparation for a fresh process running a different computation.
   - V1 scope classification: `required_for_v1`.
@@ -291,8 +260,8 @@ the ledger.
     the computed-result writer's omitted file statistics and layout metadata are
     the remaining output-to-next-input gap. Cross-owner transfer and independent
     upstream-producer interchange retain their separate PERF-07 checklists.
-  - Sequence: finish the requested cleanup, fresh full UAT and timestamp PR
-    before another runtime implementation; coordinate this writer/reader work
+  - Sequence: the requested cleanup, fresh full UAT and timestamp PR #1543
+    are complete. Coordinate this writer/reader work
     with the existing broader streaming and source-composition dependencies.
   - Shared runtime and user surface: extend admitted native writers, Vortex
     reopening and prepared planning underneath ordinary CLI/SQL/Python/DataFrame
@@ -338,7 +307,11 @@ PR #1541 after all 44 hosted checks passed. The
 [completed ledger](phased-execution-completed-ledger.md) records the identical
 reviewed/merged trees, three installed native wheel proofs and actual production
 verification. Their original local timings keep their own source identities.
-The full-domain timestamp provider is the current finite unit; the six remaining
+The full-domain timestamp provider completed in PR #1543 after all 44 checks
+passed; its reviewed and merged trees are identical, and actual production
+verification passes. The [completed ledger](phased-execution-completed-ledger.md)
+records the hosted proof and original local measurement identities.
+Persisted native-output reuse is the current finite unit; the six remaining
 areas, eight investigations and CG-1 through CG-23 retain their existing owners.
 
 `NATIVE-TYPED-INPUT` completed in PR #1540 after all 39 hosted checks passed;
@@ -3109,8 +3082,9 @@ measure its later use rather than create another adapter name. The
 candidate disposition, including separately governed ownership and external
 producer interchange. Actual platform-runtime proof remains under the existing
 platform owners; local source or wheel evidence does not substitute for it.
-The requested cleanup, fresh ingest/query/format UAT and timestamp PR precede
-new runtime implementation. Version 0.5.1 and the full remaining scope stay fixed.
+The requested cleanup, fresh ingest/query/format UAT and timestamp PR #1543 are
+complete. Persisted-output implementation now follows that accepted baseline.
+Version 0.5.1 and the full remaining scope stay fixed.
 
 The subsequent candidate set's exact decimal screen is dropped below its frozen
 gate, and conservative membership is dropped for high-match control regressions.

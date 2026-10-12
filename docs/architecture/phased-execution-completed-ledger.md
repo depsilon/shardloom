@@ -17,6 +17,43 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-TIMESTAMP-PROVIDER` — full-domain microsecond timestamp
+  compression, safe available statistics and exact native result compaction,
+  under PERF-07/08/11/12 and CG-19/20/21. The
+  [acceptance report](../benchmarks/native-timestamp-provider-2026-10-11.md)
+  retains pinned Vortex provider provenance, exact Int64 endpoints/nulls/nested
+  values, complete write/reopen comparisons, resource/failure evidence and all
+  measured tradeoffs. Shared-session reporting separates per-plan effects and
+  per-allocation reservation peaks from cumulative history.
+  - Source gates, all 32,497 public cases, 18,595,284 row comparisons and all
+    129 retained-file query results pass. Fresh UAT ingests 99,997,497 rows,
+    compares all 129 query results and completes 18 format cohorts with 1,408
+    comparisons. Independent packet and source-archive verification retains
+    the original failed attempts and every accepted sample; overlapping suites
+    are not added together.
+  - [PR #1543](https://github.com/depsilon/shardloom/pull/1543) merged at
+    `8d4b2a65e72bc9e6ec3656d11909ebebb4f454d0` after all 44 checks passed on
+    `d15e69627b324cb7f9f0bb7d51f13137f993202b`. Both trees are
+    `9e50844f0433be643b83e5816d591261e2dc84dd`; all review threads are resolved.
+    The nested-compression certificate correction has a failing-before/passing-after
+    regression and the required default/native gates. The 64 CodeQL logging
+    alerts are individually triaged false positives; the query remains enabled.
+  - The [hosted receipt](../benchmarks/evidence/native-timestamp-hosted-2026-10-11.json)
+    and fully verified 14-member packet preserve the three installed-wheel
+    lanes. Ubuntu Python 3.10/3.13 and macOS Python 3.13 each pass all 75 tests
+    without failures, errors or skips; individual names, transcripts and
+    isolated native loads are verified. The exact merge deploys successfully.
+    Actual production guide/link/search checks pass at 1280 pixels without
+    horizontal overflow or console errors.
+  - The urgent authorized cleanup leaves approximately 89 GB free and keeps the
+    original Parquet, latest accepted Vortex output, current frozen runtime and
+    compact historical proof. Its [record](local-artifact-cleanup-2026-10-11.md)
+    states exactly which physical payloads now require regeneration.
+  - Persisted-output reuse, broader composition/resource work, all six areas,
+    eight investigations and CG-1 through CG-23 retain their Planned owners.
+    Original timings keep their measured source identities. Version 0.5.1 and
+    published packages remain unchanged; no performance-superiority claim is made.
+
 - [x] `REQUIRED-EXECUTION-RESOURCES` and `NATIVE-PYTHON-SURFACE` — explicit
   allocation and current native Python owners, completed together under
   PERF-02/03/06/07/11/12 and CG-19/20/21/23. The

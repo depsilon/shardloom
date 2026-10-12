@@ -1,12 +1,40 @@
 # Full-domain timestamp provider and native payload acceptance
 
 Status: local source/native and installed-wheel checks, complete public/Full43
-and fresh-UAT runs, and independent evidence verification have passed.
-Hosted integration remains pending. This is the finite follow-up in the
+and fresh-UAT runs, independent evidence verification and hosted integration
+have passed. PR #1543 merged at `8d4b2a65`. This is the finite follow-up in the
 [timestamp provider contract](../architecture/native-timestamp-provider-2026-10-11.md)
 under PERF-07/08/11/12 and CG-19/20/21. Published v0.5.1 packages are unchanged.
 The six remaining areas, eight investigations and CG-1 through CG-23 retain
 their separate obligations.
+
+## Hosted integration
+
+[PR #1543](https://github.com/depsilon/shardloom/pull/1543) merged at
+`8d4b2a65e72bc9e6ec3656d11909ebebb4f454d0` after all 44 checks passed on
+`d15e69627b324cb7f9f0bb7d51f13137f993202b`. The reviewed and merged trees are
+identical (`9e50844f0433be643b83e5816d591261e2dc84dd`), with no unresolved
+review threads. The nested-compression certificate correction is described
+below. The 64 CodeQL logging alerts were statically reviewed per source/sink
+and dismissed as false positives caused by the scanner's `trusted_len_iter`
+name heuristic. The rule remains enabled; no runtime change was made for it.
+
+Ubuntu Python 3.10/3.13 and macOS Python 3.13 each pass all 75 installed native
+integration tests without skips, failures or errors. All individual test names
+and successful transcript entries were recounted, and the isolated native loads
+were checked separately from the static integrity phase's `load_verified=false`.
+The [hosted receipt](evidence/native-timestamp-hosted-2026-10-11.json) binds the
+checks, merge and successful production deployment. Its
+[14-member packet](evidence/native-timestamp-hosted-2026-10-11.json.xz) retains
+the original wheel reports, integration results/transcripts and final PR proof;
+every member was reopened and hash-verified. The compressed SHA-256 is
+`52810843e361db13742164b9a88463700bcdaad08a6b0e0d824197fd20827287`.
+
+Actual production browser checks confirm the timestamp and persisted-reuse
+links, three timestamp search results and navigation to the handoff section.
+The 1280-pixel viewport has no horizontal overflow or console errors. These
+hosted observations do not replace the original local timing/UAT identities,
+publish packages or complete persisted-output reuse.
 
 ## Behavior and provider decision
 
