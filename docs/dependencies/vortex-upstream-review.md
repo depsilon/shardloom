@@ -1,5 +1,33 @@
 # Vortex Upstream Dependency Review
 
+## October 11, 2026 bounded file-statistics intake
+
+The persisted-reuse work reviews the published `vortex-layout` 0.85.0 archive,
+SHA-256 `36b9d7fcb265cbb4025a29ec3f6ecc0fbaa4739b75d900fcd353155c1f2ae1ca`.
+Its 88 regular files contain 951,620 uncompressed bytes. The manifest declares
+Apache-2.0; 82 of 83 Rust files include the SPDX header at their start, while
+`src/layouts/zoned/mod.rs` starts with module documentation. Its package license
+and the [license at the recorded VCS revision](https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE)
+establish the same Apache-2.0 provenance. That license has SHA-256
+`cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`.
+The dirty VCS marker makes the registry archive authoritative; preserve every
+original member hash and the original manifest. Record, then omit, the crate's
+own lockfile because workspace resolution governs this patch.
+
+The scoped change replaces file-statistics batch builders with bounded running
+state using existing native statistics/precision/truncation semantics. It must
+preserve unknown and overflowing observations, compact retained variable-length
+scalars, and avoid execution when no statistics are requested. It does not
+change layout or encoding identities, the file format, the provider version or
+the existing feature boundary. The [persisted-reuse contract](../architecture/native-persisted-reuse-2026-10-11.md#bounded-provider-decision)
+owns reservation and complete-lifecycle acceptance. This entry admits the
+reviewed provider source; it does not assert that the patch or its tests pass.
+
+Subsequent [local acceptance](../benchmarks/native-persisted-reuse-2026-10-11.md)
+passes all seven provider regressions, native writer/resource/lifecycle checks,
+complete public regression and fresh UAT. The report binds those results to
+the exact patched source and keeps hosted integration separate from this intake.
+
 ## October 11, 2026 full-domain timestamp provider review
 
 The timestamp follow-up reviews an Apache-2.0 patch of the published

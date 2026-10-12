@@ -256,10 +256,11 @@ the ledger.
   - Existing owners: PERF-02/07/09/10/11/12 and CG-19/20/21.
   - Source and intake: the October 11 maintainer clarification and
     [persisted-output contract](native-persisted-reuse-2026-10-11.md). Existing
-    native-file admission and same-owner result intake are already implemented;
-    the computed-result writer's omitted file statistics and layout metadata are
-    the remaining output-to-next-input gap. Cross-owner transfer and independent
-    upstream-producer interchange retain their separate PERF-07 checklists.
+    native-file admission and same-owner result intake are already implemented.
+    The shared computed-result writer now derives supported output statistics;
+    [complete local acceptance](../benchmarks/native-persisted-reuse-2026-10-11.md)
+    passes. Cross-owner transfer and independent upstream-producer interchange
+    retain their separate PERF-07 checklists.
   - Sequence: the requested cleanup, fresh full UAT and timestamp PR #1543
     are complete. Coordinate this writer/reader work
     with the existing broader streaming and source-composition dependencies.
@@ -271,29 +272,33 @@ the ledger.
     through measured work shaping, and separate write, first-use and reuse clocks.
     PulseWeave use must be evidenced by actual scheduling work and scarcity.
   - Execution checklist:
-    - [ ] Map ingest-prepared, source-backed, completed, produced, streamed and
+    - [x] Map ingest-prepared, source-backed, completed, produced, streamed and
       spill-produced writers to existing pinned Vortex statistics/layout/metadata
       providers; record the shared extension and remaining semantic differences.
-    - [ ] Define preservation, derivation and invalidation for field identity,
+    - [x] Define preservation, derivation and invalidation for field identity,
       validity, encodings, statistics, ordering, partitioning and reusable derived
       state across projection/filter/limit/aggregate/join/sort and schema changes.
-    - [ ] Produce useful statistics from actual output batches under the shared
+    - [x] Produce useful statistics from actual output batches under the shared
       grant; preserve valid serializable physical state with versioned metadata.
       Keep exact, conservative and unknown observations distinct.
-    - [ ] Discover and use admitted properties on ordinary reopening before
+    - [x] Discover and use admitted properties on ordinary reopening before
       payload work; handle absent, stale, corrupt and incompatible metadata
       conservatively without incorrect pruning or changed values.
-    - [ ] Verify write, durable close, producer teardown, optional move/copy and
+    - [x] Verify write, durable close, producer teardown, optional move/copy and
       fresh-process reopening for at least two different downstream computations.
-      Compare complete schemas/values/nulls/order and actual byte-work counters.
-    - [ ] Verify resource pressure, cancellation, atomic publication, preservation
+      Compare complete schemas/values/nulls/order and available work/byte counters.
+      Instrumented segment requests prove payload pruning; returned arrays and
+      logical bytes do not establish physical device-byte or universal zero-decode claims.
+    - [x] Verify resource pressure, cancellation, atomic publication, preservation
       of previous output and cleanup across all changed writer/reader boundaries.
-    - [ ] Freeze and pass complete-lifecycle retain/drop gates that include Job A
+    - [x] Freeze and pass complete-lifecycle retain/drop gates that include Job A
       write/footprint/metadata costs, Job B/C first and repeated computation, and
       small temporary-output controls before retaining costlier preparation.
     - [ ] Complete focused writer/reopen tests, required Cargo format/lint/workspace
       gates, public/format regressions, fresh full UAT, fidelity/support evidence,
       documentation and hosted integration; then move the finite unit to the ledger.
+      All local gates and independent packet/source verification pass; hosted
+      checks, review and merge remain pending. All 15 frozen cost gates pass.
   - Acceptance: a closed ShardLoom-written file supplies valid physical preparation
     to a new process and different computation, with observed reuse and complete
     results; input properties are never copied blindly.
@@ -3083,7 +3088,10 @@ candidate disposition, including separately governed ownership and external
 producer interchange. Actual platform-runtime proof remains under the existing
 platform owners; local source or wheel evidence does not substitute for it.
 The requested cleanup, fresh ingest/query/format UAT and timestamp PR #1543 are
-complete. Persisted-output implementation now follows that accepted baseline.
+complete. Persisted-output implementation now has complete local lifecycle/cost,
+public and fresh-UAT acceptance plus independently verified evidence; hosted
+integration remains pending. The superseded large output and completed build
+cache have been retired with compact proof retained.
 Version 0.5.1 and the full remaining scope stay fixed.
 
 The subsequent candidate set's exact decimal screen is dropped below its frozen

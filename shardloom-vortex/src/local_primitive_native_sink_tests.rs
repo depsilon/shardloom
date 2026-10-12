@@ -332,6 +332,118 @@ fn public_native_sink_streams_nullable_filter_projection_and_ordered_limit_exact
 }
 
 #[test]
+fn persisted_output_statistics_prune_against_the_new_output_range() {
+    let fixture = Fixture::new();
+    let source = fixture.source(40_000);
+    let written_path = fixture.0.join("limited.vortex");
+    let request = Fixture::request(&source).with_source_order_limit(10_003);
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 1).unwrap();
+    let written = execute_vortex_local_primitive_row_export_with_policy(
+        &request,
+        &written_path,
+        VortexLocalPrimitiveRowExportFormat::Vortex,
+        false,
+        policy,
+    )
+    .unwrap();
+    assert_eq!(written.rows_written, 10_003);
+    drop(written);
+    let reopened_path = fixture.0.join("moved.vortex");
+    fs::rename(written_path, &reopened_path).unwrap();
+    fs::remove_file(source).unwrap();
+    let request = VortexQueryPrimitiveRequest::filter(
+        DatasetUri::new(reopened_path.display().to_string()).unwrap(),
+        PredicateExpr::Compare {
+            column: ColumnRef::new("shipment_sequence").unwrap(),
+            op: ComparisonOp::Gt,
+            value: StatValue::UInt64(10_002),
+        },
+    );
+    let result = crate::execute_vortex_local_primitive_with_policy(&request, policy).unwrap();
+    assert_eq!(result.rows_selected, Some(0));
+    assert!(result.embedded_layout.metadata_pruned_entire_input);
+    assert_eq!(result.arrays_read_count, 0);
+    assert!(!result.data_read && !result.data_decoded && !result.data_materialized);
+    assert!(!result.fallback_execution_allowed && !result.external_effects_executed);
+    // The source had larger keys. Copying its original max would miss this prune.
+    let (_, rows) = read_complete(&reopened_path);
+    assert_eq!(rows.len(), 10_003);
+    for (index, row) in rows.iter().enumerate() {
+        assert_eq!(row["shipment_sequence"], index);
+        assert_eq!(row["priority"], i64::try_from(index % 97).unwrap() - 48);
+        assert_eq!(
+            row["destination"],
+            serde_json::json!((!index.is_multiple_of(7)).then(|| format!("港-{index}")))
+        );
+    }
+}
+
+#[test]
+fn persisted_statistics_prevent_resident_projection_payload_requests() {
+    use crate::resident_session::{
+        ResidentVortexSession, file_pruning_tests::check_native_predicate,
+    };
+    use vortex::array::expr::{get_item, gt, gt_eq, lit, root};
+
+    let fixture = Fixture::new();
+    let original = fixture.source(40_000);
+    let output = fixture.0.join("projected.vortex");
+    let request = Fixture::request(&original).with_source_order_limit(10_003);
+    let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 1).unwrap();
+    execute_vortex_local_primitive_row_export_with_policy(
+        &request,
+        &output,
+        VortexLocalPrimitiveRowExportFormat::Vortex,
+        false,
+        policy,
+    )
+    .unwrap();
+    let moved = fixture.0.join("independent.vortex");
+    fs::rename(output, &moved).unwrap();
+    fs::remove_file(original).unwrap();
+
+    let names = ["shipment_sequence", "priority", "destination"];
+    let expected = StructArray::new(
+        names.into(),
+        vec![
+            PrimitiveArray::from_iter(0..10_003_u64).into_array(),
+            PrimitiveArray::from_iter((0..10_003_i64).map(|index| index % 97 - 48)).into_array(),
+            VarBinViewArray::from_iter_nullable_str(
+                (0..10_003_usize)
+                    .map(|index| (!index.is_multiple_of(7)).then(|| format!("港-{index}"))),
+            )
+            .into_array(),
+        ],
+        10_003,
+        Validity::NonNullable,
+    )
+    .into_array();
+    let session = ResidentVortexSession::new(8 << 20, 2).unwrap();
+    let source = session.prepare_file(&moved).unwrap();
+    let sequence = get_item("shipment_sequence", root());
+    let (pruned, requests) = check_native_predicate(
+        &source,
+        &expected,
+        &names,
+        &gt(sequence.clone(), lit(10_002_u64)),
+        &[],
+        "moved persisted output with disjoint range",
+    );
+    assert!(pruned);
+    assert_eq!(requests, 0);
+    let (pruned, requests) = check_native_predicate(
+        &source,
+        &expected,
+        &names,
+        &gt_eq(sequence, lit(10_000_u64)),
+        &[10_000, 10_001, 10_002],
+        "moved persisted output with surviving range",
+    );
+    assert!(!pruned);
+    assert!(requests > 0);
+}
+
+#[test]
 fn native_sink_preserves_source_alias_schema_and_empty_typed_output() {
     for rows in [0, 37] {
         let fixture = Fixture::new();
@@ -640,7 +752,16 @@ fn source_read_reservation_failure_cleans_staging_after_writer_admission() {
     let policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
         .expect("explicit fixture allocation");
     let prepared = prepare(&request, &source, policy).unwrap().unwrap();
-    let metadata = 40_000_u64.div_ceil(SCAN_ROWS as u64) * METADATA_BYTES_PER_CHUNK + 128 * 1024;
+    let statistics = crate::native_file_statistics::FileStatisticsReservation::reserve(
+        &prepared.dtype,
+        prepared.session.memory(),
+    )
+    .unwrap();
+    let metadata = 40_000_u64.div_ceil(SCAN_ROWS as u64) * METADATA_BYTES_PER_CHUNK
+        + 128 * 1024
+        + prepared.schema_metadata.bytes()
+        + statistics.bytes();
+    drop(statistics);
     let available = policy.resource_envelope().memory_budget_bytes
         - prepared.session.snapshot().memory.reserved_bytes;
     // Admit the complete metadata lease, leaving one byte for the source read.

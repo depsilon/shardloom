@@ -53,6 +53,14 @@ rebuildable compiler outputs when they are no longer needed. Do not archive an
 entire compiler cache merely to preserve old test executables. Keep failed-run
 diagnostics and reproduction inputs without retaining every generated payload.
 Recheck free space before and after large jobs and preserve the existing guards.
+
+After persisted-output acceptance, the
+[follow-up retirement](local-artifact-cleanup-2026-10-11.md#persisted-output-acceptance-cleanup)
+removes the superseded 15.7-GB timestamp output and retains the newly accepted
+`persisted-native-343-a1.vortex` with the original Parquet. The completed debug
+cache, two identical executable copies and 21 duplicate historical fixture
+copies are also retired. Every unique fixture and all compact result/failure
+evidence remain. Observed free space after the output retirement is 79.94 GB.
 Do not move cloud-only bulk artifacts out of a synced folder as a cleanup step:
 the move can request hydration. Use explicit, scoped deletion only when authorized
 and the artifact has been established as disposable.

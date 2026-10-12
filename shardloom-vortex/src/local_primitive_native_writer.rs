@@ -6,6 +6,7 @@
 //! can remain alive. Keep the sequential Flat strategy and native serialization;
 //! drain only already accepted input, never the producer, before releasing it.
 
+use crate::native_file_statistics::FileStatisticsReservation;
 use std::{cell::RefCell, io, rc::Rc, sync::Arc};
 use vortex::{
     array::{ArrayRef, dtype::DType},
@@ -21,6 +22,23 @@ type SinkFailure = Rc<RefCell<Option<io::Error>>>;
 pub(super) struct NativeWriter<'runtime, 'sink, B: BlockingRuntime> {
     writer: Option<BlockingWriter<'runtime, 'sink, B>>,
     failure: SinkFailure,
+    statistics: Option<FileStatisticsReservation>,
+}
+
+pub(super) struct NativeWriteSummary {
+    summary: WriteSummary,
+    // Keep the completed footer charged until its final consumer releases it.
+    _statistics: Option<FileStatisticsReservation>,
+}
+
+impl NativeWriteSummary {
+    pub(super) fn row_count(&self) -> u64 {
+        self.summary.row_count()
+    }
+
+    pub(super) fn footer(&self) -> &vortex::file::Footer {
+        self.summary.footer()
+    }
 }
 
 impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
@@ -31,11 +49,39 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
         dtype: DType,
         strategy: Arc<dyn LayoutStrategy>,
     ) -> Self {
+        Self::with_statistics(session, runtime, sink, dtype, strategy, None)
+    }
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn persisted(
+        session: &VortexSession,
+        runtime: &'runtime B,
+        sink: impl io::Write + Unpin + 'sink,
+        dtype: DType,
+        strategy: Arc<dyn LayoutStrategy>,
+        statistics: FileStatisticsReservation,
+    ) -> Self {
+        Self::with_statistics(session, runtime, sink, dtype, strategy, Some(statistics))
+    }
+
+    fn with_statistics(
+        session: &VortexSession,
+        runtime: &'runtime B,
+        sink: impl io::Write + Unpin + 'sink,
+        dtype: DType,
+        strategy: Arc<dyn LayoutStrategy>,
+        statistics: Option<FileStatisticsReservation>,
+    ) -> Self {
         let failure = Rc::new(RefCell::new(None));
+        let selected_statistics = if statistics.is_some() {
+            vortex::array::stats::PRUNING_STATS.to_vec()
+        } else {
+            Vec::new()
+        };
         let writer = session
             .write_options()
             .with_strategy(strategy)
-            .with_file_statistics(Vec::new())
+            .with_file_statistics(selected_statistics)
             .blocking(runtime)
             .writer(
                 DrainAfterFailure {
@@ -47,6 +93,7 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
         Self {
             writer: Some(writer),
             failure,
+            statistics,
         }
     }
 
@@ -60,6 +107,7 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
             // A provider/layout error has consumed the fused terminal future.
             // Sink errors are handled below; never finish this future twice.
             self.writer.take();
+            self.statistics.take();
         } else if self.failure.borrow().is_some() {
             self.drain();
         } else {
@@ -71,7 +119,7 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
         }
     }
 
-    pub(super) fn finish(mut self) -> VortexResult<WriteSummary> {
+    pub(super) fn finish(mut self) -> VortexResult<NativeWriteSummary> {
         let result = self
             .writer
             .take()
@@ -79,7 +127,10 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
             .finish();
         match self.failure.borrow_mut().take() {
             Some(error) => Err(error.into()),
-            None => result,
+            None => result.map(|summary| NativeWriteSummary {
+                summary,
+                _statistics: self.statistics.take(),
+            }),
         }
     }
 
@@ -96,6 +147,7 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
             // the adapter. A producer error remains the caller's original error.
             let _ = writer.finish();
         }
+        self.statistics.take();
     }
 }
 

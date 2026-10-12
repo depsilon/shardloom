@@ -1,0 +1,534 @@
+{
+  "schema_version": "shardloom.persisted_reuse_cleanup_evidence.v1",
+  "status": "passed",
+  "records": [
+    {
+      "original_path": "<native-python-uat>/completed-debug-and-duplicate-cleanup-345.json",
+      "original_sha256": "ac0997816925f3b6509e37070a467bb26b379148dccbd7391ebc894385a18cbe",
+      "value": {
+        "status": "completed",
+        "recorded_at": "2026-10-12T03:48:48.322859+00:00",
+        "reason": "Completed rebuildable debug cache and byte-identical superseded release copies; all saved receipts and logs remain. No native/build process uses the deleted paths.",
+        "debug_path": "<home>/.cache/shardloom/cargo-target/debug",
+        "debug_files": 16042,
+        "debug_logical_bytes": 9839029097,
+        "debug_allocated_bytes": 9892691968,
+        "duplicates": [
+          {
+            "removed_path": "<native-python-uat>/native-cli-release-342/shardloom",
+            "retained_path": "<native-python-uat>/native-cli-release-343/shardloom",
+            "bytes": 74965328,
+            "sha256": "28ee8b115d15720787fde3ceb035103091cec50351127cb231d5097bbe83478b"
+          },
+          {
+            "removed_path": "<native-python-uat>/native-binding-release-342/_native.abi3.so",
+            "retained_path": "<native-python-uat>/native-binding-release-343/_native.abi3.so",
+            "bytes": 74563360,
+            "sha256": "771c049e1341421009eff8330ef2171297c621626dd73a7241c2b5c36de038a1"
+          }
+        ],
+        "free_bytes_before": 74612469760,
+        "compiler_processes_present": false,
+        "archived_compiler_cache": false,
+        "free_bytes_after": 83856826368,
+        "free_bytes_recovered_observed": 9244356608
+      }
+    },
+    {
+      "original_path": "<native-python-uat>/historical-fixture-deduplication-345.json",
+      "original_sha256": "b804843007678214ad7659c66cafacb33bc11b2b29bbae703a37b82997511f95",
+      "value": {
+        "status": "passed",
+        "recorded_at": "2026-10-12T04:03:14.816693+00:00",
+        "scope": "Only repeated byte-identical fixture.parquet, fixture.vortex and fixture.jsonl.gz inputs in September heldout-operator directories. All summaries, timing, logs and failure evidence stay in place. One original copy of every input remains.",
+        "originals_removed": 21,
+        "all_unique_reproduction_inputs_retained": true,
+        "diagnostic_files_removed": 0,
+        "storage_limits_changed": false,
+        "before_accounted_log_bytes": 266702848,
+        "groups": [
+          {
+            "retained": {
+              "path": "<clickbench-uat>/logs/heldout_operators_20260905T204926998804Z/fixture.vortex",
+              "identity": {
+                "device": 16777231,
+                "inode": 86913844,
+                "bytes": 75656,
+                "mtime_ns": 1788641367156532754,
+                "ctime_ns": 1788641367156635921,
+                "allocated_bytes": 77824
+              },
+              "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+            },
+            "removed": [
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260905T225033466111Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 87107919,
+                  "bytes": 75656,
+                  "mtime_ns": 1788648633647690809,
+                  "ctime_ns": 1788648633647779143,
+                  "allocated_bytes": 77824
+                },
+                "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260906T094338052066Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 87429217,
+                  "bytes": 75656,
+                  "mtime_ns": 1788687819004214955,
+                  "ctime_ns": 1788687819004316484,
+                  "allocated_bytes": 77824
+                },
+                "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260906T101752539379Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 87478326,
+                  "bytes": 75656,
+                  "mtime_ns": 1788689872794580114,
+                  "ctime_ns": 1788689872794652573,
+                  "allocated_bytes": 77824
+                },
+                "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260908T103742651028Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 88191096,
+                  "bytes": 75656,
+                  "mtime_ns": 1788863862947474309,
+                  "ctime_ns": 1788863862947554060,
+                  "allocated_bytes": 77824
+                },
+                "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260908T185727217270Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 88347243,
+                  "bytes": 75656,
+                  "mtime_ns": 1788893847421847245,
+                  "ctime_ns": 1788893847421926120,
+                  "allocated_bytes": 77824
+                },
+                "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260908T192912965178Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 88399579,
+                  "bytes": 75656,
+                  "mtime_ns": 1788895753170014388,
+                  "ctime_ns": 1788895753170087804,
+                  "allocated_bytes": 77824
+                },
+                "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260912T150021159832Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 88876407,
+                  "bytes": 75656,
+                  "mtime_ns": 1789225221357163503,
+                  "ctime_ns": 1789225221357280087,
+                  "allocated_bytes": 77824
+                },
+                "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260912T163723131753Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 88944205,
+                  "bytes": 75656,
+                  "mtime_ns": 1789231043277195417,
+                  "ctime_ns": 1789231043277276916,
+                  "allocated_bytes": 77824
+                },
+                "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260912T214237622169Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 89599553,
+                  "bytes": 75656,
+                  "mtime_ns": 1789249357807173877,
+                  "ctime_ns": 1789249357807420629,
+                  "allocated_bytes": 77824
+                },
+                "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260913T001217800334Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 89947412,
+                  "bytes": 75656,
+                  "mtime_ns": 1789258337945558319,
+                  "ctime_ns": 1789258337945639778,
+                  "allocated_bytes": 77824
+                },
+                "sha256": "e33225a1b499f709ab2648773a3eaa83508a07caa46e95093fccd93ad898a202"
+              }
+            ]
+          },
+          {
+            "retained": {
+              "path": "<clickbench-uat>/logs/heldout_operators_20260905T224706321291Z/fixture.vortex",
+              "identity": {
+                "device": 16777231,
+                "inode": 87106127,
+                "bytes": 2170380,
+                "mtime_ns": 1788648427173849442,
+                "ctime_ns": 1788648427174009775,
+                "allocated_bytes": 2170880
+              },
+              "sha256": "0f1331fc70ec19829bff7edf6e38247fda1e618875f013cd3951b81eed1dc2d4"
+            },
+            "removed": [
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260905T224805334464Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 87106264,
+                  "bytes": 2170380,
+                  "mtime_ns": 1788648486180443223,
+                  "ctime_ns": 1788648486180615432,
+                  "allocated_bytes": 2170880
+                },
+                "sha256": "0f1331fc70ec19829bff7edf6e38247fda1e618875f013cd3951b81eed1dc2d4"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260908T105141368540Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 88196271,
+                  "bytes": 2170380,
+                  "mtime_ns": 1788864702360340418,
+                  "ctime_ns": 1788864702360501002,
+                  "allocated_bytes": 2170880
+                },
+                "sha256": "0f1331fc70ec19829bff7edf6e38247fda1e618875f013cd3951b81eed1dc2d4"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260908T105450948053Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 88196495,
+                  "bytes": 2170380,
+                  "mtime_ns": 1788864891796103406,
+                  "ctime_ns": 1788864891796287532,
+                  "allocated_bytes": 2170880
+                },
+                "sha256": "0f1331fc70ec19829bff7edf6e38247fda1e618875f013cd3951b81eed1dc2d4"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260908T193104530231Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 88401986,
+                  "bytes": 2170380,
+                  "mtime_ns": 1788895865415728684,
+                  "ctime_ns": 1788895865415898516,
+                  "allocated_bytes": 2170880
+                },
+                "sha256": "0f1331fc70ec19829bff7edf6e38247fda1e618875f013cd3951b81eed1dc2d4"
+              }
+            ]
+          },
+          {
+            "retained": {
+              "path": "<clickbench-uat>/logs/heldout_operators_20260905T224706321291Z/fixture.jsonl.gz",
+              "identity": {
+                "device": 16777231,
+                "inode": 87106256,
+                "bytes": 2037166,
+                "mtime_ns": 1788648484958628089,
+                "ctime_ns": 1788648484958628089,
+                "allocated_bytes": 2039808
+              },
+              "sha256": "09ebdfbddf695a4a94a7dfc080f20568220447322c68edcd147b3e6e372db194"
+            },
+            "removed": [
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260905T224805334464Z/fixture.jsonl.gz",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 87107911,
+                  "bytes": 2037166,
+                  "mtime_ns": 1788648633399229836,
+                  "ctime_ns": 1788648633399229836,
+                  "allocated_bytes": 2039808
+                },
+                "sha256": "09ebdfbddf695a4a94a7dfc080f20568220447322c68edcd147b3e6e372db194"
+              }
+            ]
+          },
+          {
+            "retained": {
+              "path": "<clickbench-uat>/logs/heldout_operators_20260908T105141368540Z/fixture.jsonl.gz",
+              "identity": {
+                "device": 16777231,
+                "inode": 88196487,
+                "bytes": 1908483,
+                "mtime_ns": 1788864890502169801,
+                "ctime_ns": 1788864890502169801,
+                "allocated_bytes": 1908736
+              },
+              "sha256": "5c6361e5f6d8d6d33254c917c4aaa0abd57b0dc99f553a57c67b3f1e07bac198"
+            },
+            "removed": [
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260908T105450948053Z/fixture.jsonl.gz",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 88201202,
+                  "bytes": 1908483,
+                  "mtime_ns": 1788865111434075856,
+                  "ctime_ns": 1788865111434075856,
+                  "allocated_bytes": 1908736
+                },
+                "sha256": "5c6361e5f6d8d6d33254c917c4aaa0abd57b0dc99f553a57c67b3f1e07bac198"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260908T193104530231Z/fixture.jsonl.gz",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 88402475,
+                  "bytes": 1908483,
+                  "mtime_ns": 1788895888181569587,
+                  "ctime_ns": 1788895888181569587,
+                  "allocated_bytes": 1908736
+                },
+                "sha256": "5c6361e5f6d8d6d33254c917c4aaa0abd57b0dc99f553a57c67b3f1e07bac198"
+              }
+            ]
+          },
+          {
+            "retained": {
+              "path": "<clickbench-uat>/logs/heldout_operators_20260912T163920677165Z/fixture.parquet",
+              "identity": {
+                "device": 16777231,
+                "inode": 88950131,
+                "bytes": 2401747,
+                "mtime_ns": 1789231160864214947,
+                "ctime_ns": 1789231160864214947,
+                "allocated_bytes": 2404352
+              },
+              "sha256": "4a4c8f6301454f32a407e5e1be52ef23e59a2d47298058bef62edc4a2b9b86cc"
+            },
+            "removed": [
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260920T132708850303Z/fixture.parquet",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 91592921,
+                  "bytes": 2401747,
+                  "mtime_ns": 1789910829054377604,
+                  "ctime_ns": 1789910829054377604,
+                  "allocated_bytes": 2404352
+                },
+                "sha256": "4a4c8f6301454f32a407e5e1be52ef23e59a2d47298058bef62edc4a2b9b86cc"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260920T163918059577Z/fixture.parquet",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 91809845,
+                  "bytes": 2401747,
+                  "mtime_ns": 1789922358282285907,
+                  "ctime_ns": 1789922358282285907,
+                  "allocated_bytes": 2404352
+                },
+                "sha256": "4a4c8f6301454f32a407e5e1be52ef23e59a2d47298058bef62edc4a2b9b86cc"
+              }
+            ]
+          },
+          {
+            "retained": {
+              "path": "<clickbench-uat>/logs/heldout_operators_20260912T163920677165Z/fixture.vortex",
+              "identity": {
+                "device": 16777231,
+                "inode": 88950143,
+                "bytes": 2170392,
+                "mtime_ns": 1789231160907286104,
+                "ctime_ns": 1789231160907422437,
+                "allocated_bytes": 2170880
+              },
+              "sha256": "dae23af24dc88544c159cd60c636263f167bf9424f12b6549714bd7ad8e104d8"
+            },
+            "removed": [
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260920T132708850303Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 91592925,
+                  "bytes": 2170392,
+                  "mtime_ns": 1789910829705047588,
+                  "ctime_ns": 1789910829705418505,
+                  "allocated_bytes": 2170880
+                },
+                "sha256": "dae23af24dc88544c159cd60c636263f167bf9424f12b6549714bd7ad8e104d8"
+              },
+              {
+                "path": "<clickbench-uat>/logs/heldout_operators_20260920T163918059577Z/fixture.vortex",
+                "identity": {
+                  "device": 16777231,
+                  "inode": 91809848,
+                  "bytes": 2170392,
+                  "mtime_ns": 1789922358321220114,
+                  "ctime_ns": 1789922358321537906,
+                  "allocated_bytes": 2170880
+                },
+                "sha256": "dae23af24dc88544c159cd60c636263f167bf9424f12b6549714bd7ad8e104d8"
+              }
+            ]
+          }
+        ],
+        "after_accounted_log_bytes": 242233344,
+        "recovered_accounted_log_bytes": 24469504,
+        "storage_preflight": {
+          "workspace_bytes": 34939691008,
+          "log_bytes": 242233344,
+          "free_bytes": 83356028928,
+          "reserved_candidate_bytes": 21474836480
+        }
+      }
+    },
+    {
+      "original_path": "<native-python-uat>/superseded-persisted-output-cleanup-347.json",
+      "original_sha256": "0ec7a35ca16f65e731f79c0598f0ab85fc411a1d1acf965d8b204da296937240",
+      "value": {
+        "schema_version": "shardloom.scoped_artifact_cleanup.v1",
+        "status": "passed",
+        "recorded_at": "2026-10-12T04:40:18.425156+00:00",
+        "authorization": "Maintainer explicitly requested deletion of unneeded generated artifacts; retain current input, latest accepted output and compact evidence.",
+        "disposition": "superseded_generated_output_not_byte_identical_duplicate",
+        "removed": {
+          "path": "<clickbench-uat>/vortex/timestamp-native-20261011-a1.vortex",
+          "sha256": "3b6f97cff0294042530605195ab720905f36cde130f6ae850d146b0b28e6638a",
+          "generation": {
+            "device": 16777231,
+            "inode": 106193944,
+            "size_bytes": 15713610545,
+            "mtime_ns": 1791760120510305644,
+            "ctime_ns": 1791760120522931382
+          },
+          "resident_before_hash": true,
+          "unchanged_during_hash": true,
+          "allocated_bytes": 15713611776
+        },
+        "retained": {
+          "<clickbench-uat>/vortex/persisted-native-343-a1.vortex": {
+            "sha256": "004f9639fa0aa527b70f326c366c37b1173dceeacb92b50b2d8fd02957155c18",
+            "generation": {
+              "device": 16777231,
+              "inode": 106774062,
+              "size_bytes": 15713610513,
+              "mtime_ns": 1791778286232402533,
+              "ctime_ns": 1791778286232862867
+            },
+            "resident_before_hash": true,
+            "unchanged_during_hash": true
+          },
+          "<clickbench-uat>/sources/hits.parquet": {
+            "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+            "generation": {
+              "device": 16777231,
+              "inode": 84833233,
+              "size_bytes": 14779976446,
+              "mtime_ns": 1788461344802364826,
+              "ctime_ns": 1788612069108841600
+            },
+            "resident_before_hash": true,
+            "unchanged_during_hash": true
+          }
+        },
+        "retained_results": {
+          "<native-python-uat>/timestamp-fresh-uat-326/timestamp-native-fresh-uat-1-results.json": "aa34a4870de5af44676aeeae74188321c4cb75c006f9628fbc1662df924f8206",
+          "<native-python-uat>/persisted-acceptance-343/persisted-native-fresh-uat-1-results.json": "4f045c6c49438117546cdec0b036a82b025e0608e36ddd5ba6eb7bb4ad14037d"
+        },
+        "accepted_readback": {
+          "path": "<native-python-uat>/persisted-readback-343/persisted-native-readback-1-results.json",
+          "sha256": "d542ab8d50e3ded147b12e3a901dd59cb9cdd8b005d60e71764e8cf615ac7309"
+        },
+        "source_archive": {
+          "path": "<native-python-uat>/persisted-source-archive-347.json",
+          "sha256": "53e9bee398acb2a3368c8034130e57ce783244c7e7eeb72537570ed2227a3473"
+        },
+        "no_open_handles_verified": true,
+        "old_hash_reverified_before_unlink": true,
+        "retained_generations_unchanged": true,
+        "historical_logs_and_failures_retained": true,
+        "free_bytes_before": 64222285824,
+        "free_bytes_after": 79936045056,
+        "regeneration": "Rebuild the original timestamp source using its retained source and build manifest, then replay its fresh ingest protocol against the retained original Parquet to a new unique target. Do not replay against completed historical paths."
+      }
+    }
+  ],
+  "latest_guard": {
+    "original_path": "<native-python-uat>/cleanup-persisted-output-347.json",
+    "original_sha256": "ba8db6580f31c9349232a824cc27e14a20abc25a5c443160509d1cfc6b22a1f9",
+    "value": {
+      "status": "passed",
+      "command": [
+        "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "<native-python-uat>/retire_superseded_persisted_output_347.py"
+      ],
+      "cwd": "<repo>",
+      "head": "5d5f51947f5bd2e5092609b32956db9266ec7a5b",
+      "working_tree": " M .github/workflows/ci.yml\n M Cargo.lock\n M Cargo.toml\n M docs/architecture/native-persisted-reuse-2026-10-11.md\n M docs/architecture/phased-execution-plan.md\n M docs/architecture/vortex-public-api-inventory.md\n M docs/dependencies/vortex-upstream-review.md\n M docs/release/ci-gate-matrix.md\n M python/THIRD_PARTY_LICENSES/manifest.json\n M python/tests/test_native_binding.py\n M scripts/check_ci_gate_matrix.py\n M scripts/run_native_output_uat.py\n M scripts/test_native_output_uat.py\n M shardloom-vortex/src/lib.rs\n M shardloom-vortex/src/local_primitive_footer_aggregate_native_tests.rs\n M shardloom-vortex/src/local_primitive_native_sink.rs\n M shardloom-vortex/src/local_primitive_native_sink_tests.rs\n M shardloom-vortex/src/local_primitive_native_writer.rs\n M shardloom-vortex/src/local_primitive_native_writer_tests.rs\n M shardloom-vortex/src/local_primitive_result_stream_tests.rs\n M shardloom-vortex/src/vortex_ingest.rs\n M vendor/vortex-array/README.shardloom.md\n M vendor/vortex-array/src/stats/stats_set.rs\n M vendor/vortex-array/upstream-provenance.json\n?? scripts/native_output_reuse.py\n?? shardloom-vortex/src/native_file_statistics.rs\n?? vendor/vortex-layout/\n",
+      "environment": {
+        "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0"
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "storage_last_observation": {
+        "output": {
+          "workspace_bytes": 17698939278,
+          "log_bytes": 0,
+          "free_bytes": 64222285824,
+          "reserved_candidate_bytes": 134217728
+        },
+        "cargo": {
+          "workspace_bytes": 2867699712,
+          "log_bytes": 0,
+          "free_bytes": 64222285824,
+          "reserved_candidate_bytes": 134217728
+        }
+      },
+      "timeout_seconds": 300.0,
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "output_limit_bytes": 8388608,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "pid": 63820,
+      "output_bytes": 2926,
+      "group_absence_unproved_at_cleanup": false,
+      "returncode": 0,
+      "seconds": 6.171221666969359,
+      "log_sha256": "fe4e2ee0b2ebef4f220ffc8fa4c9ae1c13a84627b940fceb4d4792f254335d93"
+    },
+    "log": "{\"schema_version\": \"shardloom.scoped_artifact_cleanup.v1\", \"status\": \"passed\", \"recorded_at\": \"2026-10-12T04:40:18.425156+00:00\", \"authorization\": \"Maintainer explicitly requested deletion of unneeded generated artifacts; retain current input, latest accepted output and compact evidence.\", \"disposition\": \"superseded_generated_output_not_byte_identical_duplicate\", \"removed\": {\"path\": \"<clickbench-uat>/vortex/timestamp-native-20261011-a1.vortex\", \"sha256\": \"3b6f97cff0294042530605195ab720905f36cde130f6ae850d146b0b28e6638a\", \"generation\": {\"device\": 16777231, \"inode\": 106193944, \"size_bytes\": 15713610545, \"mtime_ns\": 1791760120510305644, \"ctime_ns\": 1791760120522931382}, \"resident_before_hash\": true, \"unchanged_during_hash\": true, \"allocated_bytes\": 15713611776}, \"retained\": {\"<clickbench-uat>/vortex/persisted-native-343-a1.vortex\": {\"sha256\": \"004f9639fa0aa527b70f326c366c37b1173dceeacb92b50b2d8fd02957155c18\", \"generation\": {\"device\": 16777231, \"inode\": 106774062, \"size_bytes\": 15713610513, \"mtime_ns\": 1791778286232402533, \"ctime_ns\": 1791778286232862867}, \"resident_before_hash\": true, \"unchanged_during_hash\": true}, \"<clickbench-uat>/sources/hits.parquet\": {\"sha256\": \"a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f\", \"generation\": {\"device\": 16777231, \"inode\": 84833233, \"size_bytes\": 14779976446, \"mtime_ns\": 1788461344802364826, \"ctime_ns\": 1788612069108841600}, \"resident_before_hash\": true, \"unchanged_during_hash\": true}}, \"retained_results\": {\"<native-python-uat>/timestamp-fresh-uat-326/timestamp-native-fresh-uat-1-results.json\": \"aa34a4870de5af44676aeeae74188321c4cb75c006f9628fbc1662df924f8206\", \"<native-python-uat>/persisted-acceptance-343/persisted-native-fresh-uat-1-results.json\": \"4f045c6c49438117546cdec0b036a82b025e0608e36ddd5ba6eb7bb4ad14037d\"}, \"accepted_readback\": {\"path\": \"<native-python-uat>/persisted-readback-343/persisted-native-readback-1-results.json\", \"sha256\": \"d542ab8d50e3ded147b12e3a901dd59cb9cdd8b005d60e71764e8cf615ac7309\"}, \"source_archive\": {\"path\": \"<native-python-uat>/persisted-source-archive-347.json\", \"sha256\": \"53e9bee398acb2a3368c8034130e57ce783244c7e7eeb72537570ed2227a3473\"}, \"no_open_handles_verified\": true, \"old_hash_reverified_before_unlink\": true, \"retained_generations_unchanged\": true, \"historical_logs_and_failures_retained\": true, \"free_bytes_before\": 64222285824, \"free_bytes_after\": 79936045056, \"regeneration\": \"Rebuild the original timestamp source using its retained source and build manifest, then replay its fresh ingest protocol against the retained original Parquet to a new unique target. Do not replay against completed historical paths.\"}\n"
+  },
+  "cleanup_driver": {
+    "sha256": "46fffb1ea4cb13fb6d405071d444e40e3c03daaf4d0bfe855257bc9e00d83ad5",
+    "source": "\"\"\"Retire only the superseded large output after current evidence is sealed.\"\"\"\nimport datetime as dt\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport shutil\nimport stat\nimport subprocess\n\nOUT = Path(__file__).resolve().parent\nUAT = Path('<clickbench-uat>')\nOLD = UAT / 'vortex/timestamp-native-20261011-a1.vortex'\nNEW = UAT / 'vortex/persisted-native-343-a1.vortex'\nSOURCE = UAT / 'sources/hits.parquet'\n\n\ndef read(path):\n    return json.loads(path.read_text())\n\n\ndef sha(path):\n    with path.open('rb') as stream:\n        return hashlib.file_digest(stream, 'sha256').hexdigest()\n\n\ndef generation(path):\n    value = path.lstat()\n    assert stat.S_ISREG(value.st_mode) and not path.is_symlink(), path\n    assert not (getattr(value, 'st_flags', 0) & 0x40000000), path\n    return dict(device=value.st_dev, inode=value.st_ino, size_bytes=value.st_size,\n                mtime_ns=value.st_mtime_ns, ctime_ns=value.st_ctime_ns)\n\n\ndef main():\n    receipt = OUT / 'superseded-persisted-output-cleanup-347.json'\n    assert not receipt.exists()\n    archive_path = OUT / 'persisted-source-archive-347.json'\n    archive = read(archive_path)\n    assert archive['status'] == 'passed' and archive['source_unchanged']\n    assert sha(Path(archive['archive'])) == archive['archive_sha256']\n    assert sha(Path(archive['separate_portable_packet'])) == archive['separate_portable_packet_sha256']\n    readback_path = OUT / 'persisted-readback-343/persisted-native-readback-1-results.json'\n    readback = read(readback_path)\n    assert readback['status'] == 'passed_local_public_and_fresh_uat'\n    assert readback['packet_sha256'] == archive['separate_portable_packet_sha256']\n    assert readback['fresh_ingest_rows'] == 99997497 and readback['full43_runs'] == 129\n    old_manifest = OUT / 'timestamp-fresh-uat-326/timestamp-native-fresh-uat-1-results.json'\n    new_manifest = OUT / 'persisted-acceptance-343/persisted-native-fresh-uat-1-results.json'\n    old_result, new_result = read(old_manifest), read(new_manifest)\n    assert old_result['status'] == new_result['status'] == 'passed_local_fresh_uat'\n    old_identity = old_result['artifact_identities'][str(OLD)]\n    retained = {p: new_result['artifact_identities'][str(p)] for p in (NEW, SOURCE)}\n    lock = UAT / '.ingest-uat.lock'\n    lock.mkdir()\n    try:\n        (lock / 'owner.pid').write_text(str(os.getpid()) + '\\n')\n        before = generation(OLD)\n        assert before == old_identity['generation']\n        assert sha(OLD) == old_identity['sha256']\n        assert generation(OLD) == before\n        for path, identity in retained.items():\n            assert generation(path) == identity['generation']\n        handles = subprocess.run(['/usr/sbin/lsof', '-nP', '-F', 'pfn', '--',\n                                  str(OLD), str(NEW), str(SOURCE)],\n                                 text=True, capture_output=True, check=False)\n        assert handles.returncode == 1 and not handles.stdout and not handles.stderr, handles\n        bytes_allocated = OLD.stat().st_blocks * 512\n        free_before = shutil.disk_usage(UAT).free\n        assert generation(OLD) == before\n        OLD.unlink()\n        assert not OLD.exists()\n        for path, identity in retained.items():\n            assert generation(path) == identity['generation']\n        result = {'schema_version': 'shardloom.scoped_artifact_cleanup.v1',\n            'status': 'passed', 'recorded_at': dt.datetime.now(dt.timezone.utc).isoformat(),\n            'authorization': 'Maintainer explicitly requested deletion of unneeded generated artifacts; retain current input, latest accepted output and compact evidence.',\n            'disposition': 'superseded_generated_output_not_byte_identical_duplicate',\n            'removed': {'path': str(OLD), **old_identity, 'allocated_bytes': bytes_allocated},\n            'retained': {str(path): identity for path, identity in retained.items()},\n            'retained_results': {str(old_manifest): sha(old_manifest), str(new_manifest): sha(new_manifest)},\n            'accepted_readback': {'path': str(readback_path), 'sha256': sha(readback_path)},\n            'source_archive': {'path': str(archive_path), 'sha256': sha(archive_path)},\n            'no_open_handles_verified': True, 'old_hash_reverified_before_unlink': True,\n            'retained_generations_unchanged': True, 'historical_logs_and_failures_retained': True,\n            'free_bytes_before': free_before, 'free_bytes_after': shutil.disk_usage(UAT).free,\n            'regeneration': 'Rebuild the original timestamp source using its retained source and build manifest, then replay its fresh ingest protocol against the retained original Parquet to a new unique target. Do not replay against completed historical paths.'}\n        with receipt.open('x') as stream:\n            json.dump(result, stream, indent=2)\n            stream.write('\\n')\n        print(json.dumps(result), flush=True)\n    finally:\n        (lock / 'owner.pid').unlink()\n        lock.rmdir()\n\n\nif __name__ == '__main__':\n    main()\n"
+  },
+  "boundary": "The three records are chronological. The last retirement supersedes earlier retention of the timestamp output; the original Parquet and latest persisted output remain."
+}

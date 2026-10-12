@@ -180,3 +180,40 @@ and `delete_obsolete_datasets_336.py`. It also retains the verified
 The storage guide now makes prompt retirement of disposable build/package
 outputs explicit; retaining every historical binary or generated payload is
 not required to preserve useful validation evidence.
+
+## Persisted-output acceptance cleanup
+
+The subsequent persisted-output unit follows the same deletion policy. Once
+its required source tests completed, the 16,042-file regenerated debug cache
+was removed: 9,839,029,097 logical bytes and 9,892,691,968 allocated bytes.
+No replacement compiler-cache archive was made. The obsolete build-342 CLI and
+extension were byte-identical to the retained build-343 copies and were removed
+after size/hash verification. Receipts and failure logs remain.
+
+Fresh-UAT admission then found historical generated fixtures inside the log
+budget. Twenty-one copies across six identical-content groups were removed
+after full hash and byte comparisons, retaining an original of every unique
+input. All diagnostic and result files remain. Accounted log storage falls
+from 266,702,848 to 242,233,344 bytes, recovering 24,469,504 bytes without raising
+the existing admission or running ceilings.
+
+After complete public/fresh-UAT acceptance and byte-verified evidence sealing,
+the superseded `timestamp-native-20261011-a1.vortex` was retired. Its
+15,713,610,545 bytes matched SHA-256
+`3b6f97cff0294042530605195ab720905f36cde130f6ae850d146b0b28e6638a`
+before deletion. File generations, no-open-handle checks and the UAT lock
+protect the exact-path removal. It is not byte-identical to the new accepted
+output and is recorded as superseded generated data.
+
+The original Parquet and `persisted-native-343-a1.vortex` retain their identities.
+The new output contains 15,713,610,513 bytes, SHA-256
+`004f9639fa0aa527b70f326c366c37b1173dceeacb92b50b2d8fd02957155c18`.
+Observed free space rises from 64,222,285,824 to 79,936,045,056 bytes during this
+retirement; concurrent filesystem activity can affect that observation.
+
+The [cleanup packet](../benchmarks/evidence/native-persisted-reuse-cleanup-2026-10-11.json)
+preserves all three chronological records and the exact retirement driver.
+The [acceptance report](../benchmarks/native-persisted-reuse-2026-10-11.md)
+links the original source/results, failed attempts and regeneration evidence.
+This section supersedes earlier retention of the timestamp output; historical
+measurements retain their original identities and are not relabeled as the new file.

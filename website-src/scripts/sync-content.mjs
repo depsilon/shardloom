@@ -816,12 +816,14 @@ retain their own limits.
 
 A saved native result can be reopened by a later process for another computation.
 Existing native-file admission avoids repeating external-format ingestion.
-Computed-result outputs currently preserve dtype, validity and serializable
-native arrays, but do not recompute file-level statistics or copy source layout
-metadata. The
-[persisted-output reuse plan](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-persisted-reuse-2026-10-11.md)
-tracks useful preparation that survives writer close and is actually used by
-later queries. That work remains distinct from retaining an in-memory result.
+Current source builds derive supported file statistics from the result's actual
+values while preserving dtype, validity and admitted serializable native arrays.
+Later jobs can answer supported aggregates from exact footer statistics or
+prune disjoint ranges after the producing process ends. Source layout and
+derived metadata are not blindly copied into a changed result. The
+[persisted-output acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-persisted-reuse-2026-10-11.md)
+records complete write/reopen workflows, resource and cost gates, and hosted
+integration status. Published 0.5.1 artifacts retain their release-time behavior.
 
 Flat aggregate collection and writes use the same native admission, carrying the complete
 filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.
@@ -1012,9 +1014,12 @@ and required-resource contract have completed hosted acceptance in PR #1541.
 Published v0.5.1 packages remain unchanged. The
 [full-domain timestamp change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-timestamp-provider-2026-10-11.md)
 has complete local and fresh-UAT evidence, with hosted status in its report.
-Computed native outputs can be reopened, but useful output statistics and
-physical preparation remain an explicit
-[persisted-output reuse work item](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-persisted-reuse-2026-10-11.md).
+Current source builds also derive supported statistics for computed native
+outputs and use them in fresh-process aggregate and pruning workflows. The
+[persisted-output report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-persisted-reuse-2026-10-11.md)
+records complete local acceptance and hosted status. Reusable ordering,
+partitioning, custom derived state and foreign-owner transfer retain their
+separate contracts.
 
 The published engine includes reviewed FSST/Zstd buffer accounting and
 [Python batch input/incremental results](/field-guide/python-surface#consume-results-in-batches).

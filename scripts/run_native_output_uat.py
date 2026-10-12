@@ -23,11 +23,12 @@ import time
 from local_uat_storage import GIB, MIB, check_budgets, require_local_path
 from run_clickbench_query_uat import extract_result, file_sha256, run_profiled_command, strict_json
 from run_heldout_operator_uat import archive_stdout, canonical, exact_equal, fixture_rows, validate_no_fallback
+from native_output_reuse import measure_reuse, reuse_comparisons
 from run_resident_call_path_uat import generation, paired_order, percentiles, validate_preparation
 
 HARNESS_FILES = ("run_native_output_uat.py", "run_heldout_operator_uat.py",
                  "run_resident_call_path_uat.py", "run_clickbench_query_uat.py",
-                 "timed_native_command.py", "local_uat_storage.py")
+                 "timed_native_command.py", "local_uat_storage.py", "native_output_reuse.py")
 COLUMNS = (("renamed_label", "optional_text"), ("shipment_sequence", "row_key"),
            ("exact_identifier", "exact_identifier"))
 
@@ -82,7 +83,8 @@ def execute(args) -> Path:
     binaries = {name: getattr(args, f"{name}_binary").resolve(strict=True)
                 for name in ("baseline", "candidate")}
     rows = fixture_rows(args.rows)
-    bounds = [args.rows, min(10_003, args.rows // 2)]
+    bounds = ([64, 10_003, args.rows] if args.measure_persisted_reuse
+              else [args.rows, min(10_003, args.rows // 2)])
 
     def guard():
         check_budgets(root, source, output, min_free_bytes=12 * GIB, reserve_bytes=64 * MIB,
@@ -96,8 +98,16 @@ def execute(args) -> Path:
                "platform": platform.platform(), "logical_cpus": os.cpu_count(),
                "samples": args.samples, "warmups_per_case": 1, "requested_workers": args.workers,
                "candidate_native_array_required": args.require_native_array_candidate,
+               "persisted_reuse_measured": args.measure_persisted_reuse,
+               "reuse_counter_scope": {
+                   "integer_aggregate": "exact_file_footer_scalar_completion and zero returned arrays on candidate; nonzero returned arrays on baseline",
+                   "range_prune": "complete empty native projection result; public payload-request counter unavailable; actual zero segment requests verified separately by persisted_statistics_prevent_resident_projection_payload_requests",
+                   "scan_control": "positive native relational source rows delivered before filter and sort",
+                   "physical_device_bytes": "not_instrumented; no cold-cache or device-I/O claim",
+               },
                "cache_policy": "OS page cache uncontrolled; no answer cache; fresh process per output",
                "ordering": "alternating baseline/candidate pairs; each output is newly created",
+               "workflow_clock_scope": "after UAT lock acquisition through final verification; includes fixture preparation, commands, validation, hashing and archives; final receipt serialization and lock release excluded",
                "oracle": "literal projected values from independent generated nullable Unicode/exact-int fixture",
                "validation_reader": "frozen candidate native reader with logical-field lookup; every output value compared after publication against independent fixture; older baseline reader assumes physical Struct children for some valid native layouts",
                "binaries": {name: {"path": str(path), "sha256": file_sha256(path), "generation": generation(path)}
@@ -105,6 +115,7 @@ def execute(args) -> Path:
                "harness_files": {name: file_sha256(Path(__file__).with_name(name)) for name in HARNESS_FILES},
                "records": []}
     lock.mkdir()
+    workflow_started = time.perf_counter()
     try:
         output.mkdir(parents=True)
         artifacts.mkdir(parents=True)
@@ -149,6 +160,14 @@ def execute(args) -> Path:
                                                 "data_decoded", "arrow_converted", "rows_written")}
                     record.update(archive_stdout(prefix.with_suffix(".stdout.json")))
                     identity = generation(artifact)
+                    if args.measure_persisted_reuse:
+                        # Measure the first independent compute before the
+                        # complete-value validation reader warms the file.
+                        record["reuse"] = []
+                        measure_reuse(
+                            binaries[name], artifact, expected, prefix,
+                            args.workers, args.timeout, guard, record["reuse"], candidate=name == "candidate",
+                        )
                     validation = prefix.with_name(prefix.name + "_reopen")
                     command = [str(binaries["candidate"]), "run", "dataframe", "--input", str(artifact),
                                "--input-format", "vortex", "--request", "collect", "--bounded", "true",
@@ -188,12 +207,18 @@ def execute(args) -> Path:
             summary["comparisons"][str(limit)] = {**times, "paired_baseline_over_candidate_ratios": ratios,
                                                   "median_paired_ratio": statistics.median(ratios),
                                                   "uncertainty_scope": "observed paired spread; not a confidence interval"}
+        if args.measure_persisted_reuse:
+            summary["reuse_comparisons"] = reuse_comparisons(summary["records"], bounds)
+            summary["reuse_gate_passed"] = all(case["passed"] for case in summary["reuse_comparisons"].values())
+            if not summary["reuse_gate_passed"]:
+                raise ValueError("persisted native reuse did not meet the frozen lifecycle cost gate")
         summary["status"] = "passed"
     except BaseException as error:
         summary["status"] = "failed"
         summary["error"] = str(error) or type(error).__name__
         raise
     finally:
+        summary["supervised_workflow_seconds"] = time.perf_counter() - workflow_started
         try:
             if output.is_dir():
                 (output / "summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
@@ -212,11 +237,15 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("--require-native-array-candidate", action="store_true")
+    parser.add_argument("--measure-persisted-reuse", action="store_true",
+                        help="measure first/repeated fresh-process aggregate, pruning and scan control jobs")
     args = parser.parse_args()
     if not 64 <= args.rows <= 40_000 or not 1 <= args.samples <= 10 or not 1 <= args.workers <= 12:
         parser.error("rows must be 64..=40000, samples 1..=10, workers 1..=12")
     if not 0 < args.timeout <= 600:
         parser.error("timeout must be finite and 0..=600 seconds")
+    if args.measure_persisted_reuse and (args.rows != 40_000 or args.samples < 5):
+        parser.error("persisted reuse acceptance requires 40000 fixture rows and at least five measured pairs")
     def interrupted(_signal, _frame):
         raise KeyboardInterrupt("native output acceptance interrupted")
     signal.signal(signal.SIGTERM, interrupted)

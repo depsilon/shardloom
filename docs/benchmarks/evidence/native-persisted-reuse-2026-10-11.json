@@ -1,0 +1,435 @@
+{
+  "schema_version": "shardloom.persisted_native_acceptance_distribution.v1",
+  "status": "passed_local_acceptance",
+  "source_identity_sha256": "5bc6730f0e43698c33db7473ff2010b780b6646dc5f67dedf8c9cbac43a73304",
+  "readback": {
+    "original_path": "<native-python-uat>/persisted-readback-343/persisted-native-readback-1-results.json",
+    "original_sha256": "d542ab8d50e3ded147b12e3a901dd59cb9cdd8b005d60e71764e8cf615ac7309",
+    "value": {
+      "status": "passed_local_public_and_fresh_uat",
+      "source_commit": "5d5f51947f5bd2e5092609b32956db9266ec7a5b",
+      "source_identity_sha256": "5bc6730f0e43698c33db7473ff2010b780b6646dc5f67dedf8c9cbac43a73304",
+      "binary_sha256": "28ee8b115d15720787fde3ceb035103091cec50351127cb231d5097bbe83478b",
+      "source_assets": 2202,
+      "public_checks": 32497,
+      "public_rows": 18595284,
+      "direct_checks": 202,
+      "direct_rows": 131734,
+      "full43_runs": 129,
+      "fresh_ingest_rows": 99997497,
+      "modular_records": 1408,
+      "modular_native_records": 704,
+      "raw_public_envelopes": 64741,
+      "raw_direct_envelopes": 367,
+      "typed_checks": 87,
+      "streaming_checks": 442,
+      "growth_checks": 20,
+      "pressure_controls": 5,
+      "batch_checks": 48,
+      "format_checks": 19,
+      "admitted_semantic_stages": 145,
+      "golden_workflow_stages": 9,
+      "source_unchanged": true,
+      "helpers_unchanged": true,
+      "resource_report_conformance": {
+        "status": "passed",
+        "families": {
+          "public": {
+            "counts": {
+              "envelopes": 64741,
+              "successful_envelopes_with_declaration": 64741,
+              "consistent_projected_field_blocks": 194223,
+              "declared_field_blocks": 64741,
+              "admitted_field_blocks": 64741,
+              "measured_memory_field_blocks": 64741,
+              "measured_allocation_memory_field_blocks": 64741,
+              "observed_spill_field_blocks": 2323
+            },
+            "origins_memory_parallelism": {
+              "execution_call/execution_call": 64741
+            },
+            "declared_bytes_maximum_lanes": {
+              "4294967296/2": 37980,
+              "1073741824/1": 2815,
+              "1073741824/2": 23946
+            },
+            "commands": {
+              "prepare": 9698,
+              "run": 55043
+            }
+          },
+          "direct": {
+            "counts": {
+              "envelopes": 367,
+              "successful_envelopes_with_declaration": 366,
+              "consistent_projected_field_blocks": 1101,
+              "declared_field_blocks": 367,
+              "admitted_field_blocks": 367,
+              "measured_memory_field_blocks": 367,
+              "measured_allocation_memory_field_blocks": 367,
+              "observed_spill_field_blocks": 0,
+              "rejection_envelopes_with_declaration": 1
+            },
+            "origins_memory_parallelism": {
+              "context/context": 367
+            },
+            "declared_bytes_maximum_lanes": {
+              "4294967296/2": 367
+            },
+            "commands": {
+              "prepare": 74,
+              "run": 293
+            }
+          },
+          "full43": {
+            "counts": {
+              "envelopes": 129,
+              "successful_envelopes_with_declaration": 129,
+              "consistent_projected_field_blocks": 387,
+              "declared_field_blocks": 129,
+              "admitted_field_blocks": 129,
+              "measured_memory_field_blocks": 129,
+              "measured_allocation_memory_field_blocks": 129,
+              "observed_spill_field_blocks": 0
+            },
+            "origins_memory_parallelism": {
+              "execution_call/execution_call": 129
+            },
+            "declared_bytes_maximum_lanes": {
+              "25769803776/12": 129
+            },
+            "commands": {
+              "run": 129
+            }
+          },
+          "typed": {
+            "counts": {
+              "envelopes": 343,
+              "successful_envelopes_with_declaration": 304,
+              "consistent_projected_field_blocks": 936,
+              "declared_field_blocks": 312,
+              "admitted_field_blocks": 312,
+              "measured_memory_field_blocks": 312,
+              "measured_allocation_memory_field_blocks": 312,
+              "observed_spill_field_blocks": 0,
+              "rejections_before_valid_configuration": 31,
+              "rejection_envelopes_with_declaration": 8
+            },
+            "origins_memory_parallelism": {
+              "execution_call/execution_call": 312
+            },
+            "declared_bytes_maximum_lanes": {
+              "1073741824/1": 174,
+              "4294967296/2": 138
+            },
+            "commands": {
+              "run": 309,
+              "prepare": 34
+            }
+          },
+          "streaming": {
+            "counts": {
+              "envelopes": 420,
+              "successful_envelopes_with_declaration": 381,
+              "consistent_projected_field_blocks": 1143,
+              "declared_field_blocks": 381,
+              "admitted_field_blocks": 381,
+              "measured_memory_field_blocks": 381,
+              "measured_allocation_memory_field_blocks": 381,
+              "observed_spill_field_blocks": 9,
+              "rejections_before_valid_configuration": 39
+            },
+            "origins_memory_parallelism": {
+              "execution_call/execution_call": 381
+            },
+            "declared_bytes_maximum_lanes": {
+              "1073741824/1": 381
+            },
+            "commands": {
+              "run": 418,
+              "estimate": 1,
+              "explain": 1
+            }
+          },
+          "growth": {
+            "counts": {
+              "envelopes": 69,
+              "rejections_before_valid_configuration": 1,
+              "consistent_projected_field_blocks": 204,
+              "successful_envelopes_with_declaration": 68,
+              "declared_field_blocks": 68,
+              "admitted_field_blocks": 68,
+              "measured_memory_field_blocks": 68,
+              "measured_allocation_memory_field_blocks": 68,
+              "observed_spill_field_blocks": 0
+            },
+            "origins_memory_parallelism": {
+              "execution_call/execution_call": 68
+            },
+            "declared_bytes_maximum_lanes": {
+              "1073741824/1": 38,
+              "4294967296/2": 30
+            },
+            "commands": {
+              "run": 61,
+              "prepare": 8
+            }
+          },
+          "input_pressure": {
+            "counts": {
+              "envelopes": 6,
+              "successful_envelopes_with_declaration": 5,
+              "consistent_projected_field_blocks": 15,
+              "declared_field_blocks": 5,
+              "admitted_field_blocks": 5,
+              "measured_memory_field_blocks": 5,
+              "measured_allocation_memory_field_blocks": 5,
+              "observed_spill_field_blocks": 0,
+              "rejections_before_valid_configuration": 1
+            },
+            "origins_memory_parallelism": {
+              "execution_call/execution_call": 5
+            },
+            "declared_bytes_maximum_lanes": {
+              "1073741824/1": 3,
+              "6442450944/1": 2
+            },
+            "commands": {
+              "run": 6
+            }
+          },
+          "batches": {
+            "counts": {
+              "envelopes": 45,
+              "successful_envelopes_with_declaration": 40,
+              "consistent_projected_field_blocks": 120,
+              "declared_field_blocks": 40,
+              "admitted_field_blocks": 40,
+              "measured_memory_field_blocks": 40,
+              "measured_allocation_memory_field_blocks": 40,
+              "observed_spill_field_blocks": 0,
+              "rejections_before_valid_configuration": 5
+            },
+            "origins_memory_parallelism": {
+              "execution_call/execution_call": 25,
+              "context/context": 15
+            },
+            "declared_bytes_maximum_lanes": {
+              "1073741824/2": 40
+            },
+            "commands": {
+              "run": 40,
+              "prepare": 5
+            }
+          },
+          "formats": {
+            "counts": {
+              "envelopes": 24,
+              "rejection_envelopes_with_declaration": 3,
+              "consistent_projected_field_blocks": 72,
+              "declared_field_blocks": 24,
+              "admitted_field_blocks": 24,
+              "measured_memory_field_blocks": 24,
+              "measured_allocation_memory_field_blocks": 24,
+              "observed_spill_field_blocks": 0,
+              "successful_envelopes_with_declaration": 21
+            },
+            "origins_memory_parallelism": {
+              "execution_call/execution_call": 21,
+              "context/context": 3
+            },
+            "declared_bytes_maximum_lanes": {
+              "1073741824/2": 24
+            },
+            "commands": {
+              "run": 21,
+              "prepare": 3
+            }
+          }
+        },
+        "scope": "Every retained current execution envelope has its authoritative allocation checked; every nested typed-envelope resource projection must agree exactly. Complete value and no-fallback checks are separate. Unmeasured lanes, process RSS and legacy admission remain unavailable.",
+        "whole_process_memory_limit_claim": false,
+        "all_provider_allocations_accounted_claim": false
+      },
+      "lifecycle_written_files": 36,
+      "lifecycle_follow_on_jobs": 324,
+      "lifecycle_all_gates_passed": true,
+      "packet": "<native-python-uat>/persisted-readback-343/persisted-native-acceptance-1.json.xz",
+      "packet_sha256": "97ae0043c9e556cee6c43715e8146808376ee7f4181e9b874c345d0cc96cf5af",
+      "packet_compressed_bytes": 56583888,
+      "packet_uncompressed_bytes": 5455444702,
+      "packet_uncompressed_sha256": "f01a264cef5b78abacc5a2301ac383afda14dee5fede043cc94142429e843f85"
+    }
+  },
+  "readback_guard": {
+    "original_path": "<native-python-uat>/persisted-independent-readback-346.json",
+    "original_sha256": "16590f43e0fdf0406a7419a307f7ea7c40ced60e71c7b41b03f979b472c0588a",
+    "value": {
+      "status": "passed",
+      "command": [
+        "/usr/bin/env",
+        "PYTHONPATH=<home>/LocalData/shardloom/native-typed-reductions-20261004/python-deps",
+        "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "<native-python-uat>/persisted-readback-343/finalize_persisted_acceptance.py",
+        "--core-attempt",
+        "1",
+        "--fresh-attempt",
+        "1",
+        "--attempt",
+        "1"
+      ],
+      "cwd": "<repo>",
+      "head": "5d5f51947f5bd2e5092609b32956db9266ec7a5b",
+      "working_tree": " M .github/workflows/ci.yml\n M Cargo.lock\n M Cargo.toml\n M docs/architecture/native-persisted-reuse-2026-10-11.md\n M docs/architecture/phased-execution-plan.md\n M docs/architecture/vortex-public-api-inventory.md\n M docs/dependencies/vortex-upstream-review.md\n M docs/release/ci-gate-matrix.md\n M python/THIRD_PARTY_LICENSES/manifest.json\n M python/tests/test_native_binding.py\n M scripts/check_ci_gate_matrix.py\n M scripts/run_native_output_uat.py\n M scripts/test_native_output_uat.py\n M shardloom-vortex/src/lib.rs\n M shardloom-vortex/src/local_primitive_footer_aggregate_native_tests.rs\n M shardloom-vortex/src/local_primitive_native_sink.rs\n M shardloom-vortex/src/local_primitive_native_sink_tests.rs\n M shardloom-vortex/src/local_primitive_native_writer.rs\n M shardloom-vortex/src/local_primitive_native_writer_tests.rs\n M shardloom-vortex/src/local_primitive_result_stream_tests.rs\n M shardloom-vortex/src/vortex_ingest.rs\n M vendor/vortex-array/README.shardloom.md\n M vendor/vortex-array/src/stats/stats_set.rs\n M vendor/vortex-array/upstream-provenance.json\n?? scripts/native_output_reuse.py\n?? shardloom-vortex/src/native_file_statistics.rs\n?? vendor/vortex-layout/\n",
+      "environment": {
+        "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0"
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "storage_last_observation": {
+        "output": {
+          "workspace_bytes": 17691795854,
+          "log_bytes": 0,
+          "free_bytes": 64227590144,
+          "reserved_candidate_bytes": 134217728
+        },
+        "cargo": {
+          "workspace_bytes": 2867699712,
+          "log_bytes": 0,
+          "free_bytes": 64227590144,
+          "reserved_candidate_bytes": 134217728
+        }
+      },
+      "timeout_seconds": 1800.0,
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "output_limit_bytes": 8388608,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "pid": 63240,
+      "output_bytes": 6661,
+      "group_absence_unproved_at_cleanup": false,
+      "returncode": 0,
+      "seconds": 692.3267211660277,
+      "log_sha256": "9f4658d2ae54b6f981436e1fe98155b4fc7c3c027686675fa4bdef14047e44ee"
+    },
+    "log": "{\"stage\": \"public_reopened\", \"cases\": 32497, \"rows\": 18595284, \"raw_envelopes\": 64741}\n{\"stage\": \"all_values_reopened\", \"full43\": 129, \"modular_native\": 704}\n{\"status\": \"passed_local_public_and_fresh_uat\", \"source_commit\": \"5d5f51947f5bd2e5092609b32956db9266ec7a5b\", \"source_identity_sha256\": \"5bc6730f0e43698c33db7473ff2010b780b6646dc5f67dedf8c9cbac43a73304\", \"binary_sha256\": \"28ee8b115d15720787fde3ceb035103091cec50351127cb231d5097bbe83478b\", \"source_assets\": 2202, \"public_checks\": 32497, \"public_rows\": 18595284, \"direct_checks\": 202, \"direct_rows\": 131734, \"full43_runs\": 129, \"fresh_ingest_rows\": 99997497, \"modular_records\": 1408, \"modular_native_records\": 704, \"raw_public_envelopes\": 64741, \"raw_direct_envelopes\": 367, \"typed_checks\": 87, \"streaming_checks\": 442, \"growth_checks\": 20, \"pressure_controls\": 5, \"batch_checks\": 48, \"format_checks\": 19, \"admitted_semantic_stages\": 145, \"golden_workflow_stages\": 9, \"source_unchanged\": true, \"helpers_unchanged\": true, \"resource_report_conformance\": {\"status\": \"passed\", \"families\": {\"public\": {\"counts\": {\"envelopes\": 64741, \"successful_envelopes_with_declaration\": 64741, \"consistent_projected_field_blocks\": 194223, \"declared_field_blocks\": 64741, \"admitted_field_blocks\": 64741, \"measured_memory_field_blocks\": 64741, \"measured_allocation_memory_field_blocks\": 64741, \"observed_spill_field_blocks\": 2323}, \"origins_memory_parallelism\": {\"execution_call/execution_call\": 64741}, \"declared_bytes_maximum_lanes\": {\"4294967296/2\": 37980, \"1073741824/1\": 2815, \"1073741824/2\": 23946}, \"commands\": {\"prepare\": 9698, \"run\": 55043}}, \"direct\": {\"counts\": {\"envelopes\": 367, \"successful_envelopes_with_declaration\": 366, \"consistent_projected_field_blocks\": 1101, \"declared_field_blocks\": 367, \"admitted_field_blocks\": 367, \"measured_memory_field_blocks\": 367, \"measured_allocation_memory_field_blocks\": 367, \"observed_spill_field_blocks\": 0, \"rejection_envelopes_with_declaration\": 1}, \"origins_memory_parallelism\": {\"context/context\": 367}, \"declared_bytes_maximum_lanes\": {\"4294967296/2\": 367}, \"commands\": {\"prepare\": 74, \"run\": 293}}, \"full43\": {\"counts\": {\"envelopes\": 129, \"successful_envelopes_with_declaration\": 129, \"consistent_projected_field_blocks\": 387, \"declared_field_blocks\": 129, \"admitted_field_blocks\": 129, \"measured_memory_field_blocks\": 129, \"measured_allocation_memory_field_blocks\": 129, \"observed_spill_field_blocks\": 0}, \"origins_memory_parallelism\": {\"execution_call/execution_call\": 129}, \"declared_bytes_maximum_lanes\": {\"25769803776/12\": 129}, \"commands\": {\"run\": 129}}, \"typed\": {\"counts\": {\"envelopes\": 343, \"successful_envelopes_with_declaration\": 304, \"consistent_projected_field_blocks\": 936, \"declared_field_blocks\": 312, \"admitted_field_blocks\": 312, \"measured_memory_field_blocks\": 312, \"measured_allocation_memory_field_blocks\": 312, \"observed_spill_field_blocks\": 0, \"rejections_before_valid_configuration\": 31, \"rejection_envelopes_with_declaration\": 8}, \"origins_memory_parallelism\": {\"execution_call/execution_call\": 312}, \"declared_bytes_maximum_lanes\": {\"1073741824/1\": 174, \"4294967296/2\": 138}, \"commands\": {\"run\": 309, \"prepare\": 34}}, \"streaming\": {\"counts\": {\"envelopes\": 420, \"successful_envelopes_with_declaration\": 381, \"consistent_projected_field_blocks\": 1143, \"declared_field_blocks\": 381, \"admitted_field_blocks\": 381, \"measured_memory_field_blocks\": 381, \"measured_allocation_memory_field_blocks\": 381, \"observed_spill_field_blocks\": 9, \"rejections_before_valid_configuration\": 39}, \"origins_memory_parallelism\": {\"execution_call/execution_call\": 381}, \"declared_bytes_maximum_lanes\": {\"1073741824/1\": 381}, \"commands\": {\"run\": 418, \"estimate\": 1, \"explain\": 1}}, \"growth\": {\"counts\": {\"envelopes\": 69, \"rejections_before_valid_configuration\": 1, \"consistent_projected_field_blocks\": 204, \"successful_envelopes_with_declaration\": 68, \"declared_field_blocks\": 68, \"admitted_field_blocks\": 68, \"measured_memory_field_blocks\": 68, \"measured_allocation_memory_field_blocks\": 68, \"observed_spill_field_blocks\": 0}, \"origins_memory_parallelism\": {\"execution_call/execution_call\": 68}, \"declared_bytes_maximum_lanes\": {\"1073741824/1\": 38, \"4294967296/2\": 30}, \"commands\": {\"run\": 61, \"prepare\": 8}}, \"input_pressure\": {\"counts\": {\"envelopes\": 6, \"successful_envelopes_with_declaration\": 5, \"consistent_projected_field_blocks\": 15, \"declared_field_blocks\": 5, \"admitted_field_blocks\": 5, \"measured_memory_field_blocks\": 5, \"measured_allocation_memory_field_blocks\": 5, \"observed_spill_field_blocks\": 0, \"rejections_before_valid_configuration\": 1}, \"origins_memory_parallelism\": {\"execution_call/execution_call\": 5}, \"declared_bytes_maximum_lanes\": {\"1073741824/1\": 3, \"6442450944/1\": 2}, \"commands\": {\"run\": 6}}, \"batches\": {\"counts\": {\"envelopes\": 45, \"successful_envelopes_with_declaration\": 40, \"consistent_projected_field_blocks\": 120, \"declared_field_blocks\": 40, \"admitted_field_blocks\": 40, \"measured_memory_field_blocks\": 40, \"measured_allocation_memory_field_blocks\": 40, \"observed_spill_field_blocks\": 0, \"rejections_before_valid_configuration\": 5}, \"origins_memory_parallelism\": {\"execution_call/execution_call\": 25, \"context/context\": 15}, \"declared_bytes_maximum_lanes\": {\"1073741824/2\": 40}, \"commands\": {\"run\": 40, \"prepare\": 5}}, \"formats\": {\"counts\": {\"envelopes\": 24, \"rejection_envelopes_with_declaration\": 3, \"consistent_projected_field_blocks\": 72, \"declared_field_blocks\": 24, \"admitted_field_blocks\": 24, \"measured_memory_field_blocks\": 24, \"measured_allocation_memory_field_blocks\": 24, \"observed_spill_field_blocks\": 0, \"successful_envelopes_with_declaration\": 21}, \"origins_memory_parallelism\": {\"execution_call/execution_call\": 21, \"context/context\": 3}, \"declared_bytes_maximum_lanes\": {\"1073741824/2\": 24}, \"commands\": {\"run\": 21, \"prepare\": 3}}}, \"scope\": \"Every retained current execution envelope has its authoritative allocation checked; every nested typed-envelope resource projection must agree exactly. Complete value and no-fallback checks are separate. Unmeasured lanes, process RSS and legacy admission remain unavailable.\", \"whole_process_memory_limit_claim\": false, \"all_provider_allocations_accounted_claim\": false}, \"lifecycle_written_files\": 36, \"lifecycle_follow_on_jobs\": 324, \"lifecycle_all_gates_passed\": true, \"packet\": \"<native-python-uat>/persisted-readback-343/persisted-native-acceptance-1.json.xz\", \"packet_sha256\": \"97ae0043c9e556cee6c43715e8146808376ee7f4181e9b874c345d0cc96cf5af\", \"packet_compressed_bytes\": 56583888, \"packet_uncompressed_bytes\": 5455444702, \"packet_uncompressed_sha256\": \"f01a264cef5b78abacc5a2301ac383afda14dee5fede043cc94142429e843f85\"}\n"
+  },
+  "packet": {
+    "parts": [
+      {
+        "path": "native-persisted-reuse-2026-10-11.json.xz.part-001",
+        "bytes": 16777216,
+        "sha256": "cf60940c8466bdf7b43fb01b058a11881bd7eac07a53a95915fae2281983b86c"
+      },
+      {
+        "path": "native-persisted-reuse-2026-10-11.json.xz.part-002",
+        "bytes": 16777216,
+        "sha256": "3b5a94e2b7e9e4aa7f4984efa233a37dfefedccc07f4fb5f9bfea65363a85d86"
+      },
+      {
+        "path": "native-persisted-reuse-2026-10-11.json.xz.part-003",
+        "bytes": 16777216,
+        "sha256": "1d1a46d1d3f22479195767f4b854cd2ae03f7815338264ae49e40ccd5a66cadb"
+      },
+      {
+        "path": "native-persisted-reuse-2026-10-11.json.xz.part-004",
+        "bytes": 6252240,
+        "sha256": "a2062b2075ddceaa7811f764d5cfe4e63e9fd27775bf01208cef4f908e556bdd"
+      }
+    ],
+    "compressed_bytes": 56583888,
+    "compressed_sha256": "97ae0043c9e556cee6c43715e8146808376ee7f4181e9b874c345d0cc96cf5af",
+    "uncompressed_bytes": 5455444702,
+    "uncompressed_sha256": "f01a264cef5b78abacc5a2301ac383afda14dee5fede043cc94142429e843f85",
+    "reassembly": "Concatenate listed parts in their recorded order, then verify the compressed SHA-256 before decompression."
+  },
+  "source_archive": {
+    "path": "native-persisted-reuse-source-2026-10-11.tar.xz",
+    "bytes": 7110424,
+    "sha256": "a3dcf05f56eccdc9acc09c92d5b31bd71df42c2b54d254b4eaf62b82a83d2eae",
+    "verified_members": 2484,
+    "frozen_source_files": 2202,
+    "index_sha256": "b4654ec4fdc5a3a1a95607721d6aea1c529c094215c8f8a30a47d4dbc18f46fc",
+    "receipt": {
+      "original_path": "<native-python-uat>/persisted-source-archive-347.json",
+      "original_sha256": "53e9bee398acb2a3368c8034130e57ce783244c7e7eeb72537570ed2227a3473",
+      "value": {
+        "schema_version": "shardloom.persisted_native_source_archive.v1",
+        "status": "passed",
+        "archive": "<native-python-uat>/persisted-native-source-evidence-347.tar.xz",
+        "archive_sha256": "a3dcf05f56eccdc9acc09c92d5b31bd71df42c2b54d254b4eaf62b82a83d2eae",
+        "archive_bytes": 7110424,
+        "index_sha256": "b4654ec4fdc5a3a1a95607721d6aea1c529c094215c8f8a30a47d4dbc18f46fc",
+        "verified_members": 2484,
+        "original_payload_bytes": 52497357,
+        "frozen_source_files": 2202,
+        "source_unchanged": true,
+        "originals_deleted": false,
+        "separate_portable_packet": "<native-python-uat>/persisted-readback-343/persisted-native-acceptance-1.json.xz",
+        "separate_portable_packet_sha256": "97ae0043c9e556cee6c43715e8146808376ee7f4181e9b874c345d0cc96cf5af"
+      }
+    },
+    "guard": {
+      "original_path": "<native-python-uat>/package-persisted-source-347.json",
+      "original_sha256": "4145b17222f31d2e2db9653f3ff434be64d652433404dca8b57cca12dc355c00",
+      "value": {
+        "status": "passed",
+        "command": [
+          "<home>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "<native-python-uat>/package_persisted_acceptance_347.py"
+        ],
+        "cwd": "<repo>",
+        "head": "5d5f51947f5bd2e5092609b32956db9266ec7a5b",
+        "working_tree": " M .github/workflows/ci.yml\n M Cargo.lock\n M Cargo.toml\n M docs/architecture/native-persisted-reuse-2026-10-11.md\n M docs/architecture/phased-execution-plan.md\n M docs/architecture/vortex-public-api-inventory.md\n M docs/dependencies/vortex-upstream-review.md\n M docs/release/ci-gate-matrix.md\n M python/THIRD_PARTY_LICENSES/manifest.json\n M python/tests/test_native_binding.py\n M scripts/check_ci_gate_matrix.py\n M scripts/run_native_output_uat.py\n M scripts/test_native_output_uat.py\n M shardloom-vortex/src/lib.rs\n M shardloom-vortex/src/local_primitive_footer_aggregate_native_tests.rs\n M shardloom-vortex/src/local_primitive_native_sink.rs\n M shardloom-vortex/src/local_primitive_native_sink_tests.rs\n M shardloom-vortex/src/local_primitive_native_writer.rs\n M shardloom-vortex/src/local_primitive_native_writer_tests.rs\n M shardloom-vortex/src/local_primitive_result_stream_tests.rs\n M shardloom-vortex/src/vortex_ingest.rs\n M vendor/vortex-array/README.shardloom.md\n M vendor/vortex-array/src/stats/stats_set.rs\n M vendor/vortex-array/upstream-provenance.json\n?? scripts/native_output_reuse.py\n?? shardloom-vortex/src/native_file_statistics.rs\n?? vendor/vortex-layout/\n",
+        "environment": {
+          "CARGO_TARGET_DIR": "<home>/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0"
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 17691816334,
+            "log_bytes": 0,
+            "free_bytes": 64230170624,
+            "reserved_candidate_bytes": 134217728
+          },
+          "cargo": {
+            "workspace_bytes": 2867699712,
+            "log_bytes": 0,
+            "free_bytes": 64230170624,
+            "reserved_candidate_bytes": 134217728
+          }
+        },
+        "timeout_seconds": 900.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 63797,
+        "output_bytes": 809,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 1.703159750031773,
+        "log_sha256": "1f13bd28dfe0deb368dda64db39ff1a9c9a913ec8709d8b223da5a09291c0546"
+      },
+      "log": "{\"schema_version\": \"shardloom.persisted_native_source_archive.v1\", \"status\": \"passed\", \"archive\": \"<native-python-uat>/persisted-native-source-evidence-347.tar.xz\", \"archive_sha256\": \"a3dcf05f56eccdc9acc09c92d5b31bd71df42c2b54d254b4eaf62b82a83d2eae\", \"archive_bytes\": 7110424, \"index_sha256\": \"b4654ec4fdc5a3a1a95607721d6aea1c529c094215c8f8a30a47d4dbc18f46fc\", \"verified_members\": 2484, \"original_payload_bytes\": 52497357, \"frozen_source_files\": 2202, \"source_unchanged\": true, \"originals_deleted\": false, \"separate_portable_packet\": \"<native-python-uat>/persisted-readback-343/persisted-native-acceptance-1.json.xz\", \"separate_portable_packet_sha256\": \"97ae0043c9e556cee6c43715e8146808376ee7f4181e9b874c345d0cc96cf5af\"}\n"
+    }
+  },
+  "cleanup": {
+    "path": "native-persisted-reuse-cleanup-2026-10-11.json",
+    "bytes": 32319,
+    "sha256": "c0e67d5466703b0d9afe75543d5710d3f4d54f2a1dd9cee3dedeee53800170ad"
+  },
+  "hosted_acceptance_complete": false,
+  "version": "0.5.1",
+  "publication_performed": false,
+  "path_boundary": "Local path strings are normalized for distribution; original hashes identify unmodified evidence. The source archive keeps original paths as provenance."
+}

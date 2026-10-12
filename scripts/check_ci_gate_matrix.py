@@ -82,6 +82,8 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "cargo check -p shardloom-vortex --features vortex-encoded-read-spike",
             "cargo check -p shardloom-vortex --features release-user-surfaces",
             "cargo test -p shardloom-vortex --lib --features release-user-surfaces",
+            "cp Cargo.lock vendor/vortex-layout/Cargo.lock",
+            "cargo test --manifest-path vendor/vortex-layout/Cargo.toml",
             "cargo test -p shardloom-exec --lib --features spill-payload-fs spill_payload::tests -- --test-threads=1",
             "cargo test -p shardloom-vortex --lib --features shardloom-exec/spill-payload-fs bounded_execution::tests -- --test-threads=1",
             "cargo test -p shardloom-cli --test required_execution_resources --features shardloom-exec/spill-payload-fs -- --test-threads=1",
@@ -92,6 +94,11 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         ),
         artifact_refs=(),
         release_blocker_refs=("workspace feature/build matrix",),
+        workflow_markers=(
+            "--config 'patch.crates-io.vortex-array.path=\"vendor/vortex-array\"'",
+            "--features tokio,vortex-io/tokio,vortex-array/_test-harness",
+            "--lib layouts::file_stats::tests::",
+        ),
     ),
     CiLane(
         lane_id="rust_msrv_validation",

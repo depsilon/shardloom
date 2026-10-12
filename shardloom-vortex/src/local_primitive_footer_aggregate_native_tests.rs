@@ -274,6 +274,50 @@ fn assert_metadata(report: &VortexLocalPrimitiveExecutionReport, rows: usize, me
 }
 
 #[test]
+fn persisted_result_footer_answers_after_producer_teardown_and_file_move() {
+    const OUTPUT_ROWS: usize = 65_536;
+    let mut fixture = Fixture::new(70_001, false);
+    let first_path = fixture.path("produced");
+    let request = VortexQueryPrimitiveRequest::project(
+        DatasetUri::new(fixture.path("disabled").display().to_string()).unwrap(),
+        shardloom_plan::ProjectionRequest::All,
+    )
+    .with_source_order_limit(OUTPUT_ROWS);
+    let written = crate::execute_vortex_local_primitive_row_export_with_policy(
+        &request,
+        &first_path,
+        crate::VortexLocalPrimitiveRowExportFormat::Vortex,
+        false,
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 1).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(written.rows_written, OUTPUT_ROWS as u64);
+    drop(written);
+    fs::rename(first_path, fixture.path("persisted")).unwrap();
+    for profile in ["complete", "disabled", "missing-max"] {
+        fs::remove_file(fixture.path(profile)).unwrap();
+    }
+    fixture.signed.truncate(OUTPUT_ROWS);
+    fixture.unsigned.truncate(OUTPUT_ROWS);
+    let (prepared, observer) = observed_prepare(&fixture.request("persisted"), 1);
+    let memory = prepared.session.memory().clone();
+    let baseline = memory.snapshot().reserved_bytes;
+    let before = observer.snapshot().unwrap();
+    assert!(before.completed_read_bytes > 0);
+    let result = prepared.execute().unwrap();
+    assert!(result.native_io_certificate.is_certified());
+    assert_eq!(payload(&result.report)["values"], fixture.oracle());
+    assert_metadata(&result.report, OUTPUT_ROWS, 7);
+    assert_eq!(observer.snapshot().unwrap(), before);
+    drop(result);
+    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    drop(prepared);
+    assert_eq!(observer.close_and_drain(DRAIN).unwrap().pending_jobs, 0);
+    drop(observer);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn footer_aggregate_native_complete_scalar_values_avoid_actual_post_prepare_reads() {
     // Flat primitive payload exceeds footer prefetch; a tiny cached file would
     // not provide a non-vacuous completed-read control after preparation.

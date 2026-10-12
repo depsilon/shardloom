@@ -14154,6 +14154,10 @@ impl LocalVortexWriteContext {
         use vortex::array::memory::MemorySessionExt as _;
         let _writer_memory = memory
             .reserve(shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes())?;
+        let _file_statistics = crate::native_file_statistics::FileStatisticsReservation::reserve(
+            array.dtype(),
+            memory,
+        )?;
         let writer_session = self.session.clone().with_allocator(Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         ));
@@ -14287,6 +14291,14 @@ impl LocalVortexWriteContext {
             .map(|memory| {
                 memory.pool.reserve(
                     shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes(),
+                )
+            })
+            .transpose()?;
+        let _file_statistics = native_memory
+            .map(|memory| {
+                crate::native_file_statistics::FileStatisticsReservation::reserve(
+                    iter.dtype(),
+                    &memory.pool,
                 )
             })
             .transpose()?;

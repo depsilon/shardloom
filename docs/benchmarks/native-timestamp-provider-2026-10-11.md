@@ -46,9 +46,11 @@ gain invented extrema. Ordinary fields in the same file retain their own
 statistics. Root, flat and nested timestamps use the existing Vortex compressor,
 layout, file writer, session and explicit concurrency. This restores statistics
 in the ingest/preparation writer that omitted them for timestamp-bearing input.
-The separate computed-result writer still does not recompute file statistics;
-that output-to-next-input gap belongs to
-[`NATIVE-PERSISTED-REUSE`](../architecture/native-persisted-reuse-2026-10-11.md).
+At that checkpoint, the separate computed-result writer did not recompute file
+statistics. The later
+[persisted-output acceptance](native-persisted-reuse-2026-10-11.md) derives
+supported statistics from actual output and proves their fresh-process use.
+Its measurements and integration status remain separate from this timestamp cohort.
 
 Two reviewed Apache-2.0 provider patches retain Vortex 0.85.0 and its format:
 

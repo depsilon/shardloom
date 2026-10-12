@@ -1,4 +1,4 @@
-# Vortex timestamp storage-domain patch
+# Vortex timestamp and statistics patches
 
 This is the Apache-2.0 `vortex-array` 0.85.0 published source with a focused
 correction for timezone-free microsecond timestamp scalars. Vortex's timestamp
@@ -7,13 +7,18 @@ calendar span that can panic on valid storage values. Its display path repeats
 the conversion. This prevents safe extrema statistics and compression for the
 full storage domain already admitted by ShardLoom.
 
-The behavioral changes are confined to `src/extension/datetime/timestamp.rs`:
+The timestamp changes are confined to `src/extension/datetime/timestamp.rs`:
 
 - `Timestamp::unpack_native` retains every Int64 value for microseconds without
   a timezone after the existing storage type validation.
 - `TimestampValue::fmt` uses Jiff's checked direct microsecond conversion for
   that case. In-calendar display stays unchanged; other values render exactly
   as `<integer>us since Unix epoch`.
+
+The persisted-output work also changes count and byte-size merges in
+`src/stats/stats_set.rs` to checked `u64` addition. Overflow invalidates the
+statistic instead of panicking or wrapping, and the representation is independent
+of host pointer width. This is used by the bounded `vortex-layout` file collector.
 
 Other temporal units and timezone policy are unchanged. The extension identity,
 metadata serialization, comparison rules, native arrays and file format are

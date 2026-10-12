@@ -649,6 +649,11 @@ impl NativeSinkPlan {
         let metadata = std::sync::Arc::new(std::sync::Mutex::new(
             self.session.memory().reserve(metadata_bytes)?,
         ));
+        let statistics = crate::native_file_statistics::FileStatisticsReservation::reserve(
+            &self.dtype,
+            self.session.memory(),
+        )?;
+        let statistics_bytes = statistics.bytes();
         let mut output = OwnedOutput::new(output_path, allow_overwrite)?;
         let filter_applied = self.filter.is_some();
         let projection_applied = self.projection.is_some();
@@ -678,12 +683,13 @@ impl NativeSinkPlan {
                 } else {
                     native_flat_layout::SequentialNativeFlatLayout::strategy(max_chunks)
                 };
-                let mut writer = super::native_writer::NativeWriter::new(
+                let mut writer = super::native_writer::NativeWriter::persisted(
                     session,
                     runtime,
                     &mut output.file,
                     self.dtype.clone(),
                     strategy,
+                    statistics,
                 );
                 let delivery = if self.source.is_produced()
                     || (!self.metadata_pruned && self.row_count > 0)
@@ -757,7 +763,9 @@ impl NativeSinkPlan {
                 let metadata_bytes = metadata
                     .lock()
                     .map_err(|_| sink_error("metadata owner poisoned"))?
-                    .bytes();
+                    .bytes()
+                    .checked_add(statistics_bytes)
+                    .ok_or_else(|| sink_error("native sink metadata reservation overflow"))?;
                 if summary.row_count() != rows_written
                     || summary.footer().approx_byte_size().is_none_or(|bytes| {
                         u64::try_from(bytes).unwrap_or(u64::MAX) > metadata_bytes
@@ -834,13 +842,13 @@ impl NativeSinkPlan {
             scan_row_bound: SCAN_ROWS,
             writer_input_batch_bound: 3,
             peak_reserved_bytes: self.session.snapshot().memory.peak_reserved_bytes,
-            metadata_reserved_bytes: metadata_bytes,
+            metadata_reserved_bytes: metadata_bytes.saturating_add(statistics_bytes),
             pre_limit_result_row_count,
             pre_limit_result_row_count_exact,
             source_generation_validated: true,
             dtype_and_row_count_validated: true,
             output_sha256: checksum,
-            metadata_fidelity: "native_dtype_validity_preserved;native_serializer_selects_serializable_encodings;source_layout_user_metadata_not_copied;file_statistics_not_recomputed",
+            metadata_fidelity: "native_dtype_validity_preserved;native_serializer_selects_serializable_encodings;source_layout_user_metadata_not_copied;supported_file_statistics_recomputed_from_output",
             compatibility: None,
         });
         Ok(VortexLocalPrimitiveRowExportReport {
