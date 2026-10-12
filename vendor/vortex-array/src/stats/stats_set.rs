@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// ShardLoom: checked u64 count/size merges preserve unknowns on overflow.
 
 use std::any::type_name;
 use std::fmt::Debug;
@@ -546,9 +547,11 @@ impl MutTypedStatsSetRef<'_, '_> {
 
     fn merge_sum_stat(&mut self, stat: Stat, other: &TypedStatsSetRef) {
         let merged = self
-            .get_as::<usize>(stat)
-            .zip(other.get_as::<usize>(stat))
-            .map(|(l, r)| ScalarValue::from(l + r));
+            .get_as::<u64>(stat)
+            .zip(other.get_as::<u64>(stat))
+            // ShardLoom: count/size metadata is u64 on every host. Overflow
+            // invalidates the bound instead of panicking or wrapping it.
+            .and_then(|(l, r)| l.checked_add(r).map(ScalarValue::from));
 
         if merged.is_absent() {
             self.clear(stat);

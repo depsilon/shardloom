@@ -611,7 +611,10 @@ fn result_stream_all_writers_drop_staging_and_buffers_on_late_error_or_cancellat
 fn result_stream_native_writer_metadata_denial_releases_pending_task_owners() {
     use crate::resident_session::{NativeExecutionContext, ResidentVortexSession};
     let fixture = Fixture::new();
-    let session = ResidentVortexSession::new(192 * 1024, 1).unwrap();
+    // Include the separately tested 72-KiB one-field statistics reservation.
+    // Keep the original 192 KiB for payload/footer growth so denial still
+    // happens after the provider accepts multiple chunks.
+    let session = ResidentVortexSession::new((192 + 72) * 1024, 1).unwrap();
     let baseline = session.snapshot().memory.reserved_bytes;
     // Reusing a pre-existing test array isolates growth in the writer's footer
     // reservation from producer allocation failure.

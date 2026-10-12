@@ -71,6 +71,20 @@ cargo test -p shardloom-cli --all-targets --no-default-features --features vorte
 cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings
 ```
 
+The native Vortex test lane also runs the bounded file-statistics provider's
+private regressions. Its excluded test crate starts from the workspace lockfile
+and uses the reviewed array patch; additional upstream development dependencies
+belong only to that standalone test target. Native writer and ownership tests
+remain in the ordinary workspace lane.
+
+```text
+cp Cargo.lock vendor/vortex-layout/Cargo.lock
+cargo test --manifest-path vendor/vortex-layout/Cargo.toml \
+  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+  --features tokio,vortex-io/tokio,vortex-array/_test-harness \
+  --lib layouts::file_stats::tests::
+```
+
 The release evidence path is intentionally split. Producer jobs run independent checks in
 parallel; `release-readiness` downloads their artifacts and runs only the final aggregate gates.
 This keeps the hard gate strict without making every PR wait for a single serial evidence stack.

@@ -112,6 +112,8 @@ mod native_arrow_conversion;
     unix
 ))]
 pub mod native_artifact_comparison;
+#[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
+mod native_file_statistics;
 #[cfg(any(
     feature = "vortex-local-primitives",
     all(feature = "vortex-write", feature = "universal-format-io")

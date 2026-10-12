@@ -195,3 +195,220 @@ fn native_writer_producer_drop_layout_denial_and_interrupted_writes_release_owne
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }
+
+#[test]
+fn native_file_statistics_never_publish_partial_sum_after_chunk_overflow() {
+    use vortex::array::expr::stats::{Precision, Stat};
+
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let first = PrimitiveArray::from_iter([i64::MAX, i64::MAX]).into_array();
+    let second = PrimitiveArray::from_iter([-i64::MAX]).into_array();
+    let mut bytes = Vec::new();
+    let mut writer = session
+        .write_options()
+        .with_strategy(SequentialNativeFlatLayout::strategy(2))
+        .blocking(&runtime)
+        .writer(&mut bytes, first.dtype().clone());
+    writer.push(first).unwrap();
+    writer.push(second).unwrap();
+    let summary = writer.finish().unwrap();
+    let statistics = summary.footer().statistics().unwrap();
+    assert_eq!(summary.row_count(), 3);
+    assert!(
+        matches!(statistics.stats_sets()[0].get(Stat::Sum), Precision::Absent),
+        "an overflowed batch must not disappear into a partial file sum: {:?}",
+        statistics.stats_sets()[0].get(Stat::Sum)
+    );
+}
+
+#[test]
+fn native_file_count_statistic_merges_reject_overflow() {
+    use vortex::array::{
+        expr::stats::{Precision, Stat},
+        stats::StatsSet,
+    };
+    let dtype = DType::Primitive(PType::F64, vortex::array::dtype::Nullability::Nullable);
+    for stat in [
+        Stat::NullCount,
+        Stat::NaNCount,
+        Stat::UncompressedSizeInBytes,
+    ] {
+        let merged = StatsSet::of(stat, Precision::exact(u64::MAX))
+            .merge_ordered(&StatsSet::of(stat, Precision::exact(1_u64)), &dtype);
+        assert!(merged.get(stat).is_absent());
+        let merged = StatsSet::of(stat, Precision::exact(u64::MAX - 3))
+            .merge_ordered(&StatsSet::of(stat, Precision::exact(3_u64)), &dtype);
+        assert_eq!(
+            merged.get(stat).as_exact(),
+            vortex::array::scalar::Scalar::from(u64::MAX).into_value()
+        );
+    }
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+#[test]
+fn persisted_writer_retains_only_statistics_credit_until_footer_release() {
+    use vortex::array::{arrays::VarBinArray, dtype::Nullability, expr::stats::Stat};
+    use vortex::buffer::ByteBuffer;
+
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let dtype = DType::Utf8(Nullability::NonNullable);
+    let statistics = FileStatisticsReservation::reserve(&dtype, &memory).unwrap();
+    let statistics_bytes = statistics.bytes();
+    let mut output = Vec::new();
+    let mut writer = NativeWriter::persisted(
+        &session,
+        &runtime,
+        &mut output,
+        dtype.clone(),
+        SequentialNativeFlatLayout::strategy(40),
+        statistics,
+    );
+    for byte in b'a'..=b'z' {
+        let bytes = crate::owned_buffers::retain_credit(
+            ByteBuffer::from(vec![byte; 65_536]),
+            memory.reserve(65_536).unwrap(),
+        );
+        writer
+            .push(
+                VarBinArray::new(
+                    PrimitiveArray::from_iter([0_u32, 65_536]).into_array(),
+                    bytes,
+                    dtype.clone(),
+                    Validity::NonNullable,
+                )
+                .into_array(),
+            )
+            .unwrap();
+    }
+    let summary = writer.finish().unwrap();
+    assert_eq!(summary.row_count(), 26);
+    assert_eq!(memory.snapshot().reserved_bytes, statistics_bytes);
+    let sets = summary.footer().statistics().unwrap().stats_sets();
+    assert!(matches!(
+        sets[0].get(Stat::Min),
+        vortex::array::expr::stats::Precision::Inexact(_)
+    ));
+    assert!(matches!(
+        sets[0].get(Stat::Max),
+        vortex::array::expr::stats::Precision::Inexact(_)
+    ));
+    drop(summary);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+#[test]
+fn persisted_writer_failures_and_abandonment_release_statistics_credit() {
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    for (failure, abandon) in [
+        (Failure::Write, false),
+        (Failure::Zero, false),
+        (Failure::Flush, false),
+        (Failure::None, true),
+    ] {
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let dtype = array(&memory).dtype().clone();
+        let statistics = FileStatisticsReservation::reserve(&dtype, &memory).unwrap();
+        let mut writer = NativeWriter::persisted(
+            &session,
+            &runtime,
+            Sink {
+                state: Rc::new(SinkState::default()),
+                failure,
+                after: 9,
+            },
+            dtype,
+            SequentialNativeFlatLayout::strategy(8),
+            statistics,
+        );
+        let pushed = (0..4).try_for_each(|_| writer.push(array(&memory)));
+        if abandon {
+            drop(writer);
+        } else if pushed.is_err() {
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            drop(writer);
+        } else {
+            assert!(writer.finish().is_err());
+        }
+        assert_eq!(memory.snapshot().reserved_bytes, 0, "{failure:?}");
+    }
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+#[test]
+fn persisted_statistics_admission_refuses_insufficient_credit() {
+    let dtype = DType::Primitive(PType::I64, vortex::array::dtype::Nullability::NonNullable);
+    let memory = LiveMemoryPool::new(64 * 1024).unwrap();
+    let error = FileStatisticsReservation::reserve(&dtype, &memory)
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("memory reservation denied"));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+#[test]
+fn persisted_nullable_root_keeps_schema_and_omits_unmasked_statistics() {
+    use vortex::array::{VortexSessionExecute as _, arrays::StructArray, scalar::Scalar};
+    use vortex::file::OpenOptionsSessionExt as _;
+    let runtime = CurrentThreadRuntime::new();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let array = StructArray::new(
+        ["value"].into(),
+        vec![PrimitiveArray::from_iter([99_i64, 1, 7]).into_array()],
+        3,
+        Validity::from_iter([false, true, true]),
+    )
+    .into_array();
+    let dtype = array.dtype().clone();
+    let statistics = FileStatisticsReservation::reserve(&dtype, &memory).unwrap();
+    let mut bytes = Vec::new();
+    let mut writer = NativeWriter::persisted(
+        &session,
+        &runtime,
+        &mut bytes,
+        dtype.clone(),
+        SequentialNativeFlatLayout::strategy(1),
+        statistics,
+    );
+    writer.push(array).unwrap();
+    let summary = writer.finish().unwrap();
+    assert_eq!(summary.row_count(), 3);
+    let sets = summary.footer().statistics().unwrap().stats_sets();
+    assert_eq!(sets.len(), 1);
+    assert!(sets[0].is_empty());
+    let file = session
+        .open_options()
+        .open_buffer(vortex::buffer::ByteBuffer::from(bytes))
+        .unwrap();
+    assert_eq!(file.dtype(), &dtype);
+    assert_eq!(file.row_count(), 3);
+    let mut execution = session.create_execution_ctx();
+    let actual = file
+        .scan()
+        .unwrap()
+        .with_ordered(true)
+        .into_array_iter(&runtime)
+        .unwrap()
+        .flat_map(|chunk| {
+            let chunk = chunk.unwrap();
+            (0..chunk.len())
+                .map(|index| chunk.execute_scalar(index, &mut execution).unwrap())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        actual,
+        vec![
+            Scalar::null(dtype.clone()),
+            Scalar::struct_(dtype.clone(), [Scalar::from(1_i64)]),
+            Scalar::struct_(dtype, [Scalar::from(7_i64)]),
+        ]
+    );
+}

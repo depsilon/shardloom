@@ -1,8 +1,8 @@
 # Full-domain timestamp statistics and compression
 
-Status: implementation and local acceptance complete under PERF-07/08/11/12 and
-CG-19/20/21, including fresh full UAT and independent evidence verification.
-Hosted integration remains pending. The
+Status: implementation, complete local acceptance and hosted integration are
+complete under PERF-07/08/11/12 and CG-19/20/21. PR #1543 merged at `8d4b2a65`
+with the reviewed tree unchanged and all 44 checks passing. The
 [acceptance report](../benchmarks/native-timestamp-provider-2026-10-11.md)
 separates paired measurements from final runtime verification.
 This follows the exact typed-input contract and the October 10–11 maintainer

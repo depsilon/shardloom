@@ -58,6 +58,115 @@ def _load_native():
         _unavailable("optional shardloom._native extension is not installed")
 
 
+def _persisted_native_job(mode: str, profile: str, destination: str) -> dict:
+    """One real process in the durable write/reopen integration contract."""
+    native = _load_native()
+    import shardloom as sl
+    import pyarrow as pa
+
+    count = 24_009 if profile == "spill" else 129
+    ids = list(range(count))
+    table = pa.table({
+        "id": pa.array(ids, type=pa.int64()),
+        "label": pa.array([None if n % 7 == 0 else f"港-{n}" for n in ids]),
+    })
+    if profile == "typed":
+        from decimal import Decimal
+        table = table.append_column("items", pa.array(
+            [None if n % 5 == 0 else [n, None, -n] for n in ids], pa.list_(pa.int32())))
+        table = table.append_column("record", pa.array(
+            [None if n % 3 == 0 else {"value": n} for n in ids],
+            pa.struct([pa.field("value", pa.int32())])))
+        table = table.append_column("instant", pa.array(
+            [(-(1 << 63), None, (1 << 63) - 1)[n % 3] for n in ids],
+            pa.int64()).cast(pa.timestamp("us")))
+        table = table.append_column("amount", pa.array(
+            [None if n % 5 == 0 else Decimal(n).scaleb(-2) for n in ids],
+            pa.decimal128(12, 2)))
+    length = 24_001 if profile == "spill" else 33
+    expected = table.slice(7, length)
+    if profile == "empty":
+        expected = table.slice(0, 0)
+    elif profile == "spill":
+        expected = expected.take(pa.array(list(reversed(range(length)))))
+    path = Path(destination)
+    client = sl.ShardLoomClient(transport="native", memory_bytes=64 << 20, max_parallelism=1)
+    try:
+        # Child processes are test job boundaries. Execution inside each job must
+        # use the shared native runtime, including the external-input adapter.
+        with patch("subprocess.Popen", side_effect=AssertionError("execution child process")):
+            if mode == "write":
+                if profile in {"streamed", "spill"}:
+                    frame = sl.from_batches(
+                        lambda: iter(table.to_batches(max_chunksize=257)),
+                        schema={"id": "int64", "label": "utf8"},
+                        streaming=True, client=client,
+                    )
+                elif profile == "external":
+                    import pyarrow.parquet as parquet
+                    external = path.with_suffix(".parquet")
+                    parquet.write_table(table, external)
+                    frame = sl.read_parquet(external, client=client)
+                else:
+                    frame = sl.from_arrow_table(table, client=client)
+                    if profile == "source":
+                        source_path = path.with_name("input.vortex")
+                        frame.write_vortex(source_path, check=True)
+                        frame = sl.read_vortex(source_path, client=client)
+                    elif profile == "completed":
+                        frame = sl.from_arrow_table(frame.collect(check=True), client=client)
+                frame = frame.where("id < 0" if profile == "empty" else "id >= 7").limit(length)
+                options = {}
+                if profile == "spill":
+                    frame = frame.sort("id", descending=True)
+                    options["spill"] = {"workspace": str(path.parent),
+                                        "quota_bytes": 16 << 20, "buffer_bytes": 1 << 20}
+                result = frame.write_vortex(path, check=True, **options)
+            elif mode == "aggregate":
+                result = sl.sql(
+                    f"SELECT COUNT(*) AS n, MIN(id) AS lo, MAX(id) AS hi, "
+                    f"COUNT(id) AS ids FROM '{path}'", client=client,
+                ).collect(check=True)
+                expected_ids = expected["id"].to_pylist()
+                actual = result.to_arrow().to_pylist()
+                wanted = [{"n": len(expected_ids), "lo": min(expected_ids, default=None),
+                           "hi": max(expected_ids, default=None),
+                           "ids": len(expected_ids)}]
+                if actual != wanted:
+                    raise AssertionError((actual, wanted))
+            elif mode == "filter":
+                threshold = 7 + length - 3
+                result = sl.sql(
+                    f"SELECT label, id FROM '{path}' WHERE id >= {threshold} ORDER BY id DESC",
+                    client=client,
+                ).collect(check=True)
+                wanted = sorted(
+                    [row for row in expected.select(["label", "id"]).to_pylist()
+                     if row["id"] >= threshold], key=lambda row: row["id"], reverse=True,
+                )
+                actual = result.to_arrow().to_pylist()
+                if actual != wanted:
+                    raise AssertionError((actual, wanted))
+            elif mode == "values":
+                result = sl.read_vortex(path, client=client).collect(check=True)
+                actual = result.to_arrow()
+                if not actual.equals(expected, check_metadata=True):
+                    raise AssertionError((actual.schema, expected.schema, actual.num_rows))
+            else:
+                raise AssertionError(f"unknown persisted test job: {mode}")
+            raw = result.envelope.raw
+            if raw["fallback"]["attempted"] or raw["fallback"]["allowed"]:
+                raise AssertionError("native persisted job attempted fallback")
+            fields = {field["key"]: field["value"] for field in
+                      [*raw.get("fields", []), *raw.get("result", {}).get("fields", [])]}
+            return {"pid": os.getpid(), "mode": mode, "profile": profile,
+                    "expected_rows": expected.num_rows, "fields": fields,
+                    "library": str(Path(native.__file__).resolve()),
+                    "schema": str(expected.schema)}
+    finally:
+        client.close()
+
+
 class NativeBindingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -983,6 +1092,68 @@ assert later.row_count == 2
                     self.assertTrue(observation["complete"])
                     with self.assertRaises(RuntimeError):
                         plan.write(path, "write_" + output)
+
+    def test_public_native_persisted_files_reopen_in_independent_jobs(self):
+        import shardloom as sl
+        import shutil
+
+        self.arrow()
+        test_path = str(Path(__file__).resolve())
+        package_root = str(Path(sl.__file__).resolve().parent.parent)
+        library = str(Path(self.native.__file__).resolve())
+        command = (
+            "import json, os, runpy, sys; sys.path.insert(0, sys.argv[1]); "
+            "os.environ['SHARDLOOM_NATIVE_TEST_LIBRARY'] = sys.argv[3]; "
+            "os.environ['SHARDLOOM_REQUIRE_NATIVE_PYTHON'] = '1'; "
+            "job = runpy.run_path(sys.argv[2], run_name='native_persisted_job'); "
+            "print(json.dumps(job['_persisted_native_job'](*sys.argv[4:])))"
+        )
+
+        def run(mode, profile, path):
+            process = subprocess.run(
+                [sys.executable, "-I", "-c", command, package_root, test_path,
+                 library, mode, profile, str(path)],
+                capture_output=True, text=True, timeout=120, check=False,
+            )
+            self.assertEqual(process.returncode, 0, process.stderr)
+            report = json.loads(process.stdout)
+            self.assertEqual(report["library"], library)
+            self.assertNotEqual(report["pid"], os.getpid())
+            return report
+
+        for profile in ("produced", "completed", "source", "external", "streamed", "spill", "empty", "typed"):
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory(
+                prefix="shardloom-persisted-jobs-"
+            ) as directory:
+                root = Path(directory)
+                output = root / "produced.vortex"
+                writer = run("write", profile, output)
+                moved = root / "reopened.vortex"
+                if profile in {"completed", "external", "typed"}:
+                    shutil.copyfile(output, moved)
+                    output.unlink()
+                else:
+                    output.rename(moved)
+                for source in (root / "input.vortex", root / "produced.parquet"):
+                    source.unlink(missing_ok=True)
+                if profile == "external":
+                    # The input adapter's reusable prepared file is distinct
+                    # from output state. Remove it before either later job.
+                    self.assertTrue(list((root / ".shardloom" / "prepared").glob("*.vortex")))
+                    shutil.rmtree(root / ".shardloom")
+                aggregate = run("aggregate", profile, moved)
+                filtered = run("filter", profile, moved)
+                values = run("values", profile, moved)
+                self.assertEqual(aggregate["expected_rows"], writer["expected_rows"])
+                self.assertEqual(values["schema"], writer["schema"])
+                self.assertEqual(len({writer["pid"], aggregate["pid"], filtered["pid"], values["pid"]}), 4)
+                self.assertEqual(aggregate["fields"]["local_primitive_arrays_read_count"], "0")
+                self.assertEqual(aggregate["fields"]["local_primitive_aggregate_update_strategy"],
+                                 "exact_file_footer_scalar_completion")
+                if profile == "spill":
+                    self.assertGreater(int(writer["fields"]["relational_spill_runs_written"]), 0)
+                    self.assertEqual(writer["fields"]["relational_spill_owned_cleanup_completed"], "true")
+                self.assertEqual([path for path in root.rglob("*") if path.is_file()], [moved])
 
     def test_native_fanout_reopens_complete_values_and_preserves_empty_outputs(self):
         session = self.session(64 << 20, 2)

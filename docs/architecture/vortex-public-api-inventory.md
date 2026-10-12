@@ -109,6 +109,32 @@ phase note. They are not active queue state and do not override `phased-executio
 - Prohibited: DataFusion, DuckDB, Spark, Polars, Velox, `vortex-datafusion`, or similar engines
   executing unsupported ShardLoom residual work as fallback.
 
+## October 11 bounded persisted statistics provider check
+
+The [persisted-output unit](native-persisted-reuse-2026-10-11.md) uses Vortex
+0.85 `VortexWriteOptions::with_file_statistics`, `PRUNING_STATS`, native scalar
+truncation, `StatsSet::merge_ordered`, `Footer::statistics` and
+`VortexFile::file_stats`. The pinned accumulator retains batch-statistic builders;
+the reviewed `vortex-layout` patch instead retains bounded running state, with
+unknown/overflow propagation and compact variable-length bounds. Its source
+archive, Apache-2.0 license and exact local changes are recorded under
+`vendor/vortex-layout`. Count/size merging in the existing `vortex-array` patch
+uses checked u64 arithmetic.
+
+ShardLoom owns field-dependent statistics/footer reservations, durable sink
+lifetime and atomic publication. The existing native reader can use exact
+integer footer aggregates and conservative range pruning on ordinary reopening.
+Computed results establish their own field identities and statistics; they do
+not inherit the source's layout/user metadata. Ephemeral run stores retain
+disabled file statistics. This keeps the native file format, provider version,
+feature boundaries and no-fallback policy; complete lifecycle and cost acceptance
+remain governed by the linked unit rather than this inventory.
+
+The [persisted-output acceptance](../benchmarks/native-persisted-reuse-2026-10-11.md)
+now records passing provider, resource, complete-value and lifecycle cost gates,
+full public regression and fresh UAT, with independently verified source and
+result packets. Its hosted integration status remains explicit in that report.
+
 ## October 1 computed-result provider check
 
 The [bounded result-stream continuation](native-workflow-streaming-2026-10-01.md)

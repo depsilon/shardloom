@@ -110,7 +110,13 @@ jobs:
           - lane: release_user_surfaces
             command: cargo check -p shardloom-vortex --features release-user-surfaces
           - lane: native_vortex_tests
-            command: cargo test -p shardloom-vortex --lib --features release-user-surfaces
+            command: |
+              cargo test -p shardloom-vortex --lib --features release-user-surfaces
+              cp Cargo.lock vendor/vortex-layout/Cargo.lock
+              cargo test --manifest-path vendor/vortex-layout/Cargo.toml \
+                --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+                --features tokio,vortex-io/tokio,vortex-array/_test-harness \
+                --lib layouts::file_stats::tests::
           - lane: synthetic_spill_resources
             command: |
               cargo test -p shardloom-exec --lib --features spill-payload-fs spill_payload::tests -- --test-threads=1

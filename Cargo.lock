@@ -3535,8 +3535,6 @@ dependencies = [
 [[package]]
 name = "vortex-layout"
 version = "0.85.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36b9d7fcb265cbb4025a29ec3f6ecc0fbaa4739b75d900fcd353155c1f2ae1ca"
 dependencies = [
  "arcref",
  "arrow-array",

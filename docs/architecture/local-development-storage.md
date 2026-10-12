@@ -37,11 +37,39 @@ before removing originals. Observed free space increases by 33.60 GB. The releas
 cache, frozen comparisons, datasets, target-root evidence and failure history
 remain retained; storage ceilings are unchanged. Subsequent local debug validation
 omits debug symbols to reduce regenerated cache size.
-The later same-day cleanup compacts 558 historical and 516 newly accepted
+The subsequent [urgent cleanup](local-artifact-cleanup-2026-10-11.md#urgent-cleanup-and-current-retention)
+supersedes those local retention statements: the obsolete Desktop workspace,
+regenerated debug cache, release compiler intermediates, debug-cache backup,
+old wheel environments, redundant package downloads and three superseded large
+Vortex files were deleted. The original Parquet, October 11 Vortex output,
+current frozen runtime and latest installed wheel remain available. Validation
+receipts and historical results remain; retired physical payloads require
+regeneration. Observed free space increases from 0.12 GB to 89.32 GB.
+
+For subsequent work, retain only current inputs, the latest accepted output,
+artifacts needed by an active comparison, and compact source/result evidence.
+Remove completed temporary package environments, duplicate downloads and
+rebuildable compiler outputs when they are no longer needed. Do not archive an
+entire compiler cache merely to preserve old test executables. Keep failed-run
+diagnostics and reproduction inputs without retaining every generated payload.
+Recheck free space before and after large jobs and preserve the existing guards.
+
+After persisted-output acceptance, the
+[follow-up retirement](local-artifact-cleanup-2026-10-11.md#persisted-output-acceptance-cleanup)
+removes the superseded 15.7-GB timestamp output and retains the newly accepted
+`persisted-native-343-a1.vortex` with the original Parquet. The completed debug
+cache, two identical executable copies and 21 duplicate historical fixture
+copies are also retired. Every unique fixture and all compact result/failure
+evidence remain. Observed free space after the output retirement is 79.94 GB.
+Do not move cloud-only bulk artifacts out of a synced folder as a cleanup step:
+the move can request hydration. Use explicit, scoped deletion only when authorized
+and the artifact has been established as disposable.
+
+An earlier same-day cleanup compacted 558 historical and 516 newly accepted
 query-log members with complete hash verification, preserving their summaries
-and failure history. It retires the exact superseded October 5 generated Vortex
+and failure history. It retired the exact superseded October 5 generated Vortex
 payload after checking its identity and regeneration evidence; the October 9
-replacement, resident Parquet and new October 11 UAT output remain retained.
+replacement, resident Parquet and new October 11 UAT output were retained then.
 The [cleanup record](local-artifact-cleanup-2026-10-11.md#cleanup-before-the-requested-fresh-full-uat)
 distinguishes the different artifact hashes and unchanged storage ceilings.
 On September 27, 5,822 completed historical per-call log files were compacted
