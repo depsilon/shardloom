@@ -121,3 +121,62 @@ accepted only after matching its original SHA-256,
 All 516 members passed re-verification. The separately preserved supervisor,
 recovery procedure and receipt are bound into the fresh-UAT provenance; no
 native result was regenerated or altered by this repair.
+
+## Urgent cleanup and current retention
+
+The maintainer subsequently instructed deletion of unneeded artifacts after
+disk space was nearly exhausted. This supersedes earlier statements above that
+all compiler executables, their backup archive and older physical references
+remain locally retained.
+
+An attempted move of the obsolete Desktop benchmark folder to Trash stalled
+while cloud-managed files became resident and free space fell. The owned move
+process was terminated. The exact source of the concurrent cloud-storage
+allocations was not attributed. Direct deletion then removed the 285 inventoried
+paths under `/Users/dylan/Desktop/shardloom-clickbench-100m-uat`, without opening
+cloud-only payloads in the deletion code. The 22 originally resident notes and
+logs remain in a verified 46,860-byte recovery archive. No CloudDocs internals
+or unrelated folders were deleted, and Trash was not emptied.
+
+The remaining cleanup removed these no-longer-needed local artifacts:
+
+- The regenerated Cargo debug cache and release compiler intermediates in the
+  main and old baseline caches; top-level release executables remain.
+- The 4,989,680,005-byte debug-cache backup and old native wheel package stages,
+  virtual environments and distribution copies; their reports and logs remain.
+  The latest `native-wheel-proof-320` environment and wheel remain intact.
+- 103 redundant historical release source/package downloads and copies;
+  release manifests, checksums, reports and published remote assets remain.
+- The three superseded generated Vortex files below. Each complete resident
+  file hash matched its historical evidence before deletion; no new large copy
+  was written.
+
+| Retired physical payload | Bytes | Verified SHA-256 |
+| --- | ---: | --- |
+| `perf-current-c71a558e.vortex` | 18,643,482,956 | `93acc7b9bbabed1f6e15a91aeacda45637bd5d6c5fed26e9b2052bf9b77e84f2` |
+| `profile-033-20260930.vortex` | 15,682,956,489 | `5a6e7d7b521b891e522f32398ef2582367e814791ab537f354003ecd2f7a488d` |
+| `release-050-prebump-20261009-a2.vortex` | 15,713,610,545 | `c541453175a8d947f8ab8073db91cca79e7988ba9a7e143be881e5c750e1c72f` |
+
+The original 14,779,976,446-byte Parquet source and latest
+`timestamp-native-20261011-a1.vortex` remain, with unchanged file identities.
+The latest output is not claimed to be byte-identical to the retired physical
+layouts. Historical results and regeneration records remain; replay of a
+retired layout now requires regeneration.
+
+Final verification confirms all 145 selected paths or directory roots are
+absent, all 2,108 selected runtime/source files are unchanged, and the current
+frozen CLI, extension and wheel retain their recorded SHA-256 values. Cleanup
+did not rebuild or rerun the engine. Observed free space rises from 121,315,328
+to 89,322,573,824 bytes, a net increase of 89,201,258,496 bytes. This observation
+includes concurrent filesystem activity and is not a sum of file sizes or an
+engine performance measurement.
+
+The local evidence directory
+`/Users/dylan/LocalData/shardloom/native-python-surface-20261010` retains
+`storage-cleanup-verification-336.json`, which binds six small deletion receipts,
+and `delete_obsolete_datasets_336.py`. It also retains the verified
+`desktop-shardloom-resident-recovery-20261011.tar.xz` archive, SHA-256
+`d841c1216497f0e0608fdf58ba143fc6e2983bbb43388ff6948360e1f498a4b5`.
+The storage guide now makes prompt retirement of disposable build/package
+outputs explicit; retaining every historical binary or generated payload is
+not required to preserve useful validation evidence.
