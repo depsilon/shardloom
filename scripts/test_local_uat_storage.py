@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Small real-filesystem and process tests; no datasets or engine builds."""
 
+import argparse
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
@@ -11,7 +14,8 @@ import unittest
 from unittest.mock import patch
 
 from local_uat_storage import (
-    StorageGuardError, accounted_bytes, check_budgets, validate_paths,
+    GIB, MIB, StorageGuardError, accounted_bytes, add_log_budget_arguments,
+    check_budgets, validate_paths,
 )
 
 RUNNER = Path(__file__).with_name("run_clickbench_ingest_uat.sh")
@@ -108,6 +112,69 @@ class StorageGuardTests(unittest.TestCase):
         self.assertEqual(accounted_bytes(link), allocated(link))
         self.assertEqual(accounted_bytes(self.root / "missing"), 0)
 
+    def test_history_and_active_run_limits_are_independent_and_inclusive(self):
+        history = self.root / "logs/completed"
+        history.mkdir(parents=True)
+        (history / "evidence").write_bytes(b"h" * 65536)
+        self.logs.mkdir()
+        (self.logs / "stdout").write_bytes(b"small active run")
+        total = accounted_bytes(self.root / "logs")
+        active = accounted_bytes(self.logs)
+        limits = dict(min_free_bytes=0, reserve_bytes=0, max_workspace_bytes=GIB,
+                      max_log_bytes=total, max_run_log_bytes=active)
+        result = check_budgets(self.root, self.target, self.logs, **limits)
+        self.assertEqual(result["log_bytes"], total)
+        self.assertEqual(result["run_log_bytes"], active)
+        for changes, diagnostic in (
+            ({"max_log_bytes": total - 1}, "retained log budget"),
+            ({"max_run_log_bytes": active - 1}, "active run log budget"),
+        ):
+            with self.subTest(changes=changes), self.assertRaisesRegex(StorageGuardError, diagnostic):
+                check_budgets(self.root, self.target, self.logs, **(limits | changes))
+
+    def test_temporary_log_reservation_counts_against_both_limits_and_disk(self):
+        self.logs.mkdir(parents=True)
+        (self.logs / "stdout").write_bytes(b"original evidence")
+        size = accounted_bytes(self.logs)
+        reserve = 8192
+        limits = dict(min_free_bytes=0, reserve_bytes=reserve, reserve_log_bytes=reserve,
+                      max_workspace_bytes=GIB, max_log_bytes=size + reserve,
+                      max_run_log_bytes=size + reserve)
+        check_budgets(self.root, self.target, self.logs, **limits)
+        for change, diagnostic in (
+            ({"max_log_bytes": size + reserve - 1}, "retained log budget"),
+            ({"max_run_log_bytes": size + reserve - 1}, "active run log budget"),
+            ({"reserve_bytes": 0}, "included in the candidate reservation"),
+        ):
+            with self.subTest(change=change), self.assertRaisesRegex(StorageGuardError, diagnostic):
+                check_budgets(self.root, self.target, self.logs, **(limits | change))
+        with patch("local_uat_storage.available_bytes", return_value=reserve - 1):
+            with self.assertRaisesRegex(StorageGuardError, "insufficient free disk"):
+                check_budgets(self.root, self.target, self.logs, **limits)
+
+    def test_log_budget_defaults_environment_and_explicit_precedence(self):
+        def parse(arguments=()):
+            parser = argparse.ArgumentParser()
+            add_log_budget_arguments(parser)
+            return vars(parser.parse_args(arguments))
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(parse(), {"max_log_mib": 1024, "max_run_log_mib": 256})
+            self.assertEqual(parse(["--max-log-mib", "0", "--max-run-log-mib", "0.5"]),
+                             {"max_log_mib": 0, "max_run_log_mib": 0.5})
+        with patch.dict(os.environ, {"SHARDLOOM_CLICKBENCH_UAT_MAX_LOG_MIB": "512",
+                                     "SHARDLOOM_CLICKBENCH_UAT_MAX_RUN_LOG_MIB": "16"}):
+            self.assertEqual(parse(), {"max_log_mib": 512, "max_run_log_mib": 16})
+            self.assertEqual(parse(["--max-log-mib", "32", "--max-run-log-mib", "8"]),
+                             {"max_log_mib": 32, "max_run_log_mib": 8})
+        for invalid in ("-1", "nan", "inf", "", "invalid"):
+            for option, environment in (("max-log-mib", "SHARDLOOM_CLICKBENCH_UAT_MAX_LOG_MIB"),
+                                        ("max-run-log-mib", "SHARDLOOM_CLICKBENCH_UAT_MAX_RUN_LOG_MIB")):
+                with self.subTest(invalid=invalid, option=option), contextlib.redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit):
+                        parse([f"--{option}", invalid])
+                    with patch.dict(os.environ, {environment: invalid}), self.assertRaises(SystemExit):
+                        parse()
+
     def fake_binary(self, mode):
         binary = self.home / "fake-shardloom"
         binary.write_text(
@@ -170,6 +237,33 @@ class StorageGuardTests(unittest.TestCase):
         with self.assertRaises(ProcessLookupError):
             os.kill(writer_pid, 0)
         self.assertFalse((self.root / ".ingest-uat.lock").exists())
+
+    def test_active_run_flood_stops_with_room_for_retained_history(self):
+        result = self.run_harness("flood", ("--max-log-mib", "8", "--max-run-log-mib", "0.5"))
+        self.assertEqual(result.returncode, 78, result.stdout + result.stderr)
+        summary_path = next((self.root / "logs").glob("*/prepare_summary.json"))
+        summary = json.loads(summary_path.read_text())
+        self.assertEqual(summary["stop_reason"], "storage_budget_guard_failed")
+        self.assertIn("active run log budget", (summary_path.parent / "storage_error.txt").read_text())
+        writer_pid = int((self.root / "vortex/hits-parquet-100m.pid").read_text())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(writer_pid, 0)
+        self.assertFalse((self.root / ".ingest-uat.lock").exists())
+
+    def test_ingest_small_run_preserves_history_larger_than_its_run_budget(self):
+        history = self.root / "logs/completed/evidence.json"
+        history.parent.mkdir(parents=True)
+        original = b"h" * 65536
+        history.write_bytes(original)
+        with patch.dict(os.environ, {"SHARDLOOM_CLICKBENCH_UAT_MAX_LOG_MIB": "1",
+                                     "SHARDLOOM_CLICKBENCH_UAT_MAX_RUN_LOG_MIB": "0"}):
+            result = self.run_harness(extra=("--max-run-log-mib", "0.05"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(history.read_bytes(), original)
+        snapshot = json.loads(next((self.root / "logs").glob("ingest*/storage.json")).read_text())
+        self.assertEqual(snapshot["max_log_bytes"], MIB)
+        self.assertGreater(snapshot["log_bytes"], snapshot["max_run_log_bytes"])
+        self.assertLess(snapshot["run_log_bytes"], snapshot["max_run_log_bytes"])
 
     def test_replacement_preserves_backups_staging_and_glob_lookalikes(self):
         self.target.parent.mkdir()

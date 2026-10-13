@@ -15,6 +15,8 @@ import sys
 
 GIB = 1024**3
 MIB = 1024**2
+DEFAULT_MAX_LOG_MIB = 1024
+DEFAULT_MAX_RUN_LOG_MIB = 256
 
 
 class StorageGuardError(ValueError):
@@ -103,9 +105,13 @@ def check_budgets(
     root: Path, target: Path, logs: Path, *,
     min_free_bytes: int, reserve_bytes: int,
     max_workspace_bytes: int, max_log_bytes: int,
+    max_run_log_bytes: int | None = None, reserve_log_bytes: int = 0,
 ) -> dict[str, int]:
+    if reserve_log_bytes < 0 or reserve_log_bytes > reserve_bytes:
+        raise StorageGuardError("log reservation must be nonnegative and included in the candidate reservation")
     workspace_bytes = accounted_bytes(root)
     log_bytes = accounted_bytes(root / "logs")
+    run_log_bytes = accounted_bytes(logs) if max_run_log_bytes is not None else None
     free_bytes = min(available_bytes(root), available_bytes(target.parent),
                      available_bytes(logs))
     if workspace_bytes + reserve_bytes > max_workspace_bytes:
@@ -114,19 +120,34 @@ def check_budgets(
             f"{reserve_bytes} reserved > {max_workspace_bytes} bytes; "
             "review old run artifacts before retrying"
         )
-    if log_bytes > max_log_bytes:
-        raise StorageGuardError(f"UAT log budget exceeded: {log_bytes} > {max_log_bytes} bytes")
+    if log_bytes + reserve_log_bytes > max_log_bytes:
+        raise StorageGuardError(
+            f"UAT retained log budget exceeded: {log_bytes} existing + "
+            f"{reserve_log_bytes} reserved > {max_log_bytes} bytes; "
+            "review completed evidence or explicitly configure --max-log-mib"
+        )
+    if run_log_bytes is not None and run_log_bytes + reserve_log_bytes > max_run_log_bytes:
+        raise StorageGuardError(
+            f"UAT active run log budget exceeded: {run_log_bytes} existing + "
+            f"{reserve_log_bytes} reserved > {max_run_log_bytes} bytes; "
+            "inspect this run for excessive output before changing --max-run-log-mib"
+        )
     if free_bytes < min_free_bytes + reserve_bytes:
         raise StorageGuardError(
             f"insufficient free disk: {free_bytes} bytes available; "
             f"{reserve_bytes} for the candidate plus {min_free_bytes} headroom required"
         )
-    return {
+    snapshot = {
         "workspace_bytes": workspace_bytes,
         "log_bytes": log_bytes,
+        "max_log_bytes": max_log_bytes,
         "free_bytes": free_bytes,
         "reserved_candidate_bytes": reserve_bytes,
+        "reserved_log_bytes": reserve_log_bytes,
     }
+    if run_log_bytes is not None:
+        snapshot.update(run_log_bytes=run_log_bytes, max_run_log_bytes=max_run_log_bytes)
+    return snapshot
 
 
 def nonnegative_number(value: str) -> float:
@@ -134,6 +155,19 @@ def nonnegative_number(value: str) -> float:
     if not math.isfinite(number) or number < 0:
         raise argparse.ArgumentTypeError("expected a finite nonnegative number")
     return number
+
+
+def add_log_budget_arguments(parser: argparse.ArgumentParser) -> None:
+    """Share finite log defaults and explicit overrides between local runners."""
+    for name, environment, default, scope in (
+        ("max-log-mib", "SHARDLOOM_CLICKBENCH_UAT_MAX_LOG_MIB", DEFAULT_MAX_LOG_MIB,
+         "all retained logs under the UAT root"),
+        ("max-run-log-mib", "SHARDLOOM_CLICKBENCH_UAT_MAX_RUN_LOG_MIB", DEFAULT_MAX_RUN_LOG_MIB,
+         "logs in the current run directory"),
+    ):
+        parser.add_argument(f"--{name}", type=nonnegative_number,
+                            default=os.environ.get(environment, str(default)),
+                            help=f"maximum MiB for {scope} (default: {default}; env: {environment})")
 
 
 def main() -> int:
@@ -144,7 +178,7 @@ def main() -> int:
     parser.add_argument("--min-free-gib", type=nonnegative_number, default=12)
     parser.add_argument("--reserve-gib", type=nonnegative_number, default=0)
     parser.add_argument("--max-workspace-gib", type=nonnegative_number, default=100)
-    parser.add_argument("--max-log-mib", type=nonnegative_number, default=256)
+    add_log_budget_arguments(parser)
     args = parser.parse_args()
     try:
         root, _, target, logs = validate_paths(args.root, args.source, args.target, args.logs)
@@ -155,6 +189,7 @@ def main() -> int:
                 reserve_bytes=math.ceil(args.reserve_gib * GIB),
                 max_workspace_bytes=math.floor(args.max_workspace_gib * GIB),
                 max_log_bytes=math.floor(args.max_log_mib * MIB),
+                max_run_log_bytes=math.floor(args.max_run_log_mib * MIB),
             )
             print(json.dumps(snapshot, sort_keys=True))
     except (StorageGuardError, OSError, RuntimeError) as error:

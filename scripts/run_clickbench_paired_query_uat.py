@@ -24,7 +24,7 @@ import subprocess
 import sys
 import tarfile
 
-from local_uat_storage import GIB, MIB, check_budgets, require_local_path
+from local_uat_storage import GIB, MIB, add_log_budget_arguments, check_budgets, require_local_path
 from native_workflow_protocol import public_workflow_command
 from clickbench_reference_packet import load_reference_packet, query_statements
 from run_clickbench_query_uat import correctness_boundary, equivalent, extract_reference_result, extract_result, file_sha256, read_json_log, run_profiled_command, score
@@ -168,6 +168,7 @@ def main():
     parser.add_argument("--max-parallelism", type=int, default=12)
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("--max-workspace-gib", type=positive_finite, default=100)
+    add_log_budget_arguments(parser)
     parser.add_argument("--reverse-order", action="store_true")
     args = parser.parse_args()
     if args.memory_gb <= 0 or args.max_parallelism <= 0 or not math.isfinite(args.timeout) or args.timeout <= 0:
@@ -185,9 +186,11 @@ def main():
     def guard(reserve=0):
         return check_budgets(root, source, logs, min_free_bytes=12*GIB, reserve_bytes=reserve,
                              max_workspace_bytes=math.floor(args.max_workspace_gib * GIB),
-                             max_log_bytes=256*MIB-reserve)
+                             max_log_bytes=math.floor(args.max_log_mib * MIB),
+                             max_run_log_bytes=math.floor(args.max_run_log_mib * MIB),
+                             reserve_log_bytes=reserve)
 
-    guard()
+    storage_preflight = guard()
     root.mkdir(parents=True, exist_ok=True)
     lock = root / ".ingest-uat.lock"
     lock.mkdir()
@@ -249,6 +252,9 @@ def main():
                    "reference_kind": reference_kind,
                    "memory_gb": args.memory_gb, "max_parallelism": args.max_parallelism,
                    "max_workspace_gib": args.max_workspace_gib,
+                   "storage_preflight": storage_preflight,
+                   "log_budget_bytes": {"retained": math.floor(args.max_log_mib * MIB),
+                                        "active_run": math.floor(args.max_run_log_mib * MIB)},
                    "platform": platform.platform(), "cpu_count": os.cpu_count(), "selected_query_ids": selected,
                    "queries": {str(q): queries[q-1] for q in selected},
                    "command_template": public_workflow_command(

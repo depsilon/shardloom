@@ -53,8 +53,13 @@ class ClickBenchUatTests(unittest.TestCase):
         uat_root.mkdir()
         return query_path, packet_path, binary, source, uat_root
 
-    def _run_mocked_single(self, root, *, identity_mutation=None):
+    def _run_mocked_single(self, root, *, identity_mutation=None, log_options=(),
+                           historical_bytes=0, check_storage=False):
         query_path, packet_path, binary, source, uat_root = self._runner_fixture(root)
+        if historical_bytes:
+            history = uat_root / "logs/completed/retained.json"
+            history.parent.mkdir(parents=True)
+            history.write_bytes(b"h" * historical_bytes)
         result_rows = [{"value": 1}]
         schema = {"Struct": [{"names": ["value"],
                              "dtypes": [{"Primitive": ["i64", False]}]}, False]}
@@ -75,6 +80,7 @@ class ClickBenchUatTests(unittest.TestCase):
             }
             prefix.with_suffix(".stdout.json").write_text(json.dumps(envelope))
             prefix.with_suffix(".stderr.txt").write_text("")
+            guard()
             return {"returncode": 0, "guard_failures": [], "seconds": 0.1}
 
         original_hash = query_uat.file_sha256
@@ -99,10 +105,13 @@ class ClickBenchUatTests(unittest.TestCase):
             "--reference-packet", str(packet_path),
             "--build-commit", "test-commit",
             "--query-ids", "1",
+            *log_options,
         ]
         with (
             patch.object(sys, "argv", argv),
-            patch.object(query_uat, "check_budgets", return_value={}),
+            patch("local_uat_storage.available_bytes", return_value=1 << 40),
+            patch.object(query_uat, "check_budgets",
+                         side_effect=check_budgets if check_storage else lambda *a, **kw: {}),
             patch.object(query_uat, "run_profiled_command", side_effect=fake_profiled_command),
             patch.object(query_uat, "file_sha256", side_effect=maybe_changed_hash),
             contextlib.redirect_stdout(io.StringIO()),
@@ -131,6 +140,31 @@ class ClickBenchUatTests(unittest.TestCase):
         } <= hashed_names)
         package_sources = (Path(__file__).resolve().parents[1] / "python" / "src" / "shardloom").rglob("*.py")
         self.assertTrue({str(path.resolve()) for path in package_sources} <= set(summary["harness_sha256"]))
+
+    def test_query_history_larger_than_active_run_budget_is_admitted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, summary = self._run_mocked_single(
+                Path(directory), historical_bytes=65536, check_storage=True,
+                log_options=("--max-log-mib", "1", "--max-run-log-mib", "0.05"),
+            )
+            retained = Path(directory) / "uat/logs/completed/retained.json"
+            self.assertEqual(retained.read_bytes(), b"h" * 65536)
+        self.assertEqual(result, 0)
+        self.assertTrue(summary["complete"])
+        self.assertEqual(summary["log_budget_bytes"], {"retained": 1048576, "active_run": 52428})
+        self.assertEqual(summary["storage_preflight"]["run_log_bytes"], 0)
+        self.assertGreater(summary["storage_preflight"]["log_bytes"], 52428)
+
+    def test_retained_log_denial_happens_before_queries_or_new_log_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(StorageGuardError, "retained log budget"):
+                self._run_mocked_single(
+                    Path(directory), historical_bytes=65536, check_storage=True,
+                    log_options=("--max-log-mib", "0.05", "--max-run-log-mib", "1"),
+                )
+            self.assertEqual(list((Path(directory) / "uat/logs").iterdir()),
+                             [Path(directory) / "uat/logs/completed"])
+            self.assertFalse((Path(directory) / "uat/.ingest-uat.lock").exists())
 
     def test_single_packet_or_harness_identity_change_fails_and_keeps_records(self):
         for mutation in ("packet", "harness"):
@@ -194,6 +228,24 @@ class ClickBenchUatTests(unittest.TestCase):
                 check_budgets(root, path, logs, min_free_bytes=0, reserve_bytes=reserved,
                               max_workspace_bytes=10**9, max_log_bytes=budget - reserved)
             with self.assertRaises(StorageGuardError):
+                compress_completed_log(path, guard)
+            self.assertEqual(path.read_bytes(), raw)
+            self.assertFalse(path.with_suffix(".json.gz").exists())
+
+    def test_active_archive_reservation_denial_preserves_original(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            logs = root / "logs/active"
+            logs.mkdir(parents=True)
+            path = logs / "q01_run1.stdout.json"
+            raw = b"complete result" * 100
+            path.write_bytes(raw)
+            limit = accounted_bytes(logs)
+            def guard(reserved):
+                check_budgets(root, path, logs, min_free_bytes=0, reserve_bytes=reserved,
+                              reserve_log_bytes=reserved, max_workspace_bytes=10**9,
+                              max_log_bytes=10**8, max_run_log_bytes=limit)
+            with self.assertRaisesRegex(StorageGuardError, "active run log budget"):
                 compress_completed_log(path, guard)
             self.assertEqual(path.read_bytes(), raw)
             self.assertFalse(path.with_suffix(".json.gz").exists())
@@ -445,6 +497,29 @@ class ClickBenchUatTests(unittest.TestCase):
                 self.assertGreaterEqual(result[key], 0)
             self.assertLess(result["seconds"], result["supervised_wall_seconds"])
             self.assertEqual(prefix.with_suffix(".stdout.json").read_text(), "complete output\n")
+
+    def test_active_log_flood_stops_query_child_below_retained_limit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            logs = root / "logs/active"
+            logs.mkdir(parents=True)
+            prefix = logs / "flood"
+            def guard():
+                return check_budgets(root, prefix, logs, min_free_bytes=0, reserve_bytes=0,
+                                     max_workspace_bytes=1 << 30, max_log_bytes=8 << 20,
+                                     max_run_log_bytes=1 << 19)
+            # The final storage check also fails after the watchdog has stopped
+            # the child; the original oversized evidence remains inspectable.
+            with self.assertRaisesRegex(StorageGuardError, "active run log budget"):
+                run_profiled_command([
+                    sys.executable, "-c",
+                    "import time; print('x' * (2 * 1024 * 1024), flush=True); time.sleep(10)",
+                ], prefix, 5, guard)
+            timing = json.loads(prefix.with_suffix(".timing.json").read_text())
+            self.assertNotEqual(timing["returncode"], 0)
+            self.assertGreater(prefix.with_suffix(".stdout.json").stat().st_size, 1 << 19)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(int(prefix.with_suffix(".pid").read_text()), 0)
 
     @unittest.skipUnless(os.name == "posix", "process-group ownership requires POSIX")
     def test_profile_timeout_kills_native_child_that_ignores_termination(self):
