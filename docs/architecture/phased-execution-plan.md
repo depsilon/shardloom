@@ -1076,7 +1076,14 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     tests and cumulative Full43 also pass; see the [follow-up report](../benchmarks/native-query-revisit-2026-10-12.md#october-13-filtered-count-follow-up).
     The measured five-file source tree was rebased unchanged from `67f3296d` to
     local `eb1b5a0f` after prerequisite PR #1545 merged at `3089c8aa`; this
-    count change remains unmerged and hosted CI is pending. PERF-03 remains open.
+    count change remains unmerged and hosted CI is pending. A second October 13
+    follow-up retains bounded sparse Zstd frame filtering for eligible native
+    UTF-8/binary predicates: Q23 wall time improves in 10/10 pairs, all five
+    controls and target CPU/RSS/timing gates pass, codec/IPC/default checks pass,
+    and cumulative Full43 passes 129 calls/1,143 rows with unchanged schemas,
+    source hashes and retained input. That provider patch also remains unmerged
+    with hosted CI pending; see the [sparse-filter report](../benchmarks/native-query-revisit-2026-10-12.md#october-13-sparse-zstd-filter-follow-up).
+    PERF-03 remains open.
   - Execution checklist:
     - [ ] Extend shared admission to remaining Vortex I/O/codec/operator work
       and prove I/O progress within the CPU ceiling.

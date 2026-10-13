@@ -1,5 +1,19 @@
 # Vortex Upstream Dependency Review
 
+## October 13, 2026 sparse Zstd filter follow-up
+
+The bounded sparse-filter change patches the existing vendored Apache-2.0
+`vortex-zstd` 0.85.0 source. Its [provenance manifest](../../vendor/vortex-zstd/upstream-provenance.json)
+records registry archive SHA-256
+`03cae43b171152fd403b884d5e0b764e860261d38b2fd80dfd4e03678beac837`, upstream
+VCS revision `afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3`, and the dirty-VCS
+marker; the published registry archive remains the source of truth, and its
+original member hashes are preserved. The existing FilterReduce extension
+retains selected compressed frames and remaps the mask before the unchanged
+native decoder. It introduces no new dependency, copied C implementation, or
+external execution engine. The local evidence and acceptance status are
+recorded in the [sparse-filter follow-up report](../benchmarks/native-query-revisit-2026-10-12.md#october-13-sparse-zstd-filter-follow-up).
+
 ## October 12, 2026 encoded-transfer ownership hook
 
 The encoded-transfer work extends the existing reviewed Apache-2.0

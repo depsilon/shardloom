@@ -421,3 +421,55 @@ all paired process outputs, and the cumulative Full43 evidence. Its failures
 remain explicit, including the retained pre-fix regression and the earlier
 Q21 scan compiler failure; neither is rewritten as a passing result. Archive
 SHA-256: `7d4c62262d6bee2575e8089fb20693d1641ce2ffd66da94b047cedadbb3b5638`.
+
+## October 13 sparse Zstd filter follow-up
+
+This is a second, independent October 13 follow-up; it does not change the
+filtered-count measurements above. The retained candidate is a bounded
+metadata-only `FilterReduce` in the existing pinned `vortex-zstd` 0.85.0
+provider. For eligible UTF-8/binary arrays without null-bearing validity, it
+keeps compressed frames containing selected rows, remaps the selection mask,
+and uses the unchanged native decoder. Admission is limited to 2–64 frames,
+at most 4,096 selected rows and one eighth of logical rows, with at least one
+touched frame skipped and retained complete-frame rows no greater than the
+original mask length. Other arrays keep the existing native path. No payload
+copy, new unsafe/C implementation, or dependency was added.
+
+The frozen 24-GiB protocol requested maximum parallelism 12; the 10-logical-CPU
+host admitted 10 lanes. The target is Q23 at requested parallelism 12. Across
+ten alternating process pairs, median complete-process wall time fell from
+4.652212062530452 to 3.2868943749926984 seconds (29.35%); all ten pairs
+improved. Combined CPU fell from 13.6428525 to 12.1475845 seconds (10.96%),
+while median peak RSS rose 2.22%, from 4,487,667,712 to 4,587,077,632 bytes.
+The target CPU, timing, and RSS gates pass. Five controls also pass their
+predeclared timing and RSS limits:
+
+| Case | Pairs | Median seconds, baseline / candidate | Positive pairs |
+| --- | ---: | ---: | ---: |
+| Q23, requested parallelism 1 | 5 | 9.821828458982054 / 7.941711333056446 | 5/5 |
+| Q22, requested parallelism 12 | 5 | 1.5668610410066321 / 1.1950804580119438 | 5/5 |
+| Q21, requested parallelism 12 | 5 | 1.0878443749970756 / 1.0273072500131093 | 4/5 |
+| Q20, requested parallelism 12 | 5 | 0.25757562497165054 / 0.25551716599147767 | 3/5 |
+| Q29, requested parallelism 12 | 5 | 5.683524666994344 / 5.687517957994714 | 1/5 |
+
+Local correctness checks pass: 29 codec tests (including five new regressions
+and 200 selection-shape combinations), 15 IPC tests, 3,219 default workspace
+tests, formatting, and default/native Clippy. The cumulative Full43 review
+also passes all 129 calls and 1,143 rows; its exact schemas match the preceding
+count cohort, native certificates and grants are present, no fallback or
+external engine is reported, all native child PIDs are absent, and all 2,221
+source hashes plus the full retained input hash are unchanged. Full43 evidence
+is in `zstd-filter-full43-review-382.json` with summary identity
+`10f39b1343889aaeec42d4bb23bb3888f9075efb0bace2e8a69d3b8cbebf1ec9`. The
+measured source commit is `b635a708`; the CLI artifact SHA-256 is
+`026a6ad9d430f586346a6a6ffa04d0beb476f7c903f4637a9baa3e643a7dc490`.
+Integration also aligns the Python license manifest's description with this
+vendored change; that later notice-text correction does not change runtime source.
+
+The provider patch and optimization remain unmerged; hosted CI is pending.
+Version 0.5.1 remains unchanged, with no release or publication. This scoped
+local result does not establish whole-engine superiority or production
+readiness. The [sparse-filter evidence packet](evidence/native-zstd-filter-2026-10-13.json.xz)
+preserves its frozen protocol, source identity, complete pairs, controls, and
+Full43 review. Archive SHA-256:
+`969684043dc4eaac4120a307ddad19492eea33b6e1153dca5217c3cb88e9d499`.
