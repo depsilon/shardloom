@@ -315,6 +315,83 @@ fn ipc_rejects_invalid_dictionary_codes_and_run_end_coordinates() {
 }
 
 #[test]
+fn ipc_rejects_empty_run_ends_for_nonempty_records() {
+    use vortex::{
+        VortexSessionDefault as _,
+        array::{
+            IntoArray as _, VortexSessionExecute as _,
+            arrays::{PrimitiveArray, StructArray},
+        },
+        encodings::runend::RunEnd,
+        ipc::messages::{EncoderMessage, MessageEncoder},
+        session::VortexSession,
+    };
+    let producer = VortexSession::default();
+    let mut execution = producer.create_execution_ctx();
+    let mut input = RunEnd::try_new(
+        PrimitiveArray::from_iter([] as [u64; 0]).into_array(),
+        PrimitiveArray::from_iter([] as [i64; 0]).into_array(),
+        &mut execution,
+    )
+    .unwrap()
+    .into_array();
+    for _ in 0..2 {
+        input = StructArray::from_fields(&[("value", input)])
+            .unwrap()
+            .into_array();
+        let mut encoder = MessageEncoder::new(producer.clone());
+        let dtype: Vec<u8> = encoder
+            .encode(EncoderMessage::DType(input.dtype()))
+            .unwrap()
+            .iter()
+            .flat_map(|buffer| buffer.to_vec())
+            .collect();
+        let bytes: Vec<u8> = encoder
+            .encode(EncoderMessage::Array(&input))
+            .unwrap()
+            .iter()
+            .flat_map(|buffer| buffer.to_vec())
+            .collect();
+        let inspected = inspect(&dtype, &bytes).unwrap();
+        let names = inspected
+            .message
+            .encodings()
+            .unwrap()
+            .iter()
+            .collect::<Vec<_>>();
+        for rows in [0, 1, 17] {
+            // Keep the valid empty run metadata and children, but corrupt the
+            // record's declared length to exercise recursive public intake.
+            let framed = frame_array(inspected.body, &names, rows, 0);
+            let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+            let received = super::super::ResidentMemorySource::from_vortex_ipc(
+                &session,
+                &dtype,
+                &framed,
+                &CancellationToken::default(),
+            );
+            if rows == 0 {
+                let source = received.unwrap();
+                assert!(source.0.array.is_empty());
+                assert_eq!(source.0.array.dtype(), input.dtype());
+                drop(source);
+            } else {
+                let error = received
+                    .err()
+                    .expect("nonempty run-end input must be rejected");
+                assert!(
+                    error
+                        .to_string()
+                        .contains("SL-NATIVE-IPC: nonempty run-end array requires run ends"),
+                    "{error}"
+                );
+            }
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
 fn ipc_rejects_invalid_string_offsets_utf8_and_schema_nesting() {
     use std::sync::Arc;
     use vortex::{

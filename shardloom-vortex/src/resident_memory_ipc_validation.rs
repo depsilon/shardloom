@@ -9,7 +9,10 @@ use vortex::{
         Array, ArrayParts, ArrayRef, IntoArray as _, VortexSessionExecute as _,
         arrays::PrimitiveArray, patches::Patches,
     },
-    encodings::fastlanes::{BitPacked, BitPackedArrayExt as _, BitPackedData, BitPackedSlots},
+    encodings::{
+        fastlanes::{BitPacked, BitPackedArrayExt as _, BitPackedData, BitPackedSlots},
+        runend::{RunEnd, RunEndArraySlotsExt as _},
+    },
     error::{VortexResult, vortex_err},
 };
 
@@ -86,6 +89,20 @@ pub(super) fn indices(
             .checked_add(values.len() as u64)
             .ok_or_else(|| vortex_err!("SL-NATIVE-IPC: validation accounting overflow"))?,
     );
+    Ok(())
+}
+
+pub(super) fn run_end(array: &ArrayRef) -> VortexResult<()> {
+    // The pinned provider permits empty ends without checking logical length.
+    // Reject that corrupt shape before a parent can use the decoded child.
+    if array
+        .as_opt::<RunEnd>()
+        .is_some_and(|run_end| !run_end.is_empty() && run_end.ends().is_empty())
+    {
+        return Err(vortex_err!(
+            "SL-NATIVE-IPC: nonempty run-end array requires run ends"
+        ));
+    }
     Ok(())
 }
 

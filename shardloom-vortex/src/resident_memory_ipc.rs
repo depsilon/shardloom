@@ -454,6 +454,7 @@ impl Decoder<'_, '_, '_> {
                 "SL-NATIVE-IPC: provider construction changed the declared array"
             ));
         }
+        validation::run_end(&array)?;
         if array.is::<Dict>() {
             let dict = array.as_::<Dict>();
             validation::indices(

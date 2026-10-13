@@ -204,6 +204,8 @@ receiving resources. The admitted boundary is Vortex 0.85 message version V0:
 - Host buffers with uncompressed transport and alignment up to 65,536 bytes.
   Unknown/duplicate registry names, unsupported versions, trailing bytes,
   malformed coordinates and unsupported compression fail explicitly.
+  A nonempty RunEnd array must contain run ends, including when it is nested
+  below another record. Zero-row arrays may retain empty run ends.
 
 Wire statistics and dictionary optimization assertions are not trusted. Derived
 BitPacked patch caches are reconstructed without trusting their wire cache

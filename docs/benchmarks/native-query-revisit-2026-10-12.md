@@ -301,6 +301,32 @@ They describe their original source and executable identities. The review
 correction does not change the retained sort or decimal mechanisms; new release
 artifacts require their own validation and are not substituted into old samples.
 
+### Run-end admission correction
+
+Subsequent review identified a second intake gap: the pinned RunEnd provider's
+empty-ends validation returns without checking the declared logical length.
+A malformed IPC record could therefore publish a nonempty array with no runs.
+ShardLoom now checks that invariant after each provider construction and before
+returning the decoded child to its parent. This uses the existing Vortex RunEnd
+provider and ShardLoom IPC validation boundary, requires no coordinate decode,
+and preserves valid zero-row arrays.
+
+The public-intake regression fails on the previous implementation. Its accepted
+version covers zero, one and seventeen declared rows at two record nesting
+depths, deterministic rejection and complete receiving-credit release. All 15
+IPC tests and 3,219 default workspace tests pass, along with formatting and
+default/native Clippy. The first compile attempt used the wrong generated slot
+trait name; the first native lint attempt then required moving the new check
+into the existing validation module to keep the decoder within its function
+size limit. Both failures and the successful final checks remain preserved in
+the [run-end correction packet](evidence/native-encoded-ipc-admission-2026-10-13.json.xz).
+
+The packet records the three-file source overlay on `9185bc58`, complete test
+receipts and original failure evidence. The earlier release binaries, installed
+wheel and Full43 observations above retain their original identities. This
+malformed-input correction makes no new performance claim; final hosted
+acceptance remains pending.
+
 ## Inspecting and reproducing the evidence
 
 The original index binds three immutable artifacts by complete size and SHA-256:

@@ -305,6 +305,8 @@ the ledger.
       binds all source versions and retained samples. The separate review index
       records recursive physical Null admission and empty-view ownership,
       four regressions, refreshed release artifacts and preserved failures.
+      A later IPC correction rejects nonempty RunEnd arrays with empty ends;
+      all 15 IPC tests, 3,219 default tests and default/native lint pass.
       Hosted CI remains explicit
       completion work.
   - Acceptance: a receiving allocation owns exact usable native values after
