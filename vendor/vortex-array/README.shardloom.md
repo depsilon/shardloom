@@ -1,4 +1,4 @@
-# Vortex timestamp and statistics patches
+# Vortex timestamp, statistics and ownership patches
 
 This is the Apache-2.0 `vortex-array` 0.85.0 published source with a focused
 correction for timezone-free microsecond timestamp scalars. Vortex's timestamp
@@ -19,6 +19,23 @@ The persisted-output work also changes count and byte-size merges in
 `src/stats/stats_set.rs` to checked `u64` addition. Overflow invalidates the
 statistic instead of panicking or wrapping, and the representation is independent
 of host pointer width. This is used by the bounded `vortex-layout` file collector.
+
+The encoded-transfer work adds an optional opaque lifetime owner to typed array
+data, construction parts and structural rewrites in `src/array`. New owners can
+only attach to unique, previously unowned arrays. Array data drops before the
+owner; clones, typed-parts round trips and owned child references retain it.
+Owned slices retain a native parent view until execution, including empty and
+repeated slices, instead of eagerly rebuilding metadata without its owner.
+Arrays without an owner keep the previous slice path. Buffer extraction still
+requires independently retained buffer ownership; raw dtype/data clones are not
+covered. This adds no unsafe code, serialized field or encoding identity.
+`src/arrays/slice/vtable.rs` reduces the retained view at explicit execution,
+preventing repeated slice reconstruction when its child is already canonical.
+Structural buffer reconstruction preserves an owner supplied by its provider
+and rejects conflicting owners. On the tested 64-bit target, the hook adds
+16 bytes to each common array allocation; `ArrayRef` remains 16 bytes.
+The [transfer contract](../../docs/architecture/native-encoded-interchange-2026-10-12.md)
+requires lifetime, allocation, footprint and complete-lifecycle regression proof.
 
 Other temporal units and timezone policy are unchanged. The extension identity,
 metadata serialization, comparison rules, native arrays and file format are

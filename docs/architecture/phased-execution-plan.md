@@ -250,61 +250,63 @@ the ledger.
 ## Planned
 
 
-- [ ] `NATIVE-PERSISTED-REUSE` make produced native output reusable physical
-  preparation for a fresh process running a different computation.
+- [ ] `NATIVE-ENCODED-INTERCHANGE` preserve admitted physical arrays across
+  receiving allocations and complete independent native-producer feasibility.
   - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-02/07/09/10/11/12 and CG-19/20/21.
-  - Source and intake: the October 11 maintainer clarification and
-    [persisted-output contract](native-persisted-reuse-2026-10-11.md). Existing
-    native-file admission and same-owner result intake are already implemented.
-    The shared computed-result writer now derives supported output statistics;
-    [complete local acceptance](../benchmarks/native-persisted-reuse-2026-10-11.md)
-    passes. Cross-owner transfer and independent upstream-producer interchange
-    retain their separate PERF-07 checklists.
-  - Sequence: the requested cleanup, fresh full UAT and timestamp PR #1543
-    are complete. Coordinate this writer/reader work
-    with the existing broader streaming and source-composition dependencies.
-  - Shared runtime and user surface: extend admitted native writers, Vortex
-    reopening and prepared planning underneath ordinary CLI/SQL/Python/DataFrame
-    calls. No special ShardLoom Vortex mode or parallel execution route.
-  - ShardLoom technique review: preserve encoded arrays and metadata-first
-    pruning, charge capillary writer/metadata windows, admit optional preparation
-    through measured work shaping, and separate write, first-use and reuse clocks.
-    PulseWeave use must be evidenced by actual scheduling work and scarcity.
+  - Existing owners: PERF-02/03/07/11/12 and CG-19/20/21. The independent
+    producer route retains its `v1_candidate_pending_feasibility` classification.
+  - Source and contract: the October 11 ownership/interchange intake and
+    [encoded transfer contract](native-encoded-interchange-2026-10-12.md).
+    The [local acceptance report](../benchmarks/native-encoded-interchange-2026-10-12.md)
+    records completed local proof. All four experiments in the
+    [finite query campaign](../benchmarks/native-query-revisit-2026-10-12.md)
+    are decided: retain prepared-sort drivers, provider scan granularity and
+    adaptive decimal accumulation; drop empty reservation transitions for
+    insufficient repeatability. Final cumulative native/Full43/package acceptance
+    and verified evidence packaging pass. Hosted integration remains pending
+    before completing the combined unit.
+    Native file admission, same-owner objects, isolated bounded transfer and
+    reusable receiving sources already exist. Persisted-output reuse is complete
+    in PR #1544; it does not close this separate physical transfer boundary.
+  - Shared runtime and user surface: extend `ResidentMemorySource`, the admitted
+    session allocator and native Python intake. Preserve current API spellings
+    and lazy native-file routes; avoid a parallel runtime or private capsule ABI.
+  - ShardLoom technique review: preserve encoded payloads, avoid duplicate copies,
+    use cancellable byte windows and pre-admitted metadata/scratch. Measure
+    first transfer and reuse separately; no query-answer cache or implicit
+    cross-owner sharing. PulseWeave claims need observed scheduling work.
   - Execution checklist:
-    - [x] Map ingest-prepared, source-backed, completed, produced, streamed and
-      spill-produced writers to existing pinned Vortex statistics/layout/metadata
-      providers; record the shared extension and remaining semantic differences.
-    - [x] Define preservation, derivation and invalidation for field identity,
-      validity, encodings, statistics, ordering, partitioning and reusable derived
-      state across projection/filter/limit/aggregate/join/sort and schema changes.
-    - [x] Produce useful statistics from actual output batches under the shared
-      grant; preserve valid serializable physical state with versioned metadata.
-      Keep exact, conservative and unknown observations distinct.
-    - [x] Discover and use admitted properties on ordinary reopening before
-      payload work; handle absent, stale, corrupt and incompatible metadata
-      conservatively without incorrect pruning or changed values.
-    - [x] Verify write, durable close, producer teardown, optional move/copy and
-      fresh-process reopening for at least two different downstream computations.
-      Compare complete schemas/values/nulls/order and available work/byte counters.
-      Instrumented segment requests prove payload pruning; returned arrays and
-      logical bytes do not establish physical device-byte or universal zero-decode claims.
-    - [x] Verify resource pressure, cancellation, atomic publication, preservation
-      of previous output and cleanup across all changed writer/reader boundaries.
-    - [x] Freeze and pass complete-lifecycle retain/drop gates that include Job A
-      write/footprint/metadata costs, Job B/C first and repeated computation, and
-      small temporary-output controls before retaining costlier preparation.
-    - [ ] Complete focused writer/reopen tests, required Cargo format/lint/workspace
-      gates, public/format regressions, fresh full UAT, fidelity/support evidence,
-      documentation and hosted integration; then move the finite unit to the ledger.
-      All local gates and independent packet/source verification pass; hosted
-      checks, review and merge remain pending. All 15 frozen cost gates pass.
-  - Acceptance: a closed ShardLoom-written file supplies valid physical preparation
-    to a new process and different computation, with observed reuse and complete
-    results; input properties are never copied blindly.
-  - Non-goals and claim boundary: no incompatible format fork, query-answer
-    tables, unapproved sidecars, implicit cross-owner sharing, new temporal domain,
-    package publication or unmeasured speedup. Keep `fallback_attempted=false`,
+    - [x] Inspect pinned physical serializers, allocation/lifetime behavior,
+      current Python recognition and released upstream public export contracts.
+      Retain exact source identities; the independent producer and all-value
+      native-file/IPC correctness and comparative lifecycle gates pass.
+    - [x] Add the bounded provider lifetime hook and encoded receiving copier,
+      with explicit strategy admission and metadata/buffer ownership. Preserve
+      constants, dictionaries, validity and shared nodes without foreign credits.
+    - [x] Prove close/cancel/child/slice/buffer lifetime and failed-admission
+      cleanup, complete values and truthful copy/materialization counters.
+    - [x] Verify repeated use of admitted transfers/prepared sources, same-owner
+      and generated-range controls, and consistent native recognition across
+      existing public entry points with deliberate API compatibility.
+    - [x] Run an independent unpatched Vortex producer/process; complete native
+      IPC registry/version/alignment/resource/corruption feasibility and lifecycle
+      measurements, or record the exact external blocker and native-file alternative.
+    - [x] Freeze and pass physical-copy and complete-lifecycle retention gates,
+      including small/canonical and unchanged same-owner regression controls.
+    - [ ] Complete focused and required broad gates, native/Python integration,
+      public/Full43/readback regressions, packaging/license evidence, docs and
+      hosted integration; move only this finite unit to the completed ledger.
+      Local source, public/Full43/readback, package and independent inspection
+      gates pass, including the final cumulative query build. The
+      [portable index](../benchmarks/evidence/native-encoded-query-2026-10-13.json)
+      binds all source versions and retained samples. Hosted CI remains explicit
+      completion work.
+  - Acceptance: a receiving allocation owns exact usable native values after
+    the producer drops, preserves admitted encodings without unnecessary
+    expansion, and reuses completed preparation for actual later execution.
+  - Non-goals and claim boundary: no format fork, query-answer cache, private
+    upstream ABI, implicit sharing, unapproved dependency, package publication
+    or unmeasured speedup. Keep `fallback_attempted=false`,
     `external_engine_invoked=false`, version 0.5.1 and all existing PERF/CG owners.
 
 `REQUIRED-EXECUTION-RESOURCES` and `NATIVE-PYTHON-SURFACE` completed together in
@@ -316,8 +318,13 @@ The full-domain timestamp provider completed in PR #1543 after all 44 checks
 passed; its reviewed and merged trees are identical, and actual production
 verification passes. The [completed ledger](phased-execution-completed-ledger.md)
 records the hosted proof and original local measurement identities.
-Persisted native-output reuse is the current finite unit; the six remaining
-areas, eight investigations and CG-1 through CG-23 retain their existing owners.
+Persisted native-output reuse completed in PR #1544 after all 44 checks passed;
+the reviewed and merged trees match, all three installed native wheel lanes
+pass 76 tests, and actual production verification passes. Its
+[hosted receipt](../benchmarks/evidence/native-persisted-hosted-2026-10-12.json)
+preserves that integration separately from the original local measurements.
+Encoded cross-owner transfer and independent interchange are the next finite
+unit; the six areas, eight investigations and CG-1 through CG-23 keep their owners.
 
 `NATIVE-TYPED-INPUT` completed in PR #1540 after all 39 hosted checks passed;
 its accepted source, merge and production verification are recorded in the
@@ -1202,7 +1209,7 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       versions, resource ownership and corrupt-input behavior; implement a feasible
       native boundary or record the exact external dependency and native-file
       alternative. Measure full export/transport/import and subsequent execution.
-    - [ ] Complete `NATIVE-PERSISTED-REUSE` through the existing output writers and
+    - [x] Complete `NATIVE-PERSISTED-REUSE` through the existing output writers and
       reader/planner so fresh-process, different-query acceptance consumes actual
       output properties; retained in-memory handoff alone does not close it.
     - [ ] Complete close/cancel/slice and copied/decoded-byte acceptance for
@@ -2978,6 +2985,31 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
+October 12 sequencing direction takes precedence over the earlier breadth-first
+order below: finish the current encoded-interchange local acceptance, then
+focus on query optimization with explicit ship/drop decisions. Start with
+the measured Q24 wall/CPU scheduling signal under PERF-03. Compare the same
+retained input, complete public operations and resource grants; freeze samples,
+correctness references and retention gates before timing. Keep provider-driver
+scheduling and scan-granularity changes as separate candidates, with single-lane
+and unaffected-query controls. Investigate later candidates from measured costs
+in shared runtime components. The later same-day direction requires a finite,
+source-linked review of historical ship/drop decisions, because the engine has
+changed. Recheck each candidate's current route and original rejection reason;
+admit a new experiment when the relevant mechanism, resource/ownership boundary,
+workload or retention policy has changed. Preserve old measurements and their
+original decisions. Already implemented work and unchanged duplicate or failed
+mechanisms do not receive another implementation by default.
+Retain reproducible incremental complete-operation gains without an arbitrary
+percentage minimum, while preserving correctness, resource and negative-control
+obligations. Freeze each new protocol before candidate timing; this does not
+retroactively relax historical gates. Implement and evaluate the admitted
+candidates in sequence until the finite queue is exhausted, then open the
+combined PR. Do not open a separate PR for each trial. Hold further breadth
+expansion during this optimization focus; all six remaining areas, eight
+investigations and CG-1 through CG-23 retain their owners. Version 0.5.1 remains
+fixed, with no package publication.
+
 The October 2 maintainer's finite `ADAPTIVE-INGEST-BUDGET` priority is complete in
 PR #1503: P4/P6/P8 ingestion shares the provided CPU budget, with failure, memory
 and complete query acceptance recorded in the completed ledger. The hosted merges
@@ -3088,10 +3120,12 @@ candidate disposition, including separately governed ownership and external
 producer interchange. Actual platform-runtime proof remains under the existing
 platform owners; local source or wheel evidence does not substitute for it.
 The requested cleanup, fresh ingest/query/format UAT and timestamp PR #1543 are
-complete. Persisted-output implementation now has complete local lifecycle/cost,
-public and fresh-UAT acceptance plus independently verified evidence; hosted
-integration remains pending. The superseded large output and completed build
-cache have been retired with compact proof retained.
+complete. Persisted-output reuse completes in PR #1544 with full local
+lifecycle/cost, public and fresh-UAT acceptance, independently verified evidence,
+all 44 hosted checks, three installed native wheel lanes and production proof.
+Continue with `NATIVE-ENCODED-INTERCHANGE` under the existing ownership and
+feasibility checklists. The superseded large output and completed build cache
+have been retired with compact proof retained.
 Version 0.5.1 and the full remaining scope stay fixed.
 
 The subsequent candidate set's exact decimal screen is dropped below its frozen

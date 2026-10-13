@@ -101,6 +101,14 @@ the Linux Python 3.10/3.13 and macOS arm64 Python 3.13 lanes; the
 [hosted receipt](../benchmarks/evidence/native-python-surface-hosted-2026-10-11.json)
 records their exact scope. Published 0.5.1 packages do not include this
 extension. Broader platform/workload acceptance retains its own requirements.
+The source-only `sl.from_vortex_ipc(array_message, dtype_message=...)`,
+`ctx.from_vortex_ipc(...)` and native `Session.from_vortex_ipc(...)` accept
+complete public Vortex 0.85 messages under an explicit receiving allocation.
+The combined message limit is 64 MiB; the native transport validates the schema
+and encoding registry, discards wire statistics and retains supported encodings
+while copying their buffers. One accepted source can feed later queries.
+The [encoded transfer contract](../architecture/native-encoded-interchange-2026-10-12.md)
+records supported encodings, validation bounds and remaining acceptance gates.
 The older resident and batch adapter entries below describe their
 original Rust/CLI transport contracts, separately from this optional binding.
 

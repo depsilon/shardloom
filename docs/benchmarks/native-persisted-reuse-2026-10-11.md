@@ -2,7 +2,8 @@
 
 Status: local source/package gates, lifecycle costs, complete public regression,
 fresh ingest/query/modular UAT and independent evidence verification pass.
-Hosted checks, review and merge remain pending.
+PR #1544 is merged after all 44 hosted checks passed; installed native wheels
+and actual production deployment are verified below.
 
 This finite unit implements the [persisted-output contract](../architecture/native-persisted-reuse-2026-10-11.md)
 under PERF-02/07/09/10/11/12 and CG-19/20/21. Version 0.5.1 stays fixed. It does
@@ -277,5 +278,46 @@ and executable; its source is retained in the timestamp evidence archive. Do
 not replay a historical driver against its completed output directory or treat
 later source changes as the original timed artifact.
 
-Hosted checks, review and merge remain pending. Local evidence does not replace
-those gates, and this finite unit does not close the broader optimization queue.
+## Hosted integration
+
+[PR #1544](https://github.com/depsilon/shardloom/pull/1544) merged at
+`249657ede5a3dafc6f59f9922e97457edd12a83f` after all 44 checks passed on
+`be564ab81bacffb33fa42367874522a5dc55362a`. The reviewed and merged trees are
+both `bcb8be27fae2cf314d18fb52724342228ec658b2`. All 2,202 frozen runtime assets
+remain unchanged. Codex review completed on that head; no review threads or
+submitted change requests remain unresolved.
+
+Two CodeQL logging alerts were statically triaged as false positives in fixed
+test fixtures and dismissed. The
+[source-linked triage](https://github.com/depsilon/shardloom/pull/1544#issuecomment-6118178314)
+preserves the exact reported source and the iterator-name heuristic responsible.
+The rule remains enabled; no validation coverage was removed.
+
+Ubuntu Python 3.10/3.13 and macOS Python 3.13 each pass the same 76 individually
+recounted native integration methods with no failures, errors or skips. All 12
+small proof files match their recorded hashes. Actual isolated native loads pass;
+the separate static wheel-integrity field `load_verified=false` is preserved
+and is not relabeled as the dynamic load result. These are hosted source-build
+wheels, not republished v0.5.1 artifacts.
+
+The exact merge deploys successfully to production. The actual guide, acceptance
+link and search destination pass at 1280 pixels without horizontal overflow or
+console warnings/errors. Both served guide pages preserve the merged HTML plus
+one recorded 1,305-byte Cloudflare challenge/analytics insertion each; raw HTML
+is not byte-identical. Preview pages were byte-identical, and 1280/390-pixel
+layout checks pass. The mobile capture verifies layout width, while the desktop
+capture displays the complete new paragraph.
+
+The [hosted receipt](evidence/native-persisted-hosted-2026-10-12.json) and
+[portable packet](evidence/native-persisted-hosted-2026-10-12.tar.xz) retain checks,
+review/merge records, wheel evidence, source identities and production captures.
+The archive is 323,696 bytes, SHA-256
+`e06ee4b632e45bbc4b4ce2128987b04d3c0bdb86a65f7562c217acf26ce952a8`.
+All 29 archive members, including its index, were reopened and verified against
+the original and portable hashes. Local path substitutions do not change the
+original evidence identities. Main-branch CI was not recounted; the 44-check
+claim belongs to the reviewed PR head and its identical merged tree.
+
+This completes the finite persisted-output unit. Cross-owner encoded transfer,
+independent producer feasibility and the wider optimization/breadth queue remain
+under their existing owners. Original timings stay bound to their original builds.

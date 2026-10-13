@@ -523,6 +523,18 @@ Foreign input may require an accounted copy, and encoded data may need conversio
 for Arrow. These APIs use the shared ShardLoom planner, native providers,
 resources and cancellation owner.
 
+Current source builds recognize ShardLoom native sources and results passed to
+\`session.from_arrow(...)\` or \`ctx.from_arrow_table(...)\` without an intermediate
+Arrow export. Same-owner sources share ownership; transfers between owners copy
+admitted encoded buffers under the receiving grant. For an independent producer,
+\`ctx.from_vortex_ipc(array_message, dtype_message=dtype_message)\` accepts complete
+immutable messages for the pinned Vortex provider, within a combined 64-MiB
+limit. The [encoded transfer contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-encoded-interchange-2026-10-12.md)
+defines the accepted schemas and encodings; its
+[acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-encoded-interchange-2026-10-12.md)
+separates local proof from hosted integration. Published packages retain their
+release-time behavior.
+
 The [local acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-python-surface-2026-10-11.md)
 records installed-wheel checks and paired complete Python workflows for input,
 output, retained chains, short calls, wide plans and a native-file query.
@@ -630,7 +642,7 @@ page describes current coverage gaps.`,
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 11, 2026.
+Current capabilities, reviewed October 12, 2026.
 
 ## Native Execution
 
@@ -825,6 +837,13 @@ derived metadata are not blindly copied into a changed result. The
 records complete write/reopen workflows, resource and cost gates, and hosted
 integration status. Published 0.5.1 artifacts retain their release-time behavior.
 
+The [October 12 query revisit](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-revisit-2026-10-12.md)
+records separate paired decisions for prepared-sort provider drivers, scan
+granularity and exact decimal accumulation, plus a dropped reservation change.
+It reports complete-operation timings, CPU and memory costs, controls and final
+acceptance status. These source changes do not establish a new general benchmark
+headline or change published packages.
+
 Flat aggregate collection and writes use the same native admission, carrying the complete
 filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.
 Explicit SQL \`NULLS FIRST\`/\`NULLS LAST\` and Python \`sort(..., nulls="first")\` or
@@ -994,7 +1013,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 11, 2026**. See the
+Current capabilities, reviewed **October 12, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -1017,9 +1036,12 @@ has complete local and fresh-UAT evidence, with hosted status in its report.
 Current source builds also derive supported statistics for computed native
 outputs and use them in fresh-process aggregate and pruning workflows. The
 [persisted-output report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-persisted-reuse-2026-10-11.md)
-records complete local acceptance and hosted status. Reusable ordering,
-partitioning, custom derived state and foreign-owner transfer retain their
-separate contracts.
+records complete local acceptance and hosted status. The new
+[encoded transfer contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-encoded-interchange-2026-10-12.md)
+preserves admitted physical arrays when copying between native owners and
+defines bounded independent Vortex message intake; its report tracks local and
+hosted acceptance separately. Reusable ordering, partitioning and custom derived
+state retain their separate contracts.
 
 The published engine includes reviewed FSST/Zstd buffer accounting and
 [Python batch input/incremental results](/field-guide/python-surface#consume-results-in-batches).

@@ -4,7 +4,7 @@ use arrow_pyarrow::FromPyArrow as _;
 use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError, PyValueError},
     prelude::*,
-    types::{PyBool, PyFloat, PyInt},
+    types::{PyBool, PyBytes, PyFloat, PyInt},
 };
 use shardloom_core::{ExecutionResources, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
@@ -123,6 +123,47 @@ impl NativeSource {
     #[getter]
     fn input_columnar_buffer_bytes_copied(&self) -> u64 {
         self.source.intake_columnar_buffer_bytes_copied()
+    }
+
+    #[getter]
+    fn intake_transfer_report(&self) -> std::collections::BTreeMap<&'static str, u64> {
+        let report = self.source.intake_transfer_report();
+        [
+            (
+                "encoded_array_nodes_copied",
+                report.encoded_array_nodes_copied,
+            ),
+            ("encoded_buffer_copies", report.encoded_buffer_copies),
+            (
+                "encoded_buffer_bytes_copied",
+                report.encoded_buffer_bytes_copied,
+            ),
+            ("reused_array_references", report.reused_array_references),
+            ("reused_buffer_references", report.reused_buffer_references),
+            ("materialized_batches", report.materialized_batches),
+            ("materialized_rows", report.materialized_rows),
+            ("retained_metadata_bytes", report.retained_metadata_bytes),
+            (
+                "provider_scratch_peak_reserved_bytes",
+                report.provider_scratch_peak_reserved_bytes,
+            ),
+            ("ipc_transport_bytes", report.ipc_transport_bytes),
+            ("ipc_buffer_bytes_copied", report.ipc_buffer_bytes_copied),
+            (
+                "ipc_decode_workspace_peak_reserved_bytes",
+                report.ipc_decode_workspace_peak_reserved_bytes,
+            ),
+            (
+                "ipc_coordinate_arrays_executed",
+                report.ipc_coordinate_arrays_executed,
+            ),
+            (
+                "ipc_coordinate_values_checked",
+                report.ipc_coordinate_values_checked,
+            ),
+        ]
+        .into_iter()
+        .collect()
     }
 }
 
@@ -293,6 +334,42 @@ impl NativeSession {
                 Ok(NativeSource { source: builder.finish()?, _controller: controller.clone() })
             });
             source.map_err(|failure| failure.into_python(|error| python_error.unwrap_or_else(|| native_error(error))))
+        })
+    }
+
+    /// Import complete pinned native messages. Immutable bytes remain borrowed
+    /// through intake; no Python callback, capsule or implicit conversion runs.
+    #[pyo3(name = "from_vortex_ipc", signature = (array_message, *, dtype_message, resources=None, timeout=None))]
+    fn import_vortex_ipc(
+        &self,
+        py: Python<'_>,
+        array_message: &Bound<'_, PyBytes>,
+        dtype_message: &Bound<'_, PyBytes>,
+        resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<NativeSource> {
+        let cancellation = self.owner.begin_operation(timeout)?;
+        let resources = self.owner.resources(resources).map_err(native_error)?;
+        let array_message = array_message.as_bytes();
+        let dtype_message = dtype_message.as_bytes();
+        py.detach(|| {
+            super::failure::with_resources(
+                &self.owner.runtime,
+                resources,
+                &cancellation,
+                |session, _, controller| {
+                    Ok(NativeSource {
+                        source: ResidentMemorySource::from_vortex_ipc(
+                            session,
+                            dtype_message,
+                            array_message,
+                            &cancellation,
+                        )?,
+                        _controller: controller.clone(),
+                    })
+                },
+            )
+            .map_err(|failure| failure.into_python(native_error))
         })
     }
 

@@ -90,6 +90,24 @@ The measured Python workflows have their own recorded scope and do not establish
 an ingest, Full43 or general query-kernel speedup. Local wheel proof does not
 establish public package or platform readiness.
 
+Native ShardLoom results and sources can be passed directly to
+`Session.from_arrow` or `ctx.from_arrow_table` with the native transport;
+they do not need an Arrow export first. Same-session sources share ownership.
+Transfers between sessions copy supported encoded buffers into the receiving
+allocation and keep a receipt of intake work. Later queries reuse that source.
+
+For an independent Vortex producer, the source-only
+`ctx.from_vortex_ipc(array_message, dtype_message=dtype_message)` helper
+accepts complete framed messages for the pinned Vortex provider as immutable
+Python `bytes`.
+The same helper is available on `shardloom` and native `Session`.
+Use `transport="native"` and an explicit resource allocation. Both messages
+together may occupy at most 64 MiB. Intake validates the admitted schema and
+encoding tree, discards incoming statistics, and copies under the receiving
+grant; it does not require PyArrow. Native files continue through
+`read_vortex`. See the [encoded transfer and IPC contract](../docs/architecture/native-encoded-interchange-2026-10-12.md)
+for exact types, encodings and limits.
+
 ## CLI-backed client installation and configuration
 
 ```sh

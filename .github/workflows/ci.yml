@@ -112,6 +112,10 @@ jobs:
           - lane: native_vortex_tests
             command: |
               cargo test -p shardloom-vortex --lib --features release-user-surfaces
+              cp Cargo.lock vendor/vortex-array/Cargo.lock
+              cargo test --manifest-path vendor/vortex-array/Cargo.toml \
+                --features _test-harness,table-display \
+                --lib array::owner_tests:: -- --test-threads=1
               cp Cargo.lock vendor/vortex-layout/Cargo.lock
               cargo test --manifest-path vendor/vortex-layout/Cargo.toml \
                 --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \

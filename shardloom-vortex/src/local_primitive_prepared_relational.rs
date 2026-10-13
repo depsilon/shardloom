@@ -1472,8 +1472,29 @@ fn select_batch(
     rows: &[usize],
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
-    let indices = index_array(rows.len(), false, context, |row| Ok(Some(rows[row])))?;
-    let selected = array.take(indices).map_err(vortex_error)?;
+    context.check_cancelled()?;
+    let start = rows.first().copied().unwrap_or(0);
+    let end = start.checked_add(rows.len());
+    let mut contiguous = end.is_some();
+    if contiguous {
+        for (offset, row) in rows.iter().enumerate() {
+            if offset.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            if *row != start + offset {
+                contiguous = false;
+                break;
+            }
+        }
+    }
+    let selected = if let Some(end) = end.filter(|_| contiguous) {
+        // Ordered scan batches and consecutive filter matches need only a
+        // native view. A gather would retain one u64 index per selected row.
+        array.slice(start..end).map_err(vortex_error)?
+    } else {
+        let indices = index_array(rows.len(), false, context, |row| Ok(Some(rows[row])))?;
+        array.take(indices).map_err(vortex_error)?
+    };
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(fields.len())?;
     for (name, _) in fields {

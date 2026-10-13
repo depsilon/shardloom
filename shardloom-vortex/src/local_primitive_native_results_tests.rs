@@ -31,6 +31,12 @@ const KEY: &str = "shipment_id";
 const PAYLOAD: &str = "nullable_payload";
 const COUNT: &str = "row_count";
 
+#[path = "local_primitive_sort_driver_tests.rs"]
+mod sort_driver_tests;
+
+#[path = "local_primitive_sort_scan_tests.rs"]
+mod sort_scan_tests;
+
 static NEXT_FIXTURE: AtomicUsize = AtomicUsize::new(0);
 
 struct Fixture {
@@ -40,6 +46,10 @@ struct Fixture {
 
 impl Fixture {
     fn new(rows: usize) -> Self {
+        Self::with_chunk_rows(rows, CHUNK_ROWS)
+    }
+
+    fn with_chunk_rows(rows: usize, chunk_rows: usize) -> Self {
         let directory = std::env::temp_dir().join(format!(
             "shardloom-native-results-{}-{}",
             std::process::id(),
@@ -63,11 +73,11 @@ impl Fixture {
         )
         .into_array();
         let dtype = array.dtype().clone();
-        Self::write(&directory.join("source.vortex"), array, rows);
+        Self::write_with_chunk_rows(&directory.join("source.vortex"), array, rows, chunk_rows);
         Self { directory, dtype }
     }
 
-    fn write(path: &Path, array: ArrayRef, rows: usize) {
+    fn write_with_chunk_rows(path: &Path, array: ArrayRef, rows: usize, chunk_rows: usize) {
         let policy = policy();
         let runtime = crate::local_primitives::local_vortex_runtime(policy);
         let session = VortexSession::default().with_handle(runtime.handle());
@@ -76,7 +86,7 @@ impl Fixture {
             .write_options()
             .with_strategy(
                 crate::local_primitives::native_flat_layout::SequentialNativeFlatLayout::strategy(
-                    rows.div_ceil(CHUNK_ROWS).max(1),
+                    rows.div_ceil(chunk_rows).max(1),
                 ),
             )
             .with_file_statistics(Vec::new())
@@ -85,9 +95,9 @@ impl Fixture {
         if rows == 0 {
             writer.push(array).unwrap();
         } else {
-            for start in (0..rows).step_by(CHUNK_ROWS) {
+            for start in (0..rows).step_by(chunk_rows) {
                 writer
-                    .push(array.slice(start..rows.min(start + CHUNK_ROWS)).unwrap())
+                    .push(array.slice(start..rows.min(start + chunk_rows)).unwrap())
                     .unwrap();
             }
         }

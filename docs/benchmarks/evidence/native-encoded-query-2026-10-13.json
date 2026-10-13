@@ -1,0 +1,426 @@
+{
+  "schema_version": "shardloom.native_encoded_query_acceptance.v1",
+  "status": "passed_local_acceptance_hosted_pending",
+  "date": "2026-10-13",
+  "parent": "249657ede5a3dafc6f59f9922e97457edd12a83f",
+  "version": "0.5.1",
+  "publication_attempted": false,
+  "artifacts": [
+    {
+      "role": "base_source_archive",
+      "path": "native-encoded-interchange-source-2026-10-12.tar.xz",
+      "bytes": 8935216,
+      "sha256": "65b399b2d4f8a8c81f2a436ef1c5f2ed6b4da91d42929f41f8a88c33c96eb88f"
+    },
+    {
+      "role": "independent_public_packet",
+      "path": "native-encoded-interchange-public-2026-10-12.json.xz",
+      "bytes": 54220808,
+      "sha256": "8bedde2df7e651ba6a3324095127651af83cdf3fdced2d06ef03f48466d693ee"
+    },
+    {
+      "role": "packet",
+      "path": "native-query-revisit-2026-10-12.tar.xz",
+      "bytes": 9093284,
+      "sha256": "b0cfd0980ba4ec451096be557ecbab06af351a3efec3d43814a71209bef1309b"
+    }
+  ],
+  "selected_manifest": {
+    "original_filename": "native-release-artifacts-374b.json",
+    "source_assets": 2219,
+    "bytes": 589164,
+    "sha256": "a9632e8ed4574c913489b0fa82342a11dad8d2bce695aa27225c550f9324be2c"
+  },
+  "measured_artifacts": {
+    "cli": {
+      "bytes": 75187952,
+      "sha256": "7586c7b7e6050157bd1c8baade328bb7acc5342d1d096f1e32e5627d365e1c1e"
+    },
+    "binding": {
+      "bytes": 75012576,
+      "sha256": "da3906b8b650db1aefcf1ec7502b5d966207f0efc046795dd45efaf8544da595"
+    }
+  },
+  "runtime_source_unchanged_after_measurement": true,
+  "final_test_only_overlay": {
+    "previous_manifest": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-374.json",
+      "bytes": 587014,
+      "sha256": "00d1ab68f08539accfe77ff5dec7972fc72a674ecb321ac49beba54ac2471058"
+    },
+    "scope": "Extract the unchanged parity assertions into a single-lane test helper to satisfy the function-length lint.",
+    "changed_files": {
+      "shardloom-vortex/src/local_primitive_relational_source_handoff_tests.rs": {
+        "before": "776a4d75c238cc31cff8ad03fe78892f22e43561ca2a0576058e350e64071e2e",
+        "after": "58de37891788839db2e1f9726e05b3320e3ef88a6a6782925a82c7c634ac3d7a"
+      }
+    },
+    "before_source": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/sort-handoff-before-helper-374.rs",
+      "bytes": 22301,
+      "sha256": "776a4d75c238cc31cff8ad03fe78892f22e43561ca2a0576058e350e64071e2e"
+    },
+    "production_sources_unchanged": true,
+    "artifacts_rebuilt": false,
+    "measured_artifacts_byte_identical": true,
+    "original_lint_failure": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-final-native-clippy-374.json",
+      "bytes": 5849,
+      "sha256": "70084c92ff33f5d6b4056b4f0a01b37dad07013603097e2280764cd2b89d0d03"
+    },
+    "focused_repair": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-sort-handoff-regression-374b.json",
+      "bytes": 5904,
+      "sha256": "6495c24913554b27dbbcd6e4b98cc6ad5217458e5a6931dcbc9a2d7096a0e071"
+    },
+    "original_full_native_pass": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-final-native-feature-tests-374b-recovered.json",
+      "bytes": 1064,
+      "sha256": "c5e242c1d7052982de1a5242605f0b1f94469d436ba0d1d86ae0bb214da0b0e1"
+    },
+    "cumulative_full43_pass": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-final-full43-primary-review-373.json",
+      "bytes": 95746,
+      "sha256": "4950e65d413a11bef8037fef4360ae038d265c44a08442e2ef43f20067ec3eb0"
+    }
+  },
+  "preceding_test_only_overlay": {
+    "previous_manifest": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-372b.json",
+      "bytes": 294240,
+      "sha256": "f6e87562276841d8829107c080fb0532babfb7da91041a1b65bbfc1fe176ab4e"
+    },
+    "scope": "One cfg(test) assertion now checks prepared-sort reporting explicitly and compares every other field and value.",
+    "changed_files": {
+      "shardloom-vortex/src/local_primitive_relational_source_handoff_tests.rs": {
+        "before": "5bbc8dd4611952a020840db86e251224989426737671ab06e36f032f2cf6395b",
+        "after": "776a4d75c238cc31cff8ad03fe78892f22e43561ca2a0576058e350e64071e2e"
+      }
+    },
+    "production_sources_unchanged": true,
+    "artifacts_rebuilt": false,
+    "measured_artifacts_byte_identical": true,
+    "full_native_rerun": "query-final-native-feature-tests-374b",
+    "original_failed_attempt": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-final-native-feature-tests-372a.json",
+      "bytes": 4748,
+      "sha256": "2070de261aae8092d4e712dba446c49b3999358f7c3dcec7528380553e734f5a"
+    },
+    "focused_repair": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-sort-handoff-regression-374a.json",
+      "bytes": 4963,
+      "sha256": "e582b811785870ad510597e9425e6b115625fc79876b32164478addc62358aa4"
+    }
+  },
+  "final_checks": [
+    {
+      "receipt": "query-final-workspace-clippy-372a.json",
+      "status": "passed",
+      "bytes": 4685,
+      "sha256": "1ed200bfd6744347aefa2126e5b234c9662cf014bef613a1790aef16fc8d9721"
+    },
+    {
+      "receipt": "query-final-workspace-tests-372a.json",
+      "status": "passed",
+      "bytes": 4698,
+      "sha256": "07bcc70727ff8b3f5c35c390a94ab687d2dacbc91b171c6288c2d21b0dca44ef"
+    },
+    {
+      "receipt": "query-final-native-feature-tests-374b-recovered.json",
+      "status": "passed",
+      "bytes": 1064,
+      "sha256": "c5e242c1d7052982de1a5242605f0b1f94469d436ba0d1d86ae0bb214da0b0e1"
+    },
+    {
+      "receipt": "query-final-fmt-374c.json",
+      "status": "passed",
+      "bytes": 5722,
+      "sha256": "13f13e1c194976e5471ddd2f0967c2483e75811efd688d90391c375e7cd58222"
+    },
+    {
+      "receipt": "query-final-native-clippy-374b.json",
+      "status": "passed",
+      "bytes": 5845,
+      "sha256": "14d4727ea18099576d862d3e7678a660e6834d164bdc3983ccb43acf4300e20d"
+    },
+    {
+      "receipt": "query-final-no-write-374b.json",
+      "status": "passed",
+      "bytes": 5936,
+      "sha256": "e9029ec944ed216dcd50e0d4ae7d5ddd4e36fe2c6e632642ad74023eaba14285"
+    },
+    {
+      "receipt": "query-final-write-only-374b.json",
+      "status": "passed",
+      "bytes": 5835,
+      "sha256": "1495d786f68a1ab3564089ce16a4db07634fdb4321b82ae0c3ca4a85685bbb4f"
+    },
+    {
+      "receipt": "query-final-all-features-374b.json",
+      "status": "passed",
+      "bytes": 5763,
+      "sha256": "3c90c3870c8d401135370ab5eceb7b28c98ded7fa597aded83b8f5ddc700f9eb"
+    },
+    {
+      "receipt": "query-final-msrv-native-374b.json",
+      "status": "passed",
+      "bytes": 5871,
+      "sha256": "8efa06fab51c542cc1bb90ad0e82d944024d36aa867fa7c72c44af562ffa9e63"
+    },
+    {
+      "receipt": "query-final-installed-wheel-374b.json",
+      "status": "passed",
+      "bytes": 6332,
+      "sha256": "11e10bdc226912ad79ac201674c42bf768082bc004bc6266f5e5f0dfb63047ae"
+    },
+    {
+      "receipt": "query-final-python-checks-374b.json",
+      "status": "passed",
+      "bytes": 6668,
+      "sha256": "d1eb2a26b1209aaa8127e4269b27932da0ef3c412cda73ac1d7becd2032a581e"
+    }
+  ],
+  "default_workspace": {
+    "passed": 3219,
+    "failed": 0,
+    "ignored": 0
+  },
+  "native_workspace": {
+    "passed": 5444,
+    "ignored": 27,
+    "returncode": 0,
+    "process_group_drained": true
+  },
+  "native_test_completion_boundary": "The preserved Cargo process completed successfully after its original supervisor was interrupted; the recovered receipt records actual OS exit status and full test summaries.",
+  "full43": {
+    "queries": 43,
+    "calls": 129,
+    "complete_rows": 1143,
+    "all_values_and_schemas_reopened": true,
+    "resources_and_no_fallback": true,
+    "original_input_and_sources_unchanged": true,
+    "performance_claim_allowed": false,
+    "no_new_ingest": true,
+    "reference_kind": "retained_native_regression",
+    "complete_operation_seconds": 306.2504081665538,
+    "supervised_suite_seconds": 366.0059938339982
+  },
+  "installed_wheel": {
+    "passed": 80,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "python_source_suites": [
+    {
+      "name": "python-all",
+      "directory": "python/tests",
+      "pattern": "test_*.py",
+      "tests": 751,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 39.43758270901162
+    },
+    {
+      "name": "native-package-tools",
+      "directory": "scripts",
+      "pattern": "test_*native_python*.py",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.026373833999969065
+    },
+    {
+      "name": "license-bundle-tools",
+      "directory": "scripts",
+      "pattern": "test_python_license_bundle.py",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.0803271250333637
+    }
+  ],
+  "campaign": {
+    "experiments": 4,
+    "retained": 3,
+    "dropped": 1,
+    "measured_process_samples": 880,
+    "paired_comparisons": 440,
+    "raw_evidence_references": 3520,
+    "all_raw_references_available": true
+  },
+  "portable_verification": {
+    "uncompressed_bytes": 97972276,
+    "object_count": 2683,
+    "original_paths": 3894,
+    "source_manifests": 11,
+    "differing_source_versions": 20,
+    "full_packet_member_readback": true
+  },
+  "independent_archive_audit": {
+    "schema_version": "query-portable-independent-audit-375/v1",
+    "status": "COMPLETE",
+    "packet": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-query-revisit-2026-10-12.tar.xz",
+      "bytes": 9093284,
+      "sha256": "b0cfd0980ba4ec451096be557ecbab06af351a3efec3d43814a71209bef1309b",
+      "prior_receipt_sha256": "b0cfd0980ba4ec451096be557ecbab06af351a3efec3d43814a71209bef1309b",
+      "hash_matches_prior": true,
+      "member_count": 2684,
+      "file_count": 2684,
+      "uncompressed_file_bytes": 97972276,
+      "duplicate_member_names": [],
+      "unsafe_member_names": [],
+      "nonregular_members": [],
+      "member_errors": [],
+      "index_references": 3894,
+      "index_reference_missing": [],
+      "index_reference_mismatch": [],
+      "source_version_references": 20,
+      "source_version_missing": [],
+      "source_version_mismatch": [],
+      "selected_manifest": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-374b.json",
+      "selected_manifest_record": {
+        "bytes": 589164,
+        "member": "files/a9632e8ed4574c913489b0fa82342a11dad8d2bce695aa27225c550f9324be2c",
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-374b.json",
+        "sha256": "a9632e8ed4574c913489b0fa82342a11dad8d2bce695aa27225c550f9324be2c"
+      },
+      "all_index_members_read": true
+    },
+    "base_source_archive": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-source-measurements-361.tar.xz",
+      "bytes": 8935216,
+      "sha256": "65b399b2d4f8a8c81f2a436ef1c5f2ed6b4da91d42929f41f8a88c33c96eb88f",
+      "recorded_bytes": 8935216,
+      "recorded_sha256": "65b399b2d4f8a8c81f2a436ef1c5f2ed6b4da91d42929f41f8a88c33c96eb88f",
+      "matches_index_identity": true,
+      "member_count": 4481,
+      "file_count": 4481,
+      "uncompressed_file_bytes": 111696974,
+      "duplicate_member_names": [],
+      "unsafe_member_names": [],
+      "nonregular_members": [],
+      "member_errors": [],
+      "frozen_source_paths_available": 2216
+    },
+    "manifest_reconstruction": {
+      "manifest_count": 11,
+      "manifests": [
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/decimal-adaptive-candidate-native-372.json",
+          "bytes": 293222,
+          "sha256": "9dc69a040c5213ee6e1cd66271719d483c233b6b56ad3f50d0b3dd4f6990a0ce",
+          "source_path_count": 2219,
+          "resolved_source_paths": 2219,
+          "unresolved_source_paths": 0
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/decimal-route-baseline-native-372b.json",
+          "bytes": 293055,
+          "sha256": "126387aceb3d589adcedca4b37dcd994dfd1653ea0798028ccd624536db27d5a",
+          "source_path_count": 2218,
+          "resolved_source_paths": 2218,
+          "unresolved_source_paths": 0
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-359.json",
+          "bytes": 292290,
+          "sha256": "b666820fa244a83e74549080bdc1515e4bfac4ac409adc3e9c8cd2fc2c90f537",
+          "source_path_count": 2216,
+          "resolved_source_paths": 2216,
+          "unresolved_source_paths": 0
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-367.json",
+          "bytes": 292290,
+          "sha256": "63f324fa9edc33475f30b308a387895b0716e0e535618efb27332038cc204d35",
+          "source_path_count": 2216,
+          "resolved_source_paths": 2216,
+          "unresolved_source_paths": 0
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-372b.json",
+          "bytes": 294240,
+          "sha256": "f6e87562276841d8829107c080fb0532babfb7da91041a1b65bbfc1fe176ab4e",
+          "source_path_count": 2219,
+          "resolved_source_paths": 2219,
+          "unresolved_source_paths": 0
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-374.json",
+          "bytes": 587014,
+          "sha256": "00d1ab68f08539accfe77ff5dec7972fc72a674ecb321ac49beba54ac2471058",
+          "source_path_count": 2219,
+          "resolved_source_paths": 2219,
+          "unresolved_source_paths": 0
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-374b.json",
+          "bytes": 589164,
+          "sha256": "a9632e8ed4574c913489b0fa82342a11dad8d2bce695aa27225c550f9324be2c",
+          "source_path_count": 2219,
+          "resolved_source_paths": 2219,
+          "unresolved_source_paths": 0
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/q24-driver-368-release.json",
+          "bytes": 292235,
+          "sha256": "5f19e7dcbe4c1c645e0de63cc91badd6e0e418a3cab166e69b4c68e19d6452be",
+          "source_path_count": 2217,
+          "resolved_source_paths": 2217,
+          "unresolved_source_paths": 0
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-sorts-baseline-native-369.json",
+          "bytes": 293004,
+          "sha256": "f378f4724f360ef9ee99b11ad1323e8617714c2506776b386743c44dabc0bfea",
+          "source_path_count": 2218,
+          "resolved_source_paths": 2218,
+          "unresolved_source_paths": 0
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/reservation-candidate-native-369.json",
+          "bytes": 293167,
+          "sha256": "b1f95a39c3fc0467ea2dfa9ae5f1c0d935e42896be07386fc93a1e6c769b79bd",
+          "source_path_count": 2219,
+          "resolved_source_paths": 2219,
+          "unresolved_source_paths": 0
+        },
+        {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/sort-scan-368-release.json",
+          "bytes": 292362,
+          "sha256": "b6353788abc0ec4b580e5bda0ab8066a3149e1f0bc12d109898bc55c06b70957",
+          "source_path_count": 2218,
+          "resolved_source_paths": 2218,
+          "unresolved_source_paths": 0
+        }
+      ],
+      "total_source_path_refs": 24398,
+      "resolved_source_path_refs": 24398,
+      "unresolved": []
+    },
+    "prior_claims": {
+      "prior_source_manifests": 11,
+      "prior_object_count": 2683,
+      "prior_original_paths": 3894
+    },
+    "limits": [
+      "No public acceptance JSON expanded or inspected.",
+      "No workload, build, or repository write performed."
+    ]
+  },
+  "claim_boundaries": {
+    "hosted_acceptance": "pending",
+    "broader_six_areas": "open_with_existing_owners",
+    "broader_eight_investigations": "open_with_existing_owners",
+    "competitive_gates": "CG-1 through CG-23 retain existing owners",
+    "general_performance_superiority": false,
+    "external_execution_fallback": false,
+    "executable_or_environment_included": false,
+    "large_input_datasets_included": false
+  }
+}

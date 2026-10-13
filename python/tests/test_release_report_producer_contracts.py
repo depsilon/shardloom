@@ -188,6 +188,17 @@ class ReleaseReportProducerContractsTests(unittest.TestCase):
                         values[field] -= 1
                     checks = self._readiness_checks({report_name: changed})
                     self.assertTrue(any(field in item for item in checks[gate]["blockers"]))
+        for field in ("method_matrix_row_count", "method_matrix_row_list_count"):
+            for mutation in ("missing", "incomplete"):
+                with self.subTest(python_surface_count=field, mutation=mutation):
+                    changed = copy.deepcopy(report)
+                    values = changed["summaries"]["python_user_surface"]
+                    if mutation == "missing":
+                        del values[field]
+                    else:
+                        values[field] -= 1
+                    checks = self._readiness_checks({report_name: changed})
+                    self.assertTrue(any(field in item for item in checks[gate]["blockers"]))
         changed = copy.deepcopy(report)
         changed["matrix_summary"]["expected_count_field_count"] = 34
         checks = self._readiness_checks({report_name: changed})

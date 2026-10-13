@@ -2731,6 +2731,7 @@ dependencies = [
  "arrow-ipc",
  "arrow-schema",
  "bytes",
+ "flatbuffers",
  "futures",
  "lending-iterator",
  "memchr",

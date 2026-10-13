@@ -9298,6 +9298,51 @@ def from_pandas(
         return workflow._unsupported_operation("from-pandas", workflow.uri, check=check)
 
 
+def _native_input_frame(owner, *, client, engine_mode, resources, resource_limits, schema=None):
+    from ._input_schema import normalize_schema, schema_hints
+    from uuid import uuid4
+
+    fields = schema_fields(owner.schema_json, "vortex.dtype.serde.v1")
+    if schema is not None and normalize_schema(schema) != fields:
+        raise ValueError("declared schema differs from the native columnar input schema")
+    return LazyFrame(
+        source=WorkflowSource("memory", "memory://native/" + uuid4().hex,
+                              schema_hints(fields), native_input=owner),
+        client=client, engine_mode=_normalize_engine_mode(engine_mode),
+        resources=resources, resource_limits=resource_limits,
+    )
+
+
+def from_vortex_ipc(
+    array_message: bytes,
+    *,
+    dtype_message: bytes,
+    client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
+    **client_config: object,
+) -> LazyFrame:
+    """Import one Vortex 0.85 IPC record using the native transport.
+
+    Pass complete framed array and dtype messages as immutable bytes. Their
+    combined size must not exceed 64 MiB. Intake validates the supported schema
+    and encoding tree, discards wire statistics and copies into the receiving
+    allocation. The resulting source can serve multiple native queries.
+    """
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+    if resolved_client.transport != "native":
+        raise ValueError("from_vortex_ipc requires transport='native'; use read_vortex for a native file")
+    if type(array_message) is not bytes or type(dtype_message) is not bytes:
+        raise TypeError("from_vortex_ipc requires complete array_message and dtype_message bytes")
+    mode = _normalize_engine_mode(engine_mode)
+    owner = resolved_client._native_backend_for(resources).from_vortex_ipc(
+        array_message, dtype_message, resources,
+    )
+    return _native_input_frame(
+        owner, client=resolved_client, engine_mode=mode,
+        resources=resources, resource_limits=resource_limits,
+    )
+
+
 def from_arrow_table(
     table: object,
     *,
@@ -9316,14 +9361,8 @@ def from_arrow_table(
     resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
     if getattr(resolved_client, "transport", "subprocess") == "native":
         owner = resolved_client._native_backend_for(resources).from_arrow(table, resources)
-        from ._input_schema import normalize_schema, schema_hints
-        from uuid import uuid4
-        fields = schema_fields(owner.schema_json, "vortex.dtype.serde.v1")
-        if schema is not None and normalize_schema(schema) != fields:
-            raise ValueError("declared schema differs from the native columnar input schema")
-        return LazyFrame(
-            source=WorkflowSource("memory", "memory://native/" + uuid4().hex,
-                                  schema_hints(fields), native_input=owner),
+        return _native_input_frame(
+            owner, schema=schema,
             client=resolved_client, engine_mode=_normalize_engine_mode(engine_mode),
             resources=resources, resource_limits=resource_limits,
         )

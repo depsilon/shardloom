@@ -918,7 +918,8 @@ impl PreparedVortexSource {
         Ok(result)
     }
 
-    /// Use when schema admission rejected the dedicated aggregate CPU pool.
+    /// Drive provider tasks when the operation has no dedicated compute pool,
+    /// including when schema admission rejected the aggregate CPU pool.
     /// The caller must not create a second compute pool inside this callback.
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn with_native_execution_temporary_drivers<T>(

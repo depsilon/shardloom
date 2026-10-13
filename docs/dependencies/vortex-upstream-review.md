@@ -1,5 +1,35 @@
 # Vortex Upstream Dependency Review
 
+## October 12, 2026 encoded-transfer ownership hook
+
+The encoded-transfer work extends the existing reviewed Apache-2.0
+`vortex-array` 0.85.0 patch. Its original registry archive and license hashes
+below remain authoritative; no provider upgrade is introduced.
+An optional opaque owner in typed array data retains admitted metadata through
+clones, child extraction, typed construction-parts round trips and structural
+rewrites. It drops after the data. Attaching an owner requires a unique array
+without an existing owner. Owned slices retain a native parent view until
+execution; ordinary ownerless slices preserve their prior optimization path.
+
+The [implementation contract](../architecture/native-encoded-interchange-2026-10-12.md)
+separates buffer and metadata ownership, bare dtype/data clones, representation
+and complete-lifecycle acceptance. The patch adds no unsafe code, encoding or
+serialized field. Common-array footprint, lifetime, source isolation and
+regression evidence remain required before the new transfer path is accepted.
+This entry records implementation intake, not completed runtime proof.
+
+The IPC feasibility reader also adds an optional direct reference to the existing
+transitive `flatbuffers` 25.12.19 package, behind `vortex-write`. Its exact version
+matches the pinned provider; the workspace lockfile adds only this dependency
+edge, with no new package or version. The normalized registry manifest declares
+Apache-2.0. Its 27,421-byte registry archive has SHA-256
+`35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3`.
+The direct API is `VerifierOptions`, needed to constrain depth, table traversal
+and apparent message size before provider construction. Generated Vortex schema
+accessors remain supplied by `vortex::flatbuffers`; none are copied into this
+repository. The default build gains no FlatBuffers dependency. This is format
+validation, with no external execution engine or new serialization format.
+
 ## October 11, 2026 bounded file-statistics intake
 
 The persisted-reuse work reviews the published `vortex-layout` 0.85.0 archive,
