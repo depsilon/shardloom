@@ -378,6 +378,10 @@ Configurable sessions had no persistent provider workers, and prepared filtered
 counts did not start temporary workers. Counts now reuse the admitted Vortex
 driver scope for the current operation's CPU grant, join the workers on every
 exit, and preserve the actual worker count through JSON and native-result output.
+The later review correction consults file statistics before creating temporary
+drivers, retaining zero-worker execution for fully metadata-pruned counts.
+It preserves the same source-generation and cancellation boundary. The timed
+cohort below predates that correction; its measurements remain unchanged.
 
 The sole target is Q21 `COUNT(*) WHERE URL LIKE '%google%'` at requested
 parallelism 12. Its baseline/candidate median complete-process wall time is

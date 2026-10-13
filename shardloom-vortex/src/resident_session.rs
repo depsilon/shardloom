@@ -192,7 +192,7 @@ impl ResidentVortexSession {
         Ok(result)
     }
 
-    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn with_owned_execution_drivers<T>(
         &self,
         context: &NativeExecutionContext<'_>,

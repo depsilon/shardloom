@@ -99,27 +99,80 @@ pub(super) fn read_prepared_controlled(
     let plan = configure(source.dtype())?;
     let preparation_micros = preparation_started.elapsed().as_micros();
     cancellation.check()?;
-    // Configurable sessions have no persistent CPU drivers. This scan owns no
-    // other compute pool, so drive provider tasks within the current call grant.
-    source.with_native_execution_temporary_drivers_controlled(
+    source.with_native_execution_controlled(cancellation, |file, context| {
+        let started = Instant::now();
+        let metadata_pruned = consult_metadata_pruning(file, &plan, cancellation)?;
+        let preparation_micros = preparation_micros.saturating_add(started.elapsed().as_micros());
+        // This scan owns no other compute pool. Restore drivers only when
+        // metadata cannot answer it, within the same source and call grant.
+        source.retained_session().with_owned_execution_drivers(
+            context,
+            metadata_pruned != Some(true),
+            || {
+                execute_after_pruning(
+                    source_uri,
+                    primitive_kind,
+                    policy,
+                    file,
+                    context.runtime(),
+                    plan,
+                    preparation_micros,
+                    cancellation,
+                    metadata_pruned,
+                )
+            },
+        )
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn execute(
+    source_uri: &DatasetUri,
+    primitive_kind: VortexQueryPrimitiveKind,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    file: &vortex::file::VortexFile,
+    runtime: &impl vortex::io::runtime::BlockingRuntime,
+    plan: LocalVortexScanPlan,
+    preparation_micros: u128,
+    cancellation: &CancellationToken,
+) -> Result<LocalVortexScan> {
+    let started = Instant::now();
+    let metadata_pruned = consult_metadata_pruning(file, &plan, cancellation)?;
+    execute_after_pruning(
+        source_uri,
+        primitive_kind,
+        policy,
+        file,
+        runtime,
+        plan,
+        preparation_micros.saturating_add(started.elapsed().as_micros()),
         cancellation,
-        |file, _session, runtime| {
-            execute(
-                source_uri,
-                primitive_kind,
-                policy,
-                file,
-                runtime,
-                plan,
-                preparation_micros,
-                cancellation,
-            )
-        },
+        metadata_pruned,
     )
 }
 
+fn consult_metadata_pruning(
+    file: &vortex::file::VortexFile,
+    plan: &LocalVortexScanPlan,
+    cancellation: &CancellationToken,
+) -> Result<Option<bool>> {
+    cancellation.check()?;
+    if plan.source_order_limit == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex source-order limit must be >= 1".to_string(),
+        ));
+    }
+    let metadata_pruned = plan
+        .filter
+        .as_ref()
+        .map(|filter| file.can_prune(filter).map_err(vortex_error))
+        .transpose()?;
+    cancellation.check()?;
+    Ok(metadata_pruned)
+}
+
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
-pub(super) fn execute(
+fn execute_after_pruning(
     source_uri: &DatasetUri,
     primitive_kind: VortexQueryPrimitiveKind,
     policy: VortexLocalPrimitiveExecutionPolicy,
@@ -128,17 +181,13 @@ pub(super) fn execute(
     mut plan: LocalVortexScanPlan,
     preparation_micros: u128,
     cancellation: &CancellationToken,
+    metadata_pruned: Option<bool>,
 ) -> Result<LocalVortexScan> {
     cancellation.check()?;
     let control_plane_started = Instant::now();
     let mut control_plane_micros = preparation_micros;
     let mut evidence_collection_micros = 0_u128;
     let source_row_count = file.row_count();
-    if plan.source_order_limit == Some(0) {
-        return Err(ShardLoomError::InvalidOperation(
-            "local Vortex source-order limit must be >= 1".to_string(),
-        ));
-    }
     let filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
     let residual_predicate = plan.residual_predicate.clone();
@@ -153,10 +202,7 @@ pub(super) fn execute(
         filter_pushdown_applied,
         projection_pushdown_applied,
     );
-    if let Some(filter) = plan.filter.as_ref() {
-        cancellation.check()?;
-        let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        cancellation.check()?;
+    if let Some(metadata_pruned) = metadata_pruned {
         embedded_layout.mark_pruning_consulted(metadata_pruned);
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
