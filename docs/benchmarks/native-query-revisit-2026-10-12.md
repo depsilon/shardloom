@@ -361,3 +361,63 @@ resident ClickBench input hash for C1/C2/C3 and Full43. C4's bounded input gener
 and independent expected values are included. Preserve the declared alternating
 order, grants, clocks and gates; run through the recorded storage/concurrency
 guards. Do not replay historical output paths or infer a fresh-ingest comparison.
+
+## October 13 filtered-count follow-up
+
+This is a distinct follow-up to the completed four-candidate October 12
+campaign, not a fifth October 12 candidate. The frozen protocol retains one
+local filtered-count optimization for the native public SQL user surface in
+version 0.5.1. It uses the same pinned 99,997,497-row ClickBench Vortex input
+(`persisted-native-343-a1.vortex`, 15,713,610,513 bytes, SHA-256
+`004f9639fa0aa527b70f326c366c37b1173dceeacb92b50b2d8fd02957155c18`), a
+24-GiB memory grant, and requested maximum parallelism 12; the 10-logical-CPU
+host admitted 10 lanes. The paired comparison includes 70 fresh CLI processes.
+All 70 complete results match the retained references and schemas.
+
+Configurable sessions had no persistent provider workers, and prepared filtered
+counts did not start temporary workers. Counts now reuse the admitted Vortex
+driver scope for the current operation's CPU grant, join the workers on every
+exit, and preserve the actual worker count through JSON and native-result output.
+
+The sole target is Q21 `COUNT(*) WHERE URL LIKE '%google%'` at requested
+parallelism 12. Its baseline/candidate median complete-process wall time is
+4.105538333533332/1.037534291506745 seconds, about 74.7% lower, with all ten
+paired rounds improving. Median child user CPU rises from 3.9713925 to
+6.4348815 seconds, and median peak RSS rises from 2,969,509,888 to
+3,140,009,984 bytes. RSS remains within its frozen gate; CPU was recorded but
+was not a retention gate in this experiment.
+This is a wall-time improvement with higher CPU and a modestly higher RSS, not
+a reduction in total work.
+
+The five controls also pass their predeclared time and RSS limits. Their exact
+baseline/candidate median complete-process wall times and positive paired
+rounds are:
+
+| Case | Pairs | Median seconds, baseline / candidate | Positive pairs |
+| --- | ---: | ---: | ---: |
+| Q21, requested parallelism 1 | 5 | 4.2691852919524536 / 4.244411916995887 | 4/5 |
+| Q2, requested parallelism 12 | 5 | 0.21806212502997369 / 0.20017291698604822 | 5/5 |
+| Q20, requested parallelism 12 | 5 | 0.2614852499682456 / 0.2673157909885049 | 2/5 |
+| Q1, requested parallelism 12 | 5 | 0.04684637498576194 / 0.04373112501343712 | 3/5 |
+| Q29, requested parallelism 12 | 5 | 5.647706374991685 / 5.670675708039198 | 1/5 |
+
+The target timing gate, all control timing gates and every case's RSS gate pass;
+the retained decision follows the frozen repeatability rule with no percentage
+minimum. The default workspace passes 3,219 tests. The native crate passes
+2,708 tests with 24 existing ignored tests. The cumulative Full43 correctness
+run passes all 129 complete calls and 1,143 complete result rows. These are
+correctness and local acceptance results for this scoped change.
+
+PR #1545's prerequisite integration correction merged at `3089c8aa`. The
+measured count source commit `67f3296d` was rebased to local commit `eb1b5a0f`
+with the accepted five-Rust-file tree unchanged. The filtered-count optimization
+has not merged; its hosted CI is pending. The user-surface version remains
+0.5.1, with no release or publication. This finite local experiment does not
+establish whole-engine superiority or production readiness.
+
+The [filtered-count evidence packet](evidence/native-filtered-count-2026-10-13.json.xz)
+contains the frozen protocol, source and baseline files, receipts and logs,
+all paired process outputs, and the cumulative Full43 evidence. Its failures
+remain explicit, including the retained pre-fix regression and the earlier
+Q21 scan compiler failure; neither is rewritten as a passing result. Archive
+SHA-256: `7d4c62262d6bee2575e8089fb20693d1641ce2ffd66da94b047cedadbb3b5638`.

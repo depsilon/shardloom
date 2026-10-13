@@ -1070,6 +1070,13 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     9,869,230,080 bytes RSS. The maintainer dropped the fixed 4 GiB target on
     2026-09-05. Remaining global resource accounting is PERF work; the removed
     fixed target must not be reinstated as an acceptance condition.
+    The separate October 13 filtered-count follow-up retains a scoped Q21 result:
+    all 70 fresh-process results match their references, the target wins 10/10
+    pairs, and all controls and preset timing/RSS gates pass. Default/native
+    tests and cumulative Full43 also pass; see the [follow-up report](../benchmarks/native-query-revisit-2026-10-12.md#october-13-filtered-count-follow-up).
+    The measured five-file source tree was rebased unchanged from `67f3296d` to
+    local `eb1b5a0f` after prerequisite PR #1545 merged at `3089c8aa`; this
+    count change remains unmerged and hosted CI is pending. PERF-03 remains open.
   - Execution checklist:
     - [ ] Extend shared admission to remaining Vortex I/O/codec/operator work
       and prove I/O progress within the CPU ceiling.
