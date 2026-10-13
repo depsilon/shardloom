@@ -926,10 +926,24 @@ impl PreparedVortexSource {
         &self,
         execute: impl FnOnce(&VortexFile, &VortexSession, &CurrentThreadRuntime) -> Result<T>,
     ) -> Result<(T, usize)> {
+        self.with_native_execution_temporary_drivers_controlled(
+            &CancellationToken::default(),
+            execute,
+        )
+    }
+
+    /// Drive one complete operation under the caller's cancellation token.
+    /// Temporary drivers are bounded by its current grant and joined on return.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn with_native_execution_temporary_drivers_controlled<T>(
+        &self,
+        cancellation: &CancellationToken,
+        execute: impl FnOnce(&VortexFile, &VortexSession, &CurrentThreadRuntime) -> Result<T>,
+    ) -> Result<(T, usize)> {
         let source = &self.0;
         let context = source
             .runtime
-            .enter(CallClass::General, CancellationToken::default())?;
+            .enter(CallClass::General, cancellation.clone())?;
         let result = self.with_admitted_native_execution_temporary_drivers(&context, execute)?;
         context.drain_io();
         context.check_cancelled()?;

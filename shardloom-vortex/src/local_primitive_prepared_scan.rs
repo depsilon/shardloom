@@ -60,6 +60,7 @@ pub(super) fn read_prepared(
         &CancellationToken::default(),
         configure,
     )
+    .map(|(scan, _)| scan)
 }
 
 /// Execute against a caller-retained source with its operation cancellation token.
@@ -76,7 +77,7 @@ pub(super) fn read_prepared_controlled(
     mut policy: VortexLocalPrimitiveExecutionPolicy,
     cancellation: &CancellationToken,
     configure: impl FnOnce(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
-) -> Result<LocalVortexScan> {
+) -> Result<(LocalVortexScan, usize)> {
     cancellation.check()?;
     let preparation_started = Instant::now();
     let (memory_bytes, parallelism) = source.resource_limits();
@@ -98,18 +99,23 @@ pub(super) fn read_prepared_controlled(
     let plan = configure(source.dtype())?;
     let preparation_micros = preparation_started.elapsed().as_micros();
     cancellation.check()?;
-    source.with_native_execution_controlled(cancellation, |file, context| {
-        execute(
-            source_uri,
-            primitive_kind,
-            policy,
-            file,
-            context.runtime(),
-            plan,
-            preparation_micros,
-            cancellation,
-        )
-    })
+    // Configurable sessions have no persistent CPU drivers. This scan owns no
+    // other compute pool, so drive provider tasks within the current call grant.
+    source.with_native_execution_temporary_drivers_controlled(
+        cancellation,
+        |file, _session, runtime| {
+            execute(
+                source_uri,
+                primitive_kind,
+                policy,
+                file,
+                runtime,
+                plan,
+                preparation_micros,
+                cancellation,
+            )
+        },
+    )
 }
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
