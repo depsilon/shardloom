@@ -265,6 +265,26 @@ class StorageGuardTests(unittest.TestCase):
         self.assertGreater(snapshot["log_bytes"], snapshot["max_run_log_bytes"])
         self.assertLess(snapshot["run_log_bytes"], snapshot["max_run_log_bytes"])
 
+    def test_final_ingest_summary_counts_toward_active_run_budget(self):
+        baseline = self.run_harness()
+        self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+        first = next((self.root / "logs").glob("*/prepare_summary.json"))
+        cap = accounted_bytes(first.parent) - accounted_bytes(first)
+        # Use a separate workspace so second-resolution run names cannot collide.
+        self.root = self.root.with_name("uat-second")
+        self.source = self.root / "sources/hits.parquet"
+        self.source.parent.mkdir(parents=True)
+        self.source.write_bytes(b"source-fixture")
+        result = self.run_harness(extra=("--max-run-log-mib", str(cap / MIB)))
+        self.assertEqual(result.returncode, 78, result.stdout + result.stderr)
+        second = next((self.root / "logs").glob("*/prepare_summary.json"))
+        summary = json.loads(second.read_text())
+        self.assertEqual(summary["stop_reason"], "storage_budget_guard_failed")
+        self.assertEqual(summary["returncode"], 78)
+        self.assertGreater(accounted_bytes(second.parent), cap)
+        self.assertEqual(json.loads(first.read_text())["returncode"], 0)
+        self.assertFalse((self.root / ".ingest-uat.lock").exists())
+
     def test_replacement_preserves_backups_staging_and_glob_lookalikes(self):
         self.target.parent.mkdir()
         self.target = self.target.with_name("result[1].vortex")

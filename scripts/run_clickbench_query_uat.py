@@ -352,6 +352,7 @@ def main() -> int:
 
         def save_summary() -> None:
             summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+            guard()
 
         summary = {
             "schema_version": "shardloom.clickbench.public_result_regression.v1",
@@ -428,7 +429,6 @@ def main() -> int:
                 summary.update(score(records, 43, selected))
                 summary["full_result_validation"] = len(records) == 129 and all(record.get("validation") == "complete_values" for record in records)
                 save_summary()
-                guard()
                 print(json.dumps(result), flush=True)
                 if not result["passed"]:
                     return 1

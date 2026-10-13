@@ -54,7 +54,7 @@ class ClickBenchUatTests(unittest.TestCase):
         return query_path, packet_path, binary, source, uat_root
 
     def _run_mocked_single(self, root, *, identity_mutation=None, log_options=(),
-                           historical_bytes=0, check_storage=False):
+                           historical_bytes=0, check_storage=False, budget_probe=None):
         query_path, packet_path, binary, source, uat_root = self._runner_fixture(root)
         if historical_bytes:
             history = uat_root / "logs/completed/retained.json"
@@ -111,7 +111,7 @@ class ClickBenchUatTests(unittest.TestCase):
             patch.object(sys, "argv", argv),
             patch("local_uat_storage.available_bytes", return_value=1 << 40),
             patch.object(query_uat, "check_budgets",
-                         side_effect=check_budgets if check_storage else lambda *a, **kw: {}),
+                         side_effect=budget_probe or (check_budgets if check_storage else lambda *a, **kw: {})),
             patch.object(query_uat, "run_profiled_command", side_effect=fake_profiled_command),
             patch.object(query_uat, "file_sha256", side_effect=maybe_changed_hash),
             contextlib.redirect_stdout(io.StringIO()),
@@ -164,6 +164,19 @@ class ClickBenchUatTests(unittest.TestCase):
                 )
             self.assertEqual(list((Path(directory) / "uat/logs").iterdir()),
                              [Path(directory) / "uat/logs/completed"])
+            self.assertFalse((Path(directory) / "uat/.ingest-uat.lock").exists())
+
+    def test_final_query_summary_budget_failure_cannot_return_success(self):
+        def deny_completed_summary(root, target, logs, **limits):
+            summary = logs / "summary.json"
+            if summary.is_file() and json.loads(summary.read_text()).get("completed_identity_check"):
+                raise StorageGuardError("UAT active run log budget exceeded after final summary")
+            return check_budgets(root, target, logs, **limits)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(StorageGuardError, "after final summary"):
+                self._run_mocked_single(Path(directory), budget_probe=deny_completed_summary)
+            summary = json.loads(next((Path(directory) / "uat/logs").glob("*/summary.json")).read_text())
+            self.assertEqual(len(summary["records"]), 3)
             self.assertFalse((Path(directory) / "uat/.ingest-uat.lock").exists())
 
     def test_single_packet_or_harness_identity_change_fails_and_keeps_records(self):

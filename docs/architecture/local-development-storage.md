@@ -360,6 +360,8 @@ and workspace space. The query watchdog's separate 8-MiB per-command output
 ceiling, free-disk headroom, workspace limits, child cleanup and exclusive lock
 remain in force. Storage snapshots record both limits and counters. These are
 sampled watchdog limits, so a writer can overshoot before it is stopped.
+The final summary or receipt is checked before success is reported; exceeding
+either log budget at that last write fails the run and retains its evidence.
 
 The earlier dated reports retain the ceilings used for those observations.
 Runners with their own experiment-specific 192/250/256-MiB budgets keep those

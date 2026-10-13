@@ -457,6 +457,22 @@ cat > "$summary_path" <<JSON
 }
 JSON
 
+# The final summary is retained evidence too. A completed child must not turn
+# a last-write budget overrun into a successful run.
+if ! "${storage_guard[@]}" > /dev/null 2> "$log_dir/storage_error.txt"; then
+  returncode=78
+  python3 - "$summary_path" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+summary = json.loads(path.read_text())
+summary.update(returncode=78, stop_reason="storage_budget_guard_failed")
+path.write_text(json.dumps(summary, indent=2) + "\n")
+PY
+fi
+
 printf 'SUMMARY '
 cat "$summary_path"
 

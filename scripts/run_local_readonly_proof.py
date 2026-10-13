@@ -84,6 +84,7 @@ def main() -> int:
             'additional_input_sha256': input_hashes, 'inputs_before': before,
             'inputs_after': after, 'unchanged': before == after, 'result': result}
         (logs / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+        guard()
         print(json.dumps({'logs': str(logs), **receipt}), flush=True)
         return 0 if before == after and result['returncode'] == 0 and not result['guard_failures'] else 1
     finally:
