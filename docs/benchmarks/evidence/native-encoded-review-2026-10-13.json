@@ -1,0 +1,202 @@
+{
+  "changed_sources": {
+    "shardloom-vortex/src/native_payload_schema.rs": {
+      "after": "f895daafe1e85bc5043a10550f08c624abc4d4329ddc706815197cc898b0898d",
+      "before": "f499c398dfe26b2d1cf75f0c4c3556b130f1293b24ce07af58a4409f681cfdcf"
+    },
+    "shardloom-vortex/src/resident_memory_encoded_transfer.rs": {
+      "after": "f4282ad05ccf8c21f47e3f0fc540fa2f50542078e1c0ea80d17e559462a2b89b",
+      "before": "9cf84dbdf6bf1f75aabcdd50fd065a77a7c5cdaa73652e38fe1e46b107e8ddf5"
+    },
+    "shardloom-vortex/src/resident_memory_encoded_transfer_tests.rs": {
+      "after": "8ae2b744d91e6e19d477049a1b615bfe969a6aad8bbba9b0f51c913197ac0aa6",
+      "before": "32dc267613e866856903aaf37b23fb6cd07ad7803a1baa3338de8b9cc2833eb3"
+    },
+    "shardloom-vortex/src/resident_memory_ipc.rs": {
+      "after": "cc3a3dd4d47d97db38aaf46cb09f82a3ebbe589b738a1dd04ff565229bcf5e04",
+      "before": "649d6c5828404cb68b67fbb3dabadf0606d6a9eb3da189feba1e66030f940aae"
+    },
+    "shardloom-vortex/src/resident_memory_ipc_tests.rs": {
+      "after": "0b459596a010c561d8e3744e6fd2f6ced8a444482adb9b706762af087e463d0c",
+      "before": "ee593a9a1794ec2bb76a4d72f44ff111be47e0ccdad1ef6f81a7c74c67635bab"
+    },
+    "shardloom-vortex/src/resident_memory_record_views.rs": {
+      "after": "2c35791da5608b4452c21c0e50086ccf45aa94949a4e8c383690623575a3ca8f",
+      "before": "e45a530c102961ea619cde05df3364ffa7c0cd32ba6bc7f105e1ecdfcda8bb69"
+    }
+  },
+  "claim_boundaries": {
+    "broader_eight_investigations": "open_with_existing_owners",
+    "broader_six_areas": "open_with_existing_owners",
+    "competitive_gates": "CG-1 through CG-23 retain existing owners",
+    "external_execution_fallback": false,
+    "hosted_acceptance": "pending",
+    "source_change_scope": "finite Null-schema review correction only"
+  },
+  "date": "2026-10-13",
+  "exact_receipts": {
+    "full43": {
+      "bytes": 95758,
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-review-full43-primary-review-376.json",
+      "sha256": "b0e25295572b3d5de7b997502d4d89736984c7880494923f57d783898c21a593"
+    },
+    "manifest": {
+      "bytes": 292705,
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-376c.json",
+      "sha256": "118e41ea33c1bf4cf4b60de420b28c6f7aacd534c8462d0530d09d4327165a83"
+    },
+    "package": {
+      "bytes": 155998,
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-review-package-376.json",
+      "sha256": "4b4ea71ce961fe24319890060ffe3c131c1e3915ef45daa9bd3595d4a907bf95"
+    },
+    "portable": {
+      "bytes": 6195,
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-review-portable-376.json",
+      "sha256": "b51dccd8ba431899161a6d912f2adeace99c7a19083ef425cf1cb37f1401bded"
+    },
+    "validation": {
+      "bytes": 12249,
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-review-validation-377b.json",
+      "sha256": "3b91d87272eb3ad2fbceaecaa0f62f977f96decdb848f2bfcc3fbfa1d2a96c0c"
+    }
+  },
+  "full43": {
+    "all_values_and_schemas_reopened": true,
+    "calls": 129,
+    "complete_result_checks": 129,
+    "complete_rows": 1143,
+    "original_input_and_sources_unchanged": true,
+    "performance_claim_allowed": false,
+    "queries": 43,
+    "resources_and_no_fallback": true
+  },
+  "installed_python": {
+    "source_suites": [
+      {
+        "directory": "python/tests",
+        "errors": 0,
+        "failures": 0,
+        "name": "python-all",
+        "pattern": "test_*.py",
+        "seconds": 26.296674916986376,
+        "skipped": 0,
+        "tests": 751
+      },
+      {
+        "directory": "scripts",
+        "errors": 0,
+        "failures": 0,
+        "name": "native-package-tools",
+        "pattern": "test_*native_python*.py",
+        "seconds": 0.020453791017644107,
+        "skipped": 0,
+        "tests": 7
+      },
+      {
+        "directory": "scripts",
+        "errors": 0,
+        "failures": 0,
+        "name": "license-bundle-tools",
+        "pattern": "test_python_license_bundle.py",
+        "seconds": 0.06257408403325826,
+        "skipped": 0,
+        "tests": 7
+      }
+    ],
+    "wheel_tests": 80
+  },
+  "measured_artifacts": {
+    "binding": {
+      "bytes": 75029168,
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-review-binding-376c/_native.abi3.so",
+      "sha256": "2b595bb8f6015925b47bd1d378683f49d9df2699865dabb6ad00a9a6500ebc2d"
+    },
+    "cli": {
+      "bytes": 75187936,
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-cli-release-376c/shardloom",
+      "sha256": "580ddc68476d9e9bf0ac4336f5c57156baa64f5317c4bdf2958af1ef516fa794"
+    }
+  },
+  "old_manifest": {
+    "bytes": 589164,
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-374b.json",
+    "sha256": "a9632e8ed4574c913489b0fa82342a11dad8d2bce695aa27225c550f9324be2c"
+  },
+  "packet": {
+    "bytes": 3297696,
+    "path": "native-encoded-review-2026-10-13.tar.xz",
+    "role": "null_schema_review_correction",
+    "sha256": "b850999fe28a57ab3d0c09b2f1e2bfd55d169a4e29655b3a90590f701ed638f1"
+  },
+  "performance_claim_allowed": false,
+  "prior_immutable_archives": [
+    {
+      "bytes": 8935216,
+      "path": "native-encoded-interchange-source-2026-10-12.tar.xz",
+      "role": "base_source_archive",
+      "sha256": "65b399b2d4f8a8c81f2a436ef1c5f2ed6b4da91d42929f41f8a88c33c96eb88f"
+    },
+    {
+      "bytes": 54220808,
+      "path": "native-encoded-interchange-public-2026-10-12.json.xz",
+      "role": "independent_public_packet",
+      "sha256": "8bedde2df7e651ba6a3324095127651af83cdf3fdced2d06ef03f48466d693ee"
+    },
+    {
+      "bytes": 9093284,
+      "path": "native-query-revisit-2026-10-12.tar.xz",
+      "role": "packet",
+      "sha256": "b0cfd0980ba4ec451096be557ecbab06af351a3efec3d43814a71209bef1309b"
+    }
+  ],
+  "publication_attempted": false,
+  "pull_request": 1545,
+  "schema_version": "shardloom.native_encoded_review_acceptance.v1",
+  "selected_manifest": {
+    "bytes": 292705,
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-376c.json",
+    "sha256": "118e41ea33c1bf4cf4b60de420b28c6f7aacd534c8462d0530d09d4327165a83"
+  },
+  "status": "passed_local_acceptance_hosted_pending",
+  "validation": {
+    "corrected_counter_expectation": {
+      "explanation": "The null filter selected 226 passing tests; the earlier null_ filter selected 110. No test failed.",
+      "failed_report": {
+        "bytes": 7660,
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-review-validation-377.json",
+        "sha256": "4b1454de2b407ba19b33a3007a2c94ae28cde5d477f0d38f33dcf729561f1f8d"
+      },
+      "original_driver": {
+        "bytes": 6459,
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_query_review_validation_377_initial.py",
+        "sha256": "0f21e03aa87342f48835458c2057453c368127b7c0ec0dfc8cbdb4d63b51d23c"
+      }
+    },
+    "default_workspace": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 3219
+    },
+    "feature_guard_only_overlay": {
+      "after": "f895daafe1e85bc5043a10550f08c624abc4d4329ddc706815197cc898b0898d",
+      "before": "d1ce0146217ab998fc7c21560ab29d099eef395499c36701109b2ac88abb630f",
+      "boundary": "two cfg attributes only; same enabled behavior",
+      "enabled_behavior_unchanged": true,
+      "exact_two_cfg_insertions_verified": true,
+      "source": "shardloom-vortex/src/native_payload_schema.rs"
+    },
+    "focused_null_regressions": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 226
+    },
+    "initial_failed_no_write_and_unsupported_slice_fixture_preserved_in_packet": true,
+    "native_workspace": {
+      "failed": 0,
+      "ignored": 27,
+      "passed": 5448
+    }
+  },
+  "version": "0.5.1"
+}

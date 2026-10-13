@@ -8,6 +8,9 @@ failures. The later [query revisit](../benchmarks/native-query-revisit-2026-10-1
 records three retained changes and one drop, with cumulative native, Full43 and
 package acceptance passing. Its later timings remain separate from the earlier
 encoded-transfer comparison; hosted integration is still pending.
+The subsequent [Null-schema review correction](../benchmarks/native-query-revisit-2026-10-12.md#pr-review-correction)
+passes fresh native, package and complete Full43 checks with a separate source
+and evidence packet. Historical comparison artifacts retain their original identities.
 This finite unit follows persisted-output reuse in PR #1544. It covers the
 foreign-owner, reusable-source, native-recognition and independent-producer
 items in PERF-07 under PERF-02/03/11/12 and CG-19/20/21. Other composition,
@@ -190,8 +193,10 @@ receiving resources. The admitted boundary is Vortex 0.85 message version V0:
   each and 4,096 physical buffers. FlatBuffer verification has its own bounded
   depth, table and apparent-size limits.
 - Nonnullable record rows with the existing
-  [native typed input schema](native-typed-input-2026-10-10.md). Unknown extension
-  identifiers are rejected before interning.
+  [native typed input schema](native-typed-input-2026-10-10.md), plus physical
+  `DType::Null` fields and nested Null list/struct elements. Physical schema
+  retention does not admit Null execution keys or widen typed input binding.
+  Unknown extension identifiers are rejected before interning.
 - The closed physical registry admits Null, Bool, Primitive, Decimal, VarBin,
   VarBinView, List, ListView, FixedSizeList, Struct, Extension, Constant, Dict,
   Chunked, RunEnd and FastLanes BitPacked. This IPC registry is deliberately

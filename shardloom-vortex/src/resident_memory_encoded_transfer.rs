@@ -157,11 +157,7 @@ impl Plan {
         // Zstd frame coordinates and patch caches; ALPRD's dictionary is copied
         // directly. Constants and sparse fills never synthesize protobuf.
         let metadata_limit = add(1024, mul(buffers, 64)?)?;
-        let schema_bytes = if matches!(array.dtype(), DType::Null) {
-            1024
-        } else {
-            native_payload_schema::schema_bytes(array.dtype())?
-        };
+        let schema_bytes = native_payload_schema::encoded_schema_bytes(array.dtype())?;
         let retained = add(
             schema_bytes,
             add(

@@ -263,7 +263,10 @@ the ledger.
     are decided: retain prepared-sort drivers, provider scan granularity and
     adaptive decimal accumulation; drop empty reservation transitions for
     insufficient repeatability. Final cumulative native/Full43/package acceptance
-    and verified evidence packaging pass. Hosted integration remains pending
+    and verified evidence packaging pass. The subsequent Null-schema review
+    correction also passes fresh native, installed-package and complete Full43
+    checks, with a [separate acceptance index](../benchmarks/evidence/native-encoded-review-2026-10-13.json).
+    Hosted integration remains pending
     before completing the combined unit.
     Native file admission, same-owner objects, isolated bounded transfer and
     reusable receiving sources already exist. Persisted-output reuse is complete
@@ -299,7 +302,10 @@ the ledger.
       Local source, public/Full43/readback, package and independent inspection
       gates pass, including the final cumulative query build. The
       [portable index](../benchmarks/evidence/native-encoded-query-2026-10-13.json)
-      binds all source versions and retained samples. Hosted CI remains explicit
+      binds all source versions and retained samples. The separate review index
+      records recursive physical Null admission and empty-view ownership,
+      four regressions, refreshed release artifacts and preserved failures.
+      Hosted CI remains explicit
       completion work.
   - Acceptance: a receiving allocation owns exact usable native values after
     the producer drops, preserves admitted encodings without unnecessary

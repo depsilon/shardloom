@@ -6,7 +6,9 @@ proof. The complete public regression and retained Full43 correctness evidence
 remain accepted as recorded below. All four
 [query revisit experiments](native-query-revisit-2026-10-12.md) are now decided;
 their final cumulative and installed-package checks pass; hosted CI acceptance
-remains pending. This
+remains pending. The subsequent [Null-schema review correction](native-query-revisit-2026-10-12.md#pr-review-correction)
+passes its fresh local native, package and complete Full43 checks; its separate
+packet preserves earlier measured artifacts and failures. This
 report does not declare the broader acceptance effort complete.
 
 This finite unit implements the

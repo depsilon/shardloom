@@ -425,6 +425,39 @@ fn empty_record_views_do_not_copy_the_unused_parent_payload() {
 }
 
 #[test]
+fn null_record_views_keep_receiving_credit_without_payload_buffers() {
+    use vortex::array::arrays::NullArray;
+
+    for rows in [0, 3] {
+        let input = record(record(NullArray::new(rows).into_array()));
+        let schema = input.dtype().clone();
+        let chunked = ChunkedArray::try_new([input.clone()], schema.clone())
+            .unwrap()
+            .into_array();
+        let empty_slice = SliceArray::try_new(input.clone(), 0..0)
+            .unwrap()
+            .into_array();
+        for input in [input, chunked, empty_slice] {
+            let expected = scalars(&input);
+            let session = ResidentVortexSession::new(256 << 10, 1).unwrap();
+            let copied = copy(&input, &session);
+            let retained = copied.arrays.values[0].0.clone();
+            let leaf = retained.nth_child(0).unwrap().nth_child(0).unwrap();
+            assert_eq!(copied.report.encoded_buffer_bytes_copied, 0);
+            assert_eq!(copied.report.materialized_rows, 0);
+            drop((copied, input));
+            assert_eq!(retained.dtype(), &schema);
+            assert_eq!(scalars(&retained), expected);
+            drop(retained);
+            assert_eq!(leaf.dtype(), &DType::Null);
+            assert!(session.snapshot().memory.reserved_bytes > 0);
+            drop(leaf);
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
 fn constant_transfer_remains_compact_and_escaped_slices_keep_receiving_credit() {
     let original = ResidentVortexSession::new(1 << 20, 1).unwrap();
     let receiving = ResidentVortexSession::new(1 << 20, 1).unwrap();

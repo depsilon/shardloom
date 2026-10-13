@@ -106,6 +106,69 @@ fn public_ipc_intake_accepts_native_record_chunks_without_materializing_fields()
 }
 
 #[test]
+fn ipc_null_fields_and_nested_null_elements_keep_receiving_ownership() {
+    use vortex::array::{
+        arrays::{ChunkedArray, FixedSizeListArray, ListArray, NullArray},
+        validity::Validity,
+    };
+    for rows in [0, 3] {
+        let nulls = NullArray::new(rows).into_array();
+        let elements = NullArray::new(rows * 2).into_array();
+        let input = StructArray::from_fields(&[
+            ("null", nulls.clone()),
+            (
+                "nested",
+                StructArray::from_fields(&[("null", nulls)])
+                    .unwrap()
+                    .into_array(),
+            ),
+            (
+                "list",
+                ListArray::try_new(
+                    elements.clone(),
+                    PrimitiveArray::from_iter((0..=rows).map(|row| (row * 2) as u64)).into_array(),
+                    Validity::NonNullable,
+                )
+                .unwrap()
+                .into_array(),
+            ),
+            (
+                "fixed",
+                FixedSizeListArray::try_new(elements, 2, Validity::NonNullable, rows)
+                    .unwrap()
+                    .into_array(),
+            ),
+        ])
+        .unwrap()
+        .into_array();
+        let chunked = ChunkedArray::try_new([input.clone()], input.dtype().clone())
+            .unwrap()
+            .into_array();
+        for input in [input, chunked] {
+            let expected = scalars(&input);
+            let expected_dtype = input.dtype().clone();
+            let (dtype, bytes) = messages(&input);
+            let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+            let source = super::super::ResidentMemorySource::from_vortex_ipc(
+                &session,
+                &dtype,
+                &bytes,
+                &CancellationToken::default(),
+            )
+            .unwrap();
+            assert_eq!(source.intake_transfer_report().materialized_batches, 0);
+            let retained = source.0.array.clone();
+            drop((source, input, dtype, bytes));
+            assert_eq!(retained.dtype(), &expected_dtype);
+            assert_eq!(scalars(&retained), expected);
+            assert!(session.snapshot().memory.reserved_bytes > 0);
+            drop(retained);
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
 fn ipc_truncations_unknown_registry_and_denial_leave_no_receiving_credit() {
     let (dtype, bytes) = messages(&input());
     let session = ResidentVortexSession::new(32 << 20, 1).unwrap();

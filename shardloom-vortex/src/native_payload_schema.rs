@@ -1,4 +1,4 @@
-//! One bounded static payload schema policy for native execution and typed intake.
+//! Bounded schema accounting for execution payloads and physical native transfer.
 
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
@@ -71,7 +71,23 @@ fn unique_names<'a>(count: usize, name_at: impl Fn(usize) -> &'a str) -> Result<
 /// retain their separate depth/node bounds until their traversal is generalized.
 /// Returned credit must outlive every native schema/container it admits.
 pub(crate) fn reserve_schema(dtype: &DType, memory: &LiveMemoryPool) -> Result<MemoryLease> {
-    let credit = memory.reserve(schema_bytes(dtype)?)?;
+    reserve_schema_bytes(dtype, memory, schema_bytes(dtype)?)
+}
+
+/// Physical transfer preserves Null leaves without admitting Null execution keys.
+#[cfg(any(
+    test,
+    all(feature = "vortex-local-primitives", feature = "vortex-write", unix)
+))]
+pub(crate) fn reserve_encoded_schema(
+    dtype: &DType,
+    memory: &LiveMemoryPool,
+) -> Result<MemoryLease> {
+    reserve_schema_bytes(dtype, memory, encoded_schema_bytes(dtype)?)
+}
+
+fn reserve_schema_bytes(dtype: &DType, memory: &LiveMemoryPool, bytes: u64) -> Result<MemoryLease> {
+    let credit = memory.reserve(bytes)?;
     if let DType::Struct(fields, _) = dtype {
         unique_names(fields.nfields(), |index| fields.names()[index].as_ref())?;
     }
@@ -81,14 +97,28 @@ pub(crate) fn reserve_schema(dtype: &DType, memory: &LiveMemoryPool) -> Result<M
 /// Whole-record estimate for batching or admission; individual value columns
 /// use `metadata_bytes` and retain the nested schema traversal policy.
 pub(crate) fn schema_bytes(dtype: &DType) -> Result<u64> {
+    schema_bytes_with_null(dtype, false)
+}
+
+/// Account every physical schema node, including Null fields and nested elements.
+/// All existing name, depth, node and metadata bounds still apply.
+#[cfg(any(
+    test,
+    all(feature = "vortex-local-primitives", feature = "vortex-write", unix)
+))]
+pub(crate) fn encoded_schema_bytes(dtype: &DType) -> Result<u64> {
+    schema_bytes_with_null(dtype, true)
+}
+
+fn schema_bytes_with_null(dtype: &DType, allow_null: bool) -> Result<u64> {
     let DType::Struct(fields, _) = dtype else {
-        return metadata_bytes(dtype);
+        return metadata_bytes_with_null(dtype, allow_null);
     };
     fields.fields().try_fold(
         names_bytes(fields.nfields(), |index| fields.names()[index].as_ref())?,
         |bytes, child| {
             bytes
-                .checked_add(metadata_bytes(&child)?)
+                .checked_add(metadata_bytes_with_null(&child, allow_null)?)
                 .ok_or_else(|| failed("schema metadata overflow"))
         },
     )
@@ -158,20 +188,25 @@ impl Budget {
 }
 
 pub(crate) fn metadata_bytes(dtype: &DType) -> Result<u64> {
-    fn visit(dtype: &DType, depth: usize, budget: &mut Budget) -> Result<()> {
+    metadata_bytes_with_null(dtype, false)
+}
+
+fn metadata_bytes_with_null(dtype: &DType, allow_null: bool) -> Result<u64> {
+    fn visit(dtype: &DType, depth: usize, budget: &mut Budget, allow_null: bool) -> Result<()> {
         budget.node(depth)?;
         match dtype {
+            DType::Null if allow_null => {}
             DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) => {}
             DType::Primitive(ptype, _) if *ptype != PType::F16 => {}
             DType::Decimal(decimal, _) if admitted_decimal(*decimal) => {}
             DType::Extension(_) if temporal_storage(dtype).is_some() => {}
             DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
-                visit(child, depth + 1, budget)?;
+                visit(child, depth + 1, budget, allow_null)?;
             }
             DType::Struct(fields, _) => {
                 budget.names(fields.nfields(), |index| fields.names()[index].as_ref())?;
                 for child in fields.fields() {
-                    visit(&child, depth + 1, budget)?;
+                    visit(&child, depth + 1, budget, allow_null)?;
                 }
             }
             _ => return Err(unsupported()),
@@ -179,7 +214,7 @@ pub(crate) fn metadata_bytes(dtype: &DType) -> Result<u64> {
         Ok(())
     }
     let mut budget = Budget::default();
-    visit(dtype, 0, &mut budget)?;
+    visit(dtype, 0, &mut budget, allow_null)?;
     Ok(budget.bytes)
 }
 
@@ -249,4 +284,60 @@ fn failed(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native payload schema: {reason}; no fallback execution was attempted"
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vortex::array::dtype::{Nullability, StructFields};
+
+    #[test]
+    fn encoded_null_schemas_do_not_admit_execution_payloads() {
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        for dtype in [
+            DType::Null,
+            DType::List(DType::Null.into(), Nullability::NonNullable),
+            DType::FixedSizeList(DType::Null.into(), 2, Nullability::Nullable),
+            DType::Struct(
+                StructFields::from_iter([("null", DType::Null)]),
+                Nullability::NonNullable,
+            ),
+        ] {
+            assert!(metadata_bytes(&dtype).is_err());
+            assert!(schema_bytes(&dtype).is_err());
+            assert!(reserve_schema(&dtype, &memory).is_err());
+            let credit = reserve_encoded_schema(&dtype, &memory).unwrap();
+            assert!(credit.bytes() >= 1024);
+            assert_eq!(credit.bytes(), encoded_schema_bytes(&dtype).unwrap());
+            drop(credit);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+        assert!(!admitted_scalar(&DType::Null));
+    }
+
+    #[test]
+    fn encoded_null_schemas_keep_depth_width_and_name_bounds() {
+        let mut dtype = DType::Null;
+        for _ in 0..24 {
+            dtype = DType::List(dtype.into(), Nullability::NonNullable);
+        }
+        assert!(encoded_schema_bytes(&dtype).is_ok());
+        dtype = DType::List(dtype.into(), Nullability::NonNullable);
+        assert!(encoded_schema_bytes(&dtype).is_err());
+        let duplicate = DType::Struct(
+            StructFields::from_iter([("same", DType::Null), ("same", DType::Null)]),
+            Nullability::NonNullable,
+        );
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        assert!(reserve_encoded_schema(&duplicate, &memory).is_err());
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+        let nested = DType::List(duplicate.into(), Nullability::NonNullable);
+        assert!(encoded_schema_bytes(&nested).is_err());
+        let wide = DType::Struct(
+            StructFields::from_iter((0..1025).map(|index| (format!("n{index}"), DType::Null))),
+            Nullability::NonNullable,
+        );
+        assert!(encoded_schema_bytes(&wide).is_ok());
+        assert!(encoded_schema_bytes(&DType::List(wide.into(), Nullability::NonNullable)).is_err());
+    }
 }

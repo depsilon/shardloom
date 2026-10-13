@@ -313,7 +313,7 @@ fn receive_checked(
         context.native_session(),
     )
     .map_err(native_error)?;
-    let _schema = crate::native_payload_schema::reserve_schema(&dtype, context.memory())?;
+    let _schema = crate::native_payload_schema::reserve_encoded_schema(&dtype, context.memory())?;
     let mut buffers = Vec::with_capacity(inspected.array.buffers().unwrap_or_default().len());
     let mut offset = 0usize;
     for buffer in inspected.array.buffers().unwrap_or_default() {

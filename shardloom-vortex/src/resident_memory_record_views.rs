@@ -8,9 +8,9 @@ use crate::{
 };
 use shardloom_core::Result;
 use shardloom_exec::live_memory::MemoryLease;
-use std::ops::Range;
+use std::{ops::Range, sync::Arc};
 use vortex::array::{
-    ArrayRef, IntoArray,
+    ArrayRef, Canonical, IntoArray,
     arrays::{
         Chunked, Slice, SliceArray, Struct, StructArray, chunked::ChunkedArrayExt as _,
         slice::SliceArraySlotsExt as _, struct_::StructArraySlotsExt as _,
@@ -90,11 +90,20 @@ impl RecordViews {
             }
         }
         if range.is_empty() {
-            self.roots
-                .push(crate::local_primitives::native_payload::empty_record(
-                    array.dtype(),
-                    context,
-                )?)?;
+            let credit = crate::native_payload_schema::reserve_encoded_schema(
+                array.dtype(),
+                context.memory(),
+            )?;
+            // The bounded physical schema admits this provider's empty tree,
+            // including Null leaves. No source payload is read or retained.
+            // This temporary root owns construction credit until the copier
+            // gives every output node its receiving owner.
+            self.roots.push(
+                Canonical::empty(array.dtype())
+                    .into_array()
+                    .with_retained_owner(Arc::new(credit))
+                    .map_err(native_error)?,
+            )?;
             return Ok(true);
         }
         if let Some(slice) = array.as_opt::<Slice>() {
