@@ -35,6 +35,7 @@ class ReadonlyProofTests(unittest.TestCase):
     def test_success_records_source_and_executable_and_releases_lock(self):
         self.assertEqual(self.run_main(self.result), 0)
         receipt = json.loads((self.root / 'logs/readonly-proof-test/receipt.json').read_text())
+        self.assertEqual(receipt['status'], 'passed')
         self.assertTrue(receipt['unchanged'])
         self.assertEqual(receipt['inputs_before'], receipt['inputs_after'])
         self.assertIn(str(Path(sys.executable).resolve()), receipt['inputs_before'])
@@ -73,6 +74,11 @@ class ReadonlyProofTests(unittest.TestCase):
                 logs = root / 'logs/readonly-proof-test'
                 self.assertGreater(accounted_bytes(logs), cap)
                 self.assertTrue((logs / 'receipt.json').is_file())
+                receipt = json.loads((logs / 'receipt.json').read_text())
+                self.assertEqual(receipt['status'], 'failed')
+                self.assertIn('log budget exceeded', receipt['storage_error'])
+                self.assertEqual(receipt['result']['returncode'], 0)
+                self.assertIn(receipt['storage_error'], receipt['result']['guard_failures'])
                 self.assertEqual(self.source.read_text(), 'original')
                 self.assertFalse((root / '.ingest-uat.lock').exists())
 

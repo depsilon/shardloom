@@ -16,7 +16,9 @@ import signal
 import sys
 from pathlib import Path
 
-from local_uat_storage import GIB, MIB, add_log_budget_arguments, check_budgets, require_local_path
+from local_uat_storage import (
+    GIB, MIB, StorageGuardError, add_log_budget_arguments, check_budgets, require_local_path,
+)
 from run_clickbench_paired_query_uat import generation
 from run_clickbench_query_uat import run_profiled_command
 
@@ -82,9 +84,18 @@ def main() -> int:
         receipt = {'command': command, 'binary_sha256': binary_hash,
             'storage_preflight': storage_preflight,
             'additional_input_sha256': input_hashes, 'inputs_before': before,
-            'inputs_after': after, 'unchanged': before == after, 'result': result}
+            'inputs_after': after, 'unchanged': before == after, 'result': result,
+            'status': 'passed' if before == after and result['returncode'] == 0
+                and not result['guard_failures'] else 'failed'}
         (logs / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
-        guard()
+        try:
+            guard()
+        except StorageGuardError as error:
+            receipt['status'] = 'failed'
+            receipt['storage_error'] = str(error)
+            result['guard_failures'].append(str(error))
+            (logs / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+            raise
         print(json.dumps({'logs': str(logs), **receipt}), flush=True)
         return 0 if before == after and result['returncode'] == 0 and not result['guard_failures'] else 1
     finally:
