@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// ShardLoom modification: attach admitted metadata ownership only to unique arrays.
 
+use std::any::Any;
 use std::any::type_name;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -100,6 +102,24 @@ impl ArrayRef {
     #[doc(hidden)]
     pub fn addr(&self) -> usize {
         Arc::as_ptr(&self.0).addr()
+    }
+
+    /// Retain an opaque owner until this newly constructed array is released.
+    ///
+    /// Array clones, slices retaining this array, construction-parts round trips,
+    /// and structural rewrites retain the owner. Extracted buffers need their own
+    /// owners; bare dtype or encoding-data clones do not inherit this lifetime.
+    /// The owner is not serialized and does not affect values or encoding identity.
+    ///
+    /// # Errors
+    /// Rejects shared arrays or replacement of an existing owner. Attach ownership
+    /// before publishing the array, and attach it to each independently retained node.
+    pub fn with_retained_owner(mut self, owner: Arc<dyn Any + Send + Sync>) -> VortexResult<Self> {
+        let inner = self
+            .inner_mut()
+            .ok_or_else(|| vortex_err!("array lifetime owner requires a unique array"))?;
+        inner.data.retain_owner(owner)?;
+        Ok(self)
     }
 
     /// Downcast the inner to a concrete `ArrayInner<ArrayData<V>>`.
@@ -219,13 +239,19 @@ impl ArrayRef {
 
         vortex_ensure!(start <= stop, "start ({start}) must be <= stop ({stop})");
 
-        if start == stop {
+        let retained_owner = self.0.data.retained_owner();
+        if start == stop && retained_owner.is_none() {
             return Ok(Canonical::empty(self.dtype()).into_array());
         }
 
-        let sliced = SliceArray::try_new(self.clone(), range)?
-            .into_array()
-            .optimize()?;
+        let sliced = SliceArray::try_new(self.clone(), range)?.into_array();
+        // An eager reduction can rebuild bufferless metadata (e.g. Constant)
+        // without its lifetime owner. Keep the native view until admitted execution.
+        let sliced = if let Some(owner) = retained_owner {
+            sliced.with_retained_owner(Arc::clone(owner))?
+        } else {
+            sliced.optimize()?
+        };
 
         // Propagate some stats from the original array to the sliced array.
         if !sliced.is::<Constant>() {

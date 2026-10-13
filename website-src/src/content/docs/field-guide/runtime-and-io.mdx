@@ -9,7 +9,7 @@ Python, SQL, DataFrame-style calls, and the CLI lower admitted work into the sam
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 11, 2026.
+Current capabilities, reviewed October 12, 2026.
 
 ## Native Execution
 
@@ -203,6 +203,13 @@ derived metadata are not blindly copied into a changed result. The
 [persisted-output acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-persisted-reuse-2026-10-11.md)
 records complete write/reopen workflows, resource and cost gates, and hosted
 integration status. Published 0.5.1 artifacts retain their release-time behavior.
+
+The [October 12 query revisit](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-revisit-2026-10-12.md)
+records separate paired decisions for prepared-sort provider drivers, scan
+granularity and exact decimal accumulation, plus a dropped reservation change.
+It reports complete-operation timings, CPU and memory costs, controls and final
+acceptance status. These source changes do not establish a new general benchmark
+headline or change published packages.
 
 Flat aggregate collection and writes use the same native admission, carrying the complete
 filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.

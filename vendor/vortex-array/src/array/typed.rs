@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// ShardLoom modification: retain admitted non-buffer ownership through array lifetimes.
 
 //! Typed array wrappers: [`ArrayData<V>`] (heap-allocated), [`Array<V>`] (typed handle),
 //! and [`ArrayView<V>`] (lightweight borrow).
@@ -18,6 +19,7 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 
 use vortex_error::VortexResult;
+use vortex_error::vortex_ensure;
 
 use crate::ArrayRef;
 use crate::ArraySlots;
@@ -63,6 +65,9 @@ pub struct ArrayParts<V: VTable> {
     pub data: V::TypedArrayData,
     /// Optional child arrays owned by this encoding.
     pub slots: ArraySlots,
+    /// Optional lifetime owner for encoding metadata, released after data and slots.
+    /// This is not serialized and does not change array values or encoding identity.
+    pub retained_owner: Option<Arc<dyn Any + Send + Sync>>,
 }
 
 impl<V: VTable> ArrayParts<V> {
@@ -76,6 +81,7 @@ impl<V: VTable> ArrayParts<V> {
             len,
             data,
             slots: ArraySlots::new(),
+            retained_owner: None,
         }
     }
 
@@ -85,6 +91,23 @@ impl<V: VTable> ArrayParts<V> {
     pub fn with_slots(mut self, slots: ArraySlots) -> Self {
         self.slots = slots;
         self
+    }
+
+    pub(crate) fn inherit_owner(
+        &mut self,
+        original: &Option<Arc<dyn Any + Send + Sync>>,
+    ) -> VortexResult<()> {
+        if let Some(original) = original {
+            if let Some(replacement) = &self.retained_owner {
+                vortex_ensure!(
+                    Arc::ptr_eq(original, replacement),
+                    "array reconstruction cannot replace an existing lifetime owner"
+                );
+            } else {
+                self.retained_owner = Some(Arc::clone(original));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -112,6 +135,8 @@ impl<V: VTable> TypedArrayRef<V> for ArrayView<'_, V> {}
 pub(crate) struct ArrayData<V: VTable> {
     pub(crate) vtable: V,
     pub(crate) data: V::TypedArrayData,
+    // Keep last: encoding data must be released before its allocation owner.
+    pub(crate) retained_owner: Option<Arc<dyn Any + Send + Sync>>,
 }
 
 impl<V: VTable> ArrayInner<ArrayData<V>> {
@@ -129,6 +154,7 @@ impl<V: VTable> ArrayInner<ArrayData<V>> {
             data: ArrayData {
                 vtable: new.vtable,
                 data: new.data,
+                retained_owner: new.retained_owner,
             },
         })
     }
@@ -144,6 +170,7 @@ impl<V: VTable> ArrayInner<ArrayData<V>> {
         data: V::TypedArrayData,
         slots: ArraySlots,
         stats: ArrayStats,
+        retained_owner: Option<Arc<dyn Any + Send + Sync>>,
     ) -> Self {
         ArrayInner {
             len,
@@ -151,7 +178,11 @@ impl<V: VTable> ArrayInner<ArrayData<V>> {
             dtype,
             slots,
             stats,
-            data: ArrayData { vtable, data },
+            data: ArrayData {
+                vtable,
+                data,
+                retained_owner,
+            },
         }
     }
 }
@@ -174,6 +205,7 @@ impl<V: VTable> Clone for ArrayData<V> {
         Self {
             vtable: self.vtable.clone(),
             data: self.data.clone(),
+            retained_owner: self.retained_owner.clone(),
         }
     }
 }
@@ -237,6 +269,7 @@ impl<V: VTable> Array<V> {
                 new.data,
                 new.slots,
                 ArrayStats::default(),
+                new.retained_owner,
             )
         };
         let inner = ArrayRef::from_inner(Arc::new(store));
@@ -323,6 +356,7 @@ impl<V: VTable> Array<V> {
                 len: store.len,
                 data: store.data.data,
                 slots: store.slots,
+                retained_owner: store.data.retained_owner,
             }),
             Err(typed_arc) => Err(Self {
                 inner: ArrayRef::from_inner(typed_arc),

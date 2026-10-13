@@ -3,9 +3,11 @@
 Status: local lifecycle, cost, source/package, complete public and fresh-UAT
 acceptance pass, with independently verified evidence in the
 [acceptance report](../benchmarks/native-persisted-reuse-2026-10-11.md).
-Hosted checks, review and merge remain pending. The canonical
-[phase plan](phased-execution-plan.md) owns sequencing and closeout through
-`NATIVE-PERSISTED-REUSE`, under PERF-02/07/09/10/11/12 and CG-19/20/21.
+PR #1544 is merged with all 44 hosted checks, three installed native wheel
+proofs and actual production verification recorded in that report. The
+[completed ledger](phased-execution-completed-ledger.md) records
+`NATIVE-PERSISTED-REUSE`, under PERF-02/07/09/10/11/12 and CG-19/20/21; the
+[phase plan](phased-execution-plan.md) owns the remaining transfer/interchange work.
 This document records the October 11 maintainer clarification and the reusable
 contract; it does not certify unimplemented behavior or measured gains.
 
@@ -36,7 +38,7 @@ separate prerequisite; it does not by itself complete this output contract.
 | --- | --- |
 | Existing native file admission | Already implemented. Native preparation supports existing-file pass-through and layout-preserving copies; preserve generation, resource and copy-I/O regression coverage. |
 | Retained same-owner result/source intake | Already implemented. `ResidentMemorySource::from_completed_result` retains the existing native session and owners. Python `from_arrow` recognizes ShardLoom `NativeResult` and `NativeSource` before considering an Arrow stream. |
-| Persisted output reused by another computation | Accepted as `required_for_v1`. At intake, the computed-result sink preserved dtype/validity and serializable arrays but omitted file statistics. The shared durable writer now derives supported statistics from its actual output; complete local lifecycle/cost/regression acceptance passes. Hosted integration remains pending. |
+| Persisted output reused by another computation | Completed as `required_for_v1` in PR #1544. At intake, the computed-result sink preserved dtype/validity and serializable arrays but omitted file statistics. The shared durable writer derives supported statistics from its actual output; complete local lifecycle/cost/regression acceptance and hosted integration pass. |
 | Encoding-preserving foreign-owner transfer and repeated transfer reuse | Merged into PERF-02/03/07/11/12 as `required_for_v1`. The current bounded native transfer can materialize encodings when moving into the receiving allocation. |
 | Consistent recognition of native objects across entry points | Merged into existing composition owners as `required_for_v1`. Clarify the current native special case without adding another execution route; any API rename needs an explicit migration decision. |
 | Independent upstream-Vortex producer or cross-process encoded interchange | Accepted as `v1_candidate_pending_feasibility` under existing native-I/O/interchange owners. Identify a real producer and supported public protocol before choosing an interface. Own-result recognition is not evidence of arbitrary upstream-object support. |
@@ -88,7 +90,7 @@ useful file statistics only after provider regressions, resource-lifetime tests
 and the complete write/reopen lifecycle gate pass. The provider format, version,
 layout strategy and no-fallback boundary remain unchanged. The linked acceptance
 report records the passing local evidence and its bounded performance claims;
-hosted integration remains a separate gate.
+hosted integration is recorded separately from those original measurements.
 
 ### Shared writer and property map
 

@@ -75,7 +75,7 @@
 Coverage is specific to the operation, types, source layout, enabled features, and output contract.
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.</p>
-<p>Current capabilities, reviewed <strong>October 11, 2026</strong>. See the
+<p>Current capabilities, reviewed <strong>October 12, 2026</strong>. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md">public support matrix</a>
 for the detailed evidence behind this scope.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="runtime-limits">Runtime Limits</h2><a class="sl-anchor-link" href="#runtime-limits"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Runtime Limits”</span></a></div>
@@ -128,9 +128,12 @@ has complete local and fresh-UAT evidence, with hosted status in its report.
 Current source builds also derive supported statistics for computed native
 outputs and use them in fresh-process aggregate and pruning workflows. The
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-persisted-reuse-2026-10-11.md">persisted-output report</a>
-records complete local acceptance and hosted status. Reusable ordering,
-partitioning, custom derived state and foreign-owner transfer retain their
-separate contracts.</p>
+records complete local acceptance and hosted status. The new
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-encoded-interchange-2026-10-12.md">encoded transfer contract</a>
+preserves admitted physical arrays when copying between native owners and
+defines bounded independent Vortex message intake; its report tracks local and
+hosted acceptance separately. Reusable ordering, partitioning and custom derived
+state retain their separate contracts.</p>
 <p>The published engine includes reviewed FSST/Zstd buffer accounting and
 <a href="/field-guide/python-surface#consume-results-in-batches">Python batch input/incremental results</a>.
 PR #1526 merged after complete local and hosted checks.

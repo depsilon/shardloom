@@ -159,6 +159,12 @@ class NativeBackend:
             timeout=self.timeout,
         )
 
+    def from_vortex_ipc(self, array_message, dtype_message, allocation):
+        return self.session.from_vortex_ipc(
+            array_message, dtype_message=dtype_message,
+            resources=native_resources(self.module, allocation), timeout=self.timeout,
+        )
+
     def _plan(self, request, allocation, deadline=None):
         if request.get("fanout_outputs") and request.get("requested_output", "collect") == "collect":
             raise ValueError("native fanout requires an explicit primary output")

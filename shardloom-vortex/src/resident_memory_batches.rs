@@ -2,8 +2,8 @@
 //! composition; the ordinary relational scan controls execution and delivery.
 
 use super::{
-    MemoryColumn, MemorySourceBounds, MemorySourceOwner, ResidentMemorySource, memory_error,
-    native_error,
+    MemoryColumn, MemorySourceBounds, MemorySourceOwner, NativeTransferReport,
+    ResidentMemorySource, memory_error, native_error,
 };
 use crate::local_primitives::native_capacity::ReservedVec;
 use crate::resident_session::ResidentVortexSession;
@@ -33,6 +33,7 @@ pub struct MemoryBatchSourceBuilder {
     bytes: usize,
     copied: u64,
     columnar_copied: u64,
+    transfer_report: NativeTransferReport,
     cancellation: CancellationToken,
 }
 
@@ -52,6 +53,7 @@ impl MemoryBatchSourceBuilder {
             bytes: 0,
             copied: 0,
             columnar_copied: 0,
+            transfer_report: NativeTransferReport::default(),
             cancellation,
         })
     }
@@ -189,20 +191,68 @@ impl MemoryBatchSourceBuilder {
     /// and schema credit; no source credit or caller buffer escapes into it.
     #[cfg(feature = "vortex-write")]
     pub(super) fn push_native_copy(&mut self, array: &ArrayRef) -> Result<()> {
+        self.push_native_copies(std::slice::from_ref(array))
+    }
+
+    /// Transfer a completed native graph once, including buffers shared between
+    /// separate result batches. Classification precedes all materialization.
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn push_native_copies(&mut self, arrays: &[ArrayRef]) -> Result<()> {
         let session = self.session.clone();
         let cancellation = self.cancellation.clone();
         session.with_native_execution_context(&cancellation, |context| {
-            for start in (0..array.len().max(1)).step_by(MAX_BATCH_ROWS) {
-                context.check_cancelled()?;
-                let end = start.saturating_add(MAX_BATCH_ROWS).min(array.len());
-                let input = array.slice(start..end).map_err(native_error)?;
-                let output = crate::local_primitives::native_payload::detach(&input, context)?;
-                let copied = output.nbytes();
-                let bytes = usize::try_from(copied).map_err(native_error)?;
-                self.push_array(output, bytes, 0, copied)?;
+            if let Some(copied) = super::encoded_transfer::copy_records(
+                arrays,
+                context,
+                super::encoded_transfer::TransferPolicy::MinimizeFixedWidthCopies,
+            )? {
+                self.push_transferred(copied)?;
+            } else {
+                for array in arrays {
+                    for start in (0..array.len().max(1)).step_by(MAX_BATCH_ROWS) {
+                        context.check_cancelled()?;
+                        let end = start.saturating_add(MAX_BATCH_ROWS).min(array.len());
+                        let input = array.slice(start..end).map_err(native_error)?;
+                        let output =
+                            crate::local_primitives::native_payload::detach(&input, context)?;
+                        let copied = output.nbytes();
+                        let bytes = usize::try_from(copied).map_err(native_error)?;
+                        self.push_array(output, bytes, 0, copied)?;
+                        self.transfer_report =
+                            self.transfer_report.combine(NativeTransferReport {
+                                materialized_batches: 1,
+                                materialized_rows: (end - start) as u64,
+                                ..NativeTransferReport::default()
+                            })?;
+                    }
+                }
             }
             context.check_cancelled()
         })
+    }
+
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn push_transferred(
+        &mut self,
+        copied: super::encoded_transfer::CopiedRecords,
+    ) -> Result<()> {
+        let report = self.transfer_report.combine(copied.report)?;
+        let mut copied_bytes = copied
+            .report
+            .encoded_buffer_bytes_copied
+            .checked_add(copied.report.ipc_buffer_bytes_copied)
+            .ok_or_else(|| memory_error("native columnar copy count overflow"))?;
+        for (array, bytes) in copied.arrays.values {
+            self.push_array(
+                array,
+                usize::try_from(bytes).map_err(native_error)?,
+                0,
+                copied_bytes,
+            )?;
+            copied_bytes = 0;
+        }
+        self.transfer_report = report;
+        Ok(())
     }
 
     fn push_array(
@@ -320,6 +370,7 @@ impl MemoryBatchSourceBuilder {
             input_logical_bytes: self.bytes,
             intake_payload_bytes_copied: self.copied,
             intake_columnar_buffer_bytes_copied: self.columnar_copied,
+            transfer_report: self.transfer_report,
             metadata: Some(credit),
             is_batch: false,
             generated_range: None,

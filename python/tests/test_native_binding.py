@@ -460,6 +460,107 @@ class NativeBindingTests(unittest.TestCase):
         restored = pa.RecordBatchReader.from_stream(result).read_all()
         self.assertTrue(restored.equals(table), (restored.schema, table.schema))
 
+    def test_native_ipc_public_frontdoors_preserve_all_values_and_reuse_the_source(self):
+        import gc
+        import shardloom as sl
+
+        fixtures = Path(__file__).resolve().parents[2] / "shardloom-vortex/tests/fixtures/independent-vortex-0.85"
+        expected = [{
+            "key": (1 << 52) + row,
+            "amount": None if row % 7 == 0 else -10.5 + row / 4.0,
+            "flag": None if row % 11 == 0 else row % 2 == 0,
+            "text": None if row % 17 == 0 else "" if row % 13 == 0 else f"row-{row}-λ\0猫",
+        } for row in range(4099)]
+        for frontdoor in ("module", "context"):
+            with self.subTest(frontdoor=frontdoor):
+                client = sl.ShardLoomClient(transport="native", memory_bytes=64 << 20, max_parallelism=1)
+                self.addCleanup(client.close)
+                ctx = sl.ShardLoomContext(client)
+                array = (fixtures / "mixed.array.vxipc").read_bytes()
+                dtype = (fixtures / "mixed.dtype.vxipc").read_bytes()
+                if frontdoor == "module":
+                    frame = sl.from_vortex_ipc(array, dtype_message=dtype, client=client)
+                else:
+                    frame = ctx.from_vortex_ipc(array, dtype_message=dtype)
+                receipt = frame.source.native_input.intake_transfer_report
+                self.assertEqual(receipt["ipc_transport_bytes"], len(array) + len(dtype))
+                self.assertGreater(receipt["ipc_buffer_bytes_copied"], 0)
+                self.assertGreater(receipt["encoded_buffer_bytes_copied"], 0)
+                self.assertEqual(receipt["materialized_rows"], 0)
+                del array, dtype
+                gc.collect()
+                session = client._native_backend.session
+                before = session.snapshot()["completed_executions"]
+                complete = frame.collect(check=True)
+                self.assertEqual(complete.result_rows, tuple(expected))
+                self.assertGreater(session.snapshot()["completed_executions"], before)
+                first = frame.select("key").limit(7).collect(check=True)
+                second = frame.filter(sl.col("key") >= (1 << 52) + 4094).select("key", "text").collect(check=True)
+                self.assertEqual(first.result_rows, tuple({"key": row["key"]} for row in expected[:7]))
+                self.assertEqual(second.result_rows, tuple({"key": row["key"], "text": row["text"]} for row in expected[-5:]))
+                self.assertEqual(frame.source.native_input.intake_transfer_report, receipt)
+                self.assertEqual(frame.source.native_input.input_columnar_buffer_bytes_copied,
+                                 receipt["ipc_buffer_bytes_copied"] + receipt["encoded_buffer_bytes_copied"])
+                for result in (complete, first, second):
+                    self.assertEqual(result.envelope.field("fallback_attempted"), "false")
+                    self.assertEqual(result.envelope.field("external_engine_invoked"), "false")
+
+    def test_native_ipc_denial_corruption_and_cancellation_release_the_receiving_grant(self):
+        import gc
+
+        fixtures = Path(__file__).resolve().parents[2] / "shardloom-vortex/tests/fixtures/independent-vortex-0.85"
+        array = (fixtures / "encoded.array.vxipc").read_bytes()
+        dtype = (fixtures / "encoded.dtype.vxipc").read_bytes()
+        session = self.session(64 << 20, 1)
+        self.addCleanup(session.close)
+        for action in (
+            lambda: session.from_vortex_ipc(array, dtype_message=dtype, resources=self.resources(1, 1)),
+            lambda: session.from_vortex_ipc(array, dtype_message=dtype, timeout=0),
+            lambda: session.from_vortex_ipc(array[:-1], dtype_message=dtype),
+            lambda: session.from_vortex_ipc(array, dtype_message=dtype[:-1]),
+        ):
+            with self.assertRaises(RuntimeError):
+                action()
+            self.assertEqual(session.snapshot()["reserved_bytes"], 0)
+        source = session.from_vortex_ipc(array, dtype_message=dtype)
+        receipt = source.intake_transfer_report
+        self.assertEqual(source.row_count, 65539)
+        self.assertEqual(receipt["materialized_batches"], 0)
+        self.assertLess(receipt["encoded_buffer_bytes_copied"], 256 << 10)
+        plan = session.sql("SELECT constant, run_end, packed FROM 'memory://ipc' LIMIT 33",
+                           sources=[("memory://ipc", source)])
+        result = plan.collect()
+        self.assertEqual(result.row_export()[0],
+                         [{"constant": 11, "run_end": 0, "packed": row % 31} for row in range(33)])
+        del array, dtype, plan, source
+        session.close()
+        self.assertGreater(session.snapshot()["reserved_bytes"], 0)
+        self.assertEqual(result.row_export()[0][-1], {"constant": 11, "run_end": 0, "packed": 1})
+        del result
+        gc.collect()
+        self.assertEqual(session.snapshot()["reserved_bytes"], 0)
+
+    def test_native_ipc_never_invokes_implicit_message_conversions(self):
+        import shardloom as sl
+
+        class Untouched:
+            def __bytes__(self):
+                raise AssertionError("implicit bytes conversion")
+
+            def __len__(self):
+                raise AssertionError("producer inspection")
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(client.close)
+        session = self.session()
+        self.addCleanup(session.close)
+        for value in (Untouched(), bytearray(b"invalid"), memoryview(b"invalid")):
+            with self.assertRaises(TypeError):
+                sl.from_vortex_ipc(value, dtype_message=b"invalid", client=client)
+            with self.assertRaises(TypeError):
+                session.from_vortex_ipc(value, dtype_message=b"invalid")
+        self.assertEqual(session.snapshot()["reserved_bytes"], 0)
+
     def test_cross_client_binding_refusal_releases_target_copy_and_keeps_source(self):
         producer = self.session(64 << 20)
         source = producer.from_rows([{"id": n} for n in range(4099)])
@@ -1642,6 +1743,67 @@ assert later.row_count == 2
             self.assertEqual(columnar.to_arrow().schema.names, names)
         client.close()
         self.assertEqual(objects.to_arrow().to_pydict(), expected)
+
+    def test_public_native_file_sql_selects_typed_decimal_providers(self):
+        from decimal import Decimal
+        import shardloom as sl
+
+        pa = self.arrow()
+        client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(client.close)
+        table = pa.table({
+            "group_id": pa.array([1, 1, 2, 2], pa.int64()),
+            "amount": pa.array([Decimal("1.00"), Decimal("2.00"), None, Decimal("3.00")],
+                               pa.decimal128(10, 2)),
+        })
+
+        def check(operation, expected, schema=None):
+            result = operation.collect(check=True)
+            arrow = result.to_arrow()
+            self.assertEqual(arrow.to_pylist(), expected)
+            if schema is not None:
+                self.assertEqual(arrow.schema, schema)
+            self.assertFalse(result.envelope.fallback.attempted)
+            self.assertFalse(result.envelope.fallback.allowed)
+            fields = result.envelope.field_map
+            self.assertEqual(fields["execution_resource_declared_memory_bytes"], str(32 << 20))
+            self.assertEqual(fields["execution_resource_declared_max_parallelism"], "1")
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-native-decimal-file-") as directory:
+            root = Path(directory)
+            with patch("subprocess.Popen", side_effect=AssertionError("execution child process")):
+                for index in range(2):
+                    sl.from_arrow_table(table, client=client).write_vortex(root / f"part-{index}.vortex", check=True)
+                for source, copies in ((root / "part-0.vortex", 1), (root, 2)):
+                    with self.subTest(source=source.name):
+                        base = sl.read_vortex(source, client=client)
+                        grouped = base.group_by("group_id").agg(total="sum(amount)", mean="avg(amount)").sort("group_id")
+                        expected = [
+                            {"group_id": 1, "total": Decimal(3 * copies), "mean": Decimal("1.500000")},
+                            {"group_id": 2, "total": Decimal(3 * copies), "mean": Decimal("3.000000")},
+                        ]
+                        check(grouped, expected, pa.schema([
+                            pa.field("group_id", pa.int64(), nullable=True),
+                            pa.field("total", pa.decimal128(38, 2), nullable=True),
+                            pa.field("mean", pa.decimal128(38, 6), nullable=True),
+                        ]))
+                        # Repeat on one declaration so preparation reuse cannot
+                        # turn a correct first result into a different provider.
+                        check(grouped, expected)
+                        check(sl.sql(f"SELECT amount FROM '{source}' WHERE amount IS NOT NULL ORDER BY amount DESC",
+                                     input=source, input_format="vortex", client=client),
+                              [{"amount": Decimal(value)} for value in ("3.00", "2.00", "1.00") for _ in range(copies)])
+                        check(sl.sql(f"SELECT COUNT(*) AS n FROM '{source}' WHERE amount IS NOT NULL",
+                                     input=source, input_format="vortex", client=client),
+                              [{"n": 3 * copies}])
+                        # Unreferenced decimal fields do not require the typed
+                        # strategy for an otherwise ordinary primitive sort.
+                        check(base.select("group_id").sort("group_id"),
+                              [{"group_id": value} for value in (1, 2) for _ in range(2 * copies)])
+                        del grouped, base
+        native_session = client._native_backend.session
+        client.close()
+        self.assertEqual(native_session.snapshot()["reserved_bytes"], 0)
 
     def test_native_workflow_rejects_unbound_options_before_execution(self):
         import shardloom as sl

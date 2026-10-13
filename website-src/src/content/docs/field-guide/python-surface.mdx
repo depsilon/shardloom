@@ -87,6 +87,18 @@ Foreign input may require an accounted copy, and encoded data may need conversio
 for Arrow. These APIs use the shared ShardLoom planner, native providers,
 resources and cancellation owner.
 
+Current source builds recognize ShardLoom native sources and results passed to
+`session.from_arrow(...)` or `ctx.from_arrow_table(...)` without an intermediate
+Arrow export. Same-owner sources share ownership; transfers between owners copy
+admitted encoded buffers under the receiving grant. For an independent producer,
+`ctx.from_vortex_ipc(array_message, dtype_message=dtype_message)` accepts complete
+immutable messages for the pinned Vortex provider, within a combined 64-MiB
+limit. The [encoded transfer contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-encoded-interchange-2026-10-12.md)
+defines the accepted schemas and encodings; its
+[acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-encoded-interchange-2026-10-12.md)
+separates local proof from hosted integration. Published packages retain their
+release-time behavior.
+
 The [local acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-python-surface-2026-10-11.md)
 records installed-wheel checks and paired complete Python workflows for input,
 output, retained chains, short calls, wide plans and a native-file query.

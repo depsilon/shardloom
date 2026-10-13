@@ -3907,6 +3907,18 @@ fn append_local_primitive_result_summary_evidence_fields(
             "local_primitive_uniqueness_proof_status",
         ),
         ("spill_state", "local_primitive_spill_state"),
+        (
+            "sort_provider_background_workers",
+            "local_primitive_sort_provider_background_workers",
+        ),
+        (
+            "sort_provider_cpu_scope",
+            "local_primitive_sort_provider_cpu_scope",
+        ),
+        (
+            "sort_scan_split_policy",
+            "local_primitive_sort_scan_split_policy",
+        ),
         ("candidate_rows_seen", "local_primitive_candidate_rows_seen"),
         (
             "retained_candidate_rows",
@@ -13246,6 +13258,51 @@ mod tests {
                 ),
                 "8"
             );
+        }
+    }
+
+    #[test]
+    fn local_primitive_result_summary_lifts_sort_driver_count_and_scope() {
+        let scope = "admitted provider drivers, not measured utilization";
+        for drivers in [0, 1] {
+            let payload = serde_json::json!({
+                "sort_provider_background_workers": drivers,
+                "sort_provider_cpu_scope": scope,
+            });
+            for summary in [payload.to_string(), format!("sort_rows values={payload}")] {
+                let mut fields = Vec::new();
+                append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+                assert_eq!(fields.len(), 2);
+                assert_eq!(
+                    field(&fields, "local_primitive_sort_provider_background_workers"),
+                    drivers.to_string()
+                );
+                assert_eq!(
+                    field(&fields, "local_primitive_sort_provider_cpu_scope"),
+                    scope
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn local_primitive_result_summary_lifts_sort_scan_split_policy() {
+        for policy in [
+            "not_scanned",
+            "vortex_layout",
+            "vortex_layout_with_scratch_headroom",
+            "fixed_2048_for_scratch_headroom",
+        ] {
+            let payload = serde_json::json!({"sort_scan_split_policy": policy});
+            for summary in [payload.to_string(), format!("sort_rows values={payload}")] {
+                let mut fields = Vec::new();
+                append_local_primitive_result_summary_evidence_fields(&mut fields, Some(&summary));
+                assert_eq!(fields.len(), 1);
+                assert_eq!(
+                    field(&fields, "local_primitive_sort_scan_split_policy"),
+                    policy
+                );
+            }
         }
     }
 

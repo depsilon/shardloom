@@ -35,6 +35,7 @@ from check_v1_correctness_conformance import (
     EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
     EXPECTED_ADMITTED_VALIDATOR_CASES,
     EXPECTED_EXECUTABLE_FIXTURES,
+    EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
     MATRIX_EXPECTED_COUNTS,
 )
 
@@ -1998,8 +1999,8 @@ def main() -> int:
                 ("local_output_sink", "supported_output_format_count"): 8,
                 ("local_output_sink", "write_method_count"): 10,
                 ("local_output_sink", "output_route_count"): 1,
-                ("python_user_surface", "method_matrix_row_count"): 114,
-                ("python_user_surface", "method_matrix_row_list_count"): 114,
+                ("python_user_surface", "method_matrix_row_count"): EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
+                ("python_user_surface", "method_matrix_row_list_count"): EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
                 ("python_user_surface", "required_operation_method_count"): 13,
                 (
                     "python_user_surface",

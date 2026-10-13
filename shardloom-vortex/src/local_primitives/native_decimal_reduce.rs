@@ -1,5 +1,6 @@
 //! Exact decimal totals shared by the existing native reduction state owners.
-//! Widen before accumulation; only final results must fit Decimal128 precision.
+//! Promote checked narrow state before overflow; only final results must fit
+//! Decimal128 precision. The logical output type never depends on state width.
 
 use shardloom_core::{Result, ShardLoomError, expression::Decimal128Operand};
 use vortex::array::{dtype::DecimalDType, scalar::DecimalValue};
@@ -13,7 +14,7 @@ pub(super) struct Total {
 impl Default for Total {
     fn default() -> Self {
         Self {
-            sum: DecimalValue::I256(DecimalValue::I128(0).as_i256()),
+            sum: DecimalValue::I128(0),
             count: 0,
         }
     }
@@ -57,9 +58,7 @@ impl Total {
             .count
             .checked_add(1)
             .ok_or_else(|| failed("count overflow"))?;
-        let sum = self
-            .sum
-            .checked_add(&DecimalValue::I128(value))
+        let sum = add_exact(&self.sum, &DecimalValue::I128(value))
             .ok_or_else(|| failed("wide total overflow"))?;
         *self = Self { sum, count };
         Ok(())
@@ -71,9 +70,7 @@ impl Total {
             .count
             .checked_sub(1)
             .ok_or_else(|| failed("empty window removal"))?;
-        let sum = self
-            .sum
-            .checked_sub(&DecimalValue::I128(value))
+        let sum = subtract_exact(&self.sum, &DecimalValue::I128(value))
             .ok_or_else(|| failed("wide total overflow"))?;
         if count == 0 && !sum.is_zero() {
             return Err(failed("empty window retained a nonzero total"));
@@ -88,10 +85,7 @@ impl Total {
             .count
             .checked_add(other.count)
             .ok_or_else(|| failed("count overflow"))?;
-        let sum = self
-            .sum
-            .checked_add(&other.sum)
-            .ok_or_else(|| failed("wide total overflow"))?;
+        let sum = add_exact(&self.sum, &other.sum).ok_or_else(|| failed("wide total overflow"))?;
         *self = Self { sum, count };
         Ok(())
     }
@@ -104,8 +98,9 @@ impl Total {
         let value = if average {
             let scale = u32::try_from(output.scale() - source.scale())
                 .map_err(|_| failed("invalid average scale"))?;
-            let numerator = self
-                .sum
+            // A narrow sum can still need a wide scaled numerator even when
+            // the final quotient fits Decimal128. Preserve the original domain.
+            let numerator = DecimalValue::I256(self.sum.as_i256())
                 .checked_mul(&DecimalValue::I128(10i128.pow(scale)))
                 .ok_or_else(|| failed("wide average numerator overflow"))?;
             let divisor = DecimalValue::I128(i128::from(self.count));
@@ -127,6 +122,26 @@ impl Total {
     }
 }
 
+fn add_exact(left: &DecimalValue, right: &DecimalValue) -> Option<DecimalValue> {
+    if let (DecimalValue::I128(left), DecimalValue::I128(right)) = (left, right)
+        && let Some(sum) = left.checked_add(*right)
+    {
+        return Some(DecimalValue::I128(sum));
+    }
+    // Retry using the unchanged operands. Once either operand is wide, retain
+    // that representation even when later cancellation yields a narrow value.
+    DecimalValue::I256(left.as_i256()).checked_add(right)
+}
+
+fn subtract_exact(left: &DecimalValue, right: &DecimalValue) -> Option<DecimalValue> {
+    if let (DecimalValue::I128(left), DecimalValue::I128(right)) = (left, right)
+        && let Some(sum) = left.checked_sub(*right)
+    {
+        return Some(DecimalValue::I128(sum));
+    }
+    DecimalValue::I256(left.as_i256()).checked_sub(right)
+}
+
 fn validate(value: i128, dtype: DecimalDType) -> Result<()> {
     let scale = u8::try_from(dtype.scale()).map_err(|_| failed("negative decimal scale"))?;
     Decimal128Operand::decimal(value, dtype.precision(), scale).map(|_| ())
@@ -137,6 +152,10 @@ fn failed(message: &str) -> ShardLoomError {
         "native decimal reduction {message}; no fallback execution was attempted"
     ))
 }
+
+#[cfg(test)]
+#[path = "native_decimal_adaptive_tests.rs"]
+mod adaptive_tests;
 
 #[cfg(test)]
 mod tests {

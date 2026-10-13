@@ -17,6 +17,38 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-PERSISTED-REUSE` — bounded statistics from actual native output,
+  reusable after durable close and producer teardown by a fresh process running
+  different computations, under PERF-02/07/09/10/11/12 and CG-19/20/21.
+  The [acceptance report](../benchmarks/native-persisted-reuse-2026-10-11.md)
+  records exact schema/value/validity results, instrumented payload pruning,
+  resource/failure/publication coverage, all 15 frozen lifecycle cost gates,
+  complete public/format regressions and fresh ingest/query UAT. Source statistics
+  are not blindly inherited by changed results; ephemeral query-run files keep
+  their separate no-file-statistics policy.
+  - Required default and native source gates, public Python and installed-wheel
+    acceptance, provider tests, packaging/license and documentation gates pass.
+    Original failures, build identities, comparisons and independent packet/source
+    verification remain in the report. Overlapping test counts are not added.
+  - [PR #1544](https://github.com/depsilon/shardloom/pull/1544) merges at
+    `249657ede5a3dafc6f59f9922e97457edd12a83f` after all 44 checks pass on
+    `be564ab81bacffb33fa42367874522a5dc55362a`. Both trees are
+    `bcb8be27fae2cf314d18fb52724342228ec658b2`; all 2,202 frozen runtime assets
+    remain unchanged. Codex review completes on that head with no unresolved
+    threads. Two CodeQL alerts in synthetic test fixtures receive source/SARIF
+    triage and false-positive dismissals; the rule remains enabled.
+  - The [hosted receipt](../benchmarks/evidence/native-persisted-hosted-2026-10-12.json)
+    and fully verified 29-member packet retain three installed native wheel
+    lanes, each with the same 76 individually recounted passing tests and actual
+    isolated loads. Exact-merge production deployment and guide/link/search
+    verification pass. Served source content matches apart from the recorded
+    Cloudflare scripts; no raw HTML identity claim is made.
+  - Encoded cross-owner transfer, repeated transfer reuse, consistent native
+    recognition and independent producer feasibility remain Planned under
+    `NATIVE-ENCODED-INTERCHANGE`. Other streaming/composition/resource work, all
+    six areas, eight investigations and CG-1 through CG-23 retain their owners.
+    Version 0.5.1 and published artifacts remain unchanged.
+
 - [x] `NATIVE-TIMESTAMP-PROVIDER` — full-domain microsecond timestamp
   compression, safe available statistics and exact native result compaction,
   under PERF-07/08/11/12 and CG-19/20/21. The

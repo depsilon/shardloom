@@ -23,6 +23,7 @@ use shardloom_vortex::{
 pub struct NativeWorkflowDeclaration {
     request: workflow::PublicWorkflowRouteRequest,
     control_bytes: u64,
+    sql_preserves_operation: bool,
 }
 
 impl NativeWorkflowDeclaration {
@@ -66,6 +67,7 @@ impl NativeWorkflowDeclaration {
         Ok(Some(Self {
             request,
             control_bytes,
+            sql_preserves_operation: true,
         }))
     }
 
@@ -98,6 +100,7 @@ impl NativeWorkflowDeclaration {
         Ok(Self {
             request,
             control_bytes,
+            sql_preserves_operation: !has_primitive_payload,
         })
     }
 
@@ -223,6 +226,40 @@ impl NativeWorkflowDeclaration {
                 source = source.with_preparation_sources(vec![Arc::clone(identity)])?;
             }
             sources.push(source);
+        }
+        // Native-file SQL makes the same metadata-based choice as the CLI. The
+        // primitive aggregate/sort/count paths cannot represent extended fields.
+        // Preserve complete SQL (including grouping transforms, ordering and
+        // HAVING), and hand already admitted sources to the shared typed binder.
+        // Explicit primitive payloads are not replaced by their advisory SQL.
+        // Compatibility preparation retains its existing report attachment path.
+        if self.sql_preserves_operation
+            && preparation_identity.is_none()
+            && matches!(
+                primitive_request.kind,
+                Kind::SimpleAggregate | Kind::SortRows | Kind::CountWhere
+            )
+            && let Some(statement) = request.sql_statement.as_deref()
+            && sources.iter().try_fold(false, |extended, source| {
+                prepared_dispatch::request_requires_relational(source, &primitive_request)
+                    .map(|required| extended || required)
+            })?
+        {
+            let operation = workflow::resident_relational::prepare_in_session(
+                statement,
+                &request,
+                session,
+                |schemas| {
+                    for (uri, source) in source_uris.iter().zip(&sources) {
+                        schemas.register_prepared_source(uri, source.clone())?;
+                    }
+                    Ok(())
+                },
+                cancellation,
+            )?;
+            let mut prepared = PreparedNativeOperation::relational(operation, resources);
+            prepared.reusable = binding.mode == "single_file";
+            return Ok(prepared);
         }
         let provider = if primitive_request.kind == Kind::CountAll {
             let mut counts = Vec::with_capacity(sources.len());

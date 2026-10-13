@@ -40,9 +40,21 @@ pub use batches::MemoryBatchSourceBuilder;
 #[path = "resident_memory_range.rs"]
 mod generated_range;
 
+#[path = "resident_memory_transfer_report.rs"]
+mod transfer_report;
+pub use transfer_report::NativeTransferReport;
+
 #[cfg(feature = "vortex-write")]
 #[path = "resident_memory_transfer.rs"]
 mod transfer;
+
+#[cfg(feature = "vortex-write")]
+#[path = "resident_memory_encoded_transfer.rs"]
+mod encoded_transfer;
+
+#[cfg(feature = "vortex-write")]
+#[path = "resident_memory_ipc.rs"]
+mod ipc_intake;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "resident_memory_arrow.rs"]
@@ -101,6 +113,7 @@ struct MemorySourceOwner {
     input_logical_bytes: usize,
     intake_payload_bytes_copied: u64,
     intake_columnar_buffer_bytes_copied: u64,
+    transfer_report: NativeTransferReport,
     // Every copied/transferred payload buffer also holds this credit, including
     // cloned/sliced child buffers. Generated ranges have their own compact owner.
     metadata: Option<Arc<MemoryLease>>,
@@ -216,6 +229,7 @@ impl ResidentMemorySource {
             input_logical_bytes,
             intake_payload_bytes_copied: 0,
             intake_columnar_buffer_bytes_copied: 0,
+            transfer_report: NativeTransferReport::default(),
             metadata: Some(metadata),
             is_batch: false,
             generated_range: None,
@@ -326,6 +340,7 @@ impl ResidentMemorySource {
             input_logical_bytes,
             intake_payload_bytes_copied,
             intake_columnar_buffer_bytes_copied: 0,
+            transfer_report: NativeTransferReport::default(),
             metadata: Some(metadata),
             is_batch,
             generated_range: None,
@@ -387,6 +402,13 @@ impl ResidentMemorySource {
     #[must_use]
     pub fn intake_columnar_buffer_bytes_copied(&self) -> u64 {
         self.0.intake_columnar_buffer_bytes_copied
+    }
+
+    /// Immutable evidence from this source's successful intake. Later execution
+    /// has its own certificate and does not update this receipt.
+    #[must_use]
+    pub fn intake_transfer_report(&self) -> NativeTransferReport {
+        self.0.transfer_report
     }
 
     /// Build an immutable native file layout over owned memory segments. This

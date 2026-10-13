@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// ShardLoom modification: reduce retained slice views at the explicit execution boundary.
 
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -36,6 +37,7 @@ use crate::buffer::BufferHandle;
 use crate::dtype::DType;
 use crate::executor::ExecutionCtx;
 use crate::executor::ExecutionResult;
+use crate::optimizer::ArrayOptimizer;
 use crate::require_child;
 use crate::scalar::Scalar;
 use crate::serde::ArrayChildren;
@@ -157,6 +159,7 @@ impl VTable for Slice {
         array
             .child()
             .slice(array.range.clone())
+            .and_then(|sliced| sliced.optimize())
             .map(ExecutionResult::done)
     }
 

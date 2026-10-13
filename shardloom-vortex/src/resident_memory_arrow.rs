@@ -93,6 +93,7 @@ impl ResidentMemorySource {
             input_logical_bytes,
             intake_payload_bytes_copied: 0,
             intake_columnar_buffer_bytes_copied: copied,
+            transfer_report: super::NativeTransferReport::default(),
             metadata: Some(metadata),
             is_batch,
             generated_range: None,

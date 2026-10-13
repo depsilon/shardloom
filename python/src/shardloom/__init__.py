@@ -227,6 +227,7 @@ _EXPORT_GROUPS: dict[str, tuple[str, ...]] = {
         "floor",
         "from_arrow_ipc",
         "from_arrow_table",
+        "from_vortex_ipc",
         "from_base64",
         "from_pandas",
         "from_rows",

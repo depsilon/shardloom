@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// ShardLoom modification: preserve opaque metadata owners across structural rewrites.
 
 use std::any::Any;
 use std::fmt::Debug;
@@ -36,6 +37,9 @@ pub(crate) use foreign::*;
 
 mod typed;
 pub use typed::*;
+
+#[cfg(test)]
+mod owner_tests;
 
 pub mod vtable;
 pub use vtable::*;
@@ -121,6 +125,12 @@ pub(crate) trait DynArrayData: 'static + private::Sealed + Send + Sync + Debug {
 
     /// Returns the array as a mutable reference to a generic [`Any`] trait object.
     fn as_any_mut(&mut self) -> &mut dyn Any;
+
+    /// Attach a non-buffer lifetime owner without replacing an existing owner.
+    fn retain_owner(&mut self, owner: Arc<dyn Any + Send + Sync>) -> VortexResult<()>;
+
+    /// Non-buffer ownership that a native view must retain.
+    fn retained_owner(&self) -> Option<&Arc<dyn Any + Send + Sync>>;
 
     /// Returns the [`Validity`] of the array.
     fn validity(&self, this: &ArrayRef) -> VortexResult<Validity>;
@@ -262,6 +272,19 @@ impl<V: VTable> DynArrayData for ArrayData<V> {
         self
     }
 
+    fn retain_owner(&mut self, owner: Arc<dyn Any + Send + Sync>) -> VortexResult<()> {
+        vortex_ensure!(
+            self.retained_owner.is_none(),
+            "array already has a lifetime owner"
+        );
+        self.retained_owner = Some(owner);
+        Ok(())
+    }
+
+    fn retained_owner(&self) -> Option<&Arc<dyn Any + Send + Sync>> {
+        self.retained_owner.as_ref()
+    }
+
     fn validity(&self, this: &ArrayRef) -> VortexResult<Validity> {
         if this.dtype().is_nullable() {
             let view = unsafe { ArrayView::new_unchecked(this, &self.data) };
@@ -364,27 +387,27 @@ impl<V: VTable> DynArrayData for ArrayData<V> {
 
     fn with_slots(&self, this: &ArrayRef, slots: ArraySlots) -> VortexResult<ArrayRef> {
         let stats = this.statistics().to_owned();
-        Ok(Array::<V>::try_from_parts(
-            ArrayParts::new(
-                self.vtable.clone(),
-                this.dtype().clone(),
-                this.len(),
-                self.data.clone(),
-            )
-            .with_slots(slots),
-        )?
-        .with_stats_set(stats)
-        .into_array())
+        let mut parts = ArrayParts::new(
+            self.vtable.clone(),
+            this.dtype().clone(),
+            this.len(),
+            self.data.clone(),
+        )
+        .with_slots(slots);
+        parts.retained_owner = self.retained_owner.clone();
+        Ok(Array::<V>::try_from_parts(parts)?
+            .with_stats_set(stats)
+            .into_array())
     }
 
     fn with_buffers(&self, this: &ArrayRef, buffers: Vec<BufferHandle>) -> VortexResult<ArrayRef> {
         let view = unsafe { ArrayView::new_unchecked(this, &self.data) };
         let stats = this.statistics().to_owned();
-        Ok(
-            Array::<V>::try_from_parts(V::with_buffers(&self.vtable, view, &buffers)?)?
-                .with_stats_set(stats)
-                .into_array(),
-        )
+        let mut parts = V::with_buffers(&self.vtable, view, &buffers)?;
+        parts.inherit_owner(&self.retained_owner)?;
+        Ok(Array::<V>::try_from_parts(parts)?
+            .with_stats_set(stats)
+            .into_array())
     }
 
     unsafe fn with_slots_unchecked(&self, this: &ArrayRef, slots: ArraySlots) -> ArrayRef {
@@ -398,6 +421,7 @@ impl<V: VTable> DynArrayData for ArrayData<V> {
                 self.data.clone(),
                 slots,
                 this.statistics().to_array_stats(),
+                self.retained_owner.clone(),
             )
         };
         ArrayRef::from_inner(Arc::new(store))

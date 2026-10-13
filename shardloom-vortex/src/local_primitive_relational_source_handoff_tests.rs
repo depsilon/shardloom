@@ -208,6 +208,29 @@ fn native_scalar_sort_source_handoff_preserves_values_and_rejects_replacement() 
     assert_eq!(session.snapshot().prepared_source_opens, 1);
 }
 
+fn assert_single_lane_prepared_sort_parity(actual: &str, expected: &str) -> Value {
+    let (actual_prefix, actual_values) = actual.rsplit_once(" values=").unwrap();
+    let (expected_prefix, expected_values) = expected.rsplit_once(" values=").unwrap();
+    assert_eq!(actual_prefix, expected_prefix);
+    let mut result: Value = serde_json::from_str(actual_values).unwrap();
+    let work = result.as_object_mut().unwrap();
+    assert_eq!(
+        work.remove("sort_provider_background_workers"),
+        Some(json!(0))
+    );
+    assert_eq!(
+        work.remove("sort_provider_cpu_scope"),
+        Some(json!(
+            "same_prepared_source;admitted_grant;temporary_drivers_joined_before_return;no_concurrent_sort_worker_pool;not_measured_utilization_or_io_threads"
+        ))
+    );
+    assert_eq!(
+        result,
+        serde_json::from_str::<Value>(expected_values).unwrap()
+    );
+    result
+}
+
 #[test]
 fn native_sort_source_handoff_preserves_layout_batches_and_encoded_text() {
     use crate::local_primitives::execute_vortex_local_primitive_with_policy;
@@ -266,7 +289,10 @@ fn native_sort_source_handoff_preserves_layout_batches_and_encoded_text() {
         let session = source.retained_session();
         let baseline = session.snapshot().memory.reserved_bytes;
         let actual = prepared_dispatch::execute_sort(&request, policy(), &source).unwrap();
-        assert_eq!(actual.result_summary, expected.result_summary);
+        let result = assert_single_lane_prepared_sort_parity(
+            actual.result_summary.as_ref().unwrap(),
+            expected.result_summary.as_ref().unwrap(),
+        );
         assert_eq!(actual.arrays_read_count, expected.arrays_read_count);
         assert_eq!(actual.max_chunk_rows, expected.max_chunk_rows);
         assert!(actual.max_chunk_rows > 2048);
@@ -276,16 +302,6 @@ fn native_sort_source_handoff_preserves_layout_batches_and_encoded_text() {
         } else {
             (3, "")
         };
-        let result: Value = serde_json::from_str(
-            actual
-                .result_summary
-                .as_ref()
-                .unwrap()
-                .rsplit_once(" values=")
-                .unwrap()
-                .1,
-        )
-        .unwrap();
         assert_eq!(
             result["values"],
             json!(

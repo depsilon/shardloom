@@ -36,7 +36,7 @@ universal-format-io = [
 ]
 vortex-file-io = ["upstream-vortex"]
 vortex-object-store = ["vortex-file-io"]
-vortex-write = ["vortex-file-io", "dep:vortex-zstd"]
+vortex-write = ["vortex-file-io", "dep:vortex-zstd", "dep:flatbuffers"]
 vortex-local-primitives = ["vortex-file-io", "dep:lending-iterator", "dep:serde", "vortex/serde"]
 vortex-staged-output-fs = []
 vortex-metadata-executor = []
@@ -50,6 +50,7 @@ arrow-avro = { workspace = true, optional = true }
 arrow-ipc = { workspace = true, optional = true }
 arrow-schema = { workspace = true, optional = true }
 futures = { workspace = true }
+flatbuffers = { workspace = true, optional = true }
 orc-rust = { version = "0.8.0", default-features = false, optional = true }
 parquet = { workspace = true, optional = true }
 regex = { workspace = true }

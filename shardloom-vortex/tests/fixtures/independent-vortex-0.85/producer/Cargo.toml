@@ -1,0 +1,20 @@
+[package]
+name = "independent-vortex-producer"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+
+[workspace]
+
+[dependencies]
+vortex = { version = "=0.85.0", default-features = false, features = ["files", "zstd"] }
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.release]
+debug = 0
+incremental = false
+

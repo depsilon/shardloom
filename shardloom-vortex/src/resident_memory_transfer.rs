@@ -1,7 +1,8 @@
 //! Native input transfer between separately admitted memory owners.
 //!
-//! Same-owner input stays shared. Foreign values use the existing bounded native
-//! payload copier, which may materialize encodings at this ownership boundary.
+//! Same-owner input stays shared. Admitted foreign physical trees retain their
+//! encodings while copying buffers and metadata under the receiving grant.
+//! Other physical providers use the existing, preclassified bounded materializer.
 //! No Arrow export, Python rows, source execution grant or new pool is involved.
 
 use super::{MemoryBatchSourceBuilder, ResidentMemorySource};
@@ -15,8 +16,8 @@ mod tests;
 
 impl ResidentMemorySource {
     /// Use immutable native input in another admitted session. Sources already
-    /// owned by that session remain shared; foreign payload is copied in bounded
-    /// native batches and generated ranges retain their compact representation.
+    /// owned by that session remain shared; admitted foreign physical encodings
+    /// and generated ranges retain their compact representation.
     /// The returned input has only the receiving session's allocation ownership.
     ///
     /// # Errors
@@ -67,9 +68,7 @@ impl ResidentMemorySource {
             })?;
             builder.push_native_copy(&empty)?;
         } else {
-            for array in result.arrays() {
-                builder.push_native_copy(array)?;
-            }
+            builder.push_native_copies(result.arrays())?;
         }
         builder.finish()
     }

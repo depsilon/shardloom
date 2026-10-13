@@ -55,6 +55,7 @@ from .query import (
     dataframe_source_free_projection as generated_dataframe_source_free_projection,
     from_arrow_ipc,
     from_arrow_table,
+    from_vortex_ipc,
     from_pandas,
     from_rows,
     from_batches,
@@ -5086,6 +5087,25 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=_MATERIALIZATION_BOUNDARY,
     ),
     _df_method(
+        "from_vortex_ipc",
+        "input_boundary",
+        "optional_dependency_input_boundary_supported",
+        data_read=True,
+        required_evidence=(
+            "receiving_resource_admission",
+            "vortex_ipc_0_85_schema_registry_validation",
+            "native_transfer_receipt",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Source-only native binding intake of complete Vortex 0.85 dtype and array "
+            "messages, bounded together to 64 MiB. Supported encoded buffers are copied "
+            "under receiving ownership; wire statistics are discarded. Later queries reuse "
+            "the source. This does not admit arbitrary Python Vortex objects, private "
+            "capsules, unknown encodings, other protocol versions or subprocess intake."
+        ),
+    ),
+    _df_method(
         "from_arrow_ipc",
         "input_boundary",
         "optional_dependency_input_boundary_supported",
@@ -5155,6 +5175,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "global_runtime_supported",
         cli_commands=("run", "vortex-prepare"),
         context_methods=("sql", "run", "read", "read_csv", "read_json", "read_vortex",
+                         "from_vortex_ipc",
                          "from_rows", "from_batches", "literal_table", "range", "sequence", "calendar",
                          "sql_values", "sql_literal_select", "dataframe_source_free_projection",
                          "dataframe_generated_with_column", "prepare_vortex", "session"),
@@ -11782,6 +11803,26 @@ class ShardLoomContext:
             engine_mode=self.engine,
             check=check,
             resources=allocation,
+        )
+
+    def from_vortex_ipc(
+        self,
+        array_message: bytes,
+        *,
+        dtype_message: bytes,
+        memory_gb: int | None = None,
+        memory_bytes: int | None = None,
+        max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
+    ) -> LazyFrame:
+        """Import complete Vortex 0.85 native messages under this context's grant."""
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+        return from_vortex_ipc(
+            array_message, dtype_message=dtype_message, client=self.client,
+            engine_mode=self.engine, resources=allocation,
         )
 
     def from_arrow_ipc(

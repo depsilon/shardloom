@@ -23219,19 +23219,43 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
     let mut topk_threshold_pruned_chunks = 0usize;
     let mut topk_threshold_pruned_rows = 0usize;
     let mut native_sort_work = native_sort_block::Work::default();
+    let mut scan_split_policy = "not_scanned";
     if !embedded_layout.metadata_pruned_entire_input {
         let mut scan = file.scan().map_err(vortex_error)?.with_ordered(true);
+        scan_split_policy = "vortex_layout";
         if let Some(filter) = plan.filter {
             scan = scan.with_filter(bind_vortex_scan_expr(file, &filter)?);
         }
         if let Some(projection) = plan.projection {
             scan = scan.with_projection(bind_vortex_scan_expr(file, &projection)?);
         }
-        // Collected results retain the provider's bounded layout splits, as the
-        // existing optimized sort does. Small writer batches must not fragment
-        // every ordinary scan merely because it now shares a resident owner.
+        // Input scheduling and bounded output delivery have separate owners.
+        // Reuse the provider's bounded layout splits when the current allocation
+        // has scratch headroom; small grants retain the existing 2048-row input.
+        // This is a planning estimate. Exact candidate and UTF8 scratch leases
+        // below remain authoritative; provider decoding is not an RSS guarantee.
         if streaming {
-            scan = scan.with_split_by(vortex::layout::scan::split_by::SplitBy::RowCount(2048));
+            let splits = scan.full_file_splits().map_err(vortex_error)?;
+            let maximum_rows = splits
+                .windows(2)
+                .map(|pair| pair[1] - pair[0])
+                .max()
+                .unwrap_or(0);
+            let maximum_rows = usize::try_from(maximum_rows).unwrap_or(usize::MAX);
+            let scratch_headroom =
+                sort_output_stream::scalar_scratch_bytes(maximum_rows, declared_columns.len())
+                    .saturating_mul(4);
+            let use_layout = context.is_some_and(|context| {
+                let memory = context.memory().snapshot();
+                memory.limit_bytes.saturating_sub(memory.reserved_bytes) >= scratch_headroom
+            });
+            if use_layout {
+                scan = scan.with_natural_splits(splits.into());
+                scan_split_policy = "vortex_layout_with_scratch_headroom";
+            } else {
+                scan = scan.with_split_by(vortex::layout::scan::split_by::SplitBy::RowCount(2048));
+                scan_split_policy = "fixed_2048_for_scratch_headroom";
+            }
         }
         scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in scan.into_array_iter(runtime).map_err(vortex_error)? {
@@ -23713,6 +23737,7 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
         "topk_threshold_pruned_chunks": topk_threshold_pruned_chunks,
         "topk_threshold_pruned_rows": topk_threshold_pruned_rows,
         "native_sort_block": native_sort_work.summary(),
+        "sort_scan_split_policy": scan_split_policy,
         "sort_candidate_value_strategy": if wide_output_second_pass {
             "order_key_only_row_ref_candidates"
         } else {

@@ -299,7 +299,7 @@ pub fn for_each_sort_batch(
 ) -> Result<ExecutedVortexSort> {
     cancellation.check()?;
     let session = source_session(source, request, Some(policy))?;
-    let report =
+    let (report, provider_background_workers) =
         execute_sort_with_consumer(request, policy, source, Some(&mut consume), cancellation)?;
     cancellation.check()?;
     let native_io_certificate = super::local_primitive_native_io_certificate(request, &report)?;
@@ -311,10 +311,14 @@ pub fn for_each_sort_batch(
     source.validate_generation()?;
     cancellation.check()?;
     session.record_completed_execution();
+    let mut runtime = session.snapshot();
+    runtime.provider_background_workers = runtime
+        .provider_background_workers
+        .max(provider_background_workers);
     Ok(ExecutedVortexSort {
         report,
         native_io_certificate,
-        runtime: session.snapshot(),
+        runtime,
     })
 }
 
@@ -342,7 +346,12 @@ pub fn execute_sort_native_result(
     let (arrays, ownership) = arrays.into_parts();
     let result = session.own_completed_arrays(arrays, ownership)?;
     cancellation.check()?;
+    let provider_background_workers = execution.runtime.provider_background_workers;
     execution.runtime = session.snapshot();
+    execution.runtime.provider_background_workers = execution
+        .runtime
+        .provider_background_workers
+        .max(provider_background_workers);
     Ok(ExecutedOwnedVortexSort { execution, result })
 }
 
@@ -404,8 +413,10 @@ fn execute_sort_with_sink(
             Some(&mut |array, context| sink.append_native(&array, context)),
             parent_cancellation,
         )
+        .map(|(report, _)| report)
     } else {
         execute_sort_with_consumer(request, policy, source, None, parent_cancellation)
+            .map(|(report, _)| report)
     }
 }
 
@@ -421,7 +432,7 @@ fn execute_sort_with_consumer(
     source: &PreparedVortexSource,
     mut consumer: Option<&mut SortConsumer<'_>>,
     parent_cancellation: &CancellationToken,
-) -> Result<super::VortexLocalPrimitiveExecutionReport> {
+) -> Result<(super::VortexLocalPrimitiveExecutionReport, usize)> {
     parent_cancellation.check()?;
     if request.kind != super::VortexQueryPrimitiveKind::SortRows {
         return Err(failed("requires a sort request"));
@@ -445,60 +456,76 @@ fn execute_sort_with_consumer(
         },
     );
     cancellation.check()?;
-    let report = session.with_native_execution_context(&cancellation, |context| {
-        source.with_admitted_native_execution(context, |file, context| {
-            let collect = consumer.is_some();
-            let columns =
-                super::projected_column_names(source.dtype(), &request.projection, request.kind)?;
-            let fields = columns
-                .iter()
-                .map(|name| {
-                    Ok((
-                        name.clone(),
-                        super::completed_result::source_field(source.dtype(), name)?,
-                    ))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            let mut consume = |array| {
-                consumer
-                    .as_mut()
-                    .ok_or_else(|| failed("sort sink is absent"))?(array, context)
-            };
-            let mut output = if collect {
-                Some(super::completed_result::CompletedRows::streaming_native(
-                    fields,
-                    context.memory(),
-                    2048,
-                    context.cancellation().clone(),
-                    &mut consume,
-                )?)
-            } else {
-                None
-            };
-            let generation = sort
-                .spill
-                .as_ref()
-                .map(|_| {
-                    super::sort_spill::SortSourceGeneration::capture(&path).map(std::sync::Arc::new)
-                })
-                .transpose()?;
-            let scan = super::read_opened_local_vortex_sort_rows_scan_with_output(
-                uri,
-                request,
-                policy,
-                output.as_mut(),
-                file,
-                context.native_session(),
-                context.runtime(),
-                generation.as_ref(),
-                Some(context),
-            )?;
-            super::sort_rows_report(request, &scan)
-                .map(|report| report.with_physical_policy(physical))
-        })
+    let execution = session.with_native_execution_context(&cancellation, |context| {
+        // The sort owns no separate compute pool. Drive provider tasks within
+        // this grant; existing persistent drivers are counted, not duplicated.
+        let (mut scan, drivers) = source.with_admitted_native_execution_temporary_drivers(
+            context,
+            |file, native_session, runtime| {
+                let collect = consumer.is_some();
+                let columns =
+                    super::projected_column_names(source.dtype(), &request.projection, request.kind)?;
+                let fields = columns
+                    .iter()
+                    .map(|name| {
+                        Ok((
+                            name.clone(),
+                            super::completed_result::source_field(source.dtype(), name)?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let mut consume = |array| {
+                    consumer
+                        .as_mut()
+                        .ok_or_else(|| failed("sort sink is absent"))?(array, context)
+                };
+                let mut output = if collect {
+                    Some(super::completed_result::CompletedRows::streaming_native(
+                        fields,
+                        context.memory(),
+                        2048,
+                        context.cancellation().clone(),
+                        &mut consume,
+                    )?)
+                } else {
+                    None
+                };
+                let generation = sort
+                    .spill
+                    .as_ref()
+                    .map(|_| {
+                        super::sort_spill::SortSourceGeneration::capture(&path).map(std::sync::Arc::new)
+                    })
+                    .transpose()?;
+                super::read_opened_local_vortex_sort_rows_scan_with_output(
+                    uri,
+                    request,
+                    policy,
+                    output.as_mut(),
+                    file,
+                    native_session,
+                    runtime,
+                    generation.as_ref(),
+                    Some(context),
+                )
+            },
+        )?;
+        let mut summary: serde_json::Value = serde_json::from_str(&scan.result_summary)
+            .map_err(|error| failed(&error.to_string()))?;
+        let work = summary
+            .as_object_mut()
+            .ok_or_else(|| failed("sort work report is not an object"))?;
+        work.insert("sort_provider_background_workers".into(), drivers.into());
+        work.insert(
+            "sort_provider_cpu_scope".into(),
+            "same_prepared_source;admitted_grant;temporary_drivers_joined_before_return;no_concurrent_sort_worker_pool;not_measured_utilization_or_io_threads".into(),
+        );
+        scan.result_summary = summary.to_string();
+        super::sort_rows_report(request, &scan)
+            .map(|report| (report.with_physical_policy(physical), drivers))
     })?;
     cancellation.check()?;
-    Ok(report)
+    Ok(execution)
 }
 
 fn failed(message: &str) -> ShardLoomError {
