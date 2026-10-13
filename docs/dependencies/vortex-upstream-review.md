@@ -15,7 +15,9 @@ external execution engine. The local evidence and acceptance status are
 recorded in the [sparse-filter follow-up report](../benchmarks/native-query-revisit-2026-10-12.md#october-13-sparse-zstd-filter-follow-up).
 The review correction removes frame-header reads from metadata reduction;
 the native parts constructor retains matching validated frames, dtype and
-all-valid slots with checked row totals. The existing `vortex-array` owner
+normalized all-valid slots with checked row totals. Explicit constant-true
+validity children collapse without payload reads when frames are retained.
+The existing `vortex-array` owner
 policy now also keeps owned filters as native views until explicit execution,
 preserving metadata allocation ownership through reduction and child extraction.
 

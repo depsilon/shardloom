@@ -8,7 +8,7 @@
 use vortex_array::arrays::filter::FilterReduce;
 use vortex_array::dtype::DType;
 use vortex_array::validity::Validity;
-use vortex_array::vtable::child_to_validity;
+use vortex_array::vtable::{child_to_validity, validity_to_child};
 use vortex_array::{Array, ArrayParts, ArrayRef, ArrayView, IntoArray};
 use vortex_error::{VortexResult, vortex_ensure, vortex_err};
 use vortex_mask::{AllOr, Mask};
@@ -98,12 +98,17 @@ impl FilterReduce for Zstd {
         );
         // SAFETY: retain each validated frame together with its unchanged
         // metadata and dictionary. kept_rows is their checked value-count sum;
-        // all rows are valid, and this fresh child is unsliced. The unchanged
-        // dtype and buffer-free validity slots therefore remain consistent.
+        // all rows are valid, and this fresh child is unsliced. Normalize the
+        // admitted validity so a constant-true source child cannot retain the
+        // original row count inside this smaller array. This reads no buffers.
         let array = unsafe {
             Array::from_parts_unchecked(
-                ArrayParts::new(Zstd, array.dtype().clone(), kept_rows, retained)
-                    .with_slots(array.slots().iter().cloned().collect()),
+                ArrayParts::new(Zstd, array.dtype().clone(), kept_rows, retained).with_slots(
+                    ZstdSlots {
+                        validity: validity_to_child(&validity, kept_rows),
+                    }
+                    .into_slots(),
+                ),
             )
         }
         .into_array();

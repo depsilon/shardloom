@@ -440,13 +440,17 @@ original mask length. Other arrays keep the existing native path. No payload
 copy, C implementation, or dependency was added. A later review correction
 removes compressed-header revalidation from reduction. It retains already
 validated immutable frames and their matching metadata through the native
-parts constructor, with checked row totals and unchanged all-valid slots.
+parts constructor, with checked row totals and normalized all-valid slots.
 The retained-child regression separately checks constructor invariants and
 buffer identity. The timing and Full43 cohorts below predate this correction.
 Owned filters also preserve the original metadata allocation owner until
-explicit execution, following the existing owned-slice policy. The final
-review correction passes all 2,700 native library tests (24 existing ignored),
+explicit execution, following the existing owned-slice policy. Those header-read
+and ownership corrections pass all 2,700 native library tests (24 existing ignored),
 including 32 codec tests and the before/after ownership regression.
+A subsequent review correction collapses explicit constant-true validity
+children to the native all-valid representation after retaining frames, so
+their old row count cannot survive inside a smaller array. All 33 codec tests
+pass, including whole/sliced nullable UTF-8 and binary serialization checks.
 
 The frozen 24-GiB protocol requested maximum parallelism 12; the 10-logical-CPU
 host admitted 10 lanes. The target is Q23 at requested parallelism 12. Across

@@ -271,6 +271,78 @@ fn native_zstd_sparse_text_filter_preserves_validated_frame_parts() {
 }
 
 #[test]
+fn native_zstd_sparse_filter_normalizes_explicit_all_valid_child() {
+    let (encoded, values) = text_fixture();
+    for dtype in [
+        DType::Utf8(Nullability::Nullable),
+        DType::Binary(Nullability::Nullable),
+    ] {
+        let validity = Validity::Array(
+            vortex::array::arrays::ConstantArray::new(true, encoded.len()).into_array(),
+        );
+        let input = Zstd::try_new(
+            dtype.clone(),
+            encoded.as_::<Zstd>().data().clone(),
+            validity,
+        )
+        .unwrap()
+        .into_array();
+        assert_eq!(input.slots().iter().flatten().next().unwrap().len(), 128);
+        for range in [0..128, 3..125] {
+            let start = range.start;
+            let len = range.len();
+            let filtered = input
+                .slice(range)
+                .unwrap()
+                .filter(Mask::from_indices(len, [0, len - 1]))
+                .unwrap();
+            let filter = filtered.as_::<Filter>();
+            let retained = filter.child();
+            assert_eq!(retained.len(), 16);
+            assert!(retained.slots().iter().all(Option::is_none));
+            retained
+                .as_::<Zstd>()
+                .data()
+                .validate(&dtype, retained.len(), &Validity::AllValid)
+                .unwrap();
+
+            let context = ArrayContext::empty();
+            let control = VortexSession::default();
+            let mut bytes = ByteBufferMut::empty();
+            for buffer in retained
+                .serialize(&context, &control, &SerializeOptions::default())
+                .unwrap()
+            {
+                bytes.extend_from_slice(buffer.as_ref());
+            }
+            let restored = SerializedArray::try_from(bytes.freeze())
+                .unwrap()
+                .decode(
+                    &dtype,
+                    retained.len(),
+                    &ReadContext::new(context.to_ids()),
+                    &control,
+                )
+                .unwrap();
+            assert!(restored.slots().iter().all(Option::is_none));
+            let memory = LiveMemoryPool::new(16 << 20).unwrap();
+            let output = restored
+                .filter(filter.data().filter_mask().clone())
+                .unwrap()
+                .execute::<VarBinViewArray>(&mut session(&memory).create_execution_ctx())
+                .unwrap();
+            assert_eq!(output.dtype(), &dtype);
+            assert_eq!(output.len(), 2);
+            for (row, original) in [start, start + len - 1].into_iter().enumerate() {
+                assert_eq!(output.bytes_at(row).as_slice(), values[original].as_bytes());
+            }
+            drop(output);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
 fn native_zstd_sparse_text_filter_retains_source_metadata_owner() {
     let (encoded, _) = text_fixture();
     let owner = Arc::new(());
