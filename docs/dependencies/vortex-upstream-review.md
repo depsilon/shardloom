@@ -20,6 +20,8 @@ validity children collapse without payload reads when frames are retained.
 The existing `vortex-array` owner
 policy now also keeps owned filters as native views until explicit execution,
 preserving metadata allocation ownership through reduction and child extraction.
+At execution it applies deferred filter reductions while retaining the original
+view through canonical execution, so transferred arrays also skip unused frames.
 
 ## October 12, 2026 encoded-transfer ownership hook
 

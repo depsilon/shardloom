@@ -451,6 +451,15 @@ A subsequent review correction collapses explicit constant-true validity
 children to the native all-valid representation after retaining frames, so
 their old row count cannot survive inside a smaller array. All 33 codec tests
 pass, including whole/sliced nullable UTF-8 and binary serialization checks.
+A further correction applies deferred reductions at the execution boundary for
+owned filters and their nested slices. The original view stays alive through
+canonical execution. A new regression fails on the prior code because full-frame
+decoding exceeds the ownerless sparse path's measured allocation budget; the
+corrected owned path fits that same budget. An allocator checks that the source
+owner remains alive during execution, with release checks after denial, retry
+and malformed-metadata rejection. All 35 codec tests pass. The final correction
+also passes all 2,703 native library tests (24 existing ignored), 1,068 public
+CLI tests, the 3,219 default workspace tests, formatting and native/default Clippy.
 
 The frozen 24-GiB protocol requested maximum parallelism 12; the 10-logical-CPU
 host admitted 10 lanes. The target is Q23 at requested parallelism 12. Across

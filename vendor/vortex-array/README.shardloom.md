@@ -31,6 +31,10 @@ requires independently retained buffer ownership; raw dtype/data clones are not
 covered. This adds no unsafe code, serialized field or encoding identity.
 `src/arrays/slice/vtable.rs` reduces the retained view at explicit execution,
 preventing repeated slice reconstruction when its child is already canonical.
+Owned filters also retain their native parent until explicit execution.
+`src/arrays/filter/vtable.rs` then applies the deferred reductions while keeping
+the original view alive through canonical execution, preserving sparse-frame
+skipping and metadata ownership together.
 Structural buffer reconstruction preserves an owner supplied by its provider
 and rejects conflicting owners. On the tested 64-bit target, the hook adds
 16 bytes to each common array allocation; `ArrayRef` remains 16 bytes.

@@ -1,5 +1,31 @@
 use super::*;
+use vortex::array::memory::{HostAllocator, WritableHostBuffer};
 use vortex::mask::Mask;
+
+#[derive(Debug)]
+struct OwnerCheckingAllocator {
+    inner: crate::owned_buffers::ReservedHostAllocator,
+    owner: std::sync::Weak<()>,
+}
+
+impl HostAllocator for OwnerCheckingAllocator {
+    fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
+        assert!(
+            self.owner.upgrade().is_some(),
+            "source owner dropped during execution"
+        );
+        self.inner.allocate(len, alignment)
+    }
+}
+
+fn owner_checking_session(memory: &LiveMemoryPool, owner: std::sync::Weak<()>) -> VortexSession {
+    let session = VortexSession::default().with_allocator(Arc::new(OwnerCheckingAllocator {
+        inner: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+        owner,
+    }));
+    install(&session, memory.clone());
+    session
+}
 
 fn text_fixture() -> (ArrayRef, Vec<String>) {
     let values: Vec<_> = (0..128)
@@ -51,6 +77,75 @@ fn native_zstd_sparse_text_filter_skips_unused_frame_allocations() {
     assert!(memory.snapshot().reserved_bytes > 0);
     drop(retained);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn native_zstd_owned_sparse_filter_keeps_frame_savings_and_owner_through_retry() {
+    for (range, retain_before_slice) in [(0..128, false), (3..125, false), (3..125, true)] {
+        let start = range.start;
+        let len = range.len();
+        let selected = [0, len - 1];
+        let (encoded, values) = text_fixture();
+        let input = encoded.slice(range.clone()).unwrap();
+        let memory = LiveMemoryPool::new(16 << 20).unwrap();
+        let output = input
+            .filter(Mask::from_indices(len, selected))
+            .unwrap()
+            .execute::<VarBinViewArray>(&mut session(&memory).create_execution_ctx())
+            .unwrap();
+        let sparse_peak = memory.snapshot().peak_reserved_bytes;
+        assert!(sparse_peak > 0);
+        drop(output);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+        let owner = Arc::new(());
+        let weak = Arc::downgrade(&owner);
+        let input = if retain_before_slice {
+            drop(input);
+            encoded
+                .with_retained_owner(owner)
+                .unwrap()
+                .slice(range)
+                .unwrap()
+        } else {
+            drop(encoded);
+            input.with_retained_owner(owner).unwrap()
+        };
+        let filtered = input.filter(Mask::from_indices(len, selected)).unwrap();
+        drop(input);
+        assert!(weak.upgrade().is_some());
+
+        let denied = LiveMemoryPool::new(1).unwrap();
+        let error = filtered
+            .clone()
+            .execute::<VarBinViewArray>(
+                &mut owner_checking_session(&denied, weak.clone()).create_execution_ctx(),
+            )
+            .unwrap_err();
+        assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
+        assert_eq!(denied.snapshot().reserved_bytes, 0);
+        assert!(weak.upgrade().is_some());
+
+        // The owned path must fit the same measured allocation envelope as the
+        // ownerless path; decoding the omitted frames exceeds this budget.
+        let memory = LiveMemoryPool::new(sparse_peak).unwrap();
+        let output = filtered
+            .execute::<VarBinViewArray>(
+                &mut owner_checking_session(&memory, weak.clone()).create_execution_ctx(),
+            )
+            .unwrap();
+        assert_eq!(output.len(), selected.len());
+        for (row, original) in selected.into_iter().enumerate() {
+            assert_eq!(
+                output.bytes_at(row).as_slice(),
+                values[start + original].as_bytes()
+            );
+        }
+        assert_eq!(memory.snapshot().peak_reserved_bytes, sparse_peak);
+        assert!(weak.upgrade().is_none());
+        drop(output);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 }
 
 #[test]
@@ -361,7 +456,12 @@ fn native_zstd_sparse_text_filter_retains_source_metadata_owner() {
 
 #[test]
 fn native_zstd_owned_filters_execute_dense_and_empty_masks_and_release_owner() {
-    for selected in [Vec::new(), (0..128).collect(), vec![1, 126]] {
+    for selected in [
+        Vec::new(),
+        (0..128).collect(),
+        (0..64).collect(),
+        vec![1, 126],
+    ] {
         let (encoded, values) = text_fixture();
         let owner = Arc::new(());
         let weak = Arc::downgrade(&owner);
@@ -406,5 +506,40 @@ fn native_zstd_sparse_text_filter_rejects_inconsistent_frame_value_counts() {
             .filter(Mask::from_indices(128, [1, 126]))
             .unwrap_err();
         assert!(error.to_string().contains("Zstd frame"));
+    }
+}
+
+#[test]
+fn native_zstd_owned_filter_reduction_error_releases_owner() {
+    let (encoded, _) = text_fixture();
+    for count in [0, 9, u64::MAX] {
+        let mut parts = encoded
+            .as_::<Zstd>()
+            .data()
+            .clone()
+            .into_parts(Validity::NonNullable);
+        parts.metadata.frames[0].n_values = count;
+        let owner = Arc::new(());
+        let weak = Arc::downgrade(&owner);
+        let malformed = Zstd::try_new(
+            encoded.dtype().clone(),
+            ZstdData::new(parts.dictionary, parts.frames, parts.metadata, parts.n_rows),
+            parts.validity,
+        )
+        .unwrap()
+        .into_array()
+        .with_retained_owner(owner)
+        .unwrap();
+        let filtered = malformed.filter(Mask::from_indices(128, [1, 126])).unwrap();
+        drop(malformed);
+        let memory = LiveMemoryPool::new(16 << 20).unwrap();
+        let error = filtered
+            .execute::<VarBinViewArray>(
+                &mut owner_checking_session(&memory, weak.clone()).create_execution_ctx(),
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("Zstd frame"));
+        assert!(weak.upgrade().is_none());
+        assert_eq!(memory.snapshot().peak_reserved_bytes, 0);
     }
 }

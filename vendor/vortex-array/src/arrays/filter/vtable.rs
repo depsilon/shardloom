@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// ShardLoom modification: apply owned filter reductions at explicit execution.
 
 use std::hash::Hasher;
 use std::sync::Arc;
@@ -39,6 +40,7 @@ use crate::buffer::BufferHandle;
 use crate::dtype::DType;
 use crate::executor::ExecutionCtx;
 use crate::executor::ExecutionResult;
+use crate::optimizer::ArrayOptimizer;
 use crate::require_child;
 use crate::scalar::Scalar;
 use crate::serde::ArrayChildren;
@@ -154,6 +156,17 @@ impl VTable for Filter {
     fn execute(array: Array<Self>, ctx: &mut ExecutionCtx) -> VortexResult<ExecutionResult> {
         if let Some(canonical) = execute_filter_fast_paths(array.as_view(), ctx)? {
             return Ok(ExecutionResult::done(canonical));
+        }
+        if array.as_ref().dyn_array().retained_owner().is_some() {
+            let optimized = array.as_ref().optimize_recursive(ctx.session())?;
+            if !ArrayRef::ptr_eq(array.as_ref(), &optimized) {
+                // Owned filters and nested slices defer metadata reduction. Keep
+                // the original view alive while the reduced tree executes so
+                // copied encoding metadata cannot outlive its allocation owner.
+                let result = optimized.execute_until::<AnyCanonical>(ctx);
+                drop(array);
+                return result.map(ExecutionResult::done);
+            }
         }
         let mask_values = match &array.mask {
             Mask::Values(v) => Arc::clone(v),
