@@ -1075,14 +1075,23 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     pairs, and all controls and preset timing/RSS gates pass. Default/native
     tests and cumulative Full43 also pass; see the [follow-up report](../benchmarks/native-query-revisit-2026-10-12.md#october-13-filtered-count-follow-up).
     The measured five-file source tree was rebased unchanged from `67f3296d` to
-    local `eb1b5a0f` after prerequisite PR #1545 merged at `3089c8aa`; this
-    count change remains unmerged and hosted CI is pending. A second October 13
+    local `eb1b5a0f` after prerequisite PR #1545 merged at `3089c8aa`. The
+    combined implementation and hosted checks are tracked in [PR #1547](https://github.com/depsilon/shardloom/pull/1547).
+    A second October 13
     follow-up retains bounded sparse Zstd frame filtering for eligible native
     UTF-8/binary predicates: Q23 wall time improves in 10/10 pairs, all five
     controls and target CPU/RSS/timing gates pass, codec/IPC/default checks pass,
     and cumulative Full43 passes 129 calls/1,143 rows with unchanged schemas,
-    source hashes and retained input. That provider patch also remains unmerged
-    with hosted CI pending; see the [sparse-filter report](../benchmarks/native-query-revisit-2026-10-12.md#october-13-sparse-zstd-filter-follow-up).
+    source hashes and retained input. The provider patch is included in that
+    same PR; see the [sparse-filter report](../benchmarks/native-query-revisit-2026-10-12.md#october-13-sparse-zstd-filter-follow-up).
+    The subsequent one-pass Zstd text-view trial is dropped: all 70 complete
+    results pass, but Q29's primary median and eight-of-ten repeatability
+    miss its frozen gates, and Q2 misses its control timing limit. The two
+    retained optimizations and their ownership/validity corrections remain
+    the selected source; see the [view-reconstruction decision](../benchmarks/native-query-revisit-2026-10-12.md#october-13-zstd-view-reconstruction-dropped).
+    Final acceptance of that corrected source passes all 129 Full43 calls,
+    1,143 complete rows and source/input/resource/cleanup checks; see the
+    [retained-source acceptance](../benchmarks/native-query-revisit-2026-10-12.md#final-october-13-retained-source-acceptance).
     PERF-03 remains open.
   - Execution checklist:
     - [ ] Extend shared admission to remaining Vortex I/O/codec/operator work
