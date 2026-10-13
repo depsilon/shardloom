@@ -352,7 +352,19 @@ def main() -> int:
 
         def save_summary() -> None:
             summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
-            guard()
+            try:
+                guard()
+            except StorageGuardError as error:
+                reason = str(error)
+                summary.update(
+                    complete=False,
+                    full_result_validation=False,
+                    status="failed",
+                    storage_error=reason,
+                    failure="storage budget rejected: " + reason,
+                )
+                summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+                raise
 
         summary = {
             "schema_version": "shardloom.clickbench.public_result_regression.v1",

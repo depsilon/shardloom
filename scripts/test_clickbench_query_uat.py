@@ -167,17 +167,36 @@ class ClickBenchUatTests(unittest.TestCase):
             self.assertFalse((Path(directory) / "uat/.ingest-uat.lock").exists())
 
     def test_final_query_summary_budget_failure_cannot_return_success(self):
-        def deny_completed_summary(root, target, logs, **limits):
-            summary = logs / "summary.json"
-            if summary.is_file() and json.loads(summary.read_text()).get("completed_identity_check"):
-                raise StorageGuardError("UAT active run log budget exceeded after final summary")
-            return check_budgets(root, target, logs, **limits)
-        with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaisesRegex(StorageGuardError, "after final summary"):
-                self._run_mocked_single(Path(directory), budget_probe=deny_completed_summary)
-            summary = json.loads(next((Path(directory) / "uat/logs").glob("*/summary.json")).read_text())
-            self.assertEqual(len(summary["records"]), 3)
-            self.assertFalse((Path(directory) / "uat/.ingest-uat.lock").exists())
+        for label, guard_failure in (
+            ("retained log ceiling", "UAT retained log budget exceeded after final summary"),
+            ("active run ceiling", "UAT active run log budget exceeded after final summary"),
+        ):
+            with self.subTest(ceiling=label), tempfile.TemporaryDirectory() as directory:
+                def deny_completed_summary(root, target, logs, **limits):
+                    summary_path = logs / "summary.json"
+                    if (summary_path.is_file()
+                            and json.loads(summary_path.read_text()).get("completed_identity_check")):
+                        raise StorageGuardError(guard_failure)
+                    return check_budgets(root, target, logs, **limits)
+
+                with self.assertRaisesRegex(StorageGuardError, "after final summary"):
+                    self._run_mocked_single(Path(directory), budget_probe=deny_completed_summary)
+                summary = json.loads(
+                    next((Path(directory) / "uat/logs").glob("*/summary.json")).read_text()
+                )
+                self.assertFalse(summary["complete"])
+                self.assertFalse(summary["full_result_validation"])
+                self.assertEqual(summary["status"], "failed")
+                self.assertEqual(summary["storage_error"], guard_failure)
+                self.assertEqual(summary["failure"], "storage budget rejected: " + guard_failure)
+                self.assertEqual(len(summary["records"]), 3)
+                self.assertTrue(all(record["passed"] for record in summary["records"]))
+                self.assertTrue(summary["completed_identity_check"])
+                self.assertTrue(summary["reference_packet_identity_verified"])
+                self.assertTrue(summary["harness_identity_verified"])
+                self.assertIn("source_generation", summary)
+                self.assertIn("binary_sha256", summary)
+                self.assertFalse((Path(directory) / "uat/.ingest-uat.lock").exists())
 
     def test_single_packet_or_harness_identity_change_fails_and_keeps_records(self):
         for mutation in ("packet", "harness"):
