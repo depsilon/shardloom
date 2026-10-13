@@ -11,11 +11,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import signal
 import sys
 from pathlib import Path
 
-from local_uat_storage import GIB, MIB, check_budgets, require_local_path
+from local_uat_storage import (
+    GIB, MIB, StorageGuardError, add_log_budget_arguments, check_budgets, require_local_path,
+)
 from run_clickbench_paired_query_uat import generation
 from run_clickbench_query_uat import run_profiled_command
 
@@ -27,6 +30,7 @@ def main() -> int:
     parser.add_argument('--name', required=True, help='unique alphanumeric/hyphen log name')
     parser.add_argument('--input', type=Path, action='append', default=[], help='additional read-only script or executable input')
     parser.add_argument('--timeout-seconds', type=int, default=600)
+    add_log_budget_arguments(parser)
     parser.add_argument('command', nargs=argparse.REMAINDER)
     args = parser.parse_args()
     if not args.name.replace('-', '').isalnum() or len(args.name) > 100:
@@ -53,8 +57,10 @@ def main() -> int:
         parser.error('all --input values must be existing regular files')
     def guard():
         return check_budgets(root, source, logs, min_free_bytes=12 * GIB,
-            reserve_bytes=0, max_workspace_bytes=100 * GIB, max_log_bytes=256 * MIB)
-    guard()
+            reserve_bytes=0, max_workspace_bytes=100 * GIB,
+            max_log_bytes=math.floor(args.max_log_mib * MIB),
+            max_run_log_bytes=math.floor(args.max_run_log_mib * MIB))
+    storage_preflight = guard()
     lock = root / '.ingest-uat.lock'
     lock.mkdir()
     def interrupted(_signum, _frame):
@@ -76,9 +82,20 @@ def main() -> int:
         result = run_profiled_command(command, logs / 'proof', args.timeout_seconds, guard)
         after = {str(p): generation(p) for p in inputs}
         receipt = {'command': command, 'binary_sha256': binary_hash,
+            'storage_preflight': storage_preflight,
             'additional_input_sha256': input_hashes, 'inputs_before': before,
-            'inputs_after': after, 'unchanged': before == after, 'result': result}
+            'inputs_after': after, 'unchanged': before == after, 'result': result,
+            'status': 'passed' if before == after and result['returncode'] == 0
+                and not result['guard_failures'] else 'failed'}
         (logs / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+        try:
+            guard()
+        except StorageGuardError as error:
+            receipt['status'] = 'failed'
+            receipt['storage_error'] = str(error)
+            result['guard_failures'].append(str(error))
+            (logs / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+            raise
         print(json.dumps({'logs': str(logs), **receipt}), flush=True)
         return 0 if before == after and result['returncode'] == 0 and not result['guard_failures'] else 1
     finally:

@@ -26,7 +26,8 @@ source_residency_check="${SHARDLOOM_CLICKBENCH_UAT_SOURCE_RESIDENCY_CHECK:-true}
 source_residency_min_gb="${SHARDLOOM_CLICKBENCH_UAT_SOURCE_RESIDENCY_MIN_GB:-1}"
 min_free_gib="${SHARDLOOM_CLICKBENCH_UAT_MIN_FREE_GIB:-12}"
 max_workspace_gib="${SHARDLOOM_CLICKBENCH_UAT_MAX_WORKSPACE_GIB:-100}"
-max_log_mib="${SHARDLOOM_CLICKBENCH_UAT_MAX_LOG_MIB:-256}"
+# The Python guard owns defaults and environment handling for both log budgets.
+unset max_log_mib max_run_log_mib
 
 usage() {
   cat <<'USAGE'
@@ -46,7 +47,8 @@ Options:
   --max-artifact-gb N
   --min-free-gib N          Keep this much disk headroom (default 12)
   --max-workspace-gib N     Bound retained UAT files across runs (default 100)
-  --max-log-mib N           Bound retained logs across runs (default 256)
+  --max-log-mib N           Bound retained logs across runs (default 1024)
+  --max-run-log-mib N       Bound logs for this run (default 256)
   --stable-artifact-seconds N
   --stable-artifact-min-gb N
   --idle-cpu-percent N
@@ -72,6 +74,7 @@ while [[ $# -gt 0 ]]; do
     --min-free-gib) min_free_gib="$2"; shift 2 ;;
     --max-workspace-gib) max_workspace_gib="$2"; shift 2 ;;
     --max-log-mib) max_log_mib="$2"; shift 2 ;;
+    --max-run-log-mib) max_run_log_mib="$2"; shift 2 ;;
     --stable-artifact-seconds) stable_artifact_seconds="$2"; shift 2 ;;
     --stable-artifact-min-gb) stable_artifact_min_gb="$2"; shift 2 ;;
     --idle-cpu-percent) idle_cpu_percent="$2"; shift 2 ;;
@@ -98,8 +101,13 @@ native_pid_path="$log_dir/native.pid"
 # Refuse unsafe destinations before creating directories or replacing anything.
 storage_guard=(python3 "$repo_root/scripts/local_uat_storage.py"
   --root "$uat_root" --source "$source_path" --target "$target_path" --logs "$log_dir"
-  --min-free-gib "$min_free_gib" --max-workspace-gib "$max_workspace_gib"
-  --max-log-mib "$max_log_mib")
+  --min-free-gib "$min_free_gib" --max-workspace-gib "$max_workspace_gib")
+if [[ "${max_log_mib+set}" == "set" ]]; then
+  storage_guard+=(--max-log-mib "$max_log_mib")
+fi
+if [[ "${max_run_log_mib+set}" == "set" ]]; then
+  storage_guard+=(--max-run-log-mib "$max_run_log_mib")
+fi
 "${storage_guard[@]}" --paths-only
 "${storage_guard[@]}" --reserve-gib "$max_artifact_gb"
 
@@ -448,6 +456,22 @@ cat > "$summary_path" <<JSON
   "stdout_json_ok": $stdout_json_ok
 }
 JSON
+
+# The final summary is retained evidence too. A completed child must not turn
+# a last-write budget overrun into a successful run.
+if ! "${storage_guard[@]}" > /dev/null 2> "$log_dir/storage_error.txt"; then
+  returncode=78
+  python3 - "$summary_path" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+summary = json.loads(path.read_text())
+summary.update(returncode=78, stop_reason="storage_budget_guard_failed")
+path.write_text(json.dumps(summary, indent=2) + "\n")
+PY
+fi
 
 printf 'SUMMARY '
 cat "$summary_path"

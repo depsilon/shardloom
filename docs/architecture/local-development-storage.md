@@ -319,7 +319,9 @@ Before creating logs or replacing an artifact, the runner:
 3. Checks existing workspace bytes plus a candidate reservation against 100 GiB.
 4. Reserves the configured maximum artifact size, interpreted conservatively as
    GiB for admission, plus 12 GiB of free disk headroom.
-5. Rejects more than 256 MiB of accumulated logs.
+5. Rejects more than 1 GiB of accumulated logs or 256 MiB in the active run's
+   log directory. Retained history counts toward the first budget, including
+   archived and failed-run evidence; it does not consume the active-run budget.
 6. Takes an exclusive workspace lock before running the writer. A stale lock after
    a crash requires inspection; it is not deleted automatically.
 
@@ -341,11 +343,32 @@ backups, source files, numbered copies, or unknown staging files. Existing stagi
 files remain visible to artifact/workspace accounting and require explicit review.
 
 The limits can be set explicitly with `--min-free-gib`,
-`--max-workspace-gib`, and `--max-log-mib`, or the corresponding
+`--max-workspace-gib`, `--max-log-mib` (retained history plus active logs), and
+`--max-run-log-mib` (active directory only), or the corresponding
 `SHARDLOOM_CLICKBENCH_UAT_*` environment variables. The existing artifact limit
 and runtime limit also remain in effect. The workspace count uses the larger of
 logical and allocated file bytes, counts hardlinks once, and does not follow
 arbitrary directory symlinks.
+
+The October 13 policy adjustment separates retained evidence from excessive
+output in one run. The shared defaults are 1,024 MiB retained and 256 MiB active,
+with finite nonnegative overrides; an explicit flag takes precedence over its
+environment variable. Single and paired ClickBench query runners and the local
+read-only proof runner use the same policy. Query compression and paired summary
+writes reserve their temporary bytes against both log budgets as well as disk
+and workspace space. The query watchdog's separate 8-MiB per-command output
+ceiling, free-disk headroom, workspace limits, child cleanup and exclusive lock
+remain in force. Storage snapshots record both limits and counters. These are
+sampled watchdog limits, so a writer can overshoot before it is stopped.
+The final summary or receipt is checked before success is reported; exceeding
+either log budget at that last write fails the run and retains its evidence.
+
+The earlier dated reports retain the ceilings used for those observations.
+Runners with their own experiment-specific 192/250/256-MiB budgets keep those
+explicit limits; this policy does not reinterpret old manifests or increase
+their budgets. Future ClickBench drivers should use the shared argument helper
+and pass both budgets instead of duplicating the old 252-MiB admission constant.
+No automatic deletion accompanies the larger retained-history allowance.
 
 These are sampled watchdog ceilings, not an APFS quota or an allocator guarantee.
 Writes can overshoot between samples. They do not impose a limit on iCloud,

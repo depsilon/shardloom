@@ -199,8 +199,11 @@ entirely missing tests.
 4. Keep one generated full-size artifact at a time under the existing storage
    guard. Complete exact value/schema validation and required metadata/query
    checks before durable proof and exact owned-file retirement. Preserve failed
-   evidence; never weaken the 100 GiB workspace, 256 MiB logs or source-residency
-   checks to obtain a result.
+   evidence; never weaken the workspace, active-run log or source-residency
+   checks to obtain a result. The [current storage policy](local-development-storage.md#ingest-guard)
+   separates the October 13 authorized 1-GiB retained-log allowance from the
+   unchanged 256-MiB active-run and 100-GiB workspace limits. Earlier observations
+   retain their original cumulative 256-MiB ceiling.
 5. Publish a cohesive evidence packet with source/native-binary/build identities,
    complete-process and query clocks separately, proof scope, all regressions and
    outstanding limits. If the measured opportunity is marginal, record the drop

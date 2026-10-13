@@ -24,7 +24,9 @@ import sys
 import threading
 import time
 
-from local_uat_storage import GIB, MIB, StorageGuardError, check_budgets, require_local_path
+from local_uat_storage import (
+    GIB, MIB, StorageGuardError, add_log_budget_arguments, check_budgets, require_local_path,
+)
 from native_workflow_protocol import extract_result, public_workflow_command, report_fields, strict_json
 from clickbench_reference_packet import load_reference_packet, query_statements
 
@@ -290,6 +292,7 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("--query-ids", help="comma-separated targeted query ids; never a full-suite score")
     parser.add_argument("--compress-logs", action="store_true", help="losslessly archive each completed stdout/stderr after validation, within the unchanged log budget")
+    add_log_budget_arguments(parser)
     args = parser.parse_args()
     if args.reference_override is not None and args.reference_packet is not None:
         parser.error("--reference-override can only be used with --reference-dir")
@@ -306,10 +309,14 @@ def main() -> int:
     logs = root / "logs" / f"full43_{stamp}"
 
     def guard(reserve_log_bytes=0):
-        check_budgets(root, source, logs, min_free_bytes=12 * GIB, reserve_bytes=reserve_log_bytes,
-                      max_workspace_bytes=100 * GIB, max_log_bytes=256 * MIB - reserve_log_bytes)
+        return check_budgets(
+            root, source, logs, min_free_bytes=12 * GIB, reserve_bytes=reserve_log_bytes,
+            max_workspace_bytes=100 * GIB, max_log_bytes=math.floor(args.max_log_mib * MIB),
+            max_run_log_bytes=math.floor(args.max_run_log_mib * MIB),
+            reserve_log_bytes=reserve_log_bytes,
+        )
 
-    guard()
+    storage_preflight = guard()
     root.mkdir(parents=True, exist_ok=True)
     lock = root / ".ingest-uat.lock"
     lock.mkdir()  # Deliberately shared with ingest: no overlapping large UAT.
@@ -345,6 +352,19 @@ def main() -> int:
 
         def save_summary() -> None:
             summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+            try:
+                guard()
+            except StorageGuardError as error:
+                reason = str(error)
+                summary.update(
+                    complete=False,
+                    full_result_validation=False,
+                    status="failed",
+                    storage_error=reason,
+                    failure="storage budget rejected: " + reason,
+                )
+                summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+                raise
 
         summary = {
             "schema_version": "shardloom.clickbench.public_result_regression.v1",
@@ -356,6 +376,11 @@ def main() -> int:
                                   "ctime_ns": identity.st_ctime_ns},
             "machine": platform.machine(), "cpu_count": os.cpu_count(),
             "memory_gb": args.memory_gb, "max_parallelism": args.max_parallelism,
+            "storage_preflight": storage_preflight,
+            "log_budget_bytes": {
+                "retained": math.floor(args.max_log_mib * MIB),
+                "active_run": math.floor(args.max_run_log_mib * MIB),
+            },
             "timing_boundary": "native process creation through completed public CLI output and process exit",
             "cpu_timing_boundary": "native child CPU work; overlaps wall time and other worker CPU",
             "selected_query_ids": selected,
@@ -416,7 +441,6 @@ def main() -> int:
                 summary.update(score(records, 43, selected))
                 summary["full_result_validation"] = len(records) == 129 and all(record.get("validation") == "complete_values" for record in records)
                 save_summary()
-                guard()
                 print(json.dumps(result), flush=True)
                 if not result["passed"]:
                     return 1

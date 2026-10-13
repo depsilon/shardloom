@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 import run_local_readonly_proof as proof
+from local_uat_storage import MIB, StorageGuardError, accounted_bytes
 
 
 class ReadonlyProofTests(unittest.TestCase):
@@ -34,6 +35,7 @@ class ReadonlyProofTests(unittest.TestCase):
     def test_success_records_source_and_executable_and_releases_lock(self):
         self.assertEqual(self.run_main(self.result), 0)
         receipt = json.loads((self.root / 'logs/readonly-proof-test/receipt.json').read_text())
+        self.assertEqual(receipt['status'], 'passed')
         self.assertTrue(receipt['unchanged'])
         self.assertEqual(receipt['inputs_before'], receipt['inputs_after'])
         self.assertIn(str(Path(sys.executable).resolve()), receipt['inputs_before'])
@@ -45,6 +47,40 @@ class ReadonlyProofTests(unittest.TestCase):
             return self.result(*args)
         self.assertEqual(self.run_main(change), 1)
         self.assertFalse((self.root / '.ingest-uat.lock').exists())
+
+    def test_final_receipt_cannot_exceed_either_log_budget_on_success(self):
+        probe = self.root / 'allocation-probe'
+        probe.write_bytes(b'x')
+        cap = 3 * accounted_bytes(probe)
+        probe.unlink()
+        for flag in ('--max-run-log-mib', '--max-log-mib'):
+            with self.subTest(flag=flag):
+                root = self.root / flag.removeprefix('--')
+                root.mkdir()
+                argv = list(self.args)
+                argv[argv.index('--uat-root') + 1] = str(root)
+                argv[1:1] = [flag, str(cap / MIB)]
+                def profiled(_command, prefix, _timeout, guard):
+                    for suffix in ('.stdout.json', '.timing.json', '.pid'):
+                        prefix.with_suffix(suffix).write_bytes(b'x')
+                    guard()  # The completed child files fit exactly.
+                    return {'returncode': 0, 'guard_failures': []}
+                with (patch.object(sys, 'argv', argv),
+                      patch('local_uat_storage.available_bytes', return_value=1 << 40),
+                      patch.object(proof, 'run_profiled_command', side_effect=profiled),
+                      contextlib.redirect_stdout(io.StringIO()),
+                      self.assertRaisesRegex(StorageGuardError, 'log budget exceeded')):
+                    proof.main()
+                logs = root / 'logs/readonly-proof-test'
+                self.assertGreater(accounted_bytes(logs), cap)
+                self.assertTrue((logs / 'receipt.json').is_file())
+                receipt = json.loads((logs / 'receipt.json').read_text())
+                self.assertEqual(receipt['status'], 'failed')
+                self.assertIn('log budget exceeded', receipt['storage_error'])
+                self.assertEqual(receipt['result']['returncode'], 0)
+                self.assertIn(receipt['storage_error'], receipt['result']['guard_failures'])
+                self.assertEqual(self.source.read_text(), 'original')
+                self.assertFalse((root / '.ingest-uat.lock').exists())
 
     def test_failed_child_or_guard_fails(self):
         self.assertEqual(self.run_main(lambda *_: {'returncode': 1, 'guard_failures': ['failed']}), 1)
