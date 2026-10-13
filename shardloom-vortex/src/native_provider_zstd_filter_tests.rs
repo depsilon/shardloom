@@ -226,6 +226,94 @@ fn native_zstd_sparse_text_filter_round_trips_retained_native_frames() {
 }
 
 #[test]
+fn native_zstd_sparse_text_filter_preserves_validated_frame_parts() {
+    let (encoded, _) = text_fixture();
+    let source = encoded.as_::<Zstd>();
+    let source_parts = source.data().clone().into_parts(Validity::NonNullable);
+    for range in [0..128, 3..125] {
+        let len = range.len();
+        let filtered = encoded
+            .slice(range)
+            .unwrap()
+            .filter(Mask::from_indices(len, [0, len - 1]))
+            .unwrap();
+        let filter = filtered.as_::<Filter>();
+        let child = filter.child();
+        let retained = child.as_::<Zstd>();
+        let parts = retained.data().clone().into_parts(Validity::NonNullable);
+        assert_eq!(retained.len(), 16);
+        assert_eq!(retained.dtype(), source.dtype());
+        assert_eq!(parts.frames.len(), 2);
+        assert_eq!(parts.metadata.frames.len(), 2);
+        for (index, original) in [0, 15].into_iter().enumerate() {
+            assert_eq!(
+                parts.frames[index].as_ptr(),
+                source_parts.frames[original].as_ptr()
+            );
+            assert_eq!(
+                (
+                    parts.metadata.frames[index].n_values,
+                    parts.metadata.frames[index].uncompressed_size
+                ),
+                (
+                    source_parts.metadata.frames[original].n_values,
+                    source_parts.metadata.frames[original].uncompressed_size
+                )
+            );
+        }
+        // Validation is explicit here, outside metadata-only reduction. The
+        // retained child must still satisfy every native constructor invariant.
+        retained
+            .data()
+            .validate(retained.dtype(), retained.len(), &Validity::NonNullable)
+            .unwrap();
+    }
+}
+
+#[test]
+fn native_zstd_sparse_text_filter_retains_source_metadata_owner() {
+    let (encoded, _) = text_fixture();
+    let owner = Arc::new(());
+    let weak = Arc::downgrade(&owner);
+    let input = encoded.with_retained_owner(owner).unwrap();
+    let filtered = input.filter(Mask::from_indices(128, [1, 126])).unwrap();
+    drop(input);
+    assert!(weak.upgrade().is_some());
+    let filter = filtered.as_::<Filter>();
+    let child = filter.child().clone();
+    drop(filtered);
+    assert!(weak.upgrade().is_some());
+    drop(child);
+    assert!(weak.upgrade().is_none());
+}
+
+#[test]
+fn native_zstd_owned_filters_execute_dense_and_empty_masks_and_release_owner() {
+    for selected in [Vec::new(), (0..128).collect(), vec![1, 126]] {
+        let (encoded, values) = text_fixture();
+        let owner = Arc::new(());
+        let weak = Arc::downgrade(&owner);
+        let input = encoded.with_retained_owner(owner).unwrap();
+        let filtered = input
+            .filter(Mask::from_indices(128, selected.iter().copied()))
+            .unwrap();
+        drop(input);
+        assert!(weak.upgrade().is_some());
+        let memory = LiveMemoryPool::new(16 << 20).unwrap();
+        let output = filtered
+            .execute::<VarBinViewArray>(&mut session(&memory).create_execution_ctx())
+            .unwrap();
+        assert_eq!(output.len(), selected.len());
+        for (row, original) in selected.into_iter().enumerate() {
+            assert_eq!(output.bytes_at(row).as_slice(), values[original].as_bytes());
+        }
+        assert!(weak.upgrade().is_none());
+        drop(output);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
 fn native_zstd_sparse_text_filter_rejects_inconsistent_frame_value_counts() {
     let (encoded, _) = text_fixture();
     for count in [0, 9, u64::MAX] {

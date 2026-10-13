@@ -437,7 +437,16 @@ and uses the unchanged native decoder. Admission is limited to 2–64 frames,
 at most 4,096 selected rows and one eighth of logical rows, with at least one
 touched frame skipped and retained complete-frame rows no greater than the
 original mask length. Other arrays keep the existing native path. No payload
-copy, new unsafe/C implementation, or dependency was added.
+copy, C implementation, or dependency was added. A later review correction
+removes compressed-header revalidation from reduction. It retains already
+validated immutable frames and their matching metadata through the native
+parts constructor, with checked row totals and unchanged all-valid slots.
+The retained-child regression separately checks constructor invariants and
+buffer identity. The timing and Full43 cohorts below predate this correction.
+Owned filters also preserve the original metadata allocation owner until
+explicit execution, following the existing owned-slice policy. The final
+review correction passes all 2,700 native library tests (24 existing ignored),
+including 32 codec tests and the before/after ownership regression.
 
 The frozen 24-GiB protocol requested maximum parallelism 12; the 10-logical-CPU
 host admitted 10 lanes. The target is Q23 at requested parallelism 12. Across

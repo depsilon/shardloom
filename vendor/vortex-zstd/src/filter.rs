@@ -9,7 +9,7 @@ use vortex_array::arrays::filter::FilterReduce;
 use vortex_array::dtype::DType;
 use vortex_array::validity::Validity;
 use vortex_array::vtable::child_to_validity;
-use vortex_array::{ArrayRef, ArrayView, IntoArray};
+use vortex_array::{Array, ArrayParts, ArrayRef, ArrayView, IntoArray};
 use vortex_error::{VortexResult, vortex_ensure, vortex_err};
 use vortex_mask::{AllOr, Mask};
 
@@ -37,7 +37,8 @@ impl FilterReduce for Zstd {
         let AllOr::Some(indices) = mask.indices() else {
             return Ok(None);
         };
-        data.validate(array.dtype(), array.len(), &validity)?;
+        // The input array already owns validated frames. Revalidating it here
+        // would read their headers, violating FilterReduce's buffer-free contract.
         let mut frames = Vec::new();
         let mut metadata = Vec::new();
         let mut selected = Vec::with_capacity(indices.len());
@@ -95,7 +96,17 @@ impl FilterReduce for Zstd {
             },
             kept_rows,
         );
-        let array = Zstd::try_new(array.dtype().clone(), retained, validity)?.into_array();
+        // SAFETY: retain each validated frame together with its unchanged
+        // metadata and dictionary. kept_rows is their checked value-count sum;
+        // all rows are valid, and this fresh child is unsliced. The unchanged
+        // dtype and buffer-free validity slots therefore remain consistent.
+        let array = unsafe {
+            Array::from_parts_unchecked(
+                ArrayParts::new(Zstd, array.dtype().clone(), kept_rows, retained)
+                    .with_slots(array.slots().iter().cloned().collect()),
+            )
+        }
+        .into_array();
         Ok(Some(array.filter(Mask::from_indices(kept_rows, selected))?))
     }
 }

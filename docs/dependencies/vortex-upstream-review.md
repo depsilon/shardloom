@@ -13,6 +13,11 @@ retains selected compressed frames and remaps the mask before the unchanged
 native decoder. It introduces no new dependency, copied C implementation, or
 external execution engine. The local evidence and acceptance status are
 recorded in the [sparse-filter follow-up report](../benchmarks/native-query-revisit-2026-10-12.md#october-13-sparse-zstd-filter-follow-up).
+The review correction removes frame-header reads from metadata reduction;
+the native parts constructor retains matching validated frames, dtype and
+all-valid slots with checked row totals. The existing `vortex-array` owner
+policy now also keeps owned filters as native views until explicit execution,
+preserving metadata allocation ownership through reduction and child extraction.
 
 ## October 12, 2026 encoded-transfer ownership hook
 
