@@ -273,9 +273,14 @@ impl ArrayRef {
 
     /// Wraps the array in a [`FilterArray`] such that it is logically filtered by the given mask.
     pub fn filter(&self, mask: Mask) -> VortexResult<ArrayRef> {
-        FilterArray::try_new(self.clone(), mask)?
-            .into_array()
-            .optimize()
+        let filtered = FilterArray::try_new(self.clone(), mask)?.into_array();
+        // As with owned slices, metadata reductions must not detach allocation
+        // ownership before explicit execution. Ownerless arrays reduce normally.
+        if let Some(owner) = self.0.data.retained_owner() {
+            filtered.with_retained_owner(Arc::clone(owner))
+        } else {
+            filtered.optimize()
+        }
     }
 
     /// Wraps the array in a [`DictArray`] such that it is logically taken by the given indices.

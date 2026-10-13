@@ -184,7 +184,9 @@ impl PreparedVortexCountWhere {
             .own_count_result(execution.count, cancellation)?;
         self.source.validate_generation()?;
         cancellation.check()?;
+        let provider_workers = execution.runtime.provider_background_workers;
         execution.runtime = self.session.snapshot();
+        execution.runtime.provider_background_workers = provider_workers;
         Ok(ExecutedOwnedVortexCountWhere { execution, result })
     }
 
@@ -212,7 +214,9 @@ impl PreparedVortexCountWhere {
         cancellation.check()?;
         let rows = super::collect::render_count_rows(execution.count, &self.session)?;
         cancellation.check()?;
+        let provider_workers = execution.runtime.provider_background_workers;
         execution.runtime = self.session.snapshot();
+        execution.runtime.provider_background_workers = provider_workers;
         Ok((execution, rows))
     }
 
@@ -266,7 +270,7 @@ impl PreparedVortexCountWhere {
             .predicate
             .as_ref()
             .ok_or_else(|| failed("prepared predicate is missing"))?;
-        let scan = prepared_scan::read_prepared_controlled(
+        let (scan, provider_workers) = prepared_scan::read_prepared_controlled(
             uri,
             &self.source,
             self.request.kind,
@@ -281,14 +285,15 @@ impl PreparedVortexCountWhere {
         let count = report
             .rows_selected
             .ok_or_else(|| failed("completed count is missing"))?;
-        let runtime = self.session.snapshot();
+        let mut runtime = self.session.snapshot();
+        runtime.provider_background_workers = provider_workers;
         let mut native_io_certificate =
             local_primitive_native_io_certificate(&self.request, &report)?;
         cancellation.check()?;
         let _ = write!(
             native_io_certificate.source_pushdown_report.proof_basis,
-            ";resident_source_generation_validation=before_and_after_native_scan_including_metadata_pruned_result;resident_source_opens={};resident_completed_executions={};no_query_answer_cache=true;independent_oracle_not_run",
-            runtime.prepared_source_opens, runtime.completed_executions,
+            ";resident_source_generation_validation=before_and_after_native_scan_including_metadata_pruned_result;resident_source_opens={};resident_completed_executions={};provider_background_workers={};provider_cpu_scope=current_grant_temporary_drivers_joined_before_return_not_measured_utilization;no_query_answer_cache=true;independent_oracle_not_run",
+            runtime.prepared_source_opens, runtime.completed_executions, provider_workers,
         );
         let execution = ExecutedVortexCountWhere {
             count,

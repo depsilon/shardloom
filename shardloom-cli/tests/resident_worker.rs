@@ -209,7 +209,12 @@ fn worker_preserves_one_lane_for_real_filtered_execution_and_rebinds_two() {
             field(&result, "public_workflow_dynamic_parallelism_floor_applied"),
             "false"
         );
-        assert_eq!(field(&result, "resident_provider_background_workers"), "0");
+        let drivers =
+            shardloom_exec::compute_pool::bounded_cpu_parallelism(workers.parse().unwrap()) - 1;
+        assert_eq!(
+            field(&result, "resident_provider_background_workers"),
+            drivers.to_string()
+        );
     }
 }
 
@@ -225,6 +230,7 @@ fn worker_reuses_filtered_counts_and_clears_changed_or_failed_operations() {
     let pruned = worker.count_where(&path, "gt:value:99", "2");
     assert_filtered_count(&pruned, "0", "2", "4");
     assert_eq!(field(&pruned, "data_read"), "false");
+    assert_eq!(field(&pruned, "resident_provider_background_workers"), "0");
     assert_filtered_count(
         &worker.count_where(&path, "gt:value:99", "2"),
         "0",

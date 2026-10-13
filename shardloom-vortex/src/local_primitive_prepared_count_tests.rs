@@ -67,6 +67,121 @@ fn filtered_count_source_handoff_reuses_one_generation() {
 }
 
 #[test]
+fn configurable_filtered_count_uses_current_grant_for_every_result_boundary() {
+    use crate::resident_session::ConfigurableResidentSession;
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+    use shardloom_exec::compute_pool::bounded_cpu_parallelism;
+
+    let resources = |lanes| {
+        ExecutionResources::from_bytes(32 << 20, lanes, ExecutionResourceOrigin::ExecutionCall)
+            .unwrap()
+    };
+    let fixture = Fixture::new();
+    let controller = ConfigurableResidentSession::new(resources(2)).unwrap();
+    let token = CancellationToken::default();
+    let (prepared, memory) = controller
+        .with_resources(resources(2), &token, |session, admitted| {
+            let policy = VortexLocalPrimitiveExecutionPolicy::from_resources(admitted)?;
+            Ok((
+                prepare_count_where_in_session(&fixture.request(2), policy, session)?,
+                session.shared_memory_pool(),
+            ))
+        })
+        .unwrap();
+    let mut completed = 0;
+    for lanes in [2, 1, 2] {
+        controller
+            .with_resources(resources(lanes), &token, |session, _| {
+                for boundary in 0..3 {
+                    let execution = match boundary {
+                        0 => prepared.execute_with_cancellation(&token)?,
+                        1 => prepared.collect_jsonl_controlled(&token)?.0,
+                        _ => {
+                            let result = prepared.execute_native_result(&token)?;
+                            assert_native_count(&result.result, 3);
+                            result.execution
+                        }
+                    };
+                    completed += 1;
+                    assert_eq!(execution.count, 3);
+                    assert!(execution.native_io_certificate.is_certified());
+                    assert!(!execution.native_io_certificate.fallback_attempted);
+                    assert_eq!(
+                        execution.runtime.provider_background_workers,
+                        bounded_cpu_parallelism(lanes) - 1
+                    );
+                    assert_eq!(execution.runtime.prepared_source_opens, 1);
+                    assert_eq!(execution.runtime.completed_executions, completed);
+                    assert_eq!(session.snapshot().provider_background_workers, 0);
+                }
+                let cancelled = CancellationToken::default();
+                cancelled.cancel();
+                assert!(prepared.execute_with_cancellation(&cancelled).is_err());
+                assert_eq!(session.snapshot().completed_executions, completed);
+                Ok(())
+            })
+            .unwrap();
+    }
+    drop(prepared);
+    drop(controller);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn configurable_metadata_pruned_count_does_not_start_provider_workers() {
+    use crate::resident_session::ConfigurableResidentSession;
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+
+    let resources =
+        ExecutionResources::from_bytes(32 << 20, 2, ExecutionResourceOrigin::ExecutionCall)
+            .unwrap();
+    let fixture = Fixture::new();
+    let controller = ConfigurableResidentSession::new(resources).unwrap();
+    let token = CancellationToken::default();
+    let memory = controller
+        .with_resources(resources, &token, |session, admitted| {
+            let policy = VortexLocalPrimitiveExecutionPolicy::from_resources(admitted)?;
+            let prepared = prepare_count_where_in_session(&fixture.request(99), policy, session)?;
+            for boundary in 0..3 {
+                let execution = match boundary {
+                    0 => prepared.execute_with_cancellation(&token)?,
+                    1 => prepared.collect_jsonl_controlled(&token)?.0,
+                    _ => {
+                        let result = prepared.execute_native_result(&token)?;
+                        assert_native_count(&result.result, 0);
+                        result.execution
+                    }
+                };
+                assert_eq!(execution.count, 0);
+                assert!(
+                    execution
+                        .report
+                        .embedded_layout
+                        .metadata_pruned_entire_input
+                );
+                assert!(!execution.report.data_read);
+                assert!(execution.native_io_certificate.is_certified());
+                assert_eq!(execution.runtime.provider_background_workers, 0);
+                assert_eq!(execution.runtime.prepared_source_opens, 1);
+                assert_eq!(execution.runtime.completed_executions, boundary + 1);
+            }
+            let cancelled = CancellationToken::default();
+            cancelled.cancel();
+            assert!(prepared.execute_with_cancellation(&cancelled).is_err());
+            let replacement = fixture.0.join("replacement.vortex");
+            std::fs::copy(fixture.path(), &replacement).unwrap();
+            std::fs::rename(replacement, fixture.path()).unwrap();
+            assert!(prepared.execute_with_cancellation(&token).is_err());
+            assert_eq!(session.snapshot().completed_executions, 3);
+            assert_eq!(session.snapshot().provider_background_workers, 0);
+            Ok(session.shared_memory_pool())
+        })
+        .unwrap();
+    drop(controller);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn prepared_count_reexecutes_complete_predicate_with_one_open_and_real_certificate() {
     let fixture = Fixture::new();
     for threshold in [2, 99] {

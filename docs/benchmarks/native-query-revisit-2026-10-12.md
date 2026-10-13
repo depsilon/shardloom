@@ -361,3 +361,245 @@ resident ClickBench input hash for C1/C2/C3 and Full43. C4's bounded input gener
 and independent expected values are included. Preserve the declared alternating
 order, grants, clocks and gates; run through the recorded storage/concurrency
 guards. Do not replay historical output paths or infer a fresh-ingest comparison.
+
+## October 13 filtered-count follow-up
+
+This is a distinct follow-up to the completed four-candidate October 12
+campaign, not a fifth October 12 candidate. The frozen protocol retains one
+local filtered-count optimization for the native public SQL user surface in
+version 0.5.1. It uses the same pinned 99,997,497-row ClickBench Vortex input
+(`persisted-native-343-a1.vortex`, 15,713,610,513 bytes, SHA-256
+`004f9639fa0aa527b70f326c366c37b1173dceeacb92b50b2d8fd02957155c18`), a
+24-GiB memory grant, and requested maximum parallelism 12; the 10-logical-CPU
+host admitted 10 lanes. The paired comparison includes 70 fresh CLI processes.
+All 70 complete results match the retained references and schemas.
+
+Configurable sessions had no persistent provider workers, and prepared filtered
+counts did not start temporary workers. Counts now reuse the admitted Vortex
+driver scope for the current operation's CPU grant, join the workers on every
+exit, and preserve the actual worker count through JSON and native-result output.
+The later review correction consults file statistics before creating temporary
+drivers, retaining zero-worker execution for fully metadata-pruned counts.
+It preserves the same source-generation and cancellation boundary. The timed
+cohort below predates that correction; its measurements remain unchanged.
+
+The sole target is Q21 `COUNT(*) WHERE URL LIKE '%google%'` at requested
+parallelism 12. Its baseline/candidate median complete-process wall time is
+4.105538333533332/1.037534291506745 seconds, about 74.7% lower, with all ten
+paired rounds improving. Median child user CPU rises from 3.9713925 to
+6.4348815 seconds, and median peak RSS rises from 2,969,509,888 to
+3,140,009,984 bytes. RSS remains within its frozen gate; CPU was recorded but
+was not a retention gate in this experiment.
+This is a wall-time improvement with higher CPU and a modestly higher RSS, not
+a reduction in total work.
+
+The five controls also pass their predeclared time and RSS limits. Their exact
+baseline/candidate median complete-process wall times and positive paired
+rounds are:
+
+| Case | Pairs | Median seconds, baseline / candidate | Positive pairs |
+| --- | ---: | ---: | ---: |
+| Q21, requested parallelism 1 | 5 | 4.2691852919524536 / 4.244411916995887 | 4/5 |
+| Q2, requested parallelism 12 | 5 | 0.21806212502997369 / 0.20017291698604822 | 5/5 |
+| Q20, requested parallelism 12 | 5 | 0.2614852499682456 / 0.2673157909885049 | 2/5 |
+| Q1, requested parallelism 12 | 5 | 0.04684637498576194 / 0.04373112501343712 | 3/5 |
+| Q29, requested parallelism 12 | 5 | 5.647706374991685 / 5.670675708039198 | 1/5 |
+
+The target timing gate, all control timing gates and every case's RSS gate pass;
+the retained decision follows the frozen repeatability rule with no percentage
+minimum. The default workspace passes 3,219 tests. The native crate passes
+2,708 tests with 24 existing ignored tests. The cumulative Full43 correctness
+run passes all 129 complete calls and 1,143 complete result rows. These are
+correctness and local acceptance results for this scoped change.
+
+PR #1545's prerequisite integration correction merged at `3089c8aa`. The
+measured count source commit `67f3296d` was rebased to local commit `eb1b5a0f`
+with the accepted five-Rust-file tree unchanged. The combined implementation
+and hosted checks are tracked in [PR #1547](https://github.com/depsilon/shardloom/pull/1547).
+The user-surface version remains
+0.5.1, with no release or publication. This finite local experiment does not
+establish whole-engine superiority or production readiness.
+
+The [filtered-count evidence packet](evidence/native-filtered-count-2026-10-13.json.xz)
+contains the frozen protocol, source and baseline files, receipts and logs,
+all paired process outputs, and the cumulative Full43 evidence. Its failures
+remain explicit, including the retained pre-fix regression and the earlier
+Q21 scan compiler failure; neither is rewritten as a passing result. Archive
+SHA-256: `7d4c62262d6bee2575e8089fb20693d1641ce2ffd66da94b047cedadbb3b5638`.
+
+## October 13 sparse Zstd filter follow-up
+
+This is a second, independent October 13 follow-up; it does not change the
+filtered-count measurements above. The retained candidate is a bounded
+metadata-only `FilterReduce` in the existing pinned `vortex-zstd` 0.85.0
+provider. For eligible UTF-8/binary arrays without null-bearing validity, it
+keeps compressed frames containing selected rows, remaps the selection mask,
+and uses the unchanged native decoder. Admission is limited to 2–64 frames,
+at most 4,096 selected rows and one eighth of logical rows, with at least one
+touched frame skipped and retained complete-frame rows no greater than the
+original mask length. Other arrays keep the existing native path. No payload
+copy, C implementation, or dependency was added. A later review correction
+removes compressed-header revalidation from reduction. It retains already
+validated immutable frames and their matching metadata through the native
+parts constructor, with checked row totals and normalized all-valid slots.
+The retained-child regression separately checks constructor invariants and
+buffer identity. The timing and Full43 cohorts below predate this correction.
+Owned filters also preserve the original metadata allocation owner until
+explicit execution, following the existing owned-slice policy. Those header-read
+and ownership corrections pass all 2,700 native library tests (24 existing ignored),
+including 32 codec tests and the before/after ownership regression.
+A subsequent review correction collapses explicit constant-true validity
+children to the native all-valid representation after retaining frames, so
+their old row count cannot survive inside a smaller array. All 33 codec tests
+pass, including whole/sliced nullable UTF-8 and binary serialization checks.
+A further correction applies deferred reductions at the execution boundary for
+owned filters and their nested slices. The original view stays alive through
+canonical execution. A new regression fails on the prior code because full-frame
+decoding exceeds the ownerless sparse path's measured allocation budget; the
+corrected owned path fits that same budget. An allocator checks that the source
+owner remains alive during execution, with release checks after denial, retry
+and malformed-metadata rejection. All 35 codec tests pass. The final correction
+also passes all 2,703 native library tests (24 existing ignored), 1,068 public
+CLI tests, the 3,219 default workspace tests, formatting and native/default Clippy.
+
+The frozen 24-GiB protocol requested maximum parallelism 12; the 10-logical-CPU
+host admitted 10 lanes. The target is Q23 at requested parallelism 12. Across
+ten alternating process pairs, median complete-process wall time fell from
+4.652212062530452 to 3.2868943749926984 seconds (29.35%); all ten pairs
+improved. Combined CPU fell from 13.6428525 to 12.1475845 seconds (10.96%),
+while median peak RSS rose 2.22%, from 4,487,667,712 to 4,587,077,632 bytes.
+The target CPU, timing, and RSS gates pass. Five controls also pass their
+predeclared timing and RSS limits:
+
+| Case | Pairs | Median seconds, baseline / candidate | Positive pairs |
+| --- | ---: | ---: | ---: |
+| Q23, requested parallelism 1 | 5 | 9.821828458982054 / 7.941711333056446 | 5/5 |
+| Q22, requested parallelism 12 | 5 | 1.5668610410066321 / 1.1950804580119438 | 5/5 |
+| Q21, requested parallelism 12 | 5 | 1.0878443749970756 / 1.0273072500131093 | 4/5 |
+| Q20, requested parallelism 12 | 5 | 0.25757562497165054 / 0.25551716599147767 | 3/5 |
+| Q29, requested parallelism 12 | 5 | 5.683524666994344 / 5.687517957994714 | 1/5 |
+
+Local correctness checks pass: 29 codec tests (including five new regressions
+and 200 selection-shape combinations), 15 IPC tests, 3,219 default workspace
+tests, formatting, and default/native Clippy. The cumulative Full43 review
+also passes all 129 calls and 1,143 rows; its exact schemas match the preceding
+count cohort, native certificates and grants are present, no fallback or
+external engine is reported, all native child PIDs are absent, and all 2,221
+source hashes plus the full retained input hash are unchanged. Full43 evidence
+is in `zstd-filter-full43-review-382.json` with summary identity
+`10f39b1343889aaeec42d4bb23bb3888f9075efb0bace2e8a69d3b8cbebf1ec9`. The
+measured source commit is `b635a708`; the CLI artifact SHA-256 is
+`026a6ad9d430f586346a6a6ffa04d0beb476f7c903f4637a9baa3e643a7dc490`.
+Integration also aligns the Python license manifest's description with this
+vendored change; that later notice-text correction does not change runtime source.
+
+The provider patch and optimization are included in the same [PR #1547](https://github.com/depsilon/shardloom/pull/1547).
+Version 0.5.1 remains unchanged, with no release or publication. This scoped
+local result does not establish whole-engine superiority or production
+readiness. The [sparse-filter evidence packet](evidence/native-zstd-filter-2026-10-13.json.xz)
+preserves its frozen protocol, source identity, complete pairs, controls, and
+Full43 review. Archive SHA-256:
+`969684043dc4eaac4120a307ddad19492eea33b6e1153dca5217c3cb88e9d499`.
+
+## October 13 Zstd view reconstruction: dropped
+
+A further source-linked trial tested construction of allocator-backed text
+views in one checked pass. The current decoder walks length-prefixed values
+once to count them and again to construct views. The prototype instead used
+the existing buffered-value count for exact allocation, checked each prefix
+and payload while constructing views, and rejected a final count mismatch.
+It reused the pinned native decoder and allocator. The candidate introduced
+no dependency, alternate execution engine or new encoding.
+
+The baseline is the corrected retained implementation at `c6cb4c7a`; the
+prototype is `fc26c990`. Both artifacts were built after the ownership and
+validity corrections above. The frozen comparison contains ten alternating
+Q29 pairs at requested parallelism 12 and five pairs for each of five
+controls, totaling 70 complete native processes. It uses the same retained
+99,997,497-row input, a 24-GiB admission budget and the ten-logical-CPU host
+with 16 GiB physical RAM. Admission is not a whole-process RSS limit.
+
+The primary wall-time median must decrease, the median paired saving must
+be positive, and at least nine of ten pairs must improve. Target median
+combined CPU may increase by at most 5%. Each control's wall-time median
+may rise by at most the greater of 5% or 5 ms; each case's peak-RSS median
+may rise by at most the greater of 25% or 256 MiB. These rules were frozen
+before the first sample, with no minimum percentage gain.
+
+| Case | Role | Median seconds, baseline / candidate | Positive pairs | Timing gate |
+| --- | --- | ---: | ---: | --- |
+| Q29, requested parallelism 12 | Target | 7.000346 / 7.286574 | 8/10 | Fail |
+| Q29, requested parallelism 1 | Control | 12.577803 / 11.895989 | 4/5 | Pass |
+| Q19, requested parallelism 12 | Control | 6.658926 / 6.502212 | 3/5 | Pass |
+| Q23, requested parallelism 12 | Control | 5.563452 / 4.967301 | 5/5 | Pass |
+| Q22, requested parallelism 12 | Control | 2.117898 / 1.961002 | 5/5 | Pass |
+| Q2, requested parallelism 12 | Control | 0.220130 / 0.232632 | 2/5 | Fail |
+
+The target median is 4.09% slower and improves in only eight pairs. Its
+positive median paired saving of 0.352059 seconds does not override either
+failed requirement; medians of the two sample sets and the median of paired
+differences are distinct statistics. Q2 also misses its control limit with
+a 5.68% increase. Target combined CPU rises from 13.471782 to 13.860726
+seconds (2.89%); its CPU gate and all six RSS gates pass. Target median
+RSS is 1,565,376,512 / 1,571,028,992 bytes.
+
+All 70 complete results and 1,060 rows match the retained references;
+schemas, exact grants, native certificates, false fallback fields, process
+cleanup, source hashes and input identity pass. The reference is retained
+regression evidence, not a fresh independent oracle. No samples were removed,
+replaced or repeated. Times span process creation through complete output
+and exit, excluding parent validation, hashing and compression. Input
+prehashing, uncontrolled OS cache and ordinary host activity limit the scope
+of this local observation; they do not change its frozen decision.
+
+The optimization is dropped. Its three Rust changes, two provenance changes
+and four new codec tests remain only in the rejected source/evidence. The
+39-test candidate codec suite, 15 IPC tests, formatting and native Clippy
+passed, but correctness alone does not satisfy its retention rule. The
+retained branch uses `c6cb4c7a`, including the two accepted optimizations and
+their review corrections. Version 0.5.1 remains unchanged.
+
+## Final October 13 retained-source acceptance
+
+After the drop decision, a fresh cumulative Full43 run used the corrected
+retained source `c6cb4c7ac4fdeda8bbf665b3299d1b7231a94e4e` and release CLI
+SHA-256 `490f00b2e29842b3a4b066245612a2243c8ce8da67a8decc29097e9bec4d0ff7`.
+All 129 calls pass. A separate readback checks all 1,143 complete result rows,
+exact schemas against the earlier sparse-filter cohort, resource grants,
+native certificates, false fallback/external-engine fields and absent child
+PIDs. All 2,221 selected source hashes, the full retained input hash and
+runner/helper identities remain unchanged. The summary SHA-256 is
+`e3de0866839d83157f383d834f885a7778d0f392dd78b6db2926d6885393d9cb`.
+
+The sum of all 129 native-process durations is 243.238836 seconds; the
+supervised runner takes 297.983450 seconds. The latter includes runner
+validation and compression but excludes the separate final readback and
+evidence packaging. This is one cumulative correctness observation, not a
+paired performance result or fresh-ingest measurement. It does not replace
+the historical count/filter timing cohorts, which retain their original
+source identities and measurements.
+
+The final retained code passes formatting, default workspace Clippy and
+3,219 workspace tests, native release-feature Clippy, 2,703 native library
+tests with 24 existing ignored tests, and 1,068 CLI/public tests. These are
+separate overlapping checks, not additive capability counts. The 35 codec
+tests include the ownership, allocation-budget, validity and error-release
+regressions described above. Only this report, the phase pointer and compact
+evidence are added after those checks; no runtime source changes follow.
+
+The [view-trial and final-acceptance packet](evidence/native-zstd-views-2026-10-13.json.xz)
+contains 1,043 verified members in 7,016,148 compressed bytes. It preserves
+the frozen comparison, all 351 paired-process files, all 517 Full43 files,
+build/source manifests, review-correction checks and failed Zstd attempts.
+Archive SHA-256:
+`1cc92db842f0eb63b027dd89979fded92b3d73af34f7d7fc11d63e5f37beb371`.
+
+Reopen the JSON archive and verify each member's bytes and SHA-256 before
+using it. Original absolute paths are provenance, not extraction destinations.
+Start from the recorded retained Git source; the packet also includes the
+binary-safe patch from `b635a708` to `c6cb4c7a`. To reconstruct the rejected
+prototype, overlay its five archived source files and verify its full source
+manifest. Build with the recorded feature/command settings, bind the protocol
+to resident inputs and fresh local output paths, and preserve its order,
+resource grants, clocks and guards. Executables, build caches and the large
+input are omitted. Historical output paths must not be reused.

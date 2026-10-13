@@ -3,6 +3,9 @@ use super::*;
 #[path = "native_provider_zstd_workspace_tests.rs"]
 mod workspace_tests;
 
+#[path = "native_provider_zstd_filter_tests.rs"]
+mod filter_tests;
+
 use vortex::{
     VortexSessionDefault as _,
     array::{

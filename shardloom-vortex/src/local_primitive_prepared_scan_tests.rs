@@ -346,3 +346,85 @@ fn retained_scan_cannot_claim_tighter_resources_than_its_source_owner() {
     drop(source);
     assert_eq!(resident.snapshot().memory.reserved_bytes, 0);
 }
+
+#[test]
+fn controlled_scan_drivers_progress_and_join_after_success_failure_and_cancellation() {
+    use crate::resident_session::ConfigurableResidentSession;
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+    use shardloom_exec::compute_pool::bounded_cpu_parallelism;
+    use vortex::io::runtime::BlockingRuntime;
+
+    let resources =
+        ExecutionResources::from_bytes(32 << 20, 2, ExecutionResourceOrigin::ExecutionCall)
+            .unwrap();
+    let fixture = Fixture::new();
+    let controller = ConfigurableResidentSession::new(resources).unwrap();
+    let (source, memory) = controller
+        .with_resources(resources, &CancellationToken::default(), |session, _| {
+            Ok((
+                session.prepare_file(fixture.path())?,
+                session.shared_memory_pool(),
+            ))
+        })
+        .unwrap();
+    // A successful retry follows both error paths on the same retained source.
+    for outcome in [0, 1, 0, 2, 0] {
+        controller
+            .with_resources(resources, &CancellationToken::default(), |session, _| {
+                let before = session.snapshot();
+                let cancellation = CancellationToken::default();
+                let result = source.with_native_execution_temporary_drivers_controlled(
+                    &cancellation,
+                    |file, _, runtime| {
+                        if bounded_cpu_parallelism(2) > 1 {
+                            let caller = std::thread::current().id();
+                            let (send, receive) = std::sync::mpsc::channel();
+                            runtime
+                                .handle()
+                                .spawn(async move {
+                                    send.send(std::thread::current().id()).unwrap();
+                                })
+                                .detach();
+                            let worker = receive
+                                .recv_timeout(std::time::Duration::from_secs(5))
+                                .expect("provider task must progress while the caller waits");
+                            assert_ne!(worker, caller);
+                        }
+                        match outcome {
+                            1 => Err(ShardLoomError::InvalidOperation(
+                                "injected scan error".into(),
+                            )),
+                            2 => {
+                                cancellation.cancel();
+                                Ok(file.row_count())
+                            }
+                            _ => Ok(file.row_count()),
+                        }
+                    },
+                );
+                if outcome == 0 {
+                    assert_eq!(result?, (5, bounded_cpu_parallelism(2) - 1));
+                } else {
+                    let error = result.unwrap_err().to_string();
+                    assert!(error.contains(if outcome == 1 {
+                        "injected scan error"
+                    } else {
+                        "cancel"
+                    }));
+                }
+                let after = session.snapshot();
+                assert_eq!(after.provider_background_workers, 0);
+                assert_eq!(after.prepared_source_opens, 1);
+                assert_eq!(
+                    after.completed_executions,
+                    before.completed_executions + u64::from(outcome == 0)
+                );
+                assert_eq!(after.memory.reserved_bytes, before.memory.reserved_bytes);
+                Ok(())
+            })
+            .unwrap();
+    }
+    drop(source);
+    drop(controller);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
