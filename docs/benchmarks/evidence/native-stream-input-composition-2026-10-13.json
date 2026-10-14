@@ -3,9 +3,17 @@
   "status": "local_acceptance_complete_hosted_pending",
   "source_identity": {
     "base_commit": "ed253d1ec74b724215f71f0b410123656e596696",
+    "runtime_commit": "fafee3823d4182e99550b8daef434ccbe9bd02d6",
     "selected_file_count": 2236,
     "source_manifest_sha256": "d385601e233e879659f5bf15c252eb1e10a03e6557fc9c096171094be7799281",
-    "scope": "The changed runtime is identified by the frozen selected-file hashes and the PR; the base commit alone is insufficient."
+    "scope": "Every selected file in runtime_commit was read from Git and matched against the accepted frozen source manifest; the base commit alone is insufficient."
+  },
+  "provenance": {
+    "path": "native-stream-input-composition-2026-10-13.provenance.json",
+    "bytes": 57318,
+    "sha256": "3cf01cd99f81f6c4d565460df32dcef5ff41a02600572a703bcc28f24b07b5ab",
+    "artifacts": 11,
+    "scope": "Committed-source binding, independent mechanical packet review and completed packaging/install receipts."
   },
   "executable": {
     "bytes": 75265616,
