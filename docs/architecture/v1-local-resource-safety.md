@@ -109,11 +109,22 @@ recorded; earlier single-source scope descriptions above are historical.
 The [operator recovery unit](native-operator-recovery-2026-10-13.md) adds
 caller-controlled relational cleanup cancellation and actual numeric-sort,
 single/compound COUNT and exact integer DISTINCT process-death, cleanup and exact
-fresh-restart tests. Local runtime acceptance passes; hosted integration remains
-pending. Cancellation preserves the ownership marker for explicit retry, including
+fresh-restart tests. The finite unit is integrated in
+[PR #1549](https://github.com/depsilon/shardloom/pull/1549) after all 44 hosted
+checks pass; its [receipt](../benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/index.json)
+binds installed-wheel and production evidence. Cancellation preserves the
+ownership marker for explicit retry, including
 when the final run has already been removed. Existing namespace and identity
 checks still protect live owners and unknown files. This is cleanup/restart
 evidence, not resumption of interrupted execution.
+
+The [selection resource acceptance](../benchmarks/native-selection-resources-2026-10-13.md)
+covers sparse native Zstd frame/metadata collections and output views, borrowed
+decoder ranges and preservation of the existing query context through reviewed
+aggregate/dictionary helpers. Low-grant refusal, retry, ownership, public/Full43
+regression and paired cost gates pass. Both rejected cost cohorts remain
+preserved. Hosted integration is pending; general child-decoder and unrelated
+legacy-context helpers are not included in this finite coverage.
 
 Other unadmitted state spill, complete reader/codec/upstream scratch
 accounting and whole-process RSS bounds remain open. Other operators retain their own resource admission

@@ -1,0 +1,91 @@
+{
+  "archive": {
+    "bytes": 590068,
+    "path": "native-encoded-hosted-2026-10-14.tar.xz",
+    "sha256": "43d862388fcb31541e2d61d2319fbbc100ae4f8e17c52d0077c584e533bc317b"
+  },
+  "collected_utc_date": "2026-10-14",
+  "installed_wheel_lanes": 6,
+  "limitations": [
+    "The raw GitHub threads remain unresolved in the UI; no resolution or approval was posted.",
+    "Hosted wheel proof covers the six named Linux/macOS job observations, 80 tests each; it is not Windows runtime or production workload certification.",
+    "The recorded successful website build checks are retained; this packet does not claim a new live website observation.",
+    "Historical timing artifacts retain their original executables and methodology; hosted tests are not new performance measurements."
+  ],
+  "manifest": {
+    "bytes": 12851,
+    "path": "native-encoded-hosted-2026-10-14.manifest.json",
+    "sha256": "0267ce9877c0337b471b80b7fd519084288cb5ebaf817155d9a4dc76d76549b4"
+  },
+  "native_errors_per_lane": 0,
+  "native_failures_per_lane": 0,
+  "native_skips_per_lane": 0,
+  "native_tests_per_lane": 80,
+  "primary_review_member": "primary-review/encoded-hosted-primary-410.json",
+  "primary_verification": "native-selection-resources-2026-10-13.primary.json",
+  "pull_requests": [
+    {
+      "checks": 43,
+      "head": "230d5908cb8d34968406395a31df2354214a847d",
+      "merge": "3089c8aa91c48a880a5bd338657a1877eff1226c",
+      "merged_at": "2026-10-13T14:49:18Z",
+      "number": 1545,
+      "url": "https://github.com/depsilon/shardloom/pull/1545"
+    },
+    {
+      "checks": 44,
+      "head": "ea175308777da778c88d446e239d628ff9953fa2",
+      "merge": "ed253d1ec74b724215f71f0b410123656e596696",
+      "merged_at": "2026-10-13T21:47:18Z",
+      "number": 1547,
+      "url": "https://github.com/depsilon/shardloom/pull/1547"
+    }
+  ],
+  "review_disposition": {
+    "github_threads_unchanged": true,
+    "null_schema": "The reviewed Null-schema source matches PR1545 and its hosted native regression passes.",
+    "runend": "The existing three-file correction rejects nonempty arrays with no ends; both final hosted native jobs explicitly pass the regression.",
+    "sparse_owner": "The subsequent sparse-frame optimization owner issue is handled by the separate in-progress NATIVE-SELECTION-RESOURCES session-kernel unit; this hosted packet does not claim that unit completed."
+  },
+  "schema_version": "shardloom.native_encoded_hosted_index.v1",
+  "source_acceptance": {
+    "all_2219_sources_match_merged_pr1545": true,
+    "all_2221_sources_match_pr1547_head": true,
+    "harnesses_equal_pr1546_merge": "23939226065e50fe6eee654f09a3ca33b18aa5a5",
+    "original_manifest": {
+      "bytes": 292705,
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-376c.json",
+      "sha256": "118e41ea33c1bf4cf4b60de420b28c6f7aacd534c8462d0530d09d4327165a83"
+    },
+    "pr1547_manifest": {
+      "bytes": 292755,
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/zstd-views-base-386-release.json",
+      "sha256": "76b543f8829eb54cc2b526c2bd3c499cdfa31508031a990d89fb55834ddde868"
+    },
+    "production_sources_unchanged_in_pr1547_merge": true,
+    "reviewed_runend_sources": 3,
+    "runend_correction": {
+      "bytes": 176596,
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-encoded-ipc-admission-2026-10-13.json.xz",
+      "sha256": "625eac648c25edff93bcb362d84e8afcbfc72f178ed5dd598ef062874aef6a75"
+    },
+    "seven_integrated_harness_paths": [
+      "scripts/local_uat_storage.py",
+      "scripts/run_clickbench_paired_query_uat.py",
+      "scripts/run_clickbench_query_uat.py",
+      "scripts/run_local_readonly_proof.py",
+      "scripts/test_clickbench_query_uat.py",
+      "scripts/test_local_uat_storage.py",
+      "scripts/test_run_local_readonly_proof.py"
+    ],
+    "unchanged_original_sources": 2216
+  },
+  "status": "completed_finite_unit",
+  "verification": {
+    "bytes": 587,
+    "path": "native-encoded-hosted-2026-10-14.verification.json",
+    "sha256": "99ca7111279745079d6f16f6d3a9cdf6f7af734231c541992f7af9920b6158ee"
+  },
+  "verified_members": 37,
+  "version": "0.5.1"
+}

@@ -1,0 +1,15 @@
+{
+  "all_members_stream_verified": true,
+  "all_sources_unchanged_before_after": true,
+  "archive": {
+    "bytes": 590068,
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-evidence-411.tar.xz",
+    "sha256": "43d862388fcb31541e2d61d2319fbbc100ae4f8e17c52d0077c584e533bc317b"
+  },
+  "github_approval_or_thread_resolution_implied": false,
+  "member_count": 37,
+  "public_production_website_observation_added": false,
+  "publication_attempted": false,
+  "schema": "shardloom.encoded_hosted_evidence_bundle_verification.v1",
+  "status": "passed"
+}

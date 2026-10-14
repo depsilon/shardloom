@@ -24,7 +24,7 @@ const AUDITED_ZSTD_VERSION: u32 = 10507;
 const WORKSPACE_ALIGNMENT: usize = 8;
 
 pub(crate) fn decompress_frames(
-    frames: &[&ByteBuffer],
+    frames: &[ByteBuffer],
     dictionary: Option<&[u8]>,
     output: &mut [u8],
     allocator: &dyn HostAllocator,

@@ -1,0 +1,236 @@
+{
+  "archive": {
+    "bytes": 590068,
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-evidence-411.tar.xz",
+    "sha256": "43d862388fcb31541e2d61d2319fbbc100ae4f8e17c52d0077c584e533bc317b"
+  },
+  "max_raw_input_bytes": 33554432,
+  "max_raw_member_bytes": 33554432,
+  "member_count": 37,
+  "members": [
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1545-checks-raw.json",
+      "bytes": 131557,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-checks-raw.json",
+      "sha256": "f9b181e3828daea30ffbe6d1f288f00ab9e5d068ce458d56f793f95988a8d2fa"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1545-files-page2-raw.json",
+      "bytes": 5568,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-files-page2-raw.json",
+      "sha256": "5b9e58f045218d6302351b475ba933d0e4bf8e4dd601c26892880b4f1ddc69a3"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1545-files-raw.json",
+      "bytes": 589583,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-files-raw.json",
+      "sha256": "3c8c0eb5a4c90e2a27a3a3684fa7cd4d7e7ea0d10d7f896e3ee791c8d6002379"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1545-issue-comments-raw.json",
+      "bytes": 9742,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-issue-comments-raw.json",
+      "sha256": "6ee3087b4081b44615d51728358963aaf23c74b20bca6391d072bd1fbdb359a3"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1545-raw.json",
+      "bytes": 23861,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-raw.json",
+      "sha256": "950297ec372f79f24725ba4236a827adab108056a14af28c5dc7e447939d23e1"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1545-review-comments-raw.json",
+      "bytes": 38928,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-review-comments-raw.json",
+      "sha256": "ee1beadd9d681a74206cab0e5ae70f80c0e08259443cd691a416ff7902efc554"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1545-review-threads-raw.json",
+      "bytes": 3282,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-review-threads-raw.json",
+      "sha256": "bc487a594dc00bc1bae4e598e95102b9d4e8e4fc7951d19bc52f0e5809087c79"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1545-reviews-raw.json",
+      "bytes": 6684,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-reviews-raw.json",
+      "sha256": "970fc080975880be28e55aff141889a6e648f1eef88c72a600220be9b3c4fd16"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1545-runs-raw.json",
+      "bytes": 24331,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-runs-raw.json",
+      "sha256": "773a7c4921bf9cb68139222308421f17f6eb0142f180725809871c5f59b7ba56"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1545-statuses-raw.json",
+      "bytes": 4507,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-statuses-raw.json",
+      "sha256": "ae2943b4ff913a9fbf33f8e2d0f70d2125bde1cd363bf3f65ef60850376ca644"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1547-checks-raw.json",
+      "bytes": 135432,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-checks-raw.json",
+      "sha256": "7ca0ba6d7ff9dd0fc875bb631241a5bfbf083794b60395041c1bd7367605b22a"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1547-files-raw.json",
+      "bytes": 99192,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-files-raw.json",
+      "sha256": "76b6b9244b7801a0570cec1da7b23a504cca73ddefe182219b1080f1382d69c9"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1547-issue-comments-raw.json",
+      "bytes": 9745,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-issue-comments-raw.json",
+      "sha256": "52f6b4ee57b3f0e89a4bdeb4f77ba7137b2ca8cb712e85a55a6bdc134c3b076a"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1547-raw.json",
+      "bytes": 22393,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-raw.json",
+      "sha256": "46c0fc00cbe61fc4dcbb8dd80f6f3087acdb0afb0c4fdd3e99d4c72e0278ee74"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1547-review-comments-raw.json",
+      "bytes": 21403,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-review-comments-raw.json",
+      "sha256": "984bcbd441922c85dc36417eb929862272f2c525a97e7f504a09e31a96c37f85"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1547-review-threads-raw.json",
+      "bytes": 4990,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-review-threads-raw.json",
+      "sha256": "b081f288bfa76c097981bf3a563140df233309ad4aeb4fe4ed534da47ce8e8e6"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1547-reviews-raw.json",
+      "bytes": 9769,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-reviews-raw.json",
+      "sha256": "dddab0e16c6703b0392d0fe15f3efb2245651954554f79edff136fae98485581"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1547-runs-raw.json",
+      "bytes": 24309,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-runs-raw.json",
+      "sha256": "f8b15769797faadc81b9efe62c1337e364bfd29a5256248e5f29789642afb926"
+    },
+    {
+      "archive_path": "hosted-api/encoded-hosted-pr1547-statuses-raw.json",
+      "bytes": 4507,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-statuses-raw.json",
+      "sha256": "3a2d74784cbc7eb041427b674a779982e5c75f364c4823d686ce08d077989f66"
+    },
+    {
+      "archive_path": "hosted-runtime/encoded-hosted-pr1545-native_python_wheel_py310_ubuntu-410.log",
+      "bytes": 250170,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-native_python_wheel_py310_ubuntu-410.log",
+      "sha256": "6d6f2cc87472abb2303628481ff87cca368b753d63e477e0db4446d9d1e070f5"
+    },
+    {
+      "archive_path": "hosted-runtime/encoded-hosted-pr1545-native_python_wheel_py313_macos-410.log",
+      "bytes": 133464,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-native_python_wheel_py313_macos-410.log",
+      "sha256": "c8eea07f346eab8358143f6f2b435d1660bdccdf1d990291ecb9899563045bd5"
+    },
+    {
+      "archive_path": "hosted-runtime/encoded-hosted-pr1545-native_python_wheel_py313_ubuntu-410.log",
+      "bytes": 250392,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-native_python_wheel_py313_ubuntu-410.log",
+      "sha256": "eeb7be0c7d8db93e66c210efd169a3307dcac5b8073a4d2cce86ee919befcba7"
+    },
+    {
+      "archive_path": "hosted-runtime/encoded-hosted-pr1545-rust_feature_matrix_native_vortex_tests-410.log",
+      "bytes": 743884,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1545-rust_feature_matrix_native_vortex_tests-410.log",
+      "sha256": "7d916efe1f8ff2288139f112b5f374b403eb6ba154477bd2129cb769c8e226a6"
+    },
+    {
+      "archive_path": "hosted-runtime/encoded-hosted-pr1547-native_python_wheel_py310_ubuntu-410.log",
+      "bytes": 133483,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-native_python_wheel_py310_ubuntu-410.log",
+      "sha256": "7e87bb522119816aae8444504f96e8ac4778b5427d5fb370616c606b7906471c"
+    },
+    {
+      "archive_path": "hosted-runtime/encoded-hosted-pr1547-native_python_wheel_py313_macos-410.log",
+      "bytes": 133810,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-native_python_wheel_py313_macos-410.log",
+      "sha256": "4cbfead43b7fa78b77fc97b426a7a2a99454524200013af9c74a13d89e733089"
+    },
+    {
+      "archive_path": "hosted-runtime/encoded-hosted-pr1547-native_python_wheel_py313_ubuntu-410.log",
+      "bytes": 133696,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-native_python_wheel_py313_ubuntu-410.log",
+      "sha256": "d7b779a7ce3ef99aff36e47ef1c161c0332057b9a06c2b1ea973cc364bc504de"
+    },
+    {
+      "archive_path": "hosted-runtime/encoded-hosted-pr1547-rust_feature_matrix_native_vortex_tests-410.log",
+      "bytes": 747150,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-pr1547-rust_feature_matrix_native_vortex_tests-410.log",
+      "sha256": "93b1f3c753b5e0fbc554776372e1a6c1e4af475cc16f6bd961988534789a1731"
+    },
+    {
+      "archive_path": "immutable-review/native-encoded-ipc-admission-2026-10-13.json.xz",
+      "bytes": 176596,
+      "original_path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-encoded-ipc-admission-2026-10-13.json.xz",
+      "sha256": "625eac648c25edff93bcb362d84e8afcbfc72f178ed5dd598ef062874aef6a75"
+    },
+    {
+      "archive_path": "immutable-review/pr1547-merge-verification-388.json",
+      "bytes": 1732,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/pr1547-merge-verification-388.json",
+      "sha256": "2aeb57c4481d7be2671ffa525b92faf3d0c20b09045e60f3bd9a1ba5257c057a"
+    },
+    {
+      "archive_path": "inventories/encoded-hosted-inventory-410.json",
+      "bytes": 104922,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-inventory-410.json",
+      "sha256": "460f4bd8705c5cd22edfa562329c2b020a2af50fbfa2990ccc4e836fd3e2ce92"
+    },
+    {
+      "archive_path": "inventories/encoded-hosted-runtime-410.json",
+      "bytes": 24362,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-runtime-410.json",
+      "sha256": "278a08eec1735535b53dd93dfdc92c1f33db73b98cbefef5f3204da7dad54f3d"
+    },
+    {
+      "archive_path": "package-preparation/encoded-hosted-package-plan-411.json",
+      "bytes": 13210,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-package-plan-411.json",
+      "sha256": "1b041176ee846e7c1fc74ad916c6ab085c59baa4c2068f626fd65a0ea6d8c089"
+    },
+    {
+      "archive_path": "package-preparation/package_encoded_hosted_411.py",
+      "bytes": 15679,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/package_encoded_hosted_411.py",
+      "sha256": "e918808c4de5139228ce0d897e81c40c855a5fc7ad73bc9b89f77102c1b37742"
+    },
+    {
+      "archive_path": "primary-review/encoded-hosted-primary-410.json",
+      "bytes": 27147,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/encoded-hosted-primary-410.json",
+      "sha256": "ecfc35a2648961066e7ea02e11d992713efb7f730648761995f265008345c8ea"
+    },
+    {
+      "archive_path": "primary-review/review_encoded_hosted_410.py",
+      "bytes": 9563,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/review_encoded_hosted_410.py",
+      "sha256": "b620754c7f49a0391e490c69b56eb9bc5e09dfa35cbf7ce808880ae713b95d82"
+    },
+    {
+      "archive_path": "source-manifests/native-release-artifacts-376c.json",
+      "bytes": 292705,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-376c.json",
+      "sha256": "118e41ea33c1bf4cf4b60de420b28c6f7aacd534c8462d0530d09d4327165a83"
+    },
+    {
+      "archive_path": "source-manifests/zstd-views-base-386-release.json",
+      "bytes": 292755,
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/zstd-views-base-386-release.json",
+      "sha256": "76b543f8829eb54cc2b526c2bd3c499cdfa31508031a990d89fb55834ddde868"
+    }
+  ],
+  "raw_input_bytes": 4654503,
+  "schema": "shardloom.encoded_hosted_evidence_bundle_manifest.v1"
+}

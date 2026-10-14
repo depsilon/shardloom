@@ -29,6 +29,9 @@ mod aggregate_scan_source;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_timing.rs"]
 mod aggregate_timing;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/aggregate_utf8_context_tests.rs"]
+mod aggregate_utf8_context_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/bound_numeric_updates.rs"]
 mod bound_numeric_updates;
@@ -42987,13 +42990,16 @@ fn aggregate_column_accessor_in_context(
     if let Some(decoded) = native_numeric_accessor::decode(column, array, ctx)? {
         return Ok(decoded);
     }
-    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(array)? {
+    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor_in_context(array, ctx)? {
         return Ok((accessor, NativeNumericAccessorWork::default()));
     }
     let mut work = NativeNumericAccessorWork::default();
-    if let Some(accessor) =
-        aggregate_direct_utf8_chunk_dictionary_accessor_profiled(column, array, &mut work.utf8)?
-    {
+    if let Some(accessor) = aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
+        column,
+        array,
+        &mut work.utf8,
+        ctx,
+    )? {
         return Ok((accessor, work));
     }
     Ok((
@@ -43059,10 +43065,12 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor(
     column: &str,
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
+    use vortex::array::VortexSessionExecute as _;
     aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
         column,
         array,
         &mut native_numeric_accessor::Utf8AccessorWork::default(),
+        &mut vortex::array::legacy_session().create_execution_ctx(),
     )
 }
 
@@ -43071,6 +43079,7 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
     column: &str,
     array: &vortex::array::ArrayRef,
     work: &mut native_numeric_accessor::Utf8AccessorWork,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
     use vortex::array::dtype::DType;
 
@@ -43082,7 +43091,7 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
     } else {
         AggregateUtf8DictionarySource::DecodedUtf8ChunkDictionary
     };
-    let utf8 = aggregate_canonical_utf8_chunk(array, work)?;
+    let utf8 = aggregate_canonical_utf8_chunk(array, work, ctx)?;
     aggregate_utf8_accessor_from_canonical(
         column,
         &utf8,
@@ -43090,6 +43099,7 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
         work,
         utf8_chunk_dictionary::Utf8ChunkDictionary::default(),
         &|| Ok(()),
+        ctx,
     )
     .map(Some)
 }
@@ -43098,14 +43108,13 @@ fn aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
 fn aggregate_canonical_utf8_chunk(
     array: &vortex::array::ArrayRef,
     work: &mut native_numeric_accessor::Utf8AccessorWork,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<vortex::array::arrays::VarBinViewArray> {
-    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::VarBinViewArray;
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let started = Instant::now();
     let utf8 = array
         .clone()
-        .execute::<VarBinViewArray>(&mut ctx)
+        .execute::<VarBinViewArray>(ctx)
         .map_err(vortex_error)?;
     work.provider_nanos += started.elapsed().as_nanos();
     Ok(utf8)
@@ -43119,15 +43128,14 @@ fn aggregate_utf8_accessor_from_canonical(
     work: &mut native_numeric_accessor::Utf8AccessorWork,
     mut dictionary: utf8_chunk_dictionary::Utf8ChunkDictionary,
     check: &impl Fn() -> Result<()>,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<AggregateDirectColumnAccessor> {
-    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
     use vortex::array::validity::Validity;
 
     check()?;
     let started = Instant::now();
     let validity = utf8.varbinview_validity();
-    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     let mut row_nulls = utf8_chunk_dictionary::exact_row_vec::<bool>(utf8.len())?;
     let mut has_null_row = false;
 
@@ -43140,7 +43148,7 @@ fn aggregate_utf8_accessor_from_canonical(
             Validity::NonNullable | Validity::AllValid => false,
             Validity::AllInvalid => true,
             Validity::Array(_) => !validity
-                .execute_is_valid(row_index, &mut validity_ctx)
+                .execute_is_valid(row_index, ctx)
                 .map_err(vortex_error)?,
         };
         row_nulls.push(row_is_null);
@@ -43445,8 +43453,19 @@ fn aggregate_direct_numeric_dictionary_values<T: Copy, U: Copy>(
 fn aggregate_direct_utf8_dictionary_accessor(
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
+    use vortex::array::VortexSessionExecute as _;
+    aggregate_direct_utf8_dictionary_accessor_in_context(
+        array,
+        &mut vortex::array::legacy_session().create_execution_ctx(),
+    )
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn aggregate_direct_utf8_dictionary_accessor_in_context(
+    array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<AggregateDirectColumnAccessor>> {
     use vortex::array::{
-        VortexSessionExecute as _,
         arrays::{
             VarBinViewArray, dict::DictArraySlotsExt as _, varbinview::VarBinViewArrayExt as _,
         },
@@ -43469,9 +43488,8 @@ fn aggregate_direct_utf8_dictionary_accessor(
         &mut row_ids,
         row_nulls.as_deref(),
     )?;
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let dictionary = selected
-        .execute::<VarBinViewArray>(&mut ctx)
+        .execute::<VarBinViewArray>(ctx)
         .map_err(vortex_error)?;
     let validity = dictionary.varbinview_validity();
     let mut values = Vec::with_capacity(dictionary.len());
@@ -43479,7 +43497,7 @@ fn aggregate_direct_utf8_dictionary_accessor(
     let mut has_null_value = false;
     for index in 0..dictionary.len() {
         let is_null = !validity
-            .execute_is_valid(index, &mut ctx)
+            .execute_is_valid(index, ctx)
             .map_err(vortex_error)?;
         let value = if is_null {
             std::sync::Arc::<str>::from("")

@@ -1,0 +1,52 @@
+{
+  "archive": "recovery-hosted-package-406.tar.xz",
+  "archive_bytes": 83640,
+  "archive_sha256": "67f558735ebad22e5557d5c0506b8bd1880cb508ddf31a688ce882c45b6bb3c0",
+  "head_sha": "528aa23ed7f09442b664bc07ca44b5c48a8d5c0f",
+  "limitations": [
+    "The hosted binding-test counts are aggregate reports; individual test names are absent.",
+    "Wheel artifacts were not downloaded; uninstall coverage is not claimed.",
+    "No process-RSS limit or RSS result is claimed.",
+    "This packet does not claim broader release readiness, performance superiority, or completion of competitive gates."
+  ],
+  "manifest": "recovery-hosted-package-406.manifest.json",
+  "manifest_sha256": "ce98ff95af048110e01a0f860f608350dcb4588cf77ab540deec6667fbc93712",
+  "merged_commit_sha": "483cbaa982dd300dec45bb50066cdbf452686b36",
+  "premerge_ci": {
+    "accepted_git_blobs": 2240,
+    "all_passed": true,
+    "checks": 44,
+    "full_tree_identity": "head and synthetic merge trees matched; see recovery-ci-406/summary.json and primary-helpers/capture_recovery_ci_406.py",
+    "inline_findings": 0,
+    "review_submissions": 0
+  },
+  "production": {
+    "all_http_200": true,
+    "deployment_head_sha": "483cbaa982dd300dec45bb50066cdbf452686b36",
+    "deployment_id": 115670309419,
+    "guide_scope": "website and website-src are unchanged from the previously reviewed guide proof; prior desktop/mobile/search review applies. This packet makes no new UI-behavior claim.",
+    "html_cloudflare_insertion_bytes_each": 1305,
+    "pagefind_response_raw_identical": true,
+    "responses": 4
+  },
+  "pull_request": 1549,
+  "schema_version": "shardloom.operator_recovery_hosted_evidence.v1",
+  "status": "completed_finite_unit",
+  "synthetic_merge_sha": "9d0c3d3ee76d4afd90e2581f77c72e2103d687dc",
+  "wheel_jobs": {
+    "count": 3,
+    "historical_index_note": "recovery-wheel-hosted-406/index.json preserves its original pending-tree statement; primary CI summary later proves head/synthetic full-tree identity.",
+    "native_binding_tests_reported": 240,
+    "reported_per_job": 80,
+    "tree_proof_member": "recovery-ci-406/summary.json"
+  },
+  "unit": "NATIVE-OPERATOR-RECOVERY",
+  "tree_sha256_not_claimed": true,
+  "identical_git_tree": "346dcea90f924aa1a977c1cc42b66e50f4f2bc69",
+  "primary_review": {
+    "path": "primary-review.json",
+    "sha256": "7b438181160fe1edab260b43f95ca0d66b1eaa2ea90b5f2daf94be78b33cd0ac"
+  },
+  "archive_verification": "recovery-hosted-package-406.verification.json",
+  "prior_browser_proof": "../native-stream-composition-hosted-2026-10-13.json"
+}

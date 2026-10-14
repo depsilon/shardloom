@@ -1,0 +1,16 @@
+{
+  "after_head": "cb4d61fcce37755624511842662be157ebed8426",
+  "after_runtime": "8f3607ae6775465f61d1427d0cc36bed04f55e6a",
+  "before_head": "5ff661b5d73ec74e085a47cb799a70129903647f",
+  "before_runtime": "db154e313109227e3dfc6aee445761a24e540210",
+  "complete_tree": "abd63bdaf6e70326b2e5dd3d8a6a5d201347f9e0",
+  "complete_tree_identical": true,
+  "prior_main": "483cbaa982dd300dec45bb50066cdbf452686b36",
+  "runtime_tree_identical": true,
+  "schema_version": "shardloom.native_selection_integration_source.v1",
+  "scope": "Both complete document/source tree and runtime tree remain identical across rebase; all 2241 current selected source hashes match the accepted map. No native rerun is needed for a tree-identical rebase.",
+  "selected_source_files": 2241,
+  "selected_sources_match_frozen_manifest": true,
+  "status": "passed",
+  "workflow_sha256": "5793c29572b11287f666b8cfc6f39212920386d69a82725e5f8d1a61e11c0cee"
+}

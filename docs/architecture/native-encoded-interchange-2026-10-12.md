@@ -1,13 +1,14 @@
 # Native encoded transfer and independent interchange
 
-Status: local runtime, public regression, independent packet inspection and
-installed-wheel acceptance pass; hosted integration remains pending. The
+Status: local runtime, public regression, independent packet inspection,
+installed-wheel acceptance and hosted integration pass. The
 [acceptance report](../benchmarks/native-encoded-interchange-2026-10-12.md)
 records the frozen builds, complete values, copy/lifecycle gates and preserved
 failures. The later [query revisit](../benchmarks/native-query-revisit-2026-10-12.md)
 records three retained changes and one drop, with cumulative native, Full43 and
 package acceptance passing. Its later timings remain separate from the earlier
-encoded-transfer comparison; hosted integration is still pending.
+encoded-transfer comparison. The [hosted receipt](../benchmarks/evidence/native-encoded-hosted-2026-10-14.json)
+binds PRs #1545/#1547, all 43/44 passing checks and six installed-wheel observations.
 The subsequent [Null-schema review correction](../benchmarks/native-query-revisit-2026-10-12.md#pr-review-correction)
 passes fresh native, package and complete Full43 checks with a separate source
 and evidence packet. Historical comparison artifacts retain their original identities.
@@ -138,8 +139,8 @@ allocator even when extracted separately. Cancellation between 64-KiB copy
 windows and denial after a completed child release all partial receiving credit.
 The measured common-array allocation increase is 16 bytes on the current
 64-bit target, with the `ArrayRef` handle unchanged. The separate acceptance
-report records the completed local retention and integration gates; hosted
-acceptance remains pending.
+report records the completed local retention and integration gates. Hosted
+acceptance is recorded in the separate receipt above.
 
 This hook governs native array and buffer lifetimes, not arbitrary copies of a
 bare dtype or encoding-specific Rust data object. New allocations made by later

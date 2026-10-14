@@ -25,6 +25,7 @@ fn source_dictionary_distinct_consumers_reuse_lazy_independent_promotions() {
         "renamed",
         &input,
         &mut native_numeric_accessor::Utf8AccessorWork::default(),
+        &mut vortex::array::legacy_session().create_execution_ctx(),
     )
     .unwrap()
     .unwrap();
@@ -403,10 +404,11 @@ fn source_dictionary_credits_release_after_accessor_not_persistent_keys() {
     assert!(retained > 0);
     let input = source.clone().into_array();
     let mut work = native_numeric_accessor::Utf8AccessorWork::default();
-    let accessor =
-        aggregate_direct_utf8_chunk_dictionary_accessor_profiled("renamed", &input, &mut work)
-            .unwrap()
-            .unwrap();
+    let accessor = aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
+        "renamed", &input, &mut work, &mut ctx,
+    )
+    .unwrap()
+    .unwrap();
     assert_eq!(work.copied_bytes, 0);
     assert_eq!(
         work.source_backed_bytes,

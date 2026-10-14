@@ -138,7 +138,10 @@ lifecycle under the same owners: write and close a native file, release the
 producer, then reopen it in a fresh process for a different computation. Native
 file/object intake already exists; useful output statistics and physical
 preparation must be persisted, recognized and used without blindly inheriting
-input properties. The phase plan owns that implementation and its cost gates.
+input properties. That finite implementation and its cost gates completed in
+PR #1544. Encoded receiving copies and independent Vortex producer intake then
+completed in PRs #1545/#1547, with the [hosted receipt](../benchmarks/evidence/native-encoded-hosted-2026-10-14.json)
+preserving exact sources, 43/44 checks and six installed-wheel observations.
 Useful existing workloads that still refuse resource admission remain
 implementation work; an admission refusal does not close them. Full-domain
 timestamp statistics/compression retains its separate provider acceptance. The
@@ -148,6 +151,12 @@ Reviewed FSST/Zstd payload buffers, actual Zstd decoder/prepared-dictionary
 workspaces, and primitive/Boolean/decimal builder output and finalization overlap
 also remain completed under their finite acceptance records. Broader ownership
 coverage remains open. A native grant is not a process-RSS limit.
+
+The [selection resource unit](native-selection-resources-2026-10-13.md) passes
+local provider/aggregate-context refusal and retention checks, complete public
+and Full43 regression, and its paired cost gate after rejecting the first
+candidate. Its source-bound portable proof is complete; hosted integration
+remains pending. Other child-decoder scratch and metadata are still separate work.
 
 ## Coverage that must remain visible
 
@@ -161,6 +170,12 @@ source preserved and actual preview/production verification. The
 remaining allocation, recovery, destination/fanout, platform and conditional
 investigation obligations below remain separate; this update does not close a
 whole PERF or CG gate.
+
+The [operator recovery unit](native-operator-recovery-2026-10-13.md) is integrated
+in PR #1549 after all 44 checks pass. Caller-controlled relational cleanup and
+actual numeric-sort, single/compound COUNT and integer DISTINCT process-death,
+owned cleanup and exact fresh restart are complete. Other state, allocation and
+platform obligations below remain separate.
 
 | Area and existing owner | Intake disposition and concrete remaining obligation | Completion evidence |
 | --- | --- | --- |

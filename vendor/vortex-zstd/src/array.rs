@@ -4,6 +4,8 @@
 // decoded payload, binary views and nullable output. See upstream-provenance.json.
 // Modified by ShardLoom on 2026-10-07: append primitive arrays through the same
 // allocator-aware native decoder used by canonical execution.
+// Modified by ShardLoom on 2026-10-13: borrow selected frame ranges, avoid
+// validity-rank vectors and pre-count decoded view-handle storage.
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -653,7 +655,7 @@ fn walk_views(
     max_buffer_len: usize,
 ) -> (Vec<ByteBuffer>, Buffer<BinaryView>, Option<VortexError>) {
     let mut views = BufferMut::<BinaryView>::empty();
-    let (buffers, error) = walk_views_into(buffer, start_buf_index, max_buffer_len, |view| {
+    let (buffers, error) = walk_views_into(buffer, start_buf_index, max_buffer_len, None, |view| {
         views.push(view);
     });
     (buffers, views.freeze(), error)
@@ -670,13 +672,22 @@ fn try_reconstruct_views_in(
 ) -> VortexResult<(Vec<ByteBuffer>, Buffer<BinaryView>)> {
     let mut count = 0usize;
     let mut offset = 0usize;
+    let mut segments = usize::from(!buffer.is_empty());
+    let mut segment_start = 0usize;
     while offset < buffer.len() {
         let len = zstd_value_len(buffer, offset)?;
-        offset = offset
+        let end = offset
             .checked_add(size_of::<ViewLen>())
             .and_then(|start| start.checked_add(len))
             .filter(|end| *end <= buffer.len())
             .ok_or_else(|| vortex_err!("Corrupt zstd value exceeds its frame buffer"))?;
+        if end - segment_start > max_buffer_len && offset > segment_start {
+            segments = segments
+                .checked_add(1)
+                .ok_or_else(|| vortex_err!("Zstd segment count overflow"))?;
+            segment_start = offset;
+        }
+        offset = end;
         count = count
             .checked_add(1)
             .ok_or_else(|| vortex_err!("Zstd view count overflow"))?;
@@ -684,14 +695,24 @@ fn try_reconstruct_views_in(
     let mut storage = allocator.allocate_typed::<BinaryView>(count)?;
     let views = storage.as_mut_slice_typed::<BinaryView>()?;
     let mut index = 0;
-    let (buffers, error) = walk_views_into(buffer, start_buf_index, max_buffer_len, |view| {
-        views[index] = view;
-        index += 1;
-    });
+    let (buffers, error) = walk_views_into(
+        buffer,
+        start_buf_index,
+        max_buffer_len,
+        Some(segments),
+        |view| {
+            views[index] = view;
+            index += 1;
+        },
+    );
     if let Some(error) = error {
         return Err(error);
     }
     vortex_ensure!(index == count, "Zstd view count changed while decoding");
+    vortex_ensure!(
+        buffers.len() == segments,
+        "Zstd buffer count changed while decoding"
+    );
     Ok((buffers, storage.freeze_typed::<BinaryView>()?))
 }
 
@@ -699,9 +720,10 @@ fn walk_views_into(
     buffer: &ByteBuffer,
     start_buf_index: u32,
     max_buffer_len: usize,
+    expected_buffers: Option<usize>,
     mut emit: impl FnMut(BinaryView),
 ) -> (Vec<ByteBuffer>, Option<VortexError>) {
-    let mut buffers = Vec::new();
+    let mut buffers = Vec::with_capacity(expected_buffers.unwrap_or(0));
     let mut segment_start: usize = 0;
     let mut offset = 0;
     // Only a new segment changes the buffer index, so it is tracked instead of recomputed per view.
@@ -1341,18 +1363,25 @@ impl ZstdData {
         let byte_width = Self::byte_width(dtype);
         let slice_n_rows = self.slice_stop - self.slice_start;
         let unsliced_mask = unsliced_validity.execute_mask(self.unsliced_n_rows, ctx)?;
-        let slice_value_indices =
-            unsliced_mask.valid_counts_for_indices(&[self.slice_start, self.slice_stop]);
+        let (slice_value_idx_start, slice_value_idx_stop) = match unsliced_mask.bit_buffer() {
+            AllOr::All => (self.slice_start, self.slice_stop),
+            AllOr::None => (0, 0),
+            AllOr::Some(bits) => {
+                let start = bits.count_range(0, self.slice_start);
+                (
+                    start,
+                    start + bits.count_range(self.slice_start, self.slice_stop),
+                )
+            }
+        };
 
-        let slice_value_idx_start = slice_value_indices[0];
-        let slice_value_idx_stop = slice_value_indices[1];
-
-        let mut frames_to_decompress = vec![];
+        let mut first_frame = None;
+        let mut stop_frame = 0;
         let mut value_idx_start = 0;
         let mut uncompressed_size_to_decompress = 0usize;
         let mut n_skipped_values = 0;
         let mut n_buffered_values = 0;
-        for (frame, frame_meta) in self.frames.iter().zip(&self.metadata.frames) {
+        for (index, frame_meta) in self.metadata.frames.iter().enumerate() {
             if value_idx_start >= slice_value_idx_stop {
                 break;
             }
@@ -1393,7 +1422,8 @@ impl ZstdData {
             })?;
             if value_idx_stop > slice_value_idx_start {
                 // we need this frame
-                frames_to_decompress.push(frame);
+                first_frame.get_or_insert(index);
+                stop_frame = index + 1;
                 uncompressed_size_to_decompress = uncompressed_size_to_decompress
                     .checked_add(frame_uncompressed_size)
                     .ok_or_else(|| {
@@ -1406,6 +1436,9 @@ impl ZstdData {
             value_idx_start = value_idx_stop;
         }
 
+        let frames_to_decompress =
+            first_frame.map_or(&[][..], |start| &self.frames[start..stop_frame]);
+
         // ShardLoom local provider patch: admit the complete selected frame
         // extent before decompression and retain the allocator's buffer owner.
         let mut decompressed = ctx
@@ -1413,7 +1446,7 @@ impl ZstdData {
             .allocate(uncompressed_size_to_decompress, Alignment::new(byte_width))?;
         decompressed.as_mut_slice().fill(0);
         let uncompressed_start = crate::decoder_workspace::decompress_frames(
-            &frames_to_decompress,
+            frames_to_decompress,
             self.dictionary
                 .as_ref()
                 .map(|dictionary| dictionary.as_slice()),
@@ -1659,11 +1692,18 @@ impl OperationsVTable<Zstd> for Zstd {
 #[cfg(test)]
 #[expect(clippy::cast_possible_truncation)]
 mod tests {
+    use std::sync::Arc;
+
     use rstest::rstest;
+    use vortex_array::VortexSessionExecute;
+    use vortex_array::array_session;
+    use vortex_array::arrays::VarBinViewArray;
     use vortex_array::arrays::varbin::VarBinArrayExt as _;
     use vortex_array::builders::VarBinBuilder;
     use vortex_array::dtype::DType;
     use vortex_array::dtype::Nullability::NonNullable;
+    use vortex_array::memory::DefaultHostAllocator;
+    use vortex_array::memory::HostAllocatorRef;
     use vortex_array::validity::Validity;
     use vortex_buffer::ByteBuffer;
     use vortex_error::VortexResult;
@@ -1674,6 +1714,7 @@ mod tests {
     use super::append_slice_to_varbin;
     use super::reconstruct_views;
     use super::try_reconstruct_views;
+    use super::try_reconstruct_views_in;
     use super::zstd_value_len;
     use super::zstd_value_offset;
     use crate::array::BinaryView;
@@ -1737,6 +1778,63 @@ mod tests {
         assert_eq!(views[0], BinaryView::make_view(b"aaaaaaaaaaaaa", 0, 4));
         // Second entry starts a new segment at byte 17 (the length prefix), so local offset = 4.
         assert_eq!(views[1], BinaryView::make_view(b"bbbbbbbbbbbbb", 1, 4));
+    }
+
+    #[test]
+    fn test_reconstruct_views_in_preserves_values_at_segment_boundaries() -> VortexResult<()> {
+        let cases: &[&[&[u8]]] = &[
+            &[],
+            &[b""],
+            &[b"", b"short", b"", b"twelve-bytes"],
+            &[b"aaaaaaaaaaaaa", b"bbbbbbbbbbbbb"],
+            &[b"a value larger than the segment limit", b"", b"end"],
+            &[
+                b"\xff\x00\x80",
+                b"binary payload longer than twelve bytes",
+                b"\x00",
+            ],
+        ];
+        let allocator: HostAllocatorRef = Arc::new(DefaultHostAllocator);
+        let mut ctx = array_session().create_execution_ctx();
+        for strings in cases {
+            let buffer = make_interleaved(strings);
+            for limit in [0, 1, 4, 12, 16, 17, 20, 34, 1024] {
+                for start in [0, 7] {
+                    let (buffers, views) =
+                        try_reconstruct_views_in(&buffer, start, limit, &allocator)?;
+                    let (expected_buffers, expected_views) =
+                        reconstruct_views(&buffer, start, limit);
+                    assert_eq!(buffers, expected_buffers, "limit={limit}, start={start}");
+                    assert_eq!(views, expected_views, "limit={limit}, start={start}");
+                    assert_eq!(buffers.len(), buffers.capacity());
+                    if start == 0 {
+                        let array = VarBinViewArray::try_new(
+                            views,
+                            Arc::from(buffers),
+                            DType::Binary(NonNullable),
+                            Validity::NonNullable,
+                            &mut ctx,
+                        )?;
+                        assert_eq!(array.len(), strings.len());
+                        for (index, expected) in strings.iter().enumerate() {
+                            assert_eq!(array.bytes_at(index).as_slice(), *expected);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_reconstruct_views_in_rejects_corruption_and_buffer_index_overflow() {
+        let allocator: HostAllocatorRef = Arc::new(DefaultHostAllocator);
+        let truncated = ByteBuffer::copy_from(&[1u8, 0, 0]);
+        for buffer in [truncated, make_overrunning()] {
+            assert!(try_reconstruct_views_in(&buffer, 0, 20, &allocator).is_err());
+        }
+        let buffer = make_interleaved(&[b"aaaaaaaaaaaaa", b"bbbbbbbbbbbbb"]);
+        assert!(try_reconstruct_views_in(&buffer, u32::MAX, 20, &allocator).is_err());
     }
 
     /// A buffer whose last entry claims more bytes than remain, as corrupt frame data would.

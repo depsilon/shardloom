@@ -1,0 +1,271 @@
+{
+  "accepted_utc_date": "2026-10-14",
+  "documentation": {
+    "path": "native-selection-resources-2026-10-13.documentation.json",
+    "bytes": 93291,
+    "sha256": "5b73973284f615c6cf3964fd1791f9aeb7be896b89e17f6ada7e960d4806cffc",
+    "checks": 6,
+    "documents": 13,
+    "local_links": 430
+  },
+  "archive": {
+    "bytes": 6997040,
+    "path": "native-selection-resources-2026-10-13.tar.xz",
+    "sha256": "e54bcdaa25fc07375203a4fa806a94ddd9fcc565a66969302c338ff9ed8b04ba"
+  },
+  "executable": {
+    "bytes": 75267840,
+    "sha256": "66142c72e4b4e2508ecc38f70e929766a042f1fb75691ceae6228e79cd5623ad"
+  },
+  "final_cost_gates": [
+    {
+      "cpu_passed": true,
+      "lanes": 12,
+      "medians": {
+        "baseline": {
+          "cpu_seconds": 12.556994,
+          "native_peak_rss_bytes": 4544708608,
+          "seconds": 3.4108743329998106,
+          "system_cpu_seconds": 2.643796,
+          "user_cpu_seconds": 9.913198
+        },
+        "candidate": {
+          "cpu_seconds": 12.579528,
+          "native_peak_rss_bytes": 4408737792,
+          "seconds": 3.5199133749702014,
+          "system_cpu_seconds": 2.652496,
+          "user_cpu_seconds": 9.849312
+        }
+      },
+      "passed": true,
+      "query": 23,
+      "rss_passed": true,
+      "wall_passed": true
+    },
+    {
+      "cpu_passed": true,
+      "lanes": 1,
+      "medians": {
+        "baseline": {
+          "cpu_seconds": 8.344486,
+          "native_peak_rss_bytes": 4530339840,
+          "seconds": 8.197475958033465,
+          "system_cpu_seconds": 1.46439,
+          "user_cpu_seconds": 6.902258
+        },
+        "candidate": {
+          "cpu_seconds": 8.24743,
+          "native_peak_rss_bytes": 4446388224,
+          "seconds": 8.091706916980911,
+          "system_cpu_seconds": 1.415476,
+          "user_cpu_seconds": 6.851369
+        }
+      },
+      "passed": true,
+      "query": 23,
+      "rss_passed": true,
+      "wall_passed": true
+    },
+    {
+      "cpu_passed": true,
+      "lanes": 12,
+      "medians": {
+        "baseline": {
+          "cpu_seconds": 8.230313,
+          "native_peak_rss_bytes": 3402596352,
+          "seconds": 1.2847279999987222,
+          "system_cpu_seconds": 1.042493,
+          "user_cpu_seconds": 7.232716
+        },
+        "candidate": {
+          "cpu_seconds": 8.349017,
+          "native_peak_rss_bytes": 3381936128,
+          "seconds": 1.2941405829624273,
+          "system_cpu_seconds": 1.028442,
+          "user_cpu_seconds": 7.320575
+        }
+      },
+      "passed": true,
+      "query": 22,
+      "rss_passed": true,
+      "wall_passed": true
+    },
+    {
+      "cpu_passed": true,
+      "lanes": 12,
+      "medians": {
+        "baseline": {
+          "cpu_seconds": 8.443885,
+          "native_peak_rss_bytes": 3103735808,
+          "seconds": 1.1830722500453703,
+          "system_cpu_seconds": 0.9198959999999999,
+          "user_cpu_seconds": 7.512668
+        },
+        "candidate": {
+          "cpu_seconds": 8.559567000000001,
+          "native_peak_rss_bytes": 3144269824,
+          "seconds": 1.1805302500142716,
+          "system_cpu_seconds": 0.9289569999999999,
+          "user_cpu_seconds": 7.623612
+        }
+      },
+      "passed": true,
+      "query": 21,
+      "rss_passed": true,
+      "wall_passed": true
+    },
+    {
+      "cpu_passed": true,
+      "lanes": 12,
+      "medians": {
+        "baseline": {
+          "cpu_seconds": 0.690484,
+          "native_peak_rss_bytes": 2022309888,
+          "seconds": 0.2598328330204822,
+          "system_cpu_seconds": 0.467605,
+          "user_cpu_seconds": 0.221358
+        },
+        "candidate": {
+          "cpu_seconds": 0.66907,
+          "native_peak_rss_bytes": 2023997440,
+          "seconds": 0.2616662500076927,
+          "system_cpu_seconds": 0.450462,
+          "user_cpu_seconds": 0.222194
+        }
+      },
+      "passed": true,
+      "query": 20,
+      "rss_passed": true,
+      "wall_passed": true
+    },
+    {
+      "cpu_passed": true,
+      "lanes": 12,
+      "medians": {
+        "baseline": {
+          "cpu_seconds": 11.962436,
+          "native_peak_rss_bytes": 1572077568,
+          "seconds": 6.173103917040862,
+          "system_cpu_seconds": 0.43377899999999997,
+          "user_cpu_seconds": 11.51924
+        },
+        "candidate": {
+          "cpu_seconds": 11.967822,
+          "native_peak_rss_bytes": 1570766848,
+          "seconds": 6.1748326669912785,
+          "system_cpu_seconds": 0.435409,
+          "user_cpu_seconds": 11.532413
+        }
+      },
+      "passed": true,
+      "query": 29,
+      "rss_passed": true,
+      "wall_passed": true
+    }
+  ],
+  "historical_cost_decisions": [
+    {
+      "decision": "needs_reversed_confirmation",
+      "stage": "original"
+    },
+    {
+      "decision": "confirmed_cost_regression",
+      "stage": "original_confirmation"
+    },
+    {
+      "decision": "within_predeclared_cost_bounds",
+      "stage": "context_repair"
+    }
+  ],
+  "limitations": [
+    "27 existing native tests are explicitly ignored for platform/manual-fixture reasons.",
+    "Direct Python proof uses the source package and explicit fresh library; hosted installed-wheel acceptance is pending.",
+    "Full43 is retained-input regression, not fresh ingestion or a paired speedup comparison.",
+    "Other child decoders, metadata and compression remain separately scoped; no process-RSS ceiling is claimed.",
+    "No external executor, release publication or whole PERF/CG completion is claimed."
+  ],
+  "manifest": {
+    "bytes": 170980,
+    "path": "native-selection-resources-2026-10-13.manifest.json.xz",
+    "sha256": "5a77e334f4cb2056c1676fdeaadd56de8ff67f50cce838ce377f90eee4b6316a",
+    "uncompressed_sha256": "5c1927c11e0b5217eee2f145d91d566473c3558257f789264774849bacebaff4"
+  },
+  "original_bytes": 177053498,
+  "primary_verification": "native-selection-resources-2026-10-13.primary.json",
+  "results": {
+    "all_cost_calls_reopened": 180,
+    "context_regression_tests": 3,
+    "cost_gate_accepted": true,
+    "direct_errors": 0,
+    "direct_failed": 0,
+    "direct_skipped": 0,
+    "direct_tests": 80,
+    "expected_value_rows": 22002,
+    "final_cost_calls": 60,
+    "full43_calls": 129,
+    "full43_rows": 1143,
+    "native_ignored": 27,
+    "native_passed": 4157,
+    "pressure_rows": 677251,
+    "public_cases": 757,
+    "public_families": 19,
+    "vendor_array_tests": 17,
+    "workspace_ignored": 0,
+    "workspace_passed": 3219
+  },
+  "schema_version": "shardloom.native_selection_resources_index.v1",
+  "source_identity": {
+    "base_commit": "528aa23ed7f09442b664bc07ca44b5c48a8d5c0f",
+    "runtime_commit": "db154e313109227e3dfc6aee445761a24e540210",
+    "rebased_runtime_commit": "8f3607ae6775465f61d1427d0cc36bed04f55e6a",
+    "integration_verification": {
+      "path": "native-selection-resources-2026-10-13.integration-source.json",
+      "bytes": 926,
+      "sha256": "a8603d947d9cec9ed4f9ec74880ab79f6f5ffffbc76e5b31f931e48ead4edf01"
+    },
+    "committed_source_verification": {
+      "path": "native-selection-resources-2026-10-13.source.json",
+      "bytes": 772,
+      "sha256": "a2e2699dda50edad1248dc16ab372a8e0917077d9d7d23e716fbfb23b23aa355"
+    },
+    "deleted_paths": [
+      "vendor/vortex-zstd/src/filter.rs"
+    ],
+    "scope": "The base alone is insufficient; apply the exact archived source overlay and verify all selected source hashes.",
+    "selected_file_count": 2241,
+    "source_manifest_member": "acceptance/selection-resources-409-source.json",
+    "source_manifest_sha256": "fb80f26c7291e40625df2a892aab03b0f2ecc91f5a88090f46423ecf5ed43263",
+    "source_overlay": [
+      "python/THIRD_PARTY_LICENSES/manifest.json",
+      "shardloom-vortex/src/local_primitives.rs",
+      "shardloom-vortex/src/local_primitives/aggregate_utf8_context_tests.rs",
+      "shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs",
+      "shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs",
+      "shardloom-vortex/src/local_primitives/scalar_distinct_workers.rs",
+      "shardloom-vortex/src/local_primitives/utf8_dictionary_ownership_tests.rs",
+      "shardloom-vortex/src/native_provider_memory.rs",
+      "shardloom-vortex/src/native_provider_zstd_filter.rs",
+      "shardloom-vortex/src/native_provider_zstd_filter_tests.rs",
+      "vendor/vortex-zstd/src/array.rs",
+      "vendor/vortex-zstd/src/decoder_workspace.rs",
+      "vendor/vortex-zstd/src/lib.rs",
+      "vendor/vortex-zstd/src/rules.rs",
+      "vendor/vortex-zstd/upstream-provenance.json"
+    ]
+  },
+  "status": "local_acceptance_complete_hosted_pending",
+  "timing": {
+    "native_full43_process_seconds": 211.78474867716432,
+    "sum_query_medians_seconds": 70.66046220896533,
+    "supervised_full43_seconds": 275.93788820895134
+  },
+  "verification": {
+    "bytes": 124904,
+    "path": "native-selection-resources-2026-10-13.verification.json.xz",
+    "sha256": "57fcfced05aaaf0adc8379e6c0fb5fc94370ca7b551bb60913cb491201d3e0b7",
+    "uncompressed_bytes": 898755,
+    "uncompressed_sha256": "ddff2f66f5eb68ffb1cfb89699da67b387fe7f55f4a759b699f166934137c126"
+  },
+  "verified_members": 4171,
+  "version": "0.5.1"
+}

@@ -17,6 +17,66 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-ENCODED-INTERCHANGE` — admitted encoded receiving copies, reusable
+  sources, consistent native recognition and independent Vortex producer intake
+  under PERF-02/03/07/11/12 and CG-19/20/21. The
+  [acceptance report](../benchmarks/native-encoded-interchange-2026-10-12.md)
+  retains complete values, ownership/failure proof and physical-copy/lifecycle
+  cost gates. The [finite query campaign](../benchmarks/native-query-revisit-2026-10-12.md)
+  retains prepared-sort drivers, provider scan granularity and adaptive decimal
+  accumulation; it drops empty reservation transitions. Later filtered-count
+  and sparse-frame observations retain their separate frozen evidence.
+  - [PR #1545](https://github.com/depsilon/shardloom/pull/1545) merges at
+    `3089c8aa91c48a880a5bd338657a1877eff1226c` after 43 checks pass on
+    `230d5908cb8d34968406395a31df2354214a847d`. All 2,219 accepted source files
+    match after the recorded three-file RunEnd correction; reviewed and merged
+    trees match. Physical Null ownership and malformed nonempty RunEnd rejection
+    pass their explicit hosted regressions.
+  - [PR #1547](https://github.com/depsilon/shardloom/pull/1547) merges at
+    `ed253d1ec74b724215f71f0b410123656e596696` after 44 checks pass on
+    `ea175308777da778c88d446e239d628ff9953fa2`. All 2,221 frozen files match
+    the reviewed head. Seven harness files in the merge exactly match the
+    intervening approved PR #1546; production source is unchanged.
+  - The [hosted receipt](../benchmarks/evidence/native-encoded-hosted-2026-10-14.json)
+    and independently reopened 37-member archive preserve 19 raw API responses
+    and eight job logs. Ubuntu Python 3.10/3.13 and macOS Python 3.13 each pass
+    all 80 installed native tests for both PRs, without failures/errors/skips.
+    Native job summaries retain their ignored and filtered counts separately.
+    Review comments remain preserved and unresolved in GitHub; no approval or
+    new live website observation is inferred.
+  - The later sparse-filter owner finding is assigned to
+    `NATIVE-SELECTION-RESOURCES`; this receipt does not close that active unit.
+    Other allocation/state/platform work and all eight investigations retain
+    existing owners. Historical timings keep their actual source identities;
+    no whole PERF/CG completion, external executor or release is claimed.
+    Published version 0.5.1 is unchanged.
+
+- [x] `NATIVE-OPERATOR-RECOVERY` — caller-controlled relational cleanup and
+  actual-query process-death, owned cleanup and exact fresh restart for numeric
+  sort, single/compound COUNT and integer DISTINCT under PERF-03/06/12 and
+  CG-5/19/21. Cancellation preserves the marker for a fresh-token retry, including
+  after the last run deletion. Shared native run-store identity, quotas and
+  live-owner/unknown-file protection remain intact.
+  - The [acceptance report](../benchmarks/native-operator-recovery-2026-10-13.md)
+    records 35 focused tests, four real process-death cases, 3,219 default tests,
+    required formatting/Clippy and native read/release Clippy, original failures,
+    source review and independently inspected portable evidence.
+  - [PR #1549](https://github.com/depsilon/shardloom/pull/1549) merges at
+    `483cbaa982dd300dec45bb50066cdbf452686b36` after all 44 checks pass on
+    `528aa23ed7f09442b664bc07ca44b5c48a8d5c0f`. Reviewed, synthetic and merged
+    trees match; all 2,240 accepted source blobs are verified. Automated review
+    completes without findings.
+  - The [hosted receipt](../benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/index.json)
+    preserves three installed wheel lanes, each reporting 80 native tests with
+    zero failures/errors/skips, and exact-merge production/source verification.
+    All 26 archive members are reopened and verified. Unchanged guide/search
+    source retains the preceding rendered proof.
+  - This proves cleanup and a fresh restart, not interrupted-query resumption,
+    power-loss durability, a process-RSS ceiling or broader platform readiness.
+    Other allocation, state and operational work keeps its existing owners.
+    No new provider/format, external executor, performance claim or release;
+    version remains 0.5.1.
+
 - [x] `NATIVE-STREAM-INPUT-COMPOSITION` — multiple finite producers, declared
   repeated-source/self-join replay and dynamic streaming pivots under
   PERF-03/06/07/11/12 and CG-5/19/20/21. Preparation, native execution and

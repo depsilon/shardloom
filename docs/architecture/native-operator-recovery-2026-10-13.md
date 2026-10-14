@@ -1,7 +1,8 @@
 # Native operator recovery acceptance
 
-Status: local runtime and documentation acceptance passed; hosted integration
-remains pending. This is a finite hardening unit under PERF-03/06/12 and CG-5/19/21,
+Status: finite unit complete in [PR #1549](https://github.com/depsilon/shardloom/pull/1549),
+including local acceptance, all 44 hosted checks and production verification.
+This is a finite hardening unit under PERF-03/06/12 and CG-5/19/21,
 following the October 13 streaming
 composition work. It does not close those broader gates or change version 0.5.1.
 
@@ -69,9 +70,10 @@ records exact commands, failed initial checks and the finite proof boundary.
   public cleanup and exact restart for all four dispatch cases above.
 - Required formatting, workspace Clippy/tests and relevant native feature lanes,
   with source/receipt binding and explicit platform exclusions.
-- Review, hosted CI and integration evidence before recording this finite unit
-  as complete. Current pipeline and generated guide evidence from the preceding
-  composition unit retain their own immutable source identity.
+- Primary review, hosted CI, three installed native-wheel lanes and production
+  verification are recorded in the [hosted receipt](../benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/index.json).
+  Generated guides and search assets are unchanged from the preceding composition
+  unit, whose rendered proof retains its own immutable source identity.
 
 Reader/codec allocation coverage, unadmitted state families, compatibility
 streaming destinations/fanout, broader platform/operational acceptance and all

@@ -17,7 +17,7 @@ use shardloom_exec::{
 };
 use std::{hash::Hasher as _, sync::Arc, time::Instant};
 use vortex::array::{
-    ArrayRef,
+    ArrayRef, VortexSessionExecute as _,
     arrays::{
         Dict, VarBinViewArray, dict::DictArraySlotsExt as _, varbinview::VarBinViewArrayExt as _,
     },
@@ -378,6 +378,7 @@ fn process(
                 &mut dictionary_work,
                 dictionary,
                 &|| worker.check_cancelled(),
+                &mut session.create_execution_ctx(),
             )?;
             work.dictionary_nanos = nanos(started);
             let AggregateDirectColumnAccessor::Utf8Dictionary { values, .. } = accessor else {

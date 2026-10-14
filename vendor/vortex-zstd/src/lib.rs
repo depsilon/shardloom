@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
-// Modified by ShardLoom on 2026-10-13: include sparse text-frame filter reduction.
 
 //! Zstd-backed compression encodings for variable-width Vortex arrays.
 //!
@@ -33,7 +32,6 @@ pub use zstd_buffers::*;
 mod array;
 mod compute;
 mod decoder_workspace;
-mod filter;
 mod rules;
 mod slice;
 #[cfg(feature = "unstable_encodings")]

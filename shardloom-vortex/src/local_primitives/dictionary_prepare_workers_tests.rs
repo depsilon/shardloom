@@ -128,6 +128,73 @@ fn assert_native_io_credits_return(memory: &LiveMemoryPool, expected: u64) {
 }
 
 #[test]
+fn aggregate_utf8_context_dictionary_preparation_refuses_and_retries() {
+    use vortex::{array::VortexSessionExecute as _, encodings::zstd::Zstd, mask::Mask};
+
+    let values = (0..128)
+        .map(|row| format!("http://{}.test/{row}:{}", row % 2, "x".repeat(1024)))
+        .collect::<Vec<_>>();
+    let source = VarBinViewArray::from_iter_str(values.iter().map(String::as_str));
+    let encoded = Zstd::from_var_bin_view_without_dict(
+        &source,
+        0,
+        8,
+        &mut VortexSession::default().create_execution_ctx(),
+    )
+    .unwrap()
+    .into_array();
+    let filtered = encoded
+        .filter(Mask::from_indices(128, [1, 3, 120, 124]))
+        .unwrap();
+    let input =
+        StructArray::new(["Referer"].into(), vec![filtered], 4, Validity::NonNullable).into_array();
+    let request = request();
+    let columns = vec!["Referer".to_owned()];
+    let owner = ResidentVortexSession::for_external_cpu_pool(MEMORY, 2).unwrap();
+    let memory = owner.memory().clone();
+    owner
+        .with_native_session(|session, _| {
+            let mut state = GroupedAggregateStates::new(&request, Some(2), &columns, false, false)?;
+            state.native_execution_ctx = native_numeric_execution_ctx(session);
+            let mut workers = DictionaryPrepareWorkers::admit(
+                &state,
+                input.dtype(),
+                &columns,
+                policy(2),
+                &memory,
+                None,
+            )?
+            .unwrap();
+            let before = memory.snapshot().reserved_bytes;
+            let pressure = memory.reserve(MEMORY - before - 1)?;
+            let error = workers
+                .submit(&input, &mut state)
+                .expect_err("dictionary preparation must retain query allocation policy");
+            assert!(
+                error.to_string().contains("memory reservation denied"),
+                "{error}"
+            );
+            assert!(memory.snapshot().denied_reservations > 0);
+            drop(pressure);
+            assert_eq!(memory.snapshot().reserved_bytes, before);
+            assert!(workers.submit(&input, &mut state)?);
+            workers.finish(&mut state)?;
+            assert_eq!(
+                state_values(&mut state),
+                serde_json::json!([
+                    {"k":"0.test","c":2,"l":f64::from(u32::try_from(values[120].len()).unwrap()),"m":values[120]},
+                    {"k":"1.test","c":2,"l":f64::from(u32::try_from(values[1].len()).unwrap()),"m":values[1]},
+                ])
+            );
+            drop((workers, state));
+            Ok(())
+        })
+        .unwrap();
+    drop(owner);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn dictionary_preparation_active_worker_cancel_refunds_immediately_without_native_io() {
     let _clear = ClearHooks;
     let columns = vec!["Referer".to_owned()];
