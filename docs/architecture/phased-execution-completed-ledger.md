@@ -17,6 +17,28 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-SELECTION-RESOURCES` — sparse native Zstd selection metadata,
+  borrowed decoder ranges and query-context preservation through reviewed
+  aggregate/dictionary helpers under PERF-03/06/08/09 and CG-5/19/20/21.
+  The [acceptance report](../benchmarks/native-selection-resources-2026-10-13.md)
+  retains refusal/retry/ownership proof, all 757 public cases, 80 direct tests,
+  all 129 Full43 results and the accepted cost screen with both rejected cohorts.
+  - [PR #1550](https://github.com/depsilon/shardloom/pull/1550) merges at
+    `22b2cde04973ce4462517d73fe67b5f7a1e8177c` after all 44 checks pass on
+    `ed7b028e852008fd9352b0bf255e7451d536b07a`. Reviewed, synthetic and merged
+    trees match; all 2,241 accepted source files are independently verified.
+    Automated review completes without findings.
+  - The [hosted receipt](../benchmarks/evidence/native-selection-hosted-2026-10-14/index.json)
+    preserves the complete native log, including 2,743 passes and 24 existing
+    ignored tests, three vendor groups with 10/7/17 passes, and three installed
+    wheel lanes with 80 passes each and no failures/errors/skips. Every one of
+    the 190 archive members is independently reopened and checked.
+  - Exact-merge production verification passes. Unchanged guide/search source
+    retains the preceding rendered proof; no new browser run is claimed.
+    General decoder scratch, unrelated contexts and metadata retain their
+    existing owners. No whole PERF/CG completion or package publication;
+    version remains 0.5.1.
+
 - [x] `NATIVE-ENCODED-INTERCHANGE` — admitted encoded receiving copies, reusable
   sources, consistent native recognition and independent Vortex producer intake
   under PERF-02/03/07/11/12 and CG-19/20/21. The
@@ -45,7 +67,8 @@ phase plan first.
     Review comments remain preserved and unresolved in GitHub; no approval or
     new live website observation is inferred.
   - The later sparse-filter owner finding is assigned to
-    `NATIVE-SELECTION-RESOURCES`; this receipt does not close that active unit.
+    `NATIVE-SELECTION-RESOURCES`, whose later completion is recorded above.
+    This earlier receipt does not certify the later change.
     Other allocation/state/platform work and all eight investigations retain
     existing owners. Historical timings keep their actual source identities;
     no whole PERF/CG completion, external executor or release is claimed.

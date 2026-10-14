@@ -2,8 +2,9 @@
 
 # Native Zstd Selection Resources — October 13, 2026
 
-Status: local correctness, resource, cost and portable-evidence acceptance pass;
-hosted integration is pending. The [acceptance report](../benchmarks/native-selection-resources-2026-10-13.md)
+Status: integrated in [PR #1550](https://github.com/depsilon/shardloom/pull/1550)
+after all 44 hosted checks pass. The accepted and merged trees match; production
+verification passes. The [acceptance report](../benchmarks/native-selection-resources-2026-10-13.md)
 records the repaired candidate and both rejected cost cohorts under PERF-03/06/08/09
 and CG-5/19/20/21, following RFCs 0014/0044. This finite unit follows the accepted
 sparse text-frame optimization and preserves its shape policy and native decoder.

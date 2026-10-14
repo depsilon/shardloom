@@ -262,7 +262,14 @@ fn read_complete(path: &Path) -> (DType, Vec<serde_json::Value>) {
         .unwrap()
     {
         let chunk = chunk.unwrap();
-        let columns = row_export_columns_from_chunk(&chunk, &names).unwrap();
+        let columns = row_export_columns_from_chunk(
+            &chunk,
+            &names,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .unwrap();
         for index in 0..chunk.len() {
             let mut row = serde_json::Map::new();
             for (name, values) in names.iter().zip(&columns) {

@@ -1,0 +1,18 @@
+{
+  "schema_version": "shardloom.selection_hosted_closeout_primary.v1",
+  "status": "passed",
+  "observed_at": "2026-10-14T07:01:29.716050+00:00",
+  "archive_sha256": "c20c971f53522a9b183f6b7e28f86d372bf3bd69d3b2754e30320552c36e5de9",
+  "members_reopened": 190,
+  "original_file_comparisons": 189,
+  "git_metadata_comparisons": 1,
+  "uncompressed_bytes": 7689971,
+  "checked_in_archive": "hosted.tar.xz",
+  "checked_in_index_sha256": "20fc9d053a39dd7963667ba80eb9ca6811b7a3b16c57f6aae8efa2cc19df07de",
+  "head": "ed7b028e852008fd9352b0bf255e7451d536b07a",
+  "merged_commit": "22b2cde04973ce4462517d73fe67b5f7a1e8177c",
+  "hosted_acceptance": "selection-hosted-primary-414.json",
+  "merged_source": "selection-pr1550-merged-source-414.json",
+  "production": "selection-production-414/report.json",
+  "scope": "All archived bytes and originals independently checked. Hosted/source/production checks have separate archived primary reports. No new browser run or package publication."
+}

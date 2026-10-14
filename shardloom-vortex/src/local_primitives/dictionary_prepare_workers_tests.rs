@@ -155,7 +155,7 @@ fn aggregate_utf8_context_dictionary_preparation_refuses_and_retries() {
     owner
         .with_native_session(|session, _| {
             let mut state = GroupedAggregateStates::new(&request, Some(2), &columns, false, false)?;
-            state.native_execution_ctx = native_numeric_execution_ctx(session);
+            state.native_execution_ctx = Some(native_numeric_execution_ctx(session));
             let mut workers = DictionaryPrepareWorkers::admit(
                 &state,
                 input.dtype(),

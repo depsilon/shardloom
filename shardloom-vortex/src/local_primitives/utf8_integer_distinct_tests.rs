@@ -56,6 +56,7 @@ fn state(
         false,
         false,
         policy.resource_envelope,
+        Some(vortex::array::legacy_session()),
     )
     .unwrap()
 }

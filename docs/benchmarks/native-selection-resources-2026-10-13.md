@@ -3,7 +3,9 @@
 # Native selection resource acceptance
 
 Status: the repaired candidate passes local correctness, resource, cost and
-portable-evidence acceptance on October 14. Hosted integration remains pending.
+portable-evidence acceptance on October 14 and is integrated in
+[PR #1550](https://github.com/depsilon/shardloom/pull/1550). All 44 hosted checks
+and production verification pass with the accepted runtime source unchanged.
 Both rejected cost cohorts and the failing-before-repair regression are retained. The
 [contract](../architecture/native-selection-resources-2026-10-13.md) scopes this
 unit to sparse Zstd selection and related decoder collections under
@@ -158,6 +160,39 @@ inputs and the recorded allocation policy; completed paths refuse overwrite.
 The original 192-MiB packet limit, 100-GiB workspace ceiling, 12-GiB free-space
 headroom and serialized native execution remain enforced. ClickBench retains
 its shared 1,024-MiB historical and 256-MiB active log budgets.
+
+## Hosted integration
+
+PR #1550 merges `ed7b028e852008fd9352b0bf255e7451d536b07a` at
+`22b2cde04973ce4462517d73fe67b5f7a1e8177c`. The reviewed head, tested synthetic
+merge and actual merge share tree `f42f8b400d3583d78d90bd4bb160ba8f3884a194`.
+Independent readback compares all 2,241 frozen source blobs and the CI workflow.
+All 44 checks succeed. Automated review completes with no findings, inline
+comments or review threads; the bot's positive reaction is not a formal approval.
+
+The native library job passes 2,743 tests, with 24 existing ignored tests. Its
+three subsequent vendor groups pass 10 array-owner, seven layout file-statistics
+and 17 Zstd array tests, with no failures or ignored tests in those groups.
+The log also records all 37 Zstd provider tests and three aggregate-context
+regressions. Ubuntu Python 3.10/3.13 and macOS Python 3.13 each pass all 80
+installed-wheel tests without failures, errors or skips. The original timestamped
+logs identify the tested synthetic merge and isolated version 0.5.1 installations.
+
+The [hosted index](evidence/native-selection-hosted-2026-10-14/index.json)
+binds a [256,436-byte archive](evidence/native-selection-hosted-2026-10-14/hosted.tar.xz),
+SHA-256 `c20c971f53522a9b183f6b7e28f86d372bf3bd69d3b2754e30320552c36e5de9`.
+All 190 members are independently reopened and compared with their original
+files or exact Git metadata, covering 7,689,971 uncompressed bytes. The
+[primary verification](evidence/native-selection-hosted-2026-10-14/primary-verification.json)
+preserves the accepted source, raw check/review responses, wheel/native logs,
+preview and actual-merge production observations.
+
+The four preview responses match source bytes exactly. After the successful
+production build on the merge commit, the three guide pages preserve every
+source byte around a 1,305-byte Cloudflare insertion; the search entry matches
+exactly. Website and generator trees are unchanged from PR #1548, so its earlier
+desktop/mobile/search proof remains applicable. These are fresh HTTP observations,
+not a new browser run. No package was published.
 
 The broader allocation, state, platform and conditional-investigation obligations
 retain their existing owners.

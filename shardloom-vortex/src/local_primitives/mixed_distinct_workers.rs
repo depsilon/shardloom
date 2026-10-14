@@ -249,7 +249,7 @@ impl MixedDistinctWorkers {
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             &self.recipe.columns,
-            &mut states.native_execution_ctx,
+            super::required_native_execution_ctx(&mut states.native_execution_ctx)?,
         )?;
         self.accessor_nanos += started.elapsed().as_nanos();
         states
@@ -308,6 +308,7 @@ impl MixedDistinctWorkers {
                 false,
                 false,
                 recipe.policy.resource_envelope(),
+                None,
             )?;
             let partial = local
                 .prepare_mixed_distinct_partial(

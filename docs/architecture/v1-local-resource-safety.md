@@ -123,8 +123,17 @@ covers sparse native Zstd frame/metadata collections and output views, borrowed
 decoder ranges and preservation of the existing query context through reviewed
 aggregate/dictionary helpers. Low-grant refusal, retry, ownership, public/Full43
 regression and paired cost gates pass. Both rejected cost cohorts remain
-preserved. Hosted integration is pending; general child-decoder and unrelated
-legacy-context helpers are not included in this finite coverage.
+preserved. [PR #1550](https://github.com/depsilon/shardloom/pull/1550) integrates
+the unit after all 44 checks pass, with unchanged accepted source and verified
+production content. General child-decoder and unrelated legacy-context helpers
+are not included in this finite coverage.
+
+The later [combined decoder/context correction](../benchmarks/native-admitted-context-2026-10-14.md)
+extends local coverage to reviewed fixed-width child-buffer trees and remaining
+native helper context propagation. Its six broad gates, 80 direct tests,
+757 public cases and 516 matched query calls pass; no cost breach repeats in
+both starting orders. Hosted integration remains pending. The contract retains
+explicit exclusions for unreviewed trees, metadata and compression/training.
 
 Other unadmitted state spill, complete reader/codec/upstream scratch
 accounting and whole-process RSS bounds remain open. Other operators retain their own resource admission

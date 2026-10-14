@@ -38,7 +38,14 @@ where
     T: vortex::array::dtype::NativePType,
 {
     let array = PrimitiveArray::new(values, Validity::NonNullable).into_array();
-    aggregate_direct_column_accessor("measure", &array).unwrap()
+    aggregate_direct_column_accessor(
+        "measure",
+        &array,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            vortex::array::legacy_session(),
+        ),
+    )
+    .unwrap()
 }
 
 fn assert_states_equal(left: &SimpleAggregateStates, right: &SimpleAggregateStates) {
@@ -111,7 +118,14 @@ fn bound_numeric_updates_match_nullable_and_floating_row_semantics() {
     ]);
     let nullable_i32 =
         PrimitiveArray::from_option_iter([Some(5_i32), None, Some(-2), Some(8)]).into_array();
-    let nullable_i32 = aggregate_direct_column_accessor("nullable", &nullable_i32).unwrap();
+    let nullable_i32 = aggregate_direct_column_accessor(
+        "nullable",
+        &nullable_i32,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            vortex::array::legacy_session(),
+        ),
+    )
+    .unwrap();
     let mut seed = template.clone();
     seed.states[3].count = 7;
     seed.states[3]
@@ -143,6 +157,9 @@ fn bound_numeric_updates_rebinding_observes_new_contents_width_and_validity() {
         aggregate_direct_column_accessor(
             "changed_validity",
             &PrimitiveArray::from_option_iter([Some(10_i64), None, Some(30)]).into_array(),
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
         )
         .unwrap(),
     ] {
@@ -316,7 +333,14 @@ fn bound_numeric_updates_empty_and_all_null_keep_exact_counts() {
     ]);
     for count in [0, 3] {
         let array = PrimitiveArray::from_option_iter(vec![None::<i64>; count]).into_array();
-        let accessors = [aggregate_direct_column_accessor("empty_or_null", &array).unwrap()];
+        let accessors = [aggregate_direct_column_accessor(
+            "empty_or_null",
+            &array,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .unwrap()];
         let recipe = BoundNumericUpdates::bind(&template, &accessors, 2, count).unwrap();
         let mut actual = template.clone();
         for row in 0..count {
@@ -409,6 +433,9 @@ fn bound_numeric_updates_preserve_pair_preunion_and_every_ordinary_contribution(
             aggregate_direct_column_accessor(
                 "amount",
                 &PrimitiveArray::from_option_iter(values).into_array(),
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
             )
             .unwrap(),
             numeric_accessor(vec![

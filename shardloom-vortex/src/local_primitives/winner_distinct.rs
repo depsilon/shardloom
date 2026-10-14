@@ -8,8 +8,7 @@ use super::{
     VortexQueryPrimitiveRequest, VortexReaderBackedSplitEvidence,
     aggregate_scan_runtime::AggregateScanRuntime, aggregate_scan_source::AggregateScanSource,
     aggregate_timing::AggregateFirstPassTiming, compare_single_numeric_candidates,
-    native_numeric_execution_ctx, projection_request_from_declared_columns, projection_scan_plan,
-    vortex_error,
+    projection_request_from_declared_columns, projection_scan_plan, vortex_error,
 };
 use crate::{VortexAggregateOrderExpr, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest};
 use rustc_hash::FxHashMap;
@@ -187,8 +186,8 @@ impl Report {
             false,
             false,
             policy.resource_envelope(),
+            Some(session),
         )?;
-        states.native_execution_ctx = native_numeric_execution_ctx(session);
         let projection = projection_request_from_declared_columns(&self.columns)?;
         let plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if plan.projected_columns != self.columns {

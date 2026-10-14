@@ -91,7 +91,14 @@ fn native_sort_block_matches_complete_sort_across_epochs_ties_offsets_and_source
                     let mut work = Work::default();
                     for partition in 0..4 {
                         let native = chunk(partition);
-                        let old_columns = row_export_columns_from_chunk(&native, &names()).unwrap();
+                        let old_columns = row_export_columns_from_chunk(
+                            &native,
+                            &names(),
+                            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                                vortex::array::legacy_session(),
+                            ),
+                        )
+                        .unwrap();
                         for row in 0..8 {
                             expected.push(SortRowCandidate {
                                 ordinal: partition * 8 + row,

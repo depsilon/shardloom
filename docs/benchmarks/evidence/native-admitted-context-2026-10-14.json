@@ -1,0 +1,89 @@
+{
+  "schema_version": "shardloom.completed_native_evidence_index.v1",
+  "status": "completed_combined_local_acceptance_hosted_integration_pending",
+  "archive": {
+    "path": "native-admitted-context-2026-10-14.tar.xz",
+    "bytes": 3294188,
+    "sha256": "74a85db2c1baa886b5b90b7e5f8f6d033e500412dbb9746937242f850f3933dc"
+  },
+  "manifest": {
+    "path": "native-admitted-context-2026-10-14.manifest.json.xz",
+    "bytes": 87392,
+    "sha256": "efd291685ff304e80cc122bc5d73641b29b7ad0f7e8ddc38dec80a1b2ffb9a51",
+    "uncompressed_bytes": 1125756,
+    "uncompressed_sha256": "3545eec822659081ac7bbf657e35ac3009810a79f00da25a30a091daa20204e2"
+  },
+  "verification": {
+    "path": "native-admitted-context-2026-10-14.verification.json",
+    "bytes": 286,
+    "sha256": "8dcc0a5d2f99441ad1bf99a797da2366506417880153256cd9092998a4ed83f9"
+  },
+  "verified_member_count": 2240,
+  "all_archive_bytes_preserved": true,
+  "all_original_manifest_bytes_preserved": true,
+  "native_execution_repeated_for_copy": false,
+  "base_commit": "22b2cde04973ce4462517d73fe67b5f7a1e8177c",
+  "source_files": 2245,
+  "changed_source_files": 44,
+  "acceptance": {
+    "broad_gates": 6,
+    "candidate_full43_calls": 258,
+    "candidate_full43_rows": 2286,
+    "direct_tests": 80,
+    "focused_context_regressions": 22,
+    "native_ignored": 28,
+    "native_tests": 4200,
+    "paired_complete_calls": 516,
+    "prior_decoder_and_composition_evidence_preserved": true,
+    "public_cases": 757,
+    "public_families": 19,
+    "repeated_cost_breaches": 0,
+    "workspace_tests": 3219
+  },
+  "order_totals": {
+    "forward": {
+      "candidate": {
+        "all_129_call_seconds": 333.39230508031324,
+        "largest_process_rss_bytes": 5883887616,
+        "sum_of_query_medians_seconds": 110.97813112282893,
+        "sum_of_query_minima_seconds": 105.98553474718938,
+        "total_child_cpu_seconds": 1003.361943
+      },
+      "control": {
+        "all_129_call_seconds": 334.7689847109723,
+        "largest_process_rss_bytes": 5807816704,
+        "sum_of_query_medians_seconds": 110.74459954118356,
+        "sum_of_query_minima_seconds": 105.25117725000018,
+        "total_child_cpu_seconds": 1009.17541
+      }
+    },
+    "reverse": {
+      "candidate": {
+        "all_129_call_seconds": 389.0678500442882,
+        "largest_process_rss_bytes": 5673762816,
+        "sum_of_query_medians_seconds": 128.99187650543172,
+        "sum_of_query_minima_seconds": 122.31621570582502,
+        "total_child_cpu_seconds": 1047.172753
+      },
+      "control": {
+        "all_129_call_seconds": 382.96688996301964,
+        "largest_process_rss_bytes": 5838389248,
+        "sum_of_query_medians_seconds": 128.75227591901785,
+        "sum_of_query_minima_seconds": 119.11665254109539,
+        "total_child_cpu_seconds": 1036.509987
+      }
+    }
+  },
+  "source_files_and_executables": "Complete source hashes, changed source overlay, build/executable identities, every raw query output and public evidence are retained; bulk executable and dataset payloads are excluded.",
+  "companion_packets": [
+    "native-decoder-rejected-2026-10-14.json",
+    "native-decoder-scratch-2026-10-14.json",
+    "native-composition-attribution-2026-10-14.json"
+  ],
+  "companion_report": "../native-admitted-context-2026-10-14.md",
+  "contract": "../../architecture/native-admitted-context-2026-10-14.md",
+  "historical_cause_established": false,
+  "performance_superiority_claim": false,
+  "publication_attempted": false,
+  "limitations": "Finite local correction acceptance. Every member was reopened during packaging and every copied archive byte is unchanged. Single-order cost breaches are retained. No installed-wheel, general allocation, process-RSS ceiling, historical timing attribution or cross-platform claim."
+}

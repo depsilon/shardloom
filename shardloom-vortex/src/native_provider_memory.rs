@@ -4,8 +4,9 @@
 //! without copying bytes. This covers direct FSST execution and the finite
 //! integer metadata providers below, plus concatenation of FSST, Zstd and
 //! canonical string views, and primitive/Bool/decimal Chunked output builders.
-//! Child decoder scratch, other builders, structural metadata, allocator
-//! bookkeeping and process RSS are separate resource boundaries.
+//! Fixed-width Chunked append also admits the reviewed physical decoder scratch.
+//! Other decoder trees/builders, structural metadata, allocator bookkeeping and
+//! process RSS remain separate resource boundaries.
 
 use std::{any::Any, sync::Arc};
 
@@ -288,6 +289,11 @@ fn integer_workspace(array: &ArrayRef, depth: usize) -> VortexResult<IntegerWork
     }
     let output = mul(rows, ptype.byte_width())?;
     bytes = add(bytes, aligned_capacity(output, alignment)?)?;
+    if array.is::<BitPacked>() {
+        // unpack_primitive_array finishes a PrimitiveBuilder with mem::take;
+        // its empty replacement overlaps the decoded output until drop.
+        bytes = add(bytes, capacity(0)?)?;
+    }
     if (array.is::<Dict>() || array.is::<Filter>()) && alignment > *Alignment::DEFAULT_ALIGNMENT {
         // Fixed-width take first gathers at the preferred alignment, then may
         // copy to the source's stronger alignment while the first buffer lives.

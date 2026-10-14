@@ -136,6 +136,52 @@ fn native_fsst_corrupt_row_lengths_are_rejected_before_provider_decode() {
 }
 
 #[test]
+fn native_fsst_bitpacked_metadata_finish_is_reserved_before_row_validation() {
+    use vortex::{buffer::Buffer, encodings::fastlanes::BitPackedData};
+
+    let mut ctx = VortexSession::default().create_execution_ctx();
+    let lengths =
+        BitPackedData::encode(&PrimitiveArray::from_iter([1u64]).into_array(), 1, &mut ctx)
+            .unwrap()
+            .into_array();
+    let codes = [u8::MAX, b'a', u8::MAX, b'b'];
+    let encoded = FSST::try_new(
+        DType::Binary(Nullability::NonNullable),
+        Buffer::empty(),
+        Buffer::empty(),
+        VarBinArray::from_iter(
+            [Some(codes.as_slice())],
+            DType::Binary(Nullability::NonNullable),
+        ),
+        lengths,
+        &mut ctx,
+    )
+    .unwrap()
+    .into_array();
+    // Former admission covered the decoded u64, but not the builder's empty
+    // finish replacement. It reached malformed-row validation after allocating.
+    let memory = LiveMemoryPool::configurable(8 + 256).unwrap();
+    let error = encoded
+        .clone()
+        .execute::<VarBinViewArray>(&mut session(&memory).create_execution_ctx())
+        .unwrap_err();
+    assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
+    assert_eq!(memory.snapshot().peak_reserved_bytes, 0);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    memory.set_limit_bytes(8 + 256 + 256).unwrap();
+    let error = encoded
+        .execute::<VarBinViewArray>(&mut session(&memory).create_execution_ctx())
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("native FSST row length"),
+        "{error}"
+    );
+    assert_eq!(memory.snapshot().peak_reserved_bytes, 8 + 256 + 256);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn native_fsst_code_boundaries_reject_malformed_rows_without_panics() {
     use vortex::buffer::Buffer;
 

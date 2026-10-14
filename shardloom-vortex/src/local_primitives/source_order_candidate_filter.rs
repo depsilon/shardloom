@@ -65,7 +65,7 @@ impl GroupedAggregateStates<'_> {
         let (numeric, work) = aggregate_column_accessor_in_context(
             &columns[roles.numeric_column],
             &numeric_array,
-            &mut self.native_execution_ctx,
+            super::required_native_execution_ctx(&mut self.native_execution_ctx)?,
         )?;
         self.native_numeric_accessor_work.add(&work)?;
         if numeric.len() != chunk.len() {

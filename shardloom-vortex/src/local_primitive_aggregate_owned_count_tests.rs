@@ -267,7 +267,14 @@ fn owned_count_finalizer_visits_actual_compact_and_general_states_without_json()
         assert!(serde_json::from_str::<serde_json::Value>(&summary).unwrap()["values"].is_null());
         let (array, ownership) = output.into_array().unwrap();
         assert_eq!(
-            runtime::row_export_columns_from_chunk(&array, &[KEY.into(), COUNT.into()]).unwrap(),
+            runtime::row_export_columns_from_chunk(
+                &array,
+                &[KEY.into(), COUNT.into()],
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
+            )
+            .unwrap(),
             vec![
                 vec![StatValue::Int64(i64::MIN), StatValue::Int64(i64::MAX)],
                 vec![StatValue::UInt64(2), StatValue::UInt64(2)]

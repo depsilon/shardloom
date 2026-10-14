@@ -104,6 +104,7 @@ pub(super) fn request_may_be_admitted(request: &VortexQueryPrimitiveRequest) -> 
         false,
         false,
         envelope,
+        None,
     )
     .is_ok_and(|states| shape(&states, &columns))
 }
@@ -156,7 +157,14 @@ impl DictionaryPrepareWorkers {
             }),
             // The grouped state already owns the query's admitted context.
             // Preserve its allocator and provider registry in caller and jobs.
-            session: states.native_execution_ctx.session().clone(),
+            session: states
+                .native_execution_ctx
+                .as_ref()
+                .ok_or_else(|| {
+                    failed("native preparation requires the admitted execution context")
+                })?
+                .session()
+                .clone(),
             active: true,
             rows: 0,
             provider_nanos: 0,

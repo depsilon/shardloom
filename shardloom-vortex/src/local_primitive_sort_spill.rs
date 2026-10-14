@@ -514,6 +514,7 @@ fn merge_geometry(reserved_bytes: u64) -> Result<(usize, usize)> {
 
 struct RunReader {
     reader: QueryRunReader,
+    ctx: vortex::array::ExecutionCtx,
     rows: VecDeque<SpillRow>,
     remaining: u64,
     previous: Option<SpillRow>,
@@ -529,6 +530,7 @@ impl RunReader {
         let reader = store.open(&run.native, &run_dtype(), runtime, session, work)?;
         Ok(Self {
             reader,
+            ctx: super::native_numeric_execution_ctx(session),
             rows: VecDeque::with_capacity(run.native.block_rows),
             remaining: run.native.rows,
             previous: None,
@@ -541,8 +543,11 @@ impl RunReader {
             .next_block(runtime)?
             .ok_or_else(|| spill_error("native sort run block returned no rows"))?;
         let array = block.array();
-        let columns =
-            row_export_columns_from_chunk(array, &["key".into(), "tie".into(), "source".into()])?;
+        let columns = row_export_columns_from_chunk(
+            array,
+            &["key".into(), "tie".into(), "source".into()],
+            &mut self.ctx,
+        )?;
         for index in 0..array.len() {
             let mut values = [0_u64; 3];
             for (column, value) in columns.iter().zip(&mut values) {

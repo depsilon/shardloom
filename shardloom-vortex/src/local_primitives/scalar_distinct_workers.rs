@@ -239,7 +239,7 @@ impl ScalarDistinctWorkers {
         let preparation_lease = self.jobs.memory().reserve(preparation_bytes)?;
         let input = if let Some(dict) = array.as_opt::<Dict>()
             && let Some((mut codes, nulls)) =
-                super::direct_u32_codes_with_nulls_from_vortex_array(dict.codes())
+                super::direct_u32_codes_with_nulls_from_vortex_array(dict.codes(), &mut ctx)?
         {
             let selected = super::dictionary_handoff::referenced_values(
                 dict.values(),

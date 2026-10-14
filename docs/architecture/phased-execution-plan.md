@@ -249,41 +249,80 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-SELECTION-RESOURCES` admit sparse native Zstd selection metadata
-  and remove temporary decoder frame/rank collections.
+- [ ] `NATIVE-DECODER-SCRATCH` admit reviewed fixed-width child decoder buffers
+  during native Chunked append, close the FSST metadata finish overlap and
+  preserve the admitted context through the remaining native helper chains.
   - V1 scope classification: `required_for_v1`.
   - Existing owners: PERF-03/06/08/09 and CG-5/19/20/21; RFCs 0014/0044.
-  - Source and contract: [native selection resources](native-selection-resources-2026-10-13.md).
-  - Current state: the admitted execution-parent kernel preserves the existing
-    sparse frame policy. The repaired aggregate UTF-8/dictionary paths retain
-    the admitted context. Required workspace/native gates, 80 direct tests,
-    757 public cases, all 129 Full43 results and every paired cost gate pass.
-    The [acceptance report](../benchmarks/native-selection-resources-2026-10-13.md)
-    preserves both rejected cohorts and the fully verified portable evidence.
-  - ShardLoom technique review: retain metadata-first frame skipping and dynamic
-    memory admission below all front doors. Capillary row selection remains
-    bounded by the existing policy; PulseWeave scheduling is unchanged. Preserve
-    separate complete-operation timings and source-bound evidence tiers.
+  - Source and contract: [native decoder scratch](native-decoder-scratch-2026-10-14.md).
+  - Current state: implementation revised after 12 repeated material cost
+    regressions in the first candidate's complete paired screen. The revised
+    3,888-sample comparison has no material cells in either order. All six broad
+    gates, 80 direct binding tests, 757 public cases and 129 complete Full43 calls
+    pass for the decoder-only stage. The final combined helper-context source
+    passes all six gates, 80 direct tests, 757 public cases and 516 matched query
+    calls, with no repeated declared cost breach. Both stages and original
+    failures are packaged; hosted integration remains pending. Existing
+    builder output ownership, direct BitPacked/Patched append and native FoR
+    fusion are preserved.
+  - ShardLoom technique review: reserve through the existing query pool below
+    all front doors, preserve encoded work avoidance and native array lifetimes,
+    and retain complete-operation evidence. Capillary selection and PulseWeave
+    scheduling are unchanged.
   - Execution checklist:
-    - [x] Move sparse selection into the existing session kernel and admit temporary
-      frame/metadata collections, row indices and independently owned output views.
-    - [x] Borrow decoder frame ranges and avoid mask rank/cache allocations;
-      prove refusal, retry, exact grants, native values and owner release.
+    - [x] Implement source-derived temporary capacity bounds for the reviewed
+      physical trees, with explicit exclusions and unchanged native append paths.
+    - [x] Prove refusal, retry, late-error release, aligned/padded extents and
+      output ownership; regress the FSST metadata finish allocation gap.
     - [x] Complete workspace/native gates, public/direct/streaming regression,
       retained Full43 and a frozen baseline/candidate cost screen.
-    - [x] Review and package exact source, original failures and acceptance.
+    - [x] Review and package the decoder source, original failures and acceptance.
+    - [x] Preserve the actual query context and provider errors through native
+      helper chains, including list offsets and nested validity; pass 22 regressions.
+    - [x] Complete final combined direct/public acceptance and all 43 queries
+      in both matched starting orders; package the correction's complete evidence.
     - [ ] Complete hosted integration and move the finite unit to the completed ledger.
-  - Claim/fallback boundary: collection-capacity accounting is not a process-RSS
-    ceiling. Other child decoders, compression/training and unreviewed metadata
+  - Claim/fallback boundary: temporary-capacity accounting is not a process-RSS
+    ceiling. Other expression/validity trees, compression/training and metadata
     remain with existing owners. No new execution provider, encoding, dependency,
     package release or performance-superiority claim; no external executor.
+
+October 14 maintainer follow-through priority within the existing work: explain
+the recorded pre-composition/composition difference before attributing it to
+scan batching, then carry the admitted context through remaining native helpers.
+The historical all-129-call totals remain 177.372562, 214.675706 and 211.784749
+seconds; per-query minima are a different statistic. The frozen all-43-query
+[matched comparison](../benchmarks/native-composition-attribution-2026-10-14.md)
+passes all 516 calls across both starting orders. No query repeats a declared
+elapsed/CPU/RSS breach; the historical cause remains unproven. Preserve the
+512-KiB readback behavior and independent output contract.
+The subsequent helper correction must preserve provider errors and the actual
+query owner, following the [context continuity contract](native-admitted-context-2026-10-14.md);
+it does not authorize an engine redesign or close general allocation coverage.
+The implementation now passes 22 focused regressions, including encoded list
+offsets and nested parent validity. All six combined broad gates pass, with
+3,219 workspace and 4,200 native tests. The final 80 direct binding tests and
+757 public cases across 19 families also pass on the same frozen source.
+The [final combined packet](../benchmarks/native-admitted-context-2026-10-14.md)
+passes all 516 complete matched calls against the retained main-equivalent
+executable in both starting orders, with no repeated declared cost breach.
+Its 258 candidate calls also supply final Full43 acceptance. All 2,240 portable
+evidence members are verified; hosted integration is the remaining correction gate.
+These obligations stay under PERF-03/06/08/09 and CG-5/19/20/21, ahead
+of further destination expansion and conditional performance investigations.
+The maintainer's subsequent October 14 direction authorizes one version bump
+after these corrections and the next PR are integrated, then a return to the
+remaining work and optimizations. Complete the normal release evidence and
+selected-channel gates; this milestone does not close the broader completion
+contract or authorize a separate bump for each subsequent unit.
 
 `NATIVE-ENCODED-INTERCHANGE` completed through PRs #1545/#1547. The
 [hosted receipt](../benchmarks/evidence/native-encoded-hosted-2026-10-14.json)
 binds both merged sources, all 43/44 checks and six installed-wheel observations.
 Its finite transfer/producer and query-campaign decisions are recorded in the
 [completed ledger](phased-execution-completed-ledger.md). The subsequent sparse
-selection ownership/accounting correction remains the active unit above.
+selection ownership/accounting correction completes in PR #1550 with all 44
+checks passing; its accepted source and production evidence are in the ledger.
 
 `REQUIRED-EXECUTION-RESOURCES` and `NATIVE-PYTHON-SURFACE` completed together in
 PR #1541 after all 44 hosted checks passed. The
@@ -2989,18 +3028,27 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
+October 14 direction takes precedence over the earlier version hold: complete
+the composition timing investigation and admitted-context corrections together
+with the pending decoder resource work in the next PR. After its acceptance and
+integration, make one version bump through the existing release workflow, then
+resume the remaining work and optimizations. Keep the current 0.5.1 package
+artifacts immutable and choose the next version from the accepted milestone.
+
 October 13 direction supersedes the breadth pause below: first run fresh full
 UAT, then resume streaming capability gaps and broader memory/spill/recovery,
 cancellation and operational hardening in order of quickest coherent completion.
 The fresh baseline passes all 129 query executions and all 18 modular cohorts.
 `NATIVE-STREAM-INPUT-COMPOSITION` is complete in PR #1548 and recorded in the
 completed ledger. `NATIVE-OPERATOR-RECOVERY` is complete in PR #1549.
-Proceed through `NATIVE-SELECTION-RESOURCES` and remaining
+`NATIVE-SELECTION-RESOURCES` is complete in PR #1550. Proceed through
+`NATIVE-DECODER-SCRATCH` and remaining
 allocation/operational hardening under the existing owners;
 leave caching, learned indexes, rematerialization and the other conditional
 investigations until qualifying workloads justify them. This is a sequencing
-override, not completion of any whole PERF gate or CG-1 through CG-23. Version
-0.5.1 remains fixed and package publication remains gated.
+override, not completion of any whole PERF gate or CG-1 through CG-23. The later
+October 14 release direction above supersedes its version hold; normal package
+publication gates remain required.
 
 Historical October 12 sequencing direction took precedence over the earlier breadth-first
 order below: finish the current encoded-interchange local acceptance, then

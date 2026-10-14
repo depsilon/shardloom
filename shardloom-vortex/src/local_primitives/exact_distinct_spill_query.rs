@@ -153,6 +153,7 @@ pub(in super::super) fn execute_with_output(
         false,
         false,
         policy.resource_envelope(),
+        Some(session),
     )?;
     let mut numeric_work = NativeNumericAccessorWork::default();
     let mut reader_splits = Vec::new();

@@ -1,0 +1,32 @@
+{
+  "schema_version": "shardloom.completed_native_evidence_index.v1",
+  "status": "rejected_candidate_history_preserved",
+  "archive": {
+    "path": "native-decoder-rejected-2026-10-14.tar.xz",
+    "bytes": 1353568,
+    "sha256": "128bf08a15be2c5bd1f586041d4ee8447ce2a8f008cd599fa89019d1ede1419f"
+  },
+  "manifest": {
+    "path": "native-decoder-rejected-2026-10-14.manifest.json.xz",
+    "bytes": 366672,
+    "sha256": "50b052d7714e999659b19c617434e2255f710f6f458b873d61c6c291e424ec90",
+    "uncompressed_bytes": 3817162,
+    "uncompressed_sha256": "95bbdff7648e7a890edf60c2aa2aeca7c1d034d283f8113c51a7af81db3a0438"
+  },
+  "verification": {
+    "path": "native-decoder-rejected-2026-10-14.verification.json",
+    "bytes": 286,
+    "sha256": "ef974f00308de00da842b1988f8e96d4fc4e82afb5652eed7e29952643e14ee7"
+  },
+  "verified_member_count": 7874,
+  "all_archive_bytes_preserved": true,
+  "all_original_manifest_bytes_preserved": true,
+  "native_execution_repeated_for_copy": false,
+  "source_files_and_executables": "Exact identities and source overlays are inside the manifest and archive; bulk dataset and executable payloads are excluded.",
+  "historical_cause_established": false,
+  "performance_superiority_claim": false,
+  "publication_attempted": false,
+  "companion_report": "../native-decoder-scratch-2026-10-14.md",
+  "final_combined_correction": "../../architecture/native-admitted-context-2026-10-14.md",
+  "limitations": "Prior complete member reopening remains bound to unchanged archive and manifest hashes. This copy verifies every copied archive byte without rerunning native workloads."
+}

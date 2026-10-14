@@ -18,9 +18,14 @@ fn sparse_dictionary_handoff_preserves_rows_and_bounds_both_consumers() {
     strings[99] = Some("");
     let values = VarBinViewArray::from_iter_nullable_str(strings).into_array();
     let chunk = dictionary(values, vec![Some(99), Some(7), Some(7), None, Some(55)]);
-    let accessor = aggregate_direct_utf8_dictionary_accessor(&chunk)
-        .unwrap()
-        .unwrap();
+    let accessor = aggregate_direct_utf8_dictionary_accessor(
+        &chunk,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            vortex::array::legacy_session(),
+        ),
+    )
+    .unwrap()
+    .unwrap();
     let expected = [
         StatValue::Utf8(String::new()),
         StatValue::Utf8("café".into()),
@@ -81,9 +86,14 @@ fn sparse_dictionary_handoff_selects_encoded_values_before_canonicalization() {
         .unwrap()
         .into_array();
     let chunk = dictionary(encoded, vec![Some(3000), Some(7), Some(3000)]);
-    let accessor = aggregate_direct_utf8_dictionary_accessor(&chunk)
-        .unwrap()
-        .unwrap();
+    let accessor = aggregate_direct_utf8_dictionary_accessor(
+        &chunk,
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            vortex::array::legacy_session(),
+        ),
+    )
+    .unwrap()
+    .unwrap();
     let AggregateDirectColumnAccessor::Utf8Dictionary {
         values, row_ids, ..
     } = &accessor
@@ -105,9 +115,14 @@ fn sparse_dictionary_handoff_handles_empty_all_null_and_invalid_codes() {
     let values = VarBinViewArray::from_iter_str(vec!["unused"; 32]).into_array();
     for codes in [vec![], vec![None, None]] {
         let chunk = dictionary(values.clone(), codes.clone());
-        let accessor = aggregate_direct_utf8_dictionary_accessor(&chunk)
-            .unwrap()
-            .unwrap();
+        let accessor = aggregate_direct_utf8_dictionary_accessor(
+            &chunk,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .unwrap()
+        .unwrap();
         let AggregateDirectColumnAccessor::Utf8Dictionary { values, .. } = &accessor else {
             panic!("expected dictionary accessor");
         };

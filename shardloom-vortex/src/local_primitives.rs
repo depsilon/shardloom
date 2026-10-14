@@ -1,6 +1,9 @@
 #![allow(clippy::must_use_candidate)]
 
 use std::fmt::Write as _;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/admitted_context_tests.rs"]
+mod admitted_context_tests;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/aggregate_chunk_jobs.rs"]
 mod aggregate_chunk_jobs;
@@ -5006,6 +5009,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
 
     let runtime = local_vortex_runtime(policy);
     let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(
             session
@@ -5264,7 +5268,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
             if let Some(explode_projection) = explode_projection {
                 let (candidate_indices, _residual_materialized) = if residual_evaluator.is_some() {
                     let residual_columns =
-                        row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                        row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
                     let materialized_rows =
                         row_export_materialized_row_count(&residual_columns, chunk_rows)?;
                     residual_candidate_row_indices_for_chunk(
@@ -5273,6 +5277,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
                         &declared_columns,
                         &residual_columns,
                         materialized_rows,
+                        &mut ctx,
                     )?
                 } else {
                     ((0..chunk_rows).collect(), false)
@@ -5281,6 +5286,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
                     &chunk,
                     &visible_declared_columns,
                     explode_projection,
+                    &mut ctx,
                 )?;
                 let explode_columns =
                     select_explode_chunk_columns(explode_columns, &candidate_indices)?;
@@ -5319,9 +5325,13 @@ fn execute_vortex_local_primitive_row_export_enabled(
             let mut columns = if duplicate_mask_requested {
                 Vec::new()
             } else if drop_duplicate_requested {
-                row_export_columns_from_chunk(&chunk, &drop_duplicate_materialization_columns)?
+                row_export_columns_from_chunk(
+                    &chunk,
+                    &drop_duplicate_materialization_columns,
+                    &mut ctx,
+                )?
             } else {
-                row_export_columns_from_chunk(&chunk, &declared_columns)?
+                row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?
             };
             let mut chunk_columns = if drop_duplicate_requested {
                 drop_duplicate_materialization_columns.clone()
@@ -5341,6 +5351,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
                         &chunk_columns,
                         &columns,
                         source_materialized_rows,
+                        &mut ctx,
                     )?;
                 columns = select_materialized_columns(&columns, &candidate_indices)?;
                 apply_expression_projection_columns(
@@ -5371,12 +5382,17 @@ fn execute_vortex_local_primitive_row_export_enabled(
                         &chunk_columns,
                         &columns,
                         source_materialized_rows,
+                        &mut ctx,
                     )?;
                 columns = select_materialized_columns(&columns, &candidate_indices)?;
             }
             if distinct_requested {
-                let row_key_columns =
-                    row_key_columns_from_chunk(&chunk, &declared_columns, &output_columns)?;
+                let row_key_columns = row_key_columns_from_chunk(
+                    &chunk,
+                    &declared_columns,
+                    &output_columns,
+                    &mut ctx,
+                )?;
                 let materialized_rows = row_key_materialized_row_count(&row_key_columns)?;
                 let (candidate_indices, _residual_materialized) =
                     residual_candidate_row_indices_for_chunk(
@@ -5385,6 +5401,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
                         &chunk_columns,
                         &columns,
                         materialized_rows,
+                        &mut ctx,
                     )?;
                 let selected_rows = distinct_row_indices_from_candidates(
                     &row_key_columns,
@@ -5422,6 +5439,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
                     &chunk,
                     &declared_columns,
                     &drop_duplicate_key_columns,
+                    &mut ctx,
                 )?;
                 let materialized_rows = row_key_materialized_row_count(&row_key_columns)?;
                 let output_rows = row_export_materialized_row_count(&columns, chunk_rows)?;
@@ -5438,6 +5456,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
                         &chunk_columns,
                         &columns,
                         materialized_rows,
+                        &mut ctx,
                     )?;
                 for local_index in candidate_indices {
                     let key = row_key_from_key_columns(&row_key_columns, local_index)?;
@@ -5462,8 +5481,12 @@ fn execute_vortex_local_primitive_row_export_enabled(
                         })?;
                 }
             } else if duplicate_mask_requested {
-                let row_key_columns =
-                    row_key_columns_from_chunk(&chunk, &declared_columns, &declared_columns)?;
+                let row_key_columns = row_key_columns_from_chunk(
+                    &chunk,
+                    &declared_columns,
+                    &declared_columns,
+                    &mut ctx,
+                )?;
                 let materialized_rows = row_key_materialized_row_count(&row_key_columns)?;
                 pre_limit_result_row_count =
                     pre_limit_result_row_count
@@ -5608,6 +5631,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
                         &declared_columns,
                         &columns,
                         materialized_rows,
+                        &mut ctx,
                     )?;
                 let candidate_count = candidate_indices.len();
                 for (candidate_index, local_index) in candidate_indices.into_iter().enumerate() {
@@ -5697,6 +5721,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
                         &declared_columns,
                         &columns,
                         materialized_rows,
+                        &mut ctx,
                     )?;
                 let candidate_count = candidate_indices.len();
                 pre_limit_result_row_count = pre_limit_result_row_count
@@ -5984,6 +6009,7 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
         }
         let runtime = local_vortex_runtime(policy);
         let (session, control_memory) = local_vortex_session(policy, &runtime)?;
+        let mut ctx = native_numeric_execution_ctx(&session);
         let file = runtime
             .block_on(
                 session
@@ -6136,7 +6162,7 @@ fn execute_vortex_local_structured_binary_row_export_enabled(
         for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
             let chunk_rows = chunk.len();
-            let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+            let columns = row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
             let materialized_rows = row_export_materialized_row_count(&columns, chunk_rows)?;
             pre_limit_result_row_count = pre_limit_result_row_count
                 .checked_add(materialized_rows)
@@ -6628,6 +6654,7 @@ fn execute_vortex_local_pivot_row_export_enabled(
 
     let runtime = local_vortex_runtime(policy);
     let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(
             session
@@ -6749,7 +6776,7 @@ fn execute_vortex_local_pivot_row_export_enabled(
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
         let chunk = chunk.map_err(vortex_error)?;
         let chunk_rows = chunk.len();
-        let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        let columns = row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
         let required_column_count = index_column_index
             .max(pivot_column_index)
             .max(value_column_index)
@@ -6767,6 +6794,7 @@ fn execute_vortex_local_pivot_row_export_enabled(
             &declared_columns,
             &columns,
             materialized_rows,
+            &mut ctx,
         )?;
         let selected_columns = select_materialized_columns(&columns, &candidate_indices)?;
         state.update(
@@ -7478,16 +7506,17 @@ pub(crate) fn logical_field_from_native_array(
 fn row_export_columns_from_chunk(
     chunk: &vortex::array::ArrayRef,
     declared_columns: &[String],
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<Vec<StatValue>>> {
     let mut out = Vec::with_capacity(declared_columns.len());
     if chunk.dtype().is_struct() {
         for column in declared_columns {
             let array = logical_field_from_native_array(chunk, column)?;
-            out.push(row_export_values_from_vortex_array(column, &array)?);
+            out.push(row_export_values_from_vortex_array(column, &array, ctx)?);
         }
     } else {
         let column = declared_columns.first().map_or("value", String::as_str);
-        out.push(row_export_values_from_vortex_array(column, chunk)?);
+        out.push(row_export_values_from_vortex_array(column, chunk, ctx)?);
     }
     let Some(first_len) = out.first().map(Vec::len) else {
         return Ok(out);
@@ -7506,6 +7535,7 @@ fn row_export_selected_columns_from_chunk(
     chunk: &vortex::array::ArrayRef,
     declared_columns: &[String],
     row_indices: &[usize],
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<Vec<StatValue>>> {
     let mut out = Vec::with_capacity(declared_columns.len());
     if chunk.dtype().is_struct() {
@@ -7515,6 +7545,7 @@ fn row_export_selected_columns_from_chunk(
                 column,
                 &array,
                 row_indices,
+                ctx,
             )?);
         }
     } else {
@@ -7523,6 +7554,7 @@ fn row_export_selected_columns_from_chunk(
             column,
             chunk,
             row_indices,
+            ctx,
         )?);
     }
     if out.iter().any(|values| values.len() != row_indices.len()) {
@@ -7560,8 +7592,9 @@ fn select_materialized_columns(
 fn row_export_values_from_vortex_array(
     column: &str,
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<StatValue>> {
-    stat_values_from_vortex_array(array).ok_or_else(|| {
+    stat_values_from_vortex_array(array, ctx)?.ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
             "local Vortex row export column '{column}' has unsupported dtype or nullable validity for scoped JSONL/CSV export; no fallback execution was attempted"
         ))
@@ -7573,8 +7606,9 @@ fn row_export_selected_values_from_vortex_array(
     column: &str,
     array: &vortex::array::ArrayRef,
     row_indices: &[usize],
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<StatValue>> {
-    selected_stat_values_from_vortex_array(array, row_indices).ok_or_else(|| {
+    selected_stat_values_from_vortex_array(array, row_indices, ctx)?.ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
             "local Vortex selected row export column '{column}' has unsupported dtype or nullable validity for scoped selected materialization; no fallback execution was attempted"
         ))
@@ -8070,6 +8104,7 @@ fn explode_columns_from_chunk(
     chunk: &vortex::array::ArrayRef,
     declared_columns: &[String],
     explode_projection: &VortexExplodeProjectionRequest,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<ExplodeChunkColumns> {
     let explode_column_names = explode_projection
         .explode_columns()
@@ -8107,7 +8142,8 @@ fn explode_columns_from_chunk(
                 )));
             };
             if explode_column_names.contains(source_column) {
-                let mut element_rows = list_element_rows_from_vortex_array(source_column, array)?;
+                let mut element_rows =
+                    list_element_rows_from_vortex_array(source_column, array, ctx)?;
                 if let Some(field) = explode_projection.element_field.as_deref() {
                     element_rows =
                         project_explode_element_field(source_column, field, element_rows)?;
@@ -8116,7 +8152,7 @@ fn explode_columns_from_chunk(
                 column_values.push(ExplodeOutputColumnValues::Exploded(element_rows));
             } else {
                 column_values.push(ExplodeOutputColumnValues::Scalar(
-                    scalar_values_from_vortex_array(source_column, array)?,
+                    scalar_values_from_vortex_array(source_column, array, ctx)?,
                 ));
             }
         }
@@ -8131,7 +8167,7 @@ fn explode_columns_from_chunk(
             ));
         }
         let explode_column = &output_columns[0];
-        let element_rows = list_element_rows_from_vortex_array(explode_column, chunk)?;
+        let element_rows = list_element_rows_from_vortex_array(explode_column, chunk, ctx)?;
         merge_explode_row_lengths(explode_column, &element_rows, &mut row_lengths)?;
         column_values.push(ExplodeOutputColumnValues::Exploded(element_rows));
     }
@@ -8222,11 +8258,49 @@ fn merge_explode_row_lengths(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn prepare_list_offsets_in_context(
+    list: vortex::array::arrays::ListViewArray,
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<vortex::array::arrays::ListViewArray> {
+    use vortex::array::IntoArray as _;
+    use vortex::array::arrays::listview::{ListViewArrayExt as _, ListViewArraySlotsExt as _};
+    use vortex::array::arrays::{ListViewArray, Primitive, PrimitiveArray};
+
+    if list.offsets().is::<Primitive>()
+        && list.offsets().is_host()
+        && list.sizes().is::<Primitive>()
+        && list.sizes().is_host()
+    {
+        return Ok(list);
+    }
+    // Vortex's row convenience accessor uses a legacy context for encoded
+    // offsets/sizes. Decode these once under the caller's owner, so subsequent
+    // row access and constructor validation only inspect canonical integers.
+    let offsets = list
+        .offsets()
+        .clone()
+        .execute::<PrimitiveArray>(ctx)
+        .map_err(vortex_error)?;
+    let sizes = list
+        .sizes()
+        .clone()
+        .execute::<PrimitiveArray>(ctx)
+        .map_err(vortex_error)?;
+    ListViewArray::try_new(
+        list.elements().clone(),
+        offsets.into_array(),
+        sizes.into_array(),
+        list.listview_validity(),
+    )
+    .map_err(vortex_error)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn list_element_rows_from_vortex_array(
     column: &str,
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<Vec<ScalarValue>>> {
-    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::fixed_size_list::FixedSizeListArrayExt as _;
     use vortex::array::arrays::listview::ListViewArrayExt as _;
     use vortex::array::arrays::{FixedSizeListArray, ListViewArray};
@@ -8234,39 +8308,41 @@ fn list_element_rows_from_vortex_array(
 
     match array.dtype() {
         DType::List(_, _) => {
-            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
-            let list = array
+            let mut list = array
                 .clone()
-                .execute::<ListViewArray>(&mut ctx)
+                .execute::<ListViewArray>(ctx)
                 .map_err(vortex_error)?;
             let validity = list.listview_validity();
-            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
+            let mut offsets_ready = false;
             let mut out = Vec::with_capacity(list.len());
             for row_index in 0..list.len() {
                 if !validity
-                    .execute_is_valid(row_index, &mut validity_ctx)
+                    .execute_is_valid(row_index, ctx)
                     .map_err(vortex_error)?
                 {
                     out.push(vec![ScalarValue::Null]);
                     continue;
                 }
+                // Null rows and empty arrays need no offset decoding.
+                if !offsets_ready {
+                    list = prepare_list_offsets_in_context(list, ctx)?;
+                    offsets_ready = true;
+                }
                 let elements = list.list_elements_at(row_index).map_err(vortex_error)?;
-                out.push(scalar_values_from_vortex_array(column, &elements)?);
+                out.push(scalar_values_from_vortex_array(column, &elements, ctx)?);
             }
             Ok(out)
         }
         DType::FixedSizeList(_, _, _) => {
-            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let list = array
                 .clone()
-                .execute::<FixedSizeListArray>(&mut ctx)
+                .execute::<FixedSizeListArray>(ctx)
                 .map_err(vortex_error)?;
             let validity = list.fixed_size_list_validity();
-            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
             let mut out = Vec::with_capacity(list.len());
             for row_index in 0..list.len() {
                 if !validity
-                    .execute_is_valid(row_index, &mut validity_ctx)
+                    .execute_is_valid(row_index, ctx)
                     .map_err(vortex_error)?
                 {
                     out.push(vec![ScalarValue::Null]);
@@ -8275,7 +8351,7 @@ fn list_element_rows_from_vortex_array(
                 let elements = list
                     .fixed_size_list_elements_at(row_index)
                     .map_err(vortex_error)?;
-                out.push(scalar_values_from_vortex_array(column, &elements)?);
+                out.push(scalar_values_from_vortex_array(column, &elements, ctx)?);
             }
             Ok(out)
         }
@@ -8289,20 +8365,21 @@ fn list_element_rows_from_vortex_array(
 fn scalar_values_from_vortex_array(
     column: &str,
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<ScalarValue>> {
     use vortex::array::dtype::DType;
 
-    if let Some(values) = stat_values_from_vortex_array(array) {
+    if let Some(values) = stat_values_from_vortex_array(array, ctx)? {
         return Ok(values.iter().map(stat_value_to_scalar_value).collect());
     }
     match array.dtype() {
         DType::List(_, _) | DType::FixedSizeList(_, _, _) => {
-            Ok(list_element_rows_from_vortex_array(column, array)?
+            Ok(list_element_rows_from_vortex_array(column, array, ctx)?
                 .into_iter()
                 .map(ScalarValue::List)
                 .collect())
         }
-        DType::Struct(_, _) => struct_scalar_values_from_vortex_array(column, array),
+        DType::Struct(_, _) => struct_scalar_values_from_vortex_array(column, array, ctx),
         other => Err(ShardLoomError::InvalidOperation(format!(
             "local Vortex typed row value column '{column}' has unsupported dtype {other:?}; no fallback execution was attempted"
         ))),
@@ -8313,18 +8390,27 @@ fn scalar_values_from_vortex_array(
 fn struct_scalar_values_from_vortex_array(
     column: &str,
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<ScalarValue>> {
-    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::{StructArray, struct_::StructArrayExt as _};
 
-    let children = array
-        .named_children()
-        .into_iter()
+    let structure = array
+        .clone()
+        .execute::<StructArray>(ctx)
+        .map_err(vortex_error)?;
+    // Physical slots include the parent validity array. Only declared fields
+    // belong in a logical struct value, including for a nullable parent.
+    let children = structure
+        .names()
+        .iter()
+        .zip(structure.iter_unmasked_fields())
+        .map(|(name, field)| (name.to_string(), field.clone()))
         .collect::<std::collections::BTreeMap<_, _>>();
     let mut field_values = Vec::with_capacity(children.len());
     for (field_name, field_array) in children {
         field_values.push((
             field_name.clone(),
-            scalar_values_from_vortex_array(&field_name, &field_array)?,
+            scalar_values_from_vortex_array(&field_name, &field_array, ctx)?,
         ));
     }
     let row_count = field_values
@@ -8337,12 +8423,11 @@ fn struct_scalar_values_from_vortex_array(
             )));
         }
     }
-    let validity = array.validity().map_err(vortex_error)?;
-    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
+    let validity = structure.struct_validity();
     let mut out = Vec::with_capacity(row_count);
     for row_index in 0..row_count {
         if !validity
-            .execute_is_valid(row_index, &mut validity_ctx)
+            .execute_is_valid(row_index, ctx)
             .map_err(vortex_error)?
         {
             out.push(ScalarValue::Null);
@@ -9755,28 +9840,42 @@ impl MaterializedPredicateEvaluator {
         &self,
         chunk: &vortex::array::ArrayRef,
         columns: &[String],
+        ctx: &mut vortex::array::ExecutionCtx,
     ) -> Result<Option<usize>> {
         match self {
             Self::IsNull { column_index } => {
-                fast_null_count_from_chunk(chunk, columns, *column_index, true)
+                fast_null_count_from_chunk(chunk, columns, *column_index, true, ctx)
             }
             Self::IsNotNull { column_index } => {
-                fast_null_count_from_chunk(chunk, columns, *column_index, false)
+                fast_null_count_from_chunk(chunk, columns, *column_index, false, ctx)
             }
             Self::Compare {
                 column,
                 column_index,
                 op,
                 value,
-            } => fast_compare_count_from_chunk(chunk, columns, *column_index, column, *op, value),
+            } => fast_compare_count_from_chunk(
+                chunk,
+                columns,
+                *column_index,
+                column,
+                *op,
+                value,
+                ctx,
+            ),
             Self::StringContains {
                 column_index,
                 needle,
                 negated,
                 ..
-            } => {
-                fast_utf8_contains_count_from_chunk(chunk, columns, *column_index, needle, *negated)
-            }
+            } => fast_utf8_contains_count_from_chunk(
+                chunk,
+                columns,
+                *column_index,
+                needle,
+                *negated,
+                ctx,
+            ),
             Self::InList {
                 column,
                 column_index,
@@ -9789,6 +9888,7 @@ impl MaterializedPredicateEvaluator {
                 column,
                 values,
                 *negated,
+                ctx,
             ),
             Self::AlwaysTrue | Self::AlwaysFalse | Self::And(_) => Ok(None),
         }
@@ -9798,14 +9898,15 @@ impl MaterializedPredicateEvaluator {
         &self,
         chunk: &vortex::array::ArrayRef,
         columns: &[String],
+        ctx: &mut vortex::array::ExecutionCtx,
     ) -> Result<Option<Vec<usize>>> {
         match self {
             Self::AlwaysTrue => Ok(Some((0..chunk.len()).collect())),
             Self::IsNull { column_index } => {
-                fast_null_row_indices_from_chunk(chunk, columns, *column_index, true)
+                fast_null_row_indices_from_chunk(chunk, columns, *column_index, true, ctx)
             }
             Self::IsNotNull { column_index } => {
-                fast_null_row_indices_from_chunk(chunk, columns, *column_index, false)
+                fast_null_row_indices_from_chunk(chunk, columns, *column_index, false, ctx)
             }
             Self::Compare {
                 column,
@@ -9819,6 +9920,7 @@ impl MaterializedPredicateEvaluator {
                 column,
                 *op,
                 value,
+                ctx,
             ),
             Self::StringContains {
                 column_index,
@@ -9831,6 +9933,7 @@ impl MaterializedPredicateEvaluator {
                 *column_index,
                 needle,
                 *negated,
+                ctx,
             ),
             Self::InList {
                 column,
@@ -9844,12 +9947,13 @@ impl MaterializedPredicateEvaluator {
                 column,
                 values,
                 *negated,
+                ctx,
             ),
             Self::And(predicates) => {
                 let mut candidates = None::<Vec<usize>>;
                 for predicate in predicates {
                     let Some(row_indices) =
-                        predicate.fast_candidate_row_indices_in_chunk(chunk, columns)?
+                        predicate.fast_candidate_row_indices_in_chunk(chunk, columns, ctx)?
                     else {
                         continue;
                     };
@@ -9871,15 +9975,16 @@ impl MaterializedPredicateEvaluator {
         &self,
         chunk: &vortex::array::ArrayRef,
         columns: &[String],
+        ctx: &mut vortex::array::ExecutionCtx,
     ) -> Result<Option<Vec<usize>>> {
         match self {
             Self::AlwaysTrue => Ok(Some((0..chunk.len()).collect())),
             Self::AlwaysFalse => Ok(Some(Vec::new())),
             Self::IsNull { column_index } => {
-                fast_null_row_indices_from_chunk(chunk, columns, *column_index, true)
+                fast_null_row_indices_from_chunk(chunk, columns, *column_index, true, ctx)
             }
             Self::IsNotNull { column_index } => {
-                fast_null_row_indices_from_chunk(chunk, columns, *column_index, false)
+                fast_null_row_indices_from_chunk(chunk, columns, *column_index, false, ctx)
             }
             Self::Compare {
                 column,
@@ -9893,6 +9998,7 @@ impl MaterializedPredicateEvaluator {
                 column,
                 *op,
                 value,
+                ctx,
             ),
             Self::StringContains {
                 column_index,
@@ -9905,6 +10011,7 @@ impl MaterializedPredicateEvaluator {
                 *column_index,
                 needle,
                 *negated,
+                ctx,
             ),
             Self::InList {
                 column,
@@ -9918,6 +10025,7 @@ impl MaterializedPredicateEvaluator {
                 column,
                 values,
                 *negated,
+                ctx,
             ),
             Self::And(predicates) => {
                 let mut candidates = None::<Vec<usize>>;
@@ -9927,12 +10035,12 @@ impl MaterializedPredicateEvaluator {
                         {
                             let filtered = if let Some(filtered) = predicate
                                 .filter_column_scoped_candidate_row_indices_in_chunk(
-                                    chunk, columns, &existing,
+                                    chunk, columns, &existing, ctx,
                                 )? {
                                 filtered
                             } else {
                                 predicate.filter_materialized_candidate_row_indices_in_chunk(
-                                    chunk, columns, &existing,
+                                    chunk, columns, &existing, ctx,
                                 )?
                             };
                             candidates = Some(filtered);
@@ -9944,7 +10052,7 @@ impl MaterializedPredicateEvaluator {
                         candidates = Some(existing);
                     }
                     let Some(row_indices) =
-                        predicate.fast_exact_candidate_row_indices_in_chunk(chunk, columns)?
+                        predicate.fast_exact_candidate_row_indices_in_chunk(chunk, columns, ctx)?
                     else {
                         return Ok(None);
                     };
@@ -9966,6 +10074,7 @@ impl MaterializedPredicateEvaluator {
         chunk: &vortex::array::ArrayRef,
         columns: &[String],
         candidate_row_indices: &[usize],
+        ctx: &mut vortex::array::ExecutionCtx,
     ) -> Result<Option<Vec<usize>>> {
         if candidate_row_indices.is_empty() {
             return Ok(Some(Vec::new()));
@@ -9978,7 +10087,7 @@ impl MaterializedPredicateEvaluator {
                 for predicate in predicates {
                     let Some(filtered) = predicate
                         .filter_column_scoped_candidate_row_indices_in_chunk(
-                            chunk, columns, &retained,
+                            chunk, columns, &retained, ctx,
                         )?
                     else {
                         return Ok(None);
@@ -9996,6 +10105,7 @@ impl MaterializedPredicateEvaluator {
                 *column_index,
                 candidate_row_indices,
                 |current| Ok(matches!(current, StatValue::Null)),
+                ctx,
             ),
             Self::IsNotNull { column_index } => filter_candidate_row_indices_by_single_column(
                 chunk,
@@ -10003,6 +10113,7 @@ impl MaterializedPredicateEvaluator {
                 *column_index,
                 candidate_row_indices,
                 |current| Ok(!matches!(current, StatValue::Null)),
+                ctx,
             ),
             Self::Compare {
                 column,
@@ -10015,6 +10126,7 @@ impl MaterializedPredicateEvaluator {
                 *column_index,
                 candidate_row_indices,
                 |current| compare_stat_value_with_op(Some(column.as_str()), current, *op, value),
+                ctx,
             ),
             Self::StringContains {
                 column,
@@ -10037,6 +10149,7 @@ impl MaterializedPredicateEvaluator {
                             other.dtype().as_str()
                         ))),
                     },
+                    ctx,
                 )
             }
             Self::InList {
@@ -10056,6 +10169,7 @@ impl MaterializedPredicateEvaluator {
                     });
                     Ok(if *negated { !matched } else { matched })
                 },
+                ctx,
             ),
         }
     }
@@ -10065,12 +10179,13 @@ impl MaterializedPredicateEvaluator {
         chunk: &vortex::array::ArrayRef,
         columns: &[String],
         candidate_row_indices: &[usize],
+        ctx: &mut vortex::array::ExecutionCtx,
     ) -> Result<Vec<usize>> {
         if candidate_row_indices.is_empty() {
             return Ok(Vec::new());
         }
         let selected_columns =
-            row_export_selected_columns_from_chunk(chunk, columns, candidate_row_indices)?;
+            row_export_selected_columns_from_chunk(chunk, columns, candidate_row_indices, ctx)?;
         let mut retained = Vec::new();
         for (selected_index, source_index) in candidate_row_indices.iter().copied().enumerate() {
             if self.matches(&selected_columns, selected_index)? {
@@ -10151,6 +10266,7 @@ fn filter_candidate_row_indices_by_single_column(
     column_index: usize,
     candidate_row_indices: &[usize],
     mut matches: impl FnMut(&StatValue) -> Result<bool>,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
     let Some(column) = columns.get(column_index) else {
         return Ok(None);
@@ -10159,7 +10275,7 @@ fn filter_candidate_row_indices_by_single_column(
         return Ok(None);
     };
     let selected_values =
-        row_export_selected_values_from_vortex_array(column, &target, candidate_row_indices)?;
+        row_export_selected_values_from_vortex_array(column, &target, candidate_row_indices, ctx)?;
     let mut retained = Vec::new();
     for (selected_index, source_index) in candidate_row_indices.iter().copied().enumerate() {
         let current = selected_values.get(selected_index).ok_or_else(|| {
@@ -10182,11 +10298,14 @@ fn residual_candidate_row_indices_for_chunk(
     columns: &[String],
     materialized_columns: &[Vec<StatValue>],
     materialized_rows: usize,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<(Vec<usize>, bool)> {
     let Some(evaluator) = evaluator else {
         return Ok(((0..materialized_rows).collect(), false));
     };
-    if let Some(indices) = evaluator.fast_exact_candidate_row_indices_in_chunk(chunk, columns)? {
+    if let Some(indices) =
+        evaluator.fast_exact_candidate_row_indices_in_chunk(chunk, columns, ctx)?
+    {
         return Ok((indices, false));
     }
     let mut indices = Vec::new();
@@ -10253,6 +10372,7 @@ fn fast_null_count_from_chunk(
     columns: &[String],
     column_index: usize,
     want_null: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
     let Some(target) = projected_array_from_chunk(chunk, columns, column_index) else {
         return Ok(None);
@@ -10262,6 +10382,7 @@ fn fast_null_count_from_chunk(
             .get(column_index)
             .map_or("unknown", std::string::String::as_str),
         &target,
+        ctx,
     )?;
     fast_null_count_from_accessor(&accessor, want_null).map(Some)
 }
@@ -10272,6 +10393,7 @@ fn fast_null_row_indices_from_chunk(
     columns: &[String],
     column_index: usize,
     want_null: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
     let Some(target) = projected_array_from_chunk(chunk, columns, column_index) else {
         return Ok(None);
@@ -10281,6 +10403,7 @@ fn fast_null_row_indices_from_chunk(
             .get(column_index)
             .map_or("unknown", std::string::String::as_str),
         &target,
+        ctx,
     )?;
     fast_null_row_indices_from_accessor(&accessor, want_null).map(Some)
 }
@@ -10572,11 +10695,12 @@ fn fast_compare_count_from_chunk(
     column: &str,
     op: ComparisonOp,
     value: &StatValue,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
     let Some(target) = projected_array_from_chunk(chunk, columns, column_index) else {
         return Ok(None);
     };
-    let accessor = aggregate_direct_column_accessor(column, &target)?;
+    let accessor = aggregate_direct_column_accessor(column, &target, ctx)?;
     fast_compare_count_from_accessor(&accessor, column, op, value).map(Some)
 }
 
@@ -10588,11 +10712,12 @@ fn fast_compare_row_indices_from_chunk(
     column: &str,
     op: ComparisonOp,
     value: &StatValue,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
     let Some(target) = projected_array_from_chunk(chunk, columns, column_index) else {
         return Ok(None);
     };
-    let accessor = aggregate_direct_column_accessor(column, &target)?;
+    let accessor = aggregate_direct_column_accessor(column, &target, ctx)?;
     fast_compare_row_indices_from_accessor(&accessor, column, op, value).map(Some)
 }
 
@@ -11269,6 +11394,7 @@ fn fast_utf8_contains_count_from_chunk(
     column_index: usize,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
     let Some(target) = projected_array_from_chunk(chunk, columns, column_index) else {
         return Ok(None);
@@ -11276,17 +11402,17 @@ fn fast_utf8_contains_count_from_chunk(
     if !matches!(target.dtype(), vortex::array::dtype::DType::Utf8(_)) {
         return Ok(None);
     }
-    if let Some(selected) = fast_utf8_contains_count_from_array(&target, needle, negated)? {
+    if let Some(selected) = fast_utf8_contains_count_from_array(&target, needle, negated, ctx)? {
         return Ok(Some(selected));
     }
     let Some(column) = columns.get(column_index) else {
         return Ok(None);
     };
-    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(&target)? {
+    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(&target, ctx)? {
         return fast_utf8_contains_count_from_dictionary_accessor(&accessor, needle, negated)
             .map(Some);
     }
-    if let Some(accessor) = aggregate_direct_utf8_chunk_dictionary_accessor(column, &target)? {
+    if let Some(accessor) = aggregate_direct_utf8_chunk_dictionary_accessor(column, &target, ctx)? {
         return fast_utf8_contains_count_from_dictionary_accessor(&accessor, needle, negated)
             .map(Some);
     }
@@ -11358,11 +11484,12 @@ fn fast_in_list_count_from_chunk(
     column: &str,
     values: &[StatValue],
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
     let Some(target) = projected_array_from_chunk(chunk, columns, column_index) else {
         return Ok(None);
     };
-    let accessor = aggregate_direct_column_accessor(column, &target)?;
+    let accessor = aggregate_direct_column_accessor(column, &target, ctx)?;
     fast_in_list_count_from_accessor(&accessor, column, values, negated).map(Some)
 }
 
@@ -11374,11 +11501,12 @@ fn fast_in_list_row_indices_from_chunk(
     column: &str,
     values: &[StatValue],
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
     let Some(target) = projected_array_from_chunk(chunk, columns, column_index) else {
         return Ok(None);
     };
-    let accessor = aggregate_direct_column_accessor(column, &target)?;
+    let accessor = aggregate_direct_column_accessor(column, &target, ctx)?;
     fast_in_list_row_indices_from_accessor(&accessor, column, values, negated).map(Some)
 }
 
@@ -12359,8 +12487,8 @@ fn fast_utf8_contains_count_from_array(
     target: &vortex::array::ArrayRef,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
-    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::Chunked;
     use vortex::array::arrays::Filter;
     use vortex::array::arrays::chunked::ChunkedArrayExt as _;
@@ -12369,12 +12497,13 @@ fn fast_utf8_contains_count_from_array(
     use vortex::array::validity::Validity;
 
     if let Some(filter) = target.as_opt::<Filter>() {
-        return fast_utf8_contains_count_from_filtered_array(filter, needle, negated);
+        return fast_utf8_contains_count_from_filtered_array(filter, needle, negated, ctx);
     }
     if let Some(chunked) = target.as_opt::<Chunked>() {
         let mut selected = 0usize;
         for child in chunked.iter_chunks() {
-            let Some(child_selected) = fast_utf8_contains_count_from_array(child, needle, negated)?
+            let Some(child_selected) =
+                fast_utf8_contains_count_from_array(child, needle, negated, ctx)?
             else {
                 return Ok(None);
             };
@@ -12387,10 +12516,12 @@ fn fast_utf8_contains_count_from_array(
         }
         return Ok(Some(selected));
     }
-    if let Some(selected) = fast_utf8_contains_count_from_fsst_array(target, needle, negated)? {
+    if let Some(selected) = fast_utf8_contains_count_from_fsst_array(target, needle, negated, ctx)?
+    {
         return Ok(Some(selected));
     }
-    if let Some(selected) = fast_utf8_contains_count_from_dictionary_array(target, needle, negated)?
+    if let Some(selected) =
+        fast_utf8_contains_count_from_dictionary_array(target, needle, negated, ctx)?
     {
         return Ok(Some(selected));
     }
@@ -12401,7 +12532,6 @@ fn fast_utf8_contains_count_from_array(
         return Ok(None);
     };
     let validity = utf8.varbinview_validity();
-    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut selected = 0usize;
     match &validity {
@@ -12425,7 +12555,7 @@ fn fast_utf8_contains_count_from_array(
         Validity::Array(_) => {
             for index in 0..utf8.len() {
                 if !validity
-                    .execute_is_valid(index, &mut validity_ctx)
+                    .execute_is_valid(index, ctx)
                     .map_err(vortex_error)?
                 {
                     continue;
@@ -12455,6 +12585,7 @@ fn fast_utf8_contains_row_indices_from_chunk(
     column_index: usize,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
     let Some(target) = projected_array_from_chunk(chunk, columns, column_index) else {
         return Ok(None);
@@ -12462,7 +12593,7 @@ fn fast_utf8_contains_row_indices_from_chunk(
     if !matches!(target.dtype(), vortex::array::dtype::DType::Utf8(_)) {
         return Ok(None);
     }
-    fast_utf8_contains_row_indices_from_array(&target, needle, negated, 0)
+    fast_utf8_contains_row_indices_from_array(&target, needle, negated, 0, ctx)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -12471,8 +12602,8 @@ fn fast_utf8_contains_row_indices_from_array(
     needle: &str,
     negated: bool,
     base_offset: usize,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
-    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::Chunked;
     use vortex::array::arrays::Filter;
     use vortex::array::arrays::chunked::ChunkedArrayExt as _;
@@ -12486,6 +12617,7 @@ fn fast_utf8_contains_row_indices_from_array(
             needle,
             negated,
             base_offset,
+            ctx,
         );
     }
     if let Some(chunked) = target.as_opt::<Chunked>() {
@@ -12493,7 +12625,7 @@ fn fast_utf8_contains_row_indices_from_array(
         let mut offset = base_offset;
         for child in chunked.iter_chunks() {
             let Some(child_indices) =
-                fast_utf8_contains_row_indices_from_array(child, needle, negated, offset)?
+                fast_utf8_contains_row_indices_from_array(child, needle, negated, offset, ctx)?
             else {
                 return Ok(None);
             };
@@ -12507,12 +12639,12 @@ fn fast_utf8_contains_row_indices_from_array(
         return Ok(Some(selected));
     }
     if let Some(indices) =
-        fast_utf8_contains_row_indices_from_fsst_array(target, needle, negated, base_offset)?
+        fast_utf8_contains_row_indices_from_fsst_array(target, needle, negated, base_offset, ctx)?
     {
         return Ok(Some(indices));
     }
     if let Some(indices) =
-        fast_utf8_contains_row_indices_from_dictionary_array(target, needle, negated)?
+        fast_utf8_contains_row_indices_from_dictionary_array(target, needle, negated, ctx)?
     {
         return add_row_index_offset(indices, base_offset).map(Some);
     }
@@ -12523,7 +12655,6 @@ fn fast_utf8_contains_row_indices_from_array(
         return Ok(None);
     };
     let validity = utf8.varbinview_validity();
-    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut selected = Vec::new();
     match &validity {
@@ -12546,7 +12677,7 @@ fn fast_utf8_contains_row_indices_from_array(
         Validity::Array(_) => {
             for index in 0..utf8.len() {
                 if !validity
-                    .execute_is_valid(index, &mut validity_ctx)
+                    .execute_is_valid(index, ctx)
                     .map_err(vortex_error)?
                 {
                     continue;
@@ -12573,17 +12704,18 @@ fn fast_utf8_contains_count_from_filtered_array(
     filter: vortex::array::ArrayView<'_, vortex::array::arrays::Filter>,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
     use vortex::array::arrays::filter::FilterArraySlotsExt as _;
 
     let mask = filter.filter_mask();
     if let Some(selected) =
-        fast_utf8_contains_count_from_masked_array(filter.child(), mask, needle, negated)?
+        fast_utf8_contains_count_from_masked_array(filter.child(), mask, needle, negated, ctx)?
     {
         return Ok(Some(selected));
     }
     let Some(child_indices) =
-        fast_utf8_contains_row_indices_from_array(filter.child(), needle, negated, 0)?
+        fast_utf8_contains_row_indices_from_array(filter.child(), needle, negated, 0, ctx)?
     else {
         return Ok(None);
     };
@@ -12610,17 +12742,22 @@ fn fast_utf8_contains_row_indices_from_filtered_array(
     needle: &str,
     negated: bool,
     base_offset: usize,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
     use vortex::array::arrays::filter::FilterArraySlotsExt as _;
 
     let mask = filter.filter_mask();
-    if let Some(selected) =
-        fast_utf8_contains_row_indices_from_masked_array(filter.child(), mask, needle, negated)?
-    {
+    if let Some(selected) = fast_utf8_contains_row_indices_from_masked_array(
+        filter.child(),
+        mask,
+        needle,
+        negated,
+        ctx,
+    )? {
         return add_row_index_offset(selected, base_offset).map(Some);
     }
     let Some(child_indices) =
-        fast_utf8_contains_row_indices_from_array(filter.child(), needle, negated, 0)?
+        fast_utf8_contains_row_indices_from_array(filter.child(), needle, negated, 0, ctx)?
     else {
         return Ok(None);
     };
@@ -12668,8 +12805,8 @@ fn fast_utf8_contains_count_from_masked_array(
     mask: &vortex::mask::Mask,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
-    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::varbinview::VarBinView;
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
     use vortex::array::validity::Validity;
@@ -12681,15 +12818,15 @@ fn fast_utf8_contains_count_from_masked_array(
         return Ok(Some(0));
     }
     if mask.all_true() {
-        return fast_utf8_contains_count_from_array(child, needle, negated);
+        return fast_utf8_contains_count_from_array(child, needle, negated, ctx);
     }
     if let Some(selected) =
-        fast_utf8_contains_count_from_masked_dictionary_array(child, mask, needle, negated)?
+        fast_utf8_contains_count_from_masked_dictionary_array(child, mask, needle, negated, ctx)?
     {
         return Ok(Some(selected));
     }
     if let Some(selected) =
-        fast_utf8_contains_count_from_masked_fsst_array(child, mask, needle, negated)?
+        fast_utf8_contains_count_from_masked_fsst_array(child, mask, needle, negated, ctx)?
     {
         return Ok(Some(selected));
     }
@@ -12724,13 +12861,12 @@ fn fast_utf8_contains_count_from_masked_array(
         }
         Validity::AllInvalid => return Ok(Some(0)),
         Validity::Array(_) => {
-            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
             for (index, mask_selected) in mask.iter().enumerate() {
                 if !mask_selected {
                     continue;
                 }
                 if !validity
-                    .execute_is_valid(index, &mut validity_ctx)
+                    .execute_is_valid(index, ctx)
                     .map_err(vortex_error)?
                 {
                     continue;
@@ -12759,8 +12895,8 @@ fn fast_utf8_contains_row_indices_from_masked_array(
     mask: &vortex::mask::Mask,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
-    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::varbinview::VarBinView;
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
     use vortex::array::validity::Validity;
@@ -12772,15 +12908,15 @@ fn fast_utf8_contains_row_indices_from_masked_array(
         return Ok(Some(Vec::new()));
     }
     if mask.all_true() {
-        return fast_utf8_contains_row_indices_from_array(child, needle, negated, 0);
+        return fast_utf8_contains_row_indices_from_array(child, needle, negated, 0, ctx);
     }
-    if let Some(selected) =
-        fast_utf8_contains_row_indices_from_masked_dictionary_array(child, mask, needle, negated)?
-    {
+    if let Some(selected) = fast_utf8_contains_row_indices_from_masked_dictionary_array(
+        child, mask, needle, negated, ctx,
+    )? {
         return Ok(Some(selected));
     }
     if let Some(selected) =
-        fast_utf8_contains_row_indices_from_masked_fsst_array(child, mask, needle, negated)?
+        fast_utf8_contains_row_indices_from_masked_fsst_array(child, mask, needle, negated, ctx)?
     {
         return Ok(Some(selected));
     }
@@ -12817,13 +12953,12 @@ fn fast_utf8_contains_row_indices_from_masked_array(
         }
         Validity::AllInvalid => return Ok(Some(selected)),
         Validity::Array(_) => {
-            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
             for (source_row_index, mask_selected) in mask.iter().enumerate() {
                 if !mask_selected {
                     continue;
                 }
                 if !validity
-                    .execute_is_valid(source_row_index, &mut validity_ctx)
+                    .execute_is_valid(source_row_index, ctx)
                     .map_err(vortex_error)?
                 {
                     filtered_row_index = filtered_row_index.checked_add(1).ok_or_else(|| {
@@ -12859,15 +12994,16 @@ fn fast_utf8_contains_count_from_masked_dictionary_array(
     mask: &vortex::mask::Mask,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
-    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(child)? {
+    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(child, ctx)? {
         return fast_utf8_contains_count_from_dictionary_accessor_masked(
             &accessor, needle, negated, mask,
         )
         .map(Some);
     }
     let Some((dictionary_matches, codes)) =
-        fast_utf8_contains_dictionary_matches_and_codes(child, needle, negated)
+        fast_utf8_contains_dictionary_matches_and_codes(child, needle, negated, ctx)?
     else {
         return Ok(None);
     };
@@ -12889,15 +13025,16 @@ fn fast_utf8_contains_row_indices_from_masked_dictionary_array(
     mask: &vortex::mask::Mask,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
-    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(child)? {
+    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(child, ctx)? {
         return fast_utf8_contains_row_indices_from_dictionary_accessor_masked(
             &accessor, needle, negated, mask,
         )
         .map(Some);
     }
     let Some((dictionary_matches, codes)) =
-        fast_utf8_contains_dictionary_matches_and_codes(child, needle, negated)
+        fast_utf8_contains_dictionary_matches_and_codes(child, needle, negated, ctx)?
     else {
         return Ok(None);
     };
@@ -12952,8 +13089,9 @@ fn fast_utf8_contains_count_from_fsst_array(
     array: &vortex::array::ArrayRef,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
-    let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated)? else {
+    let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated, ctx)? else {
         return Ok(None);
     };
     Ok(Some(matches.into_iter().filter(|matched| *matched).count()))
@@ -12965,8 +13103,9 @@ fn fast_utf8_contains_row_indices_from_fsst_array(
     needle: &str,
     negated: bool,
     base_offset: usize,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
-    let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated)? else {
+    let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated, ctx)? else {
         return Ok(None);
     };
     matches
@@ -12990,6 +13129,7 @@ fn fast_utf8_contains_count_from_masked_fsst_array(
     mask: &vortex::mask::Mask,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
     if mask.len() != array.len() {
         return Ok(None);
@@ -12998,9 +13138,9 @@ fn fast_utf8_contains_count_from_masked_fsst_array(
         return Ok(Some(0));
     }
     if mask.all_true() {
-        return fast_utf8_contains_count_from_fsst_array(array, needle, negated);
+        return fast_utf8_contains_count_from_fsst_array(array, needle, negated, ctx);
     }
-    let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated)? else {
+    let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated, ctx)? else {
         return Ok(None);
     };
     Ok(Some(
@@ -13018,6 +13158,7 @@ fn fast_utf8_contains_row_indices_from_masked_fsst_array(
     mask: &vortex::mask::Mask,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
     if mask.len() != array.len() {
         return Ok(None);
@@ -13026,9 +13167,9 @@ fn fast_utf8_contains_row_indices_from_masked_fsst_array(
         return Ok(Some(Vec::new()));
     }
     if mask.all_true() {
-        return fast_utf8_contains_row_indices_from_fsst_array(array, needle, negated, 0);
+        return fast_utf8_contains_row_indices_from_fsst_array(array, needle, negated, 0, ctx);
     }
-    let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated)? else {
+    let Some(matches) = fast_utf8_contains_fsst_matches(array, needle, negated, ctx)? else {
         return Ok(None);
     };
     let mut filtered_row_index = 0usize;
@@ -13055,9 +13196,9 @@ fn fast_utf8_contains_fsst_matches(
     array: &vortex::array::ArrayRef,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<bool>>> {
     use vortex::array::IntoArray as _;
-    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::ConstantArray;
     use vortex::array::arrays::bool::BoolArrayExt as _;
     use vortex::array::scalar_fn::fns::like::{LikeKernel, LikeOptions};
@@ -13068,7 +13209,6 @@ fn fast_utf8_contains_fsst_matches(
     };
     let pattern = contains_literal_like_pattern(needle);
     let pattern = ConstantArray::new(pattern.as_str(), array.len()).into_array();
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
     let Some(result) = <vortex::encodings::fsst::FSST as LikeKernel>::like(
         fsst,
         &pattern,
@@ -13076,7 +13216,7 @@ fn fast_utf8_contains_fsst_matches(
             negated,
             case_insensitive: false,
         },
-        &mut ctx,
+        ctx,
     )
     .map_err(vortex_error)?
     else {
@@ -13111,13 +13251,14 @@ fn fast_utf8_contains_count_from_dictionary_array(
     array: &vortex::array::ArrayRef,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<usize>> {
-    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(array)? {
+    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(array, ctx)? {
         return fast_utf8_contains_count_from_dictionary_accessor(&accessor, needle, negated)
             .map(Some);
     }
     let Some((dictionary_matches, codes)) =
-        fast_utf8_contains_dictionary_matches_and_codes(array, needle, negated)
+        fast_utf8_contains_dictionary_matches_and_codes(array, needle, negated, ctx)?
     else {
         return Ok(None);
     };
@@ -13474,13 +13615,14 @@ fn fast_utf8_contains_row_indices_from_dictionary_array(
     array: &vortex::array::ArrayRef,
     needle: &str,
     negated: bool,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<Vec<usize>>> {
-    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(array)? {
+    if let Some(accessor) = aggregate_direct_utf8_dictionary_accessor(array, ctx)? {
         return fast_utf8_contains_row_indices_from_dictionary_accessor(&accessor, needle, negated)
             .map(Some);
     }
     let Some((dictionary_matches, codes)) =
-        fast_utf8_contains_dictionary_matches_and_codes(array, needle, negated)
+        fast_utf8_contains_dictionary_matches_and_codes(array, needle, negated, ctx)?
     else {
         return Ok(None);
     };
@@ -13565,21 +13707,31 @@ fn fast_utf8_contains_dictionary_matches_and_codes(
     array: &vortex::array::ArrayRef,
     needle: &str,
     negated: bool,
-) -> Option<(Vec<bool>, Vec<u32>)> {
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<(Vec<bool>, Vec<u32>)>> {
     use vortex::array::arrays::dict::DictArraySlotsExt as _;
 
-    let dictionary_array = array.as_opt::<vortex::array::arrays::Dict>()?;
-    let dictionary = direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values())?;
+    let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
+        return Ok(None);
+    };
+    let Some(dictionary) =
+        direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values(), ctx)?
+    else {
+        return Ok(None);
+    };
     let matcher = Utf8ContainsMatcher::new(needle, negated);
     let mut dictionary_matches = Vec::with_capacity(dictionary.len());
     for value in dictionary {
         let StatValue::Utf8(text) = value else {
-            return None;
+            return Ok(None);
         };
         dictionary_matches.push(matcher.matches_str(&text));
     }
-    let codes = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())?;
-    Some((dictionary_matches, codes))
+    let Some(codes) = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())
+    else {
+        return Ok(None);
+    };
+    Ok(Some((dictionary_matches, codes)))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -13871,6 +14023,7 @@ fn row_key_columns_from_chunk(
     chunk: &vortex::array::ArrayRef,
     declared_columns: &[String],
     key_columns: &[String],
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<Vec<String>>> {
     let mut out = Vec::with_capacity(key_columns.len());
     if chunk.dtype().is_struct() {
@@ -13884,7 +14037,7 @@ fn row_key_columns_from_chunk(
                     "local Vortex row-key column '{column}' was not present in scanned chunk; no fallback execution was attempted"
                 )));
             };
-            out.push(row_key_values_from_vortex_array(column, array)?);
+            out.push(row_key_values_from_vortex_array(column, array, ctx)?);
         }
     } else {
         let column = declared_columns.first().map_or("value", String::as_str);
@@ -13894,7 +14047,7 @@ fn row_key_columns_from_chunk(
                     .to_string(),
             ));
         }
-        out.push(row_key_values_from_vortex_array(column, chunk)?);
+        out.push(row_key_values_from_vortex_array(column, chunk, ctx)?);
     }
     let Some(row_count) = out.first().map(Vec::len) else {
         return Ok(out);
@@ -13912,17 +14065,18 @@ fn row_key_columns_from_chunk(
 fn row_key_values_from_vortex_array(
     column: &str,
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<String>> {
     use vortex::array::dtype::DType;
 
-    if let Some(values) = stat_values_from_vortex_array(array) {
+    if let Some(values) = stat_values_from_vortex_array(array, ctx)? {
         return Ok(values.iter().map(stat_value_key).collect());
     }
     match array.dtype() {
         DType::List(_, _) | DType::FixedSizeList(_, _, _) => {
-            list_row_key_values_from_vortex_array(column, array)
+            list_row_key_values_from_vortex_array(column, array, ctx)
         }
-        DType::Struct(_, _) => struct_row_key_values_from_vortex_array(column, array),
+        DType::Struct(_, _) => struct_row_key_values_from_vortex_array(column, array, ctx),
         other => Err(ShardLoomError::InvalidOperation(format!(
             "local Vortex row-key column '{column}' has unsupported dtype {other:?}; no fallback execution was attempted"
         ))),
@@ -13933,8 +14087,8 @@ fn row_key_values_from_vortex_array(
 fn list_row_key_values_from_vortex_array(
     column: &str,
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<String>> {
-    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::fixed_size_list::FixedSizeListArrayExt as _;
     use vortex::array::arrays::listview::ListViewArrayExt as _;
     use vortex::array::arrays::{FixedSizeListArray, ListViewArray};
@@ -13942,40 +14096,41 @@ fn list_row_key_values_from_vortex_array(
 
     match array.dtype() {
         DType::List(_, _) => {
-            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
-            let list = array
+            let mut list = array
                 .clone()
-                .execute::<ListViewArray>(&mut ctx)
+                .execute::<ListViewArray>(ctx)
                 .map_err(vortex_error)?;
             let validity = list.listview_validity();
-            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
+            let mut offsets_ready = false;
             let mut out = Vec::with_capacity(list.len());
             for row_index in 0..list.len() {
                 if !validity
-                    .execute_is_valid(row_index, &mut validity_ctx)
+                    .execute_is_valid(row_index, ctx)
                     .map_err(vortex_error)?
                 {
                     out.push("l:parent-null".to_string());
                     continue;
                 }
+                if !offsets_ready {
+                    list = prepare_list_offsets_in_context(list, ctx)?;
+                    offsets_ready = true;
+                }
                 let elements = list.list_elements_at(row_index).map_err(vortex_error)?;
-                let values = scalar_values_from_vortex_array(column, &elements)?;
+                let values = scalar_values_from_vortex_array(column, &elements, ctx)?;
                 out.push(list_row_key(&values));
             }
             Ok(out)
         }
         DType::FixedSizeList(_, _, _) => {
-            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let list = array
                 .clone()
-                .execute::<FixedSizeListArray>(&mut ctx)
+                .execute::<FixedSizeListArray>(ctx)
                 .map_err(vortex_error)?;
             let validity = list.fixed_size_list_validity();
-            let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
             let mut out = Vec::with_capacity(list.len());
             for row_index in 0..list.len() {
                 if !validity
-                    .execute_is_valid(row_index, &mut validity_ctx)
+                    .execute_is_valid(row_index, ctx)
                     .map_err(vortex_error)?
                 {
                     out.push("l:parent-null".to_string());
@@ -13984,7 +14139,7 @@ fn list_row_key_values_from_vortex_array(
                 let elements = list
                     .fixed_size_list_elements_at(row_index)
                     .map_err(vortex_error)?;
-                let values = scalar_values_from_vortex_array(column, &elements)?;
+                let values = scalar_values_from_vortex_array(column, &elements, ctx)?;
                 out.push(list_row_key(&values));
             }
             Ok(out)
@@ -13999,20 +14154,26 @@ fn list_row_key_values_from_vortex_array(
 fn struct_row_key_values_from_vortex_array(
     column: &str,
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Vec<String>> {
-    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::{StructArray, struct_::StructArrayExt as _};
 
-    let children = array
-        .named_children()
-        .into_iter()
+    let structure = array
+        .clone()
+        .execute::<StructArray>(ctx)
+        .map_err(vortex_error)?;
+    let children = structure
+        .names()
+        .iter()
+        .zip(structure.iter_unmasked_fields())
+        .map(|(name, field)| (name.to_string(), field.clone()))
         .collect::<std::collections::BTreeMap<_, _>>();
-    let validity = array.validity().map_err(vortex_error)?;
-    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
+    let validity = structure.struct_validity();
     let mut field_values = Vec::with_capacity(children.len());
     for (field_name, field_array) in children {
         field_values.push((
             field_name.clone(),
-            row_key_values_from_vortex_array(&field_name, &field_array)?,
+            row_key_values_from_vortex_array(&field_name, &field_array, ctx)?,
         ));
     }
     let row_count = field_values
@@ -14028,7 +14189,7 @@ fn struct_row_key_values_from_vortex_array(
     let mut out = Vec::with_capacity(row_count);
     for row_index in 0..row_count {
         if !validity
-            .execute_is_valid(row_index, &mut validity_ctx)
+            .execute_is_valid(row_index, ctx)
             .map_err(vortex_error)?
         {
             out.push("r:parent-null".to_string());
@@ -15140,6 +15301,7 @@ fn read_local_vortex_scan_in_context(
             policy,
             &file,
             context.runtime(),
+            context.native_session(),
             plan,
             started.elapsed().as_micros(),
             context.cancellation(),
@@ -15176,6 +15338,7 @@ fn read_local_vortex_scan(
     let mut evidence_collection_micros = 0_u128;
     let runtime = local_vortex_runtime(policy);
     let (session, _control_memory) = local_vortex_session(policy, &runtime)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(
             session
@@ -15289,12 +15452,13 @@ fn read_local_vortex_scan(
             evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
         let chunk_result_rows = if let Some(predicate) = residual_evaluator.as_ref() {
             if let Some(selected) =
-                predicate.fast_count_matches_in_chunk(&chunk, &plan.projected_columns)?
+                predicate.fast_count_matches_in_chunk(&chunk, &plan.projected_columns, &mut ctx)?
             {
                 selected
             } else {
                 residual_predicate_materialized = true;
-                let columns = row_export_columns_from_chunk(&chunk, &plan.projected_columns)?;
+                let columns =
+                    row_export_columns_from_chunk(&chunk, &plan.projected_columns, &mut ctx)?;
                 let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
                 let mut selected = 0usize;
                 for row_index in 0..materialized_rows {
@@ -15385,6 +15549,7 @@ fn read_local_vortex_partitioned_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let mut source_row_count = 0_u64;
     let mut result_row_count = 0_usize;
     let mut pre_limit_result_row_count = 0_usize;
@@ -15524,13 +15689,16 @@ fn read_local_vortex_partitioned_scan(
             evidence_collection_micros =
                 evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
             let chunk_result_rows = if let Some(predicate) = residual_evaluator.as_ref() {
-                if let Some(selected) =
-                    predicate.fast_count_matches_in_chunk(&chunk, &plan.projected_columns)?
-                {
+                if let Some(selected) = predicate.fast_count_matches_in_chunk(
+                    &chunk,
+                    &plan.projected_columns,
+                    &mut ctx,
+                )? {
                     selected
                 } else {
                     residual_predicate_materialized = true;
-                    let columns = row_export_columns_from_chunk(&chunk, &plan.projected_columns)?;
+                    let columns =
+                        row_export_columns_from_chunk(&chunk, &plan.projected_columns, &mut ctx)?;
                     let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
                     let mut selected = 0usize;
                     for row_index in 0..materialized_rows {
@@ -15724,7 +15892,9 @@ fn dictionary_kernel_input_from_vortex_array(
     column_name: &str,
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
+    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::dict::DictArraySlotsExt as _;
+    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
 
     let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
         return Ok(None);
@@ -15733,7 +15903,7 @@ fn dictionary_kernel_input_from_vortex_array(
         return Ok(None);
     };
     let Some((mut codes, row_nulls)) =
-        direct_u32_codes_with_nulls_from_vortex_array(dictionary_array.codes())
+        direct_u32_codes_with_nulls_from_vortex_array(dictionary_array.codes(), &mut ctx)?
     else {
         return Ok(None);
     };
@@ -15742,7 +15912,7 @@ fn dictionary_kernel_input_from_vortex_array(
         &mut codes,
         row_nulls.as_deref(),
     )?;
-    let Some(dictionary_values) = stat_values_from_vortex_array(&values) else {
+    let Some(dictionary_values) = stat_values_from_vortex_array(&values, &mut ctx)? else {
         return Ok(None);
     };
     let row_count = u64::try_from(codes.len()).map_err(|error| {
@@ -16006,6 +16176,7 @@ fn sparse_kernel_input_from_vortex_array(
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
     use vortex::encodings::sparse::SparseExt as _;
+    let mut ctx = native_numeric_execution_ctx(vortex::array::legacy_session());
 
     let Some(sparse_array) = array.as_opt::<vortex::encodings::sparse::Sparse>() else {
         return Ok(None);
@@ -16021,7 +16192,9 @@ fn sparse_kernel_input_from_vortex_array(
     let Some(indices) = direct_non_nullable_u64_values_from_vortex_array(patches.indices()) else {
         return Ok(None);
     };
-    let Some(values) = direct_non_nullable_stat_values_from_vortex_array(patches.values()) else {
+    let Some(values) =
+        direct_non_nullable_stat_values_from_vortex_array(patches.values(), &mut ctx)?
+    else {
         return Ok(None);
     };
     if indices.len() != values.len() || patches.array_len() != array.len() {
@@ -16099,6 +16272,7 @@ fn run_end_kernel_input_from_vortex_array(
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
     use vortex::encodings::runend::{RunEndArrayExt as _, RunEndArraySlotsExt as _};
+    let mut ctx = native_numeric_execution_ctx(vortex::array::legacy_session());
 
     let Some(run_end_array) = array.as_opt::<vortex::encodings::runend::RunEnd>() else {
         return Ok(None);
@@ -16112,7 +16286,7 @@ fn run_end_kernel_input_from_vortex_array(
     let Some(ends) = direct_non_nullable_u64_values_from_vortex_array(run_end_array.ends()) else {
         return Ok(None);
     };
-    let Some(values) = stat_values_from_vortex_array(run_end_array.values()) else {
+    let Some(values) = stat_values_from_vortex_array(run_end_array.values(), &mut ctx)? else {
         return Ok(None);
     };
     if ends.len() != values.len() {
@@ -16166,13 +16340,16 @@ fn run_end_kernel_input_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<StatValue>> {
+fn stat_values_from_vortex_array(
+    array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<Vec<StatValue>>> {
     use vortex::array::dtype::DType;
 
     match array.dtype() {
-        DType::Primitive(_, _) => primitive_stat_values_from_vortex_array(array),
-        DType::Utf8(_) => utf8_stat_values_from_vortex_array(array),
-        DType::Bool(_) => bool_stat_values_from_vortex_array(array),
+        DType::Primitive(_, _) => primitive_stat_values_from_vortex_array(array, ctx),
+        DType::Utf8(_) => utf8_stat_values_from_vortex_array(array, ctx).map(Some),
+        DType::Bool(_) => bool_stat_values_from_vortex_array(array, ctx).map(Some),
         DType::Null
         | DType::Decimal(_, _)
         | DType::Binary(_)
@@ -16182,7 +16359,7 @@ fn stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<
         | DType::FixedSizeList(_, _, _)
         | DType::Extension(_)
         | DType::Union(_, _)
-        | DType::Variant(_) => None,
+        | DType::Variant(_) => Ok(None),
     }
 }
 
@@ -16190,38 +16367,44 @@ fn stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<
 fn selected_stat_values_from_vortex_array(
     array: &vortex::array::ArrayRef,
     row_indices: &[usize],
-) -> Option<Vec<StatValue>> {
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<Vec<StatValue>>> {
     if row_indices.is_empty() {
-        return Some(Vec::new());
+        return Ok(Some(Vec::new()));
     }
     if let Some(values) =
-        direct_selected_dictionary_stat_values_from_vortex_array(array, row_indices)
+        direct_selected_dictionary_stat_values_from_vortex_array(array, row_indices, ctx)?
     {
-        return Some(values);
+        return Ok(Some(values));
     }
     if let Some(values) =
         direct_selected_non_nullable_stat_values_from_vortex_array(array, row_indices)
     {
-        return Some(values);
+        return Ok(Some(values));
     }
-    let values = stat_values_from_vortex_array(array)?;
-    row_indices
+    let Some(values) = stat_values_from_vortex_array(array, ctx)? else {
+        return Ok(None);
+    };
+    Ok(row_indices
         .iter()
         .map(|&row_index| values.get(row_index).cloned())
-        .collect()
+        .collect())
 }
 
 #[cfg(feature = "vortex-local-primitives")]
 fn direct_non_nullable_stat_values_from_vortex_array(
     array: &vortex::array::ArrayRef,
-) -> Option<Vec<StatValue>> {
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<Vec<StatValue>>> {
     use vortex::array::dtype::DType;
 
     match array.dtype() {
-        DType::Primitive(_, _) => direct_non_nullable_host_primitive(array)
-            .and_then(|primitive| primitive_stat_values_from_primitive_array(&primitive)),
-        DType::Utf8(_) => direct_non_nullable_utf8_stat_values_from_vortex_array(array),
-        _ => None,
+        DType::Primitive(_, _) => match direct_non_nullable_host_primitive(array) {
+            Some(primitive) => primitive_stat_values_from_primitive_array(&primitive, ctx),
+            None => Ok(None),
+        },
+        DType::Utf8(_) => direct_non_nullable_utf8_stat_values_from_vortex_array(array, ctx),
+        _ => Ok(None),
     }
 }
 
@@ -16229,19 +16412,29 @@ fn direct_non_nullable_stat_values_from_vortex_array(
 fn direct_selected_dictionary_stat_values_from_vortex_array(
     array: &vortex::array::ArrayRef,
     row_indices: &[usize],
-) -> Option<Vec<StatValue>> {
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<Vec<StatValue>>> {
     use vortex::array::arrays::dict::DictArraySlotsExt as _;
 
-    let dictionary_array = array.as_opt::<vortex::array::arrays::Dict>()?;
-    let dictionary = direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values())?;
-    let codes = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())?;
-    row_indices
+    let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
+        return Ok(None);
+    };
+    let Some(dictionary) =
+        direct_non_nullable_stat_values_from_vortex_array(dictionary_array.values(), ctx)?
+    else {
+        return Ok(None);
+    };
+    let Some(codes) = direct_non_nullable_u32_codes_from_vortex_array(dictionary_array.codes())
+    else {
+        return Ok(None);
+    };
+    Ok(row_indices
         .iter()
         .map(|&row_index| {
             let code = *codes.get(row_index)?;
             dictionary.get(usize::try_from(code).ok()?).cloned()
         })
-        .collect()
+        .collect())
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -16262,17 +16455,19 @@ fn direct_selected_non_nullable_stat_values_from_vortex_array(
 #[cfg(feature = "vortex-local-primitives")]
 fn primitive_stat_values_from_vortex_array(
     array: &vortex::array::ArrayRef,
-) -> Option<Vec<StatValue>> {
-    use vortex::array::VortexSessionExecute as _;
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<Vec<StatValue>>> {
     use vortex::array::arrays::PrimitiveArray;
 
     if let Some(primitive) = direct_non_nullable_host_primitive(array) {
-        return primitive_stat_values_from_primitive_array(&primitive);
+        return primitive_stat_values_from_primitive_array(&primitive, ctx);
     }
 
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
-    let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
-    primitive_stat_values_from_primitive_array(&primitive)
+    let primitive = array
+        .clone()
+        .execute::<PrimitiveArray>(ctx)
+        .map_err(vortex_error)?;
+    primitive_stat_values_from_primitive_array(&primitive, ctx)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -16337,7 +16532,8 @@ fn selected_from_slice<T: Copy>(
 #[cfg(feature = "vortex-local-primitives")]
 fn primitive_stat_values_from_primitive_array(
     primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
-) -> Option<Vec<StatValue>> {
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<Vec<StatValue>>> {
     use vortex::array::dtype::PType;
 
     let validity = primitive.validity();
@@ -16382,7 +16578,7 @@ fn primitive_stat_values_from_primitive_array(
             .iter()
             .map(|value| StatValue::Int64(*value))
             .collect(),
-        PType::F16 => return None,
+        PType::F16 => return Ok(None),
         PType::F32 => primitive
             .as_slice::<f32>()
             .iter()
@@ -16394,7 +16590,7 @@ fn primitive_stat_values_from_primitive_array(
             .map(|value| StatValue::Float64(*value))
             .collect(),
     };
-    stat_values_with_validity(values, &validity)
+    stat_values_with_validity(values, &validity, ctx).map(Some)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -16429,91 +16625,105 @@ fn selected_direct_non_nullable_utf8_stat_values(
 fn stat_values_with_validity(
     mut values: Vec<StatValue>,
     validity: &vortex::array::validity::Validity,
-) -> Option<Vec<StatValue>> {
-    use vortex::array::VortexSessionExecute as _;
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Vec<StatValue>> {
     use vortex::array::validity::Validity;
 
     match validity {
-        Validity::NonNullable | Validity::AllValid => Some(values),
-        Validity::AllInvalid => Some(vec![StatValue::Null; values.len()]),
+        Validity::NonNullable | Validity::AllValid => Ok(values),
+        Validity::AllInvalid => Ok(vec![StatValue::Null; values.len()]),
         Validity::Array(_) => {
-            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             for (index, value) in values.iter_mut().enumerate() {
-                if !validity.execute_is_valid(index, &mut ctx).ok()? {
+                if !validity
+                    .execute_is_valid(index, ctx)
+                    .map_err(vortex_error)?
+                {
                     *value = StatValue::Null;
                 }
             }
-            Some(values)
+            Ok(values)
         }
     }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn utf8_stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<StatValue>> {
-    use vortex::array::VortexSessionExecute as _;
+fn utf8_stat_values_from_vortex_array(
+    array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Vec<StatValue>> {
     use vortex::array::arrays::VarBinViewArray;
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
 
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
-    let utf8 = array.clone().execute::<VarBinViewArray>(&mut ctx).ok()?;
+    let utf8 = array
+        .clone()
+        .execute::<VarBinViewArray>(ctx)
+        .map_err(vortex_error)?;
     let validity = utf8.varbinview_validity();
     let mut values = Vec::with_capacity(utf8.len());
-    let mut validity_ctx = vortex::array::legacy_session().create_execution_ctx();
     for index in 0..utf8.len() {
-        if !validity.execute_is_valid(index, &mut validity_ctx).ok()? {
+        if !validity
+            .execute_is_valid(index, ctx)
+            .map_err(vortex_error)?
+        {
             values.push(StatValue::Null);
             continue;
         }
         let bytes = utf8.bytes_at(index);
-        let text = std::str::from_utf8(bytes.as_slice()).ok()?;
+        let text = std::str::from_utf8(bytes.as_slice()).map_err(vortex_error)?;
         values.push(StatValue::Utf8(text.to_string()));
     }
-    Some(values)
+    Ok(values)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
 fn direct_non_nullable_utf8_stat_values_from_vortex_array(
     array: &vortex::array::ArrayRef,
-) -> Option<Vec<StatValue>> {
-    use vortex::array::VortexSessionExecute as _;
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<Vec<StatValue>>> {
     use vortex::array::arrays::VarBinViewArray;
     use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
     use vortex::array::validity::Validity;
 
     if !array.is_host() {
-        return None;
+        return Ok(None);
     }
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
-    let utf8 = array.clone().execute::<VarBinViewArray>(&mut ctx).ok()?;
+    let utf8 = array
+        .clone()
+        .execute::<VarBinViewArray>(ctx)
+        .map_err(vortex_error)?;
     match utf8.varbinview_validity() {
         Validity::NonNullable | Validity::AllValid => {}
-        Validity::AllInvalid | Validity::Array(_) => return None,
+        Validity::AllInvalid | Validity::Array(_) => return Ok(None),
     }
     let mut values = Vec::with_capacity(utf8.len());
     for index in 0..utf8.len() {
         let bytes = utf8.bytes_at(index);
-        let text = std::str::from_utf8(bytes.as_slice()).ok()?;
+        let text = std::str::from_utf8(bytes.as_slice()).map_err(vortex_error)?;
         values.push(StatValue::Utf8(text.to_string()));
     }
-    Some(values)
+    Ok(Some(values))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn bool_stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<StatValue>> {
-    use vortex::array::VortexSessionExecute as _;
+fn bool_stat_values_from_vortex_array(
+    array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Vec<StatValue>> {
     use vortex::array::arrays::BoolArray;
     use vortex::array::arrays::bool::BoolArrayExt as _;
 
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
-    let bool_array = array.clone().execute::<BoolArray>(&mut ctx).ok()?;
-    let validity = bool_array.validity().ok()?;
+    let bool_array = array
+        .clone()
+        .execute::<BoolArray>(ctx)
+        .map_err(vortex_error)?;
+    let validity = bool_array.validity().map_err(vortex_error)?;
     let values = bool_array
         .to_bit_buffer()
         .iter()
         .take(bool_array.len())
         .map(StatValue::Boolean)
         .collect();
-    stat_values_with_validity(values, &validity)
+    stat_values_with_validity(values, &validity, ctx)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -16525,46 +16735,54 @@ fn direct_non_nullable_u32_codes_from_vortex_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+type DictionaryCodesWithNulls = (Vec<u32>, Option<Vec<bool>>);
+
+#[cfg(feature = "vortex-local-primitives")]
 fn direct_u32_codes_with_nulls_from_vortex_array(
     array: &vortex::array::ArrayRef,
-) -> Option<(Vec<u32>, Option<Vec<bool>>)> {
-    use vortex::array::VortexSessionExecute as _;
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<DictionaryCodesWithNulls>> {
     use vortex::array::arrays::PrimitiveArray;
 
     if let Some(primitive) = direct_host_primitive(array) {
-        return primitive_u32_codes_with_nulls(&primitive);
+        return primitive_u32_codes_with_nulls(&primitive, ctx);
     }
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
-    let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
-    primitive_u32_codes_with_nulls(&primitive)
+    let primitive = array
+        .clone()
+        .execute::<PrimitiveArray>(ctx)
+        .map_err(vortex_error)?;
+    primitive_u32_codes_with_nulls(&primitive, ctx)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
 fn primitive_u32_codes_with_nulls(
     primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
-) -> Option<(Vec<u32>, Option<Vec<bool>>)> {
-    use vortex::array::VortexSessionExecute as _;
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<DictionaryCodesWithNulls>> {
     use vortex::array::arrays::primitive::PrimitiveArrayExt;
     use vortex::array::validity::Validity;
 
-    let codes = primitive_u32_codes_from_primitive_values(primitive)?;
+    let Some(codes) = primitive_u32_codes_from_primitive_values(primitive) else {
+        return Ok(None);
+    };
     let validity = PrimitiveArrayExt::validity(primitive);
     let row_nulls = match validity {
         Validity::NonNullable | Validity::AllValid => None,
         Validity::AllInvalid => Some(vec![true; codes.len()]),
         Validity::Array(_) => {
-            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let mut nulls = Vec::with_capacity(codes.len());
             let mut any_null = false;
             for row_index in 0..codes.len() {
-                let is_valid = validity.execute_is_valid(row_index, &mut ctx).ok()?;
+                let is_valid = validity
+                    .execute_is_valid(row_index, ctx)
+                    .map_err(vortex_error)?;
                 nulls.push(!is_valid);
                 any_null |= !is_valid;
             }
             any_null.then_some(nulls)
         }
     };
-    Some((codes, row_nulls))
+    Ok(Some((codes, row_nulls)))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -18672,6 +18890,7 @@ fn read_local_vortex_distinct_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
         .map_err(|error| {
@@ -18778,7 +18997,8 @@ fn read_local_vortex_distinct_scan(
             chunk.nbuffers(),
         )?;
         reader_splits.push(split);
-        let materialized_columns = row_export_columns_from_chunk(&chunk, &materialization_columns)?;
+        let materialized_columns =
+            row_export_columns_from_chunk(&chunk, &materialization_columns, &mut ctx)?;
         let materialized_rows = row_export_materialized_row_count(&materialized_columns, rows)?;
         let (candidate_indices, residual_materialized) = residual_candidate_row_indices_for_chunk(
             residual_evaluator.as_ref(),
@@ -18786,10 +19006,11 @@ fn read_local_vortex_distinct_scan(
             &materialization_columns,
             &materialized_columns,
             materialized_rows,
+            &mut ctx,
         )?;
         residual_predicate_materialized |= residual_materialized;
         let row_key_columns =
-            row_key_columns_from_chunk(&chunk, &declared_columns, &output_columns)?;
+            row_key_columns_from_chunk(&chunk, &declared_columns, &output_columns, &mut ctx)?;
         let selected = distinct_row_indices_from_candidates(
             &row_key_columns,
             &mut seen,
@@ -18853,6 +19074,7 @@ fn read_local_vortex_drop_duplicate_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
         .map_err(|error| {
@@ -18955,8 +19177,10 @@ fn read_local_vortex_drop_duplicate_scan(
             chunk.nbuffers(),
         )?;
         reader_splits.push(split);
-        let materialized_columns = row_export_columns_from_chunk(&chunk, &materialization_columns)?;
-        let row_key_columns = row_key_columns_from_chunk(&chunk, &declared_columns, &key_columns)?;
+        let materialized_columns =
+            row_export_columns_from_chunk(&chunk, &materialization_columns, &mut ctx)?;
+        let row_key_columns =
+            row_key_columns_from_chunk(&chunk, &declared_columns, &key_columns, &mut ctx)?;
         let materialized_rows = row_key_materialized_row_count(&row_key_columns)?;
         let output_rows = row_export_materialized_row_count(&materialized_columns, chunk_rows)?;
         if output_rows != materialized_rows {
@@ -18971,6 +19195,7 @@ fn read_local_vortex_drop_duplicate_scan(
             &materialization_columns,
             &materialized_columns,
             materialized_rows,
+            &mut ctx,
         )?;
         residual_predicate_materialized |= residual_materialized;
         for row_index in candidate_indices {
@@ -19053,6 +19278,7 @@ fn read_local_vortex_duplicate_mask_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
         .map_err(|error| {
@@ -19104,7 +19330,7 @@ fn read_local_vortex_duplicate_mask_scan(
         )?;
         reader_splits.push(split);
         let row_key_columns =
-            row_key_columns_from_chunk(&chunk, &declared_columns, &declared_columns)?;
+            row_key_columns_from_chunk(&chunk, &declared_columns, &declared_columns, &mut ctx)?;
         let materialized_rows = row_key_materialized_row_count(&row_key_columns)?;
         let output_rows = source_order_limit.map_or(materialized_rows, |limit| {
             limit
@@ -19304,6 +19530,7 @@ fn read_local_vortex_sample_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
         .map_err(|error| {
@@ -19421,7 +19648,8 @@ fn read_local_vortex_sample_scan(
             chunk.nbuffers(),
         )?;
         reader_splits.push(split);
-        let materialized_columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        let materialized_columns =
+            row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
         let materialized_rows = materialized_columns.first().map_or(rows, Vec::len);
         let (candidate_indices, residual_materialized) = residual_candidate_row_indices_for_chunk(
             residual_evaluator.as_ref(),
@@ -19429,6 +19657,7 @@ fn read_local_vortex_sample_scan(
             &declared_columns,
             &materialized_columns,
             materialized_rows,
+            &mut ctx,
         )?;
         residual_predicate_materialized |= residual_materialized;
         let candidate_count = candidate_indices.len();
@@ -19540,6 +19769,7 @@ fn read_local_vortex_expression_project_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
         .map_err(|error| {
@@ -19652,7 +19882,7 @@ fn read_local_vortex_expression_project_scan(
             chunk.nbuffers(),
         )?;
         reader_splits.push(split);
-        let source_columns = row_export_columns_from_chunk(&chunk, &projected_columns)?;
+        let source_columns = row_export_columns_from_chunk(&chunk, &projected_columns, &mut ctx)?;
         let source_materialized_rows = row_export_materialized_row_count(&source_columns, rows)?;
         let (candidate_indices, residual_materialized) = residual_candidate_row_indices_for_chunk(
             residual_evaluator.as_ref(),
@@ -19660,6 +19890,7 @@ fn read_local_vortex_expression_project_scan(
             &projected_columns,
             &source_columns,
             source_materialized_rows,
+            &mut ctx,
         )?;
         residual_predicate_materialized |= residual_materialized;
         let mut columns = select_materialized_columns(&source_columns, &candidate_indices)?;
@@ -19752,6 +19983,7 @@ fn read_local_vortex_melt_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
         .map_err(|error| {
@@ -19854,7 +20086,7 @@ fn read_local_vortex_melt_scan(
             chunk.nbuffers(),
         )?;
         reader_splits.push(split);
-        let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        let columns = row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
         let source_materialized_rows = row_export_materialized_row_count(&columns, rows)?;
         let (candidate_indices, residual_materialized) = residual_candidate_row_indices_for_chunk(
             residual_evaluator.as_ref(),
@@ -19862,6 +20094,7 @@ fn read_local_vortex_melt_scan(
             &declared_columns,
             &columns,
             source_materialized_rows,
+            &mut ctx,
         )?;
         residual_predicate_materialized |= residual_materialized;
         let columns = select_materialized_columns(&columns, &candidate_indices)?;
@@ -19935,6 +20168,7 @@ fn read_local_vortex_pivot_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
         .map_err(|error| {
@@ -20046,7 +20280,7 @@ fn read_local_vortex_pivot_scan(
             chunk.nbuffers(),
         )?;
         reader_splits.push(split);
-        let column_values = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        let column_values = row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
         let required_column_count = index_column_index
             .max(pivot_column_index)
             .max(value_column_index)
@@ -20064,6 +20298,7 @@ fn read_local_vortex_pivot_scan(
             &declared_columns,
             &column_values,
             materialized_rows,
+            &mut ctx,
         )?;
         residual_predicate_materialized |= residual_materialized;
         let column_values = select_materialized_columns(&column_values, &candidate_indices)?;
@@ -20133,6 +20368,7 @@ fn read_local_vortex_explode_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
         .map_err(|error| {
@@ -20240,7 +20476,8 @@ fn read_local_vortex_explode_scan(
         )?;
         reader_splits.push(split);
         let (candidate_indices, residual_materialized) = if residual_evaluator.is_some() {
-            let residual_columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+            let residual_columns =
+                row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
             let materialized_rows = row_export_materialized_row_count(&residual_columns, rows)?;
             residual_candidate_row_indices_for_chunk(
                 residual_evaluator.as_ref(),
@@ -20248,13 +20485,18 @@ fn read_local_vortex_explode_scan(
                 &declared_columns,
                 &residual_columns,
                 materialized_rows,
+                &mut ctx,
             )?
         } else {
             ((0..rows).collect(), false)
         };
         residual_predicate_materialized |= residual_materialized;
-        let explode_columns =
-            explode_columns_from_chunk(&chunk, &visible_declared_columns, explode_projection)?;
+        let explode_columns = explode_columns_from_chunk(
+            &chunk,
+            &visible_declared_columns,
+            explode_projection,
+            &mut ctx,
+        )?;
         let explode_columns = select_explode_chunk_columns(explode_columns, &candidate_indices)?;
         pre_limit_result_row_count = pre_limit_result_row_count
             .checked_add(explode_columns.expanded_rows)
@@ -20324,6 +20566,7 @@ fn read_local_vortex_rolling_window_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let file = runtime
         .block_on(open_local_vortex_file(&session, path, context))
         .map_err(|error| {
@@ -20428,7 +20671,7 @@ fn read_local_vortex_rolling_window_scan(
             chunk.nbuffers(),
         )?;
         reader_splits.push(split);
-        let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        let columns = row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
         let source_materialized_rows = row_export_materialized_row_count(&columns, rows)?;
         let (candidate_indices, residual_materialized) = residual_candidate_row_indices_for_chunk(
             residual_evaluator.as_ref(),
@@ -20436,6 +20679,7 @@ fn read_local_vortex_rolling_window_scan(
             &declared_columns,
             &columns,
             source_materialized_rows,
+            &mut ctx,
         )?;
         residual_predicate_materialized |= residual_materialized;
         let selected_columns = select_materialized_columns(&columns, &candidate_indices)?;
@@ -20964,6 +21208,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
             numeric_pair_late_measure_enabled,
             string_count_topk_heavy_hitter_enabled,
             policy.resource_envelope(),
+            Some(session),
         )?;
         if numeric_utf8_topk_heavy_hitter_enabled {
             states.enable_numeric_utf8_topk_heavy_hitter();
@@ -20978,9 +21223,6 @@ fn read_lowered_vortex_simple_aggregate_scan(
     } else {
         None
     };
-    if let Some(states) = grouped_states.as_mut() {
-        states.native_execution_ctx = native_numeric_execution_ctx(session);
-    }
     let mut winner_distinct_report = grouped_states.as_ref().and_then(|states| {
         winner_distinct::admit(
             states,
@@ -21299,8 +21541,11 @@ fn read_lowered_vortex_simple_aggregate_scan(
             aggregate_timing.reader_evidence_nanos += evidence_started.elapsed().as_nanos();
             if let Some(predicate) = residual_evaluator.as_ref() {
                 let selected_rows = if let Some(row_indices) = predicate
-                    .fast_exact_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                {
+                    .fast_exact_candidate_row_indices_in_chunk(
+                        &chunk,
+                        &declared_columns,
+                        &mut scalar_execution_ctx,
+                    )? {
                     let row_index_filter =
                         (row_indices.len() < rows).then_some(row_indices.as_slice());
                     let direct_scalar_updated = if let Some(states) = scalar_states.as_mut() {
@@ -21333,9 +21578,14 @@ fn read_lowered_vortex_simple_aggregate_scan(
                                 &chunk,
                                 &declared_columns,
                                 &row_indices,
+                                &mut scalar_execution_ctx,
                             )?
                         } else {
-                            row_export_columns_from_chunk(&chunk, &declared_columns)?
+                            row_export_columns_from_chunk(
+                                &chunk,
+                                &declared_columns,
+                                &mut scalar_execution_ctx,
+                            )?
                         };
                         let materialized_rows = if row_indices.len() < rows {
                             row_indices.len()
@@ -21358,15 +21608,18 @@ fn read_lowered_vortex_simple_aggregate_scan(
                         }
                         materialized_rows
                     }
-                } else if let Some(row_indices) =
-                    predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                    && row_indices.len() < rows
+                } else if let Some(row_indices) = predicate.fast_candidate_row_indices_in_chunk(
+                    &chunk,
+                    &declared_columns,
+                    &mut scalar_execution_ctx,
+                )? && row_indices.len() < rows
                 {
                     residual_predicate_materialized = true;
                     let columns = row_export_selected_columns_from_chunk(
                         &chunk,
                         &declared_columns,
                         &row_indices,
+                        &mut scalar_execution_ctx,
                     )?;
                     let mut selected_rows = 0usize;
                     for row_index in 0..row_indices.len() {
@@ -21393,7 +21646,11 @@ fn read_lowered_vortex_simple_aggregate_scan(
                     selected_rows
                 } else {
                     residual_predicate_materialized = true;
-                    let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                    let columns = row_export_columns_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        &mut scalar_execution_ctx,
+                    )?;
                     let materialized_rows = if columns.is_empty() {
                         rows
                     } else {
@@ -21484,7 +21741,11 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 let materialized_rows = if direct_scalar_updated || direct_compact_updated {
                     rows
                 } else {
-                    let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                    let columns = row_export_columns_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        &mut scalar_execution_ctx,
+                    )?;
                     let materialized_rows = if columns.is_empty() {
                         rows
                     } else {
@@ -21634,8 +21895,8 @@ fn read_lowered_vortex_simple_aggregate_scan(
             false,
             false,
             policy.resource_envelope(),
+            Some(session),
         )?;
-        exact_states.native_execution_ctx = native_numeric_execution_ctx(session);
         let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if exact_plan.projected_columns != declared_columns {
@@ -21672,6 +21933,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 &chunk,
                 &declared_columns,
                 residual_evaluator.as_ref(),
+                &mut scalar_execution_ctx,
             )?;
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
@@ -21719,8 +21981,11 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 )?;
                 reader_splits.push(split);
                 let residual_row_indices = if let Some(predicate) = residual_evaluator.as_ref() {
-                    let Some(row_indices) = predicate
-                        .fast_exact_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
+                    let Some(row_indices) = predicate.fast_exact_candidate_row_indices_in_chunk(
+                        &chunk,
+                        &declared_columns,
+                        &mut scalar_execution_ctx,
+                    )?
                     else {
                         return Err(ShardLoomError::InvalidOperation(
                             "local Vortex string top-K heavy-hitter residual recount requires an exact ShardLoom row-index filter; no fallback execution was attempted"
@@ -21760,8 +22025,8 @@ fn read_lowered_vortex_simple_aggregate_scan(
             false,
             false,
             policy.resource_envelope(),
+            Some(session),
         )?;
-        exact_states.native_execution_ctx = native_numeric_execution_ctx(session);
         let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if exact_plan.projected_columns != declared_columns {
@@ -21798,6 +22063,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 &chunk,
                 &declared_columns,
                 residual_evaluator.as_ref(),
+                &mut scalar_execution_ctx,
             )?;
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
@@ -21872,8 +22138,8 @@ fn read_lowered_vortex_simple_aggregate_scan(
             false,
             false,
             policy.resource_envelope(),
+            Some(session),
         )?;
-        exact_states.native_execution_ctx = native_numeric_execution_ctx(session);
         let projection = projection_request_from_declared_columns(&declared_columns)?;
         let mut exact_plan = projection_scan_plan(file.dtype(), &projection, request.kind)?;
         if exact_plan.projected_columns != declared_columns {
@@ -21910,6 +22176,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
                 &chunk,
                 &declared_columns,
                 residual_evaluator.as_ref(),
+                &mut scalar_execution_ctx,
             )?;
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
@@ -22058,11 +22325,12 @@ fn update_grouped_exact_states_from_chunk(
     chunk: &vortex::array::ArrayRef,
     declared_columns: &[String],
     residual_evaluator: Option<&MaterializedPredicateEvaluator>,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<()> {
     let rows = chunk.len();
     if let Some(predicate) = residual_evaluator {
         if let Some(row_indices) =
-            predicate.fast_exact_candidate_row_indices_in_chunk(chunk, declared_columns)?
+            predicate.fast_exact_candidate_row_indices_in_chunk(chunk, declared_columns, ctx)?
         {
             if row_indices.is_empty() {
                 return Ok(());
@@ -22074,9 +22342,14 @@ fn update_grouped_exact_states_from_chunk(
                 row_index_filter,
             )? {
                 let columns = if row_indices.len() < rows {
-                    row_export_selected_columns_from_chunk(chunk, declared_columns, &row_indices)?
+                    row_export_selected_columns_from_chunk(
+                        chunk,
+                        declared_columns,
+                        &row_indices,
+                        ctx,
+                    )?
                 } else {
-                    row_export_columns_from_chunk(chunk, declared_columns)?
+                    row_export_columns_from_chunk(chunk, declared_columns, ctx)?
                 };
                 let materialized_rows = if row_indices.len() < rows {
                     row_indices.len()
@@ -22090,11 +22363,11 @@ fn update_grouped_exact_states_from_chunk(
             return Ok(());
         }
         if let Some(row_indices) =
-            predicate.fast_candidate_row_indices_in_chunk(chunk, declared_columns)?
+            predicate.fast_candidate_row_indices_in_chunk(chunk, declared_columns, ctx)?
             && row_indices.len() < rows
         {
             let columns =
-                row_export_selected_columns_from_chunk(chunk, declared_columns, &row_indices)?;
+                row_export_selected_columns_from_chunk(chunk, declared_columns, &row_indices, ctx)?;
             for row_index in 0..row_indices.len() {
                 if !predicate.matches(&columns, row_index)? {
                     continue;
@@ -22107,7 +22380,7 @@ fn update_grouped_exact_states_from_chunk(
             }
             return Ok(());
         }
-        let columns = row_export_columns_from_chunk(chunk, declared_columns)?;
+        let columns = row_export_columns_from_chunk(chunk, declared_columns, ctx)?;
         let materialized_rows = if columns.is_empty() {
             rows
         } else {
@@ -22124,7 +22397,7 @@ fn update_grouped_exact_states_from_chunk(
         return Ok(());
     }
     if !exact_states.update_compact_direct_from_chunk(chunk, declared_columns, None)? {
-        let columns = row_export_columns_from_chunk(chunk, declared_columns)?;
+        let columns = row_export_columns_from_chunk(chunk, declared_columns, ctx)?;
         let materialized_rows = if columns.is_empty() {
             rows
         } else {
@@ -22457,13 +22730,11 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
             false,
             false,
             policy.resource_envelope(),
+            Some(&session),
         )?)
     } else {
         None
     };
-    if let Some(states) = grouped_states.as_mut() {
-        states.native_execution_ctx = native_numeric_execution_ctx(&session);
-    }
     let mut source_row_count = 0_u64;
     let mut pre_limit_result_row_count = 0_usize;
     let mut arrays_read_count = 0_usize;
@@ -22561,8 +22832,11 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
             reader_splits.push(split);
             if let Some(predicate) = residual_evaluator.as_ref() {
                 let selected_rows = if let Some(row_indices) = predicate
-                    .fast_exact_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                {
+                    .fast_exact_candidate_row_indices_in_chunk(
+                        &chunk,
+                        &declared_columns,
+                        &mut scalar_execution_ctx,
+                    )? {
                     let row_index_filter =
                         (row_indices.len() < rows).then_some(row_indices.as_slice());
                     let direct_scalar_updated = if let Some(states) = scalar_states.as_mut() {
@@ -22594,9 +22868,14 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                                 &chunk,
                                 &declared_columns,
                                 &row_indices,
+                                &mut scalar_execution_ctx,
                             )?
                         } else {
-                            row_export_columns_from_chunk(&chunk, &declared_columns)?
+                            row_export_columns_from_chunk(
+                                &chunk,
+                                &declared_columns,
+                                &mut scalar_execution_ctx,
+                            )?
                         };
                         let materialized_rows = if row_indices.len() < rows {
                             row_indices.len()
@@ -22622,15 +22901,18 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                         }
                         materialized_rows
                     }
-                } else if let Some(row_indices) =
-                    predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                    && row_indices.len() < rows
+                } else if let Some(row_indices) = predicate.fast_candidate_row_indices_in_chunk(
+                    &chunk,
+                    &declared_columns,
+                    &mut scalar_execution_ctx,
+                )? && row_indices.len() < rows
                 {
                     residual_predicate_materialized = true;
                     let columns = row_export_selected_columns_from_chunk(
                         &chunk,
                         &declared_columns,
                         &row_indices,
+                        &mut scalar_execution_ctx,
                     )?;
                     let mut selected_rows = 0usize;
                     for row_index in 0..row_indices.len() {
@@ -22660,7 +22942,11 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                     selected_rows
                 } else {
                     residual_predicate_materialized = true;
-                    let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                    let columns = row_export_columns_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        &mut scalar_execution_ctx,
+                    )?;
                     let materialized_rows = if columns.is_empty() {
                         rows
                     } else {
@@ -22721,7 +23007,11 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
                 let materialized_rows = if direct_scalar_updated || direct_compact_updated {
                     rows
                 } else {
-                    let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                    let columns = row_export_columns_from_chunk(
+                        &chunk,
+                        &declared_columns,
+                        &mut scalar_execution_ctx,
+                    )?;
                     let materialized_rows = if columns.is_empty() {
                         rows
                     } else {
@@ -23034,6 +23324,7 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
     spill_source_generation: Option<&std::sync::Arc<sort_spill::SortSourceGeneration>>,
     context: Option<&crate::resident_session::NativeExecutionContext<'_>>,
 ) -> Result<LocalVortexRowsScan> {
+    let mut ctx = native_numeric_execution_ctx(session);
     let sort_rows = required_sort_rows(request)?;
     let limit = request.source_order_limit.filter(|limit| *limit > 0).ok_or_else(||
         ShardLoomError::InvalidOperation("local Vortex sort requires a positive bounded row count; no fallback execution was attempted".into()))?;
@@ -23351,14 +23642,17 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
             )?;
             reader_splits.push(split);
             if let Some(predicate) = residual_evaluator.as_ref() {
-                if let Some(row_indices) =
-                    predicate.fast_candidate_row_indices_in_chunk(&chunk, &declared_columns)?
-                    && row_indices.len() < rows
+                if let Some(row_indices) = predicate.fast_candidate_row_indices_in_chunk(
+                    &chunk,
+                    &declared_columns,
+                    &mut ctx,
+                )? && row_indices.len() < rows
                 {
                     let columns = row_export_selected_columns_from_chunk(
                         &chunk,
                         &declared_columns,
                         &row_indices,
+                        &mut ctx,
                     )?;
                     for (compact_index, &source_row_index) in row_indices.iter().enumerate() {
                         if !predicate.matches(&columns, compact_index)? {
@@ -23392,7 +23686,8 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
                         }
                     }
                 } else {
-                    let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                    let columns =
+                        row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
                     let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
                     for row_index in 0..materialized_rows {
                         if !predicate.matches(&columns, row_index)? {
@@ -23436,7 +23731,7 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
                 }
                 native_sort_work.add(&work)?;
             } else {
-                let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+                let columns = row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
                 let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
                 if spill.is_none()
                     && sort_chunk_topk_threshold_pruning_admitted(
@@ -23633,6 +23928,7 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
         } else {
             materialize_opened_vortex_sort_output_rows_by_source_ordinals(
                 file,
+                session,
                 runtime,
                 request,
                 &output_columns,
@@ -23831,6 +24127,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
     check_local_vortex_context(context)?;
     let runtime = local_vortex_runtime_in_context(policy, context);
     let (session, _control_memory) = local_vortex_session_in_context(policy, &runtime, context)?;
+    let mut ctx = native_numeric_execution_ctx(&session);
     let mut source_row_count_estimate = 0_u64;
     let mut native_sort_dtype = None;
     let mut native_sort_partition_types_match = true;
@@ -24200,14 +24497,17 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             )?;
             reader_splits.push(split);
             if let Some(predicate) = residual_evaluator.as_ref() {
-                if let Some(row_indices) =
-                    predicate.fast_candidate_row_indices_in_chunk(&chunk, declared_columns)?
-                    && row_indices.len() < rows
+                if let Some(row_indices) = predicate.fast_candidate_row_indices_in_chunk(
+                    &chunk,
+                    declared_columns,
+                    &mut ctx,
+                )? && row_indices.len() < rows
                 {
                     let columns = row_export_selected_columns_from_chunk(
                         &chunk,
                         declared_columns,
                         &row_indices,
+                        &mut ctx,
                     )?;
                     for (compact_index, &source_row_index) in row_indices.iter().enumerate() {
                         if !predicate.matches(&columns, compact_index)? {
@@ -24238,7 +24538,8 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                         });
                     }
                 } else {
-                    let columns = row_export_columns_from_chunk(&chunk, declared_columns)?;
+                    let columns =
+                        row_export_columns_from_chunk(&chunk, declared_columns, &mut ctx)?;
                     let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
                     for row_index in 0..materialized_rows {
                         if row_index.is_multiple_of(4096) {
@@ -24282,7 +24583,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 }
                 native_sort_work.add(&work)?;
             } else {
-                let columns = row_export_columns_from_chunk(&chunk, declared_columns)?;
+                let columns = row_export_columns_from_chunk(&chunk, declared_columns, &mut ctx)?;
                 let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
                 if sort_chunk_topk_threshold_pruning_admitted(
                     materialized_rows,
@@ -24841,6 +25142,7 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
         })?;
     materialize_opened_vortex_sort_output_rows_by_source_ordinals(
         &file,
+        session,
         runtime,
         request,
         output_columns,
@@ -24855,6 +25157,7 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
 #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 fn materialize_opened_vortex_sort_output_rows_by_source_ordinals(
     file: &vortex::file::VortexFile,
+    session: &vortex::session::VortexSession,
     runtime: &impl vortex::io::runtime::BlockingRuntime,
     request: &VortexQueryPrimitiveRequest,
     output_columns: &[String],
@@ -24863,6 +25166,7 @@ fn materialize_opened_vortex_sort_output_rows_by_source_ordinals(
     policy: VortexLocalPrimitiveExecutionPolicy,
     context: Option<&crate::resident_session::NativeExecutionContext<'_>>,
 ) -> Result<SortRowsMaterializationResult> {
+    let mut ctx = native_numeric_execution_ctx(session);
     check_local_vortex_context(context)?;
     if selected_source_ordinals.is_empty() {
         return Ok(SortRowsMaterializationResult {
@@ -24977,7 +25281,7 @@ fn materialize_opened_vortex_sort_output_rows_by_source_ordinals(
                         .to_string(),
                 ));
             }
-            let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+            let columns = row_export_columns_from_chunk(&chunk, &declared_columns, &mut ctx)?;
             let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
             if materialized_rows != rows {
                 return Err(ShardLoomError::InvalidOperation(
@@ -25090,6 +25394,7 @@ fn materialize_opened_vortex_sort_output_rows_by_source_ordinals(
                 &chunk,
                 &declared_columns,
                 &selected_row_indices,
+                &mut ctx,
             )?;
             selected_row_materialization_used = true;
             for (selected_index, (_row_index, positions)) in chunk_targets.iter().enumerate() {
@@ -26519,7 +26824,7 @@ impl SimpleAggregateStates {
 #[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::struct_excessive_bools)]
 struct GroupedAggregateStates<'a> {
-    native_execution_ctx: vortex::array::ExecutionCtx,
+    native_execution_ctx: Option<vortex::array::ExecutionCtx>,
     request: &'a VortexSimpleAggregateRequest,
     result_limit: Option<usize>,
     resource_envelope: VortexLocalPrimitiveResourceEnvelope,
@@ -29238,6 +29543,7 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_pair_late_measure_enabled,
             string_count_topk_heavy_hitter_enabled,
             VortexLocalPrimitiveResourceEnvelope::new(4, 2)?,
+            Some(vortex::array::legacy_session()),
         )
     }
 
@@ -29249,6 +29555,7 @@ impl<'a> GroupedAggregateStates<'a> {
         numeric_pair_late_measure_enabled: bool,
         string_count_topk_heavy_hitter_enabled: bool,
         resource_envelope: VortexLocalPrimitiveResourceEnvelope,
+        session: Option<&vortex::session::VortexSession>,
     ) -> Result<Self> {
         admit_aggregate_state_policy(request, resource_envelope)?;
         let mut group_columns = request
@@ -29325,7 +29632,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let state_template = SimpleAggregateStates::new(request, declared_columns)?;
         let compact_measure_specs = state_template.compact_group_measure_specs();
         Ok(Self {
-            native_execution_ctx: native_numeric_execution_ctx(vortex::array::legacy_session()),
+            native_execution_ctx: session.map(native_numeric_execution_ctx),
             request,
             result_limit,
             resource_envelope,
@@ -29588,7 +29895,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             declared_columns,
-            &mut self.native_execution_ctx,
+            required_native_execution_ctx(&mut self.native_execution_ctx)?,
         )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
@@ -29921,7 +30228,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             declared_columns,
-            &mut self.native_execution_ctx,
+            required_native_execution_ctx(&mut self.native_execution_ctx)?,
         )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
@@ -31841,7 +32148,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             declared_columns,
-            &mut self.native_execution_ctx,
+            required_native_execution_ctx(&mut self.native_execution_ctx)?,
         )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
@@ -32576,7 +32883,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             declared_columns,
-            &mut self.native_execution_ctx,
+            required_native_execution_ctx(&mut self.native_execution_ctx)?,
         )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
@@ -32850,7 +33157,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             declared_columns,
-            &mut self.native_execution_ctx,
+            required_native_execution_ctx(&mut self.native_execution_ctx)?,
         )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
@@ -32879,7 +33186,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             declared_columns,
-            &mut self.native_execution_ctx,
+            required_native_execution_ctx(&mut self.native_execution_ctx)?,
         );
         timing.accessor_nanos += started.elapsed().as_nanos();
         let accessors = accessors?;
@@ -34263,7 +34570,7 @@ impl<'a> GroupedAggregateStates<'a> {
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             declared_columns,
-            &mut self.native_execution_ctx,
+            required_native_execution_ctx(&mut self.native_execution_ctx)?,
         )?;
         self.native_numeric_accessor_work
             .add(&accessors.numeric_work)?;
@@ -41448,6 +41755,15 @@ impl AggregateDirectColumnAccessor {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn required_native_execution_ctx(
+    ctx: &mut Option<vortex::array::ExecutionCtx>,
+) -> Result<&mut vortex::array::ExecutionCtx> {
+    ctx.as_mut().ok_or_else(|| ShardLoomError::InvalidOperation(
+        "local Vortex grouped aggregate native access requires its admitted execution context; no fallback execution was attempted".into(),
+    ))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn native_numeric_execution_ctx(
     session: &vortex::session::VortexSession,
 ) -> vortex::array::ExecutionCtx {
@@ -42942,11 +43258,12 @@ fn aggregate_direct_count_distinct_update_slice<T: Copy>(
 fn aggregate_direct_column_accessor(
     column: &str,
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<AggregateDirectColumnAccessor> {
-    aggregate_column_accessor_with_work(column, array).map(|(accessor, _)| accessor)
+    aggregate_column_accessor_in_context(column, array, ctx).map(|(accessor, _)| accessor)
 }
 
-#[cfg(feature = "vortex-local-primitives")]
+#[cfg(all(test, feature = "vortex-local-primitives"))]
 fn aggregate_column_accessor_with_work(
     column: &str,
     array: &vortex::array::ArrayRef,
@@ -42981,10 +43298,10 @@ fn aggregate_column_accessor_in_context(
             NativeNumericAccessorWork::default(),
         ));
     }
-    if let Some(accessor) = direct_bool_aggregate_column_accessor(array) {
+    if let Some(accessor) = direct_bool_aggregate_column_accessor(array, ctx)? {
         return Ok((accessor, NativeNumericAccessorWork::default()));
     }
-    if let Some(accessor) = aggregate_direct_numeric_dictionary_accessor(array)? {
+    if let Some(accessor) = aggregate_direct_numeric_dictionary_accessor(array, ctx)? {
         return Ok((accessor, NativeNumericAccessorWork::default()));
     }
     if let Some(decoded) = native_numeric_accessor::decode(column, array, ctx)? {
@@ -43004,7 +43321,7 @@ fn aggregate_column_accessor_in_context(
     }
     Ok((
         AggregateDirectColumnAccessor::materialized(
-            row_export_values_from_vortex_array(column, array)?,
+            row_export_values_from_vortex_array(column, array, ctx)?,
             aggregate_direct_materialization_blocker(array),
         ),
         NativeNumericAccessorWork::default(),
@@ -43041,16 +43358,14 @@ fn aggregate_direct_materialization_blocker(array: &vortex::array::ArrayRef) -> 
 fn aggregate_utf8_chunk_dictionary_materialization_blocker(
     array: &vortex::array::ArrayRef,
 ) -> &'static str {
-    use vortex::array::VortexSessionExecute as _;
-    use vortex::array::arrays::VarBinViewArray;
-    use vortex::array::arrays::varbinview::VarBinViewArrayExt as _;
     use vortex::array::validity::Validity;
 
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
-    let Ok(utf8) = array.clone().execute::<VarBinViewArray>(&mut ctx) else {
+    // Classification must not decode the same column again merely to explain
+    // the chosen path. Validity metadata is sufficient for these reason codes.
+    let Ok(validity) = array.validity() else {
         return "cg21.aggregate_accessor.utf8_chunk_dictionary_provider_unavailable";
     };
-    match utf8.varbinview_validity() {
+    match validity {
         Validity::NonNullable | Validity::AllValid => {
             "cg21.aggregate_accessor.utf8_chunk_dictionary_provider_miss"
         }
@@ -43064,13 +43379,13 @@ fn aggregate_utf8_chunk_dictionary_materialization_blocker(
 fn aggregate_direct_utf8_chunk_dictionary_accessor(
     column: &str,
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
-    use vortex::array::VortexSessionExecute as _;
     aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
         column,
         array,
         &mut native_numeric_accessor::Utf8AccessorWork::default(),
-        &mut vortex::array::legacy_session().create_execution_ctx(),
+        ctx,
     )
 }
 
@@ -43180,8 +43495,8 @@ fn aggregate_utf8_accessor_from_canonical(
 #[cfg(feature = "vortex-local-primitives")]
 fn aggregate_direct_numeric_dictionary_accessor(
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
-    use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::PrimitiveArray;
     use vortex::array::arrays::dict::DictArraySlotsExt as _;
     use vortex::array::dtype::DType;
@@ -43193,7 +43508,7 @@ fn aggregate_direct_numeric_dictionary_accessor(
         return Ok(None);
     }
     let Some((row_ids, code_nulls)) =
-        direct_u32_codes_with_nulls_from_vortex_array(dictionary_array.codes())
+        direct_u32_codes_with_nulls_from_vortex_array(dictionary_array.codes(), ctx)?
     else {
         return Ok(None);
     };
@@ -43202,20 +43517,19 @@ fn aggregate_direct_numeric_dictionary_accessor(
             &row_ids,
             code_nulls.as_deref(),
             &values,
+            ctx,
         );
     }
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
-    let Ok(values) = dictionary_array
+    let values = dictionary_array
         .values()
         .clone()
-        .execute::<PrimitiveArray>(&mut ctx)
-    else {
-        return Ok(None);
-    };
+        .execute::<PrimitiveArray>(ctx)
+        .map_err(vortex_error)?;
     aggregate_direct_numeric_dictionary_accessor_from_primitive(
         &row_ids,
         code_nulls.as_deref(),
         &values,
+        ctx,
     )
 }
 
@@ -43224,10 +43538,11 @@ fn aggregate_direct_numeric_dictionary_accessor_from_primitive(
     row_ids: &[u32],
     code_nulls: Option<&[bool]>,
     values: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
     use vortex::array::dtype::PType;
 
-    let Some(value_nulls) = aggregate_direct_primitive_row_nulls(values, None) else {
+    let Some(value_nulls) = aggregate_direct_primitive_row_nulls(values, None, ctx)? else {
         return Ok(None);
     };
     match values.ptype() {
@@ -43452,12 +43767,9 @@ fn aggregate_direct_numeric_dictionary_values<T: Copy, U: Copy>(
 #[cfg(feature = "vortex-local-primitives")]
 fn aggregate_direct_utf8_dictionary_accessor(
     array: &vortex::array::ArrayRef,
+    ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<Option<AggregateDirectColumnAccessor>> {
-    use vortex::array::VortexSessionExecute as _;
-    aggregate_direct_utf8_dictionary_accessor_in_context(
-        array,
-        &mut vortex::array::legacy_session().create_execution_ctx(),
-    )
+    aggregate_direct_utf8_dictionary_accessor_in_context(array, ctx)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -43479,7 +43791,7 @@ fn aggregate_direct_utf8_dictionary_accessor_in_context(
         return Ok(None);
     }
     let Some((mut row_ids, row_nulls)) =
-        direct_u32_codes_with_nulls_from_vortex_array(dictionary_array.codes())
+        direct_u32_codes_with_nulls_from_vortex_array(dictionary_array.codes(), ctx)?
     else {
         return Ok(None);
     };
@@ -43524,44 +43836,55 @@ fn aggregate_direct_utf8_dictionary_accessor_in_context(
 #[cfg(feature = "vortex-local-primitives")]
 fn direct_bool_aggregate_column_accessor(
     array: &vortex::array::ArrayRef,
-) -> Option<AggregateDirectColumnAccessor> {
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<AggregateDirectColumnAccessor>> {
     use vortex::array::arrays::filter::FilterArraySlotsExt as _;
     use vortex::array::dtype::DType;
 
     if matches!(array.dtype(), DType::Bool(_)) {
-        return bool_aggregate_column_accessor_from_array(array, None);
+        return bool_aggregate_column_accessor_from_array(array, None, ctx);
     }
-    let filtered = array.as_opt::<vortex::array::arrays::Filter>()?;
+    let Some(filtered) = array.as_opt::<vortex::array::arrays::Filter>() else {
+        return Ok(None);
+    };
     if !matches!(filtered.child().dtype(), DType::Bool(_)) {
-        return None;
+        return Ok(None);
     }
-    bool_aggregate_column_accessor_from_array(filtered.child(), Some(filtered.filter_mask()))
+    bool_aggregate_column_accessor_from_array(filtered.child(), Some(filtered.filter_mask()), ctx)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
 fn bool_aggregate_column_accessor_from_array(
     array: &vortex::array::ArrayRef,
     mask: Option<&vortex::mask::Mask>,
-) -> Option<AggregateDirectColumnAccessor> {
-    use vortex::array::VortexSessionExecute as _;
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<AggregateDirectColumnAccessor>> {
     use vortex::array::arrays::BoolArray;
     use vortex::array::arrays::bool::BoolArrayExt as _;
 
-    let mut ctx = vortex::array::legacy_session().create_execution_ctx();
-    let bool_array = array.clone().execute::<BoolArray>(&mut ctx).ok()?;
+    let bool_array = array
+        .clone()
+        .execute::<BoolArray>(ctx)
+        .map_err(vortex_error)?;
     let len = bool_array.len();
     let values = bool_array
         .to_bit_buffer()
         .iter()
         .take(len)
         .collect::<Vec<_>>();
-    let values = aggregate_direct_values_from_slice(values.as_slice(), mask, |value| value)?;
-    let validity = bool_array.validity().ok()?;
-    let row_nulls = aggregate_direct_row_nulls_from_validity(&validity, len, mask)?;
-    Some(aggregate_direct_bool_accessor(
+    let Some(values) = aggregate_direct_values_from_slice(values.as_slice(), mask, |value| value)
+    else {
+        return Ok(None);
+    };
+    let validity = bool_array.validity().map_err(vortex_error)?;
+    let Some(row_nulls) = aggregate_direct_row_nulls_from_validity(&validity, len, mask, ctx)?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(aggregate_direct_bool_accessor(
         values,
         (!row_nulls.is_empty()).then_some(row_nulls),
-    ))
+    )))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -43616,10 +43939,11 @@ fn aggregate_direct_bool_accessor(
 fn aggregate_direct_primitive_row_nulls(
     primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
     mask: Option<&vortex::mask::Mask>,
-) -> Option<Vec<bool>> {
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<Vec<bool>>> {
     let validity = primitive.validity();
     let len = primitive.len();
-    aggregate_direct_row_nulls_from_validity(&validity, len, mask)
+    aggregate_direct_row_nulls_from_validity(&validity, len, mask, ctx)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -43627,17 +43951,17 @@ fn aggregate_direct_row_nulls_from_validity(
     validity: &vortex::array::validity::Validity,
     len: usize,
     mask: Option<&vortex::mask::Mask>,
-) -> Option<Vec<bool>> {
-    use vortex::array::VortexSessionExecute as _;
+    ctx: &mut vortex::array::ExecutionCtx,
+) -> Result<Option<Vec<bool>>> {
     use vortex::array::validity::Validity;
 
     if let Some(mask) = mask
         && mask.len() != len
     {
-        return None;
+        return Ok(None);
     }
     let selected_len = mask.map_or(len, |mask| mask.iter().filter(|selected| *selected).count());
-    match &validity {
+    Ok(match &validity {
         Validity::NonNullable | Validity::AllValid => Some(Vec::new()),
         Validity::AllInvalid => Some(if selected_len > 0 {
             vec![true; selected_len]
@@ -43645,20 +43969,21 @@ fn aggregate_direct_row_nulls_from_validity(
             Vec::new()
         }),
         Validity::Array(_) => {
-            let mut ctx = vortex::array::legacy_session().create_execution_ctx();
             let mut nulls = Vec::with_capacity(selected_len);
             let mut any_null = false;
             for row_index in 0..len {
                 if mask.is_some_and(|mask| !mask.value(row_index)) {
                     continue;
                 }
-                let row_is_null = !validity.execute_is_valid(row_index, &mut ctx).ok()?;
+                let row_is_null = !validity
+                    .execute_is_valid(row_index, ctx)
+                    .map_err(vortex_error)?;
                 any_null |= row_is_null;
                 nulls.push(row_is_null);
             }
             Some(if any_null { nulls } else { Vec::new() })
         }
-    }
+    })
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -49968,15 +50293,31 @@ mod tests {
         let columns = vec!["label".to_string()];
         let direct =
             VarBinViewArray::from_iter_str(["google", "other", "google-news"]).into_array();
-        let direct_count =
-            fast_utf8_contains_count_from_chunk(&direct, &columns, 0, "google", false)
-                .expect("direct host contains count");
+        let direct_count = fast_utf8_contains_count_from_chunk(
+            &direct,
+            &columns,
+            0,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("direct host contains count");
         assert_eq!(direct_count, Some(2));
         let unicode_direct =
             VarBinViewArray::from_iter_str(["café", "cafeteria", "news-café"]).into_array();
-        let unicode_count =
-            fast_utf8_contains_count_from_chunk(&unicode_direct, &columns, 0, "afé", false)
-                .expect("direct UTF-8 byte-search contains count");
+        let unicode_count = fast_utf8_contains_count_from_chunk(
+            &unicode_direct,
+            &columns,
+            0,
+            "afé",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("direct UTF-8 byte-search contains count");
         assert_eq!(unicode_count, Some(2));
 
         let codes = [0_u8, 1, 0]
@@ -49987,17 +50328,33 @@ mod tests {
         let encoded = DictArray::try_new(codes, values)
             .expect("dictionary array")
             .into_array();
-        let encoded_count =
-            fast_utf8_contains_count_from_chunk(&encoded, &columns, 0, "google", false)
-                .expect("encoded count decision");
+        let encoded_count = fast_utf8_contains_count_from_chunk(
+            &encoded,
+            &columns,
+            0,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("encoded count decision");
         assert_eq!(
             encoded_count,
             Some(2),
             "dictionary UTF-8 should count through dictionary codes without executing into decoded VarBinView"
         );
-        let encoded_negated =
-            fast_utf8_contains_count_from_chunk(&encoded, &columns, 0, "google", true)
-                .expect("encoded negated count decision");
+        let encoded_negated = fast_utf8_contains_count_from_chunk(
+            &encoded,
+            &columns,
+            0,
+            "google",
+            true,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("encoded negated count decision");
         assert_eq!(encoded_negated, Some(1));
     }
 
@@ -50036,21 +50393,53 @@ mod tests {
             Some("google-news"),
         ])
         .into_array();
-        let direct_count =
-            fast_utf8_contains_count_from_chunk(&direct, &columns, 0, "google", false)
-                .expect("nullable direct contains count");
+        let direct_count = fast_utf8_contains_count_from_chunk(
+            &direct,
+            &columns,
+            0,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("nullable direct contains count");
         assert_eq!(direct_count, Some(2));
-        let direct_negated =
-            fast_utf8_contains_count_from_chunk(&direct, &columns, 0, "google", true)
-                .expect("nullable direct negated contains count");
+        let direct_negated = fast_utf8_contains_count_from_chunk(
+            &direct,
+            &columns,
+            0,
+            "google",
+            true,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("nullable direct negated contains count");
         assert_eq!(direct_negated, Some(1));
-        let direct_indices =
-            fast_utf8_contains_row_indices_from_chunk(&direct, &columns, 0, "google", false)
-                .expect("nullable direct contains row indices");
+        let direct_indices = fast_utf8_contains_row_indices_from_chunk(
+            &direct,
+            &columns,
+            0,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("nullable direct contains row indices");
         assert_eq!(direct_indices, Some(vec![0, 3]));
-        let direct_negated_indices =
-            fast_utf8_contains_row_indices_from_chunk(&direct, &columns, 0, "google", true)
-                .expect("nullable direct negated contains row indices");
+        let direct_negated_indices = fast_utf8_contains_row_indices_from_chunk(
+            &direct,
+            &columns,
+            0,
+            "google",
+            true,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("nullable direct negated contains row indices");
         assert_eq!(direct_negated_indices, Some(vec![2]));
 
         let codes = [0_u8, 1, 0, 2]
@@ -50062,17 +50451,41 @@ mod tests {
         let dictionary = DictArray::try_new(codes, values)
             .expect("nullable dictionary values")
             .into_array();
-        let dictionary_count =
-            fast_utf8_contains_count_from_chunk(&dictionary, &columns, 0, "google", false)
-                .expect("nullable dictionary contains count");
+        let dictionary_count = fast_utf8_contains_count_from_chunk(
+            &dictionary,
+            &columns,
+            0,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("nullable dictionary contains count");
         assert_eq!(dictionary_count, Some(2));
-        let dictionary_negated =
-            fast_utf8_contains_count_from_chunk(&dictionary, &columns, 0, "google", true)
-                .expect("nullable dictionary negated contains count");
+        let dictionary_negated = fast_utf8_contains_count_from_chunk(
+            &dictionary,
+            &columns,
+            0,
+            "google",
+            true,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("nullable dictionary negated contains count");
         assert_eq!(dictionary_negated, Some(1));
-        let dictionary_indices =
-            fast_utf8_contains_row_indices_from_chunk(&dictionary, &columns, 0, "google", false)
-                .expect("nullable dictionary contains row indices");
+        let dictionary_indices = fast_utf8_contains_row_indices_from_chunk(
+            &dictionary,
+            &columns,
+            0,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("nullable dictionary contains row indices");
         assert_eq!(dictionary_indices, Some(vec![0, 2]));
 
         let nullable_codes = PrimitiveArray::new(
@@ -50091,6 +50504,9 @@ mod tests {
             0,
             "google",
             false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
         )
         .expect("nullable dictionary code contains count");
         assert_eq!(nullable_code_count, Some(2));
@@ -50100,23 +50516,46 @@ mod tests {
             0,
             "google",
             true,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
         )
         .expect("nullable dictionary code negated contains count");
         assert_eq!(nullable_code_negated, Some(1));
 
         let filtered_dictionary =
             FilterArray::new(dictionary, Mask::from_iter([true, true, false, true])).into_array();
-        let filtered_count =
-            fast_utf8_contains_count_from_array(&filtered_dictionary, "google", false)
-                .expect("filtered nullable dictionary contains count");
+        let filtered_count = fast_utf8_contains_count_from_array(
+            &filtered_dictionary,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("filtered nullable dictionary contains count");
         assert_eq!(filtered_count, Some(1));
-        let filtered_indices =
-            fast_utf8_contains_row_indices_from_array(&filtered_dictionary, "google", false, 0)
-                .expect("filtered nullable dictionary contains row indices");
+        let filtered_indices = fast_utf8_contains_row_indices_from_array(
+            &filtered_dictionary,
+            "google",
+            false,
+            0,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("filtered nullable dictionary contains row indices");
         assert_eq!(filtered_indices, Some(vec![0]));
-        let filtered_negated_indices =
-            fast_utf8_contains_row_indices_from_array(&filtered_dictionary, "google", true, 0)
-                .expect("filtered nullable dictionary negated contains row indices");
+        let filtered_negated_indices = fast_utf8_contains_row_indices_from_array(
+            &filtered_dictionary,
+            "google",
+            true,
+            0,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("filtered nullable dictionary negated contains row indices");
         assert_eq!(filtered_negated_indices, Some(vec![2]));
     }
 
@@ -50448,12 +50887,26 @@ mod tests {
         let direct_filter =
             FilterArray::new(direct, Mask::from_iter([false, true, true, false, true]))
                 .into_array();
-        let direct_count = fast_utf8_contains_count_from_array(&direct_filter, "google", false)
-            .expect("filtered direct count");
+        let direct_count = fast_utf8_contains_count_from_array(
+            &direct_filter,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("filtered direct count");
         assert_eq!(direct_count, Some(2));
-        let direct_indices =
-            fast_utf8_contains_row_indices_from_array(&direct_filter, "google", false, 0)
-                .expect("filtered direct indices");
+        let direct_indices = fast_utf8_contains_row_indices_from_array(
+            &direct_filter,
+            "google",
+            false,
+            0,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("filtered direct indices");
         assert_eq!(direct_indices, Some(vec![0, 2]));
 
         let direct_all_true = FilterArray::new(
@@ -50461,13 +50914,26 @@ mod tests {
             Mask::new_true(direct_values.len()),
         )
         .into_array();
-        let direct_all_true_count =
-            fast_utf8_contains_count_from_array(&direct_all_true, "google", false)
-                .expect("all-true filtered direct count");
+        let direct_all_true_count = fast_utf8_contains_count_from_array(
+            &direct_all_true,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("all-true filtered direct count");
         assert_eq!(direct_all_true_count, Some(4));
-        let direct_all_true_indices =
-            fast_utf8_contains_row_indices_from_array(&direct_all_true, "google", false, 0)
-                .expect("all-true filtered direct indices");
+        let direct_all_true_indices = fast_utf8_contains_row_indices_from_array(
+            &direct_all_true,
+            "google",
+            false,
+            0,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("all-true filtered direct indices");
         assert_eq!(direct_all_true_indices, Some(vec![0, 1, 3, 4]));
 
         let direct_all_false = FilterArray::new(
@@ -50475,13 +50941,26 @@ mod tests {
             Mask::new_false(direct_values.len()),
         )
         .into_array();
-        let direct_all_false_count =
-            fast_utf8_contains_count_from_array(&direct_all_false, "google", false)
-                .expect("all-false filtered direct count");
+        let direct_all_false_count = fast_utf8_contains_count_from_array(
+            &direct_all_false,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("all-false filtered direct count");
         assert_eq!(direct_all_false_count, Some(0));
-        let direct_all_false_indices =
-            fast_utf8_contains_row_indices_from_array(&direct_all_false, "google", false, 0)
-                .expect("all-false filtered direct indices");
+        let direct_all_false_indices = fast_utf8_contains_row_indices_from_array(
+            &direct_all_false,
+            "google",
+            false,
+            0,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("all-false filtered direct indices");
         assert_eq!(direct_all_false_indices, Some(Vec::<usize>::new()));
 
         let make_dictionary = || {
@@ -50501,35 +50980,74 @@ mod tests {
             Mask::from_iter([false, true, true, false, true]),
         )
         .into_array();
-        let dictionary_count =
-            fast_utf8_contains_count_from_array(&dictionary_filter, "google", false)
-                .expect("filtered dictionary count");
+        let dictionary_count = fast_utf8_contains_count_from_array(
+            &dictionary_filter,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("filtered dictionary count");
         assert_eq!(dictionary_count, Some(1));
-        let dictionary_indices =
-            fast_utf8_contains_row_indices_from_array(&dictionary_filter, "google", false, 0)
-                .expect("filtered dictionary indices");
+        let dictionary_indices = fast_utf8_contains_row_indices_from_array(
+            &dictionary_filter,
+            "google",
+            false,
+            0,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("filtered dictionary indices");
         assert_eq!(dictionary_indices, Some(vec![1]));
 
         let dictionary_all_true =
             FilterArray::new(make_dictionary(), Mask::new_true(direct_values.len())).into_array();
-        let dictionary_all_true_count =
-            fast_utf8_contains_count_from_array(&dictionary_all_true, "google", false)
-                .expect("all-true filtered dictionary count");
+        let dictionary_all_true_count = fast_utf8_contains_count_from_array(
+            &dictionary_all_true,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("all-true filtered dictionary count");
         assert_eq!(dictionary_all_true_count, Some(3));
-        let dictionary_all_true_indices =
-            fast_utf8_contains_row_indices_from_array(&dictionary_all_true, "google", false, 0)
-                .expect("all-true filtered dictionary indices");
+        let dictionary_all_true_indices = fast_utf8_contains_row_indices_from_array(
+            &dictionary_all_true,
+            "google",
+            false,
+            0,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("all-true filtered dictionary indices");
         assert_eq!(dictionary_all_true_indices, Some(vec![0, 2, 3]));
 
         let dictionary_all_false =
             FilterArray::new(make_dictionary(), Mask::new_false(direct_values.len())).into_array();
-        let dictionary_all_false_count =
-            fast_utf8_contains_count_from_array(&dictionary_all_false, "google", false)
-                .expect("all-false filtered dictionary count");
+        let dictionary_all_false_count = fast_utf8_contains_count_from_array(
+            &dictionary_all_false,
+            "google",
+            false,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("all-false filtered dictionary count");
         assert_eq!(dictionary_all_false_count, Some(0));
-        let dictionary_all_false_indices =
-            fast_utf8_contains_row_indices_from_array(&dictionary_all_false, "google", false, 0)
-                .expect("all-false filtered dictionary indices");
+        let dictionary_all_false_indices = fast_utf8_contains_row_indices_from_array(
+            &dictionary_all_false,
+            "google",
+            false,
+            0,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("all-false filtered dictionary indices");
         assert_eq!(dictionary_all_false_indices, Some(Vec::<usize>::new()));
     }
 
@@ -51410,8 +51928,14 @@ mod tests {
         use vortex::array::arrays::BoolArray;
 
         let direct_array = BoolArray::from_iter([true, false, true]).into_array();
-        let direct = aggregate_direct_column_accessor("flag", &direct_array)
-            .expect("direct boolean accessor");
+        let direct = aggregate_direct_column_accessor(
+            "flag",
+            &direct_array,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("direct boolean accessor");
         assert_eq!(direct.evidence_kind(), "direct_bool");
         assert_eq!(
             fast_compare_row_indices_from_accessor(
@@ -51426,8 +51950,14 @@ mod tests {
 
         let nullable_array =
             BoolArray::from_iter([Some(true), None, Some(false), Some(true)]).into_array();
-        let nullable = aggregate_direct_column_accessor("flag", &nullable_array)
-            .expect("nullable boolean accessor");
+        let nullable = aggregate_direct_column_accessor(
+            "flag",
+            &nullable_array,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("nullable boolean accessor");
         assert_eq!(nullable.evidence_kind(), "direct_bool_nullable");
         assert_eq!(
             fast_null_row_indices_from_accessor(&nullable, true)
@@ -58942,9 +59472,14 @@ mod tests {
             .expect("numeric dictionary")
             .into_array();
 
-        let accessor =
-            aggregate_direct_column_accessor("__shardloom_derived_utf8_len_URL", &dictionary)
-                .expect("numeric dictionary accessor");
+        let accessor = aggregate_direct_column_accessor(
+            "__shardloom_derived_utf8_len_URL",
+            &dictionary,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("numeric dictionary accessor");
 
         assert_eq!(accessor.evidence_kind(), "direct_u64");
         let AggregateDirectColumnAccessor::UInt64(values) = accessor else {
@@ -58989,8 +59524,14 @@ mod tests {
             .expect("encoded numeric dictionary")
             .into_array();
 
-        let accessor = aggregate_direct_column_accessor("CounterID", &dictionary)
-            .expect("encoded numeric dictionary accessor");
+        let accessor = aggregate_direct_column_accessor(
+            "CounterID",
+            &dictionary,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("encoded numeric dictionary accessor");
 
         assert_eq!(accessor.evidence_kind(), "direct_u64");
         let AggregateDirectColumnAccessor::UInt64(values) = accessor else {
@@ -59012,8 +59553,14 @@ mod tests {
         let filtered = FilterArray::new(values, Mask::from_iter([true, false, true, true, false]))
             .into_array();
 
-        let accessor = aggregate_direct_column_accessor("UserID", &filtered)
-            .expect("filtered primitive aggregate accessor");
+        let accessor = aggregate_direct_column_accessor(
+            "UserID",
+            &filtered,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("filtered primitive aggregate accessor");
 
         assert_eq!(accessor.evidence_kind(), "direct_i64");
         assert_eq!(accessor.len(), 3);
@@ -59042,8 +59589,14 @@ mod tests {
         let filtered = FilterArray::new(values, Mask::from_iter([true, false, true, true, false]))
             .into_array();
 
-        let accessor = aggregate_direct_column_accessor("UserID", &filtered)
-            .expect("filtered nullable primitive aggregate accessor");
+        let accessor = aggregate_direct_column_accessor(
+            "UserID",
+            &filtered,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("filtered nullable primitive aggregate accessor");
 
         assert_eq!(accessor.evidence_kind(), "direct_i64");
         assert_eq!(accessor.len(), 3);
@@ -59072,8 +59625,14 @@ mod tests {
         let filtered = FilterArray::new(values, Mask::from_iter([true, true, true, false, false]))
             .into_array();
 
-        let accessor = aggregate_direct_column_accessor("UserID", &filtered)
-            .expect("filtered nullable primitive aggregate accessor");
+        let accessor = aggregate_direct_column_accessor(
+            "UserID",
+            &filtered,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("filtered nullable primitive aggregate accessor");
 
         assert_eq!(accessor.evidence_kind(), "direct_i64_nullable");
         assert_eq!(accessor.len(), 3);
@@ -61009,6 +61568,7 @@ mod tests {
             false,
             true,
             VortexLocalPrimitiveResourceEnvelope::new(24, 12).expect("envelope"),
+            Some(vortex::array::legacy_session()),
         )
         .expect("states");
         states
@@ -61191,6 +61751,7 @@ mod tests {
             false,
             true,
             envelope,
+            Some(vortex::array::legacy_session()),
         )
         .expect("states");
         states
@@ -61247,6 +61808,7 @@ mod tests {
             false,
             true,
             envelope,
+            Some(vortex::array::legacy_session()),
         )
         .expect("states");
         states
@@ -62841,6 +63403,7 @@ mod tests {
             false,
             false,
             envelope,
+            Some(vortex::array::legacy_session()),
         )
         .expect("states");
 
@@ -62860,6 +63423,7 @@ mod tests {
             false,
             false,
             constrained_envelope,
+            Some(vortex::array::legacy_session()),
         )
         .expect("constrained states");
         constrained_states.enable_string_count_distinct_topk_heavy_hitter();
@@ -64533,6 +65097,9 @@ mod tests {
             &chunk,
             &declared_columns,
             Some(&residual_evaluator),
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
         )
         .expect("residual exact update");
         let _ = std::fs::remove_file(&path);
@@ -65416,8 +65983,14 @@ mod tests {
             .expect("compress FSST array")
             .into_array();
 
-        let accessor =
-            aggregate_direct_column_accessor("URL", &compressed).expect("UTF-8 aggregate accessor");
+        let accessor = aggregate_direct_column_accessor(
+            "URL",
+            &compressed,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("UTF-8 aggregate accessor");
         let AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids,
             values,
@@ -65469,18 +66042,40 @@ mod tests {
 
         assert!(compressed.is::<vortex::encodings::fsst::FSST>());
         assert_eq!(
-            fast_utf8_contains_count_from_array(&compressed, "google", false)
-                .expect("contains count"),
+            fast_utf8_contains_count_from_array(
+                &compressed,
+                "google",
+                false,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
+            )
+            .expect("contains count"),
             Some(3)
         );
         assert_eq!(
-            fast_utf8_contains_row_indices_from_array(&compressed, "google", false, 0)
-                .expect("contains row indices"),
+            fast_utf8_contains_row_indices_from_array(
+                &compressed,
+                "google",
+                false,
+                0,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
+            )
+            .expect("contains row indices"),
             Some(vec![0, 2, 4])
         );
         assert_eq!(
-            fast_utf8_contains_count_from_array(&compressed, "google", true)
-                .expect("negated contains count"),
+            fast_utf8_contains_count_from_array(
+                &compressed,
+                "google",
+                true,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
+            )
+            .expect("negated contains count"),
             Some(2)
         );
 
@@ -65491,6 +66086,9 @@ mod tests {
                 &all_true_mask,
                 "google",
                 false,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
             )
             .expect("all-true masked FSST count"),
             Some(3)
@@ -65501,6 +66099,9 @@ mod tests {
                 &all_true_mask,
                 "google",
                 false,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
             )
             .expect("all-true masked FSST row indices"),
             Some(vec![0, 2, 4])
@@ -65513,6 +66114,9 @@ mod tests {
                 &all_false_mask,
                 "google",
                 false,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
             )
             .expect("all-false masked FSST count"),
             Some(0)
@@ -65523,6 +66127,9 @@ mod tests {
                 &all_false_mask,
                 "google",
                 false,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
             )
             .expect("all-false masked FSST row indices"),
             Some(Vec::<usize>::new())
@@ -65541,8 +66148,14 @@ mod tests {
             Some("beta"),
         ])
         .into_array();
-        let accessor =
-            aggregate_direct_column_accessor("SearchPhrase", &input).expect("UTF-8 accessor");
+        let accessor = aggregate_direct_column_accessor(
+            "SearchPhrase",
+            &input,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("UTF-8 accessor");
         let AggregateDirectColumnAccessor::Utf8Dictionary {
             row_ids,
             values,
@@ -65579,9 +66192,15 @@ mod tests {
         for input_values in [vec![], vec![None::<&str>, None, None]] {
             let len = input_values.len();
             let input = VarBinViewArray::from_iter_nullable_str(input_values).into_array();
-            let accessor = aggregate_direct_utf8_chunk_dictionary_accessor("text", &input)
-                .expect("accessor")
-                .expect("UTF8");
+            let accessor = aggregate_direct_utf8_chunk_dictionary_accessor(
+                "text",
+                &input,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
+            )
+            .expect("accessor")
+            .expect("UTF8");
             let AggregateDirectColumnAccessor::Utf8Dictionary {
                 row_ids,
                 values,
@@ -65630,9 +66249,15 @@ mod tests {
             Some("http://ignored.test/a"),
         ])
         .into_array();
-        let accessor = aggregate_direct_utf8_chunk_dictionary_accessor("Referer", &input)
-            .expect("accessor")
-            .expect("UTF8");
+        let accessor = aggregate_direct_utf8_chunk_dictionary_accessor(
+            "Referer",
+            &input,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("accessor")
+        .expect("UTF8");
         drop(input);
         let accessors = vec![accessor];
         assert!(
@@ -65956,6 +66581,7 @@ mod tests {
     #[test]
     fn aggregate_numeric_dictionary_provider_skips_utf8_dictionary_values_without_panic() {
         use vortex::array::IntoArray as _;
+        use vortex::array::VortexSessionExecute as _;
         use vortex::array::arrays::{DictArray, PrimitiveArray, VarBinViewArray};
 
         let codes = [0_u8, 1, 0]
@@ -65968,13 +66594,22 @@ mod tests {
             .into_array();
 
         assert!(
-            aggregate_direct_numeric_dictionary_accessor(&dictionary)
-                .expect("numeric provider should return a miss, not panic")
-                .is_none()
+            aggregate_direct_numeric_dictionary_accessor(
+                &dictionary,
+                &mut vortex::array::legacy_session().create_execution_ctx(),
+            )
+            .expect("numeric provider should return a miss, not panic")
+            .is_none()
         );
         assert!(matches!(
-            aggregate_direct_utf8_chunk_dictionary_accessor("URL", &dictionary)
-                .expect("UTF-8 dictionary provider should accept dictionary values"),
+            aggregate_direct_utf8_chunk_dictionary_accessor(
+                "URL",
+                &dictionary,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
+            )
+            .expect("UTF-8 dictionary provider should accept dictionary values"),
             Some(AggregateDirectColumnAccessor::Utf8Dictionary { .. })
         ));
     }
@@ -67920,7 +68555,13 @@ mod tests {
 
         assert_eq!(
             evaluator
-                .fast_exact_candidate_row_indices_in_chunk(&chunk, &columns)
+                .fast_exact_candidate_row_indices_in_chunk(
+                    &chunk,
+                    &columns,
+                    &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                        vortex::array::legacy_session(),
+                    ),
+                )
                 .expect("exact")
                 .expect("exact candidates"),
             vec![2]
@@ -67935,7 +68576,14 @@ mod tests {
             &columns,
         )
         .expect("candidate predicate")
-        .filter_materialized_candidate_row_indices_in_chunk(&chunk, &columns, &[0, 2])
+        .filter_materialized_candidate_row_indices_in_chunk(
+            &chunk,
+            &columns,
+            &[0, 2],
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
         .expect("candidate materialized filter");
         assert_eq!(retained, vec![2]);
     }
@@ -67988,13 +68636,26 @@ mod tests {
             MaterializedPredicateEvaluator::compile(&predicate, &columns).expect("evaluator");
 
         let filtered = evaluator
-            .filter_column_scoped_candidate_row_indices_in_chunk(&chunk, &columns, &[0, 1, 2, 3])
+            .filter_column_scoped_candidate_row_indices_in_chunk(
+                &chunk,
+                &columns,
+                &[0, 1, 2, 3],
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
+            )
             .expect("column-scoped candidate filter")
             .expect("candidate filter available");
         assert_eq!(filtered, vec![0, 3]);
         assert_eq!(
             evaluator
-                .fast_exact_candidate_row_indices_in_chunk(&chunk, &columns)
+                .fast_exact_candidate_row_indices_in_chunk(
+                    &chunk,
+                    &columns,
+                    &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                        vortex::array::legacy_session(),
+                    ),
+                )
                 .expect("exact")
                 .expect("exact candidates"),
             vec![0, 3]

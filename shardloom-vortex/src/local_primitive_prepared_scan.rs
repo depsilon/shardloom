@@ -12,8 +12,8 @@ use super::{
     ResidualPredicateMaterialization, Result, ShardLoomError, UniversalInputSource,
     VortexLocalPrimitiveEmbeddedLayoutReport, VortexLocalPrimitiveExecutionPolicy,
     VortexQueryPrimitiveKind, VortexReaderBackedSplitEvidence, bind_vortex_scan_expr,
-    plan_vortex_reader_generated_prepared_batch_envelopes, row_export_columns_from_chunk,
-    row_export_materialized_row_count, vortex_error,
+    native_numeric_execution_ctx, plan_vortex_reader_generated_prepared_batch_envelopes,
+    row_export_columns_from_chunk, row_export_materialized_row_count, vortex_error,
 };
 use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
 use shardloom_exec::compute_pool::CancellationToken;
@@ -115,6 +115,7 @@ pub(super) fn read_prepared_controlled(
                     policy,
                     file,
                     context.runtime(),
+                    context.native_session(),
                     plan,
                     preparation_micros,
                     cancellation,
@@ -132,6 +133,7 @@ pub(super) fn execute(
     policy: VortexLocalPrimitiveExecutionPolicy,
     file: &vortex::file::VortexFile,
     runtime: &impl vortex::io::runtime::BlockingRuntime,
+    session: &vortex::session::VortexSession,
     plan: LocalVortexScanPlan,
     preparation_micros: u128,
     cancellation: &CancellationToken,
@@ -144,6 +146,7 @@ pub(super) fn execute(
         policy,
         file,
         runtime,
+        session,
         plan,
         preparation_micros.saturating_add(started.elapsed().as_micros()),
         cancellation,
@@ -178,12 +181,14 @@ fn execute_after_pruning(
     policy: VortexLocalPrimitiveExecutionPolicy,
     file: &vortex::file::VortexFile,
     runtime: &impl vortex::io::runtime::BlockingRuntime,
+    session: &vortex::session::VortexSession,
     mut plan: LocalVortexScanPlan,
     preparation_micros: u128,
     cancellation: &CancellationToken,
     metadata_pruned: Option<bool>,
 ) -> Result<LocalVortexScan> {
     cancellation.check()?;
+    let mut ctx = native_numeric_execution_ctx(session);
     let control_plane_started = Instant::now();
     let mut control_plane_micros = preparation_micros;
     let mut evidence_collection_micros = 0_u128;
@@ -291,12 +296,13 @@ fn execute_after_pruning(
             evidence_collection_micros.saturating_add(evidence_started.elapsed().as_micros());
         let chunk_result_rows = if let Some(predicate) = residual_evaluator.as_ref() {
             if let Some(selected) =
-                predicate.fast_count_matches_in_chunk(&chunk, &plan.projected_columns)?
+                predicate.fast_count_matches_in_chunk(&chunk, &plan.projected_columns, &mut ctx)?
             {
                 selected
             } else {
                 residual_predicate_materialized = true;
-                let columns = row_export_columns_from_chunk(&chunk, &plan.projected_columns)?;
+                let columns =
+                    row_export_columns_from_chunk(&chunk, &plan.projected_columns, &mut ctx)?;
                 let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
                 let mut selected = 0usize;
                 for row_index in 0..materialized_rows {
