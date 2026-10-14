@@ -249,6 +249,39 @@ the ledger.
 
 ## Planned
 
+- [ ] `NATIVE-OPERATOR-RECOVERY` complete the remaining admitted spill-family
+  process-death and controlled cleanup acceptance.
+  - V1 scope classification: `required_for_v1`.
+  - Existing owners: PERF-03/06/12 and CG-5/19/21; RFCs 0014/0017/0044.
+  - Source and contract: [native operator recovery](native-operator-recovery-2026-10-13.md);
+    [local acceptance](../benchmarks/native-operator-recovery-2026-10-13.md).
+  - Current state: the caller-controlled relational cleanup API and actual-query
+    crash/restart tests pass local acceptance. Existing sort/aggregate cancellation
+    and shared native run-store ownership contracts are reused.
+  - ShardLoom technique review: preserve existing dynamic resource admission,
+    capillary native work and metadata-first ownership checks. This cleanup/test
+    change does not alter PulseWeave scheduling or timing surfaces; evidence tiers
+    distinguish local execution, hosted checks and broader operational claims.
+  - Execution checklist:
+    - [x] Add caller-controlled relational cleanup cancellation and preserve
+      compatible convenience cleanup plus marker/retry and lock ownership.
+    - [x] Prove real numeric-sort, single/compound COUNT and exact integer DISTINCT
+      process death, owned cleanup and complete exact fresh restart.
+    - [x] Pass 35 focused recovery tests, required workspace formatting/Clippy/tests
+      and native release/read Clippy; review final source and failure evidence.
+    - [ ] Validate docs, package portable source-bound evidence, complete hosted
+      integration and move this finite unit to the completed ledger.
+  - User-visible surface and scope: the public Rust relational spill policy accepts
+    an explicit cancellation owner. Native query operators keep their existing
+    semantics, formats and certificates; test instrumentation is Unix-only.
+  - Acceptance and verification: exact commands, result counts, original failures
+    and exclusions are recorded in the acceptance report. Require active-owner
+    refusal, unknown-file preservation, source identity and exact fresh results.
+  - Claim/fallback boundary: owned cleanup and fresh restart do not resume an
+    interrupted query or establish a process-RSS limit. No external executor,
+    dependency, package release or performance claim. Broader allocation,
+    state-family and operational gaps remain with their existing owners.
+
 - [ ] `NATIVE-STREAM-INPUT-COMPOSITION` complete the next shared streaming
   lifecycle and capability family.
   - V1 scope classification: `required_for_v1`.
