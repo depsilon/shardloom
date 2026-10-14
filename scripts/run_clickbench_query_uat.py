@@ -252,26 +252,30 @@ def run_profiled_command(command: list[str], prefix: Path, timeout: float, guard
     return result
 
 
-def score(records: list[dict], query_count: int, selected: list[int] | None = None) -> dict:
+def score(records: list[dict], query_count: int, selected: list[int] | None = None,
+          *, repeats: int = 1) -> dict:
+    if type(repeats) is not int or repeats <= 0:
+        raise ValueError("repeats must be a positive integer")
     queries = list(range(1, query_count + 1)) if selected is None else selected
     if not queries or len(set(queries)) != len(queries) or any(q < 1 or q > query_count for q in queries):
         raise ValueError("invalid selected query ids")
-    complete = (len(records) == len(queries) * 3
+    complete = (len(records) == len(queries) * repeats
                 and all(record["passed"] for record in records)
                 and {(record["query"], record["run"]) for record in records}
-                == {(query, run) for query in queries for run in range(1, 4)})
+                == {(query, run) for query in queries for run in range(1, repeats + 1)})
     if not complete:
         return {"complete": False, "runs_completed": len(records), "runs_passed": sum(record["passed"] for record in records)}
     timings = [[record["seconds"] for record in sorted(records, key=lambda r: r["run"]) if record["query"] == query] for query in queries]
     best = [min(runs) for runs in timings]
-    hot = [min(runs[1:]) for runs in timings]
+    hot = [min(runs[1:]) for runs in timings] if repeats > 1 else None
     return {
         "complete": True, "queries_passed": len(queries), "query_ids": queries,
         "runs_completed": len(records), "runs_passed": len(records),
-        "query_total_seconds": sum(best), "hot_total_seconds": sum(hot),
+        "query_total_seconds": sum(best), "hot_total_seconds": sum(hot) if hot is not None else None,
         "all_raw_run_seconds": sum(sum(runs) for runs in timings),
         "geomean_seconds": math.exp(sum(math.log(value) for value in best) / len(queries)),
-        "hot_geomean_seconds": math.exp(sum(math.log(value) for value in hot) / len(queries)),
+        "hot_geomean_seconds": (math.exp(sum(math.log(value) for value in hot) / len(queries))
+                                if hot is not None else None),
         "query_runs": timings,
     }
 
@@ -291,6 +295,8 @@ def main() -> int:
     parser.add_argument("--max-parallelism", type=int, default=12)
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("--query-ids", help="comma-separated targeted query ids; never a full-suite score")
+    parser.add_argument("--repeats", type=int, default=1,
+                        help="executions per query (default: 1); repeated trials require an explicit value")
     parser.add_argument("--compress-logs", action="store_true", help="losslessly archive each completed stdout/stderr after validation, within the unchanged log budget")
     add_log_budget_arguments(parser)
     args = parser.parse_args()
@@ -300,7 +306,7 @@ def main() -> int:
         parser.error("memory, parallelism and timeout must be positive")
     try:
         selected = [int(value) for value in args.query_ids.split(",")] if args.query_ids else list(range(1, 44))
-        score([], 43, selected)
+        score([], 43, selected, repeats=args.repeats)
     except ValueError as error:
         parser.error(str(error))
     root = require_local_path(args.uat_root, Path.home(), os.sys.platform)
@@ -384,6 +390,7 @@ def main() -> int:
             "timing_boundary": "native process creation through completed public CLI output and process exit",
             "cpu_timing_boundary": "native child CPU work; overlaps wall time and other worker CPU",
             "selected_query_ids": selected,
+            "repeats": args.repeats,
             "score_scope": "full_43" if selected == list(range(1, 44)) else "targeted_queries_only",
             "cache_policy": "new_process_per_run_os_page_cache_uncontrolled_no_answer_cache",
             "reference": str(args.reference_dir) if args.reference_dir is not None else None,
@@ -402,7 +409,7 @@ def main() -> int:
         for index, (query, expected) in enumerate(zip(queries, references), 1):
             if index not in selected:
                 continue
-            for run in range(1, 4):
+            for run in range(1, args.repeats + 1):
                 prefix = logs / f"q{index:02d}_run{run}"
                 command = public_workflow_command(
                     args.binary, query, input_path=source, input_format="vortex",
@@ -438,8 +445,11 @@ def main() -> int:
                         if prefix.with_suffix(suffix).stat().st_size
                     ]
                 records.append(result)
-                summary.update(score(records, 43, selected))
-                summary["full_result_validation"] = len(records) == 129 and all(record.get("validation") == "complete_values" for record in records)
+                summary.update(score(records, 43, selected, repeats=args.repeats))
+                summary["full_result_validation"] = (
+                    summary["complete"] and selected == list(range(1, 44))
+                    and all(record.get("validation") == "complete_values" for record in records)
+                )
                 save_summary()
                 print(json.dumps(result), flush=True)
                 if not result["passed"]:

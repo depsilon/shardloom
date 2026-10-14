@@ -1,0 +1,47 @@
+{
+  "schema_version": "shardloom.local_fresh_uat_index.v1",
+  "status": "passed_local_fresh_uat",
+  "source_commit": "9dd328f5cbdae08fa396910e7c6ce747ff16dda1",
+  "runtime_build_commit": "22b2cde04973ce4462517d73fe67b5f7a1e8177c",
+  "archive": {
+    "path": "native-fresh-unpaced-uat-2026-10-14.tar.xz",
+    "bytes": 5090200,
+    "sha256": "61f3dfcddbd5e21e132373e92101146b158f822bb0d53f7f1cdac98508d7ea73"
+  },
+  "manifest": {
+    "path": "native-fresh-unpaced-uat-2026-10-14.manifest.json.xz",
+    "bytes": 458684,
+    "sha256": "6fe37ac994be7c223a8c655e4626767513dd032d2f59109d1662d9c99ca263f5"
+  },
+  "verified_members": 13345,
+  "original_bytes": 284782310,
+  "results": {
+    "full43_calls": 129,
+    "full43_rows": 1143,
+    "ingest_rows": 99997497,
+    "modular_cohorts": 18,
+    "modular_native_records": 704,
+    "modular_records": 1408
+  },
+  "timing_seconds": {
+    "native_ingest": 54.60346820799998,
+    "all_129_native_queries": 194.12594078899906,
+    "ingest_plus_query_workflow": 331.62421104200007,
+    "modular_supervised": 575.760410375,
+    "entire_supervised_uat": 932.0439925000001
+  },
+  "process_observations": {
+    "ingest_peak_rss_bytes": 2789490688,
+    "query_max_peak_rss_bytes": 5819711488,
+    "ingest_cpu_seconds": 253.50395,
+    "query_cpu_seconds": 628.516457
+  },
+  "policy": {
+    "artificial_inter_query_delay_seconds": 0,
+    "power_or_thermal_gate": false,
+    "automatic_retry": false,
+    "current_cohort_repeats": 3,
+    "future_default_repeats": 1
+  },
+  "claim": "Local correctness and timing observation; no causal attribution, paired speedup, release or whole-gate completion claim"
+}

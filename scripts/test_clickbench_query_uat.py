@@ -14,6 +14,7 @@ import io
 
 from local_uat_storage import StorageGuardError, accounted_bytes, check_budgets
 import run_clickbench_query_uat as query_uat
+import run_clickbench_paired_query_uat as paired_uat
 from run_clickbench_query_uat import compress_completed_log, correctness_boundary, equivalent, extract_reference_result, extract_result, read_json_log, run_command, run_profiled_command, score, strict_json
 from native_workflow_protocol import public_workflow_command
 from clickbench_reference_packet import canonical_values_sha256
@@ -54,17 +55,19 @@ class ClickBenchUatTests(unittest.TestCase):
         return query_path, packet_path, binary, source, uat_root
 
     def _run_mocked_single(self, root, *, identity_mutation=None, log_options=(),
-                           historical_bytes=0, check_storage=False, budget_probe=None):
+                           historical_bytes=0, check_storage=False, budget_probe=None,
+                           query_ids="1", repeats=None, paired=False):
+        runner = paired_uat if paired else query_uat
         query_path, packet_path, binary, source, uat_root = self._runner_fixture(root)
         if historical_bytes:
             history = uat_root / "logs/completed/retained.json"
             history.parent.mkdir(parents=True)
             history.write_bytes(b"h" * historical_bytes)
-        result_rows = [{"value": 1}]
         schema = {"Struct": [{"names": ["value"],
                              "dtypes": [{"Primitive": ["i64", False]}]}, False]}
 
         def fake_profiled_command(command, prefix, timeout, guard):
+            result_rows = [{"value": int(prefix.name[1:3])}]
             envelope = {
                 "status": "success",
                 "fallback": {"attempted": False, "allowed": False},
@@ -80,6 +83,8 @@ class ClickBenchUatTests(unittest.TestCase):
             }
             prefix.with_suffix(".stdout.json").write_text(json.dumps(envelope))
             prefix.with_suffix(".stderr.txt").write_text("")
+            prefix.with_suffix(".timing.json").write_text("{}")
+            prefix.with_suffix(".pid").write_text("1")
             guard()
             return {"returncode": 0, "guard_failures": [], "seconds": 0.1}
 
@@ -96,28 +101,31 @@ class ClickBenchUatTests(unittest.TestCase):
                     return "0" * 64
             return original_hash(path)
 
+        binary_args = (["--control-binary", str(binary), "--candidate-binary", str(binary),
+                        "--control-commit", "test-commit", "--candidate-commit", "test-commit"]
+                       if paired else ["--binary", str(binary), "--build-commit", "test-commit"])
         argv = [
-            "run_clickbench_query_uat.py",
-            "--binary", str(binary),
+            str(runner.__file__), *binary_args,
             "--input", str(source),
             "--uat-root", str(uat_root),
             "--queries", str(query_path),
             "--reference-packet", str(packet_path),
-            "--build-commit", "test-commit",
-            "--query-ids", "1",
+            *(["--query-ids", query_ids] if query_ids is not None else []),
+            *(["--repeats", str(repeats)] if repeats is not None else []),
             *log_options,
         ]
         with (
             patch.object(sys, "argv", argv),
             patch("local_uat_storage.available_bytes", return_value=1 << 40),
-            patch.object(query_uat, "check_budgets",
+            patch.object(runner, "check_budgets",
                          side_effect=budget_probe or (check_budgets if check_storage else lambda *a, **kw: {})),
-            patch.object(query_uat, "run_profiled_command", side_effect=fake_profiled_command),
-            patch.object(query_uat, "file_sha256", side_effect=maybe_changed_hash),
+            patch.object(runner, "run_profiled_command", side_effect=fake_profiled_command),
+            patch.object(runner, "file_sha256", side_effect=maybe_changed_hash),
             contextlib.redirect_stdout(io.StringIO()),
         ):
-            result = query_uat.main()
-        summaries = list((uat_root / "logs").glob("full43_*/summary.json"))
+            result = runner.main()
+        pattern = "paired43_*/summary.json" if paired else "full43_*/summary.json"
+        summaries = list((uat_root / "logs").glob(pattern))
         self.assertEqual(len(summaries), 1)
         return result, json.loads(summaries[0].read_text())
 
@@ -131,7 +139,9 @@ class ClickBenchUatTests(unittest.TestCase):
         self.assertTrue(summary["harness_identity_verified"])
         self.assertEqual(summary["reference_kind"], "independent_reference")
         self.assertIn("independent reference", summary["correctness_boundary"])
-        self.assertEqual(len(summary["records"]), 3)
+        self.assertEqual(len(summary["records"]), 1)
+        self.assertEqual(summary["repeats"], 1)
+        self.assertFalse(summary["full_result_validation"])
         hashed_names = {Path(path).name for path in summary["harness_sha256"]}
         self.assertTrue({
             "run_clickbench_query_uat.py", "clickbench_reference_packet.py",
@@ -189,7 +199,7 @@ class ClickBenchUatTests(unittest.TestCase):
                 self.assertEqual(summary["status"], "failed")
                 self.assertEqual(summary["storage_error"], guard_failure)
                 self.assertEqual(summary["failure"], "storage budget rejected: " + guard_failure)
-                self.assertEqual(len(summary["records"]), 3)
+                self.assertEqual(len(summary["records"]), 1)
                 self.assertTrue(all(record["passed"] for record in summary["records"]))
                 self.assertTrue(summary["completed_identity_check"])
                 self.assertTrue(summary["reference_packet_identity_verified"])
@@ -208,7 +218,7 @@ class ClickBenchUatTests(unittest.TestCase):
                 self.assertFalse(summary["complete"])
                 self.assertFalse(summary["full_result_validation"])
                 self.assertFalse(summary["completed_identity_check"])
-                self.assertEqual(len(summary["records"]), 3)
+                self.assertEqual(len(summary["records"]), 1)
                 self.assertIn("identity verification failed", summary["failure"])
                 self.assertEqual(
                     summary["reference_packet_identity_verified"], mutation != "packet"
@@ -481,14 +491,64 @@ class ClickBenchUatTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 strict_json(invalid)
 
-    def test_hot_score_uses_only_second_and_third_runs(self):
+    def test_full_suite_default_executes_each_query_once_and_has_no_hot_score(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, summary = self._run_mocked_single(Path(directory), query_ids=None)
+        self.assertEqual(result, 0)
+        self.assertTrue(summary["complete"])
+        self.assertTrue(summary["full_result_validation"])
+        self.assertEqual(summary["repeats"], 1)
+        self.assertEqual(summary["runs_completed"], 43)
+        self.assertEqual(summary["runs_passed"], 43)
+        self.assertEqual([(row["query"], row["run"]) for row in summary["records"]],
+                         [(query, 1) for query in range(1, 44)])
+        self.assertIsNone(summary["hot_total_seconds"])
+        self.assertIsNone(summary["hot_geomean_seconds"])
+        self.assertEqual(summary["query_total_seconds"], summary["all_raw_run_seconds"])
+
+    def test_repeats_are_explicit_and_persisted_by_both_runners(self):
+        for paired in (False, True):
+            for repeats in (None, 3):
+                with self.subTest(paired=paired, repeats=repeats), tempfile.TemporaryDirectory() as directory:
+                    result, summary = self._run_mocked_single(
+                        Path(directory), repeats=repeats, paired=paired)
+                count = repeats or 1
+                self.assertEqual(result, 0)
+                self.assertEqual(summary["repeats"], count)
+                self.assertEqual(len(summary["records"]), count * (2 if paired else 1))
+                self.assertEqual({row["run"] for row in summary["records"]}, set(range(1, count + 1)))
+                scores = summary["scores"]["roles"].values() if paired else [summary]
+                for result_score in scores:
+                    self.assertTrue(result_score["complete"])
+                    self.assertEqual(result_score["hot_total_seconds"] is None, count == 1)
+                if paired:
+                    self.assertTrue(summary["complete_result_validation"])
+                    self.assertTrue(summary["completed_identity_check"])
+                    self.assertEqual({row["role"] for row in summary["records"]}, {"control", "candidate"})
+
+    def test_invalid_repeats_fail_before_either_runner_creates_logs(self):
+        for paired in (False, True):
+            for repeats in (0, -1):
+                with self.subTest(paired=paired, repeats=repeats), tempfile.TemporaryDirectory() as directory:
+                    with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+                        self._run_mocked_single(Path(directory), repeats=repeats, paired=paired)
+                    self.assertEqual(error.exception.code, 2)
+                    self.assertFalse((Path(directory) / "uat/logs").exists())
+                    self.assertFalse((Path(directory) / "uat/.ingest-uat.lock").exists())
+
+    def test_hot_score_uses_only_second_and_third_runs_when_explicit(self):
         records = [{"query": 1, "run": i + 1, "seconds": seconds, "passed": True} for i, seconds in enumerate([1.0, 5.0, 3.0])]
-        result = score(records, 1)
+        result = score(records, 1, repeats=3)
         self.assertEqual(result["query_total_seconds"], 1.0)
         self.assertEqual(result["hot_total_seconds"], 3.0)
         self.assertEqual(result["runs_completed"], 3)
-        self.assertFalse(score(records[:2], 1)["complete"])
-        self.assertFalse(score([records[0]] * 3, 1)["complete"])
+        self.assertFalse(score(records[:2], 1, repeats=3)["complete"])
+        self.assertFalse(score([records[0]] * 3, 1, repeats=3)["complete"])
+        self.assertFalse(score(records, 1)["complete"])
+        self.assertTrue(score(records[:1], 1)["complete"])
+        for repeats in (0, -1, 1.5, True):
+            with self.subTest(repeats=repeats), self.assertRaisesRegex(ValueError, "positive integer"):
+                score(records, 1, repeats=repeats)
 
     def test_process_clock_excludes_watchdog_wait_and_timeout_stops_child(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -508,7 +568,7 @@ class ClickBenchUatTests(unittest.TestCase):
         records = [{"query": q, "run": r, "seconds": float(r), "passed": True}
                    for q in [34, 35] for r in [3, 1, 2]]
         self.assertFalse(score(records, 43)["complete"])
-        result = score(records, 43, [34, 35])
+        result = score(records, 43, [34, 35], repeats=3)
         self.assertEqual(result["query_ids"], [34, 35])
         self.assertEqual(result["hot_total_seconds"], 4.0)
         for selected in ([], [0], [44], [34, 34]):

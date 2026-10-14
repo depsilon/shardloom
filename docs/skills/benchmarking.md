@@ -53,6 +53,11 @@ Use this skill for tasks involving:
 - Label a single sequential Full43 pass as one observation. Preserve every
   sample in comparative cohorts and apply their frozen symmetric scoring rule;
   never replace a paired cohort with a faster later single pass.
+- Default future Full43 UAT to one execution of each of the 43 queries. Both
+  query runners accept explicit `--repeats` when repeated trials are requested;
+  a one-pass summary has no hot-run score. Preserve historical three-run results
+  with their original counts and methodology. Do not add artificial pacing or
+  battery/thermal admission between queries, trials or UAT stages.
 - Record physical RAM separately from memory admission policy, measured peak RSS,
   and any enforced limit. State prehash/cache effects and uncontrolled cache state.
 - Preserve complete raw outputs, native timing/PID records, host observations,

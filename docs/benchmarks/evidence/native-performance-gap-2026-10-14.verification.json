@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "scope": "archive byte readback only; performance investigation remains open",
+  "archive": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-performance-gap-2026-10-14.tar.xz",
+    "bytes": 1397820,
+    "sha256": "761e27d5e067c73b2bf86998f85ae1ec1d5d235209734842319428d32ee1a885"
+  },
+  "manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-performance-gap-2026-10-14.json.xz",
+    "bytes": 41560,
+    "sha256": "2f8a30da8f2ad3dfafee994dbebdbfd3f22c30bda03aa55a67f4018263c30bdb"
+  },
+  "bound_paths": 848,
+  "unique_payloads": 835,
+  "archive_members": 836,
+  "diagnostic_calls": 177,
+  "harness_smoke_calls": 6,
+  "verified_nested_smoke_members": 24,
+  "complete_suite_confirmation": false
+}

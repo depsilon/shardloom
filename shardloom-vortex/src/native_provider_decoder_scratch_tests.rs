@@ -426,17 +426,16 @@ fn native_decoder_unreviewed_trees_are_exclusions_without_changing_execution() {
     let nullable_delta = Delta::try_from_primitive_array(&nullable, &mut ctx)
         .unwrap()
         .into_array();
-    for input in [
-        encoded_validity,
-        general_dict,
-        nullable_dict,
-        nested,
-        nullable_delta,
+    for (case, input) in [
+        ("encoded validity", encoded_validity),
+        ("general dictionary", general_dict),
+        ("nullable dictionary", nullable_dict),
+        ("nested FoR", nested),
+        ("nullable delta", nullable_delta),
     ] {
         assert!(
             workspace(&input, Mode::Append, 0).unwrap().is_none(),
-            "{}",
-            input.encoding_id()
+            "unreviewed decoder case {case} unexpectedly admitted"
         );
         let expected = input
             .clone()

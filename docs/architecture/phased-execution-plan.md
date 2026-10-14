@@ -281,15 +281,29 @@ the ledger.
       helper chains, including list offsets and nested validity; pass 22 regressions.
     - [x] Complete final combined direct/public acceptance and all 43 queries
       in both matched starting orders; package the correction's complete evidence.
+    - [x] Record the maintainer-requested fresh complete UAT and current timings
+      without artificial pacing or device admission; preserve historical samples,
+      needed capabilities and the unresolved causal boundary. The later maintainer
+      direction resumes the PR, one version bump and the remaining work.
     - [ ] Complete hosted integration and move the finite unit to the completed ledger.
   - Claim/fallback boundary: temporary-capacity accounting is not a process-RSS
     ceiling. Other expression/validity trees, compression/training and metadata
     remain with existing owners. No new execution provider, encoding, dependency,
     package release or performance-superiority claim; no external executor.
 
-October 14 maintainer follow-through priority within the existing work: explain
-the recorded pre-composition/composition difference before attributing it to
-scan batching, then carry the admitted context through remaining native helpers.
+October 14 maintainer follow-through priority within the existing work: the
+latest direction resumes PR #1551, one version bump after integration and the
+remaining work after the [fresh complete UAT](../benchmarks/native-fresh-unpaced-uat-2026-10-14.md).
+That run passes fresh ingest, all 129 predeclared query calls and all 18 modular
+cohorts: 54.603468 seconds native ingest, 194.125941 seconds summed native queries
+and 331.624211 seconds supervised ingest-plus-query work. No artificial pacing,
+battery/thermal admission or automatic retry is used. Future UAT defaults to one
+execution of each query; repeats require an explicit request. The earlier pause
+and investigation are preserved below as historical evidence. Preserve needed capabilities.
+Review the actual use of metadata pruning, encoded kernels, capillary work units,
+dynamic admission, PulseWeave and late materialization; retain changes only with
+measured evidence. Do not attribute the gap to scan batching or host conditions
+without demonstrating the responsible mechanism.
 The historical all-129-call totals remain 177.372562, 214.675706 and 211.784749
 seconds; per-query minima are a different statistic. The frozen all-43-query
 [matched comparison](../benchmarks/native-composition-attribution-2026-10-14.md)
@@ -307,12 +321,25 @@ The [final combined packet](../benchmarks/native-admitted-context-2026-10-14.md)
 passes all 516 complete matched calls against the retained main-equivalent
 executable in both starting orders, with no repeated declared cost breach.
 Its 258 candidate calls also supply final Full43 acceptance. All 2,240 portable
-evidence members are verified; hosted integration is the remaining correction gate.
+evidence members are verified. Those finite paired checks do not resolve the
+original 177-second observation or the later 333/389-second candidate cohorts.
+The new fresh UAT provides complete current confirmation on that same executable;
+causal attribution remains unproven and hosted integration remains a gate.
+The [performance investigation](../benchmarks/native-performance-gap-2026-10-14.md)
+retains 48 successful focused calls and an interrupted 122-call full-suite
+attempt. The completed Q1–Q20 prefix totals 80.161570 seconds for the old
+executable and 79.552840 for the current one; thermal admission interrupts Q21.
+The experimental benchmark host gate was subsequently removed at the
+maintainer's direction. Battery and thermal conditions do not gate ShardLoom
+execution or its standard query runners. The later fresh-UAT request supersedes
+the intervening stop. Source review considers whether recent streaming, recovery
+and selection merges added work or bypassed existing encoded paths; the evidence
+does not establish a device cause for historical timings.
 These obligations stay under PERF-03/06/08/09 and CG-5/19/20/21, ahead
 of further destination expansion and conditional performance investigations.
 The maintainer's subsequent October 14 direction authorizes one version bump
-after these corrections and the next PR are integrated, then a return to the
-remaining work and optimizations. Complete the normal release evidence and
+after these corrections, fresh evidence and the PR are integrated, then a return
+to the remaining work and optimizations. Complete the normal release evidence and
 selected-channel gates; this milestone does not close the broader completion
 contract or authorize a separate bump for each subsequent unit.
 
