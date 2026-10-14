@@ -54,7 +54,25 @@ impl VortexRelationalSpillPolicy {
     /// Rejects invalid configuration or a directory that cannot prove ownership.
     #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
     pub fn cleanup_abandoned(&self, directory: &std::path::Path) -> shardloom_core::Result<()> {
-        crate::local_primitives::native_relational_spill::recover(self, directory)
+        self.cleanup_abandoned_controlled(
+            directory,
+            &shardloom_exec::compute_pool::CancellationToken::default(),
+        )
+    }
+
+    /// Remove a verified abandoned run directory under the caller's cancellation owner.
+    /// Cancellation is checked before filesystem access, between run deletions and
+    /// before marker removal. The marker and remaining runs survive cancellation
+    /// so cleanup can be explicitly retried with a fresh token.
+    /// # Errors
+    /// Rejects invalid configuration, cancellation or unverifiable ownership.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    pub fn cleanup_abandoned_controlled(
+        &self,
+        directory: &std::path::Path,
+        cancellation: &shardloom_exec::compute_pool::CancellationToken,
+    ) -> shardloom_core::Result<()> {
+        crate::local_primitives::native_relational_spill::recover(self, directory, cancellation)
     }
 }
 

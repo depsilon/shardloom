@@ -106,6 +106,15 @@ replay and dynamic pivot input. Compatibility preparation shares the transaction
 cancellation owner and query allocation. Its acceptance remains separately
 recorded; earlier single-source scope descriptions above are historical.
 
+The [operator recovery unit](native-operator-recovery-2026-10-13.md) adds
+caller-controlled relational cleanup cancellation and actual numeric-sort,
+single/compound COUNT and exact integer DISTINCT process-death, cleanup and exact
+fresh-restart tests. Local runtime acceptance passes; hosted integration remains
+pending. Cancellation preserves the ownership marker for explicit retry, including
+when the final run has already been removed. Existing namespace and identity
+checks still protect live owners and unknown files. This is cleanup/restart
+evidence, not resumption of interrupted execution.
+
 Other unadmitted state spill, complete reader/codec/upstream scratch
 accounting and whole-process RSS bounds remain open. Other operators retain their own resource admission
 and deterministic denials. A supported reader, large input or successful ingest does not by

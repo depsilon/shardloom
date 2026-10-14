@@ -144,8 +144,12 @@ fn all_namespaces_reject_live_recovery_and_clean_after_process_exit() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Keep cancellation, inherited locks, marker preservation and retry in one scope.
 fn cancelled_recovery_preserves_marker_and_can_be_retried() {
-    for namespace in ["sort", "distinct", "count"] {
+    for (namespace, run_count) in ["sort", "distinct", "count", "relational_order"]
+        .into_iter()
+        .flat_map(|namespace| [(namespace, 1), (namespace, 2)])
+    {
         let workspace = Workspace::new();
         let memory = LiveMemoryPool::new(4 << 20).unwrap();
         let mut store = QueryRunStore::new(
@@ -160,7 +164,7 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
         );
         let session = VortexSession::default().with_handle(runtime.handle());
         let work = Arc::new(memory.reserve(1 << 20).unwrap());
-        for values in [[1, 2], [3, 4]] {
+        for values in [[1, 2], [3, 4]].into_iter().take(run_count) {
             store
                 .write_arrays(&spec(2), arrays(&values), &runtime, &session, &work)
                 .unwrap();
@@ -180,8 +184,16 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
         let sort = crate::VortexSortSpillPolicy::new(&workspace.0, 32 << 20, 4 << 20).unwrap();
         let aggregate =
             crate::VortexAggregateSpillPolicy::new(&workspace.0, 32 << 20, 4 << 20).unwrap();
+        let relational = crate::relational_query::VortexRelationalSpillPolicy::new(
+            &workspace.0,
+            32 << 20,
+            1 << 20,
+        )
+        .unwrap();
+        let token = CancellationToken::default();
         let stale_sort = sort.clone();
         let stale_aggregate = aggregate.clone();
+        let stale_token = token.clone();
         let inherited_recovery = std::rc::Rc::new(std::cell::RefCell::new(None));
         let retained = std::rc::Rc::clone(&inherited_recovery);
         AFTER_RECOVERY_LOCK.with(|hook| {
@@ -193,18 +205,21 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
             *hook.borrow_mut() = Some(Box::new(move || {
                 stale_sort.cancel();
                 stale_aggregate.cancel();
+                stale_token.cancel();
             }));
         });
         let cleanup = |sort: &crate::VortexSortSpillPolicy,
-                       aggregate: &crate::VortexAggregateSpillPolicy| {
+                       aggregate: &crate::VortexAggregateSpillPolicy,
+                       token: &CancellationToken| {
             match namespace {
                 "sort" => sort.cleanup_abandoned(&directory),
                 "distinct" => aggregate.cleanup_abandoned(&directory),
                 "count" => aggregate.cleanup_abandoned_weighted_count(&directory),
+                "relational_order" => relational.cleanup_abandoned_controlled(&directory, token),
                 _ => unreachable!(),
             }
         };
-        let error = cleanup(&sort, &aggregate).unwrap_err();
+        let error = cleanup(&sort, &aggregate, &token).unwrap_err();
         assert!(
             error.to_string().contains("cancelled"),
             "{namespace}: {error}"
@@ -212,10 +227,10 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
         assert!(AFTER_RECOVERY_REMOVE.with(|hook| hook.borrow().is_none()));
         assert!(AFTER_RECOVERY_LOCK.with(|hook| hook.borrow().is_none()));
         assert!(inherited_recovery.borrow().is_some());
-        // One run was removed, while the marker and remaining run are retained.
-        assert_eq!(fs::read_dir(&directory).unwrap().count(), 2);
+        // Keep the marker even when cancellation follows the last run deletion.
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), run_count);
         assert_eq!(fs::read(directory.join(OWNERSHIP_MARKER)).unwrap(), marker);
-        assert!(cleanup(&sort, &aggregate).is_err());
+        assert!(cleanup(&sort, &aggregate, &token).is_err());
         let renewed_sort = sort.renew_cancellation().unwrap();
         let renewed_aggregate = aggregate.renew_cancellation().unwrap();
         assert_eq!(renewed_sort.workspace, sort.workspace);
@@ -226,7 +241,13 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
         assert_eq!(renewed_aggregate.memory_bytes, aggregate.memory_bytes);
         sort.cancel();
         aggregate.cancel();
-        cleanup(&renewed_sort, &renewed_aggregate).unwrap();
+        token.cancel();
+        cleanup(
+            &renewed_sort,
+            &renewed_aggregate,
+            &CancellationToken::default(),
+        )
+        .unwrap();
         drop(inherited_recovery);
         drop(inherited_owner);
         drop(store);
@@ -234,4 +255,30 @@ fn cancelled_recovery_preserves_marker_and_can_be_retried() {
         assert_eq!(memory.snapshot().reserved_bytes, 0);
         workspace.assert_empty();
     }
+}
+
+#[test]
+fn relational_recovery_cancellation_precedes_filesystem_access() {
+    let workspace = Workspace::new();
+    let missing = workspace.0.join("missing");
+    let policy =
+        crate::relational_query::VortexRelationalSpillPolicy::new(&missing, 32 << 20, 1 << 20)
+            .unwrap();
+    let explicit = CancellationToken::default();
+    explicit.cancel();
+    let parent = CancellationToken::default();
+    let child = parent.with_deadline(Instant::now() + Duration::from_secs(60));
+    parent.cancel();
+    let expired = CancellationToken::default().with_deadline(Instant::now());
+    for token in [explicit, child, expired] {
+        let error = policy
+            .cleanup_abandoned_controlled(
+                &missing.join("shardloom-query-relational-order-0"),
+                &token,
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("cancelled"), "{error}");
+        assert!(!missing.exists());
+    }
+    workspace.assert_empty();
 }

@@ -1,0 +1,62 @@
+{
+  "schema_version": "shardloom.operator_recovery_evidence.v1",
+  "status": "local_acceptance_complete_hosted_pending",
+  "archive": {
+    "path": "native-operator-recovery-2026-10-13.tar.xz",
+    "bytes": 285528,
+    "sha256": "cd550a1221b3095f950e597beaeee0fa5be695814348fd0cc0e170d50b1c677e",
+    "members": 62,
+    "uncompressed_bytes": 1819256,
+    "all_members_read_back_and_verified": true
+  },
+  "manifest": {
+    "path": "native-operator-recovery-2026-10-13.manifest.json.xz",
+    "bytes": 3924,
+    "sha256": "c4c46b798b2af9eb47c8cd6fbd90738f967a26cf259c46d968a5e87b8379ddee",
+    "uncompressed_sha256": "a3ddc5929c08eae32e8bec7743fdbd2a7f40fa2c53ce0bbd478b42f8d32b86cb"
+  },
+  "source_identity": {
+    "base_commit": "c1a21e62cae38636b56d28167ef743d17fe73620",
+    "selected_files": 2240,
+    "manifest_sha256": "49010129374f699db10653a2e5b1729d3e985c37a96ded9adf06713cc8420407",
+    "changed_files": 11,
+    "unchanged_before_and_after": true,
+    "runtime_commit": "a5cdef527c1469551f9c965bddd3cdb9fb3395e7",
+    "committed_blob_hashes_verified": 2240
+  },
+  "counts": {
+    "workspace-tests": {
+      "groups": 106,
+      "passed": 3219,
+      "failed": 0,
+      "ignored": 0
+    },
+    "focused-final": {
+      "groups": 1,
+      "passed": 35,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "final_local_gates": 6,
+  "documentation_gates": 5,
+  "failed_historical_attempts": 2,
+  "real_operator_process_death_cases": 4,
+  "evidence_paths": {
+    "source_manifest": "acceptance/operator-recovery-source-402-2.json",
+    "local_acceptance": "acceptance/operator-recovery-acceptance-402-2.json",
+    "documentation": "documentation/summary.json"
+  },
+  "limitations": [
+    "Only the final accepted source is fully frozen; initial draft helpers and failed logs are retained as counterevidence.",
+    "Bulk native inputs and test executables are regenerated from committed source; they are not archived.",
+    "Unix process-death and cooperative cancellation proof is not power-loss durability, process-RSS containment or execution resumption.",
+    "Hosted integration is pending. No performance or whole-PERF/CG-gate claim."
+  ],
+  "provenance": {
+    "path": "native-operator-recovery-2026-10-13.provenance.json",
+    "bytes": 42761,
+    "sha256": "8f0f3ce166bf00df1a1fe881589306295011962afc76e03f8d7ad9935cf47f77",
+    "embedded_files": 6
+  }
+}

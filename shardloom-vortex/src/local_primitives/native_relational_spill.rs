@@ -619,14 +619,18 @@ impl<'a> Merge<'a> {
     }
 }
 
-pub(crate) fn recover(policy: &VortexRelationalSpillPolicy, directory: &Path) -> Result<()> {
+pub(crate) fn recover(
+    policy: &VortexRelationalSpillPolicy,
+    directory: &Path,
+    cancellation: &CancellationToken,
+) -> Result<()> {
     let validated = VortexRelationalSpillPolicy::new(
         policy.workspace.clone(),
         policy.quota_bytes,
         policy.buffer_bytes,
     )?;
     query_run_store::recover(
-        &QueryRunStorePolicy::relational_order(&validated, CancellationToken::default()),
+        &QueryRunStorePolicy::relational_order(&validated, cancellation.clone()),
         directory,
     )
 }

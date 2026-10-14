@@ -35,6 +35,8 @@ struct Fixture {
 mod owner_bench;
 #[path = "prepared_spill_queue_tests.rs"]
 mod prepared_queue;
+#[path = "weighted_count_spill_recovery_tests.rs"]
+mod recovery_tests;
 impl Fixture {
     fn new(count: usize, width: usize, dictionary: bool, nullable: bool) -> Self {
         Self::with_unique_keys(count, width, dictionary, nullable, false)
@@ -162,6 +164,15 @@ impl Fixture {
         self.directory.join("workspace")
     }
     fn query(&self, groups: &[&str], offset: usize, limit: usize) -> VortexQueryPrimitiveRequest {
+        Self::query_paths(&self.path(), &self.workspace(), groups, offset, limit)
+    }
+    fn query_paths(
+        source: &std::path::Path,
+        workspace: &std::path::Path,
+        groups: &[&str],
+        offset: usize,
+        limit: usize,
+    ) -> VortexQueryPrimitiveRequest {
         let mut order = vec![VortexAggregateOrderExpr::new("frequency", true)];
         order.extend(
             groups
@@ -169,7 +180,7 @@ impl Fixture {
                 .map(|group| VortexAggregateOrderExpr::new(*group, false)),
         );
         VortexQueryPrimitiveRequest::simple_aggregate(
-            DatasetUri::new(self.path().display().to_string()).unwrap(),
+            DatasetUri::new(source.display().to_string()).unwrap(),
             VortexSimpleAggregateRequest::grouped(
                 groups
                     .iter()
@@ -183,9 +194,7 @@ impl Fixture {
             )
             .with_order_by(order)
             .with_offset(offset)
-            .with_spill(
-                VortexAggregateSpillPolicy::new(self.workspace(), 64 << 20, 8 << 20).unwrap(),
-            ),
+            .with_spill(VortexAggregateSpillPolicy::new(workspace, 64 << 20, 8 << 20).unwrap()),
         )
         .with_source_order_limit(limit)
     }

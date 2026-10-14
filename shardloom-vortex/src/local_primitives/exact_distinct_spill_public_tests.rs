@@ -33,6 +33,8 @@ struct Fixture {
     directory: PathBuf,
     rows: Vec<(i16, u64)>,
 }
+#[path = "exact_distinct_spill_recovery_tests.rs"]
+mod recovery_tests;
 impl Fixture {
     fn new(count: usize) -> Self {
         let directory = std::env::temp_dir().join(format!(
@@ -105,8 +107,16 @@ impl Fixture {
         self.directory.join("workspace")
     }
     fn query(&self, offset: usize, limit: usize) -> VortexQueryPrimitiveRequest {
+        Self::query_paths(&self.path(), &self.workspace(), offset, limit)
+    }
+    fn query_paths(
+        source: &std::path::Path,
+        workspace: &std::path::Path,
+        offset: usize,
+        limit: usize,
+    ) -> VortexQueryPrimitiveRequest {
         VortexQueryPrimitiveRequest::simple_aggregate(
-            DatasetUri::new(self.path().display().to_string()).unwrap(),
+            DatasetUri::new(source.display().to_string()).unwrap(),
             VortexSimpleAggregateRequest::grouped(
                 vec![ColumnRef::new("cohort_renamed").unwrap()],
                 vec![VortexSimpleAggregateMeasure::new(
@@ -120,9 +130,7 @@ impl Fixture {
                 VortexAggregateOrderExpr::new("cohort_renamed", false),
             ])
             .with_offset(offset)
-            .with_spill(
-                VortexAggregateSpillPolicy::new(self.workspace(), 64 << 20, 4 << 20).unwrap(),
-            ),
+            .with_spill(VortexAggregateSpillPolicy::new(workspace, 64 << 20, 4 << 20).unwrap()),
         )
         .with_source_order_limit(limit)
     }

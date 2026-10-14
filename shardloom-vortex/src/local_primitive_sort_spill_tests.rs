@@ -15,6 +15,9 @@ use std::{
 };
 use vortex::file::WriteOptionsSessionExt as _;
 static NEXT_WORKSPACE: AtomicU64 = AtomicU64::new(0);
+#[cfg(unix)]
+#[path = "local_primitive_sort_spill_recovery_tests.rs"]
+mod recovery_tests;
 use vortex::{
     VortexSessionDefault as _, array::iter::ArrayIteratorAdapter,
     io::session::RuntimeSessionExt as _,

@@ -156,6 +156,8 @@ October 13 composition update: the
 supersedes this inventory's earlier single-source, repeated-source replay,
 dynamic-pivot and disconnected compatibility-preparation limitations. Those
 implementations and their current acceptance status are tracked there. The
+unit is integrated in PR #1548 after all 44 hosted checks pass, with the accepted
+source preserved and actual preview/production verification. The
 remaining allocation, recovery, destination/fanout, platform and conditional
 investigation obligations below remain separate; this update does not close a
 whole PERF or CG gate.

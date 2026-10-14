@@ -482,6 +482,8 @@ impl QueryRunStore {
         validate_run_bytes(&run)?;
         self.snapshot.runs_written += 1;
         self.snapshot.runs_validated += 1;
+        #[cfg(all(test, feature = "vortex-write", unix))]
+        operator_recovery_tests::after_validated_run(self);
         Ok(run)
     }
 
@@ -1155,6 +1157,10 @@ thread_local! {
     static AFTER_RECOVERY_REMOVE: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
         const { std::cell::RefCell::new(None) };
 }
+
+#[cfg(all(test, feature = "vortex-write", unix))]
+#[path = "local_primitive_operator_recovery_tests.rs"]
+pub(super) mod operator_recovery_tests;
 
 #[cfg(all(test, feature = "vortex-write", unix))]
 #[path = "local_primitive_query_run_store_tests.rs"]
