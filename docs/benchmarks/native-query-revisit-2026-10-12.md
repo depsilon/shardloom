@@ -3,7 +3,8 @@
 Status: all four admitted experiments are decided. Three changes pass their
 individual retention gates; the empty-reservation candidate is dropped.
 Cumulative native, Full43, installed-package and portable-evidence checks pass.
-Hosted integration remains pending. This report accompanies the
+Hosted integration is complete in PRs #1545/#1547, with a
+[separate receipt](evidence/native-encoded-hosted-2026-10-14.json). This report accompanies the
 [encoded interchange acceptance](native-encoded-interchange-2026-10-12.md)
 in one combined implementation unit. Version 0.5.1 remains unchanged.
 
@@ -221,7 +222,7 @@ license-tool suites each pass seven. Formatting, default and native workspace
 Clippy, no-write, write-only, all-features and Rust 1.96 compatibility checks
 pass. Dependency evidence is reused only after verifying unchanged Cargo,
 provider and license inputs. These overlapping suites are separate proofs, not
-additive capability counts. Hosted acceptance remains pending.
+additive capability counts. Hosted acceptance is recorded in the separate receipt.
 
 The [portable evidence index](evidence/native-encoded-query-2026-10-13.json)
 binds the selected source, candidate protocols,
@@ -293,8 +294,9 @@ The [review acceptance index](evidence/native-encoded-review-2026-10-13.json)
 binds the [separate review packet](evidence/native-encoded-review-2026-10-13.tar.xz),
 including all six changed source files, full source manifests, test/build/package
 receipts, original failures, complete Full43 outputs and storage history. Every
-member was reopened and checked by size and SHA-256. Hosted acceptance of the
-review correction remains pending.
+member was reopened and checked by size and SHA-256. The subsequent
+[hosted receipt](evidence/native-encoded-hosted-2026-10-14.json) completes acceptance
+of the review correction; the earlier index retains its historical pending status.
 
 The original paired measurements and three portable archives remain unchanged.
 They describe their original source and executable identities. The review
@@ -324,8 +326,8 @@ the [run-end correction packet](evidence/native-encoded-ipc-admission-2026-10-13
 The packet records the three-file source overlay on `9185bc58`, complete test
 receipts and original failure evidence. The earlier release binaries, installed
 wheel and Full43 observations above retain their original identities. This
-malformed-input correction makes no new performance claim; final hosted
-acceptance remains pending.
+malformed-input correction makes no new performance claim. Both final hosted
+native jobs explicitly pass its regression in the separate hosted receipt.
 
 ## Inspecting and reproducing the evidence
 
@@ -415,7 +417,10 @@ correctness and local acceptance results for this scoped change.
 PR #1545's prerequisite integration correction merged at `3089c8aa`. The
 measured count source commit `67f3296d` was rebased to local commit `eb1b5a0f`
 with the accepted five-Rust-file tree unchanged. The combined implementation
-and hosted checks are tracked in [PR #1547](https://github.com/depsilon/shardloom/pull/1547).
+merges at `ed253d1e` in [PR #1547](https://github.com/depsilon/shardloom/pull/1547)
+after all 44 checks pass. The [hosted receipt](evidence/native-encoded-hosted-2026-10-14.json)
+binds the preserved runtime, seven intervening PR #1546 harness changes and
+three installed-wheel observations.
 The user-surface version remains
 0.5.1, with no release or publication. This finite local experiment does not
 establish whole-engine superiority or production readiness.

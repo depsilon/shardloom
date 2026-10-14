@@ -1,5 +1,21 @@
 # Vortex Upstream Dependency Review
 
+## October 13, 2026 selection resource follow-up
+
+The [selection resource contract](../architecture/native-selection-resources-2026-10-13.md)
+keeps the same pinned provider and registry/license identities below. Sparse
+frame selection moves from the context-free local reduction rule into
+ShardLoom's existing admitted execution-parent kernel, where frame metadata,
+indices and output views have explicit resource owners. The vendored decoder
+borrows contiguous frame ranges, counts validity bits without rank vectors and
+pre-counts decoded view-buffer capacity. No dependency or C implementation changes.
+The original sparse-filter reduction described below is historical; its frame
+skipping policy is preserved at explicit execution. The
+[acceptance report](../benchmarks/native-selection-resources-2026-10-13.md) records
+passing final workspace/native, direct/public, Full43 and paired cost gates,
+the exact dependency/source identities and both rejected earlier cost cohorts.
+Hosted integration remains pending.
+
 ## October 13, 2026 sparse Zstd filter follow-up
 
 The bounded sparse-filter change patches the existing vendored Apache-2.0

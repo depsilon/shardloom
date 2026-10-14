@@ -1,6 +1,12 @@
 {
   "schema_version": "shardloom.operator_recovery_evidence.v1",
-  "status": "local_acceptance_complete_hosted_pending",
+  "status": "completed_finite_unit",
+  "hosted": {
+    "path": "native-operator-recovery-hosted-2026-10-13/index.json",
+    "sha256": "7bf18d72e3fd8ed8422006861a6d22dd1cc525ffa005c88706a895cc128c88cc",
+    "pull_request": 1549,
+    "merged_commit": "483cbaa982dd300dec45bb50066cdbf452686b36"
+  },
   "archive": {
     "path": "native-operator-recovery-2026-10-13.tar.xz",
     "bytes": 285528,
@@ -51,7 +57,7 @@
     "Only the final accepted source is fully frozen; initial draft helpers and failed logs are retained as counterevidence.",
     "Bulk native inputs and test executables are regenerated from committed source; they are not archived.",
     "Unix process-death and cooperative cancellation proof is not power-loss durability, process-RSS containment or execution resumption.",
-    "Hosted integration is pending. No performance or whole-PERF/CG-gate claim."
+    "The finite hosted unit is complete. No performance or whole-PERF/CG-gate claim."
   ],
   "provenance": {
     "path": "native-operator-recovery-2026-10-13.provenance.json",

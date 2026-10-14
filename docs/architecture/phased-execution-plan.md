@@ -249,105 +249,41 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-OPERATOR-RECOVERY` complete the remaining admitted spill-family
-  process-death and controlled cleanup acceptance.
+- [ ] `NATIVE-SELECTION-RESOURCES` admit sparse native Zstd selection metadata
+  and remove temporary decoder frame/rank collections.
   - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-03/06/12 and CG-5/19/21; RFCs 0014/0017/0044.
-  - Source and contract: [native operator recovery](native-operator-recovery-2026-10-13.md);
-    [local acceptance](../benchmarks/native-operator-recovery-2026-10-13.md).
-  - Current state: the caller-controlled relational cleanup API and actual-query
-    crash/restart tests pass local acceptance. Existing sort/aggregate cancellation
-    and shared native run-store ownership contracts are reused.
-  - ShardLoom technique review: preserve existing dynamic resource admission,
-    capillary native work and metadata-first ownership checks. This cleanup/test
-    change does not alter PulseWeave scheduling or timing surfaces; evidence tiers
-    distinguish local execution, hosted checks and broader operational claims.
+  - Existing owners: PERF-03/06/08/09 and CG-5/19/20/21; RFCs 0014/0044.
+  - Source and contract: [native selection resources](native-selection-resources-2026-10-13.md).
+  - Current state: the admitted execution-parent kernel preserves the existing
+    sparse frame policy. The repaired aggregate UTF-8/dictionary paths retain
+    the admitted context. Required workspace/native gates, 80 direct tests,
+    757 public cases, all 129 Full43 results and every paired cost gate pass.
+    The [acceptance report](../benchmarks/native-selection-resources-2026-10-13.md)
+    preserves both rejected cohorts and the fully verified portable evidence.
+  - ShardLoom technique review: retain metadata-first frame skipping and dynamic
+    memory admission below all front doors. Capillary row selection remains
+    bounded by the existing policy; PulseWeave scheduling is unchanged. Preserve
+    separate complete-operation timings and source-bound evidence tiers.
   - Execution checklist:
-    - [x] Add caller-controlled relational cleanup cancellation and preserve
-      compatible convenience cleanup plus marker/retry and lock ownership.
-    - [x] Prove real numeric-sort, single/compound COUNT and exact integer DISTINCT
-      process death, owned cleanup and complete exact fresh restart.
-    - [x] Pass 35 focused recovery tests, required workspace formatting/Clippy/tests
-      and native release/read Clippy; review final source and failure evidence.
-    - [ ] Validate docs, package portable source-bound evidence, complete hosted
-      integration and move this finite unit to the completed ledger.
-  - User-visible surface and scope: the public Rust relational spill policy accepts
-    an explicit cancellation owner. Native query operators keep their existing
-    semantics, formats and certificates; test instrumentation is Unix-only.
-  - Acceptance and verification: exact commands, result counts, original failures
-    and exclusions are recorded in the acceptance report. Require active-owner
-    refusal, unknown-file preservation, source identity and exact fresh results.
-  - Claim/fallback boundary: owned cleanup and fresh restart do not resume an
-    interrupted query or establish a process-RSS limit. No external executor,
-    dependency, package release or performance claim. Broader allocation,
-    state-family and operational gaps remain with their existing owners.
+    - [x] Move sparse selection into the existing session kernel and admit temporary
+      frame/metadata collections, row indices and independently owned output views.
+    - [x] Borrow decoder frame ranges and avoid mask rank/cache allocations;
+      prove refusal, retry, exact grants, native values and owner release.
+    - [x] Complete workspace/native gates, public/direct/streaming regression,
+      retained Full43 and a frozen baseline/candidate cost screen.
+    - [x] Review and package exact source, original failures and acceptance.
+    - [ ] Complete hosted integration and move the finite unit to the completed ledger.
+  - Claim/fallback boundary: collection-capacity accounting is not a process-RSS
+    ceiling. Other child decoders, compression/training and unreviewed metadata
+    remain with existing owners. No new execution provider, encoding, dependency,
+    package release or performance-superiority claim; no external executor.
 
-- [ ] `NATIVE-ENCODED-INTERCHANGE` preserve admitted physical arrays across
-  receiving allocations and complete independent native-producer feasibility.
-  - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-02/03/07/11/12 and CG-19/20/21. The independent
-    producer route retains its `v1_candidate_pending_feasibility` classification.
-  - Source and contract: the October 11 ownership/interchange intake and
-    [encoded transfer contract](native-encoded-interchange-2026-10-12.md).
-    The [local acceptance report](../benchmarks/native-encoded-interchange-2026-10-12.md)
-    records completed local proof. All four experiments in the
-    [finite query campaign](../benchmarks/native-query-revisit-2026-10-12.md)
-    are decided: retain prepared-sort drivers, provider scan granularity and
-    adaptive decimal accumulation; drop empty reservation transitions for
-    insufficient repeatability. Final cumulative native/Full43/package acceptance
-    and verified evidence packaging pass. The subsequent Null-schema review
-    correction also passes fresh native, installed-package and complete Full43
-    checks, with a [separate acceptance index](../benchmarks/evidence/native-encoded-review-2026-10-13.json).
-    Hosted integration remains pending
-    before completing the combined unit.
-    Native file admission, same-owner objects, isolated bounded transfer and
-    reusable receiving sources already exist. Persisted-output reuse is complete
-    in PR #1544; it does not close this separate physical transfer boundary.
-  - Shared runtime and user surface: extend `ResidentMemorySource`, the admitted
-    session allocator and native Python intake. Preserve current API spellings
-    and lazy native-file routes; avoid a parallel runtime or private capsule ABI.
-  - ShardLoom technique review: preserve encoded payloads, avoid duplicate copies,
-    use cancellable byte windows and pre-admitted metadata/scratch. Measure
-    first transfer and reuse separately; no query-answer cache or implicit
-    cross-owner sharing. PulseWeave claims need observed scheduling work.
-  - Execution checklist:
-    - [x] Inspect pinned physical serializers, allocation/lifetime behavior,
-      current Python recognition and released upstream public export contracts.
-      Retain exact source identities; the independent producer and all-value
-      native-file/IPC correctness and comparative lifecycle gates pass.
-    - [x] Add the bounded provider lifetime hook and encoded receiving copier,
-      with explicit strategy admission and metadata/buffer ownership. Preserve
-      constants, dictionaries, validity and shared nodes without foreign credits.
-    - [x] Prove close/cancel/child/slice/buffer lifetime and failed-admission
-      cleanup, complete values and truthful copy/materialization counters.
-    - [x] Verify repeated use of admitted transfers/prepared sources, same-owner
-      and generated-range controls, and consistent native recognition across
-      existing public entry points with deliberate API compatibility.
-    - [x] Run an independent unpatched Vortex producer/process; complete native
-      IPC registry/version/alignment/resource/corruption feasibility and lifecycle
-      measurements, or record the exact external blocker and native-file alternative.
-    - [x] Freeze and pass physical-copy and complete-lifecycle retention gates,
-      including small/canonical and unchanged same-owner regression controls.
-    - [ ] Complete focused and required broad gates, native/Python integration,
-      public/Full43/readback regressions, packaging/license evidence, docs and
-      hosted integration; move only this finite unit to the completed ledger.
-      Local source, public/Full43/readback, package and independent inspection
-      gates pass, including the final cumulative query build. The
-      [portable index](../benchmarks/evidence/native-encoded-query-2026-10-13.json)
-      binds all source versions and retained samples. The separate review index
-      records recursive physical Null admission and empty-view ownership,
-      four regressions, refreshed release artifacts and preserved failures.
-      A later IPC correction rejects nonempty RunEnd arrays with empty ends;
-      all 15 IPC tests, 3,219 default tests and default/native lint pass.
-      Hosted CI remains explicit
-      completion work.
-  - Acceptance: a receiving allocation owns exact usable native values after
-    the producer drops, preserves admitted encodings without unnecessary
-    expansion, and reuses completed preparation for actual later execution.
-  - Non-goals and claim boundary: no format fork, query-answer cache, private
-    upstream ABI, implicit sharing, unapproved dependency, package publication
-    or unmeasured speedup. Keep `fallback_attempted=false`,
-    `external_engine_invoked=false`, version 0.5.1 and all existing PERF/CG owners.
+`NATIVE-ENCODED-INTERCHANGE` completed through PRs #1545/#1547. The
+[hosted receipt](../benchmarks/evidence/native-encoded-hosted-2026-10-14.json)
+binds both merged sources, all 43/44 checks and six installed-wheel observations.
+Its finite transfer/producer and query-campaign decisions are recorded in the
+[completed ledger](phased-execution-completed-ledger.md). The subsequent sparse
+selection ownership/accounting correction remains the active unit above.
 
 `REQUIRED-EXECUTION-RESOURCES` and `NATIVE-PYTHON-SURFACE` completed together in
 PR #1541 after all 44 hosted checks passed. The
@@ -3058,7 +2994,8 @@ UAT, then resume streaming capability gaps and broader memory/spill/recovery,
 cancellation and operational hardening in order of quickest coherent completion.
 The fresh baseline passes all 129 query executions and all 18 modular cohorts.
 `NATIVE-STREAM-INPUT-COMPOSITION` is complete in PR #1548 and recorded in the
-completed ledger. Proceed through `NATIVE-OPERATOR-RECOVERY` and remaining
+completed ledger. `NATIVE-OPERATOR-RECOVERY` is complete in PR #1549.
+Proceed through `NATIVE-SELECTION-RESOURCES` and remaining
 allocation/operational hardening under the existing owners;
 leave caching, learned indexes, rematerialization and the other conditional
 investigations until qualifying workloads justify them. This is a sequencing

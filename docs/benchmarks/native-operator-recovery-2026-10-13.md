@@ -2,8 +2,9 @@
 
 # Native operator recovery acceptance
 
-Status: local runtime and documentation checks passed; hosted integration is
-pending. This unit closes a caller-cancellation gap in relational run cleanup
+Status: finite unit complete in [PR #1549](https://github.com/depsilon/shardloom/pull/1549),
+with local checks, all 44 hosted checks and production verification passed.
+This unit closes a caller-cancellation gap in relational run cleanup
 and adds actual-query interruption acceptance for the older admitted spill
 families. The [contract](../architecture/native-operator-recovery-2026-10-13.md)
 defines scope under PERF-03/06/12 and CG-5/19/21. Version 0.5.1 is unchanged.
@@ -93,6 +94,31 @@ public-status, backlink, contribution and whitespace checks pass. This unit
 does not change guide source, generated pages or search assets, so the preceding
 rendered guide proof remains applicable to those unchanged files.
 
-Hosted integration remains pending. Broader reader/codec allocation, unadmitted state, streaming
+## Hosted integration
+
+The reviewed head `528aa23ed7f09442b664bc07ca44b5c48a8d5c0f`, hosted synthetic
+merge and actual merge `483cbaa982dd300dec45bb50066cdbf452686b36` share Git tree
+`346dcea90f924aa1a977c1cc42b66e50f4f2bc69`. All 2,240 accepted source blobs
+were independently read and SHA-256 checked. All 44 checks pass, including native
+features, both CodeQL lanes and deployment. Automated review completes on that
+head with no inline findings or review submissions.
+
+Three installed-wheel jobs cover Ubuntu Python 3.10/3.13 and macOS Python 3.13.
+Each reports 80 native tests, zero failures/errors/skips and a verified isolated
+load. The packet binds the exact workflow and proof-script source to those logs.
+The native method names are not logged individually; wheel artifacts were not
+downloaded, and no uninstall proof is claimed.
+
+The [hosted receipt](evidence/native-operator-recovery-hosted-2026-10-13/index.json)
+retains all raw check/review, wheel and production records in a 26-member archive.
+Every member is reopened and verified by both the packager and primary review.
+The exact merged production deployment passes. All three served guide pages
+preserve their source with only the recorded Cloudflare insertions, and search
+metadata is byte-identical. The website and generator source did not change, so
+the preceding desktop/mobile/search proof applies without a duplicate UI run.
+The wheel packet's original pending tree-check note is preserved as historical;
+the later primary check supplies that proof.
+
+Broader reader/codec allocation, unadmitted state, streaming
 destinations/fanout, platform acceptance and conditional investigations retain
 their existing owners.

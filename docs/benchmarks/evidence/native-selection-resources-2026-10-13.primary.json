@@ -1,0 +1,132 @@
+{
+  "encoded": {
+    "all_members_read_and_hashed": true,
+    "archive": {
+      "bytes": 590068,
+      "path": "encoded-hosted-evidence-411.tar.xz",
+      "sha256": "43d862388fcb31541e2d61d2319fbbc100ae4f8e17c52d0077c584e533bc317b"
+    },
+    "members": 37,
+    "status": "passed"
+  },
+  "helper": {
+    "bytes": 8641,
+    "path": "install_selection_evidence_411.py",
+    "sha256": "30eb4f5736e5c8afde4e7f321996d594243580f66c201b789e25ffdb5681ed90"
+  },
+  "helper_source": "\"\"\"Independently reopen accepted packets and install exact compact repository evidence.\"\"\"\nimport hashlib\nimport json\nimport lzma\nfrom pathlib import Path\nimport shutil\nimport tarfile\n\nO = Path('/Users/dylan/LocalData/shardloom/native-python-surface-20261010')\nR = Path('/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo')\nD = R / 'docs/benchmarks/evidence'\n\n\ndef read(path):\n    return json.loads(Path(path).read_text())\n\n\ndef sha(path):\n    h = hashlib.sha256()\n    with Path(path).open('rb') as f:\n        while block := f.read(1 << 20):\n            h.update(block)\n    return h.hexdigest()\n\n\ndef bound(path):\n    path = Path(path)\n    return dict(path=path.name, bytes=path.stat().st_size, sha256=sha(path))\n\n\ndef save(path, value):\n    with Path(path).open('x') as f:\n        json.dump(value, f, indent=2, sort_keys=True)\n        f.write('\\n')\n\n\ndef copy(source, destination):\n    with Path(source).open('rb') as reader, Path(destination).open('xb') as writer:\n        shutil.copyfileobj(reader, writer, 1 << 20)\n    assert sha(source) == sha(destination)\n    return bound(destination)\n\n\ndef check_packet(prefix, expected_count, size_key):\n    manifest = read(O / f'{prefix}.manifest.json')\n    archive = O / f'{prefix}.tar.xz'\n    assert sha(archive) == manifest['archive']['sha256']\n    rows = manifest['members']\n    assert len(rows) == manifest['member_count'] == expected_count\n    expected = {r['archive_path']: r for r in rows}\n    assert len(expected) == expected_count\n    seen = set()\n    with tarfile.open(archive, 'r|xz') as tar:\n        for item in tar:\n            assert item.isfile() and item.name in expected and item.name not in seen\n            record = expected[item.name]\n            digest = hashlib.sha256()\n            size = 0\n            with tar.extractfile(item) as f:\n                while block := f.read(1 << 20):\n                    digest.update(block)\n                    size += len(block)\n            assert size == item.size == record[size_key]\n            assert digest.hexdigest() == record['sha256']\n            seen.add(item.name)\n    assert seen == set(expected)\n    return manifest, dict(status='passed', archive=bound(archive), members=len(seen),\n                          all_members_read_and_hashed=True)\n\n\nselection, selection_review = check_packet('selection-resources-evidence-409', 4171, 'byte_count')\nencoded, encoded_review = check_packet('encoded-hosted-evidence-411', 37, 'bytes')\nassert selection['prerequisites']['cost_final_accepted'] is True\nassert selection['prerequisites']['full43_calls'] == 129\nassert selection['prerequisites']['public_review_cases'] == 757\nassert set(selection['source_overlay']['deleted_paths']) == {'vendor/vortex-zstd/src/filter.rs'}\n\nselection_name = 'native-selection-resources-2026-10-13'\nselection_archive = copy(O / 'selection-resources-evidence-409.tar.xz', D / f'{selection_name}.tar.xz')\nmanifest_bytes = (O / 'selection-resources-evidence-409.manifest.json').read_bytes()\nwith lzma.open(D / f'{selection_name}.manifest.json.xz', 'xb', preset=6) as f:\n    f.write(manifest_bytes)\nwith lzma.open(D / f'{selection_name}.manifest.json.xz', 'rb') as f:\n    assert f.read() == manifest_bytes\nselection_manifest = bound(D / f'{selection_name}.manifest.json.xz')\nselection_manifest['uncompressed_sha256'] = hashlib.sha256(manifest_bytes).hexdigest()\nselection_verification = copy(O / 'selection-resources-evidence-409.verification.json',\n                              D / f'{selection_name}.verification.json')\nchecks = read(O / 'selection-checks-409.json')\nfull43 = read(O / 'selection-resources-full43-primary-review-409.json')\ncost = read(O / 'selection-cost-primary-review-409.json')\nrelease = read(O / 'selection-resources-409-release.json')\npublic = read(O / 'selection-public-review-409.json')\nassert checks['status'] == full43['status'] == cost['status'] == public['status'] == 'passed'\nindex = dict(schema_version='shardloom.native_selection_resources_index.v1',\n    status='local_acceptance_complete_hosted_pending', version='0.5.1',\n    accepted_utc_date='2026-10-14',\n    source_identity=dict(base_commit=selection['base_commit'], selected_file_count=2241,\n        source_manifest_sha256=sha(O / 'selection-resources-409-source.json'),\n        source_manifest_member='acceptance/selection-resources-409-source.json',\n        source_overlay=selection['source_overlay']['changed_or_added_selected_paths'],\n        deleted_paths=selection['source_overlay']['deleted_paths'],\n        scope='The base alone is insufficient; apply the exact archived source overlay and verify all selected source hashes.'),\n    executable={k: release['cli'][k] for k in ('bytes', 'sha256')},\n    archive=selection_archive, manifest=selection_manifest, verification=selection_verification,\n    verified_members=selection_review['members'], original_bytes=selection['archived_raw_bytes'],\n    results=dict(workspace_passed=3219, workspace_ignored=0, native_passed=4157,\n        native_ignored=27, direct_tests=80, direct_failed=0, direct_errors=0, direct_skipped=0,\n        public_cases=public['cases'], public_families=public['families'],\n        expected_value_rows=public['explicit_expected_value_rows'], pressure_rows=public['pressure_rows'],\n        vendor_array_tests=17, context_regression_tests=3,\n        full43_calls=full43['calls'], full43_rows=full43['complete_rows'],\n        final_cost_calls=60, all_cost_calls_reopened=cost['calls'], cost_gate_accepted=True),\n    timing=dict(native_full43_process_seconds=full43['complete_operation_seconds'],\n        supervised_full43_seconds=full43['supervised_suite_seconds'],\n        sum_query_medians_seconds=sum(full43['query_medians_seconds'].values())),\n    final_cost_gates=cost['cohorts'][-1]['gates'],\n    historical_cost_decisions=[dict(stage=c['stage'], decision=c['decision']) for c in cost['cohorts']],\n    primary_verification=f'{selection_name}.primary.json',\n    limitations=['27 existing native tests are explicitly ignored for platform/manual-fixture reasons.',\n        'Direct Python proof uses the source package and explicit fresh library; hosted installed-wheel acceptance is pending.',\n        'Full43 is retained-input regression, not fresh ingestion or a paired speedup comparison.',\n        'Other child decoders, metadata and compression remain separately scoped; no process-RSS ceiling is claimed.',\n        'No external executor, release publication or whole PERF/CG completion is claimed.'])\nsave(D / f'{selection_name}.json', index)\n\nencoded_name = 'native-encoded-hosted-2026-10-14'\nencoded_archive = copy(O / 'encoded-hosted-evidence-411.tar.xz', D / f'{encoded_name}.tar.xz')\nencoded_manifest = copy(O / 'encoded-hosted-evidence-411.manifest.json', D / f'{encoded_name}.manifest.json')\nencoded_verification = copy(O / 'encoded-hosted-evidence-411.verification.json', D / f'{encoded_name}.verification.json')\nprimary = read(O / 'encoded-hosted-primary-410.json')\nassert primary['status'] == 'passed'\nprs = []\nfor pr in primary['pull_requests']:\n    wheels = [job for job in pr['jobs'] if 'integration' in job]\n    assert len(wheels) == 3 and all(j['integration']['tests'] == 80 for j in wheels)\n    prs.append({k:pr[k] for k in ('number', 'url', 'head', 'merge', 'merged_at', 'checks')})\nsave(D / f'{encoded_name}.json', dict(\n    schema_version='shardloom.native_encoded_hosted_index.v1', status='completed_finite_unit',\n    collected_utc_date='2026-10-14', version='0.5.1', pull_requests=prs,\n    archive=encoded_archive, manifest=encoded_manifest, verification=encoded_verification,\n    verified_members=37, installed_wheel_lanes=6, native_tests_per_lane=80,\n    native_failures_per_lane=0, native_errors_per_lane=0, native_skips_per_lane=0,\n    source_acceptance=primary['source_acceptance'], review_disposition=primary['review_disposition'],\n    primary_review_member='primary-review/encoded-hosted-primary-410.json',\n    primary_verification=f'{selection_name}.primary.json', limitations=primary['limitations']))\nsave(D / f'{selection_name}.primary.json', dict(\n    schema_version='shardloom.selection_encoded_packet_readback.v1', status='passed',\n    selection=selection_review, encoded=encoded_review,\n    helper=bound(__file__), helper_source=Path(__file__).read_text(),\n    successful_guard_receipts={name:read(O / name) for name in\n        ('selection-evidence-package409b.json', 'encoded-hosted-package411.json')}))\nprint(json.dumps(dict(status='passed', selection_members=4171, encoded_members=37,\n                     selection_index=str(D / f'{selection_name}.json'),\n                     encoded_index=str(D / f'{encoded_name}.json'))))\n",
+  "schema_version": "shardloom.selection_encoded_packet_readback.v1",
+  "selection": {
+    "all_members_read_and_hashed": true,
+    "archive": {
+      "bytes": 6997040,
+      "path": "selection-resources-evidence-409.tar.xz",
+      "sha256": "e54bcdaa25fc07375203a4fa806a94ddd9fcc565a66969302c338ff9ed8b04ba"
+    },
+    "members": 4171,
+    "status": "passed"
+  },
+  "status": "passed",
+  "successful_guard_receipts": {
+    "encoded-hosted-package411.json": {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/package_encoded_hosted_411.py"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "direct_child_reaped": true,
+      "environment": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target"
+      },
+      "group_absence_unproved_at_cleanup": false,
+      "head": "528aa23ed7f09442b664bc07ca44b5c48a8d5c0f",
+      "interrupted_signal": null,
+      "log_sha256": "2e9403c34e8693e9a465a10d0264205376d0c2bada292c527ce180a4c913845e",
+      "output_bytes": 399,
+      "output_limit_bytes": 8388608,
+      "pid": 38563,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.42457220901269466,
+      "status": "passed",
+      "storage_last_observation": {
+        "cargo": {
+          "free_bytes": 66305085440,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0,
+          "workspace_bytes": 21384646656
+        },
+        "output": {
+          "free_bytes": 66304999424,
+          "log_bytes": 12480512,
+          "max_log_bytes": 201326592,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0,
+          "workspace_bytes": 27789587238
+        }
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "timed_out": false,
+      "timeout_seconds": 300.0,
+      "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-local-completion-scope-2026-10-07.md\n M docs/architecture/native-operator-recovery-2026-10-13.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/architecture/v1-local-resource-safety.md\n M docs/benchmarks/evidence/native-operator-recovery-2026-10-13.json\n M docs/benchmarks/native-operator-recovery-2026-10-13.md\n M docs/dependencies/vortex-upstream-review.md\n M docs/release/v1-inclusion-scope-matrix.md\n M python/THIRD_PARTY_LICENSES/manifest.json\n M shardloom-vortex/src/local_primitives.rs\n M shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs\n M shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs\n M shardloom-vortex/src/local_primitives/scalar_distinct_workers.rs\n M shardloom-vortex/src/local_primitives/utf8_dictionary_ownership_tests.rs\n M shardloom-vortex/src/native_provider_memory.rs\n M shardloom-vortex/src/native_provider_zstd_filter_tests.rs\n M vendor/vortex-zstd/src/array.rs\n M vendor/vortex-zstd/src/decoder_workspace.rs\n D vendor/vortex-zstd/src/filter.rs\n M vendor/vortex-zstd/src/lib.rs\n M vendor/vortex-zstd/src/rules.rs\n M vendor/vortex-zstd/upstream-provenance.json\n?? docs/architecture/native-selection-resources-2026-10-13.md\n?? docs/benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/\n?? docs/benchmarks/native-selection-resources-2026-10-13.md\n?? shardloom-vortex/src/local_primitives/aggregate_utf8_context_tests.rs\n?? shardloom-vortex/src/native_provider_zstd_filter.rs\n"
+    },
+    "selection-evidence-package409b.json": {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/package_selection_acceptance_409.py"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "direct_child_reaped": true,
+      "environment": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target"
+      },
+      "group_absence_unproved_at_cleanup": false,
+      "head": "528aa23ed7f09442b664bc07ca44b5c48a8d5c0f",
+      "interrupted_signal": null,
+      "log_sha256": "9529991d893e506197ac019bf9ecc6c9c69ba5a997a4874c422788a5ed396af6",
+      "output_bytes": 575,
+      "output_limit_bytes": 8388608,
+      "pid": 38534,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 20.516739125014283,
+      "status": "passed",
+      "storage_last_observation": {
+        "cargo": {
+          "free_bytes": 66311139328,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0,
+          "workspace_bytes": 21384646656
+        },
+        "output": {
+          "free_bytes": 66311139328,
+          "log_bytes": 12480512,
+          "max_log_bytes": 201326592,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0,
+          "workspace_bytes": 27783078694
+        }
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "timed_out": false,
+      "timeout_seconds": 600.0,
+      "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-local-completion-scope-2026-10-07.md\n M docs/architecture/native-operator-recovery-2026-10-13.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/architecture/v1-local-resource-safety.md\n M docs/benchmarks/evidence/native-operator-recovery-2026-10-13.json\n M docs/benchmarks/native-operator-recovery-2026-10-13.md\n M docs/dependencies/vortex-upstream-review.md\n M docs/release/v1-inclusion-scope-matrix.md\n M python/THIRD_PARTY_LICENSES/manifest.json\n M shardloom-vortex/src/local_primitives.rs\n M shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs\n M shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs\n M shardloom-vortex/src/local_primitives/scalar_distinct_workers.rs\n M shardloom-vortex/src/local_primitives/utf8_dictionary_ownership_tests.rs\n M shardloom-vortex/src/native_provider_memory.rs\n M shardloom-vortex/src/native_provider_zstd_filter_tests.rs\n M vendor/vortex-zstd/src/array.rs\n M vendor/vortex-zstd/src/decoder_workspace.rs\n D vendor/vortex-zstd/src/filter.rs\n M vendor/vortex-zstd/src/lib.rs\n M vendor/vortex-zstd/src/rules.rs\n M vendor/vortex-zstd/upstream-provenance.json\n?? docs/architecture/native-selection-resources-2026-10-13.md\n?? docs/benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/\n?? docs/benchmarks/native-selection-resources-2026-10-13.md\n?? shardloom-vortex/src/local_primitives/aggregate_utf8_context_tests.rs\n?? shardloom-vortex/src/native_provider_zstd_filter.rs\n"
+    }
+  }
+}

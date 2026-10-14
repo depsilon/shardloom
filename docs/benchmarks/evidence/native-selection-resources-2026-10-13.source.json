@@ -1,0 +1,13 @@
+{
+  "accepted_source_manifest_sha256": "e3aca2967b534a287c7a6426901bd9b740247395705f9956b677a8e4a4c3fea4",
+  "base_commit": "528aa23ed7f09442b664bc07ca44b5c48a8d5c0f",
+  "deleted_filter_absent": true,
+  "every_selected_git_blob_matches": true,
+  "runtime_commit": "db154e313109227e3dfc6aee445761a24e540210",
+  "schema_version": "shardloom.native_selection_committed_source.v1",
+  "selected_file_count": 2241,
+  "status": "passed",
+  "tree": "a74d1ebf900b392aea459c8f179812eaf3664bc4",
+  "verification": "Read every selected blob from this Git commit and compute SHA-256 against the frozen 409 source map. Check the workflow separately and require the deleted filter to be absent.",
+  "workflow_sha256": "5793c29572b11287f666b8cfc6f39212920386d69a82725e5f8d1a61e11c0cee"
+}

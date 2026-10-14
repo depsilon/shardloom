@@ -5,8 +5,9 @@ including independent packet inspection and the refreshed local installed-wheel
 proof. The complete public regression and retained Full43 correctness evidence
 remain accepted as recorded below. All four
 [query revisit experiments](native-query-revisit-2026-10-12.md) are now decided;
-their final cumulative and installed-package checks pass; hosted CI acceptance
-remains pending. The subsequent [Null-schema review correction](native-query-revisit-2026-10-12.md#pr-review-correction)
+their final cumulative and installed-package checks pass. Hosted CI acceptance
+is complete in PRs #1545/#1547, with a [separate receipt](evidence/native-encoded-hosted-2026-10-14.json).
+The subsequent [Null-schema review correction](native-query-revisit-2026-10-12.md#pr-review-correction)
 passes its fresh local native, package and complete Full43 checks; its separate
 packet preserves earlier measured artifacts and failures. This
 report does not declare the broader acceptance effort complete.
@@ -280,8 +281,26 @@ and IPC values, frozen references and drivers, provider fixtures, original
 failures and build/process receipts. Complete public regression has its own
 independently inspected portable packet. No executable, installed environment or
 large ClickBench dataset is bundled. Local encoded transfer/IPC, packet
-inspection and installed-wheel evidence are closed for this acceptance unit;
-hosted CI remains pending. The four-candidate query campaign has three retained
+inspection and installed-wheel evidence are closed for this acceptance unit.
+Hosted CI also passes, as recorded below. The four-candidate query campaign has three retained
 candidates and one drop, with passing final cumulative native/Full43/package
 acceptance recorded separately in its report. The broader optimization queue
 retains its existing owners and is not closed by these finite local receipts.
+
+## Hosted integration
+
+The [hosted receipt](evidence/native-encoded-hosted-2026-10-14.json) closes the
+previous pending status without changing the historical acceptance packets.
+PR #1545 merges at `3089c8aa` after all 43 checks pass; PR #1547 merges at
+`ed253d1e` after all 44 pass. Source comparison binds all 2,219 accepted files
+with the RunEnd correction to the first merge and all 2,221 files to the second
+reviewed head. Its seven intervening harness changes exactly match PR #1546.
+
+For each PR, Ubuntu Python 3.10/3.13 and macOS Python 3.13 independently pass
+all 80 installed native tests with no failures, errors or skips. The native
+jobs explicitly pass physical Null ownership, RunEnd corruption and complete
+encoded transfer regressions. All 37 archived evidence members are independently
+reopened and hashed. Raw review comments remain preserved; this records no
+GitHub approval, thread resolution, new production-site observation or package
+publication. The subsequent sparse-selection owner finding has its own
+[resource acceptance unit](native-selection-resources-2026-10-13.md).

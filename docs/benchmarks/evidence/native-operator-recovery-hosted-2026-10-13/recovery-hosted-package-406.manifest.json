@@ -1,0 +1,142 @@
+{
+  "archive": {
+    "bytes": 83640,
+    "members": 26,
+    "path": "recovery-hosted-package-406.tar.xz",
+    "sha256": "67f558735ebad22e5557d5c0506b8bd1880cb508ddf31a688ce882c45b6bb3c0",
+    "uncompressed_bytes": 881245
+  },
+  "members": [
+    {
+      "bytes": 9076,
+      "path": "packaging/package_recovery_hosted_406.py",
+      "sha256": "63602bef3f7991dfd2cbe25a74dac0ea9cfb9dcab192d000956eb92441961c85"
+    },
+    {
+      "bytes": 5293,
+      "path": "primary-helpers/capture_recovery_ci_406.py",
+      "sha256": "7446af7bddf8f20b2893d67076cb4a4ba5b4d81ec39424d9ba3d52de1515741b"
+    },
+    {
+      "bytes": 4673,
+      "path": "primary-helpers/check_recovery_production_406.py",
+      "sha256": "6da6a2dc7dac077b86690425a9230a8f95e5fefccab0edb0530ef1d5f9aaa218"
+    },
+    {
+      "bytes": 155931,
+      "path": "recovery-ci-406/checks.json",
+      "sha256": "5cfa42c10335d58a82d1915113d8f44d9fb9289bcb5e744be5c8caac6966fb61"
+    },
+    {
+      "bytes": 9738,
+      "path": "recovery-ci-406/comments.json",
+      "sha256": "0c4e7dd83a26d95d7cd97532406bb19bb3e6ee4840930af5370f7ecf7ba6af0b"
+    },
+    {
+      "bytes": 2,
+      "path": "recovery-ci-406/inline_comments.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "bytes": 21980,
+      "path": "recovery-ci-406/pr.json",
+      "sha256": "b51f54b847a22da2b87b08b60cf23b62bff0537d997b424b13847d7a9a8ca2bc"
+    },
+    {
+      "bytes": 2,
+      "path": "recovery-ci-406/reviews.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "bytes": 4507,
+      "path": "recovery-ci-406/statuses.json",
+      "sha256": "bde45905aa10b572e781fd67b68de2c88e1c352754e8e2e7a34699988c66bc09"
+    },
+    {
+      "bytes": 1254,
+      "path": "recovery-ci-406/summary.json",
+      "sha256": "81728b0a76c3aefdf429ccf69ebd10322e85f9bf291479007c378cc75937a9ea"
+    },
+    {
+      "bytes": 48089,
+      "path": "recovery-production-406/field-guide_limitations_index.html",
+      "sha256": "221d19316d291e6034b848c2730cc11445ae9dc4d0885f7314192c36846c2ccd"
+    },
+    {
+      "bytes": 63361,
+      "path": "recovery-production-406/field-guide_python-surface_index.html",
+      "sha256": "dedc245c2089fb2335b5253f6f0d5d47bb4fbe10015d5695d58b7e8baa0652e9"
+    },
+    {
+      "bytes": 59292,
+      "path": "recovery-production-406/field-guide_runtime-and-io_index.html",
+      "sha256": "1b4376b352f6c9ca848e29cb8d75254978d2b33e8f30247884408083bbbbcc65"
+    },
+    {
+      "bytes": 117472,
+      "path": "recovery-production-406/merged-checks.json",
+      "sha256": "6290b56a9973319f1809cfa952d60fcf16d278e59d997cab0f44f3809731e42b"
+    },
+    {
+      "bytes": 22942,
+      "path": "recovery-production-406/merged-pr.json",
+      "sha256": "23bbbbce209f01b646e353c9ec710dc29edfdbba3ca725efbf2c9a6b0b3435c8"
+    },
+    {
+      "bytes": 171,
+      "path": "recovery-production-406/pagefind_pagefind-entry.json",
+      "sha256": "28c665ad7bf8143c29c9fe33a198632faa1b370aefee8ce9472dd9678793c8d5"
+    },
+    {
+      "bytes": 3859,
+      "path": "recovery-production-406/report.json",
+      "sha256": "981b5e0cda33aaf5b07e9c3e3d64307a8433517540bbaffe24f5dcc51bf2c5bf"
+    },
+    {
+      "bytes": 41781,
+      "path": "recovery-wheel-hosted-406/ci.yml",
+      "sha256": "d34cf2be6a13804f3b1821ad5f6f5f00019c554e0406db8ce918af5b484fe71c"
+    },
+    {
+      "bytes": 5509,
+      "path": "recovery-wheel-hosted-406/index.json",
+      "sha256": "b21f05da479315a610dd48a4732d75e5633375219c5d941bcc76731b5f7dc611"
+    },
+    {
+      "bytes": 1830,
+      "path": "recovery-wheel-hosted-406/job-metadata.json",
+      "sha256": "f1f08b9b7201868a21527eb5a056121927e7773256f0e27b04d34cfb00400f1d"
+    },
+    {
+      "bytes": 84874,
+      "path": "recovery-wheel-hosted-406/macos-py313.log",
+      "sha256": "6ee6985ba53509d3a0d17c5da6be6c9f44cb4441ed0b4b2490ac5acaffc1becd"
+    },
+    {
+      "bytes": 7642,
+      "path": "recovery-wheel-hosted-406/prove_native_python_wheel.py",
+      "sha256": "4eb3b25bf1e51e1d91a2a7629a1f55bf8cf9f90f52c118f26c1a4e32bea14bd2"
+    },
+    {
+      "bytes": 83199,
+      "path": "recovery-wheel-hosted-406/ubuntu-py310.log",
+      "sha256": "d555bb62851f00f4a445f020eccf7abbc6a60b05da6088d6d0c187374c7b7996"
+    },
+    {
+      "bytes": 83642,
+      "path": "recovery-wheel-hosted-406/ubuntu-py313.log",
+      "sha256": "12aa8a8120b7f113e79b5d7f735ec3168891687669f66a46c0b22b406c9d1213"
+    },
+    {
+      "bytes": 2365,
+      "path": "repo-evidence/native-operator-recovery-2026-10-13.json",
+      "sha256": "189027264db3543f9c6859f2b33ede3fb80acaefb20be0fac98af0009371175c"
+    },
+    {
+      "bytes": 42761,
+      "path": "repo-evidence/native-operator-recovery-2026-10-13.provenance.json",
+      "sha256": "8f0f3ce166bf00df1a1fe881589306295011962afc76e03f8d7ad9935cf47f77"
+    }
+  ],
+  "schema_version": "shardloom.operator_recovery_hosted_archive.v1"
+}

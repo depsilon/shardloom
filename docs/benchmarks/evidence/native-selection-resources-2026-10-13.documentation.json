@@ -1,0 +1,1908 @@
+{
+  "guard": {
+    "cleanup_grace_seconds_per_signal": 3.0,
+    "command": [
+      "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "-B",
+      "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/finish_selection_docs_411.py"
+    ],
+    "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+    "direct_child_reaped": true,
+    "environment": {
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target"
+    },
+    "group_absence_unproved_at_cleanup": false,
+    "head": "528aa23ed7f09442b664bc07ca44b5c48a8d5c0f",
+    "interrupted_signal": null,
+    "log_sha256": "fe532fc28eda051209c7a72f0edfd1b1cfb8b06b2deef0046c13681f9266aea8",
+    "output_bytes": 2386,
+    "output_limit_bytes": 8388608,
+    "pid": 38698,
+    "process_group_drained": true,
+    "returncode": 0,
+    "seconds": 1.060323374986183,
+    "status": "passed",
+    "storage_last_observation": {
+      "cargo": {
+        "free_bytes": 66291974144,
+        "log_bytes": 0,
+        "max_log_bytes": 201326592,
+        "reserved_candidate_bytes": 134217728,
+        "reserved_log_bytes": 0,
+        "workspace_bytes": 21384646656
+      },
+      "output": {
+        "free_bytes": 66291978240,
+        "log_bytes": 12480512,
+        "max_log_bytes": 201326592,
+        "reserved_candidate_bytes": 134217728,
+        "reserved_log_bytes": 0,
+        "workspace_bytes": 27790168870
+      }
+    },
+    "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+    "timed_out": false,
+    "timeout_seconds": 600.0,
+    "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-encoded-interchange-2026-10-12.md\n M docs/architecture/native-local-completion-scope-2026-10-07.md\n M docs/architecture/native-operator-recovery-2026-10-13.md\n M docs/architecture/phased-execution-completed-ledger.md\n M docs/architecture/phased-execution-plan.md\n M docs/architecture/v1-local-resource-safety.md\n M docs/benchmarks/evidence/native-operator-recovery-2026-10-13.json\n M docs/benchmarks/native-encoded-interchange-2026-10-12.md\n M docs/benchmarks/native-operator-recovery-2026-10-13.md\n M docs/benchmarks/native-query-revisit-2026-10-12.md\n M docs/dependencies/vortex-upstream-review.md\n M docs/release/v1-inclusion-scope-matrix.md\n M python/THIRD_PARTY_LICENSES/manifest.json\n M shardloom-vortex/src/local_primitives.rs\n M shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs\n M shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs\n M shardloom-vortex/src/local_primitives/scalar_distinct_workers.rs\n M shardloom-vortex/src/local_primitives/utf8_dictionary_ownership_tests.rs\n M shardloom-vortex/src/native_provider_memory.rs\n M shardloom-vortex/src/native_provider_zstd_filter_tests.rs\n M vendor/vortex-zstd/src/array.rs\n M vendor/vortex-zstd/src/decoder_workspace.rs\n D vendor/vortex-zstd/src/filter.rs\n M vendor/vortex-zstd/src/lib.rs\n M vendor/vortex-zstd/src/rules.rs\n M vendor/vortex-zstd/upstream-provenance.json\n?? docs/architecture/native-selection-resources-2026-10-13.md\n?? docs/benchmarks/evidence/native-encoded-hosted-2026-10-14.json\n?? docs/benchmarks/evidence/native-encoded-hosted-2026-10-14.manifest.json\n?? docs/benchmarks/evidence/native-encoded-hosted-2026-10-14.tar.xz\n?? docs/benchmarks/evidence/native-encoded-hosted-2026-10-14.verification.json\n?? docs/benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/\n?? docs/benchmarks/evidence/native-selection-resources-2026-10-13.json\n?? docs/benchmarks/evidence/native-selection-resources-2026-10-13.manifest.json.xz\n?? docs/benchmarks/evidence/native-selection-resources-2026-10-13.primary.json\n?? docs/benchmarks/evidence/native-selection-resources-2026-10-13.tar.xz\n?? docs/benchmarks/evidence/native-selection-resources-2026-10-13.verification.json\n?? docs/benchmarks/native-selection-resources-2026-10-13.md\n?? shardloom-vortex/src/local_primitives/aggregate_utf8_context_tests.rs\n?? shardloom-vortex/src/native_provider_zstd_filter.rs\n"
+  },
+  "logs": {
+    "ci-gate-matrix.log": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/selection-documentation-411b/ci-gate-matrix.json\n",
+    "contribution-governance.log": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/selection-documentation-411b/contribution-governance.json\n",
+    "diff-check.log": "",
+    "public-status.log": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/selection-documentation-411b/public-status.json\n",
+    "use-case-backlinks.log": "use-case backlinks ok\n",
+    "user-surface.log": "{\n  \"blockers\": [],\n  \"checked_files\": [\n    \"docs/reference/shardloom-user-surface-index.md\",\n    \"docs/reference/shardloom-user-surface-index.json\",\n    \"shardloom-cli/src/command_registry.rs\",\n    \"README.md\",\n    \"python/README.md\",\n    \"docs/architecture/agent-contract-pack.md\",\n    \"docs/architecture/v1-front-door-runtime-scope.md\",\n    \"docs/skills/developer-agent-experience.md\"\n  ],\n  \"external_engine_invoked\": false,\n  \"fallback_attempted\": false,\n  \"registered_command_count\": 203,\n  \"schema_version\": \"shardloom.user_surface_index_gate.v1\",\n  \"status\": \"passed\"\n}\n"
+  },
+  "schema_version": "shardloom.native_selection_documentation.v1",
+  "status": "passed",
+  "summary": {
+    "checks": [
+      {
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "scripts/check_user_surface_reference.py"
+        ],
+        "log": "user-surface.log",
+        "log_sha256": "ede6c855e3a0afe431cbb7e52a1d81394321a74317b12787e509ee4c245fa90e",
+        "name": "user-surface",
+        "returncode": 0,
+        "seconds": 0.047810500022023916
+      },
+      {
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "scripts/check_public_status_docs.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/selection-documentation-411b/public-status.json"
+        ],
+        "log": "public-status.log",
+        "log_sha256": "420bbb61fd619267901c88fffc3033a7de93ae09aec18041087c9250a339a332",
+        "name": "public-status",
+        "returncode": 0,
+        "seconds": 0.20448316604597494
+      },
+      {
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "scripts/check_use_case_backlinks.py"
+        ],
+        "log": "use-case-backlinks.log",
+        "log_sha256": "a50d9d2259f01abfa511d86b4f36a42d25d7798ba209b5b76e5fa1ea15a71a66",
+        "name": "use-case-backlinks",
+        "returncode": 0,
+        "seconds": 0.08916600001975894
+      },
+      {
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "scripts/check_contribution_governance.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/selection-documentation-411b/contribution-governance.json"
+        ],
+        "log": "contribution-governance.log",
+        "log_sha256": "0ff29cb5f2f60401b5a04cb84c5779d06b841cc6a8b816e4769fa593050864a6",
+        "name": "contribution-governance",
+        "returncode": 0,
+        "seconds": 0.023557665990665555
+      },
+      {
+        "command": [
+          "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+          "-B",
+          "scripts/check_ci_gate_matrix.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/selection-documentation-411b/ci-gate-matrix.json"
+        ],
+        "log": "ci-gate-matrix.log",
+        "log_sha256": "839b18351ff87f4ec2674012d1d01f9ee8c1325a23b183605e6faa42b95015e8",
+        "name": "ci-gate-matrix",
+        "returncode": 0,
+        "seconds": 0.0414142080117017
+      },
+      {
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "log": "diff-check.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "name": "diff-check",
+        "returncode": 0,
+        "seconds": 0.08104241703404114
+      }
+    ],
+    "document_sha256": {
+      "docs/architecture/native-encoded-interchange-2026-10-12.md": "883e7c6460c3eaa4af244cf6f6155a4001afd96ac11921c60e7ee325b86d6c4f",
+      "docs/architecture/native-local-completion-scope-2026-10-07.md": "96e7256af948fafbd23900c611b90c2d1fe4e5136d59519880ba062c6dd0f07a",
+      "docs/architecture/native-operator-recovery-2026-10-13.md": "8a25c53c6dbe1aae5d349c75b357ed2ffa78d6117761b0ff565c17e9ec5f1ec9",
+      "docs/architecture/native-selection-resources-2026-10-13.md": "2b9ed33b33656c30e0246554a9786a90475df1db06c91d252b9daed1eeb85319",
+      "docs/architecture/phased-execution-completed-ledger.md": "c48eb0418db86ecaf3c053a95a0534980e384222bebedd97ab541e5bf2fd6b23",
+      "docs/architecture/phased-execution-plan.md": "3093a7207a5b3dbfdaa541c0300413a3ea57f5f5d5cbf86d515011ae432b1013",
+      "docs/architecture/v1-local-resource-safety.md": "643aebf06355b7fc7c856c5407dbc9a6c8d81a20cc1dca25009102a97795b7f2",
+      "docs/benchmarks/native-encoded-interchange-2026-10-12.md": "4187e8b679e9f4500398e16883d76c667f8ee084ff91649a3a003f6fe8405e2e",
+      "docs/benchmarks/native-operator-recovery-2026-10-13.md": "b673d5d74a22137f84d38ab484bb1da86a21898464fa0cbbf479ca00ab776f56",
+      "docs/benchmarks/native-query-revisit-2026-10-12.md": "67fe9dee6563435af2654144737d83a76033d41fd840a8e5a3dbc917e652b080",
+      "docs/benchmarks/native-selection-resources-2026-10-13.md": "bcc495b0ed022d94c0f2ce779b46847b73ca9cf6ffe6eae0ca632feba6d4f7ad",
+      "docs/dependencies/vortex-upstream-review.md": "cf52ddae6dbaaa73781f5c5ca92f22f548c647a879b59b1c6b0ddd80ba75d78c",
+      "docs/release/v1-inclusion-scope-matrix.md": "f2c83cc7006a7ddc5894f1887a60d1f3b36fc1986f59f1ece956e622f841fbea"
+    },
+    "helper_sha256": "a61faddde43b07fe0aa51ceaf7122f606785d0f7059b138d9b58314a411b95f8",
+    "helper_source": "\"\"\"Validate the final selection/hosted acceptance docs without rerunning native suites.\"\"\"\nimport hashlib\nimport json\nfrom pathlib import Path\nimport re\nimport subprocess\nimport sys\nimport time\n\nfrom freeze_native_release_298 import ROOT, OUT, sources\n\nD = OUT / 'selection-documentation-411b'\nD.mkdir()\nfrozen = json.loads((OUT / 'selection-check-source-409.json').read_text())\nassert sources() == frozen['source_sha256']\n\n\ndef sha(path):\n    return hashlib.sha256(Path(path).read_bytes()).hexdigest()\n\n\nassert sha(ROOT / '.github/workflows/ci.yml') == frozen['workflow_sha256']\ncommands = [\n    ('user-surface', [sys.executable, '-B', 'scripts/check_user_surface_reference.py']),\n    ('public-status', [sys.executable, '-B', 'scripts/check_public_status_docs.py', '--output', str(D / 'public-status.json')]),\n    ('use-case-backlinks', [sys.executable, '-B', 'scripts/check_use_case_backlinks.py']),\n    ('contribution-governance', [sys.executable, '-B', 'scripts/check_contribution_governance.py', '--output', str(D / 'contribution-governance.json')]),\n    ('ci-gate-matrix', [sys.executable, '-B', 'scripts/check_ci_gate_matrix.py', '--output', str(D / 'ci-gate-matrix.json')]),\n    ('diff-check', ['git', 'diff', '--check']),\n]\ncompleted = []\nfor name, command in commands:\n    path = D / f'{name}.log'\n    start = time.monotonic()\n    with path.open('xb') as f:\n        result = subprocess.run(command, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT, timeout=180)\n    row = dict(name=name, command=command, returncode=result.returncode,\n               seconds=time.monotonic()-start, log=path.name, log_sha256=sha(path))\n    completed.append(row)\n    print(json.dumps(row), flush=True)\n    result.check_returncode()\n\nchanged = subprocess.check_output(['git', 'diff', '--name-only'], cwd=ROOT, text=True).splitlines()\nadded = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=ROOT, text=True).splitlines()\ndocuments = sorted(name for name in set(changed + added) if name.endswith('.md'))\nlinks = []\nfor name in documents:\n    path = ROOT / name\n    for target in re.findall(r'(?<!!)\\[[^\\]]*\\]\\(([^\\s)]+)\\)', path.read_text()):\n        if target.startswith(('https:', 'http:', 'mailto:', '#')):\n            continue\n        local = target.split('#', 1)[0]\n        destination = (path.parent / local).resolve()\n        assert destination.exists(), (name, target)\n        links.append(dict(document=name, target=target))\nassert sources() == frozen['source_sha256']\nassert sha(ROOT / '.github/workflows/ci.yml') == frozen['workflow_sha256']\nsummary = dict(status='passed', checks=completed, local_links=links,\n    document_sha256={name:sha(ROOT / name) for name in documents},\n    selected_sources_unchanged=2241, workflow_sha256=frozen['workflow_sha256'],\n    helper_sha256=sha(__file__), helper_source=Path(__file__).read_text(),\n    original_argument_failure={name:dict(sha256=sha(OUT / name), contents=(OUT / name).read_text())\n        for name in ('selection-documentation411.json', 'selection-documentation411.log',\n                     'selection-documentation-411/user-surface.log',\n                     'finish_selection_docs_411_before_argument_fix.py')},\n    limitations=['No website source changed; this is document/link validation, not a new rendered website observation.',\n                 'Native gates are reused only for the exact unchanged accepted source set.'])\n(D / 'summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True)+'\\n')\nprint(json.dumps(dict(status='passed', checks=len(completed), documents=len(documents), links=len(links))))\n",
+    "limitations": [
+      "No website source changed; this is document/link validation, not a new rendered website observation.",
+      "Native gates are reused only for the exact unchanged accepted source set."
+    ],
+    "local_links": [
+      {
+        "document": "docs/architecture/native-encoded-interchange-2026-10-12.md",
+        "target": "../benchmarks/native-encoded-interchange-2026-10-12.md"
+      },
+      {
+        "document": "docs/architecture/native-encoded-interchange-2026-10-12.md",
+        "target": "../benchmarks/native-query-revisit-2026-10-12.md"
+      },
+      {
+        "document": "docs/architecture/native-encoded-interchange-2026-10-12.md",
+        "target": "../benchmarks/evidence/native-encoded-hosted-2026-10-14.json"
+      },
+      {
+        "document": "docs/architecture/native-encoded-interchange-2026-10-12.md",
+        "target": "../benchmarks/native-query-revisit-2026-10-12.md#pr-review-correction"
+      },
+      {
+        "document": "docs/architecture/native-encoded-interchange-2026-10-12.md",
+        "target": "../../shardloom-vortex/tests/fixtures/independent-vortex-0.85/README.md"
+      },
+      {
+        "document": "docs/architecture/native-encoded-interchange-2026-10-12.md",
+        "target": "native-typed-input-2026-10-10.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "phased-execution-plan.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/evidence/native-fsst-hosted-2026-10-07.json"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/evidence/native-stateful-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/native-join-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/evidence/native-join-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "native-window-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/native-window-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/evidence/native-window-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "native-pivot-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/evidence/native-pivot-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/native-input-growth-2026-10-09.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/evidence/native-input-growth-hosted-2026-10-09.json"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/native-typed-input-2026-10-10.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/evidence/native-typed-input-hosted-2026-10-10.json"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "required-execution-resources-2026-10-10.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "native-python-surface-2026-10-10.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/evidence/native-python-surface-hosted-2026-10-11.json"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "native-persisted-reuse-2026-10-11.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/evidence/native-encoded-hosted-2026-10-14.json"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "native-stream-input-composition-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "native-operator-recovery-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../release/production-certification-gate.md#local-engine-preview-exit-criteria"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/evidence/native-rematerialization-owners-2026-10-07.json"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "native-state-structure-campaign-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "native-conditional-work-campaign-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../benchmarks/release-candidate-fresh-uat-2026-10-09.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../release/v0.5.0-channel-interruption.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../release/v0.5.1-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+        "target": "../release/channel-proofs/website-v0.5.1-deployment.json"
+      },
+      {
+        "document": "docs/architecture/native-operator-recovery-2026-10-13.md",
+        "target": "../benchmarks/native-operator-recovery-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/native-operator-recovery-2026-10-13.md",
+        "target": "../benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/index.json"
+      },
+      {
+        "document": "docs/architecture/native-selection-resources-2026-10-13.md",
+        "target": "../benchmarks/native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-encoded-interchange-2026-10-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-query-revisit-2026-10-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-encoded-hosted-2026-10-14.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-operator-recovery-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/index.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-fresh-uat-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-stream-input-composition-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-stream-composition-hosted-2026-10-13.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-persisted-reuse-2026-10-11.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-persisted-hosted-2026-10-12.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-timestamp-provider-2026-10-11.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-timestamp-hosted-2026-10-11.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "local-artifact-cleanup-2026-10-11.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/required-execution-resources-2026-10-10.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-python-surface-2026-10-11.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-python-surface-hosted-2026-10-11.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-typed-input-2026-10-10.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-typed-input-hosted-2026-10-10.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-input-growth-2026-10-09.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-input-growth-hosted-2026-10-09.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/release-candidate-fresh-uat-2026-10-09.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/v0.5.0-channel-interruption.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/v0.5.1-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/channel-proofs/website-v0.5.1-deployment.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-pivot-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-pivot-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-pivot-test-diagnostics-2026-10-09.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-pivot-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-window-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-window-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-window-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-join-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-join-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-join-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-aggregate-pressure-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-streamed-ordering-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-stateful-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-input-completion-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-fsst-admission-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-fsst-hosted-2026-10-07.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-rematerialization-owners-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-join-membership-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-adaptive-decimal-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-builder-resources-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-builder-resources-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-builder-hosted-2026-10-07.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-zstd-workspaces-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-codec-workspaces-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-codec-hosted-2026-10-07.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-engine-acceptance-2026-10-06.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-engine-hosted-2026-10-07.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-nested-pivot-state-2026-10-06.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-nested-pivot-state-full43-2026-10-06.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-nested-pivot-state-hosted-2026-10-06.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-scalar-subqueries-2026-10-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-scalar-subqueries-full43-2026-10-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-scalar-subqueries-hosted-2026-10-06.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/v0.4.0-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/release-candidate-fresh-uat-2026-10-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-typed-reductions-2026-10-04.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-typed-reductions-full43-2026-10-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-analytic-frames-2026-10-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-analytic-frames-full43-2026-10-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-nested-composition-2026-10-02.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-nested-review-full43-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-dynamic-pivot-composition-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-dynamic-pivot-full43-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-report-integrity-full43-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-typed-payloads-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-typed-payloads-full43-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-typed-keys-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-typed-keys-full43-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-typed-keys-2026-10-03.json.xz"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-typed-expressions-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-typed-expressions-full43-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-typed-unary-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-typed-unary-full43-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-typed-unary-2026-10-03.json.xz"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-nested-keys-state-2026-10-04.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/native-nested-keys-state-full43-2026-10-04.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/evidence/native-nested-keys-state-2026-10-04.json.xz"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../dependencies/rust-vortex-refresh-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-unary-composition-2026-10-02.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-aggregate-ordering-2026-10-02.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "adaptive-ingest-budget-2026-10-02.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-relational-resources-2026-10-02.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-relational-composition-2026-10-02.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-relational-workflows-2026-10-01.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-unary-workflows-2026-10-01.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/current-runtime-e2e-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "local-artifact-cleanup-2026-09-30.md#current-runtime-follow-up"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "performance-post033-intake-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/query-profile-post033-2026-09-30.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/v0.3.3-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/channel-proofs/website-v0.3.3-deployment.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "dictionary-preparation-screen-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "performance-profile-refresh-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "performance-candidate-intake-2026-09-26.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "local-artifact-cleanup-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "dense-string-count-screen-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "triple-sort-screen-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "progressive-provider-selection-audit-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "mixed-distinct-worker-screen-2026-09-29.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "winner-only-distinct-screen-2026-09-29.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "source-backed-dictionary-screen-2026-09-29.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/v0.3.2-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/channel-proofs/website-v0.3.2-deployment.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "public-io-route-repair-2026-09-27.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "plain-vortex-format-comparison-2026-09-27.md#handoff-retry-evidence"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/v0.3.1-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/channel-proofs/website-v0.3.1-deployment.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/v0.3.0-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-result-composition-2026-09-20.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "native-runtime-completion-2026-09-20.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "compound-group-storage-2026-09-20.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "source-order-candidate-filter-2026-09-20.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "q34-q35-reconciliation-screen-2026-09-20.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/q34-q35-reconciliation-screen-2026-09-20.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/full43-paired-investigation-2026-09-19.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "performance-ship-drop-2026-09-19.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "performance-pr-release-handoff-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/combined-performance-uat-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/v0.2.4-source-validation.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../release/v0.2.4-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/perf-drop-ship-2026-09-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/perf-drop-ship-2026-09-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/perf-drop-ship-2026-09-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "../benchmarks/perf-drop-ship-2026-09-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-completed-ledger.md",
+        "target": "performance-overhaul-implementation-2026-09-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/evidence/native-encoded-hosted-2026-10-14.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/evidence/native-persisted-hosted-2026-10-12.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../release/v0.5.1-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/evidence/native-window-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/evidence/native-join-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/evidence/native-stateful-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-local-completion-scope-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/evidence/native-fsst-hosted-2026-10-07.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-rematerialization-owners-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-conditional-work-campaign-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-adaptive-decimal-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-adaptive-decimal-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-join-membership-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../release/production-certification-gate.md#local-engine-preview-exit-criteria"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "universal-workflow-completion-2026-10-01.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-workflow-streaming-2026-10-01.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-unary-workflows-2026-10-01.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-relational-workflows-2026-10-01.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-relational-composition-2026-10-02.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-unary-composition-2026-10-02.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-profile-refresh-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../release/v0.3.3-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/current-runtime-e2e-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-post033-intake-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/query-profile-post033-2026-09-30.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "source-backed-dictionary-screen-2026-09-29.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "winner-only-distinct-screen-2026-09-29.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "mixed-distinct-worker-screen-2026-09-29.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../release/v0.3.2-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-candidate-intake-2026-09-26.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../dependencies/rust-vortex-refresh-2026-10-03.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md#recent-completed-session-ledger"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-candidate-intake-2026-09-26.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/full43-paired-investigation-2026-09-19.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-ship-drop-2026-09-19.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-domain-transfer-2026-09-19.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "q19-complete-key-partitions-2026-09-19.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "q33-exact-partition-reduction-2026-09-19.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "remaining-performance-admission-2026-09-19.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "q36-weighted-integer-partitions-2026-09-19.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "q29-utf8-dictionary-validation-2026-09-20.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "q34-q35-reconciliation-screen-2026-09-20.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "source-order-candidate-filter-2026-09-20.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "compound-group-storage-2026-09-20.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "runtime-hardening-cleanup-2026-09-19.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-pr-release-handoff-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/combined-performance-uat-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "phased-execution-completed-ledger.md#recent-completed-session-ledger"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/perf-drop-ship-2026-09-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-plan-exhaustion-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-control-progression-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-storage-reduction-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "perf-numeric-aggregation-2026-09-06.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-continuation-2026-09-06.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/perf-native-continuation-2026-09-06.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/retained-runtime-acceptance-2026-09-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/retained-ingest-owner4-2026-09-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "ingest-performance-implementation-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/ingest-stage-balance-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "execution-aware-native-artifact-topology-2026-09-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-topology-coalesced-2026-09-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-relational-workflows-2026-10-01.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-query-revisit-2026-10-12.md#october-13-filtered-count-follow-up"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-query-revisit-2026-10-12.md#october-13-sparse-zstd-filter-follow-up"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-query-revisit-2026-10-12.md#october-13-zstd-view-reconstruction-dropped"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-query-revisit-2026-10-12.md#final-october-13-retained-source-acceptance"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-input-growth-2026-10-09.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-join-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-window-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-pivot-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-workflow-streaming-2026-10-01.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "universal-workflow-completion-2026-10-01.md#workflow-acceptance-matrix"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/perf-text-layout-pruning-2026-09-05.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/native-stream-input-composition-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "universal-workflow-completion-2026-10-01.md#workflow-acceptance-matrix"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-control-progression-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-state-structure-campaign-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-local-completion-scope-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../release/v0.5.1-publication-verification.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-persisted-reuse-2026-10-11.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "native-conditional-work-campaign-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "universal-workflow-completion-2026-10-01.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-quiet-intake-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/quiet-runtime-results-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/current-runtime-e2e-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-post033-intake-2026-09-30.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "../benchmarks/query-profile-post033-2026-09-30.json"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-candidate-intake-2026-09-26.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "local-development-storage.md#current-runtime-observation-procedure"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "performance-control-progression-2026-09-12.md"
+      },
+      {
+        "document": "docs/architecture/phased-execution-plan.md",
+        "target": "local-development-storage.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "native-relational-resources-2026-10-02.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "native-provider-resources-2026-10-06.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "native-bounded-adapters-2026-10-06.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "native-zstd-workspaces-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "../benchmarks/native-codec-workspaces-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "native-builder-resources-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "../benchmarks/native-builder-resources-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "native-input-completion-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "../benchmarks/native-fsst-admission-2026-10-07.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "native-window-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "../benchmarks/native-window-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "../benchmarks/evidence/native-window-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "native-pivot-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "../benchmarks/native-pivot-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "../benchmarks/evidence/native-pivot-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "native-stream-input-composition-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "native-operator-recovery-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "../benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/index.json"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "../benchmarks/native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/architecture/v1-local-resource-safety.md",
+        "target": "../release/production-certification-gate.md#local-engine-preview-exit-criteria"
+      },
+      {
+        "document": "docs/benchmarks/native-encoded-interchange-2026-10-12.md",
+        "target": "native-query-revisit-2026-10-12.md"
+      },
+      {
+        "document": "docs/benchmarks/native-encoded-interchange-2026-10-12.md",
+        "target": "evidence/native-encoded-hosted-2026-10-14.json"
+      },
+      {
+        "document": "docs/benchmarks/native-encoded-interchange-2026-10-12.md",
+        "target": "native-query-revisit-2026-10-12.md#pr-review-correction"
+      },
+      {
+        "document": "docs/benchmarks/native-encoded-interchange-2026-10-12.md",
+        "target": "../architecture/native-encoded-interchange-2026-10-12.md"
+      },
+      {
+        "document": "docs/benchmarks/native-encoded-interchange-2026-10-12.md",
+        "target": "evidence/native-encoded-query-2026-10-13.json"
+      },
+      {
+        "document": "docs/benchmarks/native-encoded-interchange-2026-10-12.md",
+        "target": "evidence/native-encoded-hosted-2026-10-14.json"
+      },
+      {
+        "document": "docs/benchmarks/native-encoded-interchange-2026-10-12.md",
+        "target": "native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/benchmarks/native-operator-recovery-2026-10-13.md",
+        "target": "../architecture/native-operator-recovery-2026-10-13.md"
+      },
+      {
+        "document": "docs/benchmarks/native-operator-recovery-2026-10-13.md",
+        "target": "native-stream-input-composition-2026-10-13.md"
+      },
+      {
+        "document": "docs/benchmarks/native-operator-recovery-2026-10-13.md",
+        "target": "evidence/native-operator-recovery-2026-10-13.json"
+      },
+      {
+        "document": "docs/benchmarks/native-operator-recovery-2026-10-13.md",
+        "target": "evidence/native-operator-recovery-hosted-2026-10-13/index.json"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-encoded-hosted-2026-10-14.json"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "native-encoded-interchange-2026-10-12.md"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-encoded-query-2026-10-13.json"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-encoded-review-2026-10-13.json"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-encoded-review-2026-10-13.tar.xz"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-encoded-hosted-2026-10-14.json"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-encoded-ipc-admission-2026-10-13.json.xz"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-encoded-interchange-source-2026-10-12.tar.xz"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-encoded-interchange-public-2026-10-12.json.xz"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-query-revisit-2026-10-12.tar.xz"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-encoded-hosted-2026-10-14.json"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-filtered-count-2026-10-13.json.xz"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-zstd-filter-2026-10-13.json.xz"
+      },
+      {
+        "document": "docs/benchmarks/native-query-revisit-2026-10-12.md",
+        "target": "evidence/native-zstd-views-2026-10-13.json.xz"
+      },
+      {
+        "document": "docs/benchmarks/native-selection-resources-2026-10-13.md",
+        "target": "../architecture/native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/benchmarks/native-selection-resources-2026-10-13.md",
+        "target": "evidence/native-selection-resources-2026-10-13.json"
+      },
+      {
+        "document": "docs/benchmarks/native-selection-resources-2026-10-13.md",
+        "target": "evidence/native-selection-resources-2026-10-13.tar.xz"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../architecture/native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../benchmarks/native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../../vendor/vortex-zstd/upstream-provenance.json"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../benchmarks/native-query-revisit-2026-10-12.md#october-13-sparse-zstd-filter-follow-up"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../architecture/native-encoded-interchange-2026-10-12.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../architecture/native-persisted-reuse-2026-10-11.md#bounded-provider-decision"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../benchmarks/native-persisted-reuse-2026-10-11.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../architecture/native-timestamp-provider-2026-10-11.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../benchmarks/native-fsst-admission-2026-10-07.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../../vendor/vortex-zstd/upstream-provenance.json"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../architecture/native-builder-resources-2026-10-07.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../benchmarks/native-builder-resources-2026-10-07.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../architecture/native-zstd-workspaces-2026-10-07.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../benchmarks/native-codec-workspaces-2026-10-07.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../architecture/native-provider-resources-2026-10-06.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../../vendor/vortex-zstd/upstream-provenance.json"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "rust-vortex-refresh-2026-10-03.md"
+      },
+      {
+        "document": "docs/dependencies/vortex-upstream-review.md",
+        "target": "../architecture/vortex-086-upgrade-admission-2026-09-27.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-selection-resources-2026-10-13.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-operator-recovery-2026-10-13.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-operator-recovery-2026-10-13.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/index.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-stream-input-composition-2026-10-13.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-stream-input-composition-2026-10-13.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-stream-composition-hosted-2026-10-13.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-encoded-hosted-2026-10-14.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-encoded-interchange-2026-10-12.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-encoded-interchange-2026-10-12.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-query-revisit-2026-10-12.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-timestamp-provider-2026-10-11.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-timestamp-hosted-2026-10-11.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-persisted-reuse-2026-10-11.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-persisted-hosted-2026-10-12.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-typed-input-2026-10-10.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-typed-input-hosted-2026-10-10.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/required-execution-resources-2026-10-10.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/required-execution-resources-2026-10-10.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-python-surface-hosted-2026-10-11.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-python-surface-2026-10-10.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-python-surface-2026-10-11.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-python-surface-hosted-2026-10-11.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-input-growth-2026-10-09.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-input-growth-hosted-2026-10-09.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-pivot-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-pivot-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/release-candidate-fresh-uat-2026-10-09.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "v0.5.1-publication-verification.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "channel-proofs/website-v0.5.1-deployment.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "v0.5.0-channel-interruption.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-window-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-window-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-window-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-join-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-join-pressure-2026-10-08.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-join-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-aggregate-pressure-2026-10-07.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-stateful-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-streamed-ordering-2026-10-07.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-stateful-hosted-2026-10-08.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-input-completion-2026-10-07.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-fsst-admission-2026-10-07.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-fsst-hosted-2026-10-07.json"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-builder-resources-2026-10-07.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-builder-resources-2026-10-07.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-zstd-workspaces-2026-10-07.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-codec-workspaces-2026-10-07.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-provider-resources-2026-10-06.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-bounded-adapters-2026-10-06.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-engine-acceptance-2026-10-06.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-nested-pivot-state-2026-10-06.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-nested-pivot-state-full43-2026-10-06.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-scalar-subqueries-2026-10-05.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-scalar-subqueries-full43-2026-10-05.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-analytic-frames-2026-10-05.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-analytic-frames-full43-2026-10-05.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "v0.4.0-publication-verification.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-typed-reductions-2026-10-04.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-typed-reductions-full43-2026-10-05.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-nested-keys-state-full43-2026-10-04.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-typed-unary-full43-2026-10-03.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-typed-expressions-full43-2026-10-03.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-typed-payloads-2026-10-03.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-typed-keys-full43-2026-10-03.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/evidence/native-typed-keys-2026-10-03.json.xz"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-dynamic-pivot-composition-2026-10-03.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/native-nested-composition-2026-10-02.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../benchmarks/native-engine-acceptance-2026-10-06.md"
+      },
+      {
+        "document": "docs/release/v1-inclusion-scope-matrix.md",
+        "target": "../architecture/phased-execution-completed-ledger.md"
+      }
+    ],
+    "original_argument_failure": {
+      "finish_selection_docs_411_before_argument_fix.py": {
+        "contents": "\"\"\"Validate the final selection/hosted acceptance docs without rerunning native suites.\"\"\"\nimport hashlib\nimport json\nfrom pathlib import Path\nimport re\nimport subprocess\nimport sys\nimport time\n\nfrom freeze_native_release_298 import ROOT, OUT, sources\n\nD = OUT / 'selection-documentation-411'\nD.mkdir()\nfrozen = json.loads((OUT / 'selection-check-source-409.json').read_text())\nassert sources() == frozen['source_sha256']\n\n\ndef sha(path):\n    return hashlib.sha256(Path(path).read_bytes()).hexdigest()\n\n\nassert sha(ROOT / '.github/workflows/ci.yml') == frozen['workflow_sha256']\ncommands = [\n    ('user-surface', [sys.executable, '-B', 'scripts/check_user_surface_reference.py', '--output', str(D / 'user-surface.json')]),\n    ('public-status', [sys.executable, '-B', 'scripts/check_public_status_docs.py', '--output', str(D / 'public-status.json')]),\n    ('use-case-backlinks', [sys.executable, '-B', 'scripts/check_use_case_backlinks.py']),\n    ('contribution-governance', [sys.executable, '-B', 'scripts/check_contribution_governance.py', '--output', str(D / 'contribution-governance.json')]),\n    ('ci-gate-matrix', [sys.executable, '-B', 'scripts/check_ci_gate_matrix.py', '--output', str(D / 'ci-gate-matrix.json')]),\n    ('diff-check', ['git', 'diff', '--check']),\n]\ncompleted = []\nfor name, command in commands:\n    path = D / f'{name}.log'\n    start = time.monotonic()\n    with path.open('xb') as f:\n        result = subprocess.run(command, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT, timeout=180)\n    row = dict(name=name, command=command, returncode=result.returncode,\n               seconds=time.monotonic()-start, log=path.name, log_sha256=sha(path))\n    completed.append(row)\n    print(json.dumps(row), flush=True)\n    result.check_returncode()\n\nchanged = subprocess.check_output(['git', 'diff', '--name-only'], cwd=ROOT, text=True).splitlines()\nadded = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=ROOT, text=True).splitlines()\ndocuments = sorted(name for name in set(changed + added) if name.endswith('.md'))\nlinks = []\nfor name in documents:\n    path = ROOT / name\n    for target in re.findall(r'(?<!!)\\[[^\\]]*\\]\\(([^\\s)]+)\\)', path.read_text()):\n        if target.startswith(('https:', 'http:', 'mailto:', '#')):\n            continue\n        local = target.split('#', 1)[0]\n        destination = (path.parent / local).resolve()\n        assert destination.exists(), (name, target)\n        links.append(dict(document=name, target=target))\nassert sources() == frozen['source_sha256']\nassert sha(ROOT / '.github/workflows/ci.yml') == frozen['workflow_sha256']\nsummary = dict(status='passed', checks=completed, local_links=links,\n    document_sha256={name:sha(ROOT / name) for name in documents},\n    selected_sources_unchanged=2241, workflow_sha256=frozen['workflow_sha256'],\n    helper_sha256=sha(__file__), helper_source=Path(__file__).read_text(),\n    limitations=['No website source changed; this is document/link validation, not a new rendered website observation.',\n                 'Native gates are reused only for the exact unchanged accepted source set.'])\n(D / 'summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True)+'\\n')\nprint(json.dumps(dict(status='passed', checks=len(completed), documents=len(documents), links=len(links))))\n",
+        "sha256": "5c35e94e3ce2fdd3c7196ce63e05f747fd85490506e395ac523e23e5bb8c83d0"
+      },
+      "selection-documentation-411/user-surface.log": {
+        "contents": "usage: check_user_surface_reference.py [-h] [--repo-root REPO_ROOT]\ncheck_user_surface_reference.py: error: unrecognized arguments: --output /Users/dylan/LocalData/shardloom/native-python-surface-20261010/selection-documentation-411/user-surface.json\n",
+        "sha256": "e1c2f2b87d6d4b302efaac290f15b030835df03dcfa039cf20cb5e8293ad235c"
+      },
+      "selection-documentation411.json": {
+        "contents": "{\n  \"status\": \"failed\",\n  \"command\": [\n    \"/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3\",\n    \"-B\",\n    \"/Users/dylan/LocalData/shardloom/native-python-surface-20261010/finish_selection_docs_411.py\"\n  ],\n  \"cwd\": \"/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo\",\n  \"head\": \"528aa23ed7f09442b664bc07ca44b5c48a8d5c0f\",\n  \"working_tree\": \" M .github/workflows/ci.yml\\n M docs/architecture/native-encoded-interchange-2026-10-12.md\\n M docs/architecture/native-local-completion-scope-2026-10-07.md\\n M docs/architecture/native-operator-recovery-2026-10-13.md\\n M docs/architecture/phased-execution-completed-ledger.md\\n M docs/architecture/phased-execution-plan.md\\n M docs/architecture/v1-local-resource-safety.md\\n M docs/benchmarks/evidence/native-operator-recovery-2026-10-13.json\\n M docs/benchmarks/native-encoded-interchange-2026-10-12.md\\n M docs/benchmarks/native-operator-recovery-2026-10-13.md\\n M docs/benchmarks/native-query-revisit-2026-10-12.md\\n M docs/dependencies/vortex-upstream-review.md\\n M docs/release/v1-inclusion-scope-matrix.md\\n M python/THIRD_PARTY_LICENSES/manifest.json\\n M shardloom-vortex/src/local_primitives.rs\\n M shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs\\n M shardloom-vortex/src/local_primitives/dictionary_prepare_workers_tests.rs\\n M shardloom-vortex/src/local_primitives/scalar_distinct_workers.rs\\n M shardloom-vortex/src/local_primitives/utf8_dictionary_ownership_tests.rs\\n M shardloom-vortex/src/native_provider_memory.rs\\n M shardloom-vortex/src/native_provider_zstd_filter_tests.rs\\n M vendor/vortex-zstd/src/array.rs\\n M vendor/vortex-zstd/src/decoder_workspace.rs\\n D vendor/vortex-zstd/src/filter.rs\\n M vendor/vortex-zstd/src/lib.rs\\n M vendor/vortex-zstd/src/rules.rs\\n M vendor/vortex-zstd/upstream-provenance.json\\n?? docs/architecture/native-selection-resources-2026-10-13.md\\n?? docs/benchmarks/evidence/native-encoded-hosted-2026-10-14.json\\n?? docs/benchmarks/evidence/native-encoded-hosted-2026-10-14.manifest.json\\n?? docs/benchmarks/evidence/native-encoded-hosted-2026-10-14.tar.xz\\n?? docs/benchmarks/evidence/native-encoded-hosted-2026-10-14.verification.json\\n?? docs/benchmarks/evidence/native-operator-recovery-hosted-2026-10-13/\\n?? docs/benchmarks/evidence/native-selection-resources-2026-10-13.json\\n?? docs/benchmarks/evidence/native-selection-resources-2026-10-13.manifest.json.xz\\n?? docs/benchmarks/evidence/native-selection-resources-2026-10-13.primary.json\\n?? docs/benchmarks/evidence/native-selection-resources-2026-10-13.tar.xz\\n?? docs/benchmarks/evidence/native-selection-resources-2026-10-13.verification.json\\n?? docs/benchmarks/native-selection-resources-2026-10-13.md\\n?? shardloom-vortex/src/local_primitives/aggregate_utf8_context_tests.rs\\n?? shardloom-vortex/src/native_provider_zstd_filter.rs\\n\",\n  \"environment\": {\n    \"CARGO_TARGET_DIR\": \"/Users/dylan/.cache/shardloom/cargo-target\",\n    \"CARGO_BUILD_JOBS\": \"2\",\n    \"CARGO_INCREMENTAL\": \"0\",\n    \"CARGO_PROFILE_DEV_DEBUG\": \"0\",\n    \"CARGO_PROFILE_TEST_DEBUG\": \"0\"\n  },\n  \"supervisor_sha256\": \"1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97\",\n  \"storage_last_observation\": {\n    \"output\": {\n      \"workspace_bytes\": 27790148390,\n      \"log_bytes\": 12480512,\n      \"max_log_bytes\": 201326592,\n      \"free_bytes\": 66293358592,\n      \"reserved_candidate_bytes\": 134217728,\n      \"reserved_log_bytes\": 0\n    },\n    \"cargo\": {\n      \"workspace_bytes\": 21384646656,\n      \"log_bytes\": 0,\n      \"max_log_bytes\": 201326592,\n      \"free_bytes\": 66293280768,\n      \"reserved_candidate_bytes\": 134217728,\n      \"reserved_log_bytes\": 0\n    }\n  },\n  \"timeout_seconds\": 600.0,\n  \"cleanup_grace_seconds_per_signal\": 3.0,\n  \"output_limit_bytes\": 8388608,\n  \"timed_out\": false,\n  \"interrupted_signal\": null,\n  \"process_group_drained\": true,\n  \"direct_child_reaped\": true,\n  \"pid\": 38670,\n  \"output_bytes\": 1209,\n  \"group_absence_unproved_at_cleanup\": false,\n  \"returncode\": 1,\n  \"seconds\": 0.4843518330017105,\n  \"log_sha256\": \"2b3b0fea3331d471263dfda04b3ed577bac508d15e0d83780cba506423c76fd3\"\n}\n",
+        "sha256": "907a7aad3cd0b21a0caccfb2f3600cf243c4700aaffe7e0f5b176c1a281db93e"
+      },
+      "selection-documentation411.log": {
+        "contents": "{\"name\": \"user-surface\", \"command\": [\"/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3\", \"-B\", \"scripts/check_user_surface_reference.py\", \"--output\", \"/Users/dylan/LocalData/shardloom/native-python-surface-20261010/selection-documentation-411/user-surface.json\"], \"returncode\": 2, \"seconds\": 0.023909542011097074, \"log\": \"user-surface.log\", \"log_sha256\": \"e1c2f2b87d6d4b302efaac290f15b030835df03dcfa039cf20cb5e8293ad235c\"}\nTraceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/native-python-surface-20261010/finish_selection_docs_411.py\", line 41, in <module>\n    result.check_returncode()\n  File \"/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py\", line 502, in check_returncode\n    raise CalledProcessError(self.returncode, self.args, self.stdout,\nsubprocess.CalledProcessError: Command '['/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3', '-B', 'scripts/check_user_surface_reference.py', '--output', '/Users/dylan/LocalData/shardloom/native-python-surface-20261010/selection-documentation-411/user-surface.json']' returned non-zero exit status 2.\n",
+        "sha256": "2b3b0fea3331d471263dfda04b3ed577bac508d15e0d83780cba506423c76fd3"
+      }
+    },
+    "selected_sources_unchanged": 2241,
+    "status": "passed",
+    "workflow_sha256": "5793c29572b11287f666b8cfc6f39212920386d69a82725e5f8d1a61e11c0cee"
+  }
+}
