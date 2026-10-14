@@ -217,6 +217,12 @@
   "source_identity": {
     "base_commit": "528aa23ed7f09442b664bc07ca44b5c48a8d5c0f",
     "runtime_commit": "db154e313109227e3dfc6aee445761a24e540210",
+    "rebased_runtime_commit": "8f3607ae6775465f61d1427d0cc36bed04f55e6a",
+    "integration_verification": {
+      "path": "native-selection-resources-2026-10-13.integration-source.json",
+      "bytes": 926,
+      "sha256": "a8603d947d9cec9ed4f9ec74880ab79f6f5ffffbc76e5b31f931e48ead4edf01"
+    },
     "committed_source_verification": {
       "path": "native-selection-resources-2026-10-13.source.json",
       "bytes": 772,
