@@ -121,6 +121,11 @@ jobs:
                 --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
                 --features tokio,vortex-io/tokio,vortex-array/_test-harness \
                 --lib layouts::file_stats::tests::
+              cp Cargo.lock vendor/vortex-zstd/Cargo.lock
+              cargo test --manifest-path vendor/vortex-zstd/Cargo.toml \
+                --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+                --features vortex-array/table-display \
+                --lib array::tests:: -- --test-threads=2
           - lane: synthetic_spill_resources
             command: |
               cargo test -p shardloom-exec --lib --features spill-payload-fs spill_payload::tests -- --test-threads=1

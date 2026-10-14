@@ -285,8 +285,17 @@ fn native_zstd_sparse_text_filter_round_trips_retained_native_frames() {
     // Filter is a compute array, not a serializable file encoding. Its retained
     // Zstd child must round-trip independently before reapplying the row mask.
     let filter = filtered.as_::<Filter>();
-    let child = filter.child();
-    let mask = filter.data().filter_mask().clone();
+    let memory = LiveMemoryPool::new(16 << 20).unwrap();
+    let selection = zstd_filter::prepare(
+        filter.child().as_::<Zstd>(),
+        filter.data().filter_mask(),
+        &mut session(&memory).create_execution_ctx(),
+        &memory,
+    )
+    .unwrap()
+    .unwrap();
+    let child = &selection.array;
+    let mask = Mask::from_indices(child.len(), selection.indices.iter().copied());
     let context = ArrayContext::empty();
     let mut bytes = ByteBufferMut::empty();
     for buffer in child
@@ -304,7 +313,6 @@ fn native_zstd_sparse_text_filter_round_trips_retained_native_frames() {
             &control,
         )
         .unwrap();
-    let memory = LiveMemoryPool::new(16 << 20).unwrap();
     let output = restored
         .filter(mask)
         .unwrap()
@@ -317,6 +325,7 @@ fn native_zstd_sparse_text_filter_round_trips_retained_native_frames() {
         );
     }
     drop(output);
+    drop(selection);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
@@ -333,8 +342,16 @@ fn native_zstd_sparse_text_filter_preserves_validated_frame_parts() {
             .filter(Mask::from_indices(len, [0, len - 1]))
             .unwrap();
         let filter = filtered.as_::<Filter>();
-        let child = filter.child();
-        let retained = child.as_::<Zstd>();
+        let memory = LiveMemoryPool::new(16 << 20).unwrap();
+        let selection = zstd_filter::prepare(
+            filter.child().as_::<Zstd>(),
+            filter.data().filter_mask(),
+            &mut session(&memory).create_execution_ctx(),
+            &memory,
+        )
+        .unwrap()
+        .unwrap();
+        let retained = selection.array.as_::<Zstd>();
         let parts = retained.data().clone().into_parts(Validity::NonNullable);
         assert_eq!(retained.len(), 16);
         assert_eq!(retained.dtype(), source.dtype());
@@ -356,12 +373,15 @@ fn native_zstd_sparse_text_filter_preserves_validated_frame_parts() {
                 )
             );
         }
-        // Validation is explicit here, outside metadata-only reduction. The
-        // retained child must still satisfy every native constructor invariant.
+        // This temporary child exists only inside admitted execution, and still
+        // satisfies the independently serializable native constructor contract.
         retained
             .data()
             .validate(retained.dtype(), retained.len(), &Validity::NonNullable)
             .unwrap();
+        assert!(memory.snapshot().reserved_bytes > 0);
+        drop(selection);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }
 
@@ -392,7 +412,16 @@ fn native_zstd_sparse_filter_normalizes_explicit_all_valid_child() {
                 .filter(Mask::from_indices(len, [0, len - 1]))
                 .unwrap();
             let filter = filtered.as_::<Filter>();
-            let retained = filter.child();
+            let memory = LiveMemoryPool::new(16 << 20).unwrap();
+            let selection = zstd_filter::prepare(
+                filter.child().as_::<Zstd>(),
+                filter.data().filter_mask(),
+                &mut session(&memory).create_execution_ctx(),
+                &memory,
+            )
+            .unwrap()
+            .unwrap();
+            let retained = &selection.array;
             assert_eq!(retained.len(), 16);
             assert!(retained.slots().iter().all(Option::is_none));
             retained
@@ -420,9 +449,11 @@ fn native_zstd_sparse_filter_normalizes_explicit_all_valid_child() {
                 )
                 .unwrap();
             assert!(restored.slots().iter().all(Option::is_none));
-            let memory = LiveMemoryPool::new(16 << 20).unwrap();
             let output = restored
-                .filter(filter.data().filter_mask().clone())
+                .filter(Mask::from_indices(
+                    retained.len(),
+                    selection.indices.iter().copied(),
+                ))
                 .unwrap()
                 .execute::<VarBinViewArray>(&mut session(&memory).create_execution_ctx())
                 .unwrap();
@@ -432,6 +463,7 @@ fn native_zstd_sparse_filter_normalizes_explicit_all_valid_child() {
                 assert_eq!(output.bytes_at(row).as_slice(), values[original].as_bytes());
             }
             drop(output);
+            drop(selection);
             assert_eq!(memory.snapshot().reserved_bytes, 0);
         }
     }
@@ -502,15 +534,19 @@ fn native_zstd_sparse_text_filter_rejects_inconsistent_frame_value_counts() {
         )
         .unwrap()
         .into_array();
+        let memory = LiveMemoryPool::new(16 << 20).unwrap();
         let error = malformed
             .filter(Mask::from_indices(128, [1, 126]))
+            .unwrap()
+            .execute::<VarBinViewArray>(&mut session(&memory).create_execution_ctx())
             .unwrap_err();
         assert!(error.to_string().contains("Zstd frame"));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }
 
 #[test]
-fn native_zstd_owned_filter_reduction_error_releases_owner() {
+fn native_zstd_owned_filter_selection_error_releases_owner() {
     let (encoded, _) = text_fixture();
     for count in [0, 9, u64::MAX] {
         let mut parts = encoded
@@ -540,6 +576,156 @@ fn native_zstd_owned_filter_reduction_error_releases_owner() {
             .unwrap_err();
         assert!(error.to_string().contains("Zstd frame"));
         assert!(weak.upgrade().is_none());
-        assert_eq!(memory.snapshot().peak_reserved_bytes, 0);
+        assert!(memory.snapshot().peak_reserved_bytes > 0);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
+}
+
+#[test]
+fn native_zstd_sparse_selection_admits_metadata_before_allocation_without_mask_caches() {
+    let (encoded, values) = text_fixture();
+    let selected = [1, 3, 120, 124];
+    let mask = Mask::from_iter((0..128).map(|row| selected.contains(&row)));
+    let filtered = encoded.filter(mask.clone()).unwrap();
+    let filter = filtered.as_::<Filter>();
+    let input = filter.child();
+    assert!(ArrayRef::ptr_eq(input, &encoded));
+    assert!(mask.values().unwrap().cached_indices().is_none());
+    assert!(mask.values().unwrap().cached_slices().is_none());
+    let metadata = zstd_filter::metadata_bytes(encoded.nbuffers()).unwrap();
+    let denied = LiveMemoryPool::new(metadata - 1).unwrap();
+    let error = filtered
+        .clone()
+        .execute::<VarBinViewArray>(&mut session(&denied).create_execution_ctx())
+        .unwrap_err();
+    assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
+    assert_eq!(denied.snapshot().peak_reserved_bytes, 0);
+    assert_eq!(denied.snapshot().reserved_bytes, 0);
+
+    let ample = LiveMemoryPool::new(16 << 20).unwrap();
+    let output = filtered
+        .clone()
+        .execute::<VarBinViewArray>(&mut session(&ample).create_execution_ctx())
+        .unwrap();
+    let peak = ample.snapshot().peak_reserved_bytes;
+    assert!(peak > metadata);
+    for (row, source) in selected.into_iter().enumerate() {
+        assert_eq!(output.bytes_at(row).as_slice(), values[source].as_bytes());
+    }
+    drop(output);
+    assert_eq!(ample.snapshot().reserved_bytes, 0);
+
+    for budget in [peak - 1, peak] {
+        let memory = LiveMemoryPool::new(budget).unwrap();
+        let result = filtered
+            .clone()
+            .execute::<VarBinViewArray>(&mut session(&memory).create_execution_ctx());
+        if budget < peak {
+            assert!(crate::owned_buffers::is_owned_reservation_denial(
+                &result.unwrap_err()
+            ));
+        } else {
+            let output = result.unwrap();
+            assert_eq!(output.len(), selected.len());
+            assert_eq!(memory.snapshot().peak_reserved_bytes, peak);
+            let retained = output.data_buffers()[0].as_host().clone();
+            drop(output);
+            assert!(memory.snapshot().reserved_bytes > 0);
+            drop(retained);
+        }
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+        assert!(mask.values().unwrap().cached_indices().is_none());
+        assert!(mask.values().unwrap().cached_slices().is_none());
+    }
+}
+
+#[derive(Debug)]
+struct SelectionFailAllocator {
+    inner: crate::owned_buffers::ReservedHostAllocator,
+    call: std::sync::atomic::AtomicUsize,
+    fail_at: usize,
+}
+
+impl HostAllocator for SelectionFailAllocator {
+    fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
+        let call = self.call.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if call == self.fail_at {
+            return Err(vortex_err!("injected sparse selection allocation failure"));
+        }
+        self.inner.allocate(len, alignment)
+    }
+}
+
+#[test]
+fn native_zstd_sparse_selection_releases_every_failed_allocation_and_preserves_dictionary() {
+    let (_, values) = text_fixture();
+    let plain = VarBinViewArray::from_iter_str(values.iter().map(String::as_str));
+    let source = Zstd::from_var_bin_view(
+        &plain,
+        1,
+        8,
+        &mut VortexSession::default().create_execution_ctx(),
+    )
+    .unwrap();
+    assert!(
+        source
+            .data()
+            .clone()
+            .into_parts(Validity::NonNullable)
+            .dictionary
+            .is_some()
+    );
+    let mask = Mask::from_iter((0..128).map(|row| [0, 1, 126, 127].contains(&row)));
+    let filtered = source.into_array().filter(mask.clone()).unwrap();
+    let mut completed = false;
+    // A successful pass establishes the exact allocation count. Every earlier
+    // iteration injects an error before that allocation, including final views.
+    for fail_at in 0..12 {
+        let memory = LiveMemoryPool::new(16 << 20).unwrap();
+        let allocator = Arc::new(SelectionFailAllocator {
+            inner: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+            call: std::sync::atomic::AtomicUsize::new(0),
+            fail_at,
+        });
+        let session = VortexSession::default().with_allocator(allocator.clone());
+        install(&session, memory.clone());
+        match filtered
+            .clone()
+            .execute::<VarBinViewArray>(&mut session.create_execution_ctx())
+        {
+            Ok(output) => {
+                assert!(
+                    fail_at >= 6,
+                    "indices, payload, decoder, dictionary, decoded views, gathered views"
+                );
+                assert_eq!(
+                    allocator.call.load(std::sync::atomic::Ordering::SeqCst),
+                    fail_at
+                );
+                for (row, source) in [0, 1, 126, 127].into_iter().enumerate() {
+                    assert_eq!(output.bytes_at(row).as_slice(), values[source].as_bytes());
+                }
+                let views = output.views_handle().as_host().clone();
+                drop(output);
+                assert!(memory.snapshot().reserved_bytes > 0);
+                drop(views);
+                completed = true;
+            }
+            Err(error) => assert!(
+                error
+                    .to_string()
+                    .contains("injected sparse selection allocation failure")
+            ),
+        }
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+        assert!(mask.values().unwrap().cached_indices().is_none());
+        assert!(mask.values().unwrap().cached_slices().is_none());
+        if completed {
+            break;
+        }
+    }
+    assert!(
+        completed,
+        "allocation failure sweep did not reach successful execution"
+    );
 }

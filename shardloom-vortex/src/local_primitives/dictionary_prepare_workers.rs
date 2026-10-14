@@ -17,10 +17,13 @@ use shardloom_exec::{
     live_memory::{LiveMemoryPool, MemoryLease},
 };
 use std::{sync::Arc, time::Instant};
-use vortex::array::{
-    ArrayRef,
-    arrays::Dict,
-    dtype::{DType, Nullability},
+use vortex::{
+    array::{
+        ArrayRef, VortexSessionExecute as _,
+        arrays::Dict,
+        dtype::{DType, Nullability},
+    },
+    session::VortexSession,
 };
 
 const MAX_ROWS: usize = 262_144;
@@ -48,6 +51,7 @@ struct Completed {
 pub(super) struct DictionaryPrepareWorkers {
     jobs: AggregateChunkJobs<Completed>,
     recipe: Arc<Recipe>,
+    session: VortexSession,
     active: bool,
     rows: u64,
     provider_nanos: u128,
@@ -150,6 +154,9 @@ impl DictionaryPrepareWorkers {
             recipe: Arc::new(Recipe {
                 columns: columns.to_vec(),
             }),
+            // The grouped state already owns the query's admitted context.
+            // Preserve its allocator and provider registry in caller and jobs.
+            session: states.native_execution_ctx.session().clone(),
             active: true,
             rows: 0,
             provider_nanos: 0,
@@ -195,7 +202,11 @@ impl DictionaryPrepareWorkers {
             AggregateUtf8DictionarySource::DecodedUtf8ChunkDictionary
         };
         let mut work = NativeNumericAccessorWork::default();
-        let utf8 = aggregate_canonical_utf8_chunk(&array, &mut work.utf8)?;
+        let utf8 = aggregate_canonical_utf8_chunk(
+            &array,
+            &mut work.utf8,
+            &mut self.session.create_execution_ctx(),
+        )?;
         self.provider_nanos += work.utf8.provider_nanos;
         if utf8.len() != chunk.len() || utf8.dtype() != array.dtype() {
             return Err(failed("canonical source changed rows or dtype"));
@@ -220,6 +231,7 @@ impl DictionaryPrepareWorkers {
             return self.consume_canonical(states, &utf8, source, work);
         }
         let recipe = Arc::clone(&self.recipe);
+        let session = self.session.clone();
         let input = utf8.clone();
         let mut worker_work = work.clone();
         #[cfg(test)]
@@ -241,6 +253,7 @@ impl DictionaryPrepareWorkers {
                 &mut worker_work.utf8,
                 dictionary,
                 &|| worker.check_cancelled(),
+                &mut session.create_execution_ctx(),
             )?;
             Ok(Completed {
                 accessor,
@@ -270,6 +283,7 @@ impl DictionaryPrepareWorkers {
             &mut work.utf8,
             Utf8ChunkDictionary::default(),
             &|| self.jobs.check_cancelled(),
+            &mut self.session.create_execution_ctx(),
         )?;
         states.native_numeric_accessor_work.add(&work)?;
         if !states.update_compact_direct_from_accessors(

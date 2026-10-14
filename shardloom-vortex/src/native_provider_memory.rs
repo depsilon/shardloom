@@ -52,6 +52,9 @@ use vortex::{
 #[path = "native_provider_chunked.rs"]
 mod chunked;
 
+#[path = "native_provider_zstd_filter.rs"]
+mod zstd_filter;
+
 #[cfg(test)]
 #[path = "native_provider_zstd_tests.rs"]
 mod zstd_tests;
@@ -75,6 +78,11 @@ impl SessionVar for ProviderMemory {
 /// then replaces only its memory owner.
 pub(crate) fn install(session: &VortexSession, memory: LiveMemoryPool) {
     if session.get_opt::<ProviderMemory>().is_none() {
+        session.kernels().register_execute_parent(
+            Filter.id(),
+            vortex::encodings::zstd::Zstd.id(),
+            &[zstd_filter::execute as ExecuteParentFn],
+        );
         session.arrays().registry().read(|arrays| {
             for id in arrays.keys() {
                 session.kernels().register_execute_parent(
