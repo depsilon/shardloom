@@ -17,6 +17,38 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-STREAM-INPUT-COMPOSITION` — multiple finite producers, declared
+  repeated-source/self-join replay and dynamic streaming pivots under
+  PERF-03/06/07/11/12 and CG-5/19/20/21. Preparation, native execution and
+  publication share one cancellation owner and allocation. Each producer runs
+  once and must complete; native retained replay or explicit Vortex spool
+  preserves exact values without an external executor.
+  - The requested [fresh UAT](../benchmarks/native-fresh-uat-2026-10-13.md)
+    precedes implementation. The [acceptance report](../benchmarks/native-stream-input-composition-2026-10-13.md)
+    records 757 public cases, 3,219 default and 4,145 native-feature tests,
+    required formatting/Clippy, all 129 Full43 executions and complete native
+    write/reopen under the same constrained grants. Quota, cancellation,
+    corruption, producer/consumer failures, owned cleanup and fresh restart
+    pass. Small-result sink batching and demand-aware materialized readback
+    preserve existing grants and native transfer limits.
+  - [PR #1548](https://github.com/depsilon/shardloom/pull/1548) merges at
+    `5b5cd6a7cb3c88d20046079c46900d9b323b1274` after all 44 checks pass on
+    `c1a21e62cae38636b56d28167ef743d17fe73620`. Reviewed head, synthetic merge
+    and actual merge share tree `2b32e98a8d96b9e0a5b194dfbb2cc1e9abe6096f`;
+    all 2,236 accepted runtime file hashes match. Automated review completes
+    without findings, with primary source/evidence review retained.
+  - The [hosted receipt](../benchmarks/evidence/native-stream-composition-hosted-2026-10-13.json)
+    preserves raw checks/reviews and three installed Linux/macOS wheel lanes,
+    each reporting 80 native tests with no failures/errors/skips and a verified
+    isolated load. Individual native method names are not logged. Exact-merge
+    production deployment and actual desktop/mobile search/link checks pass;
+    the source comparison records bounded Cloudflare HTML insertions.
+  - This closes the three concrete streaming gaps and controlled preparation.
+    Other allocation/state-family/recovery, destinations/fanout and operational
+    acceptance, all eight investigations and CG-1 through CG-23 keep their
+    existing owners. No speedup, process-RSS bound, interrupted-query resume,
+    package release or whole PERF/CG completion is claimed. Version stays 0.5.1.
+
 - [x] `NATIVE-PERSISTED-REUSE` — bounded statistics from actual native output,
   reusable after durable close and producer teardown by a fresh process running
   different computations, under PERF-02/07/09/10/11/12 and CG-19/20/21.

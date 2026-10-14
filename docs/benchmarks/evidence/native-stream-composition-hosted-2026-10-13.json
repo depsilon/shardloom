@@ -1,0 +1,78 @@
+{
+  "schema_version": "shardloom.stream_composition_hosted.v1",
+  "status": "completed_finite_unit",
+  "observed_at": "2026-10-14T03:08:10.010944+00:00",
+  "pull_request": 1548,
+  "reviewed_head": "c1a21e62cae38636b56d28167ef743d17fe73620",
+  "merged_commit": "5b5cd6a7cb3c88d20046079c46900d9b323b1274",
+  "source_binding": {
+    "status": "passed",
+    "trees": {
+      "c1a21e62cae38636b56d28167ef743d17fe73620": "2b32e98a8d96b9e0a5b194dfbb2cc1e9abe6096f",
+      "5b5cd6a7cb3c88d20046079c46900d9b323b1274": "2b32e98a8d96b9e0a5b194dfbb2cc1e9abe6096f",
+      "090e74f58c3f14ae7b80be67a4d98b2bfa55c002": "2b32e98a8d96b9e0a5b194dfbb2cc1e9abe6096f"
+    },
+    "selected_files_verified": 2236,
+    "selected_bytes_verified": 42066501,
+    "source_manifest_sha256": "d385601e233e879659f5bf15c252eb1e10a03e6557fc9c096171094be7799281",
+    "method": "All selected merged Git blobs SHA-256 checked against accepted source manifest.",
+    "active_recovery_sources_unchanged": true
+  },
+  "hosted_checks": 44,
+  "automated_review": "completed_without_findings",
+  "wheels": {
+    "jobs": 3,
+    "native_tests_reported_per_job": 80,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "evidence": "stream-composition-wheel-hosted-402/index.json",
+    "synthetic_merge_tree_equivalence_proven_by_this_packet": true
+  },
+  "production_deployment": {
+    "id": 115655906057,
+    "head_sha": "5b5cd6a7cb3c88d20046079c46900d9b323b1274",
+    "status": "completed",
+    "conclusion": "success",
+    "details_url": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/a1bccb83-e99c-4ee6-8e3a-87dda9cdd9df",
+    "completed_at": "2026-10-14T02:55:40Z"
+  },
+  "documentation": {
+    "preview_source": "four_responses_byte_identical",
+    "production_source": "three_HTML_responses_with_1305_byte_insertion_each_and_identical_search_entry",
+    "preview_browser": "passed",
+    "production_browser": "passed",
+    "production_browser_record": "stream-composition-production-browser-404/observations.json"
+  },
+  "limitations": [
+    "Native integration counts are reported by each runner; individual native methods are not logged.",
+    "Wheel artifacts were not downloaded; uninstall was not tested in these jobs.",
+    "Historical wheel-only index retains its then-unproven tree relationship; this packet proves it directly.",
+    "Production HTML has recorded Cloudflare insertions, so raw HTML identity is not claimed.",
+    "Initial stale-scaled mobile capture is historical; final mobile screenshot is accepted.",
+    "No new runtime timing, package release, process-RSS limit or whole PERF/CG completion claim."
+  ],
+  "archive": {
+    "path": "native-stream-composition-hosted-2026-10-13.tar.xz",
+    "bytes": 1342660,
+    "sha256": "f1e6ec276aa931bdb92aa688df71088ba193eb63637f79adafce72217556e19e",
+    "members": 75,
+    "uncompressed_bytes": 6517094,
+    "all_members_verified": true
+  },
+  "manifest": {
+    "path": "native-stream-composition-hosted-2026-10-13.manifest.json",
+    "sha256": "42ca743571c165ac5cc5aece823ba9a3bf21ac5c9fdd0496f7f97c8c300eb50c"
+  },
+  "closeout_documentation": {
+    "gates": 5,
+    "status": "passed",
+    "evidence": "closeout-documentation/summary.json"
+  },
+  "independent_review": {
+    "path": "native-stream-composition-hosted-2026-10-13.review.json",
+    "bytes": 17474,
+    "sha256": "d36cd28fae3916229e6467f6846344950303dd5b20c0b38b8f90296c6f0ea3b1",
+    "status": "passed"
+  }
+}

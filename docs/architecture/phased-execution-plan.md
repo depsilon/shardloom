@@ -282,35 +282,6 @@ the ledger.
     dependency, package release or performance claim. Broader allocation,
     state-family and operational gaps remain with their existing owners.
 
-- [ ] `NATIVE-STREAM-INPUT-COMPOSITION` complete the next shared streaming
-  lifecycle and capability family.
-  - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-03/06/07/11/12 and CG-5/19/20/21; RFCs 0013/0014/0017/0044.
-  - Source: October 13 maintainer direction and the
-    [composition contract](native-stream-input-composition-2026-10-13.md).
-  - Execution checklist:
-    - [x] Run fresh complete ingest/query and modular UAT before implementation;
-      preserve the [baseline evidence](../benchmarks/native-fresh-uat-2026-10-13.md).
-    - [x] Connect batch preparation and execution to one cancellation/resource
-      owner; admit controlled compatibility normalization and prove cleanup.
-    - [x] Admit multiple producers with independent sequence/completion state.
-    - [x] Admit repeated-source/self-join replay with explicit native ownership,
-      bounded reservations and admitted spill/recovery.
-    - [x] Admit dynamic pivot over streaming input through existing native
-      execution-time discovery and completed state.
-    - [ ] Complete public/native failure and resource acceptance, required
-      workspace gates, complete-result regressions, docs and hosted integration.
-      [Local runtime acceptance](../benchmarks/native-stream-input-composition-2026-10-13.md)
-      passes all 757 public cases, 3,219 default and 4,145 native-feature tests,
-      formatting/Clippy and all 129 Full43 executions. Documentation, generated
-      guides and rendered desktop/mobile/search checks pass; hosted integration
-      remains pending.
-  - Ordering: finish the quickest coherent hardening/capability work first;
-    retain all broader memory, spill/recovery and operational obligations.
-    Conditional investigations require qualifying workloads and follow those units.
-  - Boundaries: no external execution, implicit producer replay, uncredited
-    materialization, version bump, package publication or unmeasured speedup.
-
 - [ ] `NATIVE-ENCODED-INTERCHANGE` preserve admitted physical arrays across
   receiving allocations and complete independent native-producer feasibility.
   - V1 scope classification: `required_for_v1`.
@@ -1409,15 +1380,20 @@ records the measured scope and preserved staged work. No PERF or competitive gat
   - Execution checklist:
     - [ ] Validate the declared input/output/memory/queue envelope under pressure
       and cancellation; keep original caller owners and provider gaps explicit.
-    - [ ] Complete shared ownership for repeated batch sources, multiple
+    - [x] Complete shared ownership for repeated batch sources, multiple
       producers and safe dynamic-schema discovery; consume each single-use
       producer once and support reuse through declared retention or native spool.
+      The [composition acceptance](../benchmarks/native-stream-input-composition-2026-10-13.md)
+      completes this finite family with native pressure/write/reopen proof and
+      all 44 hosted checks in PR #1548; broader envelope acceptance stays open.
     - [ ] Admit exact decimal, binary, temporal and nested batch inputs through
       the shared native type/buffer machinery, preserving nulls, ordering,
       logical dtype and complete values across every supported destination.
-    - [ ] Connect automatic compatibility preparation to the transaction's
+    - [x] Connect automatic compatibility preparation to the transaction's
       cancellation owner, with source identity, provisional output and owned
       cleanup preserved across preparation, execution and publication.
+      PR #1548 completes the shared controlled lifecycle with pre-access and
+      post-input cancellation, staging cleanup and source-generation checks.
     - [x] Execute generated ranges through bounded native units instead of a
       fixed total-length ceiling; preserve checked arithmetic and complete
       consumption under the shared resource policy.
@@ -3081,7 +3057,9 @@ October 13 direction supersedes the breadth pause below: first run fresh full
 UAT, then resume streaming capability gaps and broader memory/spill/recovery,
 cancellation and operational hardening in order of quickest coherent completion.
 The fresh baseline passes all 129 query executions and all 18 modular cohorts.
-Proceed through `NATIVE-STREAM-INPUT-COMPOSITION` and existing hardening owners;
+`NATIVE-STREAM-INPUT-COMPOSITION` is complete in PR #1548 and recorded in the
+completed ledger. Proceed through `NATIVE-OPERATOR-RECOVERY` and remaining
+allocation/operational hardening under the existing owners;
 leave caching, learned indexes, rematerialization and the other conditional
 investigations until qualifying workloads justify them. This is a sequencing
 override, not completion of any whole PERF gate or CG-1 through CG-23. Version

@@ -2,8 +2,11 @@
 
 # Native streaming input composition
 
-Status: local acceptance passed under PERF-03/06/07/11/12 and
-CG-5/19/20/21; hosted integration is pending.
+Status: local and hosted acceptance complete under PERF-03/06/07/11/12 and
+CG-5/19/20/21. [PR #1548](https://github.com/depsilon/shardloom/pull/1548)
+merged at `5b5cd6a7` after all 44 checks passed. The
+[hosted receipt](../benchmarks/evidence/native-stream-composition-hosted-2026-10-13.json)
+records unchanged reviewed/merged source and preview/production verification.
 The [phase plan](phased-execution-plan.md) owns sequencing.
 The October 13 maintainer direction resumes capability and hardening work,
 with the quickest coherent units first and conditional investigations last.

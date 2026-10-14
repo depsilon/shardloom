@@ -2,7 +2,7 @@
 
 # Native streaming input composition acceptance
 
-Status: local acceptance complete; hosted integration pending. Complete public
+Status: local and hosted acceptance complete. Complete public
 acceptance, workspace/native tests, Full43 regression and documentation pass. This unit covers
 multiple finite producers, declared repeated-source replay, dynamic streaming
 pivots and their shared preparation lifecycle. The
@@ -148,7 +148,36 @@ and documentation logs, snapshots and screenshots. Bulk public output files and
 the release executable are hash-identified rather than included. Every archived
 member and the copied packet bytes are checked against their recorded identities.
 The fresh baseline has its own linked packet. These records do not substitute
-for hosted integration or a new independent correctness oracle.
+for a new independent correctness oracle. Hosted integration has its separate
+receipt below.
+
+## Hosted integration
+
+[PR #1548](https://github.com/depsilon/shardloom/pull/1548) merged at
+`5b5cd6a7cb3c88d20046079c46900d9b323b1274` after all 44 checks passed on
+`c1a21e62cae38636b56d28167ef743d17fe73620`. The reviewed head, hosted synthetic
+merge and actual merge have the same Git tree. Every selected runtime blob
+matches the 2,236-file accepted source manifest. Automated review completed
+without findings, alongside the primary source and evidence review.
+
+The [hosted receipt](evidence/native-stream-composition-hosted-2026-10-13.json)
+retains check/review records, installed-wheel logs and preview/production proof.
+Ubuntu x86_64 Python 3.10/3.13 and macOS arm64 Python 3.13 each report 80 native
+integration tests with no failures, errors or skips. The proof source checks
+the isolated installed package, extension and CLI locations and hashes; each
+hosted load step passes. Individual integration method names are not emitted
+in those logs, so their counts are reported rather than independently recounted.
+Wheel downloads and uninstall tests are outside this receipt.
+
+The exact merged commit deploys successfully. Three preview guide responses
+and the search entry are byte-identical to source. Production preserves that
+source with one recorded 1,305-byte Cloudflare insertion per HTML response;
+the search entry remains byte-identical. Actual desktop/mobile browser checks
+pass, including five replay search results, the Python result anchor and the
+resource/recovery link, without page overflow or console warnings/errors.
+The archive preserves the first stale-scaled mobile capture separately from
+the accepted final mobile screenshot. These checks certify the deployed
+documentation and navigation, not a wider native platform or performance claim.
 
 Published version 0.5.1 is unchanged.
 Broader memory accounting, spill-family recovery, remaining destinations/fanout

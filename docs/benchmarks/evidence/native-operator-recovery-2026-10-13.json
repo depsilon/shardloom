@@ -20,7 +20,9 @@
     "selected_files": 2240,
     "manifest_sha256": "49010129374f699db10653a2e5b1729d3e985c37a96ded9adf06713cc8420407",
     "changed_files": 11,
-    "unchanged_before_and_after": true
+    "unchanged_before_and_after": true,
+    "runtime_commit": "a5cdef527c1469551f9c965bddd3cdb9fb3395e7",
+    "committed_blob_hashes_verified": 2240
   },
   "counts": {
     "workspace-tests": {
@@ -50,5 +52,11 @@
     "Bulk native inputs and test executables are regenerated from committed source; they are not archived.",
     "Unix process-death and cooperative cancellation proof is not power-loss durability, process-RSS containment or execution resumption.",
     "Hosted integration is pending. No performance or whole-PERF/CG-gate claim."
-  ]
+  ],
+  "provenance": {
+    "path": "native-operator-recovery-2026-10-13.provenance.json",
+    "bytes": 42761,
+    "sha256": "8f0f3ce166bf00df1a1fe881589306295011962afc76e03f8d7ad9935cf47f77",
+    "embedded_files": 6
+  }
 }

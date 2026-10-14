@@ -1,6 +1,6 @@
 {
   "schema_version": "shardloom.native_stream_composition_index.v1",
-  "status": "local_acceptance_complete_hosted_pending",
+  "status": "completed_finite_unit",
   "source_identity": {
     "base_commit": "ed253d1ec74b724215f71f0b410123656e596696",
     "runtime_commit": "fafee3823d4182e99550b8daef434ccbe9bd02d6",
@@ -73,11 +73,17 @@
   },
   "baseline_index": "native-fresh-uat-2026-10-13.json",
   "limitations": [
-    "Local macOS arm64 acceptance; hosted integration is pending.",
+    "Local runtime acceptance is macOS arm64; the linked hosted receipt records finite Linux/macOS wheel and CI evidence.",
     "Native test exclusions: three non-Unix cases for Windows CI and 24 manual benchmark, fixture or workload-dependent cases.",
     "Retained native Full43 regression reference; no new ingest or independent oracle in this final regression.",
     "Public bulk outputs and executables are hash-identified and excluded from the portable archive.",
     "Failed and superseded attempts are retained; all archive members and copied bytes were verified.",
     "No paired speedup, process-RSS ceiling, new package release or whole PERF/CG completion claim."
-  ]
+  ],
+  "hosted_integration": {
+    "path": "native-stream-composition-hosted-2026-10-13.json",
+    "sha256": "caa9f3ff073aa7d24b2d7be7f1ede7dd3b9c5dd478e85967ab0dc249932cb6c8",
+    "pull_request": 1548,
+    "merged_commit": "5b5cd6a7cb3c88d20046079c46900d9b323b1274"
+  }
 }
