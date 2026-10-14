@@ -4,9 +4,9 @@
 #[cfg(feature = "vortex-write")]
 use super::execute_write_controlled;
 use super::{
-    CommandStatus, ExitCode, OutputFormat, PublicSourcePreparations, PublicWorkflowRoutePlan,
-    PublicWorkflowRouteRequest, ShardLoomError, append_execution, emit, emit_error,
-    execute_collect, execution_attachment_fields, is_write_request, sources,
+    CommandStatus, ExitCode, OutputFormat, PublicWorkflowRoutePlan, PublicWorkflowRouteRequest,
+    ShardLoomError, append_execution, emit, emit_error, execute_collect,
+    execution_attachment_fields, is_write_request, sources,
 };
 use crate::python_batch_protocol::Transport;
 
@@ -39,43 +39,28 @@ fn execute(
     let statement = request.sql_statement.as_deref().ok_or_else(|| {
         ShardLoomError::InvalidOperation("native batch SQL declaration is absent".into())
     })?;
-    // The existing compatibility preparation API has no external cancellation
-    // owner. Do not start that effectful lifecycle in a cancellable transaction.
-    // Users can prepare it explicitly, then consume the resulting native source.
-    if sources::normalization_required(statement, request)? {
-        return Err(ShardLoomError::InvalidOperation(
-            "SL-NATIVE-BATCH: batch transactions require native Vortex or memory sources; prepare compatibility inputs to Vortex before batch consumption; no fallback execution was attempted".into(),
-        ));
-    }
+    let cancellation = transport.cancellation.clone();
     let adapter = std::cell::RefCell::new(&mut *transport);
     let (operation, normalized) = sources::prepare_with_input_adapter(
         statement,
         request,
-        None,
-        PublicSourcePreparations::default(),
-        |preparation| adapter.borrow_mut().start_reader(preparation),
+        |session| adapter.borrow_mut().start_reader(session),
         |uri, input, session| adapter.borrow_mut().build_source(uri, input, session),
+        &cancellation,
     )?;
-    if let Some((uri, input)) = request.source_bindings.iter().find_map(|(uri, binding)| {
-        binding
-            .memory_input
-            .as_ref()
-            .filter(|input| {
-                matches!(
-                    input,
-                    crate::native_memory_input::MemoryInput::Batches {
-                        streaming: true,
-                        ..
-                    }
-                )
+    if request.source_bindings.values().any(|binding| {
+        matches!(
+            binding.memory_input,
+            Some(crate::native_memory_input::MemoryInput::Batches {
+                streaming: true,
+                ..
             })
-            .map(|input| (uri.as_str(), input))
+        )
     }) {
-        return execute_streaming(request, plan, &operation, normalized, transport, uri, input);
+        return execute_streaming(request, plan, &operation, normalized, transport);
     }
     let mut fields = execution_attachment_fields("run", request, plan);
     fields.extend(adapter_fields(transport, normalized));
-    let cancellation = transport.cancellation.clone();
     cancellation.check()?;
     if is_write_request(request) {
         #[cfg(feature = "vortex-write")]
@@ -109,20 +94,26 @@ fn execute_streaming(
     operation: &super::PreparedVortexRelational,
     normalized: usize,
     transport: &mut Transport,
-    uri: &str,
-    declaration: &crate::native_memory_input::MemoryInput,
 ) -> Result<(), ShardLoomError> {
     let cancellation = transport.cancellation.clone();
     cancellation.check()?;
     let batch_rows = transport.batch_rows;
     let stream_results = transport.stream_results;
     let transport = std::cell::RefCell::new(transport);
-    let mut input = |session: &shardloom_vortex::resident_session::ResidentVortexSession| {
-        transport
-            .borrow_mut()
-            .next_source_batch(uri, declaration, session)
-    };
-    let execution = operation.with_batch_input(&mut input)?;
+    let mut input =
+        |uri: &shardloom_core::DatasetUri,
+         ordinal: u64,
+         session: &shardloom_vortex::resident_session::ResidentVortexSession| {
+            let declaration = request.source_bindings.get(uri.as_str())
+            .and_then(|binding| binding.memory_input.as_ref())
+            .ok_or_else(|| ShardLoomError::InvalidOperation(
+                "SL-NATIVE-BATCH: demanded streaming source is undeclared; no fallback execution was attempted".into(),
+            ))?;
+            transport
+                .borrow_mut()
+                .next_source_batch(uri.as_str(), ordinal, declaration, session)
+        };
+    let execution = operation.with_batch_inputs(&mut input)?;
     let completed_fields = || {
         let mut fields = execution_attachment_fields("run", request, plan);
         fields.extend(adapter_fields(&transport.borrow(), normalized));

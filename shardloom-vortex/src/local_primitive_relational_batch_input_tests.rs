@@ -350,21 +350,8 @@ fn completion_input_plan_and_provider_admission_precede_payload() {
         right: scan(),
         kind: crate::relational_query::VortexRelationalSetKind::UnionAll,
     }));
-    let joined = VortexRelationalPlan::Join(Box::new(VortexRelationalJoin {
-        left: scan(),
-        right: scan(),
-        kind: JoinKind::Cross,
-        keys: vec![],
-        condition: None,
-        columns: vec![],
-    }));
-    for (plan, expected) in [
-        (union, "set operation/repeated source"),
-        (joined, "repeated batch source"),
-    ] {
-        let error = prepare(&plan, 2 << 20).err().unwrap().to_string();
-        assert!(error.contains("SL-NATIVE-BATCH") && error.contains(expected));
-    }
+    let error = prepare(&union, 2 << 20).err().unwrap().to_string();
+    assert!(error.contains("SL-NATIVE-BATCH") && error.contains("set operation/repeated source"));
     let prepared = prepare(&scan(), 2 << 20).unwrap();
     assert!(
         prepared
@@ -417,14 +404,21 @@ fn completion_input_plan_and_provider_admission_precede_payload() {
                 source(session, &[], &[])
             })
         },
-        |_| panic!("dynamic input must be rejected before lowering"),
+        |_| Err(batch_input::failed("dynamic lowering sentinel")),
     );
+    let dynamic = dynamic.unwrap();
+    let mut unopened = |_: &ResidentVortexSession| -> Result<Option<ResidentMemorySource>> {
+        panic!("failed dynamic lowering must precede producer demand")
+    };
     assert!(
         dynamic
+            .with_batch_input(&mut unopened)
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
             .err()
             .unwrap()
             .to_string()
-            .contains("dynamic schemas")
+            .contains("dynamic lowering sentinel")
     );
 }
 
@@ -513,6 +507,59 @@ fn completion_input_native_writer_reopens_complete_values_and_cleans_late_failur
             .collect::<Vec<_>>();
         names.sort();
         assert_eq!(names, ["input.vortex", "stream-false.vortex"]);
+    }
+}
+
+#[test]
+fn completion_input_native_writer_releases_pending_batches_on_cancel_and_credit_denial() {
+    let fixture = Fixture::new(keyed(&[Some(0)], &[0]), 1);
+    let foreign = fixture.0.join("foreign");
+    fs::write(&foreign, b"preserve").unwrap();
+    for cancel in [false, true] {
+        let prepared = prepare(&scan(), 8 << 20).unwrap();
+        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let token = CancellationToken::default();
+        let path = fixture.0.join(format!("pending-{cancel}.vortex"));
+        let mut calls = 0;
+        let mut prior: Option<Weak<MemoryLease>> = None;
+        let mut producer = |session: &ResidentVortexSession| {
+            assert!(prior.as_ref().is_none_or(|owner| owner.strong_count() == 0));
+            calls += 1;
+            if calls == 2 {
+                if cancel {
+                    token.cancel();
+                    return Ok(None);
+                }
+                session.shared_memory_pool().reserve(8 << 20)?;
+                panic!("full grant cannot coexist with pending native output");
+            }
+            assert_eq!(calls, 1);
+            let source = source(session, &[Some(1)], &[Some("東京")])?;
+            prior = Some(source.batch_release_witness()?);
+            Ok(Some(source))
+        };
+        let error = prepared
+            .with_batch_input(&mut producer)
+            .unwrap()
+            .write_controlled(
+                &path,
+                super::super::super::VortexLocalPrimitiveRowExportFormat::Vortex,
+                false,
+                &token,
+            )
+            .err()
+            .expect("pending native output must not publish after failure");
+        assert!(error.to_string().contains(if cancel {
+            "cancel"
+        } else {
+            "reservation denied"
+        }));
+        assert_eq!(calls, 2);
+        assert!(!path.exists());
+        assert_eq!(prepared.snapshot().completed_executions, 0);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(fs::read(&foreign).unwrap(), b"preserve");
+        assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 2);
     }
 }
 

@@ -100,6 +100,12 @@ all 39 checks passed; the
 [hosted receipt](../benchmarks/evidence/native-pivot-hosted-2026-10-08.json)
 records source identity and actual production verification.
 
+The [streaming composition unit](native-stream-input-composition-2026-10-13.md)
+extends current source builds with multiple finite producers, declared native
+replay and dynamic pivot input. Compatibility preparation shares the transaction's
+cancellation owner and query allocation. Its acceptance remains separately
+recorded; earlier single-source scope descriptions above are historical.
+
 Other unadmitted state spill, complete reader/codec/upstream scratch
 accounting and whole-process RSS bounds remain open. Other operators retain their own resource admission
 and deterministic denials. A supported reader, large input or successful ingest does not by
@@ -187,9 +193,10 @@ The v1 boundary uses ShardLoom-native resource controls where they are already m
 
 The following need separate implementation or acceptance before broader support is promised:
 
-- other unadmitted operator spill transitions and pivot hosted closeout; the
+- other unadmitted operator spill transitions; the
   aggregate, join, analytic-window and pivot contracts above retain their finite
-  workload and type scope. Dynamic one-shot pivot input remains separately denied.
+  workload and type scope. The composition contract governs finite streaming
+  pivot and repeated-source replay acceptance.
 - reader/codec/upstream scratch accounting beyond the finite accepted provider
   buffers, Zstd decoder/prepared-dictionary workspaces and Chunked value/validity/
   finalization buffers, including child decoder scratch, structural metadata,

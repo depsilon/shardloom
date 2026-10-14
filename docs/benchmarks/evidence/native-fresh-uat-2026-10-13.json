@@ -1,0 +1,27 @@
+{
+  "schema_version": "shardloom.local_fresh_uat_index.v1",
+  "status": "passed_local_fresh_uat",
+  "source_commit": "ed253d1ec74b724215f71f0b410123656e596696",
+  "runtime_build_commit": "c6cb4c7ac4fdeda8bbf665b3299d1b7231a94e4e",
+  "archive": {
+    "path": "native-fresh-uat-2026-10-13.tar.xz",
+    "bytes": 5160016,
+    "sha256": "114b4c20e3df8ca76200e6568da279194b2d6fed121cff5a508f9fbbb57c865b"
+  },
+  "manifest": {
+    "path": "native-fresh-uat-2026-10-13.manifest.json.xz",
+    "bytes": 458708,
+    "sha256": "d6263cc7f6496439c11a4d7c4b96162226e6ade43471eb4e3c068010db9b9626"
+  },
+  "verified_members": 13345,
+  "original_bytes": 284496906,
+  "results": {
+    "full43_calls": 129,
+    "full43_rows": 1143,
+    "ingest_rows": 99997497,
+    "modular_cohorts": 18,
+    "modular_native_records": 704,
+    "modular_records": 1408
+  },
+  "claim": "Local correctness and timing observation; no paired speedup, release or whole-gate completion claim"
+}

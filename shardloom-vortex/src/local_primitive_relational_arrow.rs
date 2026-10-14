@@ -69,6 +69,7 @@ impl PreparedVortexRelational {
         let execution = self.for_each_batch_with_input(
             cancellation,
             super::BATCH_ROWS,
+            super::FileScanBatching::Output,
             input,
             |array, context| delivery.push(array, context),
         )?;

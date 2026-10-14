@@ -583,7 +583,10 @@ memory grant, with no fixed total field or batch count. In default resident mode
 (`streaming=False`), accumulated native input must fit that grant. Published
 v0.5.1 artifacts retain their release-time input types and limits. Output supports
 the existing admitted typed/nested schemas, with the same 2,048-row / 8-MiB payload ceiling.
-Prepare compatibility file input explicitly to Vortex before batch consumption.
+Current source builds normalize admitted compatibility file inputs to Vortex
+inside the same cancellable batch transaction and native memory allocation.
+The [composition contract](../docs/architecture/native-stream-input-composition-2026-10-13.md)
+records this preparation lifecycle and the independent completion of each producer.
 See the [complete batch contract and example](../docs/architecture/native-bounded-adapters-2026-10-06.md)
 for backpressure, conversions, timeout scope and final-validation semantics.
 The [input growth contract](../docs/architecture/native-input-growth-2026-10-09.md)
@@ -609,12 +612,12 @@ microseconds, including nested fields. The
 records complete values, writer fidelity, failure controls and the review correction.
 This source capability does not change the published v0.5.1 packages.
 
-Current source builds also accept `streaming=True` for one finite batch source used
-once through scan/filter/project, global sorting, aggregation, joins, windows and limits,
-alongside ordinary native file or resident sources.
+Current source builds also accept `streaming=True` for distinct finite batch sources,
+each consumed once through scan/filter/project, global sorting, aggregation, joins, windows,
+dynamic pivot and limits, alongside ordinary native file or resident sources.
 This can process cumulative input larger than the native grant by retaining at
-most one native input batch. Retained operator state shares that grant; ordering,
-general aggregation and joins support an explicit native spill policy.
+most one original native input batch. Retained replay and operator state share that grant; ordering,
+general aggregation, joins, windows and relational pivot support an explicit native spill policy.
 For example:
 
 ```python
@@ -635,20 +638,29 @@ with frame.iter_batches() as batches:
 The complete output is `[{"id": 1, "label": "kept"}]`. Streaming admits
 incremental results, bounded small collection, or one native Vortex destination.
 All seven join kinds admit the batch source on either side, and admitted analytic
-windows preserve frame state across input batches. Reusing the same
-batch source, declaring multiple batch producers, sets, unsupported
-stateful/correlated operators and data-dependent schemas reject before producer
-consumption. Limits and offsets
-apply to the complete relation and drain the producer, including `LIMIT 0`.
-The producer must reach its explicit end event before results are final; earlier
+windows preserve frame state across input batches. Dynamic pivot discovers its
+columns and completes native pivot state in one pass before downstream output.
+Distinct streamed pivots and successive pivot stages can compose in one operation.
+Repeated references and self-joins consume each producer once and replay its
+complete schema from credited native arrays. Explicit spill permits query-local
+native replay runs under the same disk quota. Replay is confined to one execution;
+a factory still provides fresh input for a later execution. Sets and other unsupported
+stateful/correlated subtrees reject before their producer consumption. A missing
+downstream pivot column can fail after discovery has consumed its input; that
+failure publishes no destination or final success. Limits and offsets
+apply to the complete relation and drain every producer, including `LIMIT 0`.
+Each producer must reach its own explicit end event before results are final; earlier
 batches remain provisional and late failures remain failures.
 
 The per-batch row and frame bounds still apply, with a separate 16 MiB wire-frame
 ceiling and 32 MiB native logical-intake limit per batch. Current source builds
 admit cumulative batches and field metadata through the shared grant.
 Typed intake and output compaction are charged copies; output reservations
-and native sink metadata remain separate. This adds no repeated-source spool or
-process-RSS ceiling. See the [streamed ordering contract](../docs/architecture/native-streamed-ordering-2026-10-07.md),
+and native sink metadata remain separate. Replay copies and passes have separate
+`native_input_replay_*` counters; ordinary one-pass sources keep no replay cache.
+The grant is not a process-RSS ceiling. See the
+[composition contract](../docs/architecture/native-stream-input-composition-2026-10-13.md),
+[streamed ordering contract](../docs/architecture/native-streamed-ordering-2026-10-07.md),
 [general aggregate contract](../docs/architecture/native-aggregate-pressure-2026-10-07.md),
 [join contract](../docs/architecture/native-join-pressure-2026-10-08.md),
 [window contract and example](../docs/reference/native-query-spill.md#analytic-windows-and-finite-streamed-input),
@@ -730,8 +742,11 @@ schema, with the declared margins column when requested. Referencing an absent
 domain fails explicitly. Correlated inner pivots bind independently for each
 outer row. All eight writers accept representable scalar results above the small
 collection limit, subject to the existing 128-field and memory limits. File/resident-memory relational pivots can use the explicit
-native sparse-state spill policy. The direct prepared unary path remains resident,
-and dynamic one-shot pivot input remains unsupported. See the
+native sparse-state spill policy. Source builds also admit finite streaming
+producers through the same dynamic discovery and spill state. Streaming input
+retains its incremental/collection/single-Vortex-destination boundary; the broader
+ordinary-source composition and writer list above does not widen that contract.
+The direct prepared unary path remains resident. See the
 [current pivot spill contract](../docs/reference/native-query-spill.md#sparse-pivot-state).
 
 v0.5.1 also admits static List, FixedSizeList and

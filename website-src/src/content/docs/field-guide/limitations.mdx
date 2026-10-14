@@ -10,7 +10,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 12, 2026**. See the
+Current capabilities, reviewed **October 13, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -51,20 +51,22 @@ covers primitive/Boolean/decimal Chunked output, nullable bitmaps and
 numeric/string finalization buffers, with local and hosted acceptance complete
 in PR #1529. Child decoder scratch and structural metadata remain separate.
 Default input remains resident under the query grant. Opt-in
-[streaming input](/field-guide/python-surface#consume-results-in-batches) admits
-one finite batch source used once through scan/filter/project, sorting, aggregation,
-joins, analytic windows and draining limits, alongside ordinary file/resident sources, with one
-retained native input batch and observed end-of-input required for success.
-Ordering, general aggregation, joins and analytic windows can use an explicit
+[streaming input](/field-guide/python-surface#consume-results-in-batches) in current
+source builds admits distinct finite producers, declared repeated-source replay
+and dynamic pivots, alongside scan/filter/project, sorting, aggregation, joins,
+analytic windows and draining limits. Each producer is consumed once and must
+reach its explicit end. At most one original native input batch is retained;
+native replay, operator state and output share the query grant.
+Ordering, general aggregation, joins, analytic windows and pivots can use an explicit
 shared native spill policy; see the
 [ordering/aggregate acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
 and [join acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-join-pressure-2026-10-08.md)
 and [window acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-window-pressure-2026-10-08.md).
-Join and window hosted integration are complete. On one-shot batch input,
-dynamic pivots and other unadmitted stateful families remain denied. Repeated
-batch-source use, multiple batch producers and streamed compatibility writes
-also remain denied. File/resident-memory relational pivot spill has its separate
-complete local acceptance above.
+Join and window hosted integration are complete. The
+[streaming composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md)
+records current source acceptance. Unadmitted stateful/subquery families, streamed
+compatibility writes and fanout remain separate work. Published v0.5.1 packages
+retain their release-time capabilities.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.
@@ -108,8 +110,9 @@ predicates and unadmitted state spill remain unsupported. Nested MIN/MAX margins
 require a UTF8 index. Relational file/resident-memory pivots have an explicit
 [native spill contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-pivot-pressure-2026-10-08.md)
 with complete local acceptance, independent packet inspection and hosted
-integration in PR #1534. Direct prepared unary pivots remain resident and
-dynamic one-shot batch input rejects before producer demand.
+integration in PR #1534. Direct prepared unary pivots remain resident. Current
+source builds admit finite streaming pivots through the later
+[composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md).
 See the [typed unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-unary-2026-10-03.md).
 Computed aggregate arguments and exact decimal aggregate/rolling/scalar-pivot
 reductions now have complete local acceptance. Inexact decimal averages and final

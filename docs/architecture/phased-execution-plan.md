@@ -249,6 +249,34 @@ the ledger.
 
 ## Planned
 
+- [ ] `NATIVE-STREAM-INPUT-COMPOSITION` complete the next shared streaming
+  lifecycle and capability family.
+  - V1 scope classification: `required_for_v1`.
+  - Existing owners: PERF-03/06/07/11/12 and CG-5/19/20/21; RFCs 0013/0014/0017/0044.
+  - Source: October 13 maintainer direction and the
+    [composition contract](native-stream-input-composition-2026-10-13.md).
+  - Execution checklist:
+    - [x] Run fresh complete ingest/query and modular UAT before implementation;
+      preserve the [baseline evidence](../benchmarks/native-fresh-uat-2026-10-13.md).
+    - [x] Connect batch preparation and execution to one cancellation/resource
+      owner; admit controlled compatibility normalization and prove cleanup.
+    - [x] Admit multiple producers with independent sequence/completion state.
+    - [x] Admit repeated-source/self-join replay with explicit native ownership,
+      bounded reservations and admitted spill/recovery.
+    - [x] Admit dynamic pivot over streaming input through existing native
+      execution-time discovery and completed state.
+    - [ ] Complete public/native failure and resource acceptance, required
+      workspace gates, complete-result regressions, docs and hosted integration.
+      [Local runtime acceptance](../benchmarks/native-stream-input-composition-2026-10-13.md)
+      passes all 757 public cases, 3,219 default and 4,145 native-feature tests,
+      formatting/Clippy and all 129 Full43 executions. Documentation, generated
+      guides and rendered desktop/mobile/search checks pass; hosted integration
+      remains pending.
+  - Ordering: finish the quickest coherent hardening/capability work first;
+    retain all broader memory, spill/recovery and operational obligations.
+    Conditional investigations require qualifying workloads and follow those units.
+  - Boundaries: no external execution, implicit producer replay, uncredited
+    materialization, version bump, package publication or unmeasured speedup.
 
 - [ ] `NATIVE-ENCODED-INTERCHANGE` preserve admitted physical arrays across
   receiving allocations and complete independent native-producer feasibility.
@@ -3016,7 +3044,17 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
-October 12 sequencing direction takes precedence over the earlier breadth-first
+October 13 direction supersedes the breadth pause below: first run fresh full
+UAT, then resume streaming capability gaps and broader memory/spill/recovery,
+cancellation and operational hardening in order of quickest coherent completion.
+The fresh baseline passes all 129 query executions and all 18 modular cohorts.
+Proceed through `NATIVE-STREAM-INPUT-COMPOSITION` and existing hardening owners;
+leave caching, learned indexes, rematerialization and the other conditional
+investigations until qualifying workloads justify them. This is a sequencing
+override, not completion of any whole PERF gate or CG-1 through CG-23. Version
+0.5.1 remains fixed and package publication remains gated.
+
+Historical October 12 sequencing direction took precedence over the earlier breadth-first
 order below: finish the current encoded-interchange local acceptance, then
 focus on query optimization with explicit ship/drop decisions. Start with
 the measured Q24 wall/CPU scheduling signal under PERF-03. Compare the same

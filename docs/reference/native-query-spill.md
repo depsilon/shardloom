@@ -135,13 +135,15 @@ first-seen group order and the existing typed, null and floating reduction
 semantics. All stages share the query grant and disk quota. Without an explicit
 policy, resident aggregation retains its deterministic memory denial.
 
-One finite `streaming=True` batch source can compose filters, projections, sorting,
-aggregation, joins, analytic windows and limits alongside ordinary file/resident sources. Limits
+Distinct finite `streaming=True` batch sources can compose filters, projections, sorting,
+aggregation, joins, analytic windows, dynamic pivot and limits alongside ordinary
+file/resident sources. Each producer is consumed once. Limits
 and offsets apply globally and drain all input,
 including zero limits. A late producer or value error prevents completion and
 file publication. Incremental results, bounded collection and one new native
-Vortex destination are admitted; compatibility streaming writes, repeated
-sources and other stateful families require their separate contracts.
+Vortex destination are admitted. Repeated references use the execution-scoped
+native replay contract below. Compatibility streaming writes and other
+unadmitted stateful families retain their separate contracts.
 
 ```python
 import tempfile
@@ -221,10 +223,21 @@ with tempfile.TemporaryDirectory(prefix="shardloom-query-") as workspace:
 
 The complete result has `(amount, customer)` values `(3, "Ada")`, `(5, None)`
 and `(4, "Ada")`, in that order. This small example need not write a disk run.
-One finite batch source can occur on either join side and compose with nested
-joins, aggregation, ordering and draining limits. Its URI must occur exactly
-once; multiple batch producers and repeated use of a batch source are rejected
-before consumption. Ordinary file/resident sources may occur more than once.
+Distinct finite batch sources can occur on either join side and compose with
+nested joins, aggregation, ordering and draining limits. Repeated references to
+one batch URI consume its producer once, retaining the complete native schema
+for later scans. Static plans and dynamic SQL identify reuse before demand.
+Custom dynamic Rust lowering must declare cross-stage reuse before its first
+discovery call; late declarations and replay before source completion fail.
+Each producer has its own batch sequence and completion event, and all state
+shares the same grant and spill quota. Ordinary file/resident sources may occur
+more than once. See the [composition contract](../architecture/native-stream-input-composition-2026-10-13.md).
+Replay uses credited compact arrays, or the existing native query-run store when
+spill is explicitly enabled. The source's original order and values are preserved
+across different scan projections and predicates. Reports count producer input
+once and expose replay sources, passes, rows, copy bytes and actual spooled sources
+separately. Replay owners and owned runs are released before final certification
+or publication; a fresh execution needs fresh producer input.
 Batch input types, row/frame/count limits and destination admission stay as
 defined in the [batch contract](../architecture/native-bounded-adapters-2026-10-06.md).
 
@@ -264,8 +277,9 @@ Resident execution stays the default. An explicit policy selects native stores
 for input, peers, frame bounds and results, with bounded exact DISTINCT and
 extrema state. All stages share the query grant and disk quota.
 
-One finite single-use batch source can compose these windows with admitted
-filters, projections, joins, aggregation, ordering and draining limits. Windows
+Finite batch sources can compose these windows with admitted filters, projections,
+joins, aggregation, ordering and draining limits. Each producer is consumed once;
+declared repeated references use the shared native replay contract above. Windows
 complete and validate their input before evaluating results. Delivery preserves
 the input row order; window ORDER BY defines analytic positions, not final output
 sorting. Use a separate sort when the delivered order should change.
@@ -323,7 +337,7 @@ grants/quotas, cancellation and source/consumer failures remain errors. Recovery
 cleans a named abandoned directory and permits a fresh restart; it does not
 resume execution. Large individual values or overlapping metadata/readers may
 still exceed the grant. This window contract does not bound total RSS, admit set
-spill, repeat a one-shot source, widen input types or enable compatibility
+spill, widen input types or enable compatibility
 streaming destinations. See the [window design](../architecture/native-window-pressure-2026-10-08.md)
 for the precise ownership and observation-order contract.
 
@@ -336,8 +350,14 @@ passes in the [pivot acceptance report](../benchmarks/native-pivot-pressure-2026
 integration, including all 39 checks and actual preview/production verification.
 The default remains resident. Supply the existing `spill`
 argument to collection, incremental results or an admitted writer to select the
-stored strategy. The direct prepared unary API remains resident, and dynamic
-one-shot batch input rejects before producer consumption.
+stored strategy. Current source builds also admit finite streaming producers
+through execution-time pivot discovery and the same completed native state.
+Distinct streamed pivots and successive pivots share the transaction's allocation
+and spill quota. Input completion is required before certification/publication;
+an absent downstream domain can fail after discovery consumes input. Streaming
+destinations remain one native Vortex file. The direct prepared unary API remains
+resident. The [streaming composition contract](../architecture/native-stream-input-composition-2026-10-13.md)
+tracks this later extension and its acceptance separately from the historical report.
 
 For an existing Vortex file with `entity`, `category` and numeric `amount` columns:
 
@@ -378,6 +398,7 @@ lookup block loads and reader opens. Early incremental batches remain provisiona
 until the final report; source validation, complete evaluation and owned cleanup
 precede success and file publication. Failed work preserves existing destinations.
 Recovery removes only a verified abandoned directory and permits a new execution;
-it does not resume an interrupted pivot. This contract does not bound process RSS,
-expand batch-input admission or establish a speedup. See the
+it does not resume an interrupted pivot. The later composition contract governs
+streamed pivot and replay admission; neither contract bounds process RSS or
+establishes a speedup. See the
 [pivot design](../architecture/native-pivot-pressure-2026-10-08.md).

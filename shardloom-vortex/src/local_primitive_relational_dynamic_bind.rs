@@ -35,6 +35,12 @@ impl<'a> Binder<'a> {
         for (uri, source) in &owner.memory_sources {
             binder.register_memory_source(uri.clone(), |_| Ok(source.clone()))?;
         }
+        for source in &owner.batch_sources {
+            binder.register_batch_source(source.uri.clone(), |_| Ok(source.schema.clone()))?;
+            if source.replay {
+                binder.require_batch_replay(binder.batch_sources.values.len() - 1)?;
+            }
+        }
         binder.execution = Some(ExecutionBinding {
             owner,
             context,
@@ -57,6 +63,59 @@ impl<'a> Binder<'a> {
             );
         }
         Ok(binder)
+    }
+
+    pub(super) fn require_batch_replay(&mut self, index: usize) -> Result<()> {
+        self.cancellation.check()?;
+        if let Some(execution) = &self.execution {
+            execution
+                .metrics
+                .input
+                .ok_or_else(|| {
+                    super::super::batch_input::failed("streaming replay has no input provider")
+                })?
+                .require_replay(index)?;
+        }
+        self.batch_sources.values[index].replay = true;
+        Ok(())
+    }
+
+    pub(in crate::local_primitives::prepared_relational) fn declare_source_reuse(
+        &mut self,
+        uri: &shardloom_core::DatasetUri,
+    ) -> Result<()> {
+        self.cancellation.check()?;
+        if let Some(index) = self
+            .batch_sources
+            .values
+            .iter()
+            .position(|source| &source.uri == uri)
+        {
+            return self.require_batch_replay(index);
+        }
+        if self
+            .memory_sources
+            .values
+            .iter()
+            .any(|(source, _)| source == uri)
+        {
+            return Ok(());
+        }
+        if uri.as_str().len() <= 16_384
+            && let Some(path) = super::super::super::local_vortex_path(
+                uri,
+                super::VortexQueryPrimitiveKind::ProjectColumns,
+            )?
+            && self
+                .paths
+                .values
+                .contains(&std::path::absolute(path).map_err(super::vortex_error)?)
+        {
+            return Ok(());
+        }
+        Err(super::super::batch_input::failed(
+            "source reuse requires a registered source declaration",
+        ))
     }
 
     pub(in crate::local_primitives::prepared_relational) fn defer_subquery(

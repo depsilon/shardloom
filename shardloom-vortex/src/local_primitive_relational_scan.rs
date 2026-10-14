@@ -53,7 +53,17 @@ pub(super) fn run(
         Ok(())
     };
     match source {
-        ScanSource::File(index) => run_file(&files[*index], plan, context, metrics, &mut accept),
+        ScanSource::File(index) => run_file(
+            &files[*index],
+            plan,
+            context,
+            metrics,
+            match metrics.file_scan_batching.get() {
+                super::FileScanBatching::Native => SCAN_ROWS,
+                super::FileScanBatching::Output => batch_rows.min(SCAN_ROWS),
+            },
+            &mut accept,
+        ),
         ScanSource::Memory(projection) => {
             add(&metrics.scans_started, 1)?;
             if projection.source_rows() == 0 {
@@ -68,22 +78,22 @@ pub(super) fn run(
             }
             Ok(())
         }
-        ScanSource::Batch(projection) => {
+        ScanSource::Batch { index, projection } => {
             let input = metrics.input.ok_or_else(|| {
                 super::batch_input::failed("streaming scan has no input provider")
             })?;
-            input.run(context, &mut |source| {
+            input.run(*index, context, metrics, &mut |source| {
                 add(&metrics.scans_started, 1)?;
-                if source.row_count() == 0 {
-                    return accept(projection.execute_batch_range(source, 0..0, context)?);
+                if source.is_empty() {
+                    return accept(projection.execute_batch_array(source, 0..0, context)?);
                 }
                 add(&metrics.data_scans, 1)?;
                 // Producer batches and native scan work units are different
                 // boundaries. Slice before projection/filter work so a large
                 // admitted columnar input does not expand scan scratch.
-                for start in (0..source.row_count()).step_by(SCAN_ROWS) {
-                    let end = start.saturating_add(SCAN_ROWS).min(source.row_count());
-                    accept(projection.execute_batch_range(source, start..end, context)?)?;
+                for start in (0..source.len()).step_by(SCAN_ROWS) {
+                    let end = start.saturating_add(SCAN_ROWS).min(source.len());
+                    accept(projection.execute_batch_array(source, start..end, context)?)?;
                 }
                 Ok(())
             })
@@ -96,6 +106,7 @@ fn run_file(
     plan: &LocalVortexScanPlan,
     context: &NativeExecutionContext<'_>,
     metrics: &Metrics<'_>,
+    scan_rows: usize,
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
     source.with_admitted_native_execution(context, |file, context| {
@@ -114,12 +125,16 @@ fn run_file(
             return Ok(());
         }
         add(&metrics.data_scans, 1)?;
+        // Execution supplies one bounded range at a time. Retain only the two
+        // file endpoints instead of expanding a full-file split vector at the
+        // output batch size (which may be a single row).
+        let _split_metadata = context.memory().reserve(4096 + 2 * 16)?;
         let mut scan = file
             .scan()
             .map_err(vortex_error)?
             .with_ordered(true)
             .with_concurrency(1)
-            .with_split_by(vortex::layout::scan::split_by::SplitBy::RowCount(SCAN_ROWS));
+            .with_natural_splits([0, file.row_count()].into());
         if let Some(filter) = &plan.filter {
             scan = scan.with_filter(super::super::bind_vortex_scan_expr(file, filter)?);
         }
@@ -129,18 +144,12 @@ fn run_file(
         // Upstream stream concurrency is per host worker. Drive one task at a
         // time instead, so retained order/join state cannot overlap with host-
         // sized speculative reads. Bind once and execute bounded row ranges.
-        let split_bytes = file
-            .row_count()
-            .div_ceil(SCAN_ROWS as u64)
-            .checked_add(1)
-            .and_then(|splits| splits.checked_mul(16))
-            .and_then(|bytes| bytes.checked_add(4096))
-            .ok_or_else(|| failed("native scan split metadata capacity overflow"))?;
-        let _split_metadata = context.memory().reserve(split_bytes)?;
+        // Honor downstream batch demand before reading a wide source, rather
+        // than allocating an 8192-row range and only then splitting the output.
         let scan = scan.prepare().map_err(vortex_error)?;
-        for start in (0..file.row_count()).step_by(SCAN_ROWS) {
+        for start in (0..file.row_count()).step_by(scan_rows) {
             context.check_cancelled()?;
-            let end = start.saturating_add(SCAN_ROWS as u64).min(file.row_count());
+            let end = start.saturating_add(scan_rows as u64).min(file.row_count());
             let mut tasks = scan.execute(Some(start..end)).map_err(vortex_error)?;
             if tasks.len() != 1 {
                 return Err(failed("native scan range changed its admitted task count"));

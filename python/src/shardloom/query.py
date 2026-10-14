@@ -8962,15 +8962,18 @@ def from_batches(
     input has no fixed batch-count or field-count ceiling. Schema metadata and
     native payloads share the query memory grant; each transport frame remains
     bounded. The default resident mode retains all native input under that grant.
-    ``streaming=True`` instead admits one batch source used once through
-    filters/projections, sorting, aggregation, joins, analytic windows and limits,
+    ``streaming=True`` admits distinct finite batch sources through
+    filters/projections, sorting, aggregation, joins, analytic windows, dynamic
+    pivot and limits,
     alongside ordinary file or resident sources.
     Incremental results, bounded small collection and one native Vortex output
-    are admitted. Limits drain and validate the complete source. Stateful work
-    shares the query grant; ordering, aggregation, joins and windows can use an
-    explicit spill policy. Repeated batch use, multiple batch producers and unsupported
-    operator families reject before consumption.
-    Results remain provisional until the producer ends and final validation
+    are admitted. Limits drain and validate every source. Stateful work
+    shares the query grant; ordering, aggregation, joins, windows and pivot can
+    use an explicit spill policy. Repeated references consume the producer once
+    per execution and replay credited native copies, with query-local native
+    runs when spill is enabled. Unsupported operator families reject before
+    consumption. A factory is still required for repeated executions.
+    Results remain provisional until every producer ends and final validation
     succeeds.
     """
     resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)

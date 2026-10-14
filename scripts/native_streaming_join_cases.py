@@ -158,19 +158,18 @@ def run(harness):
                 harness.case(name, composed)
 
     for second_streaming in (False, True):
-        name = f"join-deny-second-batch-streaming-{second_streaming}"
-        def deny(name=name, second_streaming=second_streaming):
+        name = f"join-second-batch-streaming-{second_streaming}"
+        def multiple(name=name, second_streaming=second_streaming):
             first, first_trace = frame(harness)
             second, second_trace = frame(harness, streaming=second_streaming)
-            try:
-                joined(first, second, False, "inner").collect(check=True, **policy)
-            except ShardLoomCommandError as error:
-                harness.envelope(name, error.envelope, success=False)
-                assert "batch" in json.dumps(error.envelope.raw).lower()
-            else:
-                raise AssertionError("multiple batch producers were admitted")
-            assert first_trace["opened"] == second_trace["opened"] == 0
-        harness.case(name, deny)
+            result = joined(first, second, False, "inner").collect(check=True, **policy)
+            harness.values(name, result.result_rows, oracle(STREAM, STREAM, "inner"))
+            for trace in (first_trace, second_trace):
+                assert trace["opened"] == 1 and trace["ended"] and trace["closed"], trace
+            harness.completed(name, result.envelope,
+                batches=len(BATCHES) * (1 + int(second_streaming)),
+                rows=len(STREAM) * (1 + int(second_streaming)), sources=1 + int(second_streaming))
+        harness.case(name, multiple)
 
     for stream_right in (False, True):
         name = f"join-late-producer-zero-right-{stream_right}"

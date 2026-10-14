@@ -224,7 +224,7 @@ impl PreparedVortexRelational {
         self.memory_sources
             .first()
             .map(|(uri, _)| uri.clone())
-            .or_else(|| self.batch_source.as_ref().map(|(uri, _)| uri.clone()))
+            .or_else(|| self.batch_sources.first().map(|source| source.uri.clone()))
             .ok_or_else(|| failed("relational source is absent"))
     }
 }

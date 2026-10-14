@@ -1,4 +1,4 @@
-//! One finite batch producer may occur once on either side of native joins.
+//! Finite native producers compose through joins with explicit source ownership.
 
 use super::*;
 use crate::relational_query::{VortexRelationalLimit, VortexRelationalSpillPolicy};
@@ -13,6 +13,12 @@ mod composition_tests;
 
 #[path = "local_primitive_relational_batch_join_fault_tests.rs"]
 mod fault_tests;
+
+#[path = "local_primitive_relational_batch_multiple_tests.rs"]
+mod multiple_tests;
+
+#[path = "local_primitive_relational_batch_replay_tests.rs"]
+mod replay_tests;
 
 const ORDINARY: [(Option<i64>, &str); 3] = [(Some(1), "r1"), (Some(3), "r3"), (None, "rn")];
 const STREAM: [(Option<i64>, &str); 4] =
@@ -188,6 +194,14 @@ fn reference(stream_right: bool, kind: JoinKind) -> Vec<Value> {
     } else {
         (&STREAM[..], &ORDINARY[..])
     };
+    reference_rows(left, right, kind)
+}
+
+fn reference_rows(
+    left: &[(Option<i64>, &str)],
+    right: &[(Option<i64>, &str)],
+    kind: JoinKind,
+) -> Vec<Value> {
     let mut matched = vec![false; right.len()];
     let mut rows = Vec::new();
     for &(key, value) in left {
@@ -391,7 +405,7 @@ fn streaming_join_zero_limit_still_drains_and_rejects_a_late_producer_error() {
 }
 
 #[test]
-fn streaming_join_registration_rejects_uri_collisions_missing_use_and_multiple_producers() {
+fn streaming_join_registration_rejects_uri_collisions_and_missing_use() {
     for batch_first in [false, true] {
         let result = prepare_relational_with_schema(policy(), |schema| {
             let batch = |schema: &mut VortexRelationalPreparation<'_>| {
@@ -428,7 +442,22 @@ fn streaming_join_registration_rejects_uri_collisions_missing_use_and_multiple_p
             .err()
             .unwrap()
             .to_string()
-            .contains("one unique declared batch source")
+            .contains("does not use its declared batch source")
+    );
+    let result = prepare_relational_with_schema(policy(), |schema| {
+        for _ in 0..2 {
+            schema.register_batch_source(DatasetUri::new("memory://stream")?, |session| {
+                source(session, &[], &[])
+            })?;
+        }
+        Ok(scan())
+    });
+    assert!(
+        result
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("unique bounded memory URI")
     );
     let fixture = ordinary_file();
     let result = prepare(&fixture.scan(), 4 << 20);

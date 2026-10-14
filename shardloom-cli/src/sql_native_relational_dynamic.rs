@@ -99,10 +99,12 @@ pub(super) fn prepare(
     }
     // Retain the already parsed declaration, including nested statement copies.
     // Every execution only resolves schemas and lowers it; it does not reparse.
-    let mut declaration_bytes = declaration_bytes(&parsed)?;
+    let size = declaration_size(&parsed)?;
+    let mut declaration_bytes = size.bytes;
     let shared_memory =
         session.map(shardloom_vortex::resident_session::ResidentVortexSession::shared_memory_pool);
     let mut sources = BTreeMap::new();
+    let mut uses = BTreeMap::<String, (DatasetUri, u8)>::new();
     for leaf in leaves {
         cancellation.check()?;
         let uris = if leaf.memory_input.is_some() {
@@ -125,9 +127,19 @@ pub(super) fn prepare(
             .and_then(|bytes| bytes.checked_add(16_384))
             .and_then(|bytes| declaration_bytes.checked_add(bytes))
             .ok_or_else(|| unsupported_sql_error("dynamic SQL source metadata overflow"))?;
+        let count = *size
+            .source_uses
+            .get(&leaf)
+            .ok_or_else(|| unsupported_sql_error("dynamic SQL source occurrence is absent"))?;
+        for uri in &uris {
+            let entry = uses
+                .entry(uri.as_str().to_owned())
+                .or_insert_with(|| (uri.clone(), 0));
+            entry.1 = (entry.1 + count).min(2);
+        }
         sources.insert(leaf, uris);
     }
-    let uris = sources.values().flatten().cloned().collect::<Vec<_>>();
+    let (uris, reused) = partition_source_uses(uses);
     let declaration = Declaration {
         sources: std::sync::Arc::new(sources),
         bytes: declaration_bytes,
@@ -138,6 +150,11 @@ pub(super) fn prepare(
         inputs(schemas)
     };
     let lower = move |schemas: &mut VortexRelationalPreparation<'_>| {
+        // A pivot can execute before a later branch has even been lowered.
+        // Declare complete-tree reuse now, combining aliases of each URI.
+        for uri in &reused {
+            schemas.declare_source_reuse(uri)?;
+        }
         let mut resolver =
             |leaf: &ParsedRelationLeaf, _: Option<&shardloom_exec::live_memory::LiveMemoryPool>| {
                 declaration.sources.get(leaf).cloned().ok_or_else(|| {
@@ -175,14 +192,29 @@ pub(super) fn prepare(
     }
 }
 
-fn declaration_bytes(query: &ParsedRelationQuery) -> NativeResult<usize> {
+fn partition_source_uses(
+    uses: BTreeMap<String, (DatasetUri, u8)>,
+) -> (Vec<DatasetUri>, Vec<DatasetUri>) {
+    let mut uris = Vec::with_capacity(uses.len());
+    let mut reused = Vec::new();
+    for (uri, count) in uses.into_values() {
+        if count > 1 {
+            reused.push(uri.clone());
+        }
+        uris.push(uri);
+    }
+    (uris, reused)
+}
+
+fn declaration_size(query: &ParsedRelationQuery) -> NativeResult<DeclarationSize<'_>> {
     let mut size = DeclarationSize {
         bytes: 65_536,
         queries: 0,
         predicates: 0,
+        source_uses: BTreeMap::new(),
     };
     size.query(query, 0)?;
-    Ok(size.bytes)
+    Ok(size)
 }
 
 /// A conservative declaration credit, separate from native operator credits.
@@ -190,14 +222,15 @@ fn declaration_bytes(query: &ParsedRelationQuery) -> NativeResult<usize> {
 /// per-byte allowance covers the parser's projection/predicate representations,
 /// their Vec/String headers, and overlapping per-parameter lowering copies.
 /// This is not a claim that the credit bounds total process RSS.
-struct DeclarationSize {
+struct DeclarationSize<'a> {
     bytes: usize,
     queries: usize,
     predicates: usize,
+    source_uses: BTreeMap<&'a ParsedRelationLeaf, u8>,
 }
 
-impl DeclarationSize {
-    fn query(&mut self, query: &ParsedRelationQuery, depth: usize) -> NativeResult<()> {
+impl<'a> DeclarationSize<'a> {
+    fn query(&mut self, query: &'a ParsedRelationQuery, depth: usize) -> NativeResult<()> {
         if depth > 24 {
             return Err(unsupported_sql_error(
                 "dynamic declaration exceeds 24 levels",
@@ -214,7 +247,7 @@ impl DeclarationSize {
         }
     }
 
-    fn select(&mut self, parsed: &ParsedSqlLocalSource, depth: usize) -> NativeResult<()> {
+    fn select(&mut self, parsed: &'a ParsedSqlLocalSource, depth: usize) -> NativeResult<()> {
         self.queries += 1;
         if self.queries > 128 || depth > 24 {
             return Err(unsupported_sql_error(
@@ -243,7 +276,7 @@ impl DeclarationSize {
 
     fn scalar(
         &mut self,
-        value: &super::scalar_expression::ParsedScalarExpression,
+        value: &'a super::scalar_expression::ParsedScalarExpression,
         depth: usize,
     ) -> NativeResult<()> {
         for (_, binding) in &value.bindings {
@@ -259,15 +292,19 @@ impl DeclarationSize {
         Ok(())
     }
 
-    fn source(&mut self, source: &ParsedRelationSource, depth: usize) -> NativeResult<()> {
+    fn source(&mut self, source: &'a ParsedRelationSource, depth: usize) -> NativeResult<()> {
         match source {
-            ParsedRelationSource::Local(_) => Ok(()),
+            ParsedRelationSource::Local(leaf) => {
+                let count = self.source_uses.entry(leaf).or_default();
+                *count = (*count + 1).min(2);
+                Ok(())
+            }
             ParsedRelationSource::Derived(query) => self.query(query, depth),
             ParsedRelationSource::Unary(unary) => self.query(&unary.input, depth),
         }
     }
 
-    fn predicate(&mut self, predicate: &ParsedPredicate, depth: usize) -> NativeResult<()> {
+    fn predicate(&mut self, predicate: &'a ParsedPredicate, depth: usize) -> NativeResult<()> {
         self.predicates += 1;
         if depth > 24 || self.predicates > 4096 {
             return Err(unsupported_sql_error(

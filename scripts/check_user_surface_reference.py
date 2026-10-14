@@ -270,6 +270,26 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         if entrypoint not in sql_entrypoints:
             blockers.append(f"{JSON_PATH}: missing SQL entrypoint {entrypoint}")
 
+    streaming = payload.get("native_python_batch_adapters", {}).get("streaming_input", {})
+    for field, value in (
+        ("supported_plan", ["Scan", "Filter", "Project", "Sort", "Limit", "Aggregate", "Join", "Window", "PivotRows"]),
+        ("single_source_single_use", False),
+        ("multiple_batch_producers", True),
+        ("each_streaming_source_single_use", True),
+        ("each_streaming_source_single_use_scope", "producer_consumed_once_per_execution;repeated_scans_use_declared_native_replay"),
+        ("repeated_source_replay", True),
+        ("replay_lifetime", "one_execution;declaration_before_first_demand;complete_source_before_replay"),
+        ("dynamic_pivot_discovery", "one_pass_completed_native_state"),
+        ("max_retained_input_batches", 1),
+        ("end_of_input_required", True),
+        ("limits_drain_complete_input", True),
+        ("input_spill", True),
+        ("input_spill_scope", "declared_repeated_source_replay;explicit_native_query_spill_policy_required"),
+        ("composition_reference", "docs/architecture/native-stream-input-composition-2026-10-13.md"),
+    ):
+        if streaming.get(field) != value:
+            blockers.append(f"{JSON_PATH}: streaming_input.{field} differs from its contract")
+
     relational_spill = payload.get("native_relational_order_spill", {})
     for field in ("cleanup_required_before_publication", "stable_ties", "multiple_keys"):
         if relational_spill.get(field) is not True:
@@ -491,7 +511,10 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         ("minimum_quota_bytes", 32768),
         ("default_strategy", "resident"),
         ("explicit_strategy", "native_sparse_latest_state_runs_with_bounded_exact_lookup"),
-        ("source_scope", ["file", "resident_memory"]),
+        ("source_scope", ["file", "resident_memory", "finite_streaming_batches"]),
+        ("streaming_composition_reference", "docs/architecture/native-stream-input-composition-2026-10-13.md"),
+        ("historical_acceptance_source_scope", ["file", "resident_memory"]),
+        ("one_shot_batch_input_scope", "producer_once_per_execution;dynamic_native_discovery;explicit_replay_for_repeated_scans"),
         ("type_scope", "existing_scalar_typed_and_static_nested_pivot_contracts"),
         ("maximum_top_level_fields", 128),
         ("file_and_resident_scalar_writer_count", 8),
@@ -501,10 +524,10 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         if pivot_spill.get(field) != value:
             blockers.append(f"{JSON_PATH}: native_relational_pivot_spill.{field} differs from its contract")
     for field in ("existing_observation_and_error_order_preserved", "shared_query_grant_and_disk_quota",
-                  "incremental_result_delivery", "cleanup_required_before_publication"):
+                  "incremental_result_delivery", "one_shot_batch_input", "cleanup_required_before_publication"):
         if pivot_spill.get(field) is not True:
             blockers.append(f"{JSON_PATH}: native_relational_pivot_spill.{field} must be true")
-    for field in ("direct_prepared_unary_spill", "one_shot_batch_input", "execution_resume",
+    for field in ("direct_prepared_unary_spill", "execution_resume",
                   "total_rss_bound", "performance_claim", "fallback_attempted", "external_engine_invoked"):
         if pivot_spill.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_relational_pivot_spill.{field} must be false")

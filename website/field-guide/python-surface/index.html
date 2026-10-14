@@ -169,32 +169,38 @@ the value; other valid temporal values remain exact integer epoch days or
 microseconds, including nested fields. The
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-typed-input-2026-10-10.md">complete typed-input acceptance</a>
 records complete values, writer fidelity, failure controls and the review correction.</p>
-<p>Streaming retains at most one native input batch, so cumulative input may exceed
+<p>Current source builds retain at most one original native input batch, so cumulative input may exceed
 the query grant while individual batches remain bounded. It supports incremental results,
 bounded small collection or one native Vortex destination. Retained operator
-state shares the grant; ordering, general aggregation, joins and analytic windows
-support an explicit native spill policy. A single-use batch source can occur on either join side,
-alongside ordinary file/resident sources. Limits and offsets drain and validate
-the complete source, including zero limits. Repeated batch use, multiple batch
-producers, sets and dynamic schemas reject before producer consumption.
+state shares the grant; ordering, general aggregation, joins, analytic windows
+and dynamic pivots support an explicit native spill policy. Distinct finite
+producers can occur on both join sides alongside ordinary file/resident sources.
+Each producer runs once per execution. Repeated references and self-joins use
+credited native replay, with native runs when the caller permits spill.
+Limits and offsets drain and validate every source, including zero limits.
+Sets and other unadmitted stateful/subquery shapes retain explicit refusals.
 Analytic window partitions and frames span input batches and complete their input
 before evaluating results. Windows preserve the input row order in delivered
 results; use a separate sort to change it.
-The producer must reach its explicit end
+Every producer must reach its explicit end
 event before results are final. Typed intake and output compaction are charged
-copies; output and sink reservations remain separate. No repeated-source spool
-or process-RSS ceiling is added. See the
+copies; retained replay, output and sink reservations share the same grant.
+Compatibility preparation also uses the transaction’s cancellation owner.
+These contracts do not establish a process-RSS ceiling. See the
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md">streaming composition contract</a>,
+which records current source acceptance separately from unchanged v0.5.1 packages, and the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-streamed-ordering-2026-10-07.md">streamed ordering contract</a>
 and <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md">aggregate, join and window spill examples</a>.</p>
 <p>Relational pivots over file or resident-memory sources can deliver complete
 admitted results through <code dir="auto">iter_batches()</code> with an explicit <code dir="auto">spill</code> policy.
 The <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state">sparse pivot example</a>
-shows setup and cleanup. Dynamic pivot execution over one-shot streaming input
-remains rejected before producer demand.</p>
+shows setup and cleanup. Current source builds also admit dynamic pivots over
+finite streaming input; schema discovery, source completion and downstream
+execution share the same native transaction.</p>
 <p>Requesting the next result batch acknowledges the preceding one. Use the
 context manager when stopping early, and treat delivered batches as provisional
-until the final report is present after full exhaustion. Prepare compatibility
-file inputs explicitly to Vortex before batch consumption. See
+until the final report is present after full exhaustion. Current source builds
+prepare compatibility files inside the same cancellable transaction. See
 <a href="/field-guide/runtime-and-io#resources-and-recovery">resource boundaries</a>.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="next-steps">Next steps</h2><a class="sl-anchor-link" href="#next-steps"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Next steps”</span></a></div>
 <p>See <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md">the examples</a>

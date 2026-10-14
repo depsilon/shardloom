@@ -37,6 +37,9 @@ use vortex::{
 const SCAN_ROWS: usize = 8192;
 const METADATA_BYTES_PER_CHUNK: u64 = 8192;
 
+#[path = "local_primitive_native_sink_batches.rs"]
+mod batches;
+
 pub(super) struct NativeSinkPlan {
     pub(super) session: ResidentVortexSession,
     pub(super) source: NativeSinkInput,
@@ -662,6 +665,8 @@ impl NativeSinkPlan {
         let mut arrays_submitted = 0_u64;
         let mut max_rows = 0_usize;
         let mut native_bytes = 0_u64;
+        let mut adapter_copied_bytes = 0_u64;
+        let mut adapter_scalars = 0_u64;
         let mut matched_rows_observed = 0_u64;
         let mut stopped_at_limit = false;
         self.source.with_native_execution_or_admitted(
@@ -691,6 +696,35 @@ impl NativeSinkPlan {
                     strategy,
                     statistics,
                 );
+                let mut batches =
+                    batches::Batches::new(&self.dtype, self.source.is_produced(), execution)?;
+                let mut submit = |array| {
+                    // Complete only pending native work; larger admitted
+                    // physical arrays pass through the batcher unchanged.
+                    #[cfg(test)]
+                    let started = overlap_timing::clock();
+                    let (array, _) = native_flat_layout::complete_for_serialization(
+                        array,
+                        &allowed_encodings,
+                        &mut context,
+                    )
+                    .map_err(vortex_error)?;
+                    #[cfg(test)]
+                    overlap_timing::record("serialization_completion", started);
+                    native_bytes = native_bytes
+                        .checked_add(array.nbytes())
+                        .ok_or_else(|| sink_error("native sink logical byte overflow"))?;
+                    #[cfg(test)]
+                    let started = overlap_timing::clock();
+                    writer.push(array).map_err(vortex_error)?;
+                    #[cfg(test)]
+                    {
+                        overlap_timing::record("writer_push", started);
+                        overlap_timing::buffered(writer.buffered_bytes());
+                    }
+                    arrays_submitted += 1;
+                    Ok(())
+                };
                 let delivery = if self.source.is_produced()
                     || (!self.metadata_pruned && self.row_count > 0)
                 {
@@ -717,34 +751,10 @@ impl NativeSinkPlan {
                         } else {
                             array
                         };
-                        // File editions exclude lazy filter/slice/expression arrays.
-                        // Preserve serializable encoded batches; only pending native
-                        // work is completed into provider-owned canonical buffers.
-                        #[cfg(test)]
-                        let started = overlap_timing::clock();
-                        let (array, _) = native_flat_layout::complete_for_serialization(
-                            array,
-                            &allowed_encodings,
-                            &mut context,
-                        )
-                        .map_err(vortex_error)?;
-                        #[cfg(test)]
-                        overlap_timing::record("serialization_completion", started);
                         rows_written = rows_written
                             .checked_add(usize_to_u64(array.len())?)
                             .ok_or_else(|| sink_error("native sink row count overflow"))?;
-                        native_bytes = native_bytes
-                            .checked_add(array.nbytes())
-                            .ok_or_else(|| sink_error("native sink logical byte overflow"))?;
-                        #[cfg(test)]
-                        let started = overlap_timing::clock();
-                        writer.push(array).map_err(vortex_error)?;
-                        #[cfg(test)]
-                        {
-                            overlap_timing::record("writer_push", started);
-                            overlap_timing::buffered(writer.buffered_bytes());
-                        }
-                        arrays_submitted += 1;
+                        batches.push(array, execution, &mut submit)?;
                         if self.limit == Some(rows_written) {
                             stopped_at_limit = true;
                             return Ok(false);
@@ -755,6 +765,10 @@ impl NativeSinkPlan {
                     Ok(())
                 };
                 delivery?;
+                batches.flush(execution, &mut submit)?;
+                adapter_copied_bytes = batches.copied_bytes;
+                adapter_scalars = batches.scalar_values;
+                drop(batches);
                 #[cfg(test)]
                 let started = overlap_timing::clock();
                 let summary = writer.finish().map_err(vortex_error)?;
@@ -826,8 +840,8 @@ impl NativeSinkPlan {
             self.source.is_source() && !self.metadata_pruned && self.row_count > 0;
         evidence.side_effects.data_read = self.source.is_source() && arrays_read > 0;
         // Filter kernels and the native serializer may canonicalize encodings.
-        // Zero adapter scalarization is not a claim that all provider work avoids
-        // decoding or allocating; conservatively expose that native boundary.
+        // Adapter counters cover bounded compaction, not all provider decoding
+        // or allocation; conservatively expose that native boundary.
         evidence.side_effects.data_decoded = arrays_read > 0;
         evidence.side_effects.data_materialized = arrays_read > 0;
         // The selected sink boundary is reported even when footer pruning or an
@@ -837,10 +851,14 @@ impl NativeSinkPlan {
         evidence.native_array_sink = Some(VortexNativeArraySinkEvidence {
             native_arrays_submitted: arrays_submitted,
             native_array_logical_bytes: native_bytes,
-            adapter_payload_bytes_copied: 0,
-            scalar_values_materialized: 0,
+            adapter_payload_bytes_copied: adapter_copied_bytes,
+            scalar_values_materialized: adapter_scalars,
             scan_row_bound: SCAN_ROWS,
-            writer_input_batch_bound: 3,
+            writer_input_batch_bound: if self.source.is_produced() {
+                batches::INPUT_ARRAY_BOUND
+            } else {
+                3
+            },
             peak_reserved_bytes: self.session.snapshot().memory.peak_reserved_bytes,
             metadata_reserved_bytes: metadata_bytes.saturating_add(statistics_bytes),
             pre_limit_result_row_count,
@@ -848,7 +866,7 @@ impl NativeSinkPlan {
             source_generation_validated: true,
             dtype_and_row_count_validated: true,
             output_sha256: checksum,
-            metadata_fidelity: "native_dtype_validity_preserved;native_serializer_selects_serializable_encodings;source_layout_user_metadata_not_copied;supported_file_statistics_recomputed_from_output",
+            metadata_fidelity: "native_dtype_validity_preserved;native_serializer_selects_serializable_encodings;small_produced_fragments_use_bounded_credited_native_batching;source_layout_user_metadata_not_copied;supported_file_statistics_recomputed_from_output",
             compatibility: None,
         });
         Ok(VortexLocalPrimitiveRowExportReport {

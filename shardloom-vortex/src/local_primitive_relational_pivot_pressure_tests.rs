@@ -61,14 +61,69 @@ fn fixture() -> Fixture {
     fixture
 }
 
-fn prepare(fixture: &Fixture, grant: u64, spill: bool) -> PreparedVortexRelational {
+fn stream_batch(
+    session: &ResidentVortexSession,
+    start: usize,
+    end: usize,
+) -> Result<ResidentMemorySource> {
+    use crate::resident_memory_source::{MemoryColumn, MemoryColumnValues};
+    let entities = (start..end)
+        .map(|row| text(row % GROUPS))
+        .collect::<Vec<_>>();
+    ResidentMemorySource::from_batch_columns(
+        session,
+        &[
+            MemoryColumn {
+                name: "entity",
+                values: MemoryColumnValues::Utf8(
+                    &entities
+                        .iter()
+                        .map(|value| Some(value.as_str()))
+                        .collect::<Vec<_>>(),
+                ),
+            },
+            MemoryColumn {
+                name: "category",
+                values: MemoryColumnValues::Utf8(&vec![Some("a"); end - start]),
+            },
+            MemoryColumn {
+                name: "amount",
+                values: MemoryColumnValues::Float64(
+                    &(start..end)
+                        .map(|row| Some(VALUES[row / GROUPS]))
+                        .collect::<Vec<_>>(),
+                ),
+            },
+        ],
+    )
+}
+
+fn prepare(fixture: &Fixture, grant: u64, spill: bool, streamed: bool) -> PreparedVortexRelational {
     let mut policy = policy();
     policy.resource_envelope.memory_budget_bytes = grant;
-    let plan = plan(fixture, "sum");
-    let prepared = prepare_relational_with_dynamic_schema(
-        &[DatasetUri::new(fixture.path().display().to_string()).unwrap()],
+    let uri = DatasetUri::new(if streamed {
+        "memory://pivot-pressure".into()
+    } else {
+        fixture.path().display().to_string()
+    })
+    .unwrap();
+    let mut plan = plan(fixture, "sum");
+    if let VortexRelationalPlan::Unary(unary) = &mut plan
+        && let VortexRelationalPlan::Scan(scan) = &mut unary.input
+    {
+        scan.source_uri = uri.clone();
+    }
+    let prepared = prepare_relational_with_dynamic_inputs(
+        std::slice::from_ref(&uri),
         policy,
         65_536,
+        |schemas| {
+            if streamed {
+                schemas
+                    .register_batch_source(uri.clone(), |session| stream_batch(session, 0, 0))?;
+            }
+            Ok(())
+        },
         move |schemas| schemas.resolve_output(&plan).map(|(plan, _)| plan),
     )
     .unwrap();
@@ -83,36 +138,72 @@ fn prepare(fixture: &Fixture, grant: u64, spill: bool) -> PreparedVortexRelation
     }
 }
 
-fn execute(prepared: &PreparedVortexRelational) -> Result<ExecutedVortexRelational> {
+fn execute(
+    prepared: &PreparedVortexRelational,
+    streamed: bool,
+) -> Result<ExecutedVortexRelational> {
     let mut index = 0;
-    let report =
-        prepared.for_each_json_batch(&CancellationToken::default(), 257, 4 << 20, |batch| {
-            let rows = serde_json::from_str::<Vec<Value>>(batch.values_json.value()).unwrap();
-            assert!(rows.len() <= 257);
-            for row in rows {
-                assert_eq!(
-                    row,
-                    json!({"entity":text(index), "pivot_a":3.0}),
-                    "index={index}"
-                );
-                index += 1;
+    let consume = |batch: crate::local_primitives::collect::SerializedVortexResultBatch| {
+        let rows = serde_json::from_str::<Vec<Value>>(batch.values_json.value()).unwrap();
+        assert!(rows.len() <= 257);
+        for row in rows {
+            assert_eq!(
+                row,
+                json!({"entity":text(index), "pivot_a":3.0}),
+                "index={index}"
+            );
+            index += 1;
+        }
+        Ok(())
+    };
+    let report = if streamed {
+        let mut start = 0;
+        let mut producer = |session: &ResidentVortexSession| {
+            if start == ROWS {
+                return Ok(None);
             }
-            Ok(())
-        })?;
+            let end = (start + 251).min(ROWS);
+            let batch = stream_batch(session, start, end)?;
+            start = end;
+            Ok(Some(batch))
+        };
+        prepared
+            .with_batch_input(&mut producer)?
+            .for_each_json_batch(&CancellationToken::default(), 257, 4 << 20, consume)?
+    } else {
+        prepared.for_each_json_batch(&CancellationToken::default(), 257, 4 << 20, consume)?
+    };
     assert_eq!(index, GROUPS);
     assert_eq!(report.output_rows, GROUPS as u64);
     assert_eq!(report.scan_rows_delivered, ROWS as u64);
     assert!(report.native_io_certificate.is_certified());
     assert!(!report.native_io_certificate.side_effects.fallback_attempted);
+    if streamed {
+        let input = report.input.as_ref().unwrap();
+        assert_eq!(input.sources, 1);
+        assert_eq!(input.rows, ROWS as u64);
+        assert_eq!(input.payload_batches, ROWS.div_ceil(251) as u64);
+        assert!(input.input_logical_bytes > GRANT);
+        assert!(input.end_of_input_observed && input.output_ownership_detached);
+    }
     Ok(report)
 }
 
 #[test]
 fn native_pivot_spill_pressure_denies_resident_and_completes_beyond_the_same_grant() {
+    pressure(false);
+}
+
+#[test]
+fn streamed_dynamic_pivot_spill_pressure_denies_resident_and_completes_beyond_the_same_grant() {
+    pressure(true);
+}
+
+fn pressure(streamed: bool) {
     let fixture = fixture();
-    let denied = prepare(&fixture, GRANT, false);
+    let denied = prepare(&fixture, GRANT, false, streamed);
     let baseline = denied.snapshot().memory.reserved_bytes;
-    let error = execute(&denied)
+    let error = execute(&denied, streamed)
         .err()
         .expect("resident state exceeds this grant");
     assert!(error.to_string().contains("reservation denied"), "{error}");
@@ -120,9 +211,9 @@ fn native_pivot_spill_pressure_denies_resident_and_completes_beyond_the_same_gra
     assert_eq!(denied.snapshot().completed_executions, 0);
     drop(denied);
 
-    let ample = prepare(&fixture, 512 << 20, false);
+    let ample = prepare(&fixture, 512 << 20, false, streamed);
     let baseline = ample.snapshot().memory.reserved_bytes;
-    let control = execute(&ample).unwrap();
+    let control = execute(&ample, streamed).unwrap();
     assert_eq!(control.spilled_pivot_stages, 0);
     let ample_peak = control.runtime.memory.peak_reserved_bytes;
     assert!(ample_peak > GRANT);
@@ -130,10 +221,10 @@ fn native_pivot_spill_pressure_denies_resident_and_completes_beyond_the_same_gra
     assert_eq!(ample.snapshot().memory.reserved_bytes, baseline);
     drop(ample);
 
-    let spilled = prepare(&fixture, GRANT, true);
+    let spilled = prepare(&fixture, GRANT, true, streamed);
     let baseline = spilled.snapshot().memory.reserved_bytes;
     for call in 1..=2 {
-        let report = execute(&spilled).unwrap();
+        let report = execute(&spilled, streamed).unwrap();
         assert_eq!(report.spilled_pivot_stages, 1);
         assert_eq!(report.spilled_pivot_input_rows, ROWS as u64);
         assert_eq!(report.spilled_pivot_index_rows, GROUPS as u64);
@@ -148,7 +239,7 @@ fn native_pivot_spill_pressure_denies_resident_and_completes_beyond_the_same_gra
         assert_eq!(spilled.snapshot().completed_executions, call);
         eprintln!(
             "{}",
-            json!({"family":"native_sparse_pivot_repeated_floating_updates", "call":call,
+            json!({"family":"native_sparse_pivot_repeated_floating_updates", "call":call,"streamed":streamed,
                 "input_rows":ROWS,"input_file_bytes":fs::metadata(fixture.path()).unwrap().len(),"grant":GRANT,
                 "spilled_peak_reserved_bytes":report.runtime.memory.peak_reserved_bytes,"ample_peak_reserved_bytes":ample_peak,
                 "resident_denial":error.to_string(),"runs_written":spill.runs_written,"merge_passes":spill.merge_passes,

@@ -1185,7 +1185,16 @@ fn append_native_vortex_primitive_row_export_fields(
         fields,
         "decode_materialization_boundary",
         if report.evidence.native_array_sink.is_some() && report.output_format == "vortex" {
-            "native_scan_arrays_to_native_flat_writer;no_adapter_scalar_or_arrow_conversion;provider_decode_may_occur"
+            if report
+                .evidence
+                .native_array_sink
+                .as_ref()
+                .is_some_and(|sink| sink.scalar_values_materialized > 0)
+            {
+                "native_scan_arrays_to_native_flat_writer;bounded_adapter_scalar_copy;no_arrow_conversion;provider_decode_may_occur"
+            } else {
+                "native_scan_arrays_to_native_flat_writer;no_adapter_scalar_or_arrow_conversion;provider_decode_may_occur"
+            }
         } else if report.evidence.native_array_sink.is_some() {
             "native_scan_arrays_to_explicit_arrow_compatibility_writer;no_scalar_row_bridge;provider_decode_or_copy_may_occur"
         } else {

@@ -148,12 +148,12 @@ The [completion-aware ordering](../architecture/native-streamed-ordering-2026-10
 and [general aggregate](../architecture/native-aggregate-pressure-2026-10-07.md)
 contracts, extended by the [join contract](../architecture/native-join-pressure-2026-10-08.md)
 and [window contract](../architecture/native-window-pressure-2026-10-08.md),
-admit `streaming=True` for one finite batch source used once through
-Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window alongside ordinary file/resident
+admit `streaming=True` for finite batch sources used once each through
+Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window/PivotRows alongside ordinary file/resident
 sources, with incremental results, bounded small collection or one native Vortex
 destination. It retains at most one native input batch, permitting
 cumulative input above the shared grant while each frame remains bounded and
-the finite producer must reach its explicit end.
+every finite producer must reach its own explicit end.
 Typed intake and output compaction remain charged; result and sink reservations
 remain separate. Unsupported plans reject before producer consumption, and success
 requires observed end-of-input. Limits, including zero, drain and validate the
@@ -171,8 +171,15 @@ complete constrained native spill, 442 streaming checks and 28,871 public
 regressions, including 1,498 added spill-frame checks. Hosted integration completed
 in [PR #1533](https://github.com/depsilon/shardloom/pull/1533), with all 39 checks
 passing and the accepted runtime unchanged. Resident input remains
-the default. Repeated batch-source spool, multiple batch producers, compatibility streaming
-writes and a process-RSS bound remain outside this contract.
+the default. The [composition contract](../architecture/native-stream-input-composition-2026-10-13.md)
+extends that runtime to multiple producers, controlled compatibility preparation,
+dynamic pivot and repeated-source replay. Each producer is consumed once per
+execution; repeated scans use credited complete-schema native copies, with the
+existing query-run store available under explicit spill policy. Replay preserves
+source order and releases its owners before completion. Separate
+`native_input_replay_*` counters expose that copy/pass/spill boundary. Ordinary
+one-pass pivots use completed pivot state without retaining a source replay cache.
+Compatibility streaming writes and a process-RSS bound remain outside this contract.
 
 Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
 with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:
@@ -379,8 +386,11 @@ objects. Common admitted methods include:
   acceptance completed in PR #1534 after all 39 checks passed, with exact source
   and production verification in the
   [hosted receipt](../benchmarks/evidence/native-pivot-hosted-2026-10-08.json).
-  Direct prepared unary pivots remain resident; dynamic
-  one-shot batch sources reject before producer demand. Spill does not expand
+  Direct prepared unary pivots remain resident. Current source builds also admit
+  finite streaming input through one-pass native discovery and completed pivot
+  state, with incremental results, bounded collection or one native Vortex
+  destination. The [streaming composition contract](../architecture/native-stream-input-composition-2026-10-13.md)
+  tracks the later extension. Spill does not expand
   aggregate, type, margin or 128-field admission.
 - Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
   primitive; `sum`/`mean`/`min`/`max` require numeric inputs, `count` admits scalar rows, centered windows

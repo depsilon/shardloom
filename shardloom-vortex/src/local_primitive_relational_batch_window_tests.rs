@@ -423,22 +423,7 @@ fn streaming_window_failures_and_zero_limit_require_complete_input_and_refund_ow
 }
 
 #[test]
-fn streaming_window_rejects_repeated_source_and_compatibility_sink_before_demand() {
-    let joined = VortexRelationalPlan::Join(Box::new(VortexRelationalJoin {
-        left: window(scan()),
-        right: scan(),
-        kind: JoinKind::Cross,
-        keys: vec![],
-        columns: vec![],
-        condition: None,
-    }));
-    assert!(
-        prepare(&joined, 16 << 20)
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("repeated batch source")
-    );
+fn streaming_window_rejects_compatibility_sink_before_demand() {
     let fixture = Fixture::new(
         single("n", PrimitiveArray::from_iter([1i64]).into_array()),
         1,
@@ -464,4 +449,75 @@ fn streaming_window_rejects_repeated_source_and_compatibility_sink_before_demand
     assert_eq!(prepared.snapshot().completed_executions, 0);
     assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     clean(&fixture, true);
+}
+
+#[test]
+fn streaming_replay_window_then_self_join_preserves_window_and_input_order() {
+    for spill in [false, true] {
+        let fixture = Fixture::new(
+            single("n", PrimitiveArray::from_iter([1i64]).into_array()),
+            1,
+        );
+        let plan = VortexRelationalPlan::Join(Box::new(VortexRelationalJoin {
+            left: window(scan()),
+            right: scan(),
+            kind: JoinKind::Inner,
+            keys: vec![VortexRelationalJoinKey {
+                left: column("s"),
+                right: column("s"),
+            }],
+            condition: None,
+            columns: vec![
+                VortexRelationalJoinColumn {
+                    side: Side::Left,
+                    column: column("rn"),
+                    output_column: "rn".into(),
+                },
+                VortexRelationalJoinColumn {
+                    side: Side::Right,
+                    column: column("s"),
+                    output_column: "s".into(),
+                },
+            ],
+        }));
+        let prepared = prepared(&fixture, &plan, spill);
+        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let mut calls = 0;
+        let mut producer = |session: &ResidentVortexSession| {
+            calls += 1;
+            match calls {
+                1 => source(session, &NUMBERS, &TEXT).map(Some),
+                2 => Ok(None),
+                _ => panic!("producer replayed"),
+            }
+        };
+        let result = prepared
+            .with_batch_input(&mut producer)
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            json_rows(&result),
+            [
+                json!({"rn":4,"s":"c"}),
+                json!({"rn":1,"s":"a"}),
+                json!({"rn":2,"s":"b"}),
+                json!({"rn":3,"s":"d"})
+            ]
+        );
+        assert_eq!(calls, 2);
+        assert_eq!(result.execution.input.as_ref().unwrap().replay_rows, 5);
+        assert_eq!(
+            result
+                .execution
+                .input
+                .as_ref()
+                .unwrap()
+                .window_rows_detached,
+            5
+        );
+        drop(result);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        clean(&fixture, spill);
+    }
 }

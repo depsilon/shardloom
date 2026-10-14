@@ -674,7 +674,7 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
     // and owner release, rather than a transport snapshot taken during binding.
     let completed = [
         ("native_input_batches", input.payload_batches.to_string()),
-        ("native_input_batch_sources", "1".into()),
+        ("native_input_batch_sources", input.sources.to_string()),
         ("native_input_batch_rows", input.rows.to_string()),
         ("native_input_logical_bytes", input.input_logical_bytes.to_string()),
         ("native_input_payload_bytes_copied", input.intake_payload_bytes_copied.to_string()),
@@ -690,7 +690,19 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_join_build_rows_detached", input.join_build_rows_detached.to_string()),
         ("native_input_window_batches_detached", input.window_batches_detached.to_string()),
         ("native_input_window_rows_detached", input.window_rows_detached.to_string()),
-        ("native_batch_input_storage", "single_current_native_batch;released_before_next_demand;operator_state_spill_reported_separately".into()),
+        ("native_input_replay_sources", input.replay_sources.to_string()),
+        ("native_input_replay_passes", input.replay_passes.to_string()),
+        ("native_input_replay_rows", input.replay_rows.to_string()),
+        ("native_input_replay_batches_detached", input.replay_batches_detached.to_string()),
+        ("native_input_replay_rows_detached", input.replay_rows_detached.to_string()),
+        ("native_input_replay_buffer_bytes_copied", input.replay_buffer_bytes_copied.to_string()),
+        ("native_input_replay_spilled_sources", input.replay_spilled_sources.to_string()),
+        ("native_batch_input_storage", if input.replay_sources > 0 {
+            "single_current_producer_batch;released_before_next_demand;declared_replay_retained_as_credited_native_arrays_or_policy_admitted_query_runs;replay_and_operator_state_reported_separately"
+        } else {
+            "single_current_native_batch;released_before_next_demand;operator_state_spill_reported_separately"
+        }.into()),
+        ("native_input_replay_byte_accounting", "initial_compact_native_array_buffers;excludes_later_operator_and_spill_copy_traffic;not_allocated_capacity_or_rss".into()),
         ("native_input_byte_accounting", "logical_values_offsets_validity_and_names;not_allocated_capacity_or_rss".into()),
         ("resident_source_generation_validation", "declared_schema_checked_each_batch;explicit_source_end;all_input_owners_released;bound_file_generations_checked_before_and_after_final_consumer;final_consumer_completed".into()),
     ];

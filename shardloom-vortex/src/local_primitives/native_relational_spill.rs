@@ -32,7 +32,7 @@ const READER_WORK_BYTES: u64 = 2 * 64 * 1024;
 
 #[path = "native_relational_stored_order.rs"]
 mod stored;
-pub(super) use stored::{StoredBlock, StoredOrder};
+pub(super) use stored::{Replay, StoredBlock, StoredOrder};
 
 #[path = "native_relational_pivot_store.rs"]
 pub(super) mod pivot;

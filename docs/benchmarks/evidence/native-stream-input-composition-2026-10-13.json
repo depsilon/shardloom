@@ -1,0 +1,75 @@
+{
+  "schema_version": "shardloom.native_stream_composition_index.v1",
+  "status": "local_acceptance_complete_hosted_pending",
+  "source_identity": {
+    "base_commit": "ed253d1ec74b724215f71f0b410123656e596696",
+    "selected_file_count": 2236,
+    "source_manifest_sha256": "d385601e233e879659f5bf15c252eb1e10a03e6557fc9c096171094be7799281",
+    "scope": "The changed runtime is identified by the frozen selected-file hashes and the PR; the base commit alone is insufficient."
+  },
+  "executable": {
+    "bytes": 75265616,
+    "sha256": "93e6976f618abd276b02b897e5be4c9fda0321b2f4d48b65bbc29252497b4b75"
+  },
+  "archive": {
+    "path": "native-stream-input-composition-2026-10-13.tar.xz",
+    "bytes": 4567932,
+    "sha256": "35fb2211ffa18d855beb484a9d22736d121e3ac1154293694478f0cbeed6948a"
+  },
+  "manifest": {
+    "path": "native-stream-input-composition-2026-10-13.manifest.json.xz",
+    "bytes": 127988,
+    "sha256": "c9e41bab92c8479abdba5d3ec4c97e82018704fe3f04332450e5b31b37e24b0f",
+    "uncompressed_sha256": "302ab5ae7de33faf32cff3c0697712c33adca7b3c0a81e7587040399cb5c812a"
+  },
+  "verified_members": 3688,
+  "original_bytes": 187799885,
+  "results": {
+    "public_cases": 757,
+    "public_families": 19,
+    "default_workspace": {
+      "groups": 106,
+      "passed": 3219,
+      "failed": 0,
+      "ignored": 0
+    },
+    "native_features": {
+      "groups": 92,
+      "passed": 4145,
+      "failed": 0,
+      "ignored": 27
+    },
+    "full43_calls": 129,
+    "full43_rows": 1143,
+    "documentation_gates": 15,
+    "final_text_gates": 4,
+    "rendered_guides": [
+      "python-surface",
+      "runtime-and-io",
+      "limitations"
+    ],
+    "rendered_review": "desktop/mobile, dark/light, menu, internal link and replay search"
+  },
+  "timing": {
+    "native_full43_process_seconds": 214.67570595617872,
+    "supervised_full43_seconds": 268.2831986670499
+  },
+  "evidence_paths": {
+    "final_checks": "final/stream-composition-final-checks-398.json",
+    "full43_review": "final/stream-composition-full43-primary-review-398.json",
+    "release": "final/stream-composition-398-release.json",
+    "source_manifest": "final/stream-composition-398-source.json",
+    "public_review": "final/stream-composition-public-review-399.json",
+    "browser": "documentation/stream-composition-browser-400/summary.json",
+    "final_documentation": "documentation/stream-composition-final-docs-400/summary.json"
+  },
+  "baseline_index": "native-fresh-uat-2026-10-13.json",
+  "limitations": [
+    "Local macOS arm64 acceptance; hosted integration is pending.",
+    "Native test exclusions: three non-Unix cases for Windows CI and 24 manual benchmark, fixture or workload-dependent cases.",
+    "Retained native Full43 regression reference; no new ingest or independent oracle in this final regression.",
+    "Public bulk outputs and executables are hash-identified and excluded from the portable archive.",
+    "Failed and superseded attempts are retained; all archive members and copied bytes were verified.",
+    "No paired speedup, process-RSS ceiling, new package release or whole PERF/CG completion claim."
+  ]
+}
