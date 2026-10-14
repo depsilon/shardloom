@@ -25,6 +25,41 @@ fn repeated_union(uri: &DatasetUri, levels: usize) -> VortexRelationalPlan {
 }
 
 #[test]
+fn native_relational_tiny_output_batches_do_not_expand_full_file_split_metadata() {
+    const ROWS: usize = 65_539;
+    const GRANT: u64 = 512 << 10;
+    let source = vortex::array::arrays::StructArray::new(
+        ["n"].into(),
+        vec![vortex::array::arrays::ConstantArray::new(7_i64, ROWS).into_array()],
+        ROWS,
+        vortex::array::validity::Validity::NonNullable,
+    )
+    .into_array();
+    let fixture = Fixture::new(source, ROWS);
+    let mut resources = policy();
+    resources.resource_envelope.memory_budget_bytes = GRANT;
+    let prepared = prepare_relational(&fixture.scan(), resources).unwrap();
+    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let mut rows = 0;
+    let result = prepared
+        .for_each_json_batch(&CancellationToken::default(), 1, 1024, |batch| {
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(batch.values_json.value()).unwrap(),
+                serde_json::json!([{"n":7}])
+            );
+            rows += 1;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(rows, ROWS);
+    assert_eq!(result.output_rows, ROWS as u64);
+    assert_eq!(result.scan_rows_delivered, ROWS as u64);
+    assert!(result.runtime.memory.peak_reserved_bytes <= GRANT);
+    drop(result);
+    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+}
+
+#[test]
 fn native_relational_plan_node_count_grows_under_shared_metadata_admission() {
     let uri = DatasetUri::new("memory://many-operators").unwrap();
     let plan = repeated_union(&uri, 7); // 128 scans and 127 set operators.

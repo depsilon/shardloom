@@ -169,6 +169,80 @@ fn measures(rows: usize) -> ArrayRef {
     .into_array()
 }
 
+#[test]
+fn native_payload_scalar_counter_covers_nested_values_and_preserves_raw_storage() {
+    use vortex::array::arrays::VarBinViewArray;
+
+    let session = ResidentVortexSession::new(2 << 20, 1).unwrap();
+    let output = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let source = StructArray::try_new(
+                FieldNames::from(["raw", "text", "items"]),
+                vec![
+                    measures(3),
+                    VarBinViewArray::from_iter(
+                        [Some("alpha"), None, Some("")],
+                        DType::Utf8(Nullability::Nullable),
+                    )
+                    .into_array(),
+                    ListArray::try_new(
+                        PrimitiveArray::from_iter([1_i64, 2, 999, 3, 4]).into_array(),
+                        PrimitiveArray::from_iter([0_u64, 2, 3, 5]).into_array(),
+                        Validity::from_iter([true, false, true]),
+                    )
+                    .map_err(vortex_error)?
+                    .into_array(),
+                ],
+                3,
+                Validity::NonNullable,
+            )
+            .map_err(vortex_error)?
+            .into_array();
+            let (output, scalars) =
+                detach_with_scalar_count(&source, CopyPolicy::PreserveUnobserved, context)?;
+            // 3 ordinals + 3 decimal values + 2 text passes * 3 rows + 4 visible
+            // list elements. Float storage, metadata and the hidden 999 do not count.
+            assert_eq!(scalars, 16);
+            assert_eq!(output.dtype(), source.dtype());
+            verify(&field(&output, "raw")?, 0..3, context)?;
+            let mut execution = context.native_session().create_execution_ctx();
+            let text = field(&output, "text")?;
+            for (row, expected) in [
+                serde_json::json!("alpha"),
+                serde_json::Value::Null,
+                serde_json::json!(""),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                assert_eq!(
+                    result_batch::scalar_value(&text, row, &mut execution)?.into_json()?,
+                    expected
+                );
+            }
+            let items = native_list::Column::new(field(&output, "items")?, &mut execution)?;
+            assert_eq!(items.coordinates(0, &mut execution)?, Some((0, 2)));
+            assert_eq!(items.coordinates(1, &mut execution)?, None);
+            assert_eq!(items.coordinates(2, &mut execution)?, Some((2, 2)));
+            let elements = items
+                .elements
+                .clone()
+                .execute::<PrimitiveArray>(&mut execution)
+                .map_err(vortex_error)?;
+            assert_eq!(elements.to_buffer::<i64>().as_ref(), &[1, 2, 3, 4]);
+            let empty = source.slice(0..0).map_err(vortex_error)?;
+            let (empty, scalars) =
+                detach_with_scalar_count(&empty, CopyPolicy::PreserveUnobserved, context)?;
+            assert!(empty.is_empty());
+            assert_eq!(scalars, 0);
+            Ok(output)
+        })
+        .unwrap();
+    assert!(session.memory().snapshot().reserved_bytes > 0);
+    drop(output);
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+}
+
 fn verify(
     source: &ArrayRef,
     originals: impl IntoIterator<Item = usize>,

@@ -117,7 +117,6 @@ pub fn prepare_relational_with_dynamic_inputs_in_session_controlled(
         binding: bind::Binder::new_with_cancellation(session, cancellation)?,
     };
     inputs(&mut preparation)?;
-    preparation.binding.reject_dynamic_batch_input()?;
     preparation.binding.charge(declaration_bytes)?;
     for source in sources {
         preparation.binding.source_columns(source)?;
@@ -126,14 +125,14 @@ pub fn prepare_relational_with_dynamic_inputs_in_session_controlled(
         sources,
         source_paths,
         memory_sources,
-        batch_source,
+        batch_sources,
         metadata,
     } = preparation.binding.finish()?;
     Ok(PreparedVortexRelational {
         session: session.clone(),
         sources,
         memory_sources,
-        batch_source,
+        batch_sources,
         source_paths,
         root: PreparedRoot::Dynamic(Box::new(lower)),
         policy,
@@ -159,6 +158,16 @@ fn validate_sources(sources: &[DatasetUri]) -> Result<()> {
 }
 
 impl VortexRelationalPreparation<'_> {
+    /// Declare a source needed by several dynamic subtrees before its first
+    /// input demand. Static complete plans infer reuse automatically. Streaming
+    /// inputs retain compact native replay under the shared memory/spill policy;
+    /// file and resident sources already support repeated scans. No rows are read.
+    /// # Errors
+    /// Rejects unknown sources, cancellation and reuse declared after demand.
+    pub fn declare_source_reuse(&mut self, uri: &DatasetUri) -> Result<()> {
+        self.binding.declare_source_reuse(uri)
+    }
+
     /// Retain a schema-dependent inner declaration. The existing correlated
     /// executor lowers it afresh for each native outer singleton, under the same
     /// execution grant. The returned reference must be consumed once as the
@@ -201,7 +210,9 @@ impl PreparedVortexRelational {
         context.check_cancelled()?;
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.validate_preparation_sources()?;
-        let input = input.map(|input| super::batch_input::Execution::new(self, input));
+        let input = input
+            .map(|input| super::batch_input::Execution::new(self, input))
+            .transpose()?;
         let metrics = Metrics {
             input: input
                 .as_ref()

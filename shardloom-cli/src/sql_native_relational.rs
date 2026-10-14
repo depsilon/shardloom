@@ -67,6 +67,7 @@ pub(crate) fn prepare(
     )
 }
 
+#[cfg(test)]
 pub(crate) fn prepare_with_inputs(
     raw: &str,
     policy: VortexLocalPrimitiveExecutionPolicy,
@@ -189,44 +190,6 @@ pub(crate) fn is_plain_select(raw: &str) -> NativeResult<bool> {
     let (parsed, _) = parsed_native_query(raw)?;
     Ok(matches!(parsed,
         ParsedRelationQuery::Select(parsed) if matches!(parsed.source, ParsedRelationSource::Local(_))))
-}
-
-pub(crate) fn prepare_from_source(
-    raw: &str,
-    policy: VortexLocalPrimitiveExecutionPolicy,
-    uri: DatasetUri,
-    source: shardloom_vortex::resident_session::PreparedVortexSource,
-    inputs: impl FnOnce(&mut VortexRelationalPreparation<'_>) -> NativeResult<()>,
-    mut resolve_source: impl FnMut(
-        &ParsedRelationLeaf,
-        Option<&shardloom_exec::live_memory::LiveMemoryPool>,
-    ) -> NativeResult<Vec<DatasetUri>>,
-) -> NativeResult<PreparedVortexRelational> {
-    let (parsed, offset) = parsed_native_query(raw)?;
-    if dynamic::required(&parsed) {
-        return Err(unsupported_sql_error(
-            "ordinary source dispatch cannot discover a dynamic schema",
-        ));
-    }
-    shardloom_vortex::local_primitives::prepared_relational::prepare_relational_from_source(
-        uri,
-        source,
-        policy,
-        |schemas| {
-            register_sql_memory_inputs(&parsed, schemas)?;
-            inputs(schemas)?;
-            let mut lowerer = Lowerer {
-                schemas,
-                serial: 0,
-                resolve_source: &mut resolve_source,
-                declaration: None,
-                outer: None,
-            };
-            let mut query = lowerer.query(&parsed)?.offset(offset)?;
-            lowerer.prune(&mut query.plan, None, &mut BTreeSet::new())?;
-            Ok(query.plan)
-        },
-    )
 }
 
 /// Count unique declared paths without opening inputs or preparing subqueries.

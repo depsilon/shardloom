@@ -14,19 +14,23 @@ from native_streaming_input_cases import declaration
 
 
 class Peer:
-    def __init__(self, harness, name, *, write=False, source=None, memory_input=None):
+    def __init__(self, harness, name, *, write=False, source=None, memory_input=None, workflow=None):
         self.harness, self.name = harness, name
-        source = source if source is not None else harness.context.from_batches(
-            [], schema={"n": "int64"}, streaming=True)
-        self.uri = source.source.uri
         self.target = harness.output / (name + ".vortex")
-        kwargs = declaration(source)
-        del kwargs["input_batches"]
-        if memory_input is not None:
-            kwargs["source_bindings"][self.uri]["memory_input"] = memory_input
-        names = [name for name, _ in dict(source.source.memory_input)["schema"]]
-        kwargs.update(sql_statement=f"SELECT {','.join(names)} FROM '{self.uri}'", bounded=True,
-                      requested_output="write_vortex" if write else "collect")
+        if workflow is None:
+            source = source if source is not None else harness.context.from_batches(
+                [], schema={"n": "int64"}, streaming=True)
+            self.uri = source.source.uri
+            kwargs = declaration(source)
+            del kwargs["input_batches"]
+            if memory_input is not None:
+                kwargs["source_bindings"][self.uri]["memory_input"] = memory_input
+            names = [name for name, _ in dict(source.source.memory_input)["schema"]]
+            kwargs["sql_statement"] = f"SELECT {','.join(names)} FROM '{self.uri}'"
+        else:
+            kwargs = dict(workflow)
+            self.uri = str(kwargs["input_uri"])
+        kwargs.update(bounded=True, requested_output="write_vortex" if write else "collect")
         if write:
             kwargs["output_ref"] = self.target
         args = harness.client._public_workflow_facade_args("run", "dataframe", **kwargs)

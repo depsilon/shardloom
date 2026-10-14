@@ -69,17 +69,30 @@ See the [typed native input contract](../architecture/native-typed-input-2026-10
 for schema syntax, value conversion, nullability and the exact admitted recursive
 types.
 
-Opt-in `streaming=True` consumes one finite batch source once, retaining at most
-one native input batch. Current source composes Scan/Filter/Project, Sort, Limit,
-Aggregate, Join and Window alongside ordinary file/resident sources. Repeated batch use
-and multiple batch producers reject before consumption. Incremental results,
+Opt-in `streaming=True` consumes distinct finite batch sources once each, retaining at
+most one native input batch across the transaction. Current source composes
+Scan/Filter/Project, Sort, Limit, Aggregate, Join, Window and dynamic Pivot alongside ordinary
+file/resident sources. Repeated references and self-joins consume the producer
+once per execution, then use credited native replay of its complete schema.
+Static plans and dynamic SQL declare reuse before demand; custom Rust dynamic
+lowering declares cross-stage reuse before its first discovery call. Incremental results,
 bounded small collection and one native Vortex destination are admitted.
 Cumulative input may exceed the query grant while each batch/frame stays bounded;
 typed intake, retained operator state, output compaction and result/sink owners
 remain charged. Ordering, aggregation, joins and analytic windows admit explicit
-native spill.
-Limits, including zero, drain and validate input; observed end-of-input is required
-for success. Neither mode admits repeated-source spooling or an RSS bound. Ordering/aggregate
+native spill, as does relational pivot. Pivot consumes the producer once for
+execution-time domain discovery and retains the completed native pivot state;
+downstream output uses that state without requesting the source again. A later
+schema-dependent binding failure aborts publication and certification even when
+discovery has already consumed input.
+Limits, including zero, drain and validate every input; each source's end is required
+for success. Replay retains compact native arrays under the shared grant and,
+with an explicit spill policy, may spool through the existing native query-run
+store. It preserves source order, releases original input owners before the next
+producer demand, and discards replay state before completion. The
+`native_input_replay_*` report fields distinguish producer intake from replay
+passes, detached bytes and actual spooled sources. One-pass sources do not acquire
+a replay cache. Neither mode promises a process-RSS bound. Ordering/aggregate
 acceptance merged in [PR #1531](https://github.com/depsilon/shardloom/pull/1531).
 The [join contract](../architecture/native-join-pressure-2026-10-08.md) has
 [complete local acceptance](../benchmarks/native-join-pressure-2026-10-08.md),
@@ -98,8 +111,18 @@ boundaries.
 delivers admitted typed/nested results with acknowledged backpressure. Consume
 inside a `with` block, especially when stopping early. Each batch is provisional
 until the iterator is exhausted and its final `report` is present after source
-validation. Retaining Python objects is outside the native grant. Prepare
-compatibility file inputs explicitly to Vortex before using this transaction.
+validation. Retaining Python objects is outside the native grant. Current source
+builds prepare admitted compatibility inputs to Vortex using this transaction's
+cancellation token and native allocation. See the
+[composition contract](../architecture/native-stream-input-composition-2026-10-13.md).
+
+The native `with_batch_inputs` callback receives the source URI and its batch
+ordinal, starting at zero independently for each source. The existing
+`with_batch_input` and Arrow callback require exactly one declaration.
+Completed `native_input_batch_sources`, rows and batch counts describe streaming
+producers; resident batch intake occurs during preparation and is represented
+among the operation's prepared memory sources. Native I/O certificates count
+all prepared file, resident and streaming sources without double counting.
 
 ## Stream Computed Results
 

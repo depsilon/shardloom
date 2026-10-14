@@ -34,13 +34,18 @@ fn prepare_with_source(
     source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
     preparations: PublicSourcePreparations,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
-    prepare_with_input_adapter(
+    let policy = native_vortex_materializing_policy(request)?;
+    let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
+        policy.resource_envelope.memory_budget_bytes,
+        policy.max_parallelism,
+    )?;
+    prepare_with_source_in_session(
         statement,
         request,
         source,
         preparations,
-        |_| Ok(()),
-        |_, input, session| input.build(session),
+        &session,
+        &CancellationToken::default(),
     )
 }
 
@@ -151,18 +156,14 @@ pub(super) fn prepare_with_source_in_session(
     ))
 }
 
-// Preparation owners transfer into the plan when format preparation is enabled.
-#[cfg_attr(
-    not(all(feature = "vortex-write", feature = "universal-format-io")),
-    allow(clippy::needless_pass_by_value)
-)]
+/// Establish the input control owner before any source resolution. Dynamic SQL
+/// resolves its source declarations before registering inputs, so initialization
+/// inside the registration closure would miss compatibility preparation.
 pub(super) fn prepare_with_input_adapter(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
-    source: Option<shardloom_vortex::resident_session::PreparedVortexSource>,
-    preparations: PublicSourcePreparations,
     initialize: impl FnOnce(
-        &shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
+        &shardloom_vortex::resident_session::ResidentVortexSession,
     ) -> Result<(), ShardLoomError>,
     mut build: impl FnMut(
         &str,
@@ -172,43 +173,38 @@ pub(super) fn prepare_with_input_adapter(
         shardloom_vortex::resident_memory_source::ResidentMemorySource,
         ShardLoomError,
     >,
+    cancellation: &CancellationToken,
 ) -> Result<(PreparedVortexRelational, usize), ShardLoomError> {
-    #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
-    let _ = preparations;
+    cancellation.check()?;
     validate_bindings(statement, request)?;
-    let mut sources = Sources::default();
     let policy = native_vortex_materializing_policy(request)?;
-    let operation = if let Some(source) = source {
-        let uri = DatasetUri::new(
-            request
-                .input_uri
-                .clone()
-                .ok_or_else(|| failed("source URI is absent"))?,
-        )?;
-        native_relational::prepare_from_source(
-            statement,
-            policy,
-            uri,
-            source,
-            |schemas| {
-                initialize(schemas)?;
-                register_memory_inputs(schemas, request, &mut build)
-            },
-            |path, memory| sources.resolve(path, request, memory),
-        )?
-    } else {
-        native_relational::prepare_with_inputs(
-            statement,
-            policy,
-            |schemas| {
-                initialize(schemas)?;
-                register_memory_inputs(schemas, request, &mut build)
-            },
-            |path, memory| sources.resolve(path, request, memory),
-        )?
+    let session = shardloom_vortex::resident_session::ResidentVortexSession::new(
+        policy.resource_envelope.memory_budget_bytes,
+        policy.max_parallelism,
+    )?;
+    cancellation.check()?;
+    initialize(&session)?;
+    cancellation.check()?;
+    let mut sources = Sources {
+        cancellation: cancellation.clone(),
+        ..Sources::default()
     };
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    sources.preparations.extend(preparations.sources);
+    let operation = native_relational::prepare_in_session(
+        statement,
+        policy,
+        &session,
+        |schemas| {
+            register_memory_inputs(schemas, request, &mut |uri, input, owner| {
+                cancellation.check()?;
+                let result = build(uri, input, owner)?;
+                cancellation.check()?;
+                Ok(result)
+            })
+        },
+        |path, memory| sources.resolve(path, request, memory),
+        cancellation,
+    )?;
+    cancellation.check()?;
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     let operation = operation.with_preparation_sources(sources.preparations)?;
     #[cfg(feature = "vortex-write")]
@@ -240,32 +236,6 @@ fn register_memory_inputs(
         ShardLoomError,
     >,
 ) -> Result<(), ShardLoomError> {
-    let streaming = request.source_bindings.values().any(|binding| {
-        matches!(
-            binding.memory_input,
-            Some(crate::native_memory_input::MemoryInput::Batches {
-                streaming: true,
-                ..
-            })
-        )
-    });
-    if streaming
-        && request
-            .source_bindings
-            .values()
-            .filter(|binding| {
-                matches!(
-                    binding.memory_input,
-                    Some(crate::native_memory_input::MemoryInput::Batches { .. })
-                )
-            })
-            .count()
-            != 1
-    {
-        return Err(failed(
-            "SL-NATIVE-BATCH: streaming input requires one declared batch producer; choose explicit resident mode",
-        ));
-    }
     for (uri, binding) in &request.source_bindings {
         if let Some(input) = &binding.memory_input {
             if matches!(
@@ -587,6 +557,85 @@ mod tests {
     use super::*;
 
     #[test]
+    fn batch_preparation_cancellation_precedes_static_and_dynamic_source_resolution() {
+        let mut request = PublicWorkflowRouteRequest::new("sql".into());
+        request.resources.memory_bytes = Some((8_u64 << 20).to_string());
+        request.resources.max_parallelism = Some("1".into());
+        request.input_uri = Some("/missing/batch-source-cancel.csv".into());
+        request.input_format = Some("csv".into());
+        request.source_schema = Some("value:int64".into());
+        request.bounded = true;
+        for statement in [
+            "SELECT value FROM '/missing/batch-source-cancel.csv'",
+            r#"SELECT * FROM PIVOT((SELECT value AS entity,'a' AS category,value AS amount FROM '/missing/batch-source-cancel.csv'), '{"index":"entity","columns":"category","values":"amount","aggregate":"sum"}') AS p"#,
+        ] {
+            for already_cancelled in [false, true] {
+                let token = CancellationToken::default();
+                if already_cancelled {
+                    token.cancel();
+                }
+                let mut initialized = false;
+                let mut memory = None;
+                let error = prepare_with_input_adapter(
+                    statement,
+                    &request,
+                    |session| {
+                        initialized = true;
+                        memory = Some(session.shared_memory_pool());
+                        token.cancel();
+                        Ok(())
+                    },
+                    |_, _, _| panic!("cancelled preparation must not demand producer input"),
+                    &token,
+                )
+                .err()
+                .expect("cancel before opening or preparing an absent compatibility source");
+                assert!(error.to_string().contains("cancelled"), "{error}");
+                assert_eq!(initialized, !already_cancelled);
+                if let Some(memory) = memory {
+                    assert_eq!(memory.snapshot().reserved_bytes, 0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn batch_preparation_releases_built_input_when_the_producer_cancels() {
+        let mut request = PublicWorkflowRouteRequest::new("sql".into());
+        request.resources.memory_bytes = Some((8_u64 << 20).to_string());
+        request.resources.max_parallelism = Some("1".into());
+        request.input_uri = Some("memory://cancel-built".into());
+        request.input_format = Some("memory".into());
+        request.bounded = true;
+        request.source_bindings = super::super::super::parse_public_source_bindings(
+            &serde_json::json!({"memory://cancel-built":{"input_format":"memory","memory_input":{"kind":"range","start":1,"end":4,"step":1,"column":"n"}}}).to_string(),
+        ).unwrap();
+        let token = CancellationToken::default();
+        let mut memory = None;
+        let mut builds = 0;
+        let error = prepare_with_input_adapter(
+            "SELECT n FROM 'memory://cancel-built'",
+            &request,
+            |session| {
+                memory = Some(session.shared_memory_pool());
+                Ok(())
+            },
+            |_, input, session| {
+                builds += 1;
+                let built = input.build(session)?;
+                token.cancel();
+                Ok(built)
+            },
+            &token,
+        )
+        .err()
+        .expect("a producer cancellation must not publish the prepared plan");
+        assert!(error.to_string().contains("cancelled"), "{error}");
+        assert_eq!(builds, 1);
+        assert_eq!(memory.unwrap().snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
     fn native_source_resolution_observes_cancellation_after_input_registration() {
         let mut request = PublicWorkflowRouteRequest::new("sql".into());
         request.resources.memory_bytes = Some((8_u64 << 20).to_string());
@@ -658,14 +707,13 @@ mod tests {
         let error = prepare_with_input_adapter(
             &sql,
             &request,
-            None,
-            PublicSourcePreparations::default(),
-            |schemas| {
-                retained = Some(schemas.reserve_input_scratch(7 << 20)?);
-                shared_memory = Some(schemas.shared_memory_pool());
+            |session| {
+                retained = Some(session.reserve_input_scratch(7 << 20)?);
+                shared_memory = Some(session.shared_memory_pool());
                 Ok(())
             },
             |_, input, session| input.build(session),
+            &CancellationToken::default(),
         )
         .err()
         .expect("retained native state must reduce available preparation memory");
@@ -772,8 +820,6 @@ mod tests {
             let (operation, normalized) = prepare_with_input_adapter(
                 &sql,
                 &request,
-                None,
-                PublicSourcePreparations::default(),
                 |_| Ok(()),
                 |_, input, session| {
                     if let MemoryInput::Batches { schema, .. } = input {
@@ -782,6 +828,7 @@ mod tests {
                         input.build(session)
                     }
                 },
+                &CancellationToken::default(),
             )
             .unwrap();
             assert_eq!(normalized, 2);
@@ -826,7 +873,8 @@ mod tests {
     }
 
     #[test]
-    fn native_streaming_join_source_admission_rejects_multiple_producers_before_demand() {
+    fn native_streaming_join_source_admission_allows_multiple_and_resident_producers() {
+        use crate::native_memory_input::{MemoryInput, MemoryRow};
         let streaming =
             serde_json::json!({"kind":"batches","schema":[["n","int64"]],"streaming":true});
         for second_streams in [false, true] {
@@ -840,27 +888,57 @@ mod tests {
                 "memory://stream":{"input_format":"memory","memory_input":streaming},
                 "memory://other":{"input_format":"memory","memory_input":{"kind":"batches","schema":[["n","int64"]],"streaming":second_streams}},
             }).to_string()).unwrap();
-            let sql = "SELECT a.n FROM 'memory://stream' AS a CROSS JOIN 'memory://other' AS b";
+            let sql = "SELECT a.n AS a,b.n AS b FROM 'memory://stream' AS a CROSS JOIN 'memory://other' AS b";
             request.sql_statement = Some(sql.into());
             let mut calls = 0;
-            let error = prepare_with_input_adapter(
+            let (operation, normalized) = prepare_with_input_adapter(
                 sql,
                 &request,
-                None,
-                PublicSourcePreparations::default(),
                 |_| Ok(()),
-                |_, _, _| {
+                |_, input, session| {
                     calls += 1;
-                    Err(failed("unexpected producer demand"))
+                    let MemoryInput::Batches { schema, streaming } = input else {
+                        unreachable!()
+                    };
+                    if *streaming {
+                        crate::native_memory_rows::build_batch(schema, &[], session)
+                    } else {
+                        crate::native_memory_rows::build(
+                            schema,
+                            &[MemoryRow(vec![Some("2".into())])],
+                            session,
+                        )
+                    }
                 },
+                &CancellationToken::default(),
             )
-            .err()
             .unwrap();
-            assert!(
-                error.to_string().contains("one declared batch producer"),
-                "{error}"
+            assert_eq!(normalized, 2);
+            assert_eq!(calls, 2);
+            let mut demands = [0_u64; 2];
+            let mut producer = |uri: &DatasetUri, ordinal: u64, session: &shardloom_vortex::resident_session::ResidentVortexSession| {
+                let index = usize::from(uri.as_str() == "memory://other");
+                assert_eq!(demands[index], ordinal);
+                demands[index] += 1;
+                if ordinal == 1 { return Ok(None); }
+                let MemoryInput::Batches { schema, streaming } = request.source_bindings[uri.as_str()]
+                    .memory_input.as_ref().unwrap() else { unreachable!() };
+                assert!(*streaming);
+                crate::native_memory_rows::build_batch(schema, &[MemoryRow(vec![Some((index + 1).to_string())])], session).map(Some)
+            };
+            let result = operation
+                .with_batch_inputs(&mut producer)
+                .unwrap()
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            assert_eq!(result.result_jsonl.value(), "{\"a\":1,\"b\":2}\n");
+            assert_eq!(demands, [2, if second_streams { 2 } else { 0 }]);
+            assert_eq!(result.execution.prepared_sources, 2);
+            assert_eq!(
+                result.execution.input.as_ref().unwrap().sources,
+                if second_streams { 2 } else { 1 }
             );
-            assert_eq!(calls, 0);
+            assert!(result.execution.native_io_certificate.is_certified());
         }
     }
 

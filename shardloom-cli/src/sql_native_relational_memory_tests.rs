@@ -18,6 +18,80 @@ fn batch_source(
 }
 
 #[test]
+fn native_streaming_replay_dynamic_sql_counts_aliases_by_resolved_source_uri() {
+    for second_leaf in ["first", "second"] {
+        let uri = DatasetUri::new("memory://replay-sql").unwrap();
+        let options =
+            r#"{"index":"entity","columns":"category","values":"amount","aggregate":"sum"}"#;
+        let pivot = |leaf: &str| {
+            format!(
+                "SELECT * FROM PIVOT((SELECT n AS entity,'a' AS category,n AS amount FROM {leaf}), '{options}') AS p"
+            )
+        };
+        let statement = format!(
+            "SELECT l.entity AS entity,l.pivot_a AS a,r.pivot_a AS b FROM ({}) AS l JOIN ({}) AS r ON l.entity=r.entity ORDER BY entity",
+            pivot("first"),
+            pivot(second_leaf)
+        );
+        let mut resolved = Vec::new();
+        let prepared = prepare_with_inputs(
+            &statement,
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
+            |schemas| {
+                schemas.register_batch_source(uri.clone(), |session| batch_source(session, &[]))
+            },
+            |leaf, _| {
+                resolved.push(leaf.path.clone());
+                Ok(vec![uri.clone()])
+            },
+        )
+        .unwrap();
+        assert_eq!(resolved.len(), if second_leaf == "first" { 1 } else { 2 });
+        assert_eq!(prepared.snapshot().completed_executions, 0);
+        let baseline = prepared.snapshot().memory.reserved_bytes;
+        for factor in 1..=2 {
+            let mut calls = 0;
+            let mut producer = |session: &ResidentVortexSession| {
+                calls += 1;
+                match calls {
+                    1 => batch_source(session, &[Some(factor), Some(2 * factor)]).map(Some),
+                    2 => batch_source(session, &[Some(factor), Some(3 * factor)]).map(Some),
+                    3 => Ok(None),
+                    _ => panic!("SQL replay called the producer twice"),
+                }
+            };
+            let result = prepared
+                .with_batch_input(&mut producer)
+                .unwrap()
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            let actual: Vec<serde_json::Value> = result
+                .result_jsonl
+                .value()
+                .lines()
+                .map(|line| serde_json::from_str(line).unwrap())
+                .collect();
+            let amount = f64::from(i32::try_from(factor).unwrap());
+            assert_eq!(
+                actual,
+                vec![
+                    json!({"entity":factor,"a":2.0*amount,"b":2.0*amount}),
+                    json!({"entity":2*factor,"a":2.0*amount,"b":2.0*amount}),
+                    json!({"entity":3*factor,"a":3.0*amount,"b":3.0*amount}),
+                ]
+            );
+            assert_eq!(calls, 3);
+            assert_eq!(result.execution.input.as_ref().unwrap().sources, 1);
+            assert_eq!(result.execution.input.as_ref().unwrap().rows, 4);
+            assert_eq!(result.execution.input.as_ref().unwrap().replay_passes, 1);
+            assert_eq!(result.execution.dynamic_schema_stages, 2);
+            drop(result);
+            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        }
+    }
+}
+
+#[test]
 fn native_relational_sql_streaming_input_preserves_synthetic_limit_origin_and_end() {
     let uri = DatasetUri::new("memory://stream").unwrap();
     for statement in [

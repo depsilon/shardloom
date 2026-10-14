@@ -351,6 +351,20 @@ impl ResidentMemorySource {
         self.0.is_batch
     }
 
+    pub(crate) fn batch_array(
+        &self,
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<&ArrayRef> {
+        self.0.session.validate_execution_context(context)?;
+        if !self.0.is_batch {
+            return Err(memory_error(
+                "SL-NATIVE-BATCH: input requires a private batch source",
+            ));
+        }
+        context.check_cancelled()?;
+        Ok(&self.0.array)
+    }
+
     pub(crate) fn batch_release_witness(&self) -> Result<std::sync::Weak<MemoryLease>> {
         if !self.0.is_batch || Arc::strong_count(&self.0) != 1 {
             return Err(memory_error(
@@ -577,22 +591,22 @@ impl PreparedMemoryProjection {
     }
 
     /// Reuse the schema-bound projection over a bounded range of the current
-    /// input batch, retaining its original resource owner until consumption ends.
-    pub(crate) fn execute_batch_range(
+    /// input or replay array. The caller holds its credited native owner until
+    /// consumption ends; the schema source verifies the execution's grant.
+    pub(crate) fn execute_batch_array(
         &self,
-        source: &ResidentMemorySource,
+        source: &ArrayRef,
         range: std::ops::Range<usize>,
         context: &crate::resident_session::NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
         self.source.0.session.validate_execution_context(context)?;
-        if !source.belongs_to_session(&self.source.0.session)
-            || source.dtype() != self.source.dtype()
-        {
+        if source.dtype() != self.source.dtype() {
             return Err(memory_error(
                 "SL-NATIVE-BATCH: input changed its declared schema or resource owner",
             ));
         }
-        let array = source.array_range(range, &|| context.check_cancelled())?;
+        context.check_cancelled()?;
+        let array = source.slice(range).map_err(native_error)?;
         let result = self.execute_array(array, context.native_session())?;
         context.check_cancelled()?;
         Ok(result)

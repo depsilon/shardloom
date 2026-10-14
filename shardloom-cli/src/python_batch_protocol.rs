@@ -155,17 +155,14 @@ fn read_control_frames(
 }
 
 impl Transport {
-    pub(crate) fn start_reader(
-        &mut self,
-        preparation: &shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
-    ) -> Result<()> {
+    pub(crate) fn start_reader(&mut self, session: &ResidentVortexSession) -> Result<()> {
         if self.reader.is_none() {
             return Err(failed("batch control reader already started"));
         }
         // Account for stdin's fixed buffer before transferring the reader into
         // this execution. Each variable-sized frame then acquires its own lease.
         let scratch = frames::Scratch::new(
-            preparation.reserve_input_scratch(8192)?,
+            session.reserve_input_scratch(8192)?,
             Arc::clone(&self.scratch_stats),
         );
         let sender = self
@@ -264,6 +261,7 @@ impl Transport {
     pub(crate) fn next_source_batch(
         &mut self,
         uri: &str,
+        index: u64,
         input: &MemoryInput,
         session: &ResidentVortexSession,
     ) -> Result<Option<ResidentMemorySource>> {
@@ -277,11 +275,12 @@ impl Transport {
             ));
         };
         self.cancellation.check()?;
-        let index = self.input_batches;
         send(
             &serde_json::json!({"kind":"input", "uri":uri, "index":index, "max_rows":2048, "max_bytes":MAX_FRAME}),
         )?;
-        self.input_sources = 1;
+        if index == 0 {
+            add_count(&mut self.input_sources, 1)?;
+        }
         let mut decoded = self.incoming(Some(schema.len()))?;
         let conversion_bytes = match &decoded.value {
             Incoming::Rows { rows, .. } => {

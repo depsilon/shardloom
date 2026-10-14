@@ -29,12 +29,23 @@ from native_streaming_join_pressure_cases import run as join_pressure_cases
 from native_streaming_window_cases import run as window_cases
 from native_streaming_window_pressure_cases import run as window_pressure_cases
 from native_streaming_protocol_cases import run as protocol_cases
+from native_batch_preparation_cases import run as preparation_cases
+from native_streaming_multiple_cases import run as multiple_cases
+from native_streaming_multiple_pressure_cases import run as multiple_pressure_cases
+from native_streaming_dynamic_cases import run as dynamic_cases
+from native_streaming_dynamic_pressure_cases import run as dynamic_pressure_cases
+from native_streaming_replay_cases import run as replay_cases
+from native_streaming_replay_pressure_cases import run as replay_pressure_cases
 import shardloom as sl
 
 FAMILIES = {"input": public_cases, "growth": growth_cases, "typed-input": typed_cases, "ordering": ordering_cases, "ordering-pressure": ordering_pressure_cases,
             "aggregate": aggregate_cases, "aggregate-pressure": aggregate_pressure_cases,
             "join": join_cases, "join-pressure": join_pressure_cases,
-            "window": window_cases, "window-pressure": window_pressure_cases, "protocol": protocol_cases}
+            "window": window_cases, "window-pressure": window_pressure_cases, "protocol": protocol_cases,
+            "preparation": preparation_cases, "multiple": multiple_cases,
+            "multiple-pressure": multiple_pressure_cases, "dynamic": dynamic_cases,
+            "dynamic-pressure": dynamic_pressure_cases, "replay": replay_cases,
+            "replay-pressure": replay_pressure_cases}
 
 
 def sha(path):
@@ -76,10 +87,10 @@ class Harness:
             assert envelope.status != "success" and envelope.diagnostics
             assert envelope.field("result_payload_complete") != "true"
 
-    def completed(self, name, envelope, *, batches, rows):
+    def completed(self, name, envelope, *, batches, rows, sources=1):
         self.envelope(name, envelope)
         for field, value in {"native_input_batches": batches, "native_input_batch_rows": rows,
-                             "native_input_batch_sources": 1, "resident_completed_executions": 1,
+                             "native_input_batch_sources": sources, "resident_completed_executions": 1,
                              "native_input_max_retained_batches": int(batches != 0)}.items():
             assert envelope.field_int(field) == value, (field, envelope.field(field), value)
         assert envelope.field_bool("native_input_end_observed") is True
@@ -144,7 +155,14 @@ def main():
               Path(__file__).with_name("native_streaming_window_cases.py"),
               Path(__file__).with_name("native_streaming_window_pressure_cases.py"),
               Path(__file__).with_name("native_window_frame_reference.py"),
-              Path(__file__).with_name("native_streaming_protocol_cases.py")]
+              Path(__file__).with_name("native_streaming_protocol_cases.py"),
+              Path(__file__).with_name("native_batch_preparation_cases.py"),
+              Path(__file__).with_name("native_streaming_multiple_cases.py"),
+              Path(__file__).with_name("native_streaming_multiple_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_dynamic_cases.py"),
+              Path(__file__).with_name("native_streaming_dynamic_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_replay_cases.py"),
+              Path(__file__).with_name("native_streaming_replay_pressure_cases.py")]
     sources = {str(path): sha(path) for path in inputs}
     for path in inputs[1:]:
         with (harness.logs / path.name).open("xb") as snapshot:

@@ -13,6 +13,9 @@ use vortex::array::arrays::VarBinArray;
 #[path = "local_primitive_relational_dynamic_lifecycle_tests.rs"]
 mod lifecycle;
 
+#[path = "local_primitive_relational_batch_dynamic_tests.rs"]
+mod streaming;
+
 fn fixture() -> Fixture {
     Fixture::new(
         StructArray::new(

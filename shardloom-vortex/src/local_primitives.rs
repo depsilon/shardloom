@@ -2623,6 +2623,9 @@ pub struct VortexNativeArraySinkEvidence {
     pub native_arrays_submitted: u64,
     pub native_array_logical_bytes: u64,
     pub adapter_payload_bytes_copied: u64,
+    /// Adapter leaf-value constructions during copying or text export, including
+    /// null/default values and repeated sizing passes. Excludes index, offset,
+    /// validity, raw buffer-copy and provider-internal work.
     pub scalar_values_materialized: u64,
     pub scan_row_bound: usize,
     pub writer_input_batch_bound: usize,

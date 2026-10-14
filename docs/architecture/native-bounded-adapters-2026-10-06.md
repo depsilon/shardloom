@@ -106,6 +106,12 @@ does not share this transaction's external cancellation owner. Native file,
 memory and batch sources then use the same plan, resource policy, source
 validation and no-fallback checks as ordinary collection and writers.
 
+The [October 13 composition contract](native-stream-input-composition-2026-10-13.md)
+supersedes that historical preparation restriction for current source builds:
+the control reader starts before normalization, which shares the transaction's
+cancellation token and native allocation. The original acceptance below retains
+its original source and supported scope.
+
 ## Writers and evidence
 
 Batch sources pass complete output through native Vortex, CSV, JSON, JSONL,

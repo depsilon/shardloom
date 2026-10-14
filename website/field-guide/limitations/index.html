@@ -75,7 +75,7 @@
 Coverage is specific to the operation, types, source layout, enabled features, and output contract.
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.</p>
-<p>Current capabilities, reviewed <strong>October 12, 2026</strong>. See the
+<p>Current capabilities, reviewed <strong>October 13, 2026</strong>. See the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md">public support matrix</a>
 for the detailed evidence behind this scope.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="runtime-limits">Runtime Limits</h2><a class="sl-anchor-link" href="#runtime-limits"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Runtime Limits”</span></a></div>
@@ -145,20 +145,22 @@ covers primitive/Boolean/decimal Chunked output, nullable bitmaps and
 numeric/string finalization buffers, with local and hosted acceptance complete
 in PR #1529. Child decoder scratch and structural metadata remain separate.
 Default input remains resident under the query grant. Opt-in
-<a href="/field-guide/python-surface#consume-results-in-batches">streaming input</a> admits
-one finite batch source used once through scan/filter/project, sorting, aggregation,
-joins, analytic windows and draining limits, alongside ordinary file/resident sources, with one
-retained native input batch and observed end-of-input required for success.
-Ordering, general aggregation, joins and analytic windows can use an explicit
+<a href="/field-guide/python-surface#consume-results-in-batches">streaming input</a> in current
+source builds admits distinct finite producers, declared repeated-source replay
+and dynamic pivots, alongside scan/filter/project, sorting, aggregation, joins,
+analytic windows and draining limits. Each producer is consumed once and must
+reach its explicit end. At most one original native input batch is retained;
+native replay, operator state and output share the query grant.
+Ordering, general aggregation, joins, analytic windows and pivots can use an explicit
 shared native spill policy; see the
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md">ordering/aggregate acceptance</a>
 and <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-join-pressure-2026-10-08.md">join acceptance</a>
 and <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-window-pressure-2026-10-08.md">window acceptance</a>.
-Join and window hosted integration are complete. On one-shot batch input,
-dynamic pivots and other unadmitted stateful families remain denied. Repeated
-batch-source use, multiple batch producers and streamed compatibility writes
-also remain denied. File/resident-memory relational pivot spill has its separate
-complete local acceptance above.
+Join and window hosted integration are complete. The
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md">streaming composition contract</a>
+records current source acceptance. Unadmitted stateful/subquery families, streamed
+compatibility writes and fanout remain separate work. Published v0.5.1 packages
+retain their release-time capabilities.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.</p>
@@ -201,8 +203,9 @@ predicates and unadmitted state spill remain unsupported. Nested MIN/MAX margins
 require a UTF8 index. Relational file/resident-memory pivots have an explicit
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-pivot-pressure-2026-10-08.md">native spill contract</a>
 with complete local acceptance, independent packet inspection and hosted
-integration in PR #1534. Direct prepared unary pivots remain resident and
-dynamic one-shot batch input rejects before producer demand.
+integration in PR #1534. Direct prepared unary pivots remain resident. Current
+source builds admit finite streaming pivots through the later
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md">composition contract</a>.
 See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-unary-2026-10-03.md">typed unary contract</a>.
 Computed aggregate arguments and exact decimal aggregate/rolling/scalar-pivot
 reductions now have complete local acceptance. Inexact decimal averages and final

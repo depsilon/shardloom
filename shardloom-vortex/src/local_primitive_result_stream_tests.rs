@@ -610,25 +610,28 @@ fn result_stream_all_writers_drop_staging_and_buffers_on_late_error_or_cancellat
 #[test]
 fn result_stream_native_writer_metadata_denial_releases_pending_task_owners() {
     use crate::resident_session::{NativeExecutionContext, ResidentVortexSession};
+    const CHUNK_ROWS: usize = 1024;
+    const CHUNKS: usize = 64;
+    const ROWS: usize = CHUNK_ROWS * CHUNKS;
     let fixture = Fixture::new();
     // Include the separately tested 72-KiB one-field statistics reservation.
     // Keep the original 192 KiB for payload/footer growth so denial still
     // happens after the provider accepts multiple chunks.
     let session = ResidentVortexSession::new((192 + 72) * 1024, 1).unwrap();
     let baseline = session.snapshot().memory.reserved_bytes;
-    // Reusing a pre-existing test array isolates growth in the writer's footer
-    // reservation from producer allocation failure.
+    // Reusing complete native work units isolates writer footer growth from
+    // producer allocations and the compact copying of small output fragments.
     let array = StructArray::new(
         ["record"].into(),
-        vec![PrimitiveArray::new(vec![7_u64; 16], Validity::NonNullable).into_array()],
-        16,
+        vec![PrimitiveArray::new(vec![7_u64; CHUNK_ROWS], Validity::NonNullable).into_array()],
+        CHUNK_ROWS,
         Validity::NonNullable,
     )
     .into_array();
     let plan = runtime::native_sink::NativeSinkPlan::produced(
         session.clone(),
         array.dtype().clone(),
-        1024,
+        ROWS as u64,
         None,
         None,
     )
@@ -636,7 +639,7 @@ fn result_stream_native_writer_metadata_denial_releases_pending_task_owners() {
     let mut calls = 0;
     let mut producer =
         |_: &NativeExecutionContext<'_>, _, consume: &mut dyn FnMut(ArrayRef) -> Result<bool>| {
-            for _ in 0..64 {
+            for _ in 0..CHUNKS {
                 calls += 1;
                 assert!(consume(array.clone())?);
             }
@@ -645,7 +648,7 @@ fn result_stream_native_writer_metadata_denial_releases_pending_task_owners() {
     let target = fixture.0.join("pressure.vortex");
     let error = runtime::completed_result::write_stream(
         plan,
-        &count_query(Path::new("unopened-test-source.vortex"), 1024),
+        &count_query(Path::new("unopened-test-source.vortex"), ROWS),
         &target,
         crate::VortexLocalPrimitiveRowExportFormat::Vortex,
         false,

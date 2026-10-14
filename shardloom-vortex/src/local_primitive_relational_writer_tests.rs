@@ -572,6 +572,7 @@ fn native_relational_every_writer_discards_staging_after_second_source_mutation_
                             prepared.consume_in_context(
                                 context,
                                 batch_rows.min(BATCH_ROWS),
+                                FileScanBatching::Native,
                                 None,
                                 &mut |array| {
                                     assert!(consume(array)?);
@@ -663,6 +664,7 @@ fn native_relational_every_writer_checks_original_preparation_source_through_com
                     prepared.consume_in_context(
                         context,
                         batch_rows.min(BATCH_ROWS),
+                        FileScanBatching::Native,
                         None,
                         &mut |array| {
                             assert!(consume(array)?);

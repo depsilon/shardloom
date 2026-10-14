@@ -12,6 +12,7 @@ pub(super) use crate::native_payload_schema::metadata_bytes;
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
 use shardloom_exec::live_memory::MemoryLease;
+use std::cell::Cell;
 use vortex::array::{
     ArrayRef, Columnar, IntoArray, VortexSessionExecute as _,
     arrays::struct_::StructArrayExt as _,
@@ -42,6 +43,33 @@ pub(super) enum CopyPolicy {
     PreserveUnobserved,
 }
 
+#[derive(Clone, Copy)]
+struct CopyState<'a> {
+    policy: CopyPolicy,
+    scalars: Option<&'a Cell<u64>>,
+}
+
+impl CopyState<'_> {
+    fn unmeasured(policy: CopyPolicy) -> Self {
+        Self {
+            policy,
+            scalars: None,
+        }
+    }
+
+    fn record_scalars(self, count: usize) -> Result<()> {
+        if let Some(scalars) = self.scalars {
+            scalars.set(
+                scalars
+                    .get()
+                    .checked_add(count as u64)
+                    .ok_or_else(|| failed("native payload scalar counter overflow"))?,
+            );
+        }
+        Ok(())
+    }
+}
+
 pub(super) fn is_nested(dtype: &DType) -> bool {
     matches!(
         dtype,
@@ -66,6 +94,35 @@ pub(super) fn detach_with_policy(
     take_record_with_policy(array, &indices, array.dtype(), policy, context)
 }
 
+/// Count actual adapter leaf-value construction, including repeated sizing
+/// passes and null/default leaves. Indices, offsets, validity and provider
+/// internals are excluded; raw floating buffer copies construct no scalars.
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) fn detach_with_scalar_count(
+    array: &ArrayRef,
+    policy: CopyPolicy,
+    context: &NativeExecutionContext<'_>,
+) -> Result<(ArrayRef, u64)> {
+    let indices =
+        super::native_relational_batch::index_array(array.len(), false, context, |row| {
+            Ok(Some(row))
+        })?;
+    let metadata = crate::native_payload_schema::reserve_schema(array.dtype(), context.memory())?;
+    let scalars = Cell::new(0);
+    let output = take_admitted(
+        array,
+        &indices,
+        array.dtype(),
+        CopyState {
+            policy,
+            scalars: Some(&scalars),
+        },
+        context,
+        metadata,
+    )?;
+    Ok((output, scalars.get()))
+}
+
 pub(super) fn take(
     source: &ArrayRef,
     indices: &ArrayRef,
@@ -85,7 +142,14 @@ pub(super) fn take_with_policy(
     // A struct-valued column is one nested value, not a table schema. In
     // particular, sparse state may retain many independent one-row values.
     let metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
-    take_admitted(source, indices, dtype, policy, context, metadata)
+    take_admitted(
+        source,
+        indices,
+        dtype,
+        CopyState::unmeasured(policy),
+        context,
+        metadata,
+    )
 }
 
 /// Gather a whole row record whose top-level width uses shared admission.
@@ -106,14 +170,21 @@ pub(super) fn take_record_with_policy(
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
     let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
-    take_admitted(source, indices, dtype, policy, context, metadata)
+    take_admitted(
+        source,
+        indices,
+        dtype,
+        CopyState::unmeasured(policy),
+        context,
+        metadata,
+    )
 }
 
 fn take_admitted(
     source: &ArrayRef,
     indices: &ArrayRef,
     dtype: &DType,
-    policy: CopyPolicy,
+    copy: CopyState<'_>,
     context: &NativeExecutionContext<'_>,
     metadata: MemoryLease,
 ) -> Result<ArrayRef> {
@@ -150,14 +221,7 @@ fn take_admitted(
         };
         rows.values.push(index);
     }
-    copy_rows(
-        Some(source),
-        &rows.values,
-        dtype,
-        policy,
-        context,
-        &allocator,
-    )
+    copy_rows(Some(source), &rows.values, dtype, copy, context, &allocator)
 }
 
 /// Typed empty/null output, including a missing outer-join side. Nonnullable
@@ -195,7 +259,7 @@ fn defaults_admitted(
         None,
         &indices.values,
         dtype,
-        CopyPolicy::ValidateValues,
+        CopyState::unmeasured(CopyPolicy::ValidateValues),
         context,
         &allocator,
     )
@@ -293,13 +357,15 @@ fn copy_rows(
     source: Option<&ArrayRef>,
     rows: &[Option<usize>],
     dtype: &DType,
-    policy: CopyPolicy,
+    copy: CopyState<'_>,
     context: &NativeExecutionContext<'_>,
     allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
     context.check_cancelled()?;
     if matches!(dtype, DType::Decimal(..)) {
-        return storage::decimal(source, rows, dtype, policy, context, allocator);
+        let array = storage::decimal(source, rows, dtype, copy.policy, context, allocator)?;
+        copy.record_scalars(rows.len())?;
+        return Ok(array);
     }
     // Reserve fixed-size expansion before invoking the provider's take kernel.
     // Child coordinates and final buffers acquire their own concurrent credits.
@@ -331,10 +397,10 @@ fn copy_rows(
 
     match dtype {
         DType::Struct(fields, _) => {
-            copy_struct(selected, rows, dtype, fields, policy, context, allocator)
+            copy_struct(selected, rows, dtype, fields, copy, context, allocator)
         }
         DType::List(element, _) | DType::FixedSizeList(element, _, _) => {
-            copy_list(selected, rows, dtype, element, policy, context, allocator)
+            copy_list(selected, rows, dtype, element, copy, context, allocator)
         }
         _ => {
             // Selection precedes leaf canonicalization: hidden or unselected
@@ -347,7 +413,7 @@ fn copy_rows(
                         .map_err(vortex_error)
                 })
                 .transpose()?;
-            if policy == CopyPolicy::PreserveUnobserved
+            if copy.policy == CopyPolicy::PreserveUnobserved
                 && matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _))
                 && let Some(selected) = &selected
             {
@@ -372,7 +438,7 @@ fn copy_rows(
                 .transpose()?;
             result_batch::build_column(dtype, rows.len(), allocator, |row| {
                 check(row, context)?;
-                if rows[row].is_none() {
+                let value = if rows[row].is_none() {
                     default_value(dtype)
                 } else if let Some(numeric) = &numeric {
                     numeric.stat_value(row).map(Value::from)
@@ -382,7 +448,9 @@ fn copy_rows(
                         row,
                         &mut execution,
                     )
-                }
+                }?;
+                copy.record_scalars(1)?;
+                Ok(value)
             })
         }
     }
@@ -393,7 +461,7 @@ fn copy_struct(
     rows: &[Option<usize>],
     dtype: &DType,
     fields: &vortex::array::dtype::StructFields,
-    policy: CopyPolicy,
+    copy: CopyState<'_>,
     context: &NativeExecutionContext<'_>,
     allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
@@ -433,7 +501,7 @@ fn copy_struct(
             selected.as_ref().map(|array| array.unmasked_field(index)),
             &active.values,
             &child,
-            policy,
+            copy,
             context,
             allocator,
         )?);
@@ -450,7 +518,7 @@ fn copy_list(
     rows: &[Option<usize>],
     dtype: &DType,
     element: &DType,
-    policy: CopyPolicy,
+    copy: CopyState<'_>,
     context: &NativeExecutionContext<'_>,
     allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
@@ -498,7 +566,7 @@ fn copy_list(
         selected.as_ref().map(|column| &column.elements),
         &children.values,
         element,
-        policy,
+        copy,
         context,
         allocator,
     )?;

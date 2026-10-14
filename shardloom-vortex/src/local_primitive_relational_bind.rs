@@ -34,7 +34,7 @@ pub(super) struct Binder<'a> {
     sources: ReservedVec<PreparedVortexSource>,
     paths: ReservedVec<PathBuf>,
     memory_sources: ReservedVec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
-    batch_source: Option<(shardloom_core::DatasetUri, ResidentMemorySource)>,
+    batch_sources: ReservedVec<super::batch_input::Source>,
     metadata: MemoryLease,
     outer_fields: Option<Vec<(String, DType)>>,
     parameterized_binding: bool,
@@ -48,7 +48,7 @@ pub(super) struct BoundSources {
     pub(super) sources: Vec<PreparedVortexSource>,
     pub(super) source_paths: Vec<PathBuf>,
     pub(super) memory_sources: Vec<(shardloom_core::DatasetUri, ResidentMemorySource)>,
-    pub(super) batch_source: Option<(shardloom_core::DatasetUri, ResidentMemorySource)>,
+    pub(super) batch_sources: Vec<super::batch_input::Source>,
     pub(super) metadata: MemoryLease,
 }
 
@@ -56,7 +56,7 @@ pub(super) struct BoundSources {
 enum SourceIndex {
     File(usize),
     Memory(usize),
-    Batch,
+    Batch(usize),
 }
 
 impl<'a> Binder<'a> {
@@ -86,7 +86,7 @@ impl<'a> Binder<'a> {
             sources: ReservedVec::new(session.memory())?,
             paths: ReservedVec::new(session.memory())?,
             memory_sources: ReservedVec::new(session.memory())?,
-            batch_source: None,
+            batch_sources: ReservedVec::new(session.memory())?,
             metadata: session.memory().reserve(4096)?,
             outer_fields: None,
             parameterized_binding: false,
@@ -124,14 +124,16 @@ impl<'a> Binder<'a> {
         let (sources, mut source_credit) = self.sources.into_parts();
         let (paths, mut path_credit) = self.paths.into_parts();
         let (memory_sources, mut memory_credit) = self.memory_sources.into_parts();
+        let (batch_sources, mut batch_credit) = self.batch_sources.into_parts();
         self.metadata.absorb(&mut source_credit)?;
         self.metadata.absorb(&mut path_credit)?;
         self.metadata.absorb(&mut memory_credit)?;
+        self.metadata.absorb(&mut batch_credit)?;
         Ok(BoundSources {
             sources,
             source_paths: paths,
             memory_sources,
-            batch_source: self.batch_source,
+            batch_sources,
             metadata: self.metadata,
         })
     }
@@ -143,9 +145,10 @@ impl<'a> Binder<'a> {
     ) -> Result<()> {
         if self.execution.is_some()
             || self
-                .batch_source
-                .as_ref()
-                .is_some_and(|(prior, _)| *prior == uri)
+                .batch_sources
+                .values
+                .iter()
+                .any(|source| source.uri == uri)
             || !uri.as_str().starts_with("memory://")
             || uri.as_str().len() <= "memory://".len()
             || uri.as_str().len() > 16_384
@@ -176,7 +179,11 @@ impl<'a> Binder<'a> {
         build_schema: impl FnOnce(&ResidentVortexSession) -> Result<ResidentMemorySource>,
     ) -> Result<()> {
         if self.execution.is_some()
-            || self.batch_source.is_some()
+            || self
+                .batch_sources
+                .values
+                .iter()
+                .any(|source| source.uri == uri)
             || self
                 .memory_sources
                 .values
@@ -188,10 +195,11 @@ impl<'a> Binder<'a> {
             || uri.as_str().len() > 16_384
         {
             return Err(super::batch_input::failed(
-                "streaming input requires one unique declared batch source before execution",
+                "streaming input requires a unique bounded memory URI before execution",
             ));
         }
         self.charge(uri.as_str().len() * 8 + 4096)?;
+        self.batch_sources.reserve_one()?;
         let schema = build_schema(self.session)?;
         if !schema.belongs_to_session(self.session)
             || !schema.is_batch_source()
@@ -201,13 +209,17 @@ impl<'a> Binder<'a> {
                 "streaming schema requires an empty from_batch_columns source from this session",
             ));
         }
-        self.batch_source = Some((uri, schema));
+        self.batch_sources.values.push(super::batch_input::Source {
+            uri,
+            schema,
+            replay: false,
+        });
         Ok(())
     }
 
-    pub(super) fn validate_batch_plan(&self, plan: &VortexRelationalPlan) -> Result<()> {
-        if let Some((uri, _)) = &self.batch_source {
-            super::batch_input::classify(plan, uri)?;
+    pub(super) fn validate_batch_plan(&mut self, plan: &VortexRelationalPlan) -> Result<()> {
+        for source in &mut self.batch_sources.values {
+            source.replay |= super::batch_input::classify(plan, &source.uri)?;
         }
         Ok(())
     }
@@ -215,25 +227,17 @@ impl<'a> Binder<'a> {
     fn source_count(&self) -> usize {
         self.sources.values.len()
             + self.memory_sources.values.len()
-            + usize::from(self.batch_source.is_some())
-    }
-
-    pub(super) fn reject_dynamic_batch_input(&self) -> Result<()> {
-        if self.batch_source.is_some() {
-            return Err(super::batch_input::failed(
-                "dynamic schemas cannot consume streaming input; choose explicit resident mode",
-            ));
-        }
-        Ok(())
+            + self.batch_sources.values.len()
     }
 
     fn input(&mut self, uri: &shardloom_core::DatasetUri) -> Result<SourceIndex> {
-        if self
-            .batch_source
-            .as_ref()
-            .is_some_and(|(declared, _)| declared == uri)
+        if let Some(index) = self
+            .batch_sources
+            .values
+            .iter()
+            .position(|source| &source.uri == uri)
         {
-            return Ok(SourceIndex::Batch);
+            return Ok(SourceIndex::Batch(index));
         }
         if let Some(index) = self
             .memory_sources
@@ -250,17 +254,25 @@ impl<'a> Binder<'a> {
         match source {
             SourceIndex::File(index) => self.sources.values[index].dtype(),
             SourceIndex::Memory(index) => self.memory_sources.values[index].1.dtype(),
-            SourceIndex::Batch => self
-                .batch_source
-                .as_ref()
-                .expect("registered batch source")
-                .1
-                .dtype(),
+            SourceIndex::Batch(index) => self.batch_sources.values[index].schema.dtype(),
         }
     }
 
     pub(super) fn bind(&mut self, input: &VortexRelationalPlan, depth: usize) -> Result<Node> {
         self.cancellation.check()?;
+        if depth == 0 && self.execution.is_some() {
+            // Dynamic lowering can resolve separate subtrees before returning
+            // the final plan. Validate each before its discovery reads rows;
+            // the execution provider then requires every source's explicit end.
+            for index in 0..self.batch_sources.values.len() {
+                if super::batch_input::classify_dynamic(
+                    input,
+                    &self.batch_sources.values[index].uri,
+                )? {
+                    self.require_batch_replay(index)?;
+                }
+            }
+        }
         if depth > crate::relational_query::NATIVE_RECURSION_LIMIT {
             return Err(failed("recursive plan exceeds 24 levels"));
         }
@@ -494,17 +506,14 @@ impl<'a> Binder<'a> {
                     None,
                 )?,
             )),
-            SourceIndex::Batch => ScanSource::Batch(Box::new(
-                self.batch_source
-                    .as_ref()
-                    .expect("registered batch source")
-                    .1
-                    .prepare_projection(
-                        &columns.iter().map(String::as_str).collect::<Vec<_>>(),
-                        plan.filter.clone(),
-                        None,
-                    )?,
-            )),
+            SourceIndex::Batch(index) => ScanSource::Batch {
+                index,
+                projection: Box::new(self.batch_sources.values[index].schema.prepare_projection(
+                    &columns.iter().map(String::as_str).collect::<Vec<_>>(),
+                    plan.filter.clone(),
+                    None,
+                )?),
+            },
         };
         for (_, dtype) in &fields {
             self.charge(

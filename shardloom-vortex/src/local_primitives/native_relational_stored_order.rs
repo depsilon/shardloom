@@ -4,6 +4,7 @@ use super::{
     Arc, ArrayRef, MemoryLease, NativeExecutionContext, NativeQueryRun, Ordering, QueryRunBlock,
     Reader, Result, State, dtype, failed,
 };
+use super::{READER_WORK_BYTES, Spec};
 use crate::local_primitives::vortex_error;
 
 #[allow(clippy::large_enum_variant)] // One bounded stack owner avoids additional heap allocation.
@@ -31,6 +32,59 @@ pub(in crate::local_primitives) struct StoredBlock {
     array: ArrayRef,
     _run: Option<QueryRunBlock>,
     _resident_metadata: Option<Arc<MemoryLease>>,
+}
+
+/// A completed run handle owns no open reader and borrows no execution state.
+/// Its query store remains responsible for quota, generations and cleanup.
+pub(in crate::local_primitives) struct Replay {
+    source: ReplaySource,
+    block_rows: usize,
+}
+
+#[allow(clippy::large_enum_variant)]
+enum ReplaySource {
+    Resident {
+        array: ArrayRef,
+        _metadata: Arc<MemoryLease>,
+    },
+    Run(NativeQueryRun),
+}
+
+impl Replay {
+    pub(in crate::local_primitives) fn is_spilled(&self) -> bool {
+        matches!(self.source, ReplaySource::Run(_))
+    }
+
+    pub(in crate::local_primitives) fn for_each(
+        &self,
+        state: &State,
+        spec: &Spec,
+        context: &NativeExecutionContext<'_>,
+        consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
+    ) -> Result<()> {
+        context.check_cancelled()?;
+        match &self.source {
+            ReplaySource::Resident { array, .. } => {
+                for start in (0..array.len()).step_by(self.block_rows) {
+                    context.check_cancelled()?;
+                    let end = start.saturating_add(self.block_rows).min(array.len());
+                    consume(&array.slice(start..end).map_err(vortex_error)?)?;
+                }
+            }
+            ReplaySource::Run(native) => {
+                let work = Arc::new(context.memory().reserve(READER_WORK_BYTES)?);
+                let mut reader = state.open(native, spec, context, &work)?;
+                while let Some(block) = reader.next_block(context.runtime())? {
+                    context.check_cancelled()?;
+                    // The reader and block credits stay live through consumption.
+                    // Every downstream retaining operator compacts streamed input.
+                    consume(block.array())?;
+                }
+                reader.validate()?;
+            }
+        }
+        context.check_cancelled()
+    }
 }
 
 impl StoredBlock {
@@ -75,6 +129,28 @@ impl<'s> Ordering<'_, 's> {
 }
 
 impl StoredOrder<'_> {
+    pub(in crate::local_primitives) fn into_replay(
+        self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Replay> {
+        context.check_cancelled()?;
+        self.validate()?;
+        let source = match self.source {
+            Source::Resident { array, metadata } => ReplaySource::Resident {
+                array,
+                _metadata: metadata,
+            },
+            Source::Run { native, reader } => {
+                drop(reader);
+                ReplaySource::Run(native)
+            }
+        };
+        Ok(Replay {
+            source,
+            block_rows: self.block_rows,
+        })
+    }
+
     #[cfg(test)]
     pub(in crate::local_primitives) fn run_path(&self) -> Option<&std::path::Path> {
         match &self.source {
