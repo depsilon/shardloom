@@ -210,9 +210,12 @@ impl PreparedVortexCountWhere {
         cancellation: &CancellationToken,
     ) -> Result<(ExecutedVortexCountWhere, super::collect::CollectedCountRows)> {
         cancellation.check()?;
+        let started = std::time::Instant::now();
         let mut execution = self.execute_with_cancellation(cancellation)?;
+        let execution_time = started.elapsed();
         cancellation.check()?;
-        let rows = super::collect::render_count_rows(execution.count, &self.session)?;
+        let mut rows = super::collect::render_count_rows(execution.count, &self.session)?;
+        rows.timing.execution = execution_time;
         cancellation.check()?;
         let provider_workers = execution.runtime.provider_background_workers;
         execution.runtime = self.session.snapshot();

@@ -235,6 +235,9 @@ pub mod prepared_relational;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_prepared_unary.rs"]
 pub mod prepared_unary;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_query_timing.rs"]
+pub mod query_timing;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/rolling_observation.rs"]
 mod rolling_observation;

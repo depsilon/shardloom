@@ -1,0 +1,73 @@
+{
+  "schema_version": "shardloom.local_artifact_retirement.v1",
+  "status": "passed",
+  "date": "2026-10-15",
+  "retired_roots": 16,
+  "retired_environment_regular_files": 13746,
+  "retired_environment_logical_bytes": 3617710323,
+  "retired_bulk_logical_bytes": 34521752566,
+  "free_bytes_before": 21136723968,
+  "free_bytes_after": 59313737728,
+  "observed_free_bytes_increase": 38177013760,
+  "archive": {
+    "file": "local-artifact-cleanup-2026-10-15.tar.xz",
+    "sha256": "88c6fd92b2ee9081d28db6d30a6c79714f97a34f0a39b449413ba811ae4b03e6",
+    "bytes": 486180,
+    "members": [
+      {
+        "path": "cleanup_unused_461.py",
+        "bytes": 11557,
+        "sha256": "33ae062101bc18bfc047190512a5b287dfcf0b435a93f70d13e61c010bd9eaed"
+      },
+      {
+        "path": "cleanup_unused_461b.py",
+        "bytes": 11848,
+        "sha256": "259555fcc86cde3468655873a6ec16a3129ee0e47d00beb885bb254f36f396fd"
+      },
+      {
+        "path": "cleanup-unused-461.json",
+        "bytes": 6932,
+        "sha256": "074a2ad3664f946b29f06716a259091e3e9276600aaea33411f79af48599d024"
+      },
+      {
+        "path": "cleanup-unused-461b.json",
+        "bytes": 30970,
+        "sha256": "91059d0c853152a0b2af54324f81c2314f59b8ad624a3a65f31fae400626b3eb"
+      },
+      {
+        "path": "cleanup-unused-461b-members.json.gz",
+        "bytes": 474685,
+        "sha256": "fb7043e4f3ca4f6e8515173e6f0cf32742aeb36645343afc999d4bd566643895"
+      },
+      {
+        "path": "cleanup-inventory-460.json",
+        "bytes": 16640,
+        "sha256": "f9c14fd89c3d3c86ad640a76fc1fcb99b76c18a8fe68bfa96f743ca71cb69548"
+      },
+      {
+        "path": "cleanup-provenance-461.json",
+        "bytes": 7944,
+        "sha256": "e68fa35026e4d809e6bfb32faaa33ea640ded5cbed3653c7857a02f1bcf731ec"
+      },
+      {
+        "path": "cleanup-environments-461.json",
+        "bytes": 18264,
+        "sha256": "0fdc692b19a7ca19eb580839a5d5a950dde5b877d7989a23af9017b1c3d95d1c"
+      }
+    ]
+  },
+  "current_uat_evidence": "native-query-timing-uat-2026-10-15.json",
+  "retention": {
+    "original_parquet": true,
+    "current_vortex_output": true,
+    "active_comparison_vortex_input": true,
+    "frozen_runtime_binaries": true,
+    "all_six_wheels": true,
+    "proofs_and_failure_diagnostics": true,
+    "one_identical_release_source_archive": true,
+    "compiler_caches": true
+  },
+  "unrelated_files_changed": false,
+  "storage_limits_changed": false,
+  "first_attempt": "Pre-removal refusal on wheel filename resolution; no files removed. Original receipt and driver retained."
+}

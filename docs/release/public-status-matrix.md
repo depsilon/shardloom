@@ -92,6 +92,15 @@ metadata and general operator spill; subsequent units have separate acceptance.
 Its measured cost screen is a resource-correction check,
 not a speedup or process-RSS guarantee.
 
+The subsequent [compression resource correction](../benchmarks/native-compression-resources-2026-10-15.md)
+passes complete local acceptance for named Zstd input/output buffers and
+audited compressor/default-trainer heap reservations. Six broad gates, 72 vendor
+tests, 80 direct tests, 757 public cases and one Full43 pass succeed; its
+18-cell lifecycle screen stays within the declared cost limits. Hosted
+integration remains pending. This source change follows the immutable 0.6.0
+packages. Structural metadata, unreviewed providers and process RSS retain
+their separate boundaries; the public support label is unchanged.
+
 The [completion-aware input unit](../architecture/native-input-completion-2026-10-07.md)
 adds opt-in `from_batches(..., streaming=True)` for one finite source used once,
 with incremental results, bounded small collection or one native Vortex destination. Its

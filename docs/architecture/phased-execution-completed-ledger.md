@@ -17,6 +17,34 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `RELEASE-060` — the approved native Python, typed-input, finite streaming
+  and resource-accounting milestone is published as v0.6.0. RFC 0024 and the
+  [release notes](../release/v0.6.0-release-notes.md) define its finite scope.
+  - The [publication record](../release/v0.6.0-publication-verification.md)
+    binds the release source `936313473fedca78176d1fd983446673ed8ae62b` from
+    PR #1552 to GitHub, TestPyPI, PyPI and Homebrew. All channels have independent
+    clean-install, complete-result, uninstall and artifact-identity proof.
+    Both registries' Linux/macOS wheels pass all 80 native binding methods;
+    Windows retains the CLI package and the source archive has no compiled
+    payload. Full-size UAT remains separately identified macOS arm64 evidence.
+  - Publication-document [PR #1554](https://github.com/depsilon/shardloom/pull/1554)
+    merges at `e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7` after all 44 checks
+    pass on `3bcba7ebe0dc07967c9fff132cbf1ec01c0f99df`. Accepted and merged
+    trees match. The [production receipt](../release/channel-proofs/website-v0.6.0-deployment.json)
+    records the exact successful deployment, four live URLs in five page
+    states and six public documents matching the deployed bytes.
+  - Registry-proof validation, explicit-resource migration guidance, public
+    package/site surfaces and rendered example captions are accepted. Earlier
+    fresh UAT keeps its original pre-bump sources, executable and timings.
+    Published descriptions retain their documented historical wording; assets
+    are immutable. No production certification, platform-wide runtime parity
+    or competitive performance claim follows from package access.
+  - The shared runtime, Vortex-native input/output, PulseWeave and capillary
+    policies retain their own acceptance. No external executor is introduced;
+    internal Rust crates and additional channels remain unpublished. Resume
+    all six areas and eight investigations under existing owners, without a
+    release for each finite work unit.
+
 - [x] `NATIVE-DECODER-SCRATCH` — reviewed fixed-width child scratch, FSST finish
   overlap and admitted helper-context continuity under PERF-03/06/08/09 and
   CG-5/19/20/21, following RFCs 0014/0044. The

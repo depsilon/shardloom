@@ -57,6 +57,7 @@ pub(super) fn run_with_source(
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
     append_fields(&mut fields, request, &executed, prepared_now);
+    crate::execution_resources::append_query_timing_fields(&mut fields, Some(rows.timing));
     let (jsonl, _json_ownership) = rows.result_jsonl.into_parts();
     let (schema, _schema_ownership) = rows.result_schema_json.into_parts();
     super::append_native_result_schema_fields(&mut fields, schema);

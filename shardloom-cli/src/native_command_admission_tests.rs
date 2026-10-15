@@ -105,6 +105,72 @@ fn assert_no_fallback(envelope: &serde_json::Value) {
     assert!(envelope["fallback"]["engine"].is_null());
 }
 
+#[test]
+fn native_query_timing_covers_public_count_aggregate_projection_sort_and_relational_results() {
+    let path = fixture_path();
+    let owner = owner();
+    let queries = [
+        format!("SELECT COUNT(*) FROM '{path}'"),
+        format!("SELECT COUNT(*) FROM '{path}' WHERE value > 2"),
+        format!("SELECT SUM(metric) FROM '{path}'"),
+        format!("SELECT metric FROM '{path}' LIMIT 3"),
+        format!("SELECT metric + 1 AS next_metric FROM '{path}' LIMIT 3"),
+        format!("SELECT metric FROM '{path}' ORDER BY metric DESC LIMIT 3"),
+        format!(
+            "WITH selected AS (SELECT value,metric FROM '{path}' WHERE value > 1) SELECT metric FROM selected ORDER BY metric LIMIT 2"
+        ),
+    ];
+    for query in queries {
+        let args = vec![
+            "run".into(),
+            "sql".into(),
+            "--sql".into(),
+            query.clone(),
+            "--request".into(),
+            "collect".into(),
+            "--bounded".into(),
+            "true".into(),
+            "--input".into(),
+            path.clone(),
+            "--input-format".into(),
+            "vortex".into(),
+            "--memory-bytes".into(),
+            MEMORY_BYTES.to_string(),
+            "--max-parallelism".into(),
+            "1".into(),
+        ];
+        let started = Instant::now();
+        let response =
+            envelope(&command_json_in_owner(args, &owner, &CancellationToken::default()).unwrap());
+        let elapsed = started.elapsed().as_nanos();
+        assert_eq!(response["status"], "success", "{query}: {response}");
+        assert_eq!(field(&response, "result_payload_complete"), "true");
+        assert_eq!(field(&response, "native_query_timing_reported"), "true");
+        assert_eq!(
+            field(&response, "native_query_timing_clock"),
+            "monotonic_wall_not_cpu"
+        );
+        let execution = field(&response, "native_query_execution_nanos")
+            .parse::<u128>()
+            .unwrap();
+        let serialization = field(&response, "native_result_serialization_nanos")
+            .parse::<u128>()
+            .unwrap();
+        assert!(execution + serialization <= elapsed, "{query}");
+        assert_no_fallback(&response);
+    }
+    let denied = envelope(
+        &command_json_in_owner(
+            run_primitive_args("/missing/timing-fixture.vortex", "count", &[]),
+            &owner,
+            &CancellationToken::default(),
+        )
+        .unwrap(),
+    );
+    assert_ne!(denied["status"], "success");
+    assert!(!has_field(&denied, "native_query_execution_nanos"));
+}
+
 fn assert_admitted_resources(envelope: &serde_json::Value) {
     assert_eq!(
         field(envelope, "execution_resource_admission_status"),

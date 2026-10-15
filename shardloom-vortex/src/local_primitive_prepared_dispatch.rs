@@ -261,6 +261,7 @@ pub fn execute_sort_controlled(
 /// sort producer owns selection, spill, ordering and cleanup; no rows are read
 /// from a diagnostic report and the source is not replayed.
 pub struct CollectedVortexSort {
+    pub timing: super::query_timing::QueryTiming,
     pub report: super::VortexLocalPrimitiveExecutionReport,
     pub native_io_certificate: shardloom_core::NativeIoCertificate,
     pub result_jsonl: shardloom_exec::live_memory::Budgeted<String>,
@@ -377,6 +378,7 @@ pub fn collect_sort_controlled(
     source: &PreparedVortexSource,
     cancellation: &CancellationToken,
 ) -> Result<CollectedVortexSort> {
+    let started = std::time::Instant::now();
     cancellation.check()?;
     let session = source_session(source, request, Some(policy))?;
     cancellation.check()?;
@@ -386,11 +388,16 @@ pub fn collect_sort_controlled(
     cancellation.check()?;
     let mut native_io_certificate = super::local_primitive_native_io_certificate(request, &report)?;
     cancellation.check()?;
-    let (result_jsonl, result_schema_json) = sink.finish_certified(&mut native_io_certificate)?;
+    let (result_jsonl, result_schema_json, mut timing) =
+        sink.finish_with_timing(&mut native_io_certificate, started)?;
     cancellation.check()?;
     source.validate_generation()?;
     cancellation.check()?;
+    timing.execution = started
+        .elapsed()
+        .saturating_sub(timing.result_serialization);
     Ok(CollectedVortexSort {
+        timing,
         report,
         native_io_certificate,
         result_jsonl,

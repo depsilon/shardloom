@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-15: add an explicit lifetime owner for
+// admitted foreign provider storage. See upstream-provenance.json.
 
 //! Session-scoped memory allocation for host-side buffers.
 
@@ -150,6 +152,41 @@ impl Debug for WritableHostBuffer {
 pub trait HostAllocator: Debug + Send + Sync + 'static {
     /// Allocate a writable host buffer with the requested byte length and alignment.
     fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer>;
+
+    /// Reserve `len` bytes for a bounded provider that owns its heap allocations.
+    ///
+    /// The caller must establish a provider-specific upper bound before allocating
+    /// and keep the returned owner until all covered storage has been freed.
+    /// This does not allocate a second payload buffer. Custom allocators must
+    /// explicitly implement admission; the default refuses an unsupported policy.
+    fn reserve_external(&self, _len: usize) -> VortexResult<HostMemoryReservation> {
+        Err(vortex_err!(
+            "Host allocator does not support external memory reservations"
+        ))
+    }
+}
+
+/// Lifetime owner for an allocator-admitted foreign heap reservation.
+///
+/// The provider's allocations must be released before this owner is dropped.
+pub struct HostMemoryReservation {
+    _owner: Box<dyn Send + Sync>,
+}
+
+impl HostMemoryReservation {
+    /// Retain an allocator's reservation owner without exposing its concrete type.
+    pub fn new(owner: impl Send + Sync + 'static) -> Self {
+        Self {
+            _owner: Box::new(owner),
+        }
+    }
+}
+
+impl Debug for HostMemoryReservation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HostMemoryReservation")
+            .finish_non_exhaustive()
+    }
 }
 
 /// Shared allocator reference used throughout session-scoped memory APIs.
@@ -246,6 +283,11 @@ impl HostAllocator for DefaultHostAllocator {
         Ok(WritableHostBuffer::new(Box::new(
             DefaultWritableHostBuffer { buffer, alignment },
         )))
+    }
+
+    fn reserve_external(&self, _len: usize) -> VortexResult<HostMemoryReservation> {
+        // This provider is explicitly unbounded, including its foreign storage.
+        Ok(HostMemoryReservation::new(()))
     }
 }
 

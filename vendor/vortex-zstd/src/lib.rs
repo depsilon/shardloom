@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-15: register bounded compression admission.
 
 //! Zstd-backed compression encodings for variable-width Vortex arrays.
 //!
@@ -30,6 +31,7 @@ use vortex_error::vortex_err;
 pub use zstd_buffers::*;
 
 mod array;
+mod compression_resources;
 mod compute;
 mod decoder_workspace;
 mod rules;

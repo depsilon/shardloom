@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "archive_sha256": "aad6fae6d0ffab69e9426720f5730dc7ea1ece07f4cbc58ce76a9cd85254270b",
+  "manifest_sha256": "da433ea385637664e2455af91ac6373a26072eb62f454e141c0cb215b6fc6fcd",
+  "verified_members": 13003,
+  "verified_uncompressed_bytes": 284196172,
+  "unsafe_paths": false,
+  "duplicate_members": false,
+  "nonregular_members": false,
+  "method": "Independent streamed reopening of every archive member against the complete per-file size and SHA-256 manifest."
+}

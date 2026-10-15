@@ -72,6 +72,7 @@ pub struct ExecutedOwnedVortexUnary {
 
 /// Complete bounded rows for a public text boundary, from the certified execution.
 pub struct CollectedVortexUnary {
+    pub timing: super::query_timing::QueryTiming,
     pub execution: ExecutedVortexUnary,
     pub result_jsonl: shardloom_exec::live_memory::Budgeted<String>,
     pub result_schema_json: shardloom_exec::live_memory::Budgeted<String>,
@@ -732,14 +733,16 @@ impl PreparedVortexUnary {
     /// Rejects output above 65,536 rows or 8 MiB, unsupported scalar types,
     /// nonfinite numbers, memory pressure, cancellation and source invalidation.
     pub fn collect_jsonl(&self, cancellation: &CancellationToken) -> Result<CollectedVortexUnary> {
+        let started = std::time::Instant::now();
         let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
         let mut execution = self.for_each_batch(cancellation, |array, context| {
             sink.append_native(&array, context)
         })?;
-        let (result_jsonl, result_schema_json) =
-            sink.finish_certified(&mut execution.native_io_certificate)?;
+        let (result_jsonl, result_schema_json, timing) =
+            sink.finish_with_timing(&mut execution.native_io_certificate, started)?;
         execution.runtime = self.snapshot();
         Ok(CollectedVortexUnary {
+            timing,
             execution,
             result_jsonl,
             result_schema_json,

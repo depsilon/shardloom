@@ -1,0 +1,236 @@
+{
+  "schema_version": "shardloom.public_website_deployment_observation.v1",
+  "status": "passed",
+  "release_tag": "v0.6.0",
+  "release_source_commit": "936313473fedca78176d1fd983446673ed8ae62b",
+  "publication_records_pr": "https://github.com/depsilon/shardloom/pull/1554",
+  "deployed_commit": "e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7",
+  "pr_merged_at": "2026-10-15T04:39:22Z",
+  "accepted_pr_head": "3bcba7ebe0dc07967c9fff132cbf1ec01c0f99df",
+  "accepted_pr_check_count": 44,
+  "repository_evidence_commit": "e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7",
+  "evidence_locations": "docs/ entries identify repository bytes at repository_evidence_commit; publication-hosted-453/ and publication-production-454/ entries identify the retained local release acceptance packet.",
+  "cloudflare": {
+    "check_run_id": 116250978242,
+    "check_name": "Workers Builds: shardloom",
+    "status": "completed",
+    "conclusion": "success",
+    "completed_at": "2026-10-15T04:42:00Z",
+    "head_sha": "e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7",
+    "build_id": "a5878ded-0c86-4837-9c55-84cd303cc6a9",
+    "worker_version_id": "cf649e8e-22f0-4704-b50e-c895dddd19e1",
+    "details_url": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/a5878ded-0c86-4837-9c55-84cd303cc6a9"
+  },
+  "public_browser_observation": {
+    "method": "Codex in-app browser accessibility and DOM reads, rendered screenshots, and per-page warning/error console inspection",
+    "observed_at": "2026-10-15T05:02:46.690Z",
+    "viewport_override_used": false,
+    "pages": [
+      {
+        "url": "https://shardloom.io/start/",
+        "title": "Get started | ShardLoom",
+        "width": 1280,
+        "scrollWidth": 1280,
+        "release_text": "ShardLoom v0.6.0 is a published local engine, with operational hardening in progress. Start with a package, bring a local file, and use Python, SQL, or the CLI to run admitted native operations.",
+        "package_guide": "https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md",
+        "console_warnings_errors": [],
+        "screenshot": "publication-production-454/start.png"
+      },
+      {
+        "url": "https://shardloom.io/field-guide/python-surface/",
+        "title": "Python | ShardLoom",
+        "width": 1280,
+        "scrollWidth": 1280,
+        "observed_text": "Use Python to read local data, build queries, and inspect or export results. Admitted queries run in ShardLoom. Unsupported work returns a diagnostic without fallback execution.",
+        "console_warnings_errors": [],
+        "screenshot": "publication-production-454/python-native.png"
+      },
+      {
+        "url": "https://shardloom.io/field-guide/limitations/#release-and-readiness",
+        "title": "Support and limitations | ShardLoom",
+        "width": 1280,
+        "scrollWidth": 1280,
+        "observed_text": "ShardLoom executes local queries over native and prepared Vortex data today. Coverage is specific to the operation, types, source layout, enabled features, and output contract. The product direction is general-purpose data processing through one native pipeline. The gaps below are completion work within that pipeline.",
+        "console_warnings_errors": [],
+        "screenshot": "publication-production-454/release-readiness.png"
+      },
+      {
+        "url": "https://shardloom.io/#code",
+        "title": "ShardLoom — Make less work.",
+        "state": "home-python",
+        "width": 1280,
+        "scrollWidth": 1280,
+        "selected": ["↗Python"],
+        "caption": "Published 0.6.0 Python example with illustrative caller-declared limits of 16 GiB and 8 lanes (not defaults or recommendations). Upgrading from 0.5.1 requires explicit memory and parallelism allocations. Bring a local orders.csv with a status column; supported operations and enabled features still apply.",
+        "console_warnings_errors": [],
+        "screenshots": [
+          "publication-production-454/home-python.png",
+          "publication-production-454/home-python-caption.png"
+        ]
+      },
+      {
+        "url": "https://shardloom.io/#code",
+        "title": "ShardLoom — Make less work.",
+        "state": "home-sql",
+        "width": 1280,
+        "scrollWidth": 1280,
+        "selected": ["↗SQL"],
+        "caption": "Published 0.6.0 SQL example with illustrative caller-declared limits of 16 GiB and 8 lanes (not defaults or recommendations). Upgrading from 0.5.1 requires explicit memory and parallelism allocations. Bring an admitted local hits.vortex artifact with a URL column.",
+        "console_warnings_errors": [],
+        "screenshots": [
+          "publication-production-454/home-sql.png",
+          "publication-production-454/home-sql-caption.png"
+        ]
+      }
+    ]
+  },
+  "public_document_checks": [
+    {
+      "path": "docs/getting-started/package-user-install.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7/docs/getting-started/package-user-install.md",
+      "sha256": "d0312d75e46b1d953ce79b10159ffd87efe91095c9b5595760d1372e01d9ce15",
+      "bytes": 6547,
+      "remote_matches_merged_commit": true,
+      "release_060_present": true
+    },
+    {
+      "path": "docs/getting-started/source-checkout-install.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7/docs/getting-started/source-checkout-install.md",
+      "sha256": "ba7fa6b01c593f1eee1d3aa5cd2a361a0a65e400027c6e6ea602e444573e6a1a",
+      "bytes": 5973,
+      "remote_matches_merged_commit": true,
+      "release_060_present": true
+    },
+    {
+      "path": "docs/getting-started/v1-supported-unsupported.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7/docs/getting-started/v1-supported-unsupported.md",
+      "sha256": "06da5d1411ba774ba83870074ffb177089b1efa1548c5ccc66446dc26b59ca2c",
+      "bytes": 19935,
+      "remote_matches_merged_commit": true,
+      "release_060_present": true
+    },
+    {
+      "path": "docs/release/v0.6.0-release-notes.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7/docs/release/v0.6.0-release-notes.md",
+      "sha256": "155879eb5da96230494b159003e4621ff8f60f84ac77c807be3635806d096c40",
+      "bytes": 8510,
+      "remote_matches_merged_commit": true,
+      "release_060_present": true
+    },
+    {
+      "path": "docs/release/public-status-matrix.md",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7/docs/release/public-status-matrix.md",
+      "sha256": "923575000b7615e8231a711e679a846f1a58b2de0fe21842cbe2db41602a1fc0",
+      "bytes": 23289,
+      "remote_matches_merged_commit": true,
+      "release_060_present": true
+    },
+    {
+      "path": "docs/release/package-channel-readiness-matrix.json",
+      "url": "https://raw.githubusercontent.com/depsilon/shardloom/e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7/docs/release/package-channel-readiness-matrix.json",
+      "sha256": "86be68c82cdf80c6d993d47ee19dcad48badf88e81d1f9297580533d1f30a7d5",
+      "bytes": 34142,
+      "remote_matches_merged_commit": true,
+      "release_060_present": true
+    }
+  ],
+  "selected_channels_documented": [
+    "github_prerelease",
+    "homebrew_tap",
+    "pypi",
+    "testpypi"
+  ],
+  "scope": "Selected technical-preview package and exact production website verification. Public document bytes match the deployed Git tree. Browser checks cover the listed URLs, not a complete site crawl or new runtime/performance evidence.",
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "evidence_artifact_sha256": [
+    {
+      "file": "publication-hosted-453/readiness-premerge.json",
+      "sha256": "bdb0103a9fada6120506354bd48a31a8c241942137ff1d538c00076c0b94d351"
+    },
+    {
+      "file": "publication-hosted-453/merge-verification.json",
+      "sha256": "a1385471a687d3426382374aff6d9dc282272bf37ddf8e29dd602d0d5874780b"
+    },
+    {
+      "file": "publication-hosted-453/cloudflare-production.json",
+      "sha256": "f9d8fc9de9442c7eec84949045ec2c3c566de73b572e4d302b6f643726497106"
+    },
+    {
+      "file": "publication-hosted-453/public-documents.json",
+      "sha256": "adb3f6eb4f9b13ca46b7876de02df1966bcb340368871f9a8c5f308b6957ca17"
+    },
+    {
+      "file": "publication-production-454/receipt.json",
+      "sha256": "748c92c855e39c9e1b23afe95a3b0a49ee26efdc0c9c637142a7dccf04a13a07"
+    },
+    {
+      "file": "publication-production-454/start.json",
+      "sha256": "85a6217eee2b5b177d963b24fb89ff00c412404421c87bf5b550ae3718e8235a"
+    },
+    {
+      "file": "publication-production-454/python.json",
+      "sha256": "40f4a98bdd3926ffa1f028322844b396afb9b5a8d5a0057f1e25fc21cd58e50d"
+    },
+    {
+      "file": "publication-production-454/limitations.json",
+      "sha256": "6cda67468e3a934787e487ff3feb7fecff975f4db5e33bc78c95832ce44b4e66"
+    },
+    {
+      "file": "publication-production-454/home-python.json",
+      "sha256": "6752c4687d03061095884ae07061272b49c7767db7bac2d341ca1cb0a1012eea"
+    },
+    {
+      "file": "publication-production-454/home-sql.json",
+      "sha256": "f7653cd702c492da314b024d6d87fff17abe3a756893a99abe75f1c24b78c3d4"
+    },
+    {
+      "file": "docs/release/v0.6.0-publication-verification.md",
+      "sha256": "f31774432846c3b53fd7e2a6b3d01908c33a462fe0e9d5e0ee020dc1b365d03c"
+    },
+    {
+      "file": "docs/release/channel-proofs/github-prerelease-v0.6.0-transcript.json",
+      "sha256": "e989381decc608d99c992e1173bebcc3f43a8d95906577a329c025e0daa05e2f"
+    },
+    {
+      "file": "docs/release/channel-proofs/homebrew-v0.6.0-transcript.json",
+      "sha256": "be9d541f5ee6580f4725bcb9ccc9aac03b5f3b45d4f233b41f547377379f03ab"
+    },
+    {
+      "file": "docs/release/channel-proofs/pypi-v0.6.0-provenance.json",
+      "sha256": "0606ee0798bc281ce5dee6b27ed11e8a714f24fcb2ae0dcab0e4e93d3bc68f95"
+    },
+    {
+      "file": "docs/release/channel-proofs/testpypi-v0.6.0-provenance.json",
+      "sha256": "fceb3ae08d280227421c2a5bcb210b6e09871a9166d8a22fff761fc2d267e2ae"
+    },
+    {
+      "file": "publication-production-454/start.png",
+      "sha256": "10031842b19c0a51ea5e99682b548982010d66a6d08418110e853287e2f8869c"
+    },
+    {
+      "file": "publication-production-454/python-native.png",
+      "sha256": "eeac4ce76c82fcb431cf13f0d5276b125bea33a4627e2b2372caeafb69f5e658"
+    },
+    {
+      "file": "publication-production-454/release-readiness.png",
+      "sha256": "4a1019e5227f7fa2cb10cd48e2a094df509ed6841819d8af12425dad8d0bd1ee"
+    },
+    {
+      "file": "publication-production-454/home-python.png",
+      "sha256": "d2714ff0a2fa0485a83a13062e0084238c1c03d185c348c9f484235a7c7e27e3"
+    },
+    {
+      "file": "publication-production-454/home-python-caption.png",
+      "sha256": "29ed11b3ba6eab21ddb2b99278349d334d181bbb628fc40151f25f860bc6755a"
+    },
+    {
+      "file": "publication-production-454/home-sql.png",
+      "sha256": "1ec3e7e08309ee11182833ee5f877a85674343d4ea97287d20733f5fe5dc24ff"
+    },
+    {
+      "file": "publication-production-454/home-sql-caption.png",
+      "sha256": "2855f21a7837453baecb76e7ab99f3f42761ab80a3459225becc92f45b46aa93"
+    }
+  ]
+}

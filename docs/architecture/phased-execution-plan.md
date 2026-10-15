@@ -249,46 +249,63 @@ the ledger.
 
 ## Planned
 
-- [ ] `RELEASE-060` package the accepted native Python, typed-input, finite
-  streaming and resource-accounting milestone as one v0.6.0 technical preview.
+- [ ] `NATIVE-COMPRESSION-RESOURCES` admit the existing Vortex Zstd compressor,
+  dictionary trainer and compression payload buffers through the caller's
+  shared grant under PERF-03/06, following completed `RELEASE-060`.
   - V1 scope classification: `required_for_v1`.
-  - Source: October 14 maintainer direction, RFC 0024, the
-    [release notes](../release/v0.6.0-release-notes.md), and the existing
-    [channel contract](../release/package-channel-readiness-matrix.md).
-  - Current state: fresh pre-bump UAT and PR #1551 integration are complete;
-    PR #1552 prepares canonical and derived source version 0.6.0. GitHub assets,
-    TestPyPI, PyPI and Homebrew are published with independent installation,
-    complete-result and uninstall proof. Both registries' Linux/macOS native
-    wheels pass all 80 binding tests; Windows retains its CLI package and the
-    source archive contains no compiled payload. The selected-channel record
-    advances to 0.6.0. Local publication-document, package, website and rendered
-    checks pass. Hosted publication-document integration and production website
-    verification remain pending in the
-    [publication record](../release/v0.6.0-publication-verification.md).
-  - ShardLoom technique review: this distributes accepted shared runtime families;
-    it does not change PulseWeave, capillary selection, metadata-first execution
-    or dynamic admission. Source timings and package-install evidence remain
-    distinct. Explicit caller resources and no-fallback evidence are preserved.
+  - Contract: [native compression admission](native-compression-resources-2026-10-15.md)
+    and RFC 0044. Reuse native provider ownership, exact frame/value semantics,
+    explicit typed denial and existing no-fallback certificates.
+  - ShardLoom technique review: preserve metadata-only and encoded paths before
+    compression. Admit frame payloads and synchronous foreign heap through the
+    existing dynamic shared grant; keep PulseWeave and frame work units unchanged.
+    Separate lifecycle timing from whole-query timing and retain source-bound
+    correctness/resource evidence. No additional scheduling strategy is introduced.
   - Execution checklist:
-    - [x] Preserve the complete fresh pre-bump UAT and migration/release scope.
-    - [x] Add payload-preserving Linux audit, isolated native wheel tests and
-      uninstall verification to the existing package workflow; correct Windows
-      wheel staging and retain hash-pinned build tools.
-    - [x] Integrate PR #1551 and bump canonical and derived sources once to 0.6.0.
-    - [x] Pass local source/package gates and the exact candidate's hosted checks.
-    - [x] Publish and independently verify GitHub assets, TestPyPI, PyPI and
-      Homebrew in the established order, binding native payloads to installed
-      registry wheels and retaining channel-specific build provenance.
-    - [ ] Update selected-channel records, public docs/site and production proof,
-      then move this finite release to the completed ledger.
-  - Acceptance: complete clean install, smoke, uninstall, checksum, SBOM,
-    provenance and recovery-policy proof for all four selected channels.
-    Internal Rust crates and additional channels remain unpublished.
-  - Claim/fallback boundary: local technical-preview package availability only;
-    no production certification, broad platform parity, new execution provider,
-    external executor or reassignment of pre-bump timings to published binaries.
-    After this one train, resume the six areas and eight investigations under
-    their existing owners without starting another bump for each work unit.
+    - [x] Implement admitted input/offset/sample/output buffers and lifetime-bound
+      foreign-heap reservations without changing default codec parameters.
+    - [x] Verify every named denial stage, ownership/cleanup, all primitive bits,
+      nullable text/binary, serialization, provider-byte identity and unsafe-input
+      boundaries; retain the original failing regressions.
+    - [x] Complete the frozen lifecycle cost screen, workspace/native gates,
+      direct/public/format/streaming workflows and one Full43 pass.
+    - [x] Complete the October 15 timing follow-through: shared native execution
+      and result clocks, standard per-query CSV, fresh ingest plus one CLI Full43
+      and the modular UAT; share every query's timing, then retire verified unused
+      artifacts before resuming the ship/drop and breadth queue.
+    - [x] Complete acceptance/provenance documentation and rendered guide
+      verification with the timing-enabled source and native binding.
+    - [ ] Complete hosted integration, then move this finite unit to the ledger.
+  - Boundary: frame/metadata clones and other providers remain separately owned;
+    this is neither a whole-process RSS limit nor completion of the six areas.
+  - Local acceptance: the [report](../benchmarks/native-compression-resources-2026-10-15.md)
+    binds all 18 lifecycle cells without a declared cost breach, 3,219 workspace
+    and 4,219 native tests, 72 vendor tests, 80 direct tests, 757 public cases
+    and 43 complete query results. All 3,068 portable evidence members are
+    verified. The [timing-enabled acceptance supplement](../benchmarks/evidence/native-query-timing-acceptance-2026-10-15.json)
+    adds current-source gates (4,222 native tests), all 80 direct tests, all 757
+    public cases, complete evidence readback and rendered guide/search proof in
+    2,076 verified members. Hosted integration remains open.
+  - October 15 maintainer reporting contract: make engine execution the primary
+    optimization clock and retain process, output, CPU/RSS, validation, ingestion
+    and complete workflow boundaries. Runs stay CLI-based. Update documentation,
+    field guide and README with verified behavior before submitting each PR.
+  - Timing follow-through: the [fresh UAT](../benchmarks/native-query-timing-uat-2026-10-15.md)
+    passes all 99,997,497 ingested rows, 43 calls/381 complete returned rows and
+    18 modular cohorts. Engine execution totals 62.560288 s; result serialization
+    0.002827 s; other process work 2.859121 s. All 13,003 portable evidence members
+    are independently verified. The [scoped cleanup](local-artifact-cleanup-2026-10-15.md)
+    recovers 38.18 GB after this complete run. These are source-bound observations,
+    not a comparison with the earlier process-only measurements or a new release.
+  - October 15 feedback intake: merge the requested Q29/Q19/Q23 and shared
+    Q34/Q35 profiling priority into PERF-01/04/05/10. These five calls account
+    for 33.147% of the measured engine total. After this unit's integration,
+    distinguish scan/decode, transformation, key/state construction,
+    reconciliation and selection costs before choosing a shared implementation.
+    Inspect existing dictionary and parallel reduction work first. Preserve
+    complete-result and control gates, generation-bound reuse, and the broader
+    six-area/eight-investigation work; neither cold-cache status nor a cause for
+    the Q34/Q35 difference follows from this single pass.
 
 October 14 maintainer follow-through priority within the existing work: the
 latest direction resumes PR #1551, one version bump after integration and the
@@ -1039,8 +1056,16 @@ records the measured scope and preserved staged work. No PERF or competitive gat
     Separate native/worker/Python/fresh-process latency is recorded for the
     admitted count/collect routes. This does not substitute for same-commit ingest.
   - Execution checklist:
-    - [ ] Record same-commit clean ingestion and all 43 queries with checked outputs.
+    - [x] Record same-source fresh ingestion and all 43 queries with checked outputs.
+      The [October 15 timing UAT](../benchmarks/native-query-timing-uat-2026-10-15.md)
+      binds one frozen executable and 2,258 source hashes to fresh ingestion,
+      all 43 calls and complete returned values. Its uncontrolled OS-cache state
+      is explicit; the source changes were uncommitted at measurement time.
     - [ ] Separate exclusive wall spans, overlapping worker work, output, and validation.
+      Engine, result, other process, supervision and external validation clocks
+      now have separate measurements. Attribute internal shared operator and
+      overlapping worker costs for the five prioritized queries; do not infer
+      them from whole-query wall time or summed process CPU.
     - [ ] Extend separately timed latency acceptance to newly admitted families.
     - [ ] Identify dominant costs and preserve raw evidence without synthetic elapsed claims.
     - [ ] Correct the legacy reader-generated `BitPackedUnsigned` expansion evidence:
@@ -3052,14 +3077,108 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
     `docs/architecture/phased-execution-completed-ledger.md` with materialization counters and
     sink-parity evidence.
 
+- [ ] `NATIVE-ENCODED-EXCHANGE` extend native execution across process and
+  machine boundaries, with explicit Flight SQL interoperability.
+  - Source: October 15 maintainer transport proposal;
+    [RFC 0013](../rfcs/0013-streaming-zero-copy-boundary-interoperability.md),
+    [RFC 0035 / CG-23H](../rfcs/0035-rest-event-remote-api-surface.md#cg-23h-arrow-flight--adbc-data-plane-bridge)
+    and RFC 0044. This extends the existing remote data-plane owner, not a new CG.
+  - Sequencing: start after the current optimization and breadth completion
+    contract, including its six areas and eight conditional investigations.
+    A completed compression PR alone does not satisfy this dependency.
+  - V1 scope classification: `v1_candidate_pending_feasibility`; the required
+    protocol, resource/security design and cross-process evidence do not yet exist.
+  - Current state: owned native arrays, local encoded interchange and explicit
+    compatibility sinks supply reusable local foundations. RFC 0035 retains
+    Flight/ADBC as future data-plane work. These do not certify a native exchange
+    service, wire compatibility, remote authorization or distributed execution.
+  - Intake review: accept native execution -> encoded exchange -> downstream
+    native execution as the design target. Merge standard Flight SQL with
+    CG-23H; evaluate a companion native interface against Flight extension
+    mechanisms. Dictionary/buffer reuse, copy-aware receive storage and reusable
+    ordering/statistics are candidates requiring individual correctness and cost
+    evidence. Shared memory and versioned intermediate states follow the basic
+    exchange contract. Do not treat arbitrary Rust state as a portable format.
+  - ShardLoom technique review: retain metadata-first and encoded operation,
+    late materialization, shared grants, bounded Capillary work and PulseWeave
+    backpressure where applicable. Separate sender, transfer, receiver and
+    downstream clocks with observed copies, decoding and retained ownership.
+  - Execution checklist:
+    - [ ] Write the RFC/provider review against the then-pinned Vortex array
+      serialization and `vortex-ipc` sources, plus current Flight SQL/RPC APIs.
+      Reuse the native representation; audit wire stability, encoding registry,
+      alignment, per-message duplication and stream completion before extending it.
+    - [ ] Define negotiation, schema/encoding/wire versions, query/partition/
+      snapshot identities, completion, truncation, cancellation, reconnect and
+      replay contracts; make strict-native incompatibility deterministic.
+    - [ ] Define grants for queued buffers, receive storage and retained
+      dictionaries; establish exact dictionary identity, release/eviction and
+      lifetime rules. Keep in-process handle passage separate from serialization.
+    - [ ] Define authentication, per-request authorization and transport security
+      using established infrastructure. Ensure selections, dictionary entries,
+      retained buffers and reused state cannot expose unauthorized values.
+    - [ ] Implement the first bounded producer -> transport -> receiver -> real
+      downstream native operation experiment. Compare optimized Arrow/Flight,
+      ordinary Vortex IPC and the candidate with equivalent semantics, security,
+      resources, complete results and error/cleanup behavior.
+    - [ ] Measure actual wire bytes, sender/receiver CPU, copies, materialized
+      rows, retained/peak memory and complete downstream elapsed. Freeze the
+      retain/drop protocol before timing; an opaque-blob receiver is insufficient.
+    - [ ] Admit useful dictionary/buffer reuse and supported execution metadata
+      incrementally. Prototype same-host shared/mapped storage only with explicit
+      handle rights, lifetimes and cleanup. Version aggregate state separately.
+    - [ ] Prove ordinary Flight SQL client interoperability and explicit native
+      client selection; then update README, field guide, capabilities, evidence
+      and hosted checks together before moving accepted scope to the ledger.
+  - Next outcome: a source-grounded design and decisive end-to-end prototype,
+    followed by the feasible native/standard transport implementation.
+  - User-visible surface: optional remote/native data plane and standard SQL
+    clients over the same Rust engine; local APIs retain their shared runtime.
+  - Implementation scope: approved native source/sink and ownership boundaries,
+    optional RPC/client adapters, capability/certificate fields and acceptance
+    tooling; dependencies require license/provenance review and feature gates.
+  - Evidence required: complete downstream results, supported representation
+    preservation, malformed/incompatible input refusal, authorization isolation,
+    backpressure, cancellation/truncation/reconnect, memory cleanup and matched
+    performance/control observations. Revalidate metadata before trusting it.
+  - Acceptance: a receiving ShardLoom operator consumes admitted native data
+    without mandatory Arrow normalization; standard clients receive their
+    declared Arrow-compatible results. Certificates report actual conversions
+    and `fallback_attempted=false` / `external_engine_invoked=false`.
+  - Verification: protocol/ownership/security tests, independent client and
+    two-process integration, complete downstream experiment, required workspace
+    gates and broad local regressions for changed shared components.
+  - Non-goals: no custom TLS/network stack, automatic public service deployment,
+    arbitrary opaque state transfer, mandatory new local serialization, or
+    external-engine execution. Opaque Vortex bytes inside Arrow are not standard
+    Flight SQL column interoperability.
+  - Claim boundary: no end-to-end zero-copy, superiority, distributed-query or
+    local Full43 speedup claim follows from transport design or transfer alone.
+    Arrow encoding support must be represented fairly in comparisons.
+  - Reference distinction: [Flight SQL](https://arrow.apache.org/docs/format/FlightSql.html)
+    defines Arrow-based SQL access; [Flight RPC](https://arrow.apache.org/docs/format/Flight.html)
+    includes bidirectional exchange. [Vortex IPC](https://docs.vortex.dev/specs/ipc-format.html)
+    and [serialization](https://docs.vortex.dev/developer-guide/internals/serialization.html)
+    are provider-review starting points, not proof for the pinned local version.
+    [Dissociated IPC](https://arrow.apache.org/docs/format/DissociatedIPC.html)
+    is an experimental reference, not an adopted Vortex transport.
+  - Ledger rule: move only implemented and accepted finite scope to the completed
+    ledger; retain explicit remaining protocol and deployment work under CG-23.
+
 Current autonomous execution order:
+
+October 15 transport direction queues `NATIVE-ENCODED-EXCHANGE` after the current
+optimization and breadth work. Preserve that dependency while completing the
+current compression/timing integration and the measured hotspot/breadth queue.
 
 October 14 direction takes precedence over the earlier version hold. PR #1551
 completes the composition timing investigation, admitted-context corrections and
 finite decoder resource work; its [hosted receipt](../benchmarks/evidence/native-decoder-hosted-2026-10-15.json)
-and completed ledger retain acceptance. Complete `RELEASE-060` through the
-existing release workflow, then resume the remaining work and optimizations.
-The accepted milestone selects 0.6.0; published 0.5.1 artifacts remain immutable.
+and completed ledger retain acceptance. `RELEASE-060` is complete through
+PR #1554, with all four channels and the exact production deployment verified in
+the [publication record](../release/v0.6.0-publication-verification.md). Resume
+the remaining work and optimizations with `NATIVE-COMPRESSION-RESOURCES`.
+Published 0.5.1 and 0.6.0 artifacts remain immutable.
 
 October 13 direction supersedes the breadth pause below: first run fresh full
 UAT, then resume streaming capability gaps and broader memory/spill/recovery,
@@ -3068,7 +3187,7 @@ The fresh baseline passes all 129 query executions and all 18 modular cohorts.
 `NATIVE-STREAM-INPUT-COMPOSITION` is complete in PR #1548 and recorded in the
 completed ledger. `NATIVE-OPERATOR-RECOVERY` is complete in PR #1549.
 `NATIVE-SELECTION-RESOURCES` is complete in PR #1550 and
-`NATIVE-DECODER-SCRATCH` in PR #1551. After `RELEASE-060`, proceed through
+`NATIVE-DECODER-SCRATCH` in PR #1551. With `RELEASE-060` complete, proceed through
 remaining allocation/operational hardening under the existing owners;
 leave caching, learned indexes, rematerialization and the other conditional
 investigations until qualifying workloads justify them. This is a sequencing

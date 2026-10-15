@@ -54,6 +54,17 @@ entire compiler cache merely to preserve old test executables. Keep failed-run
 diagnostics and reproduction inputs without retaining every generated payload.
 Recheck free space before and after large jobs and preserve the existing guards.
 
+After the [October 15 fresh timing UAT](../benchmarks/native-query-timing-uat-2026-10-15.md),
+the [scoped cleanup](local-artifact-cleanup-2026-10-15.md) retires two superseded
+Vortex outputs, two identical release-archive copies and six completed temporary
+wheel package/environment pairs. Free space increases by 38.18 GB to 59.31 GB.
+The resident Parquet, current `timed-native-461-a1.vortex`, active comparison input
+`persisted-native-343-a1.vortex`, all six wheels, compact evidence, current frozen
+executables and compiler caches remain. Historical paths in old receipts keep
+their original identities; retired payloads require regeneration or the retained
+identical copy. This supersedes older local-retention statements for those exact
+paths without rewriting their measurements or changing storage ceilings.
+
 After persisted-output acceptance, the
 [follow-up retirement](local-artifact-cleanup-2026-10-11.md#persisted-output-acceptance-cleanup)
 removes the superseded 15.7-GB timestamp output and retains the newly accepted
@@ -417,8 +428,18 @@ For a future authorized observation:
    trials or UAT stages. Run the next operation after required validation and
    cleanup finish. Watchdog polling while a child is running is not a pacing
    policy and must not delay an already completed child deliberately.
-4. Time each complete public native process, including startup, full output
-   and exit. Also time the actual workflow. Declare the exact treatment of
+4. Record engine-owned prepared execution and result serialization separately
+   for every query. Keep complete public process wall time, remaining process
+   work, supervision, CPU, peak RSS and validation alongside those clocks.
+   Engine elapsed includes query I/O and source validation; CPU is a separate,
+   overlapping measure. Remaining process work includes startup, preparation,
+   report rendering and exit; it does not isolate those individual components.
+   Both Full43 runners require engine clocks by default and write the complete
+   `query-timings.csv`. Explicit historical comparisons may allow missing clocks,
+   which must remain unavailable. Version 2 summaries use engine time for primary
+   totals and paired comparisons, with `secondary_process_wall` retaining the
+   complete process comparison. Result completeness and clock availability are
+   separate fields; no partial clock cohort is ranked. Also time the actual workflow. Declare the exact treatment of
    input hashing, validation, archiving and final output hashing. Use one call
    per query by default. Both query runners accept `--repeats N` for explicitly
    requested repeats and record that count; a single pass reports hot-run

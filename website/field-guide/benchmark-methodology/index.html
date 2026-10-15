@@ -77,9 +77,10 @@ This guide explains ShardLoom’s
 engineering evidence and measurement boundaries; it does not present a public ranking.</p>
 <p><strong><a href="https://benchmark.clickhouse.com/">Open ClickBench ↗</a></strong></p>
 <div class="sl-heading-wrapper level-h2"><h2 id="current-engineering-evidence">Current engineering evidence</h2><a class="sl-anchor-link" href="#current-engineering-evidence"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Current engineering evidence”</span></a></div>
-<p>Reviewed October 1, 2026. Recent local work validates complete query results and measures
+<p>Reviewed October 15, 2026. Recent local work validates complete query results and measures
 individual changes against a frozen ShardLoom control:</p>
 <ul>
+<li><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-timing-uat-2026-10-15.md">Fresh UAT and all 43 query timings</a> — one execution per query: 62.560 s engine execution, 0.002827 s result serialization and 2.859 s other process work; fresh ingestion and all 18 format/workflow cohorts pass. This is a local baseline on source after 0.6.0, with an explicit boundary for every clock.</li>
 <li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/performance-quiet-intake-2026-09-30.md">Native execution and ingestion comparisons</a> — retained mechanisms, rejected experiments, and links to their acceptance evidence.</li>
 <li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md">Dictionary preparation</a> — source-backed strings, bounded preparation overlap, and measured tradeoffs.</li>
 <li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md">Native runtime completion</a> — complete-value Full43 regression runs, public-call checks, and the remaining availability inventory.</li>
@@ -96,6 +97,18 @@ or production readiness. Earlier receipts remain historical evidence for their n
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>Native engine execution</td>
+<td>Prepared native query wall time, including query I/O, decoding, operators, source validation and provider certification. Source preparation, result serialization and the CLI process boundary are excluded. This is elapsed time, not pure CPU time.</td>
+</tr>
+<tr>
+<td>Result serialization</td>
+<td>Synchronous conversion of complete native results into the requested bounded JSON output. It is removed from the engine clock, including when batches are delivered during execution.</td>
+</tr>
+<tr>
+<td>Other process work</td>
+<td>Complete process time minus engine execution and result serialization. It includes startup, preparation, control/report work and exit; those individual components are not independently timed.</td>
+</tr>
 <tr>
 <td>Cold preparation</td>
 <td>Source read and parse, Vortex construction, persistence, and the checks included by that runner. Keep this separate from warm queries.</td>
@@ -118,6 +131,14 @@ or production readiness. Earlier receipts remain historical evidence for their n
 </tr>
 </tbody>
 </table>
+<p>The current source runners use this separation for new UAT and optimization runs.
+Each Full43 run produces a complete per-query table and <code dir="auto">query-timings.csv</code>, with one
+execution per query by default. Process CPU time and peak memory accompany elapsed
+time; CPU time overlaps wall time and can include parallel workers. Ingestion,
+builds, hashing, validation and actual workflow elapsed are reported separately.
+Engine execution is the primary optimization measure. Missing engine clocks are
+accepted only for an explicitly declared historical binary comparison and stay
+unavailable. These source-runner changes postdate the published 0.6.0 artifacts.</p>
 <p>Older artifacts use <code dir="auto">hot_runtime</code>, <code dir="auto">full_replay_proof</code>, <code dir="auto">publication_proof</code>, and
 <code dir="auto">external_baseline</code> labels. Use each artifact’s exact formula and evidence tier rather than
 assuming those labels describe every current runner.</p>

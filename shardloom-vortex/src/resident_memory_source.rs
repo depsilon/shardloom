@@ -745,6 +745,7 @@ impl PreparedMemoryProjection {
         let native_io_certificate = memory_certificate(rows, self.filter.is_some())?;
         drop(result);
         Ok(CollectedVortexRows {
+            timing: None,
             rows,
             projected_columns: self.columns.clone(),
             source_order_limit: self.limit,

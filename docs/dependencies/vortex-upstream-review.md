@@ -1,5 +1,27 @@
 # Vortex Upstream Dependency Review
 
+## October 15, 2026 compression resource admission
+
+The [compression contract](../architecture/native-compression-resources-2026-10-15.md)
+extends the existing Apache-2.0 Vortex 0.85.0 patches without changing the
+dependency graph. Allocator-backed input, offset, sample and output buffers
+share the caller's grant with explicit lifetime reservations for the pinned
+Zstandard 1.5.7 compressor and default sequential FASTCOVER trainer. Safe Rust
+owners and the existing codec parameters remain in use. Pointer-free size
+estimators, the default-level query and error predicate stay inside the existing vendored unsafe
+exception. No C implementation is copied, and no workspace unsafe code,
+alternate encoding or external execution engine is introduced.
+
+The original archive and member hashes remain authoritative in the
+[array provenance](../../vendor/vortex-array/upstream-provenance.json) and
+[codec provenance](../../vendor/vortex-zstd/upstream-provenance.json); the
+Python license bundle carries their matching local-change descriptions.
+The [complete local acceptance](../benchmarks/native-compression-resources-2026-10-15.md)
+passes ownership/value, lifecycle cost, workspace/native/vendor, direct/public
+and single-pass Full43 gates. Hosted integration remains pending. Foreign requested
+heap and named payload buffers are the finite accounting claim; structural
+vectors, allocator bookkeeping, stacks and process RSS remain outside it.
+
 ## October 14, 2026 decoder and execution-context follow-through
 
 The [combined correction](../benchmarks/native-admitted-context-2026-10-14.md)
@@ -10,9 +32,11 @@ Helper callers pass their existing `ExecutionCtx`; list offsets/sizes are
 prepared through that owner before upstream row convenience access, and struct
 extraction uses the declared-field iterator. No dependency, vendor source,
 unsafe code or external execution engine is added by this correction.
-Its complete local source, behavior, cost and public/query proof is retained;
-hosted integration remains pending. Unreviewed allocation trees receive no new
-accounting claim.
+Its complete local source, behavior, cost and public/query proof is retained.
+Hosted integration completes in [PR #1551](https://github.com/depsilon/shardloom/pull/1551)
+with all 44 checks and three installed-wheel lanes passing, as recorded in the
+[hosted receipt](../benchmarks/evidence/native-decoder-hosted-2026-10-15.json).
+Unreviewed allocation trees receive no new accounting claim.
 
 ## October 13, 2026 selection resource follow-up
 

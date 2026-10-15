@@ -456,6 +456,7 @@ impl MemoryFileGeneration {
         }
         drop(arrays);
         Ok(CollectedVortexRows {
+            timing: None,
             rows,
             projected_columns: names,
             source_order_limit: Some(usize::try_from(max_rows).map_err(generation_error)?),

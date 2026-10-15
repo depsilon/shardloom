@@ -73,6 +73,14 @@ supported workflows, and newer source changes are tracked in the
 [public support matrix](docs/release/public-status-matrix.md). Production support, broad
 SQL/DataFrame parity, and performance superiority are not claimed.
 
+Current source UAT reports separate native query execution, result serialization,
+process overhead, CPU/memory, validation, and ingestion. Full43 produces all 43
+individual timings and a CSV; see the [measurement contract](docs/skills/benchmarking.md#local-end-to-end-observations).
+These clocks describe source builds newer than the published 0.6.0 artifacts.
+The [October 15 fresh UAT](docs/benchmarks/native-query-timing-uat-2026-10-15.md)
+records all 43 query timings, fresh ingestion, complete-result checks and the
+18-cohort format/workflow matrix, with each timing boundary stated separately.
+
 For repository work, see [contributing](CONTRIBUTING.md), [agent and development instructions](AGENTS.md),
 the [phase plan](docs/architecture/phased-execution-plan.md), and the
 [API index](docs/reference/shardloom-user-surface-index.md) ([machine-readable](docs/reference/shardloom-user-surface-index.json)).

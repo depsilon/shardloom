@@ -6,6 +6,8 @@
 // allocator-aware native decoder used by canonical execution.
 // Modified by ShardLoom on 2026-10-13: borrow selected frame ranges, avoid
 // validity-rank vectors and pre-count decoded view-handle storage.
+// Modified by ShardLoom on 2026-10-15: admit compression payloads and bounded
+// foreign codec storage through the same caller allocator.
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -57,7 +59,6 @@ use vortex_buffer::Buffer;
 use vortex_buffer::BufferMut;
 use vortex_buffer::ByteBuffer;
 use vortex_error::VortexError;
-use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_ensure;
@@ -576,45 +577,106 @@ fn collect_valid_primitive(
 fn collect_valid_vbv(
     vbv: &VarBinViewArray,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<(ByteBuffer, Vec<usize>)> {
+) -> VortexResult<(ByteBuffer, Buffer<usize>)> {
     let mask = vbv
         .as_ref()
         .validity()?
         .execute_mask(vbv.as_ref().len(), ctx)?;
-    let buffer_and_value_byte_indices = match mask.bit_buffer() {
-        AllOr::None => (Buffer::empty(), Vec::new()),
-        _ => {
-            let mut buffer = BufferMut::with_capacity(
-                usize::try_from(vbv.nbytes()).vortex_expect("must fit into buffer")
-                    + mask.true_count() * size_of::<ViewLen>(),
-            );
-            let mut value_byte_indices = Vec::new();
-            let views = vbv.views();
-            let buffers = vbv
-                .data_buffers()
-                .iter()
-                .map(|b| b.as_host())
-                .collect::<Vec<_>>();
-            // skip nulls, writing only valid values
-            for (i, view) in views.iter().enumerate() {
-                if !mask.value(i) {
-                    continue;
-                }
-                let value = if view.is_inlined() {
-                    view.as_inlined().value()
-                } else {
-                    let view_ref = view.as_view();
-                    &buffers[view_ref.buffer_index as usize][view_ref.as_range()]
-                };
-                value_byte_indices.push(buffer.len());
-                // here's where we write the string lengths
-                buffer.extend_trusted(ViewLen::try_from(value.len())?.to_le_bytes().into_iter());
-                buffer.extend_from_slice(value);
-            }
-            (buffer.freeze(), value_byte_indices)
+    let count = mask.true_count();
+    if count == 0 {
+        return Ok((Buffer::empty(), Buffer::empty()));
+    }
+    let views = vbv.views();
+    let mut payload_len = 0usize;
+    for (index, view) in views.iter().enumerate() {
+        if mask.value(index) {
+            let value = compression_value(vbv, view)?;
+            ViewLen::try_from(value.len())?;
+            payload_len = payload_len
+                .checked_add(size_of::<ViewLen>())
+                .and_then(|size| size.checked_add(value.len()))
+                .ok_or_else(|| vortex_err!("Native Zstd input size overflow"))?;
         }
-    };
-    Ok(buffer_and_value_byte_indices)
+    }
+    let allocator = ctx.allocator();
+    let mut payload = allocator.allocate(payload_len, Alignment::none())?;
+    let mut offsets = allocator.allocate_typed::<usize>(count)?;
+    let bytes = payload.as_mut_slice();
+    let index_bytes = offsets.as_mut_slice();
+    vortex_ensure!(
+        bytes.len() == payload_len,
+        "Native Zstd input buffer has incorrect length"
+    );
+    vortex_ensure!(
+        index_bytes.len() == count * size_of::<usize>(),
+        "Native Zstd offset buffer has incorrect length"
+    );
+    let mut offset = 0usize;
+    let mut valid_index = 0usize;
+    for (index, view) in views.iter().enumerate() {
+        if !mask.value(index) {
+            continue;
+        }
+        let value = compression_value(vbv, view)?;
+        let index_start = valid_index * size_of::<usize>();
+        index_bytes[index_start..index_start + size_of::<usize>()]
+            .copy_from_slice(&offset.to_ne_bytes());
+        bytes[offset..offset + size_of::<ViewLen>()]
+            .copy_from_slice(&ViewLen::try_from(value.len())?.to_le_bytes());
+        offset += size_of::<ViewLen>();
+        bytes[offset..offset + value.len()].copy_from_slice(value);
+        offset += value.len();
+        valid_index += 1;
+    }
+    vortex_ensure!(
+        offset == payload_len && valid_index == count,
+        "Native Zstd input changed during preparation"
+    );
+    let payload = payload.freeze();
+    let offsets = offsets.freeze_typed::<usize>()?;
+    vortex_ensure!(
+        payload.len() == payload_len && offsets.len() == count,
+        "Native Zstd preparation freeze changed buffer length"
+    );
+    Ok((payload, offsets))
+}
+
+fn compression_value<'a>(vbv: &'a VarBinViewArray, view: &'a BinaryView) -> VortexResult<&'a [u8]> {
+    if view.is_inlined() {
+        return Ok(view.as_inlined().value());
+    }
+    let view = view.as_view();
+    vbv.data_buffers()
+        .get(view.buffer_index as usize)
+        .and_then(|buffer| buffer.as_host().get(view.as_range()))
+        .ok_or_else(|| vortex_err!("Native Zstd input view exceeds its source buffer"))
+}
+
+fn compression_offsets(
+    count: usize,
+    allocator: &HostAllocatorRef,
+    mut value: impl FnMut(usize) -> VortexResult<usize>,
+) -> VortexResult<Buffer<usize>> {
+    if count == 0 {
+        return Ok(Buffer::empty());
+    }
+    let mut offsets = allocator.allocate_typed::<usize>(count)?;
+    let bytes = offsets.as_mut_slice();
+    vortex_ensure!(
+        bytes.len() == count * size_of::<usize>(),
+        "Native Zstd offset buffer has incorrect length"
+    );
+    // Byte writes initialize every usize without trusting a custom allocator's
+    // advertised alignment. freeze_typed checks the actual immutable pointer.
+    for (index, destination) in bytes.chunks_exact_mut(size_of::<usize>()).enumerate() {
+        destination.copy_from_slice(&value(index)?.to_ne_bytes());
+    }
+    let offsets = offsets.freeze_typed::<usize>()?;
+    vortex_ensure!(
+        offsets.len() == count,
+        "Native Zstd offset freeze changed buffer length"
+    );
+    Ok(offsets)
 }
 
 /// Reconstruct BinaryView structs from length-prefixed byte data.
@@ -1074,53 +1136,94 @@ impl ZstdData {
         values_per_frame: usize,
         n_values: usize,
         use_dictionary: bool,
+        allocator: &HostAllocatorRef,
     ) -> VortexResult<Frames> {
         let n_frames = frame_byte_starts.len();
-
-        // Would-be sample sizes if we end up applying zstd dictionary
-        let mut sample_sizes = Vec::with_capacity(n_frames);
-        for i in 0..n_frames {
-            let frame_byte_end = frame_byte_starts
-                .get(i + 1)
-                .copied()
-                .unwrap_or(value_bytes.len());
-            sample_sizes.push(frame_byte_end - frame_byte_starts[i]);
-        }
-        debug_assert_eq!(sample_sizes.iter().sum::<usize>(), value_bytes.len());
-
-        let (dictionary, mut compressor) = if !use_dictionary
-            || sample_sizes.len() < MIN_SAMPLES_FOR_DICTIONARY
-        {
-            // no dictionary
-            (None, zstd::bulk::Compressor::new(level)?)
-        } else {
-            // with dictionary
-            let max_dict_size = choose_max_dict_size(value_bytes.len());
-            let dict = zstd::dict::from_continuous(value_bytes, &sample_sizes, max_dict_size)
-                .map_err(|err| VortexError::from(err).with_context("while training dictionary"))?;
-
-            let compressor = zstd::bulk::Compressor::with_dictionary(level, &dict)?;
-            (Some(ByteBuffer::from(dict)), compressor)
-        };
-
-        let mut frame_metas = vec![];
-        let mut frames = vec![];
-        for i in 0..n_frames {
-            let frame_byte_end = frame_byte_starts
-                .get(i + 1)
-                .copied()
-                .unwrap_or(value_bytes.len());
-
-            let uncompressed = &value_bytes.slice(frame_byte_starts[i]..frame_byte_end);
-            let mut compressed = compressor
-                .compress(uncompressed)
-                .map_err(|err| VortexError::from(err).with_context("while compressing"))?;
-            compressed.shrink_to_fit();
-            frame_metas.push(ZstdFrameMetadata {
-                uncompressed_size: uncompressed.len() as u64,
-                n_values: values_per_frame.min(n_values - i * values_per_frame) as u64,
+        if n_frames == 0 {
+            vortex_ensure!(
+                value_bytes.is_empty() && n_values == 0,
+                "Native Zstd input is missing frames"
+            );
+            return Ok(Frames {
+                dictionary: None,
+                frames: Vec::new(),
+                frame_metas: Vec::new(),
             });
-            frames.push(ByteBuffer::from(compressed));
+        }
+        vortex_ensure!(
+            frame_byte_starts[0] == 0 && values_per_frame > 0,
+            "Native Zstd frame boundaries are invalid"
+        );
+        let sample_sizes = compression_offsets(n_frames, allocator, |i| {
+            let frame_byte_end = frame_byte_starts
+                .get(i + 1)
+                .copied()
+                .unwrap_or(value_bytes.len());
+            vortex_ensure!(
+                frame_byte_end <= value_bytes.len(),
+                "Native Zstd frame exceeds its source"
+            );
+            frame_byte_end
+                .checked_sub(frame_byte_starts[i])
+                .ok_or_else(|| vortex_err!("Native Zstd frame boundaries are not ordered"))
+        })?;
+
+        let dictionary = if !use_dictionary || sample_sizes.len() < MIN_SAMPLES_FOR_DICTIONARY {
+            None
+        } else {
+            let max_dict_size = choose_max_dict_size(value_bytes.len());
+            Some(crate::compression_resources::train_dictionary(
+                value_bytes,
+                &sample_sizes,
+                max_dict_size,
+                allocator.as_ref(),
+            )?)
+        };
+        let mut compressor = crate::compression_resources::AdmittedCompressor::new(
+            level,
+            dictionary.as_ref().map(|value| value.as_slice()),
+            allocator.as_ref(),
+        )?;
+        let scratch_len = crate::compression_resources::compress_bound(
+            sample_sizes.iter().copied().max().unwrap_or_default(),
+        )?;
+        let mut scratch = allocator.allocate(scratch_len, Alignment::none())?;
+        let mut frame_metas = Vec::with_capacity(n_frames);
+        let mut frames = Vec::with_capacity(n_frames);
+        for i in 0..n_frames {
+            let frame_byte_end = frame_byte_starts
+                .get(i + 1)
+                .copied()
+                .unwrap_or(value_bytes.len());
+
+            let uncompressed = &value_bytes[frame_byte_starts[i]..frame_byte_end];
+            let destination = scratch.as_mut_slice();
+            vortex_ensure!(
+                destination.len() == scratch_len,
+                "Native Zstd output scratch has incorrect length"
+            );
+            let written = compressor.compress(uncompressed, destination)?;
+            let mut compressed = allocator.allocate(written, Alignment::none())?;
+            let output = compressed.as_mut_slice();
+            vortex_ensure!(
+                output.len() == written,
+                "Native Zstd frame buffer has incorrect length"
+            );
+            output.copy_from_slice(&destination[..written]);
+            let compressed = compressed.freeze();
+            vortex_ensure!(
+                compressed.len() == written,
+                "Native Zstd frame freeze changed buffer length"
+            );
+            let value_start = i
+                .checked_mul(values_per_frame)
+                .filter(|start| *start < n_values)
+                .ok_or_else(|| vortex_err!("Native Zstd frame value extent is invalid"))?;
+            frame_metas.push(ZstdFrameMetadata {
+                uncompressed_size: uncompressed.len().try_into()?,
+                n_values: values_per_frame.min(n_values - value_start).try_into()?,
+            });
+            frames.push(compressed);
         }
 
         Ok(Frames {
@@ -1180,19 +1283,32 @@ impl ZstdData {
         let values = collect_valid_primitive(parray, ctx)?;
         let n_values = values.len();
         let values_per_frame = if values_per_frame > 0 {
-            values_per_frame
+            values_per_frame.min(n_values.max(1))
         } else {
-            n_values
+            n_values.max(1)
         };
 
         let value_bytes = values.buffer_handle().try_to_host_sync()?;
         // Align frames to buffer alignment. This is necessary for overaligned buffers.
         let alignment = *value_bytes.alignment();
-        let step_width = (values_per_frame * byte_width).div_ceil(alignment) * alignment;
-
-        let frame_byte_starts = (0..n_values * byte_width)
-            .step_by(step_width)
-            .collect::<Vec<_>>();
+        let step_width = values_per_frame
+            .checked_mul(byte_width)
+            .and_then(|bytes| bytes.checked_next_multiple_of(alignment))
+            .ok_or_else(|| vortex_err!("Native Zstd primitive frame size overflow"))?;
+        let value_bytes_len = n_values
+            .checked_mul(byte_width)
+            .ok_or_else(|| vortex_err!("Native Zstd primitive input size overflow"))?;
+        vortex_ensure!(
+            value_bytes.len() == value_bytes_len,
+            "Native Zstd primitive buffer has incorrect length"
+        );
+        let allocator = ctx.allocator();
+        let frame_byte_starts =
+            compression_offsets(value_bytes_len.div_ceil(step_width), &allocator, |index| {
+                index
+                    .checked_mul(step_width)
+                    .ok_or_else(|| vortex_err!("Native Zstd primitive frame offset overflow"))
+            })?;
         let Frames {
             dictionary,
             frames,
@@ -1201,9 +1317,10 @@ impl ZstdData {
             &value_bytes,
             &frame_byte_starts,
             level,
-            values_per_frame,
+            step_width / byte_width,
             n_values,
             use_dictionary,
+            &allocator,
         )?;
 
         let metadata = ZstdMetadata {
@@ -1270,15 +1387,16 @@ impl ZstdData {
         let (value_bytes, value_byte_indices) = collect_valid_vbv(vbv, ctx)?;
         let n_values = value_byte_indices.len();
         let values_per_frame = if values_per_frame > 0 {
-            values_per_frame
+            values_per_frame.min(n_values.max(1))
         } else {
-            n_values
+            n_values.max(1)
         };
 
-        let frame_byte_starts = (0..n_values)
-            .step_by(values_per_frame)
-            .map(|i| value_byte_indices[i])
-            .collect::<Vec<_>>();
+        let allocator = ctx.allocator();
+        let frame_byte_starts =
+            compression_offsets(n_values.div_ceil(values_per_frame), &allocator, |index| {
+                Ok(value_byte_indices[index * values_per_frame])
+            })?;
         let Frames {
             dictionary,
             frames,
@@ -1290,6 +1408,7 @@ impl ZstdData {
             values_per_frame,
             n_values,
             use_dictionary,
+            &allocator,
         )?;
 
         let metadata = ZstdMetadata {

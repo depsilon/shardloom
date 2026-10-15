@@ -45,6 +45,7 @@ pub(super) fn execute_native_vortex_resident_count(
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
     fields.extend(count_fields(count, snapshot, prepared_now));
+    crate::execution_resources::append_query_timing_fields(&mut fields, Some(rows.timing));
     let (jsonl, _json_ownership) = rows.result_jsonl.into_parts();
     let (schema, _schema_ownership) = rows.result_schema_json.into_parts();
     super::append_native_result_schema_fields(&mut fields, schema);
@@ -209,16 +210,20 @@ fn execute(
             "prepared count was not admitted; no fallback execution was attempted".into(),
         )
     })?;
+    let started = std::time::Instant::now();
     let count = prepared
         .operation
         .execute_with_cancellation(&admission.cancellation())?;
-    let rows =
+    let mut rows =
         shardloom_vortex::local_primitives::collect::render_count_rows(count, &prepared.session)?;
     admission.check()?;
     let snapshot = prepared.session.snapshot();
     // Issue evidence only after the retained operation completed both generation
     // checks. Repeated calls still execute against the retained native footer.
     let native_io_certificate = count_certificate(binding, count, snapshot, prepared_now)?;
+    rows.timing.execution = started
+        .elapsed()
+        .saturating_sub(rows.timing.result_serialization);
     Ok(ExecutedCount {
         count,
         snapshot,

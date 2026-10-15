@@ -1,0 +1,115 @@
+{
+  "schema_version": "shardloom.native_query_timing_uat.v1",
+  "status": "passed_local_fresh_uat",
+  "observed_date": "2026-10-15",
+  "source_commit": "e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7",
+  "source_state": "post_0.6.0_uncommitted_compression_and_query_timing",
+  "source_file_count": 2258,
+  "binary_sha256": "ce3978515a7a4423c61511e9cf14e53d8cb2853f9e7f0b596d1bc3bb418ae5dd",
+  "protocol_sha256": "9c343582b83993ce52c95b68d35f5a570b44d77a46061bce134263385ff3743a",
+  "results_sha256": "1d1b6b4ba3b035beed3f21f9ae361984aa30b6d5f11862fb32c06d7c96bad69b",
+  "archive": {
+    "file": "native-query-timing-uat-2026-10-15.tar.xz",
+    "sha256": "aad6fae6d0ffab69e9426720f5730dc7ea1ece07f4cbc58ce76a9cd85254270b",
+    "bytes": 4009632,
+    "members": 13003,
+    "uncompressed_bytes": 284196172
+  },
+  "manifest": {
+    "file": "native-query-timing-uat-2026-10-15.manifest.json.xz",
+    "sha256": "db34d95ce3eba7d486f3b9b24d7cca524006391263df9838014bfd1f5a256ebb",
+    "uncompressed_sha256": "da433ea385637664e2455af91ac6373a26072eb62f454e141c0cb215b6fc6fcd"
+  },
+  "verification": {
+    "file": "native-query-timing-uat-2026-10-15.verification.json",
+    "sha256": "3b744d9cc0c271977cbc3c91e368e5e039295f23899348d98c337ccd28a7bbcf"
+  },
+  "timing_csv": {
+    "file": "native-query-timing-uat-2026-10-15.csv",
+    "sha256": "79e7cbbeae442a3f865ee5a47428f7326ca24e6c4f1299252a62ed2601df24b9"
+  },
+  "ingest_rows": 99997497,
+  "query_calls": 43,
+  "query_rows": 381,
+  "repeats": 1,
+  "query_timings": {
+    "raw_calls": 43,
+    "calls_with_engine_timing": 43,
+    "aggregation": "sum_of_every_raw_call_not_best_of_repeats_or_workflow_elapsed",
+    "process_other_boundary": "startup;parsing;preparation;control_plane;report_rendering;exit;unattributed_process_work",
+    "cpu_boundary": "whole_process_cpu_overlaps_wall_time_includes_parallel_workers",
+    "totals": {
+      "engine_execution_seconds": 62.560288415,
+      "result_serialization_seconds": 0.002826587,
+      "process_other_seconds": 2.85912116400677,
+      "process_wall_seconds": 65.42223616600677,
+      "supervision_overhead_seconds": 2.09571208700072,
+      "supervised_wall_seconds": 67.51794825300749,
+      "user_cpu_seconds": 174.097458,
+      "system_cpu_seconds": 39.53198,
+      "validation_seconds": 0.03506491799998912
+    }
+  },
+  "ingest_process_seconds": 58.44963033299791,
+  "ingest_plus_query_workflow_seconds": 150.3561562089999,
+  "full_uat_wall_seconds": 656.3095569999969,
+  "modular": {
+    "cohorts": 18,
+    "records": 1408,
+    "native_records": 704,
+    "workflow_seconds": 486.91470483300145
+  },
+  "hardware": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "logical_cpus": 10,
+    "physical_memory_bytes": 17179869184
+  },
+  "policy": {
+    "memory_admission_bytes": 25769803776,
+    "max_parallelism": 12,
+    "artificial_inter_query_delay_seconds": 0,
+    "power_or_thermal_gate": false,
+    "automatic_retry": false
+  },
+  "datasets": {
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet": {
+      "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+      "generation": {
+        "device": 16777233,
+        "inode": 84833233,
+        "size_bytes": 14779976446,
+        "mtime_ns": 1788461344802364826,
+        "ctime_ns": 1788612069108841600
+      },
+      "resident_before_hash": true,
+      "unchanged_during_hash": true,
+      "hash_seconds": 5.519424792000791
+    },
+    "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/timed-native-461-a1.vortex": {
+      "sha256": "06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22",
+      "generation": {
+        "device": 16777233,
+        "inode": 108658641,
+        "size_bytes": 15713610513,
+        "mtime_ns": 1792054869361511274,
+        "ctime_ns": 1792054869364822441
+      },
+      "resident_before_hash": true,
+      "unchanged_during_hash": true,
+      "hash_seconds": 5.88531299999886
+    }
+  },
+  "claim_boundaries": {
+    "query_reference": "retained_native_regression",
+    "modular_reference": "independent_pandas_values_testing_only",
+    "all_returned_query_values_checked": true,
+    "complete_input_output_cartesian_claimed": false,
+    "all_cell_ingest_equivalence_claimed": false,
+    "speedup_claimed": false,
+    "cold_cache_claimed": false,
+    "new_release_claimed": false,
+    "fallback_attempted": false,
+    "external_engine_invoked_for_shardloom": false
+  }
+}

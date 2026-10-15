@@ -24,9 +24,11 @@ import statistics
 import subprocess
 import sys
 import tarfile
+import time
 
 from local_uat_storage import GIB, MIB, add_log_budget_arguments, check_budgets, require_local_path
-from native_workflow_protocol import public_workflow_command
+from native_workflow_protocol import public_workflow_command, report_fields
+from query_timing_report import query_phase_timings, timing_totals, write_timing_csv
 from clickbench_reference_packet import load_reference_packet, query_statements
 from run_clickbench_query_uat import correctness_boundary, equivalent, extract_reference_result, extract_result, file_sha256, read_json_log, run_profiled_command, score
 
@@ -135,16 +137,27 @@ def archive_completed_logs(paths, target, guard):
 def paired_scores(records, selected, *, repeats=1):
     if any(r.get("role") not in ("control", "candidate") for r in records):
         raise ValueError("unknown paired role")
-    scores = {role: score([r for r in records if r["role"] == role], 43, selected, repeats=repeats)
+    result = paired_clock_scores(records, selected, repeats=repeats, timing_key="engine_execution_seconds")
+    result["secondary_process_wall"] = paired_clock_scores(records, selected, repeats=repeats, timing_key="seconds")
+    return result
+
+
+def paired_clock_scores(records, selected, *, repeats, timing_key):
+    scores = {role: score([r for r in records if r["role"] == role], 43, selected,
+                          repeats=repeats, timing_key=timing_key)
               for role in ("control", "candidate")}
     complete = all(s["complete"] for s in scores.values())
-    result = {"complete": complete, "roles": scores, "score_scope": "full_43" if selected == list(range(1, 44)) else "targeted_only"}
-    if complete:
+    available = all(s["timing_available"] for s in scores.values())
+    result = {"complete": complete, "roles": scores,
+              "timing_metric": scores["control"]["timing_metric"],
+              "timing_available": available, "per_query": None,
+              "score_scope": "full_43" if selected == list(range(1, 44)) else "targeted_only"}
+    if available:
         result["per_query"] = []
         for query in selected:
             by_role = {role: sorted((r for r in records if r["role"] == role and r["query"] == query), key=lambda r: r["run"])
                        for role in scores}
-            times = {role: [r["seconds"] for r in runs] for role, runs in by_role.items()}
+            times = {role: [r[timing_key] for r in runs] for role, runs in by_role.items()}
             result["per_query"].append({"query": query, "seconds": times,
                 "median_seconds": {role: statistics.median(t) for role, t in times.items()},
                 "paired_candidate_minus_control_seconds": [c - b for c, b in zip(times["candidate"], times["control"])]})
@@ -170,6 +183,8 @@ def main():
     parser.add_argument("--memory-gb", type=int, default=24)
     parser.add_argument("--max-parallelism", type=int, default=12)
     parser.add_argument("--timeout", type=float, default=120)
+    parser.add_argument("--allow-missing-engine-timing", action="store_true",
+                        help="historical binary comparison only; missing engine clocks remain unavailable")
     parser.add_argument("--max-workspace-gib", type=positive_finite, default=100)
     add_log_budget_arguments(parser)
     parser.add_argument("--reverse-order", action="store_true")
@@ -200,6 +215,13 @@ def main():
     summary = {}
 
     def save():
+        current_records = summary.get("records", [])
+        summary["timing_totals"] = {
+            role: timing_totals([record for record in current_records if record.get("role") == role])
+            for role in ("control", "candidate")
+        }
+        summary["timing_csv"] = str(logs / "query-timings.csv")
+        write_timing_csv(logs / "query-timings.csv", current_records)
         data = json.dumps(summary, separators=(",", ":"), allow_nan=False).encode() + b"\n"
         block = max(4096, os.statvfs(logs).f_frsize)
         guard(math.ceil(len(data) / block) * block)
@@ -234,6 +256,7 @@ def main():
                 "clickbench_reference_packet.py",
                 "native_workflow_protocol.py",
                 "timed_native_command.py",
+                "query_timing_report.py",
                 "local_uat_storage.py",
             )),
             *sorted((script.parents[1] / "python" / "src" / "shardloom").rglob("*.py")),
@@ -246,7 +269,7 @@ def main():
             if packet_receipt is not None else "retained_native_regression"
         )
         records = []
-        summary = {"schema_version": "shardloom.clickbench.counterbalanced_pairs.v1", "binaries": identities,
+        summary = {"schema_version": "shardloom.clickbench.counterbalanced_pairs.v2", "binaries": identities,
                    "harness_sha256": harness,
                    "source": str(source), "source_generation": original_generations["control"],
                    "sources": frozen_sources, "queries_sha256": queries_sha256,
@@ -268,6 +291,7 @@ def main():
                    ),
                    "reference_values_sha256": {str(q): hashlib.sha256(json.dumps(v, sort_keys=True, allow_nan=False).encode()).hexdigest() for q, v in references.items()},
                    "timing_boundary": "native process creation through complete public CLI output and exit; host snapshots and archival excluded",
+                   "engine_timing_required": not args.allow_missing_engine_timing,
                    "cache_policy": "fresh process per operation; OS cache shared and uncontrolled; no answer cache or forced purge",
                    "order_policy": "alternate role order at each pair and query", "reverse_order": args.reverse_order,
                    "host_counter_scope": "host-wide VM observations, not unique query traffic or exclusive attribution",
@@ -292,22 +316,30 @@ def main():
                     finally:
                         verify_source_generations(sources, original_generations)
                     record.update(query=query, run=run, role=role, pair_position=position,
+                                  query_statement=queries[query-1],
                                   host_before=before, host_after=host_snapshot(), passed=False)
+                    validation_started = time.perf_counter()
                     try:
                         if record["returncode"] or record["guard_failures"]:
                             raise ValueError("native command or watchdog failed")
-                        actual = extract_result(read_json_log(prefix.with_suffix(".stdout.json")))
+                        envelope = read_json_log(prefix.with_suffix(".stdout.json"))
+                        record.update(query_phase_timings(report_fields(envelope), record["seconds"],
+                                                          allow_missing=args.allow_missing_engine_timing))
+                        actual = extract_result(envelope)
                         if not equivalent(actual, references[query]):
                             raise ValueError("complete result differs from retained reference")
                         record.update(passed=True, validation="complete_values",
                                       result_sha256=hashlib.sha256(json.dumps(actual, sort_keys=True, allow_nan=False).encode()).hexdigest())
                     except (ValueError, OSError) as error:
                         record["failure"] = str(error)
+                    record["validation_seconds"] = time.perf_counter() - validation_started
                     closed.extend(prefix.with_suffix(suffix) for suffix in (".stdout.json", ".stderr.txt", ".timing.json", ".pid"))
                     records.append(record)
                     summary["scores"] = paired_scores(records, selected, repeats=args.repeats)
                     save()
-                    print(json.dumps({k: record[k] for k in ("query", "run", "role", "pair_position", "seconds", "passed")}), flush=True)
+                    print(json.dumps({k: record.get(k) for k in (
+                        "query", "run", "role", "pair_position", "engine_execution_seconds",
+                        "process_wall_seconds", "seconds", "passed")}), flush=True)
                     if not record["passed"]:
                         return 1
             summary["archives"].append(archive_completed_logs(closed, logs / f"q{query:02d}_completed.tar.xz", guard))
