@@ -136,7 +136,7 @@ jobs:
           PY
       - name: Upload native installed-package proof
         if: ${{ always() && matrix.artifact_suffix != 'windows' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         with:
           name: native-registry-proof-${{ matrix.artifact_suffix }}
           path: |
@@ -146,7 +146,7 @@ jobs:
             ${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/proof/*.log
           if-no-files-found: error
       - name: Upload Python dist artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         with:
           name: python-dist-${{ matrix.artifact_suffix }}
           path: ${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/dist/*.whl
@@ -157,7 +157,7 @@ jobs:
           python -m build --sdist --no-isolation --outdir "$SHARDLOOM_REGISTRY_BUILD_ROOT/sdist" python
       - name: Upload Python sdist artifact
         if: ${{ matrix.artifact_suffix == 'linux' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         with:
           name: python-dist-sdist
           path: ${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/sdist/*.tar.gz
@@ -173,7 +173,7 @@ jobs:
       id-token: write
     steps:
       - name: Download Python dist artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           pattern: python-dist-*
           path: python/dist
@@ -260,7 +260,7 @@ jobs:
       id-token: write
     steps:
       - name: Download Python dist artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           pattern: python-dist-*
           path: python/dist
