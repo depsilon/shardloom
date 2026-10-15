@@ -29,7 +29,7 @@ def same_json(actual: Any, expected: Any) -> bool:
 
 
 def expanded_workflow_blockers(result: dict[str, Any]) -> list[str]:
-    """Validate the additional complete-result contract of the approved v0.5.1 smoke."""
+    """Validate complete workflow results for the approved expanded smoke."""
     errors: list[str] = []
     rows = [
         {"id": 1, "label": "café", "amount": 8},
@@ -108,10 +108,11 @@ def bundled_registry_proof_blockers(
     proof: dict[str, Any], *, channel_id: str, package_version: str,
     runtime_source_commit: str | None,
     smoke_stdout: bytes | None = None,
+    native_library_sha256: str | None = None,
 ) -> list[str]:
     prefix = f"{channel_id}: bundled CLI proof "
     errors: list[str] = []
-    expanded_workflows = package_version == "0.5.1"
+    expanded_workflows = package_version in {"0.5.1", "0.6.0"}
 
     def require(condition: bool, message: str) -> None:
         if not condition:
@@ -239,6 +240,30 @@ def bundled_registry_proof_blockers(
                        and cli_path.is_relative_to(package_path.parent / "bin")
                        and cli_path.name in ("shardloom", "shardloom.exe"))
     require(paths_valid, "must resolve the package and bundled CLI inside the same clean venv")
+    if package_version == "0.6.0":
+        native = result.get("native_module_proof")
+        if not isinstance(native, dict):
+            require(False, "requires the installed native module and retained-result proof")
+        else:
+            require(set(native) == {"library", "library_sha256", "execution_provider",
+                    "retained_after_session_close", "rows", "explicit_row_export_complete"},
+                    "native result proof must contain the complete approved field set")
+            require(isinstance(native_library_sha256, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", native_library_sha256) is not None
+                    and native.get("library_sha256") == native_library_sha256,
+                    "native module SHA256 must match the observed installed wheel payload")
+            require(native.get("execution_provider") == "shared_shardloom_native",
+                    "native result must use the shared ShardLoom provider")
+            require(native.get("retained_after_session_close") is True
+                    and native.get("explicit_row_export_complete") is True,
+                    "native result must remain complete after session closure")
+            require(same_json(native.get("rows"), [{"value": number} for number in range(4)]),
+                    "native result must contain all four exact typed rows")
+            library = native.get("library")
+            require(paths_valid and isinstance(library, str)
+                    and library.startswith("/") and ".." not in PurePosixPath(library).parts
+                    and PurePosixPath(library) == PurePosixPath(package).parent / "_native.abi3.so",
+                    "native module must resolve inside the same installed package")
     if paths_valid and steps:
         venv = PurePosixPath(directory) / "venv"
         create = steps[0].get("command")

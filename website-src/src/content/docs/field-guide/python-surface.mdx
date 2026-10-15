@@ -12,7 +12,7 @@ run in ShardLoom. Unsupported work returns a diagnostic without fallback executi
 
 Create the small CSV in the [getting-started walkthrough](/start) before running this example.
 The public `run()` report exposes the result and native execution evidence. The 16 GiB / 8 lane allocation below is an illustrative caller choice, not a recommendation, default, or measurement.
-The configured-context examples target the current source build; published v0.5.1 packages have not been replaced.
+The configured-context examples use the published 0.6.0 API. Upgrading from 0.5.1 requires explicit memory and parallelism allocations.
 Missing or malformed resources fail before data access. Configure once as below,
 or pass an explicit allocation on the execution call. Environment loading is
 deliberate through `sl.ExecutionResources.from_env()`; importing ShardLoom does
@@ -54,10 +54,13 @@ See [runtime and I/O](/field-guide/runtime-and-io) and the
 
 ## Keep results native
 
-Current source builds provide an optional in-process Python extension. Use the
-[source build and isolated install guide](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding)
-to build it; the published 0.5.1 package has not changed. The ordinary client
-still defaults to a subprocess. Select `ShardLoomClient(transport="native", ...)`
+The published 0.6.0 Linux x86_64 and macOS arm64 wheels include the optional
+in-process Python extension with a `cp310-abi3` contract. Linux requires the
+audited `manylinux_2_39_x86_64` platform. Windows retains its CLI-backed package;
+the source distribution contains no compiled native module. See the
+[package install guide](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md)
+for exact artifacts or the [source build guide](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding)
+to build locally. The ordinary client still defaults to a subprocess. Select `ShardLoomClient(transport="native", ...)`
 explicitly for embedded workflows, or use `shardloom.native` for typed native
 plans and retained results.
 
@@ -87,7 +90,7 @@ Foreign input may require an accounted copy, and encoded data may need conversio
 for Arrow. These APIs use the shared ShardLoom planner, native providers,
 resources and cancellation owner.
 
-Current source builds recognize ShardLoom native sources and results passed to
+The 0.6.0 packages recognize ShardLoom native sources and results passed to
 `session.from_arrow(...)` or `ctx.from_arrow_table(...)` without an intermediate
 Arrow export. Same-owner sources share ownership; transfers between owners copy
 admitted encoded buffers under the receiving grant. For an independent producer,
@@ -96,8 +99,8 @@ immutable messages for the pinned Vortex provider, within a combined 64-MiB
 limit. The [encoded transfer contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-encoded-interchange-2026-10-12.md)
 defines the accepted schemas and encodings; its
 [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-encoded-interchange-2026-10-12.md)
-separates local proof from hosted integration. Published packages retain their
-release-time behavior.
+separates the original local proof from hosted integration. The accepted
+encoded transfer surface is included in 0.6.0.
 
 The [local acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-python-surface-2026-10-11.md)
 records installed-wheel checks and paired complete Python workflows for input,
@@ -133,20 +136,20 @@ with frame.iter_batches(batch_rows=1024) as batches:
     assert batches.report is not None
 ```
 
-Current source builds after v0.5.1 admit explicit exact-width signed and unsigned
+The 0.6.0 packages admit explicit exact-width signed and unsigned
 integers, finite Float32/Float64, Boolean, UTF8, binary, Decimal128, Date32,
 timezone-free microsecond timestamps, lists, fixed-size lists and ordered structs.
 The original four scalar declarations, aliases and inference remain compatible;
 rich types require an explicit schema. Published v0.5.1 artifacts retain their
 release-time input types and limits. The subprocess row protocol carries at most
 2,048 row mappings and an 8 MiB frame per batch. Direct native columnar intake
-uses admitted column buffers instead of that row protocol. Current source builds admit growing field and batch
+uses admitted column buffers instead of that row protocol. The 0.6.0 packages admit growing field and batch
 metadata through the shared query grant, without fixed total field or batch
 counts. In default resident mode (`streaming=False`), total native input must fit
 the query memory grant. A factory, as above, supplies fresh input for repeated
 calls; an iterable can be consumed once.
 The [input growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
-applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
+is included in 0.6.0; historical 0.5.1 artifacts retain
 their release-time limits. Schema declarations still have an 8 MiB envelope.
 The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
 records wide schemas, cumulative input, generated ranges, resource denial and complete write/reopen checks.
@@ -159,7 +162,7 @@ microseconds, including nested fields. The
 [complete typed-input acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-typed-input-2026-10-10.md)
 records complete values, writer fidelity, failure controls and the review correction.
 
-Current source builds retain at most one original native input batch, so cumulative input may exceed
+The 0.6.0 packages retain at most one original native input batch, so cumulative input may exceed
 the query grant while individual batches remain bounded. It supports incremental results,
 bounded small collection or one native Vortex destination. Retained operator
 state shares the grant; ordering, general aggregation, joins, analytic windows
@@ -178,20 +181,20 @@ copies; retained replay, output and sink reservations share the same grant.
 Compatibility preparation also uses the transaction's cancellation owner.
 These contracts do not establish a process-RSS ceiling. See the
 [streaming composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md),
-which records current source acceptance separately from unchanged v0.5.1 packages, and the
+which records the source acceptance included in 0.6.0, and the
 [streamed ordering contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-streamed-ordering-2026-10-07.md)
 and [aggregate, join and window spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
 
 Relational pivots over file or resident-memory sources can deliver complete
 admitted results through `iter_batches()` with an explicit `spill` policy.
 The [sparse pivot example](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state)
-shows setup and cleanup. Current source builds also admit dynamic pivots over
+shows setup and cleanup. The 0.6.0 packages also admit dynamic pivots over
 finite streaming input; schema discovery, source completion and downstream
 execution share the same native transaction.
 
 Requesting the next result batch acknowledges the preceding one. Use the
 context manager when stopping early, and treat delivered batches as provisional
-until the final report is present after full exhaustion. Current source builds
+until the final report is present after full exhaustion. The 0.6.0 packages
 prepare compatibility files inside the same cancellable transaction. See
 [resource boundaries](/field-guide/runtime-and-io#resources-and-recovery).
 

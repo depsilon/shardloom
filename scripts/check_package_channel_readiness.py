@@ -24,6 +24,7 @@ from release_channel_contract import (
     PUBLISHED_REGISTRY_BUILD_IDENTITIES,
     PUBLISHED_REGISTRY_PROVENANCE_SHA256,
     PUBLISHED_REGISTRY_DISTRIBUTIONS,
+    PUBLISHED_REGISTRY_NATIVE_PROOF_PROGRAM_SHA256,
     SELECTED_PACKAGE_RELEASE_VERSION,
     SELECTED_V0_1_0_FEASIBILITY_STATUS,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
@@ -949,7 +950,7 @@ def python_registry_proof_summary(proof: dict[str, Any] | None) -> dict[str, Any
 
 
 def registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom):
-    """Require the observed platform executables and their complete SBOM graph."""
+    """Require the observed platform executables/modules and complete SBOM graph."""
     prefix = f"{channel_id}: registry bundled CLI inventory "
     blockers = []
     expected_components, expected_edges = {}, {}
@@ -957,6 +958,8 @@ def registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom):
         "cp313-cp313-macosx_26_0_arm64": ("macos-aarch64", "shardloom"),
         "cp313-cp313-manylinux_2_39_x86_64": ("linux-x86_64", "shardloom"),
         "cp313-cp313-win_amd64": ("windows-x86_64", "shardloom.exe"),
+        "cp310-abi3-macosx_26_0_arm64": ("macos-aarch64", "shardloom"),
+        "cp310-abi3-manylinux_2_39_x86_64": ("linux-x86_64", "shardloom"),
     }
     for artifact in artifact_rows if isinstance(artifact_rows, list) else []:
         if not isinstance(artifact, dict) or not isinstance(artifact.get("filename"), str):
@@ -968,7 +971,8 @@ def registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom):
             "externalReferences": [{"type": "distribution", "url": artifact.get("url")}],
         }
         if filename.endswith(".tar.gz"):
-            if "bundled_cli" in artifact or artifact.get("clean_sdist_no_bundled_cli") is not True:
+            if ("bundled_cli" in artifact or artifact.get("native_library") is not None
+                    or artifact.get("clean_sdist_no_bundled_cli") is not True):
                 blockers.append(prefix + "source distribution must record no bundled CLI")
             continue
         tag = filename.removeprefix(f"shardloom-{SELECTED_PACKAGE_RELEASE_VERSION}-").removesuffix(".whl")
@@ -994,6 +998,24 @@ def registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom):
             "hashes": [{"alg": "SHA-256", "content": binary_digest}], "externalReferences": [],
         }
         expected_edges[parent] = [child]
+        native = artifact.get("native_library")
+        if tag.startswith("cp310-abi3-"):
+            native_digest = native.get("sha256") if isinstance(native, dict) else None
+            native_size = native.get("size_bytes") if isinstance(native, dict) else None
+            if (not isinstance(native, dict) or native.get("member") != "shardloom/_native.abi3.so"
+                    or native.get("python_abi") != "cp310-abi3"
+                    or not isinstance(native_digest, str) or not re.fullmatch(r"[0-9a-f]{64}", native_digest)
+                    or type(native_size) is not int or not 0 < native_size <= 128 << 20):
+                blockers.append(prefix + f"requires the observed native ABI3 module: {filename}")
+                continue
+            native_child = parent + ":native-library"
+            expected_components[native_child] = {
+                "type": "file", "name": filename + "!/" + native["member"],
+                "hashes": [{"alg": "SHA-256", "content": native_digest}], "externalReferences": [],
+            }
+            expected_edges[parent].append(native_child)
+        elif native is not None:
+            blockers.append(prefix + f"CLI-only wheel must not claim a native module: {filename}")
     actual_components = {}
     for component in sbom.get("components", []) if isinstance(sbom.get("components"), list) else []:
         ref = component.get("bom-ref") if isinstance(component, dict) else None
@@ -1003,7 +1025,7 @@ def registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom):
         actual_components[ref] = {field: component.get(field, [] if field == "externalReferences" else None)
                                   for field in ("type", "name", "hashes", "externalReferences")}
     if actual_components != expected_components:
-        blockers.append(prefix + "SBOM must contain the exact distribution and bundled CLI components")
+        blockers.append(prefix + "SBOM must contain the exact distribution and bundled CLI/native module components")
     actual_edges = {}
     for edge in sbom.get("dependencies", []) if isinstance(sbom.get("dependencies"), list) else []:
         ref = edge.get("ref") if isinstance(edge, dict) else None
@@ -1012,7 +1034,73 @@ def registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom):
             continue
         actual_edges[ref] = edge.get("dependsOn")
     if actual_edges != expected_edges:
-        blockers.append(prefix + "SBOM must bind each wheel to its bundled CLI dependency")
+        blockers.append(prefix + "SBOM must bind each wheel to its bundled CLI/native module dependencies")
+    return blockers
+
+
+def registry_native_installation_blockers(channel_id, artifact_rows, provenance):
+    """Verify retained hosted installation evidence for the exact ABI3 wheels."""
+    prefix = f"{channel_id}: registry native installation "
+    blockers = []
+    native_artifacts = {row["filename"]: row for row in artifact_rows
+                        if isinstance(row, dict) and isinstance(row.get("filename"), str)
+                        and isinstance(row.get("wheel_tag"), str)
+                        and row["wheel_tag"].startswith("cp310-abi3-")} if isinstance(artifact_rows, list) else {}
+    rows = provenance.get("native_installed_wheel_proofs")
+    if not native_artifacts:
+        if rows:
+            blockers.append(prefix + "must not claim native proof for CLI-only distributions")
+        return blockers
+    approved_programs = PUBLISHED_REGISTRY_NATIVE_PROOF_PROGRAM_SHA256.get(SELECTED_PACKAGE_RELEASE_VERSION)
+    if not isinstance(approved_programs, dict) or set(approved_programs) != {"IMPORT_CHECK", "RUN_TESTS"}:
+        return [prefix + "requires approved source program hashes for this release"]
+    if (not isinstance(rows, list) or len(rows) != len(native_artifacts) or len(rows) != 2
+            or any(not isinstance(row, dict) or not isinstance(row.get("wheel"), str) for row in rows)
+            or {row.get("wheel") for row in rows} != set(native_artifacts)):
+        return [prefix + "must contain exactly the Linux and macOS wheel proofs"]
+    from registry_release_evidence import verify_native_proof
+    artifact_ids = set()
+    for row in rows:
+        try:
+            artifact = native_artifacts[row["wheel"]]
+            expected_name = {"linux-x86_64": "native-registry-proof-linux",
+                             "macos-aarch64": "native-registry-proof-macos"}.get(artifact["bundled_cli"]["platform"])
+            artifact_id = row.get("workflow_artifact_id")
+            size = row.get("workflow_artifact_archive_size_bytes")
+            digest = row.get("workflow_artifact_archive_sha256")
+            if (expected_name is None or row.get("workflow_artifact_name") != expected_name
+                    or type(artifact_id) is not int or artifact_id <= 0 or artifact_id in artifact_ids
+                    or type(size) is not int or not 0 < size <= 1 << 20
+                    or not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                    or row.get("workflow_run_id") != provenance.get("workflow_run_id")
+                    or row.get("source_commit") != provenance.get("source_commit")):
+                raise ValueError("workflow artifact identity differs")
+            artifact_ids.add(artifact_id)
+            originals = row.get("original_files")
+            if not isinstance(originals, list) or len(originals) > 32:
+                raise ValueError("missing original proof files")
+            files = {}
+            for original in originals:
+                if (not isinstance(original, dict) or not isinstance(original.get("name"), str)
+                        or original["name"] in files or not isinstance(original.get("text"), str)):
+                    raise ValueError("invalid original proof file")
+                raw = original["text"].encode("utf-8")
+                if (len(raw) != original.get("size_bytes")
+                        or hashlib.sha256(raw).hexdigest() != original.get("sha256")):
+                    raise ValueError("original proof file hash/size differs")
+                files[original["name"]] = raw
+            proof = row["proof_report"]
+            steps = {step["name"]: step for step in proof["steps"]}
+            programs = {"IMPORT_CHECK": steps["load"]["command"][3],
+                        "RUN_TESTS": steps["integration"]["command"][3]}
+            if (any(not isinstance(value, str) for value in programs.values())
+                    or {name: hashlib.sha256(value.encode()).hexdigest() for name, value in programs.items()} != approved_programs):
+                raise ValueError("installed proof programs differ from the approved source")
+            checked = verify_native_proof(files, artifact, programs, package_version=SELECTED_PACKAGE_RELEASE_VERSION)
+            if checked != {key: row.get(key) for key in checked}:
+                raise ValueError("native proof summary differs from original verified files")
+        except (KeyError, TypeError, ValueError, IndexError, UnicodeError) as error:
+            blockers.append(prefix + f"{row.get('wheel')}: {error}")
     return blockers
 
 
@@ -1137,13 +1225,19 @@ def validate_registry_supply_chain_evidence(
                 smoke_stdout = capture.read(65537)
         except (OSError, ValueError):
             smoke_stdout = None
+        artifact_rows = provenance.get("artifact_refs")
+        native_matches = [item.get("native_library") for item in artifact_rows
+                          if isinstance(item, dict)
+                          and item.get("filename") == proof.get("installed_registry_artifact_filename")
+                          and isinstance(item.get("native_library"), dict)] if isinstance(artifact_rows, list) else []
+        native_digest = native_matches[0].get("sha256") if len(native_matches) == 1 else None
         blockers.extend(bundled_registry_proof_blockers(
             proof, channel_id=channel_id, package_version=SELECTED_PACKAGE_RELEASE_VERSION,
             runtime_source_commit=runtime_identity.get("source_commit"),
             smoke_stdout=smoke_stdout,
+            native_library_sha256=native_digest,
         ))
         registry_rows = proof.get("registry_release_artifacts")
-        artifact_rows = provenance.get("artifact_refs")
         expected_artifacts: dict[str, tuple[Any, Any, Any]] = {}
         actual_artifacts: dict[str, tuple[Any, Any, Any]] = {}
         for rows, destination, label, size_field in (
@@ -1226,6 +1320,7 @@ def validate_registry_supply_chain_evidence(
             if not isinstance(hashes, list) or {"alg": "SHA-256", "content": digest} not in hashes:
                 blockers.append(prefix + f"registry SBOM must bind artifact SHA256: {filename}")
         blockers.extend(registry_bundled_cli_inventory_blockers(channel_id, artifact_rows, sbom))
+        blockers.extend(registry_native_installation_blockers(channel_id, artifact_rows, provenance))
         if len(blockers) == start:
             verified_channels.append(channel_id)
     return {

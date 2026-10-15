@@ -256,10 +256,15 @@ the ledger.
     [release notes](../release/v0.6.0-release-notes.md), and the existing
     [channel contract](../release/package-channel-readiness-matrix.md).
   - Current state: fresh pre-bump UAT and PR #1551 integration are complete;
-    canonical and derived source versions are 0.6.0. Packaging adds the accepted native extension to Linux/macOS
-    registry wheels, preserving the Windows CLI package and clean source archive.
-    Published v0.5.1 and its immutable proofs remain the selected channel record
-    until the successor's complete proof exists.
+    PR #1552 prepares canonical and derived source version 0.6.0. GitHub assets,
+    TestPyPI, PyPI and Homebrew are published with independent installation,
+    complete-result and uninstall proof. Both registries' Linux/macOS native
+    wheels pass all 80 binding tests; Windows retains its CLI package and the
+    source archive contains no compiled payload. The selected-channel record
+    advances to 0.6.0. Local publication-document, package, website and rendered
+    checks pass. Hosted publication-document integration and production website
+    verification remain pending in the
+    [publication record](../release/v0.6.0-publication-verification.md).
   - ShardLoom technique review: this distributes accepted shared runtime families;
     it does not change PulseWeave, capillary selection, metadata-first execution
     or dynamic admission. Source timings and package-install evidence remain
@@ -270,8 +275,8 @@ the ledger.
       uninstall verification to the existing package workflow; correct Windows
       wheel staging and retain hash-pinned build tools.
     - [x] Integrate PR #1551 and bump canonical and derived sources once to 0.6.0.
-    - [ ] Pass local source/package gates and the exact candidate's hosted checks.
-    - [ ] Publish and independently verify GitHub assets, TestPyPI, PyPI and
+    - [x] Pass local source/package gates and the exact candidate's hosted checks.
+    - [x] Publish and independently verify GitHub assets, TestPyPI, PyPI and
       Homebrew in the established order, binding native payloads to installed
       registry wheels and retaining channel-specific build provenance.
     - [ ] Update selected-channel records, public docs/site and production proof,

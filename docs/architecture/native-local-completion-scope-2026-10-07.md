@@ -170,9 +170,14 @@ does not establish the historical cause. The
 [native helper correction](native-admitted-context-2026-10-14.md) preserves the
 actual query context and provider errors. Its [combined acceptance](../benchmarks/native-admitted-context-2026-10-14.md)
 passes the final direct/public workflows and 516 matched complete query calls
-with no repeated declared cost breach; hosted integration is pending.
-Unreviewed decoder trees, metadata and
-compression/training retain their owners.
+with no repeated declared cost breach. [PR #1551](https://github.com/depsilon/shardloom/pull/1551)
+merged at `b6d9318d` after all 44 hosted checks passed. Its
+[hosted receipt](../benchmarks/evidence/native-decoder-hosted-2026-10-15.json)
+records the identical reviewed/merged trees, three installed Linux/macOS wheels
+passing all 80 native methods, and production verification. The separate
+[fresh unpaced acceptance](../benchmarks/native-fresh-unpaced-uat-2026-10-14.md)
+keeps its own source, executable and timing protocol. Unreviewed decoder trees,
+metadata and compression/training retain their owners.
 
 ## Coverage that must remain visible
 
@@ -255,12 +260,14 @@ capability release, not a declaration that the whole completion contract is done
 The October 9 instruction originally held the version after v0.5.1 until all
 remaining work was complete. The maintainer's October 14 instruction supersedes
 that hold: finish the current corrections and next PR, make one version bump,
-then return to remaining work and optimizations. The current milestone includes
-the composition timing investigation, admitted-context follow-through and pending
-decoder resource corrections. The normal release evidence and selected-channel
-gates remain required. Published v0.5.1 artifacts stay immutable; subsequent
-work under the six areas and eight investigations does not receive a separate
-release for each unit.
+then return to remaining work and optimizations. Those corrections are
+integrated in PR #1551; [PR #1552](https://github.com/depsilon/shardloom/pull/1552)
+prepares the resulting 0.6.0 release. Its
+[publication record](../release/v0.6.0-publication-verification.md) binds GitHub,
+TestPyPI, PyPI and Homebrew to actual artifacts and installation proofs.
+Historical UAT keeps its original source and executable identity. Earlier
+published artifacts stay immutable; subsequent work under the six areas and
+eight investigations does not receive a separate release for each unit.
 
 For every cohesive unit, keep a reuse map, native-I/O and execution evidence,
 resource/failure tests, complete public workflow checks, applicable regression

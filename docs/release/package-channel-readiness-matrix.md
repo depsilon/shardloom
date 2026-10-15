@@ -2,7 +2,7 @@
 
 # Package Channel Readiness Matrix
 
-Status: selected v0.5.1 release channels are published and proof-backed. This document does not
+Status: selected v0.6.0 release channels are published and proof-backed. This document does not
 authorize production readiness, performance superiority, broad runtime support, future package
 channels, container publication, crates.io publication, signing-key use, or fallback execution.
 
@@ -10,7 +10,7 @@ The machine-readable source of truth is
 [`docs/release/package-channel-readiness-matrix.json`](package-channel-readiness-matrix.json) with
 schema `shardloom.package_channel_readiness_matrix.v1`. Validate it with:
 
-The selected v0.5.1 release-channel IDs and shared status vocabulary are centralized in
+The selected v0.6.0 release-channel IDs and shared status vocabulary are centralized in
 [`scripts/release_channel_contract.py`](../../scripts/release_channel_contract.py); validators and
 tests must import that contract instead of duplicating the selected-channel list.
 
@@ -34,7 +34,7 @@ That mode consumes the dependency audit report, local package smoke transcript, 
 SBOM/checksum/provenance dry-run evidence, and checked-in TestPyPI/PyPI registry proof transcripts
 and artifact evidence. Each registry's evidence binds its own published distributions and build
 source; the separately built GitHub assets do not establish registry artifact provenance.
-Selected v0.5.1 rows are ready only when channel-specific install, uninstall, clean-install, smoke,
+Selected v0.6.0 rows are ready only when channel-specific install, uninstall, clean-install, smoke,
 SBOM/checksum/provenance, rollback, and authorization evidence is attached.
 
 After an approved registry upload exists, use `scripts/python_registry_package_proof.py` to produce
@@ -52,7 +52,7 @@ until the TestPyPI transcript exists and is referenced.
   remains `shardloom`, current workspace Rust crates must stay `publish = false`, and crates.io is
   limited to future stable public API crates until separate API/schema approval exists.
 - PyPI and TestPyPI require Trusted Publisher/OIDC posture. Long-lived upload tokens are not
-  release-grade for the public package path. The v0.5.1 Trusted Publisher uploads and
+  release-grade for the public package path. The v0.6.0 Trusted Publisher uploads and
   registry-smoke proofs are complete for the selected package path.
 - PyPI registry proof requires prior TestPyPI registry proof. Both proofs must install from the
   target registry into a clean environment, run the no-fallback Python client smoke against an
@@ -65,7 +65,7 @@ until the TestPyPI transcript exists and is referenced.
 - Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or
   another external query engine as a ShardLoom runtime fallback dependency.
 - Every package channel now carries a v1 feasibility decision in the JSON matrix. GitHub
-  pre-release, TestPyPI, PyPI, and Homebrew are included and proof-backed in the v0.5.1 package
+  pre-release, TestPyPI, PyPI, and Homebrew are included and proof-backed in the v0.6.0 package
   sequence. Scoop, winget, and conda-forge remain v1-feasible later channels once
   their channel-specific install/uninstall/smoke and provenance evidence exists. GHCR and
   crates.io are explicitly not in v1 scope because the container image contract and future public
@@ -75,10 +75,10 @@ until the TestPyPI transcript exists and is referenced.
 
 | Channel | Target | v1 feasibility | Install command | Uninstall command | Required proof | Current status |
 | --- | --- | --- | --- | --- | --- | --- |
-| GitHub pre-release | GitHub v0.5.1 pre-release assets | included channel proof passed | `gh release download v0.5.1 --repo depsilon/shardloom --pattern '*' --dir <install-dir>` | `rm -rf <install-dir>` | Approved tag/release, attached checksums, SBOM, provenance, clean download/smoke transcript, rollback/delete policy. | `ready`: `docs/release/channel-proofs/github-prerelease-v0.5.1-transcript.json` verifies attached assets, checksums, and CLI smoke. |
-| TestPyPI | Python package `shardloom` | included channel proof passed | `python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.5.1` | `python -m pip uninstall -y shardloom` | TestPyPI Trusted Publisher/OIDC, isolated no-cache registry download, downloaded-artifact SHA256 binding, local wheel install, smoke, no committed token. | `ready`: `docs/release/channel-proofs/testpypi-v0.5.1-transcript.json` verifies isolated no-cache registry download, local install from the downloaded wheel `shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl`, Python client smoke, uninstall, and downloaded SHA256 `fb81f1dcf81cb57be29ab208895ec86ef359bf0b5c335bc684aa9f1ef8d2e0bf`. |
-| PyPI | Python package `shardloom` | included channel proof passed | `python -m pip install shardloom==0.5.1` | `python -m pip uninstall -y shardloom` | PyPI Trusted Publisher/OIDC, prior TestPyPI proof, isolated no-cache registry download, downloaded-artifact SHA256 binding, local wheel install, smoke, SBOM/checksum/provenance, yank policy. | `ready`: `docs/release/channel-proofs/pypi-v0.5.1-transcript.json` verifies isolated no-cache public registry download, local install from the downloaded wheel `shardloom-0.5.1-cp313-cp313-macosx_26_0_arm64.whl`, Python client smoke, prior TestPyPI proof ref, uninstall, and downloaded SHA256 `50531e228510f86d0454df09e41ac5c9129d2b9fb1cb1ea0c6565f398ce4a9b9`. |
-| Homebrew tap | CLI formula | included channel proof passed | `brew install depsilon/tap/shardloom` | `brew uninstall shardloom` | Tap/formula proof, versioned artifact checksum, install/uninstall, smoke, rollback/deprecate policy. | `ready`: `docs/release/channel-proofs/homebrew-v0.5.1-transcript.json` verifies tap audit/style/test, source build install, CLI smoke, and uninstall. |
+| GitHub pre-release | GitHub v0.6.0 pre-release assets | included channel proof passed | `gh release download v0.6.0 --repo depsilon/shardloom --pattern '*' --dir <install-dir>` | `rm -rf <install-dir>` | Approved tag/release, attached checksums, SBOM, provenance, clean download/smoke transcript, rollback/delete policy. | `ready`: `docs/release/channel-proofs/github-prerelease-v0.6.0-transcript.json` verifies attached assets, checksums, and CLI smoke. |
+| TestPyPI | Python package `shardloom` | included channel proof passed | `python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.6.0` | `python -m pip uninstall -y shardloom` | TestPyPI Trusted Publisher/OIDC, isolated no-cache registry download, downloaded-artifact SHA256 binding, local wheel install, smoke, no committed token. | `ready`: `docs/release/channel-proofs/testpypi-v0.6.0-transcript.json` verifies isolated no-cache registry download, local install from the downloaded wheel `shardloom-0.6.0-cp310-abi3-macosx_26_0_arm64.whl`, Python client smoke, uninstall, and downloaded SHA256 `dc50c1d584f58205b204f1756747b001dbf97d8be23332f4c629008615c8b5bc`. |
+| PyPI | Python package `shardloom` | included channel proof passed | `python -m pip install shardloom==0.6.0` | `python -m pip uninstall -y shardloom` | PyPI Trusted Publisher/OIDC, prior TestPyPI proof, isolated no-cache registry download, downloaded-artifact SHA256 binding, local wheel install, smoke, SBOM/checksum/provenance, yank policy. | `ready`: `docs/release/channel-proofs/pypi-v0.6.0-transcript.json` verifies isolated no-cache public registry download, local install from the downloaded wheel `shardloom-0.6.0-cp310-abi3-macosx_26_0_arm64.whl`, Python client smoke, prior TestPyPI proof ref, uninstall, and downloaded SHA256 `1dc4f6c0f0c6af61c5ee29aa46dab404f089a4a16599dbddf50c6e4bf38ad8df`. |
+| Homebrew tap | CLI formula | included channel proof passed | `brew install depsilon/tap/shardloom` | `brew uninstall shardloom` | Tap/formula proof, versioned artifact checksum, install/uninstall, smoke, rollback/deprecate policy. | `ready`: `docs/release/channel-proofs/homebrew-v0.6.0-transcript.json` verifies tap audit/style/test, source build install, CLI smoke, and uninstall. |
 | Scoop | Windows CLI manifest | v1 feasible pending channel proof | `scoop install shardloom` | `scoop uninstall shardloom` | Bucket manifest, checksum, install/uninstall, smoke, update/rollback policy. | `blocked`: local CLI build, local smoke, checksum, and provenance refs are prepared; no bucket manifest, channel checksum, clean Scoop install/uninstall/smoke transcript, or maintainer approval exists. |
 | winget | Windows Package Manager manifest | v1 feasible pending channel proof | `winget install depsilon.shardloom` | `winget uninstall depsilon.shardloom` | winget manifest, repository submission validation, install/uninstall, smoke, update/rollback policy. | `blocked`: local CLI build, local smoke, checksum, and provenance refs are prepared; no winget manifest/submission, installer proof, clean winget install/uninstall/smoke transcript, or maintainer approval exists. |
 | conda-forge | `shardloom-cli`, `shardloom-python`, and `shardloom` metapackage | v1 feasible pending channel proof | `conda install -c conda-forge shardloom` | `conda remove shardloom shardloom-cli shardloom-python` | staged-recipes/feedstock proof, clean Conda install, smoke, no fallback dependencies, maintainer policy. | `blocked`: local Conda recipe scaffold tests and clean Conda source-local install proof pass; no staged-recipes/feedstock submission, feedstock install/uninstall/smoke transcript, or maintainer approval exists. |
@@ -87,12 +87,21 @@ until the TestPyPI transcript exists and is referenced.
 
 ## Evidence Required Before A Channel Can Become Ready
 
-TestPyPI and PyPI have separate v0.5.1 evidence bundles:
+Both registries include Linux x86_64 and macOS arm64 native Python wheels
+using `cp310-abi3`, plus the Windows CLI-backed wheel and clean source
+distribution. Linux passes the `manylinux_2_39_x86_64` audit. Each native registry
+wheel passes all 80 binding tests and uninstall verification in its publication
+workflow; the local downloaded-wheel proof additionally covers complete bundled
+CLI workflows on macOS. Homebrew builds the CLI and uses the separately verified
+PyPI client wheel for Python checks. See the
+[publication verification](v0.6.0-publication-verification.md) for proof scope.
+
+TestPyPI and PyPI have separate v0.6.0 evidence bundles:
 
 | Channel | SBOM | Checksums | Provenance | Build source |
 | --- | --- | --- | --- | --- |
-| TestPyPI | [SBOM](channel-proofs/testpypi-v0.5.1-sbom.cdx.json) | [Checksums](channel-proofs/testpypi-v0.5.1-checksums.sha256) | [Provenance](channel-proofs/testpypi-v0.5.1-provenance.json) | `764cd97df35918cc34ade1dc41c20264be80927c` |
-| PyPI | [SBOM](channel-proofs/pypi-v0.5.1-sbom.cdx.json) | [Checksums](channel-proofs/pypi-v0.5.1-checksums.sha256) | [Provenance](channel-proofs/pypi-v0.5.1-provenance.json) | `ce4ece33f986a237bc90293db797b6be93b40fb5` |
+| TestPyPI | [SBOM](channel-proofs/testpypi-v0.6.0-sbom.cdx.json) | [Checksums](channel-proofs/testpypi-v0.6.0-checksums.sha256) | [Provenance](channel-proofs/testpypi-v0.6.0-provenance.json) | `936313473fedca78176d1fd983446673ed8ae62b` |
+| PyPI | [SBOM](channel-proofs/pypi-v0.6.0-sbom.cdx.json) | [Checksums](channel-proofs/pypi-v0.6.0-checksums.sha256) | [Provenance](channel-proofs/pypi-v0.6.0-provenance.json) | `9f73f12d2acc25b0b245d9f50ee679610db27d03` |
 
 Each bundle covers its complete registry inventory (TestPyPI: 4 files, PyPI: 4 files), including
 the published platform wheels and source distribution. The matrix's legacy `prepared_local_artifact_refs` field now lists those
@@ -126,5 +135,5 @@ The machine-readable matrix lists these gate references under `gate_evidence_ref
 - `docs/security/supply-chain-response.md`
 - `scripts/check_package_channel_readiness.py`
 
-The current matrix is ready for the selected v0.5.1 package channels only. It is not evidence for
+The current matrix is ready for the selected v0.6.0 package channels only. It is not evidence for
 future package channels, production readiness, performance superiority, or broad runtime claims.
