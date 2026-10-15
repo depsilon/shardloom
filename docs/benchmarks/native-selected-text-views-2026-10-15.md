@@ -227,6 +227,16 @@ evidence paragraph at desktop and 390-pixel widths, with no horizontal overflow
 or browser warnings, and search navigation reaches the updated resource section.
 Hosted review, package lanes and deployment still require their separate proof.
 
+The first hosted wheel attempt stopped in all three lanes before building: the
+bundled Zstd provenance description had not been synchronized with the reviewed
+provider record. The same seven-test license check reproduced the mismatch
+locally. Updating only that description makes all seven license tests and all
+13 native-package tooling tests pass; the complete notice verifier covers 383
+registry and five vendored packages. All 2,259 frozen source identities were
+rechecked: the notice manifest is the sole difference, with runtime sources and
+benchmark artifacts unchanged. The original failures remain in the integration
+evidence; hosted wheel acceptance is still pending.
+
 ## Diagnostic basis and remaining work
 
 Five accepted-baseline diagnostic samples cover Q19, Q23, Q29, Q34 and Q35.
