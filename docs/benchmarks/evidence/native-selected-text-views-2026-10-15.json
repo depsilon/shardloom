@@ -1,0 +1,269 @@
+{
+  "schema_version": "shardloom.selected_text_views_acceptance.v1",
+  "status": "passed_local",
+  "base_commit": "2b87cf7f911d667b7ef279fdedb1ba4ef2167459",
+  "source_files": 2259,
+  "member_count": 2305,
+  "all_members_reopened": true,
+  "raw_bytes": 157539620,
+  "acceptance": {
+    "workspace_tests": 3219,
+    "native_tests": 4223,
+    "native_manual_platform_exclusions": 29,
+    "vendor_tests": 61,
+    "direct_tests": 80,
+    "public_cases": 757,
+    "public_families": 19,
+    "public_expected_rows": 22002,
+    "public_pressure_rows": 677251,
+    "complete_queries": 43,
+    "complete_query_rows": 381,
+    "paired_calls": 70,
+    "diagnostic_profiles": 5
+  },
+  "decision": "retain",
+  "gates": [
+    {
+      "query": 23,
+      "lanes": 12,
+      "pairs": 10,
+      "target": true,
+      "medians": {
+        "control": {
+          "engine_execution_seconds": 3.2539286875,
+          "seconds": 3.385646437498508,
+          "cpu_seconds": 12.279415499999999,
+          "native_peak_rss_bytes": 4546183168.0
+        },
+        "candidate": {
+          "engine_execution_seconds": 3.1708047495000002,
+          "seconds": 3.2637972499978787,
+          "cpu_seconds": 12.123697,
+          "native_peak_rss_bytes": 4449861632.0
+        }
+      },
+      "paired_engine_savings_seconds": [
+        0.3457120819999999,
+        0.21244166700000022,
+        0.029419791999999667,
+        0.151125666,
+        0.12222558400000016,
+        0.05714308399999979,
+        0.17815062500000023,
+        0.0899664579999997,
+        0.09859004100000002,
+        0.13297120899999992
+      ],
+      "positive_pairs": 10,
+      "engine_passed": true,
+      "cpu_passed": true,
+      "rss_passed": true,
+      "passed": true,
+      "engine_median_improvement_percent": 2.5545715958472415
+    },
+    {
+      "query": 23,
+      "lanes": 1,
+      "pairs": 5,
+      "target": false,
+      "medians": {
+        "control": {
+          "engine_execution_seconds": 8.008276334,
+          "seconds": 8.087322542000038,
+          "cpu_seconds": 8.392159,
+          "native_peak_rss_bytes": 4425220096
+        },
+        "candidate": {
+          "engine_execution_seconds": 7.804710125,
+          "seconds": 7.8907154589978745,
+          "cpu_seconds": 8.056111999999999,
+          "native_peak_rss_bytes": 4380803072
+        }
+      },
+      "paired_engine_savings_seconds": [
+        0.423879919,
+        0.29690795900000033,
+        0.0486308339999999,
+        0.37678033299999925,
+        0.13621333199999963
+      ],
+      "positive_pairs": 5,
+      "engine_passed": true,
+      "cpu_passed": true,
+      "rss_passed": true,
+      "passed": true,
+      "engine_median_improvement_percent": 2.541947861311149
+    },
+    {
+      "query": 22,
+      "lanes": 12,
+      "pairs": 5,
+      "target": false,
+      "medians": {
+        "control": {
+          "engine_execution_seconds": 1.225527542,
+          "seconds": 1.3062447089978377,
+          "cpu_seconds": 8.211624,
+          "native_peak_rss_bytes": 3389292544
+        },
+        "candidate": {
+          "engine_execution_seconds": 1.280279209,
+          "seconds": 1.3503742910033907,
+          "cpu_seconds": 8.253134,
+          "native_peak_rss_bytes": 3358343168
+        }
+      },
+      "paired_engine_savings_seconds": [
+        -0.10763545699999999,
+        -0.17740745800000002,
+        0.059554040999999946,
+        -0.06344270799999996,
+        0.017798041000000042
+      ],
+      "positive_pairs": 2,
+      "engine_passed": true,
+      "cpu_passed": true,
+      "rss_passed": true,
+      "passed": true,
+      "engine_median_improvement_percent": -4.46759988034605
+    },
+    {
+      "query": 19,
+      "lanes": 12,
+      "pairs": 5,
+      "target": false,
+      "medians": {
+        "control": {
+          "engine_execution_seconds": 5.115365917,
+          "seconds": 5.217597249997198,
+          "cpu_seconds": 9.509989,
+          "native_peak_rss_bytes": 4621139968
+        },
+        "candidate": {
+          "engine_execution_seconds": 5.150071709,
+          "seconds": 5.208999834001588,
+          "cpu_seconds": 9.519766,
+          "native_peak_rss_bytes": 4625547264
+        }
+      },
+      "paired_engine_savings_seconds": [
+        0.26412304299999967,
+        0.005667500000000381,
+        -0.07217125000000024,
+        -0.03470579199999957,
+        -0.10436025100000013
+      ],
+      "positive_pairs": 2,
+      "engine_passed": true,
+      "cpu_passed": true,
+      "rss_passed": true,
+      "passed": true,
+      "engine_median_improvement_percent": -0.6784615717257118
+    },
+    {
+      "query": 29,
+      "lanes": 12,
+      "pairs": 5,
+      "target": false,
+      "medians": {
+        "control": {
+          "engine_execution_seconds": 5.808466874,
+          "seconds": 5.907007665999117,
+          "cpu_seconds": 11.479816,
+          "native_peak_rss_bytes": 1555611648
+        },
+        "candidate": {
+          "engine_execution_seconds": 5.865302042,
+          "seconds": 5.922410667000804,
+          "cpu_seconds": 11.510746,
+          "native_peak_rss_bytes": 1568423936
+        }
+      },
+      "paired_engine_savings_seconds": [
+        -0.06965020900000063,
+        0.1004031249999997,
+        -0.14256258200000005,
+        -0.1520614569999994,
+        0.25697749899999955
+      ],
+      "positive_pairs": 2,
+      "engine_passed": true,
+      "cpu_passed": true,
+      "rss_passed": true,
+      "passed": true,
+      "engine_median_improvement_percent": -0.9784882867182572
+    },
+    {
+      "query": 2,
+      "lanes": 12,
+      "pairs": 5,
+      "target": false,
+      "medians": {
+        "control": {
+          "engine_execution_seconds": 0.144975542,
+          "seconds": 0.201400833997468,
+          "cpu_seconds": 0.582093,
+          "native_peak_rss_bytes": 599392256
+        },
+        "candidate": {
+          "engine_execution_seconds": 0.151266083,
+          "seconds": 0.204966917001002,
+          "cpu_seconds": 0.5958939999999999,
+          "native_peak_rss_bytes": 599916544
+        }
+      },
+      "paired_engine_savings_seconds": [
+        -0.035091083999999995,
+        -0.00493379300000002,
+        -0.006718332999999993,
+        -0.008323458000000006,
+        -0.002885624999999975
+      ],
+      "positive_pairs": 0,
+      "engine_passed": true,
+      "cpu_passed": true,
+      "rss_passed": true,
+      "passed": true,
+      "engine_median_improvement_percent": -4.33903602857369
+    }
+  ],
+  "full43_timing_totals": {
+    "raw_calls": 43,
+    "calls_with_engine_timing": 43,
+    "aggregation": "sum_of_every_raw_call_not_best_of_repeats_or_workflow_elapsed",
+    "process_other_boundary": "startup;parsing;preparation;control_plane;report_rendering;exit;unattributed_process_work",
+    "cpu_boundary": "whole_process_cpu_overlaps_wall_time_includes_parallel_workers",
+    "totals": {
+      "engine_execution_seconds": 58.445306704000004,
+      "result_serialization_seconds": 0.001888378,
+      "process_other_seconds": 2.772546457993265,
+      "process_wall_seconds": 61.219741539993265,
+      "supervision_overhead_seconds": 1.6224506290018326,
+      "supervised_wall_seconds": 62.8421921689951,
+      "user_cpu_seconds": 169.980076,
+      "system_cpu_seconds": 32.550341,
+      "validation_seconds": 0.032598415986285545
+    }
+  },
+  "archive": {
+    "file": "native-selected-text-views-2026-10-15.tar.xz",
+    "bytes": 3081936,
+    "sha256": "60da847b0613188447907652282cf3ea370ea87eb35358fa1aa1bf7399ee31b2"
+  },
+  "manifest": {
+    "file": "native-selected-text-views-2026-10-15.manifest.json.xz",
+    "bytes": 88960,
+    "sha256": "33a6e899acb82117035894b6eaa7d8fdf67b8cbdc42a3dcab8e4ab3f94352b01",
+    "raw_sha256": "6f8d7fd05937321a955e024fb099e396acc16becafd1d6e65c7b4445d37200e4"
+  },
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/selected-views-467-source.json",
+    "bytes": 296704,
+    "sha256": "0ba2a4ba8680077281a0bba4abb3971ea2b71a13d4bad40615cba01b0a285d50"
+  },
+  "profile_timings_used_for_retention": false,
+  "hosted_integration_complete": false,
+  "installed_wheel_proof": false,
+  "publication_attempted": false,
+  "limitations": "Finite local candidate acceptance with uncontrolled OS cache. Q23 improves in this comparison; all four other parallel controls have slower medians within the predeclared limits. Dense decoding and compressed frame bytes are unchanged. No general speedup, whole-process RSS cap, all-platform or release claim."
+}

@@ -322,10 +322,18 @@ runtime unchanged. The 0.6.0 packages also include
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-compression-resources-2026-10-15.md">compression resource correction</a>
 admits named Zstd preparation/output buffers and audited compressor/default-trainer
 heap storage. Complete local ownership, cost, public-workflow and single-pass
-Full43 checks pass; the report tracks hosted integration separately. This change
+Full43 checks pass. PR #1555 merged after all 44 checks passed, including native
+and installed-wheel acceptance; production documentation is verified. This change
 follows the immutable 0.6.0 packages. Structural frame/metadata storage, other
 codecs and unreviewed provider trees remain separate. These resource corrections
 make no speedup claim, and a query grant still does not bound total process RSS.</p>
+<p>The subsequent source-only
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md">selected text view change</a>
+constructs views only for selected rows inside sparse native Zstd filtering.
+Complete local checks and its bounded paired comparison pass; hosted integration
+is pending. The report retains the slower control cases and all 43 acceptance
+timings. The same frames are decoded, and this result makes no general speedup
+or zero-decode claim.</p>
 <p>Opt-in <code dir="auto">from_batches(..., streaming=True)</code> retains at most one original native input
 batch. The 0.6.0 packages admit distinct finite producers, declared repeated-source
 replay and dynamic pivots through the

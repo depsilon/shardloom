@@ -249,63 +249,54 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-COMPRESSION-RESOURCES` admit the existing Vortex Zstd compressor,
-  dictionary trainer and compression payload buffers through the caller's
-  shared grant under PERF-03/06, following completed `RELEASE-060`.
-  - V1 scope classification: `required_for_v1`.
-  - Contract: [native compression admission](native-compression-resources-2026-10-15.md)
-    and RFC 0044. Reuse native provider ownership, exact frame/value semantics,
-    explicit typed denial and existing no-fallback certificates.
-  - ShardLoom technique review: preserve metadata-only and encoded paths before
-    compression. Admit frame payloads and synchronous foreign heap through the
-    existing dynamic shared grant; keep PulseWeave and frame work units unchanged.
-    Separate lifecycle timing from whole-query timing and retain source-bound
-    correctness/resource evidence. No additional scheduling strategy is introduced.
+
+- [ ] `NATIVE-SELECTED-TEXT-VIEWS` decide the sparse Zstd selected-view candidate
+  under PERF-01/04/05 and PERF-03/06 after completed compression/timing integration.
+  - Source: [finite contract](native-selected-text-views-2026-10-15.md), the
+    October 15 complete timing baseline and diagnostic hotspot samples.
+  - Accepted baseline: the admitted filter prunes compressed frames, then constructs
+    native text views for every retained-frame row before gathering selected rows.
+    Q23's caller attributes 2.980844037 seconds to native text execution. That
+    elapsed span includes provider work and is not an isolated CPU measurement.
+  - V1 scope classification: `required_for_v1` for the finite ship/drop decision;
+    retention of the proposed optimization depends on its measured gate.
+  - October 15 feedback priority remains Q29/Q19/Q23 and shared Q34/Q35 under
+    PERF-01/04/05/10. Together they account for 33.147% of the fresh measured
+    engine total. Preserve all five diagnostic samples and existing dictionary/
+    parallel-reduction evidence before choosing subsequent shared changes.
+    Separate scan/decode, transformation, key/state construction, reconciliation
+    and selection costs; do not infer cold-cache status or a Q34/Q35 cause.
+  - ShardLoom technique review: reuse encoded frame pruning, selected-row
+    materialization, native decoding and shared allocation admission. Preserve
+    PulseWeave/work shaping and separate engine clocks from other process work.
   - Execution checklist:
-    - [x] Implement admitted input/offset/sample/output buffers and lifetime-bound
-      foreign-heap reservations without changing default codec parameters.
-    - [x] Verify every named denial stage, ownership/cleanup, all primitive bits,
-      nullable text/binary, serialization, provider-byte identity and unsafe-input
-      boundaries; retain the original failing regressions.
-    - [x] Complete the frozen lifecycle cost screen, workspace/native gates,
-      direct/public/format/streaming workflows and one Full43 pass.
-    - [x] Complete the October 15 timing follow-through: shared native execution
-      and result clocks, standard per-query CSV, fresh ingest plus one CLI Full43
-      and the modular UAT; share every query's timing, then retire verified unused
-      artifacts before resuming the ship/drop and breadth queue.
-    - [x] Complete acceptance/provenance documentation and rendered guide
-      verification with the timing-enabled source and native binding.
-    - [ ] Complete hosted integration, then move this finite unit to the ledger.
-  - Boundary: frame/metadata clones and other providers remain separately owned;
-    this is neither a whole-process RSS limit nor completion of the six areas.
-  - Local acceptance: the [report](../benchmarks/native-compression-resources-2026-10-15.md)
-    binds all 18 lifecycle cells without a declared cost breach, 3,219 workspace
-    and 4,219 native tests, 72 vendor tests, 80 direct tests, 757 public cases
-    and 43 complete query results. All 3,068 portable evidence members are
-    verified. The [timing-enabled acceptance supplement](../benchmarks/evidence/native-query-timing-acceptance-2026-10-15.json)
-    adds current-source gates (4,222 native tests), all 80 direct tests, all 757
-    public cases, complete evidence readback and rendered guide/search proof in
-    2,076 verified members. Hosted integration remains open.
-  - October 15 maintainer reporting contract: make engine execution the primary
-    optimization clock and retain process, output, CPU/RSS, validation, ingestion
-    and complete workflow boundaries. Runs stay CLI-based. Update documentation,
-    field guide and README with verified behavior before submitting each PR.
-  - Timing follow-through: the [fresh UAT](../benchmarks/native-query-timing-uat-2026-10-15.md)
-    passes all 99,997,497 ingested rows, 43 calls/381 complete returned rows and
-    18 modular cohorts. Engine execution totals 62.560288 s; result serialization
-    0.002827 s; other process work 2.859121 s. All 13,003 portable evidence members
-    are independently verified. The [scoped cleanup](local-artifact-cleanup-2026-10-15.md)
-    recovers 38.18 GB after this complete run. These are source-bound observations,
-    not a comparison with the earlier process-only measurements or a new release.
-  - October 15 feedback intake: merge the requested Q29/Q19/Q23 and shared
-    Q34/Q35 profiling priority into PERF-01/04/05/10. These five calls account
-    for 33.147% of the measured engine total. After this unit's integration,
-    distinguish scan/decode, transformation, key/state construction,
-    reconciliation and selection costs before choosing a shared implementation.
-    Inspect existing dictionary and parallel reduction work first. Preserve
-    complete-result and control gates, generation-bound reuse, and the broader
-    six-area/eight-investigation work; neither cold-cache status nor a cause for
-    the Q34/Q35 difference follows from this single pass.
+    - [x] Preserve the current five-query diagnostic packet and prove an
+      allocation regression against the accepted sparse-filter implementation.
+      The 2,305-member packet retains all five raw profiles, frozen identities
+      and the baseline-failing/candidate-passing allocation regression.
+    - [x] Implement selected-only native views with exact-value, malformed-input,
+      allocator-denial, source-owner and independent-buffer lifetime tests.
+    - [x] Run the frozen targeted comparison and retain or remove the candidate.
+      All 70 complete calls pass; Q23 improves in 10/10 target pairs and its
+      engine median improves 2.55%. All four other parallel control medians are
+      slower within the unchanged limits. The [report](../benchmarks/native-selected-text-views-2026-10-15.md)
+      records all six cases and the independent raw-clock replay.
+    - [x] Complete broad/native/public and single-pass Full43 acceptance for
+      retained code: all seven Rust/provider gates, 80 direct tests, 757 public
+      cases and 43 complete queries pass. README, field guide, provenance and
+      evidence describe the bounded decision; hosted integration remains below.
+    - [ ] Complete review, hosted checks and deployment, then move the finite
+      decision to the ledger with residual PERF/CG owners preserved.
+  - Implementation scope: existing vendored Zstd decoder, admitted filter,
+    focused tests and evidence. User surfaces converge on the same provider.
+  - Acceptance/verification: the contract fixes full-value/resource checks and
+    repeatability/control gates before timing; required workspace/native tests
+    and public workflow checks remain mandatory for retained behavior.
+  - Non-goals/claim boundary: no dense decoder rewrite, codec/layout change,
+    query-specific route, new execution engine, dependency or release. The
+    dropped October 13 full-view rewrite stays dropped. Decoded frame bytes do
+    not decrease merely because fewer views are constructed; no zero-decode or
+    whole-process memory-cap claim. Both fallback fields must remain false.
 
 October 14 maintainer follow-through priority within the existing work: the
 latest direction resumes PR #1551, one version bump after integration and the
@@ -3169,7 +3160,9 @@ Current autonomous execution order:
 
 October 15 transport direction queues `NATIVE-ENCODED-EXCHANGE` after the current
 optimization and breadth work. Preserve that dependency while completing the
-current compression/timing integration and the measured hotspot/breadth queue.
+measured hotspot/breadth queue. Compression/timing integration is complete in
+PR #1555, with exact source, hosted and production evidence in the completed
+ledger. The next finite decision is `NATIVE-SELECTED-TEXT-VIEWS`.
 
 October 14 direction takes precedence over the earlier version hold. PR #1551
 completes the composition timing investigation, admitted-context corrections and
@@ -3177,7 +3170,7 @@ finite decoder resource work; its [hosted receipt](../benchmarks/evidence/native
 and completed ledger retain acceptance. `RELEASE-060` is complete through
 PR #1554, with all four channels and the exact production deployment verified in
 the [publication record](../release/v0.6.0-publication-verification.md). Resume
-the remaining work and optimizations with `NATIVE-COMPRESSION-RESOURCES`.
+the remaining work and optimizations after completed `NATIVE-COMPRESSION-RESOURCES`.
 Published 0.5.1 and 0.6.0 artifacts remain immutable.
 
 October 13 direction supersedes the breadth pause below: first run fresh full

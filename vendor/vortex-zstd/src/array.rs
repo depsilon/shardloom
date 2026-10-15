@@ -8,6 +8,8 @@
 // validity-rank vectors and pre-count decoded view-handle storage.
 // Modified by ShardLoom on 2026-10-15: admit compression payloads and bounded
 // foreign codec storage through the same caller allocator.
+// Modified by ShardLoom on 2026-10-15: construct only selected text views in
+// the admitted sparse-filter path, preserving the existing frame decoder.
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -71,6 +73,9 @@ use vortex_session::registry::CachedId;
 use crate::ZstdFrameMetadata;
 use crate::ZstdMetadata;
 use crate::validate_frame_content_size;
+
+#[path = "selected.rs"]
+mod selected;
 
 // Zstd doesn't support training dictionaries on very few samples.
 const MIN_SAMPLES_FOR_DICTIONARY: usize = 8;
@@ -497,6 +502,21 @@ impl Zstd {
         array
             .data()
             .decompress(array.dtype(), &unsliced_validity, ctx)
+    }
+
+    /// Decode selected rows of an all-valid UTF-8 or binary array into native views.
+    ///
+    /// Indices must be strictly increasing and inside the logical array slice.
+    /// The existing decoder still decompresses the slice's complete frames; only
+    /// the selected rows receive views. Null-bearing and other DTypes are rejected.
+    /// The caller admits temporary buffer-handle collections separately from the
+    /// payload and view buffers allocated through `ctx`.
+    pub fn decompress_selected(
+        array: ArrayView<'_, Zstd>,
+        indices: &[usize],
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<VarBinViewArray> {
+        selected::decompress(array, indices, ctx)
     }
 }
 

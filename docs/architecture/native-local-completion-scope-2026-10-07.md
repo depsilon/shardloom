@@ -184,9 +184,20 @@ passes complete local acceptance for named primitive/variable-binary compression
 buffers, the pinned one-shot compressor and default dictionary trainer. Its
 [report](../benchmarks/native-compression-resources-2026-10-15.md) retains the
 18-cell lifecycle gate, complete public workflows, one Full43 pass and original
-failures in 3,068 verified evidence members. Hosted integration remains pending.
+failures in 3,068 verified evidence members. PR #1555 merged after all 44 checks
+passed; its [hosted packet](../benchmarks/evidence/native-compression-hosted-2026-10-15.json)
+verifies the native and installed-wheel logs, accepted source and production docs.
 Structural frame/metadata storage, other codecs and unreviewed provider trees
 remain open. The 0.6.0 packages are unchanged.
+
+The subsequent [selected text views](native-selected-text-views-2026-10-15.md)
+avoid constructing unselected views inside the admitted sparse Zstd filter.
+The bounded target comparison and complete local acceptance pass, with all four
+other parallel control medians slower within their frozen limits. The
+[report and 2,305-member packet](../benchmarks/native-selected-text-views-2026-10-15.md)
+retain complete values, resource/lifetime regressions, all 43 query timings and
+five diagnostic profiles. Hosted integration is pending. This finite provider
+change preserves the remaining six-area and breadth obligations below.
 
 ## Coverage that must remain visible
 

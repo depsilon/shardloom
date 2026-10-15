@@ -883,10 +883,19 @@ The subsequent source-only
 [compression resource correction](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-compression-resources-2026-10-15.md)
 admits named Zstd preparation/output buffers and audited compressor/default-trainer
 heap storage. Complete local ownership, cost, public-workflow and single-pass
-Full43 checks pass; the report tracks hosted integration separately. This change
+Full43 checks pass. PR #1555 merged after all 44 checks passed, including native
+and installed-wheel acceptance; production documentation is verified. This change
 follows the immutable 0.6.0 packages. Structural frame/metadata storage, other
 codecs and unreviewed provider trees remain separate. These resource corrections
 make no speedup claim, and a query grant still does not bound total process RSS.
+
+The subsequent source-only
+[selected text view change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
+constructs views only for selected rows inside sparse native Zstd filtering.
+Complete local checks and its bounded paired comparison pass; hosted integration
+is pending. The report retains the slower control cases and all 43 acceptance
+timings. The same frames are decoded, and this result makes no general speedup
+or zero-decode claim.
 
 Opt-in \`from_batches(..., streaming=True)\` retains at most one original native input
 batch. The 0.6.0 packages admit distinct finite producers, declared repeated-source
@@ -985,6 +994,7 @@ Reviewed October 15, 2026. Recent local work validates complete query results an
 individual changes against a frozen ShardLoom control:
 
 - [Fresh UAT and all 43 query timings](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-timing-uat-2026-10-15.md) — one execution per query: 62.560 s engine execution, 0.002827 s result serialization and 2.859 s other process work; fresh ingestion and all 18 format/workflow cohorts pass. This is a local baseline on source after 0.6.0, with an explicit boundary for every clock.
+- [Selected text view acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md) — the 70-call comparison retains the sparse-filter change: Q23's engine median improves 2.55%, while all four other parallel control medians are slower within their declared limits. A separate single pass verifies all 43 complete results and records 58.445 s engine time; it does not replace the paired decision. Complete local acceptance passes; hosted integration is pending.
 - [Native execution and ingestion comparisons](https://github.com/depsilon/shardloom/blob/main/docs/architecture/performance-quiet-intake-2026-09-30.md) — retained mechanisms, rejected experiments, and links to their acceptance evidence.
 - [Dictionary preparation](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md) — source-backed strings, bounded preparation overlap, and measured tradeoffs.
 - [Native runtime completion](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md) — complete-value Full43 regression runs, public-call checks, and the remaining availability inventory.
@@ -1089,9 +1099,16 @@ in PR #1529. Later accepted units admit reviewed fixed-width child-decoder
 scratch. The subsequent source-only
 [compression correction](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-compression-resources-2026-10-15.md)
 passes complete local acceptance for named buffers and pinned compressor/trainer
-heap reservations; its report tracks hosted status. It follows the immutable
+heap reservations. PR #1555 merged after all 44 checks passed, with installed-wheel
+and production verification retained in its report. It follows the immutable
 0.6.0 packages. Structural metadata, other codecs and unreviewed provider trees
 remain separate.
+The later source-only
+[selected text views](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
+reduce view construction inside sparse native filtering, with complete local
+acceptance and a bounded retained comparison. Hosted integration is pending.
+The report preserves the slower controls; this does not establish general
+workload acceleration or change published packages.
 Default input remains resident under the query grant. Opt-in
 [streaming input](/field-guide/python-surface#consume-results-in-batches) in 0.6.0
 packages admits distinct finite producers, declared repeated-source replay

@@ -128,7 +128,7 @@ jobs:
               cargo test --manifest-path vendor/vortex-zstd/Cargo.toml \
                 --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
                 --features vortex-array/table-display \
-                --lib array::tests:: -- --test-threads=2
+                --lib array:: -- --test-threads=2
               cargo test --manifest-path vendor/vortex-zstd/Cargo.toml \
                 --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
                 --features vortex-array/table-display \

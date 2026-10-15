@@ -43,6 +43,50 @@ fn text_fixture() -> (ArrayRef, Vec<String>) {
     (encoded, values)
 }
 
+#[derive(Debug)]
+struct ViewAllocationRecorder {
+    inner: crate::owned_buffers::ReservedHostAllocator,
+    views: std::sync::Mutex<Vec<usize>>,
+}
+
+impl HostAllocator for ViewAllocationRecorder {
+    fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
+        if alignment == Alignment::of::<vortex::array::arrays::varbinview::BinaryView>() {
+            self.views.lock().unwrap().push(len);
+        }
+        self.inner.allocate(len, alignment)
+    }
+}
+
+#[test]
+fn native_zstd_sparse_text_filter_constructs_only_selected_views() {
+    let (encoded, values) = text_fixture();
+    let memory = LiveMemoryPool::new(16 << 20).unwrap();
+    let recorder = Arc::new(ViewAllocationRecorder {
+        inner: crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+        views: std::sync::Mutex::new(Vec::new()),
+    });
+    let session = VortexSession::default().with_allocator(recorder.clone());
+    install(&session, memory.clone());
+    let selected = [1, 3, 120, 124];
+    let output = encoded
+        .filter(Mask::from_indices(128, selected))
+        .unwrap()
+        .execute::<VarBinViewArray>(&mut session.create_execution_ctx())
+        .unwrap();
+    for (row, original) in selected.into_iter().enumerate() {
+        assert_eq!(output.bytes_at(row).as_slice(), values[original].as_bytes());
+    }
+    // The retained frames contain 16 rows, but only these four rows need views.
+    // This catches both constructing the other 12 views and a second gather copy.
+    assert_eq!(
+        *recorder.views.lock().unwrap(),
+        vec![selected.len() * size_of::<vortex::array::arrays::varbinview::BinaryView>()]
+    );
+    drop(output);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 #[test]
 fn native_zstd_sparse_text_filter_skips_unused_frame_allocations() {
     let (encoded, values) = text_fixture();
@@ -694,9 +738,9 @@ fn native_zstd_sparse_selection_releases_every_failed_allocation_and_preserves_d
             .execute::<VarBinViewArray>(&mut session.create_execution_ctx())
         {
             Ok(output) => {
-                assert!(
-                    fail_at >= 6,
-                    "indices, payload, decoder, dictionary, decoded views, gathered views"
+                assert_eq!(
+                    fail_at, 5,
+                    "indices, payload, decoder, dictionary, selected views"
                 );
                 assert_eq!(
                     allocator.call.load(std::sync::atomic::Ordering::SeqCst),
