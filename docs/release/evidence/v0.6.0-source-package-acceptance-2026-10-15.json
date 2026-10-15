@@ -1,0 +1,857 @@
+{
+  "schema_version": "shardloom.release_source_package_acceptance.v1",
+  "status": "passed_technical_preview_source_and_package",
+  "recorded_at_utc": "2026-10-15T01:58:49.177049+00:00",
+  "source_commit": "936313473fedca78176d1fd983446673ed8ae62b",
+  "source_tree": "1e957aae9f7e213a017777b4d4b2bba87b3e7718",
+  "release_version": "0.6.0",
+  "release_source_pr": "https://github.com/depsilon/shardloom/pull/1552",
+  "primary_review": "completed_no_blocking_source_findings",
+  "hosted_automated_review": {
+    "status": "summary_completed_no_posted_findings",
+    "url": "https://github.com/depsilon/shardloom/pull/1552#issuecomment-6181623281",
+    "formal_approval_claimed": false
+  },
+  "source_assets_verified": 2269,
+  "successful_pr_hosted_checks": 44,
+  "successful_merged_source_hosted_checks": 41,
+  "security_analysis": {
+    "status": "passed_reused_identical_tree_pr_analysis",
+    "analyzed_pr_head": "e6624782381f4876e076a17dbf3ac2da83bb5a35",
+    "source_tree": "1e957aae9f7e213a017777b4d4b2bba87b3e7718",
+    "successful_pr_checks": [
+      {
+        "id": 116182326821,
+        "name": "CodeQL",
+        "head_sha": "e6624782381f4876e076a17dbf3ac2da83bb5a35",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/depsilon/shardloom/runs/116182326821",
+        "output": {
+          "title": "No new alerts in code changed by this pull request",
+          "summary": "[View all branch alerts](/depsilon/shardloom/security/code-scanning?query=pr%3A1552+tool%3ACodeQL+is%3Aopen).",
+          "text": null,
+          "annotations_count": 0
+        }
+      },
+      {
+        "id": 116181693671,
+        "name": "CodeQL python",
+        "head_sha": "e6624782381f4876e076a17dbf3ac2da83bb5a35",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/depsilon/shardloom/actions/runs/38660924759/job/116181693671",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 2
+        }
+      },
+      {
+        "id": 116181693473,
+        "name": "CodeQL rust",
+        "head_sha": "e6624782381f4876e076a17dbf3ac2da83bb5a35",
+        "status": "completed",
+        "conclusion": "success",
+        "details_url": "https://github.com/depsilon/shardloom/actions/runs/38660924759/job/116181693473",
+        "output": {
+          "title": null,
+          "summary": null,
+          "text": null,
+          "annotations_count": 2
+        }
+      }
+    ],
+    "push_codeql_run_claimed": false,
+    "workflow_trigger_policy": "pull_request, schedule, workflow_dispatch; no push trigger"
+  },
+  "ci_run_url": "https://github.com/depsilon/shardloom/actions/runs/38665280349",
+  "installed_native_wheel_lanes": [
+    {
+      "job_id": 116181694375,
+      "lane": "py310_ubuntu",
+      "integrity": {
+        "schema_version": "shardloom.native_python_wheel_integrity.v1",
+        "status": "passed",
+        "wheel": "shardloom-0.6.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+        "wheel_sha256": "0648fcb79dd809b9408d216d960b2bc9285955e72c2bb5abfa9e5d1a276cb419",
+        "wheel_bytes": 55253571,
+        "native_library_sha256": "3d34dc9950edb12281289f174272488529d8f8999be079875e847b49d63715ea",
+        "cli_sha256": "fb0c3d89e753df2d4c7ae606dd13600a919d308195efcd20f4cffeebfe54a892",
+        "tag": "cp310-abi3-manylinux_2_39_x86_64",
+        "python_source_files": 19,
+        "linux_audit_verified": true,
+        "licenses": {
+          "status": "passed",
+          "registry_packages": 383,
+          "vendored_packages": 5,
+          "license_file_records": 729,
+          "unique_text_files": 206
+        },
+        "load_verified": false,
+        "published": false
+      },
+      "integration": {
+        "tests": 80,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "status": "passed"
+      },
+      "installed_load": {
+        "package": "/home/runner/work/_temp/native-python-9pefiaor/proof/venv/lib/python3.10/site-packages/shardloom/__init__.py",
+        "native_library": "/home/runner/work/_temp/native-python-9pefiaor/proof/venv/lib/python3.10/site-packages/shardloom/_native.abi3.so",
+        "cli": "/home/runner/work/_temp/native-python-9pefiaor/proof/venv/lib/python3.10/site-packages/shardloom/bin/linux-x86_64/shardloom",
+        "version": "0.6.0",
+        "python": "3.10.22 (main, Oct  1 2026, 14:30:20) [GCC 13.3.0]",
+        "isolated_install": true
+      },
+      "uninstall_status": "passed",
+      "linux_audit": {
+        "schema_version": "shardloom.native_python_linux_audit.v1",
+        "status": "passed",
+        "platform": "manylinux_2_39_x86_64",
+        "auditwheel_version": "6.8.2",
+        "input_wheel": "shardloom-0.6.0-cp310-abi3-linux_x86_64.whl",
+        "input_wheel_sha256": "c06a7ba70adf4581a843c7a9347ba15a3f2247f81f322045f47b95c397b54935",
+        "wheel": "shardloom-0.6.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+        "wheel_sha256": "0648fcb79dd809b9408d216d960b2bc9285955e72c2bb5abfa9e5d1a276cb419",
+        "unchanged_payload_count": 232,
+        "payloads_unchanged": true
+      },
+      "original_log_carrier": {
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/job-116181694375-original.json",
+        "size_bytes": 94547,
+        "sha256": "b5d12d25adaf79c097be00ff16c0b28e64eae7b7444d8b586ed144ceb46558ec"
+      }
+    },
+    {
+      "job_id": 116181694432,
+      "lane": "py313_ubuntu",
+      "integrity": {
+        "schema_version": "shardloom.native_python_wheel_integrity.v1",
+        "status": "passed",
+        "wheel": "shardloom-0.6.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+        "wheel_sha256": "10ce034f5045a937bc1192b399d4aa8910b8c6eedf287f2762157721d35b652e",
+        "wheel_bytes": 55253571,
+        "native_library_sha256": "3d34dc9950edb12281289f174272488529d8f8999be079875e847b49d63715ea",
+        "cli_sha256": "fb0c3d89e753df2d4c7ae606dd13600a919d308195efcd20f4cffeebfe54a892",
+        "tag": "cp310-abi3-manylinux_2_39_x86_64",
+        "python_source_files": 19,
+        "linux_audit_verified": true,
+        "licenses": {
+          "status": "passed",
+          "registry_packages": 383,
+          "vendored_packages": 5,
+          "license_file_records": 729,
+          "unique_text_files": 206
+        },
+        "load_verified": false,
+        "published": false
+      },
+      "integration": {
+        "tests": 80,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "status": "passed"
+      },
+      "installed_load": {
+        "package": "/home/runner/work/_temp/native-python-1a3sg1v4/proof/venv/lib/python3.13/site-packages/shardloom/__init__.py",
+        "native_library": "/home/runner/work/_temp/native-python-1a3sg1v4/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+        "cli": "/home/runner/work/_temp/native-python-1a3sg1v4/proof/venv/lib/python3.13/site-packages/shardloom/bin/linux-x86_64/shardloom",
+        "version": "0.6.0",
+        "python": "3.13.16 (main, Oct  1 2026, 02:37:54) [GCC 13.3.0]",
+        "isolated_install": true
+      },
+      "uninstall_status": "passed",
+      "linux_audit": {
+        "schema_version": "shardloom.native_python_linux_audit.v1",
+        "status": "passed",
+        "platform": "manylinux_2_39_x86_64",
+        "auditwheel_version": "6.8.2",
+        "input_wheel": "shardloom-0.6.0-cp310-abi3-linux_x86_64.whl",
+        "input_wheel_sha256": "df6e70a28796f6613ed87b1a6896c517bcebbe83a43051b2a3955e0eff4d1299",
+        "wheel": "shardloom-0.6.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+        "wheel_sha256": "10ce034f5045a937bc1192b399d4aa8910b8c6eedf287f2762157721d35b652e",
+        "unchanged_payload_count": 232,
+        "payloads_unchanged": true
+      },
+      "original_log_carrier": {
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/job-116181694432-original.json",
+        "size_bytes": 95173,
+        "sha256": "302d13bca592409cb4525579497503b46b290f8eb8f43a1ee62868e9d73242e7"
+      }
+    },
+    {
+      "job_id": 116181694418,
+      "lane": "py313_macos",
+      "integrity": {
+        "schema_version": "shardloom.native_python_wheel_integrity.v1",
+        "status": "passed",
+        "wheel": "shardloom-0.6.0-cp310-abi3-macosx_26_0_arm64.whl",
+        "wheel_sha256": "d0bf25675dcb17ae75032d3ed7a191b8007ca6b2b901b1af8cc08ae32206016f",
+        "wheel_bytes": 48975023,
+        "native_library_sha256": "f295789b187e922fe19c15a41a2ec22a964a41c791234be103d8f7f0b69f6187",
+        "cli_sha256": "6845d98ba4457ace65358dfc72b5f0c213b62e09f8f806f0751ea778c31d1092",
+        "tag": "cp310-abi3-macosx_26_0_arm64",
+        "python_source_files": 19,
+        "linux_audit_verified": false,
+        "licenses": {
+          "status": "passed",
+          "registry_packages": 383,
+          "vendored_packages": 5,
+          "license_file_records": 729,
+          "unique_text_files": 206
+        },
+        "load_verified": false,
+        "published": false
+      },
+      "integration": {
+        "tests": 80,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "status": "passed"
+      },
+      "installed_load": {
+        "package": "/Users/runner/work/_temp/native-python-izmmx9pc/proof/venv/lib/python3.13/site-packages/shardloom/__init__.py",
+        "native_library": "/Users/runner/work/_temp/native-python-izmmx9pc/proof/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+        "cli": "/Users/runner/work/_temp/native-python-izmmx9pc/proof/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom",
+        "version": "0.6.0",
+        "python": "3.13.15 (v3.13.15:4061bc4c35f, Aug  5 2026, 09:08:51) [Clang 21.0.0 (clang-2100.1.1.101)]",
+        "isolated_install": true
+      },
+      "uninstall_status": "passed",
+      "linux_audit": null,
+      "original_log_carrier": {
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/job-116181694418-original.json",
+        "size_bytes": 92909,
+        "sha256": "b55341535e97c2603804cef7aeb416930119b9899106ee53c3aeaff41089fabc"
+      }
+    }
+  ],
+  "windows_native_extension_or_pressure_runtime_certified": false,
+  "production_runtime_sources_unchanged_since_pr1551": true,
+  "fresh_prebump_uat": {
+    "index": "docs/benchmarks/evidence/native-fresh-unpaced-uat-2026-10-14.json",
+    "source_commit": "9dd328f5cbdae08fa396910e7c6ce747ff16dda1",
+    "results": {
+      "full43_calls": 129,
+      "full43_rows": 1143,
+      "ingest_rows": 99997497,
+      "modular_cohorts": 18,
+      "modular_native_records": 704,
+      "modular_records": 1408
+    },
+    "archive_sha256": "61f3dfcddbd5e21e132373e92101146b158f822bb0d53f7f1cdac98508d7ea73",
+    "timing_seconds": {
+      "native_ingest": 54.60346820799998,
+      "all_129_native_queries": 194.12594078899906,
+      "ingest_plus_query_workflow": 331.62421104200007,
+      "modular_supervised": 575.760410375,
+      "entire_supervised_uat": 932.0439925000001
+    },
+    "package_version_at_measurement": "0.5.1"
+  },
+  "website_evidence": {
+    "source_tree_unchanged_since_pr1551": true,
+    "prior_production_readback": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/decoder-hosted-439/production/report.json",
+    "fresh_browser_run_claimed": false,
+    "exact_merge_deployment_check_passed": true
+  },
+  "local_release_binary_sha256": "30d6e4766f2c0dee73b3c1b1f4dea88c76a9ca536c1a53c335a14fe0e83cdc6f",
+  "local_native_library_sha256": "0bc6d40e0d0a13bbe37adf74ef73275ff0ebe410a53522096abb9dc02e8f88c0",
+  "local_package_proof_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/local-package-proof-v0.6.0-936313473fed.json",
+  "local_prepublication_evidence_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-local-prepublication-evidence-1.json",
+  "technical_preview_publication_ready": true,
+  "selected_channel_sequence": [
+    "github_prerelease",
+    "testpypi",
+    "pypi",
+    "homebrew_tap"
+  ],
+  "published_060_channels_verified": false,
+  "selected_channel_contract_change_deferred_until_all_four_proofs": true,
+  "production_readiness_claimed": false,
+  "performance_superiority_claimed": false,
+  "uat_measurements_relabelled_as_package_build": false,
+  "production_and_future_claim_limits": [
+    "Architecture, full rehearsal and hard-release aggregates remain blocked; production readiness is not claimed.",
+    "The 136 unchecked phase-plan entries, six remaining areas, eight investigations and CG-1 through CG-23 are not closed by package availability.",
+    "Conda, future distribution channels and broad API/schema/per-claim promotion remain outside the approved four-channel technical preview.",
+    "Published 0.6.0 installation claims require actual GitHub, TestPyPI, PyPI and Homebrew proof and a subsequent canonical-contract update.",
+    "Full-size resource, pressure and incremental-workflow acceptance remains scoped to macOS arm64. Named Linux/macOS binding tests and Windows CLI builds do not establish broad cross-platform runtime parity.",
+    "The lightweight tag and release assets are unsigned. The source merge is GitHub-verified; no signed build attestation is claimed.",
+    "Pre-bump UAT retains its original 0.5.1 source and executable. Package checks are not new timing measurements or comparative performance claims."
+  ],
+  "publication_attempted": false,
+  "evidence_files": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-fresh-unpaced-uat-2026-10-14.json",
+      "size_bytes": 1634,
+      "sha256": "f34ae4065570d33580032b2ee3297d973efccf8e51f80c22e861e11a98c73bb3"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-fresh-unpaced-uat-2026-10-14.manifest.json.xz",
+      "size_bytes": 458684,
+      "sha256": "6fe37ac994be7c223a8c655e4626767513dd032d2f59109d1662d9c99ca263f5"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-fresh-unpaced-uat-2026-10-14.tar.xz",
+      "size_bytes": 5090200,
+      "sha256": "61f3dfcddbd5e21e132373e92101146b158f822bb0d53f7f1cdac98508d7ea73"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-fresh-unpaced-uat-2026-10-14.verification.json",
+      "size_bytes": 6145,
+      "sha256": "3bc6e99ebb2bbfa2912db47193d990d0eaf4c73eba9f470bc0517e672787c275"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/check_package_channel_readiness.py",
+      "size_bytes": 74434,
+      "sha256": "2d495aa550609c119797d1cb7959169aef5142cd117f88dd8895bba897443d6d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/decoder-hosted-439/production/field-guide_limitations_index.html",
+      "size_bytes": 48089,
+      "sha256": "a618bb8f9538bca767e93c73050a37cd56a15f3605b4c7e32b01e76613956314"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/decoder-hosted-439/production/field-guide_python-surface_index.html",
+      "size_bytes": 63361,
+      "sha256": "ef5f98eb7316d0812d497545d1fe5a54136c0486bfde2879ceb0a1e79d9eaa83"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/decoder-hosted-439/production/field-guide_runtime-and-io_index.html",
+      "size_bytes": 59292,
+      "sha256": "54c242f97397cf8fe6e098ed268b13360e35b0657a5411b5f97f10aa8579c3ea"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/decoder-hosted-439/production/pagefind_pagefind-entry.json",
+      "size_bytes": 171,
+      "sha256": "28c665ad7bf8143c29c9fe33a198632faa1b370aefee8ce9472dd9678793c8d5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/decoder-hosted-439/production/report.json",
+      "size_bytes": 3525,
+      "sha256": "c0498752e4e61083f91e1b4cfa263b75f7d0dbbc3759c8a0823554b9e1818e33"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/candidate-source-936313473fed.json",
+      "size_bytes": 303443,
+      "sha256": "66eb21e54c6195973597c4c149baa5281c8bfc0137a350dd8227de8c66f24f1e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/candidate-source-e6624782381f.json",
+      "size_bytes": 303443,
+      "sha256": "9e602b68551cc3f30d2c42daee77e34775f550b458f85f35d8a6211fea5ac4f8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/checks-final.json",
+      "size_bytes": 22127,
+      "sha256": "4b1b967a704929635ce66b1e9996175f141c8cb5280657f839da558b41e64595"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/comments-final.json",
+      "size_bytes": 7039,
+      "sha256": "b2289a1e46911f7e23babf1ac01815f797b2df03860e552227a951206ca8fda9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/job-116181694323-original.json",
+      "size_bytes": 566695,
+      "sha256": "f880cfc2bc7613166337a8364cca41ced6205ae924d0062e996adfb12751221a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/job-116181694375-original.json",
+      "size_bytes": 94547,
+      "sha256": "b5d12d25adaf79c097be00ff16c0b28e64eae7b7444d8b586ed144ceb46558ec"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/job-116181694417-original.json",
+      "size_bytes": 437907,
+      "sha256": "5aaf8f94ac8bc30c44b9b31732dee45a743f2234fadb47a029b67c1b85067c01"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/job-116181694418-original.json",
+      "size_bytes": 92909,
+      "sha256": "b55341535e97c2603804cef7aeb416930119b9899106ee53c3aeaff41089fabc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/job-116181694432-original.json",
+      "size_bytes": 95173,
+      "sha256": "302d13bca592409cb4525579497503b46b290f8eb8f43a1ee62868e9d73242e7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/linux-wheel-verification.json",
+      "size_bytes": 6209,
+      "sha256": "035fe42ff90fc6f35bcfb025cc6535eb6efeeda1dc812eadeb3fddc37b7222c1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/merge.json",
+      "size_bytes": 266,
+      "sha256": "ef186c383f9004b9dec1442f2a12662609eb722921c4fe42cd32ba799a43a799"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/pr-after-merge.json",
+      "size_bytes": 3282,
+      "sha256": "1825faa68eced9f2138cf8d1070c776248c410a0bc80297192ecea055bfa2d44"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/pr-before-merge.json",
+      "size_bytes": 3244,
+      "sha256": "25869e7b7ee5bd6409303ca1739f1642844d897fb0379fa090337a6a34262a72"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/review-threads-final.json",
+      "size_bytes": 166,
+      "sha256": "1edcbf73f303d8d045009d8f5e0ab496ca12cd5d9b9cfdf625a75b414c27a914"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/reviews-final.json",
+      "size_bytes": 587,
+      "sha256": "bd44df857d3836da571d2172d5eecc295d7439e1d7194d716c49d8d5ba1fc55b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/wheel-116181694375.log",
+      "size_bytes": 90694,
+      "sha256": "50b4664b57f0232038bb4c9c72c6612f062abd68b5dcf4b64ab509619b6e8ec0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/wheel-116181694432.log",
+      "size_bytes": 91325,
+      "sha256": "a625b42eab75fc374f8bfb459d8fb026364fca7373ceca6a6972267ed85c94cd"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/windows-116181694417.log",
+      "size_bytes": 393322,
+      "sha256": "d30e8f3274417d9b0104d50b5a69c1b6ad931c4d457f2a96c8c13e2348d60e2e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/windows-steps.json",
+      "size_bytes": 2916,
+      "sha256": "e34770c48a9afe961b2d7f595cc07154128a680403e6b4be754754f6ecb7206a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/hosted-pr1552/windows-verification.json",
+      "size_bytes": 1185,
+      "sha256": "88d27bf5728737178d4b64dc4414035302bcb7ca3e260e3755071d49fe792de8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/local-package-proof-v0.6.0-936313473fed.json",
+      "size_bytes": 42586,
+      "sha256": "1815304b78af255273dbe28fcc087d8e143349b14567b5fa54534caf200442ea"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/asset-manifest.json",
+      "size_bytes": 4321,
+      "sha256": "afadac6dbea70e1d3cff192a9dee48a5712378b2ea21aac66f09ac7d86c95025"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/checksums.sha256",
+      "size_bytes": 878,
+      "sha256": "363e534f3566fa0a949e32d993a3f69cffd63082ec33e7efb95765e3834ebbc5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/github-prerelease-release-notes.md",
+      "size_bytes": 9172,
+      "sha256": "32fc6f539c698bf04d696e5f9260c7d1227d975432dd51dcd592dd6a6d59977c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/shardloom",
+      "size_bytes": 75292384,
+      "sha256": "30d6e4766f2c0dee73b3c1b1f4dea88c76a9ca536c1a53c335a14fe0e83cdc6f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/shardloom-0.6.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "size_bytes": 48997096,
+      "sha256": "be565d22204b8942593f7d6d001c98f4d3444352f2e3fcee30eb7d2ff383a31c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/shardloom-0.6.0.tar.gz",
+      "size_bytes": 846834,
+      "sha256": "efe759c0e368e93039c7cebefebaab49faa80f7bdbe23fe3498f1c8f89a1f3b2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/shardloom-936313473fed-source.tar.gz",
+      "size_bytes": 1547265770,
+      "sha256": "bcbabc313d6a54a5fba7ee553795c9f3b9898be3fe8db15517109550ee184bc3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/shardloom-cli-binary.cdx.json",
+      "size_bytes": 892,
+      "sha256": "d64902dd1f3be90c855d1e36fe5f1de0320e84e62c8f020d730001e3eade359d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/shardloom-python-artifacts.cdx.json",
+      "size_bytes": 821,
+      "sha256": "9e2e28a9331aabc5d3f399a6bb57711ca805f7da911029c5694c8c30af1a2489"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/shardloom-rust-workspace.cdx.json",
+      "size_bytes": 55141,
+      "sha256": "f21786bb6dffcdcdc0935b05d556b5606a356512e2854121b01d8881073bb79d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/supply-chain-release-evidence.json",
+      "size_bytes": 26734,
+      "sha256": "e71157688a83f1c75fc58721b35f1ab348270aea9db180111c91271a46c26a9e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/github-prerelease-assets/workflow-policy-snapshot.json",
+      "size_bytes": 1514,
+      "sha256": "fa8d696f05222cbc0bc755e8cd2aa00ce3342149edb49a6255e17f87dfddbd67"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/native-proof/build.log",
+      "size_bytes": 701,
+      "sha256": "8e0a00c20ce98cb06844b1885b817b08c59888613a1d9f0d39f91ae7d8ce8d84"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/native-proof/create_environment.log",
+      "size_bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/native-proof/install.log",
+      "size_bytes": 147,
+      "sha256": "a440e7ab2b1821d7ec86c5549a262cda17cda96215413c892d9b73227f7db313"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/native-proof/install_optional_consumer.log",
+      "size_bytes": 465,
+      "sha256": "f02766ed3fca9b6e759bf68eb0e453e07c5e64e31c709a70fdfe30764e262218"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/native-proof/integration.json",
+      "size_bytes": 88,
+      "sha256": "e449e72aaf5636530265dae209a1ea420f9725884ea9d48d76de2c21f2d4bbae"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/native-proof/integration.log",
+      "size_bytes": 15655,
+      "sha256": "6d95658becdd89a41263b889476f0181252205bc6e4877eddd5c9db3d5a17477"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/native-proof/load.log",
+      "size_bytes": 686,
+      "sha256": "ec72fde1df310dbefddd08bb22f431f4e8871b09b4385a6469e2c6b273de0b98"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/native-proof/report.json",
+      "size_bytes": 10148,
+      "sha256": "df42db03a0209d8f92dcc37495e498f202565a096aa4061dafce81a1ed0b4bfb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/native-proof/uninstall.log",
+      "size_bytes": 118,
+      "sha256": "ebf853c9da07eb851721aa575c1aa7cd4fe864bb53e0bc5df19626cb6a46bb78"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-1/native-proof/verify_uninstalled.log",
+      "size_bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-assets-receipt-1.json",
+      "size_bytes": 19732,
+      "sha256": "d42898e08e5264afd8e64ece7ec7166a928752f9a5cf2384ce464bdafce5b4d9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-build-1.json",
+      "size_bytes": 2288,
+      "sha256": "2dc486029a46a9cf945d8d2111ddc6d248c2bd4bffa3bdb4aa9b2f78e7914a50"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-build-1/extension/_native.abi3.so",
+      "size_bytes": 75134672,
+      "sha256": "0bc6d40e0d0a13bbe37adf74ef73275ff0ebe410a53522096abb9dc02e8f88c0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-build-1/shardloom",
+      "size_bytes": 75292384,
+      "sha256": "30d6e4766f2c0dee73b3c1b1f4dea88c76a9ca536c1a53c335a14fe0e83cdc6f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/admitted-semantics-matrix-report.json",
+      "size_bytes": 420720,
+      "sha256": "7ac324e0e2f4d8721e6eafc5a87b563cbf0bf7fc74cd683a851b874a4f71bc4b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/contribution-governance-report.json",
+      "size_bytes": 2433,
+      "sha256": "47f90ce218398eb7212c59786c49e2495e8850db548424e60c47d0c1f5c9a2ae"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/dependency-audit-report.json",
+      "size_bytes": 4016,
+      "sha256": "e1a19bbc7e60cd336a19bb5521508a16487863e7c9cd57de1ebfba63ae032478"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/final-release-rehearsal-report.json",
+      "size_bytes": 2181,
+      "sha256": "3c09111d2a9ee6fb79e11876073101abc013fa36901db2c3e96f0c420d8270c2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/finished-product-readiness-report.json",
+      "size_bytes": 14033,
+      "sha256": "da77cecb2ebeb778a1b593b69b9e72e46995d22260962d83ee35b811699d7d8d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/golden-workflow-report.json",
+      "size_bytes": 37076,
+      "sha256": "d5a3be4701b4d1d511c1626621c36e0dd1e6cd507ea3be79ee31da5b84b89e33"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/hard-release-readiness-gate.json",
+      "size_bytes": 19976,
+      "sha256": "4e94957c04eb903dc3dea51e53b9f9e9805769e1d94dd61d7b5497dc51d6a5cb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/package-channel-readiness-report.json",
+      "size_bytes": 17418,
+      "sha256": "1b1359d453685cae57e1f5a8978c71662233c02ee34e69c6e5fae3ad59281a89"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/release-architecture-tracker-report.json",
+      "size_bytes": 24355,
+      "sha256": "f088712bcf19773a0b8ade8128cc3d59d197c34c75b9525cf3efe22c85486ead"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/release-dry-run-transcript.json",
+      "size_bytes": 23235,
+      "sha256": "dd3a8eaa4d1f982a590ead249db7dff03b2484c446d1687cf6e8007debc390f3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/release-security-gate-report.json",
+      "size_bytes": 1393,
+      "sha256": "50d173b3a771102aee3f730c286acc481353cb3f036134efc7e182cd44c69680"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-ci-936313473fed/retrieval.json",
+      "size_bytes": 10514,
+      "sha256": "7592377ac49072cd959caf4fdb2b688116232d2410ea8e596baed1e3f824cf7b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-example-replay-1.report.json",
+      "size_bytes": 13876,
+      "sha256": "3ea15505e0caac3f53b3afb20c4bc80ffc2d981860c314606d53580446a5a14f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-hosted-postmerge-1.json",
+      "size_bytes": 16055,
+      "sha256": "13b70ef9f753567156f242a6a8a8595308f46fa6b01c8789069512144819bb89"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-local-evidence-bindings-1/asset-manifest.json",
+      "size_bytes": 7004,
+      "sha256": "9ab2153fb8178c5e4ae7d523f241a5e83a5924aa1fbaca3c6539593e691e4380"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-local-evidence-bindings-1/binding-receipt.json",
+      "size_bytes": 4348,
+      "sha256": "e3209ebfd238c55b70b284b64dfce82fd6db4bbfeb5cc7f70f97462411c112bd"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-local-evidence-bindings-1/supply-chain-release-evidence.json",
+      "size_bytes": 28174,
+      "sha256": "3e09759b9c1de342815027cf30385fa4b1dacf84355c813a1fc521882032ca8a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-local-prepublication-evidence-1.json",
+      "size_bytes": 7193,
+      "sha256": "ab0328dfe5b36705d016a29894aa7f23815c19a92a25f36b704f0eae86c77d04"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-observability-1.report.json",
+      "size_bytes": 46428,
+      "sha256": "6210832074cbc9e5bdbde903f924002f69e5041fa56b65b66fad489e70c653ac"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-primary-source-review-1.json",
+      "size_bytes": 6073,
+      "sha256": "a945b49025262f89537ebb374d0acafb17d11751a97227393253f449ce1d68ec"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-release-tail-evidence-1.json",
+      "size_bytes": 303685,
+      "sha256": "66e2fb79a69343f70cd7a6eb29587c56b5e7e955d687d31b4493b21c84e9b31f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-report-review-1.json",
+      "size_bytes": 15997,
+      "sha256": "b3e95ace26a917c2c424c1bf86089077e9df5f77c6e9bb7631ba1bbc17d969ef"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-source-ci-1.json",
+      "size_bytes": 84041,
+      "sha256": "1ac972ae7098464f810b7f2270ad3d823c5a76ed86f122a304b3e8affeb3eec6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-tail-api-schema-1.report.json",
+      "size_bytes": 2018,
+      "sha256": "be5f8893328fe83283bfde7e1ac1dd918ad6a22b29cf57fd1d59c4fe89869e84"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-tail-golden-1.report.json",
+      "size_bytes": 40342,
+      "sha256": "468887f93cfb71054b7af34eb6172d9814080b07fa69823326a97f65c6c49c14"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-060-tail-user-route-1.report.json",
+      "size_bytes": 25739,
+      "sha256": "a1ca1f35b6e5bdf9c34fc641395fcf2e96dcab98d487f7c47d308659e76aee98"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-tools/check_release_060_local_package.py",
+      "size_bytes": 4921,
+      "sha256": "a058e96574ca98b132e37fd8f1b33489861dd2eba3eefec93ca813d0ba7b6361"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-tools/check_source_ci_060.py",
+      "size_bytes": 8471,
+      "sha256": "6cfa3a35919892fd027bf955f9d6dbede8cb1dcbbea5cbd5352a4479d980ba61"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-tools/finalize_source_060.py",
+      "size_bytes": 13980,
+      "sha256": "bb1508ec8bb25807418345eeddf412aa8efc6d0a23681d63611685551f56e79b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-tools/verify_github_060.py",
+      "size_bytes": 34025,
+      "sha256": "95bcd44ac95910f7ef21ab21ec7d2d764a7af141b12040f7245f3ebd44461a5e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-tools/verify_hosted_060.py",
+      "size_bytes": 9460,
+      "sha256": "5ef36866076ce4b04bffa23547d317b4066c3d66c63f8bea88a49c4155dafd1e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/source-ci-raw/checks.json",
+      "size_bytes": 136028,
+      "sha256": "812a7b81ac26e7a5779037413c7157911ddebd4cc2862dea1f07ff7d27f165eb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/source-ci-raw/commit.json",
+      "size_bytes": 120065,
+      "sha256": "f29aa9c7c1281f7119294054b0fb8aa8ca6e744767bd0ace1c22bc783805b36b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/source-ci-raw/windows-job-original.json",
+      "size_bytes": 437045,
+      "sha256": "7c29edabf47326140205bf4ff618270891b256ea5939adc13c12aa7d5197229a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/source-ci-raw/windows-steps.json",
+      "size_bytes": 2916,
+      "sha256": "e34770c48a9afe961b2d7f595cc07154128a680403e6b4be754754f6ecb7206a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/source-ci-raw/workflows.json",
+      "size_bytes": 49809,
+      "sha256": "b312d9499cc9c54cb2db86c0c233ba202e819dcdabed50b206c1a3b3eb7282ab"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-assets442.json",
+      "size_bytes": 1783,
+      "sha256": "54b1972693a3c8d84591cc900936406320a072d802c411b447c112eb70fe7279"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-assets442.log",
+      "size_bytes": 87848,
+      "sha256": "f0d1a2d48963f68f3d575ebf239b7a61ff4fd32145686bb442c13f06b8eef1a4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-clippy439.json",
+      "size_bytes": 2365,
+      "sha256": "44d64f01709ad5bfddb6f292b565d2436e9e3235cd27087605c6b8ecceee90ba"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-clippy439.log",
+      "size_bytes": 990,
+      "sha256": "1a6bb4912b3b4bd7205dd22d770bbcac764236f3753b06f9d91e44c2cbe348eb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-fmt439.json",
+      "size_bytes": 2287,
+      "sha256": "e2ba45189eb985998334309b03c57d27f4b5a7c95e325f8bd0f80368f67ccaf8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-fmt439.log",
+      "size_bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-local-package440.json",
+      "size_bytes": 1782,
+      "sha256": "4cf3960942c1d3d8c616018a97a40d3cfb0ab3b9f4275ec82208c1bec2384e3c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-local-package440.log",
+      "size_bytes": 185,
+      "sha256": "5fb3c97118b341a801e6e2be9f3ecdde0ef970efd7db8ff984eba94b859030be"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-local-proof442.json",
+      "size_bytes": 1828,
+      "sha256": "66b2c6825dfabeeaded984bfc9d7cbf68ff6b8291e50c90c80eb3601bf869a46"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-local-proof442.log",
+      "size_bytes": 124,
+      "sha256": "d466775537790d495c3f004d6b6702297e796466eefacef55fae914bc89f712d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-merged-build442.json",
+      "size_bytes": 1761,
+      "sha256": "ce66838e6cc7e5462711b7792cb5fc275ba1faa3412b0faf2877a080f8fa011b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-merged-build442.log",
+      "size_bytes": 617,
+      "sha256": "7415aad7a6c61b7eaabd74badc810101c296d1a50872285332a44096a1c264c2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-python440.json",
+      "size_bytes": 3102,
+      "sha256": "d996f92fdb04e192426dc0891d432cc67a72400628a8303ef024de8003995832"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-python440.log",
+      "size_bytes": 30084,
+      "sha256": "a14b3aec2b5de5a34ff76f99d2b7a88900d6fd2be13d04c7ab7c4ed4ce735ed6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-source-build440.json",
+      "size_bytes": 1774,
+      "sha256": "b8ef8afba26fd12614b742c4935d078784d67a49e3be601b38ff4edae28baca7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-source-build440.log",
+      "size_bytes": 1916,
+      "sha256": "4a2cb3d7788c58cbad219818c26f7363b8261f8c439226f164d6d4ae2f72f51e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-tail440.json",
+      "size_bytes": 1715,
+      "sha256": "fbd03a8f0508acb37774f612f7620c15a0ca35c9974606184957554557578f08"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-tail440.log",
+      "size_bytes": 2721,
+      "sha256": "1107e97afe91e6503be68e7ab1f37be3151e9f661ef5fbc0d386ad92b6c27b89"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-tests439.json",
+      "size_bytes": 2329,
+      "sha256": "1cfd16dc74e6b9151ce5ec4557f23e7dc96a1d868f7c8081e92f0b926ace3043"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release060-tests439.log",
+      "size_bytes": 479654,
+      "sha256": "ce6bb2448f7e76fda39657181a3b734c1a67bf573d5915ab54e941e7d0fbf6ac"
+    }
+  ]
+}

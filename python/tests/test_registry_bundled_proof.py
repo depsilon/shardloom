@@ -48,12 +48,23 @@ class RegistryBundledProofTests(unittest.TestCase):
         return json.loads((ROOT / "docs/release/channel-proofs" /
                            f"{channel}-v{version}-transcript.json").read_text())
 
-    def validate(self, proof, channel):
+    def validate(self, proof, channel, version=None):
+        version = version or SELECTED_PACKAGE_RELEASE_VERSION
+        native_digest = None
+        if version == "0.6.0":
+            provenance = json.loads((ROOT / "docs/release/channel-proofs" /
+                                     f"{channel}-v{version}-provenance.json").read_text())
+            native_matches = [row["native_library"]["sha256"] for row in provenance["artifact_refs"]
+                              if row["filename"] == proof["installed_registry_artifact_filename"]
+                              and isinstance(row.get("native_library"), dict)]
+            self.assertEqual(len(native_matches), 1)
+            native_digest = native_matches[0]
         return bundled_registry_proof_blockers(
-            proof, channel_id=channel, package_version=SELECTED_PACKAGE_RELEASE_VERSION,
-            runtime_source_commit=PUBLISHED_REGISTRY_BUILD_IDENTITIES[SELECTED_PACKAGE_RELEASE_VERSION]["testpypi"]["source_commit"],
+            proof, channel_id=channel, package_version=version,
+            runtime_source_commit=PUBLISHED_REGISTRY_BUILD_IDENTITIES[version]["testpypi"]["source_commit"],
             smoke_stdout=(ROOT / "docs/release/channel-proofs" /
-                          f"{channel}-v{SELECTED_PACKAGE_RELEASE_VERSION}-bundled-smoke.stdout.json").read_bytes(),
+                          f"{channel}-v{version}-bundled-smoke.stdout.json").read_bytes(),
+            native_library_sha256=native_digest,
         )
 
     def test_accepts_both_recorded_bundled_installations(self):
@@ -63,7 +74,7 @@ class RegistryBundledProofTests(unittest.TestCase):
 
     def test_preserves_all_historical_installation_proofs(self):
         base = ROOT / "docs/release/channel-proofs"
-        for version in ("0.2.4", "0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.4.0"):
+        for version in ("0.2.4", "0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.4.0", "0.5.1"):
             for channel in ("testpypi", "pypi"):
                 with self.subTest(version=version, channel=channel):
                     proof = self.proof_for_version(channel, version)
@@ -75,8 +86,8 @@ class RegistryBundledProofTests(unittest.TestCase):
 
     def test_rejects_failed_missing_or_unbound_bundled_evidence(self):
         source_field = "source_commit" if SELECTED_PACKAGE_RELEASE_VERSION == "0.2.4" else "release_source_commit"
-        version_field = "version" if SELECTED_PACKAGE_RELEASE_VERSION == "0.5.1" else "cli_version"
-        cli_field = "bundled_cli" if SELECTED_PACKAGE_RELEASE_VERSION == "0.5.1" else "resolved_cli_path"
+        version_field = "version" if SELECTED_PACKAGE_RELEASE_VERSION in {"0.5.1", "0.6.0"} else "cli_version"
+        cli_field = "bundled_cli" if SELECTED_PACKAGE_RELEASE_VERSION in {"0.5.1", "0.6.0"} else "resolved_cli_path"
         mutations = [
             (("proof_status",), "failed", "proof_status must be passed"),
             (("status",), "failed", "status must be passed"),
@@ -196,10 +207,10 @@ class RegistryBundledProofTests(unittest.TestCase):
                 with self.subTest(channel=channel, expected=expected):
                     proof = copy.deepcopy(original)
                     proof["bundled_cli_supplemental_proof"]["steps"][3]["command"] = changed
-                    self.assertIn(expected, "; ".join(self.validate(proof, channel)))
+                    self.assertIn(expected, "; ".join(self.validate(proof, channel, "0.5.1")))
             proof = copy.deepcopy(original)
             proof["bundled_cli_supplemental_proof"]["shared_smoke_sha256"] = "f" * 64
-            self.assertIn("shared smoke digest", "; ".join(self.validate(proof, channel)))
+            self.assertIn("shared smoke digest", "; ".join(self.validate(proof, channel, "0.5.1")))
 
     def test_rejects_missing_changed_or_unrelated_captured_stdout(self):
         for channel in ("testpypi", "pypi"):

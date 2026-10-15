@@ -4,9 +4,9 @@ This package provides a Python client for ShardLoom, a Vortex-native,
 no-fallback, evidence-certified local compute engine. Its default transport
 invokes the workspace `shardloom` CLI with `--format json`, parses the stable
 `OutputEnvelope`, and preserves typed result/artifact/certificate payloads,
-diagnostics, fallback status, and the temporary legacy field mirror. Current
-source builds also include an optional in-process native binding for direct
-plans and results; see [Source-only native Python API](#source-only-native-python-api).
+diagnostics, fallback status, and the temporary legacy field mirror. The
+published Linux x86_64 and macOS arm64 wheels also include an optional in-process
+native binding for direct plans and results; see [Native Python API](#native-python-api).
 
 Importing the package has no ShardLoom side effects. Work begins only when a
 caller explicitly invokes a client command, native operation, or scoped Python
@@ -32,20 +32,26 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
-The current published local-engine release is 0.5.1, with verified GitHub, TestPyPI, PyPI and
-Homebrew access. The source package reports its version through `shardloom.__version__`;
-development checkouts should use editable installs so Python and CLI revisions remain aligned.
+The installed package reports its version through `shardloom.__version__`.
+The [live installation guide](https://shardloom.io/start/) records current channel
+availability and verified artifacts. Development checkouts should use editable
+installs so Python and CLI revisions remain aligned.
 Operational hardening is in progress. The technical-preview designation refers to the remaining local workload,
 resource and failure acceptance in the
 [exit criteria](../docs/release/production-certification-gate.md#local-engine-preview-exit-criteria).
 Package access does not imply production readiness, broad runtime support, or performance claims.
 
-## Source-only native Python API
+<a id="source-only-native-python-api"></a>
 
-The current source tree includes the optional `shardloom.native` API for
-direct in-process `Session`, typed `Relation`/`Expression`, `Plan`, and retained
-`Result` objects. This extension is not part of the published 0.5.1 package;
-follow the [native source build and isolated install instructions](../docs/getting-started/source-checkout-install.md#optional-native-python-binding).
+## Native Python API
+
+The 0.6.0 release added the optional `shardloom.native` API to its Linux x86_64
+and macOS arm64 wheels for direct in-process `Session`, typed `Relation`/`Expression`,
+`Plan`, and retained `Result` objects. Those wheels use `cp310-abi3`; the Linux
+wheel requires the audited `manylinux_2_39_x86_64` platform. Windows retains the
+CLI-backed package, and the source distribution does not contain native binaries.
+See the [published artifact and installation proof](../docs/release/v0.6.0-publication-verification.md)
+or the [native source build instructions](../docs/getting-started/source-checkout-install.md#optional-native-python-binding).
 The [local acceptance report](../docs/benchmarks/native-python-surface-2026-10-11.md)
 records complete results, ownership/failure checks and paired Python workflows.
 The ordinary `ShardLoomClient` continues to use the subprocess transport by
@@ -87,8 +93,9 @@ Arrow export and native execution do not construct those row objects. Imported
 foreign buffers are copied into admitted native ownership when safe borrowing is
 unavailable; encoded Vortex values may require conversion at the Arrow boundary.
 The measured Python workflows have their own recorded scope and do not establish
-an ingest, Full43 or general query-kernel speedup. Local wheel proof does not
-establish public package or platform readiness.
+an ingest, Full43 or general query-kernel speedup. Published installation
+evidence remains scoped to the platform and workflow checks recorded for each
+channel; it does not establish general runtime parity.
 
 Native ShardLoom results and sources can be passed directly to
 `Session.from_arrow` or `ctx.from_arrow_table` with the native transport;
@@ -96,7 +103,7 @@ they do not need an Arrow export first. Same-session sources share ownership.
 Transfers between sessions copy supported encoded buffers into the receiving
 allocation and keep a receipt of intake work. Later queries reuse that source.
 
-For an independent Vortex producer, the source-only
+For an independent Vortex producer, the
 `ctx.from_vortex_ipc(array_message, dtype_message=dtype_message)` helper
 accepts complete framed messages for the pinned Vortex provider as immutable
 Python `bytes`.
@@ -229,10 +236,12 @@ for compatibility, tests, and schema-pinned examples. The context returns a lazy
 the shared native workflow for admitted work. Collection returns the complete typed result; a
 write executes the same query into the declared sink.
 
-The resource-configured examples in this guide use the current source build.
-Published v0.5.1 packages retain their release-time API. Build and install the
-matching source revisions using the
-[source checkout guide](../docs/getting-started/source-checkout-install.md).
+The resource-configured examples use the explicit-resource API introduced
+in 0.6.0. Upgrading from 0.5.1 requires an explicit memory and parallelism
+allocation before inspection, preparation or execution; lazy declarations and
+inert capability queries remain resource-free. Set the allocation once on a
+client, context or session, or pass it to the terminal operation. See the
+[migration notes](../docs/release/v0.6.0-release-notes.md#migration-declare-execution-resources).
 The example allocation of 16 GiB and 8 lanes is an illustrative caller choice.
 
 ```python
@@ -549,8 +558,8 @@ print(report.result_rows)
 workflow.write_vortex("deduplicated-cargo.vortex")
 ```
 
-These collections admit at most 65,536 rows and 8 MiB of JSONL. Current source
-builds admit top-level field metadata through the shared memory grant.
+These collections admit at most 65,536 rows and 8 MiB of JSONL. Version 0.6.0
+admits top-level field metadata through the shared memory grant.
 Larger results use bounded batches through `write_vortex`, `write_parquet`,
 `write_arrow_ipc`, `write_avro`, `write_orc`, `write_json`, `write_jsonl` or `write_csv`,
 subject to each format's dtype contract and the operation's state budget. Native
@@ -572,26 +581,26 @@ with workflow.iter_batches(batch_rows=1024) as batches:
 `sl.from_batches(producer, schema={"id": "int64", "label": "utf8"})` and
 `ctx.from_batches(...)` declare resident input from sequences of row mappings.
 Pass a factory returning fresh batches for repeated execution, or an iterable
-for one execution. Declaration does not call the producer. Current source builds
-after v0.5.1 admit explicit exact-width signed and unsigned integers, finite
+for one execution. Declaration does not call the producer. Version 0.6.0
+admits explicit exact-width signed and unsigned integers, finite
 Float32/Float64, Boolean, UTF8, binary, Decimal128, Date32, timezone-free
 microsecond timestamps, lists, fixed-size lists and ordered structs. The original
 four scalar declarations, aliases and inference remain compatible; rich types
 require an explicit schema. Each batch has at most 2,048 rows and an 8 MiB frame.
-Current source builds admit field and retained batch metadata through the shared
+Version 0.6.0 admits field and retained batch metadata through the shared
 memory grant, with no fixed total field or batch count. In default resident mode
 (`streaming=False`), accumulated native input must fit that grant. Published
 v0.5.1 artifacts retain their release-time input types and limits. Output supports
 the existing admitted typed/nested schemas, with the same 2,048-row / 8-MiB payload ceiling.
-Current source builds normalize admitted compatibility file inputs to Vortex
+Version 0.6.0 normalizes admitted compatibility file inputs to Vortex
 inside the same cancellable batch transaction and native memory allocation.
 The [composition contract](../docs/architecture/native-stream-input-composition-2026-10-13.md)
 records this preparation lifecycle and the independent completion of each producer.
 See the [complete batch contract and example](../docs/architecture/native-bounded-adapters-2026-10-06.md)
 for backpressure, conversions, timeout scope and final-validation semantics.
 The [input growth contract](../docs/architecture/native-input-growth-2026-10-09.md)
-applies to source builds after the 0.5.1 release; published 0.5.1 artifacts retain
-their release-time limits. Schema declarations still have an 8 MiB envelope.
+is included in 0.6.0; historical 0.5.1 artifacts retain their release-time
+limits. Schema declarations still have an 8 MiB envelope.
 
 `from_rows` and `from_batches` share the native memory-input schema. For example,
 an explicit schema can preserve a full-width unsigned identifier and binary bytes:
@@ -610,9 +619,9 @@ the value; other valid temporal values remain exact integer epoch days or
 microseconds, including nested fields. The
 [complete typed-input acceptance](../docs/benchmarks/native-typed-input-2026-10-10.md)
 records complete values, writer fidelity, failure controls and the review correction.
-This source capability does not change the published v0.5.1 packages.
+These typed-input additions are included in 0.6.0.
 
-Current source builds also accept `streaming=True` for distinct finite batch sources,
+Version 0.6.0 accepts `streaming=True` for distinct finite batch sources,
 each consumed once through scan/filter/project, global sorting, aggregation, joins, windows,
 dynamic pivot and limits, alongside ordinary native file or resident sources.
 This can process cumulative input larger than the native grant by retaining at
@@ -653,8 +662,8 @@ Each producer must reach its own explicit end event before results are final; ea
 batches remain provisional and late failures remain failures.
 
 The per-batch row and frame bounds still apply, with a separate 16 MiB wire-frame
-ceiling and 32 MiB native logical-intake limit per batch. Current source builds
-admit cumulative batches and field metadata through the shared grant.
+ceiling and 32 MiB native logical-intake limit per batch. Version 0.6.0
+admits cumulative batches and field metadata through the shared grant.
 Typed intake and output compaction are charged copies; output reservations
 and native sink metadata remain separate. Replay copies and passes have separate
 `native_input_replay_*` counters; ordinary one-pass sources keep no replay cache.

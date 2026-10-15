@@ -4,8 +4,8 @@
 
 Status marker: `source_checkout_install_v1=true`.
 
-Use this path to run the current repository revision, including changes made
-after the published v0.5.1 packages. Build the CLI and use the Python package
+Use this path to run the current repository revision. For the published
+v0.6.0 packages, see [Package User Install Status](package-user-install.md). Build the CLI and use the Python package
 from the same checkout. This local proof does not establish production readiness,
 performance superiority, Spark replacement, or broad SQL/DataFrame support.
 
@@ -58,9 +58,10 @@ $env:SHARDLOOM_BIN = "target\debug\shardloom.exe"
 
 ## Optional Native Python Binding
 
-Current source adds `shardloom.native` and the explicit client option
-`transport="native"`. Published 0.5.1 wheels have not been replaced. An editable
-Python install alone does not compile the extension. Build the extension, CLI
+Published 0.6.0 Linux x86_64 and macOS arm64 wheels include `shardloom.native`
+and the explicit client option `transport="native"`. This section builds the
+matching extension from source. An editable Python install alone does not
+compile the extension. Build the extension, CLI
 and Python package from one checkout, then verify the resulting wheel in an
 isolated environment. The [acceptance report](../benchmarks/native-python-surface-2026-10-11.md)
 records the tested host and complete workflow scope.
@@ -97,19 +98,22 @@ NATIVE_TARGET="$(cargo metadata --offline --no-deps --format-version 1 | \
   --wheelhouse "$NATIVE_WORKSPACE/wheelhouse"
 ```
 
-The proof retains the wheel under `proof/dist`, its report and logs under
-`proof`, and a separate installed environment at `proof/venv`. It verifies wheel
-RECORD hashes, legal notices, the actual extension and CLI imports, and every
-native integration test. A skipped native test fails this proof. Use
-`"$NATIVE_WORKSPACE/proof/venv/bin/python" -I` to try the
-[native API example](../../python/README.md#source-only-native-python-api).
-The installed optional PyArrow consumer supplies the Arrow interchange example;
-ShardLoom still owns execution. Nothing is published, and the caller's existing
-Python environment is not changed.
+The proof retains the wheel under `proof/dist` and its report and logs under
+`proof`. It verifies wheel RECORD hashes, legal notices, the actual extension
+and CLI imports, every native integration test, and complete package uninstall.
+A skipped native test fails this proof. Its temporary `proof/venv` no longer
+contains ShardLoom afterward. To try the
+[native API example](../../python/README.md#native-python-api), install the
+retained wheel in a separate environment. The example uses optional PyArrow
+for Arrow interchange; ShardLoom owns execution. The proof publishes nothing
+and does not change the caller's existing Python environment.
 
-Windows extension execution, other unobserved platforms, Linux wheel portability
-and public distribution retain separate acceptance requirements. CLI-backed
-Python remains available through its existing supported-platform package path.
+Local Linux wheels built by the command above retain their host-specific tag.
+The publication workflow separately runs the compatibility audit and installed
+proof for the published `manylinux_2_39_x86_64` wheel. Windows native extension
+execution remains unsupported; its published Python wheel uses the bundled CLI.
+See the [0.6.0 distribution proof](../release/v0.6.0-publication-verification.md)
+for actual platform and interpreter coverage.
 
 ## Single Local Proof
 

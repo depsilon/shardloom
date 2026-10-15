@@ -1,0 +1,192 @@
+{
+  "schema_version": "shardloom.published_golden_workflow_identity.v1",
+  "status": "passed",
+  "release_source_commit": "936313473fedca78176d1fd983446673ed8ae62b",
+  "published_binary_sha256": "30d6e4766f2c0dee73b3c1b1f4dea88c76a9ca536c1a53c335a14fe0e83cdc6f",
+  "published_binary_source": {
+    "generation": [
+      16777233,
+      108477771,
+      75292384,
+      1792029650082660616,
+      1792029650082660616
+    ],
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/github-package-proof-v0.6.0-936313473fed/downloads/shardloom",
+    "sha256": "30d6e4766f2c0dee73b3c1b1f4dea88c76a9ca536c1a53c335a14fe0e83cdc6f",
+    "size_bytes": 75292384
+  },
+  "github_transcript_ref": "docs/release/channel-proofs/github-prerelease-v0.6.0-transcript.json",
+  "github_transcript_sha256": "e989381decc608d99c992e1173bebcc3f43a8d95906577a329c025e0daa05e2f",
+  "workflow_report_ref": "docs/release/evidence/v0.6.0-published-golden-workflow-report.json",
+  "workflow_report_sha256": "b132bff2b4537549752e4d0f4eeae5d97e3aa55b61bc1b46a4b09157df704238",
+  "supervision_receipt_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/receipt.json",
+  "supervision_receipt_sha256": "4be9044c164d17c77f0aa325e30e9d0c88a3d3743f433da03d5fa407ef1b6c6b",
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "timed_out": false,
+  "python_wrapper_origin": "unchanged source client matching the release",
+  "source_pins": {
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/context.py": "8a05ca7bfda9b606aaf648f3e74d3d5a01095718560cd9d18ed098adb2ec4603",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_relational_sql.py": "49374cccb2cd580eaff371412eff36d51858c889c6b869b7edd0bcd8407656ea",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_result_schema.py": "a333496967e0a7a77c091194ccbe32b43c8be55d583ac9dbdc60019bae78f355",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/check_golden_workflows.py": "2a44e784c73974b0b4aa7031024b190a18d0c92a29ae7bec9bbea4a7f5cbac09",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/client.py": "10de63e08cb7f35e7e780513079a971601983e6eaf01cd65daf81dfc32fa552a",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/query.py": "26258bfeb70bf471bc1b5eeff728c555f10496f8362f824bb63f8bfb50244509",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/release_feature_contract.py": "eda7a1305bcf26477a81765795c8f6ceed2ba383b8a71fe45328d1806d89701b",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/__init__.py": "c165dcf2abfb0c0b7563f165a1ebebf6e544680bd752ef9e86dbb50b8fb3e666",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_compat.py": "e45cc0674b26eaae5b9992affc180092e2957d1d9e6e064940d8a4bc98cdce0f",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/native_workflow_protocol.py": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/errors.py": "fbb27bbe891292e4d2912bed52a8454e650e2312a66b62719861450d47e34273",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_version.py": "846878f7d86e573aacc97e3efca93e6ac29870c84c7b436382c528ed2b733e3d",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_batches.py": "035a1e541c5bd59765c0538507f454dc3b5133233fc3149ad3b8dc22ff064daf",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_input_schema.py": "ac6390e904cad8f0141bb4f0ccb323029f60b672f8b76f487e2bc3ca67845f48",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/execution_resources.py": "19490a1bfd43b0422fd359b2c721e97f0243fad0351ab477ce95e10bbec2dbde",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/native.py": "c9fca7e207421c05cceeed231bd83a824351c57095b7c49fa7049fbebd768110",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/status/runs-today-support-matrix.json": "e9b3ea07c758a1256229b168d289a5e4c4ad1b5d034b0c69b0f8c15d7e4d553a",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/golden_workflow_contract.py": "31c2538c892896845933843acb6b88eb7f7c9761be2de1bf7be3480f8a80b8a0",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/session.py": "44ec9405a0f01d36c726f16efab0d9f228a624904986e37b47e0787ebe822fa6",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/_native_backend.py": "ce75a6dffaa68c94f98c10503fa74f6575bfe0217815ecddb6d5191dbec57552",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/python/src/shardloom/py.typed": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/github-package-proof-v0.6.0-936313473fed/downloads/shardloom": "30d6e4766f2c0dee73b3c1b1f4dea88c76a9ca536c1a53c335a14fe0e83cdc6f",
+    "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+    "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/release-tools/prove_published_golden_450.py": "787708e0be8f7cae24b90e244a19a6e431d93e00bc5d0b93a3ab3b24ac8c0d64",
+    "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/release/channel-proofs/github-prerelease-v0.6.0-transcript.json": "e989381decc608d99c992e1173bebcc3f43a8d95906577a329c025e0daa05e2f",
+    "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/shardloom": "30d6e4766f2c0dee73b3c1b1f4dea88c76a9ca536c1a53c335a14fe0e83cdc6f"
+  },
+  "primary_reopened_complete_outputs": {
+    "jsonl": [
+      {
+        "id": 2,
+        "label": "beta",
+        "amount": 15
+      },
+      {
+        "id": 3,
+        "label": "gamma",
+        "amount": 21
+      }
+    ],
+    "csv": [
+      {
+        "id": "2",
+        "label": "beta",
+        "amount": "15"
+      },
+      {
+        "id": "3",
+        "label": "gamma",
+        "amount": "21"
+      }
+    ],
+    "vortex_readback": [
+      {
+        "id": 1,
+        "label": "alpha",
+        "score": 1.5
+      },
+      {
+        "id": 2,
+        "label": "beta",
+        "score": 2.25
+      },
+      {
+        "id": 3,
+        "label": "gamma",
+        "score": 4.5
+      }
+    ]
+  },
+  "observed_artifacts": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/command-envelopes/fixture_vortex_count_where_certificate.json",
+      "sha256": "28f85ec4792535fd8e864dd26c03d6368716c9690d4e08fdcb9ec47a6fb39bdd",
+      "size_bytes": 77695
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/command-envelopes/fixture_vortex_filter_project_certificate.json",
+      "sha256": "4d0d08ce18e20b32fdad73a02954e61616c5684405a41cc9bb7c49d32b283a1c",
+      "size_bytes": 56316
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/command-envelopes/fixture_vortex_project_certificate.json",
+      "sha256": "9e3d4bfbbaddf85552a14574cf146ef23b5532c8f067d4b9854f44dd672d6487",
+      "size_bytes": 54015
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/command-envelopes/local_csv_vortex_ingest.json",
+      "sha256": "46898f45cb8a4d07c9856f622ee83a7c4b042467c58519126167b45cfda98def",
+      "size_bytes": 250485
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/command-envelopes/local_prepared_vortex_filter_project.json",
+      "sha256": "1dbab5441efd4437586da59a126de3eb1303333079b3f192991bf95f7df4c7e3",
+      "size_bytes": 49926
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/command-envelopes/local_prepared_vortex_sql_jsonl_csv_fanout.json",
+      "sha256": "141e583f27b861ee92bd1828ba9ae5296be487baa1fdeb018c63efa16eeb86d1",
+      "size_bytes": 84210
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/command-envelopes/python_prepare_vortex_wrapper.json",
+      "sha256": "c394b4e7cf11319741e9b216265c40a0708dc469f80af4a477412c2859714ec7",
+      "size_bytes": 533
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/command-envelopes/source_free_sql_vortex_output.json",
+      "sha256": "f9ee700b7f63148cce5218d3770adf0b664e32e66cdf4fcc21480c479031f20f",
+      "size_bytes": 82884
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/command-envelopes/source_free_vortex_complete_readback.json",
+      "sha256": "215c73653b14f858ddea3114c033317a3cd0a6b926e519f888924d0d72cc4636",
+      "size_bytes": 54483
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/local-csv-orders.csv",
+      "sha256": "ac7817f8985a48297e0a482869e893fdabeb5b9fde2feafa7e4be370ee562e84",
+      "size_bytes": 47
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/local-csv-orders.vortex",
+      "sha256": "fb2e93a5f7139430ee16fee6b85873f7c2ca4ef0c25c99e45b12893486b4724d",
+      "size_bytes": 4188
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/local-query-output.csv",
+      "sha256": "0e5785998f448bf06024bb3726207ae4182bba0fef79a100dd95e67339fcc1b1",
+      "size_bytes": 37
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/local-query-output.jsonl",
+      "sha256": "ee00fc324f23308058cdd31839679396624e0a9a952bcf3472090deff9b2c777",
+      "size_bytes": 73
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/python-wrapper-orders.csv",
+      "sha256": "ac7817f8985a48297e0a482869e893fdabeb5b9fde2feafa7e4be370ee562e84",
+      "size_bytes": 47
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/python-wrapper-orders.vortex",
+      "sha256": "fb2e93a5f7139430ee16fee6b85873f7c2ca4ef0c25c99e45b12893486b4724d",
+      "size_bytes": 4188
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450-attempt2/work/runs/20261014-224249-29604/source-free-sql-output.vortex",
+      "sha256": "46265b93da237d43fbfeb284b80e8b9973aff71d618bf55c3276e167b51cb7cb",
+      "size_bytes": 2924
+    }
+  ],
+  "prior_failed_launch": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/release-v0.6.0/published-golden-450/receipt.json",
+    "sha256": "8df4e3c97a2b7e08e98ba1c7ad9fa5abca7a54c3fc157ef712eefbce60ecec88",
+    "reason": "GitHub raw download lacked executable permission; successful attempt used a new hash-identical executable copy. No golden stage executed in failed launch."
+  },
+  "runtime_scope": "Three small golden workflows and nine stages; not a performance or pressure test.",
+  "fallback_attempted": false,
+  "external_engine_invoked": false
+}

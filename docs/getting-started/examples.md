@@ -10,9 +10,10 @@ object-store/lakehouse, Foundry, or Spark-displacement claims.
 
 ## Stable V1 Local Examples
 
-These examples use the current [source build](source-checkout-install.md).
-Published v0.5.1 packages retain their release-time API. Configure the resource
-allocation once on `sl.context(...)`, then use `ctx.read(path)`; use explicit
+These examples use the published [0.6.0 API](package-user-install.md) and
+the matching [source build](source-checkout-install.md). Upgrading from 0.5.1
+requires explicit memory and parallelism allocations. Configure them once on
+`sl.context(...)`, then use `ctx.read(path)`; use explicit
 schemas or format-specific helpers when a test, benchmark, or reproducibility
 workflow needs them. The examples must emit ShardLoom evidence instead of
 delegating unsupported work to another engine. The 16 GiB / 8 lane allocations
