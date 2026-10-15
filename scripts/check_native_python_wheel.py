@@ -21,6 +21,10 @@ from release_dry_run_proof import bundled_cli_platform_tag
 from stage_native_python_package import sha
 
 
+AUDITED_LINUX_PLATFORM = "manylinux_2_39_x86_64"
+AUDITWHEEL_VERSION = "6.8.2"
+
+
 def member_identity(archive: zipfile.ZipFile, name: str) -> tuple[str, int]:
     digest, size = hashlib.sha256(), 0
     with archive.open(name) as stream:
@@ -48,7 +52,8 @@ def verify_record(archive: zipfile.ZipFile, record: str) -> None:
             raise ValueError(f"wheel RECORD identity mismatch: {name}")
 
 
-def verify(root: Path, wheel: Path, library: Path, binary: Path) -> dict:
+def verify(root: Path, wheel: Path, library: Path, binary: Path, *,
+           linux_audit: dict | None = None) -> dict:
     licenses = verify_notices(root)
     for path in (wheel, library, binary):
         if path.is_symlink() or not path.is_file():
@@ -60,7 +65,17 @@ def verify(root: Path, wheel: Path, library: Path, binary: Path) -> dict:
     expected_version = tomllib.loads((root / "Cargo.toml").read_text())["workspace"]["package"]["version"]
     if version != expected_version:
         raise ValueError("native wheel version differs from its source workspace")
-    if not platform.startswith(("linux_", "macosx_")):
+    audit_verified = False
+    if platform == AUDITED_LINUX_PLATFORM:
+        required = {"schema_version": "shardloom.native_python_linux_audit.v1",
+                    "status": "passed", "platform": platform,
+                    "auditwheel_version": AUDITWHEEL_VERSION,
+                    "wheel_sha256": sha(wheel), "payloads_unchanged": True}
+        if not isinstance(linux_audit, dict) or any(
+                linux_audit.get(key) != value for key, value in required.items()):
+            raise ValueError("portable native wheel requires its successful exact-artifact audit")
+        audit_verified = True
+    elif not platform.startswith(("linux_", "macosx_")):
         raise ValueError("native wheel has no audited portable platform contract")
     dist_info = f"shardloom-{version}.dist-info"
     library_name = "shardloom/_native.abi3.so"
@@ -106,6 +121,7 @@ def verify(root: Path, wheel: Path, library: Path, binary: Path) -> dict:
             "wheel": wheel.name, "wheel_sha256": sha(wheel), "wheel_bytes": wheel.stat().st_size,
             "native_library_sha256": native_sha, "cli_sha256": cli_sha,
             "tag": f"cp310-abi3-{platform}", "python_source_files": len(source_names),
+            "linux_audit_verified": audit_verified,
             "licenses": licenses, "load_verified": False, "published": False}
 
 

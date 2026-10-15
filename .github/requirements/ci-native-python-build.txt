@@ -7,3 +7,11 @@ setuptools==84.0.0 \
     --hash=sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670
 wheel==0.48.0 \
     --hash=sha256:3217dcc807155e45db462d7ef2431f5ddda0d7273b700d05a67b271ceb1287ab
+# Linux release audit only; MIT/BSD/Unlicense tooling, no runtime dependency.
+# Reviewed wheel identities and included licenses on 2026-10-14:
+# https://pypi.org/pypi/auditwheel/6.8.2/json
+# https://pypi.org/pypi/pyelftools/0.33/json
+auditwheel==6.8.2 ; sys_platform == "linux" \
+    --hash=sha256:05fd2dd4b743217cd5f66066adc95b03a079424b1f0a878ad1e40fe2cdea4704
+pyelftools==0.33 ; sys_platform == "linux" \
+    --hash=sha256:f215ad5f47d3f1373a21496a6c9e0707c622840d0622f23ff7ce08678b020036

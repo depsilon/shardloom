@@ -46,10 +46,17 @@ Current source additionally implements the optional
 [native Python surface](../architecture/native-python-surface-2026-10-10.md).
 Its [local acceptance](../benchmarks/native-python-surface-2026-10-11.md) covers
 native input/results, in-process operations, typed plans, an isolated installed
-wheel and six paired complete Python workflows. Hosted integration remains
-pending. Published 0.5.1 packages are unchanged; local source/wheel proof does not
+wheel and six paired complete Python workflows. Hosted integration completed in
+[PR #1541](https://github.com/depsilon/shardloom/pull/1541). Published 0.5.1
+packages are unchanged; local source/wheel proof does not
 change the public platform or production-support promise, or establish a new
 ingest or Full43 result.
+
+The maintainer-requested [v0.6.0 candidate](v0.6.0-release-notes.md) packages the
+subsequent native Python, typed-input, streaming-composition and resource work.
+Its release workflow requires Linux compatibility auditing and actual isolated
+native-wheel installation tests. Publication and new channel proofs remain
+pending; the selected published-channel contract still identifies v0.5.1.
 
 The local engine executes admitted SQL, Python/DataFrame and CLI workflows through one native
 pipeline, including typed and nested results, exact decimal reductions, analytic frames and

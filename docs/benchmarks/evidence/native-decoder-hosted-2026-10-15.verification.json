@@ -1,0 +1,19 @@
+{
+  "all_members_match_originals": true,
+  "archive": {
+    "bytes": 238532,
+    "path": "native-decoder-hosted-2026-10-15.tar.xz",
+    "sha256": "c657975c5e2ee5bf2552fc59f779df4a6eee9b4dc87d350343a1c9146ce3741e"
+  },
+  "manifest": {
+    "bytes": 3821,
+    "path": "native-decoder-hosted-2026-10-15.manifest.json",
+    "sha256": "0c3d545ff22b926563fe18452960a65c213903276a81604ffe031c954f803ebd"
+  },
+  "members_verified": 21,
+  "original_bytes_verified": 1589206,
+  "production_responses_verified": 4,
+  "schema_version": "shardloom.native_decoder_hosted_packet_verification.v1",
+  "status": "passed",
+  "unchanged_website_source_verified": true
+}

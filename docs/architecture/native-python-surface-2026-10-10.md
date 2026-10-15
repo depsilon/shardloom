@@ -7,8 +7,10 @@ The [acceptance report](../benchmarks/native-python-surface-2026-10-11.md) recor
 source gates, installed local/hosted wheels, lifetime/failure checks and six paired
 Python workflows. Distribution retains its own gates. The old experiment remains
 historical; its unbuilt status is not a measured rejection.
-Owners remain PERF-02/03/07/11/12 and the existing capability gates. Version 0.5.1
-stays fixed; all remaining six areas/eight investigations remain in the queue.
+Owners remain PERF-02/03/07/11/12 and the existing capability gates. The October 14
+maintainer direction authorizes one 0.6.0 distribution milestone after PR #1551;
+published 0.5.1 artifacts remain immutable. All remaining six areas/eight
+investigations remain in the queue after that release.
 
 The engine already computes in Rust. The priority is removing compulsory
 native-columnar to Python-row to columnar conversions and per-value JSON input
@@ -337,16 +339,33 @@ platform packages; it is not a linked-component SBOM or a license-policy decisio
 `prove_native_python_wheel.py` builds that stage and creates a clean virtual
 environment, installs the exact wheel and pinned optional Arrow consumer, verifies
 imports resolve inside that environment, and runs the complete required native
-binding integration suite. No-test and skipped-test outcomes fail. It preserves
-failed logs and emits artifact identities, test counts and installation evidence.
+binding integration suite, then uninstalls the package and verifies that its
+module and bundled binaries are gone. No-test and skipped-test outcomes fail.
+It preserves failed logs and emits artifact identities, test counts and
+installation/uninstallation evidence.
 Build and runtime proof on a developer Mac must still use the storage/workload
 supervisor. These commands do not publish or install into the caller's environment.
 
 The dedicated CI lane covers Ubuntu Python 3.10/3.13 and macOS Python 3.13.
 The declared stable ABI is `cp310-abi3`; successful load must be observed on each
-tested interpreter. Linux wheels use `linux_<architecture>` until a separate
-shared-library audit proves portability. Windows native extension support and
-unobserved platforms are not implied. Existing CLI-only wheels retain their tags.
+tested interpreter. Ordinary Linux builds use `linux_<architecture>`. The
+explicit `--audit-linux` proof path, required by CI and registry publication,
+uses pinned auditwheel 6.8.2 to validate both the native module and bundled CLI
+against `manylinux_2_39_x86_64`. Its `none` patcher refuses required binary
+rewrites; complete archive comparison additionally rejects new libraries,
+removed files or changed payloads. Only WHEEL and RECORD metadata may change,
+and every RECORD entry is verified. The audited wheel's digest is bound to its
+installed-package tests and uninstall proof before publication staging. Windows
+native extension support and unobserved platforms are not implied. Existing
+CLI-only Windows wheels retain their tags.
+
+The audit is build tooling only. The reviewed
+[auditwheel implementation](https://github.com/pypa/auditwheel/tree/6.8.2) is
+MIT with permissive vendored notices; [pyelftools 0.33](https://github.com/eliben/pyelftools/tree/v0.33)
+is Unlicense with MIT-licensed construct code. Both wheels are hash-pinned;
+neither tool nor an ELF patcher is added to ShardLoom's runtime package. The
+symbol, library and ISA checks remain enabled. A failed audit blocks publication
+instead of substituting an unaudited tag or changing the native runtime.
 CI pins [PyArrow 25.0.1](https://pypi.org/project/pyarrow/25.0.1/), the consumer used
 by local integration, and build tooling separately with reviewed wheel hashes.
 PyArrow is an optional interchange test dependency, not a Python execution engine.

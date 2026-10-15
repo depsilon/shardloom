@@ -1,0 +1,169 @@
+{
+  "archive": {
+    "bytes": 238532,
+    "path": "native-decoder-hosted-2026-10-15.tar.xz",
+    "sha256": "c657975c5e2ee5bf2552fc59f779df4a6eee9b4dc87d350343a1c9146ce3741e"
+  },
+  "changed_since_measurement": {
+    "scripts/run_clickbench_paired_query_uat.py": {
+      "measured_sha256": "5c05151c1ba7c261eee01fc111ffefa6cc7ecd225c2446d427fed2ce517a7429",
+      "merged_sha256": "cfe63440975ac562cd157a7ed334e3bedd73548a99feef1efa91b94e5e45f33d"
+    },
+    "scripts/run_clickbench_query_uat.py": {
+      "measured_sha256": "b191e6bd4bf0546adf06c3e50fdc0b943ed79eb8839837e7d11914329782afdb",
+      "merged_sha256": "7f910b496e2143bf7b1353403566e3782690732684c34619ff0bf342122d597d"
+    },
+    "scripts/test_clickbench_paired_query_uat.py": {
+      "measured_sha256": "883f84423c5e9e67d732fb9fe474d0c8b9c40337fb463692a38d93c63e471e06",
+      "merged_sha256": "bf4522f8f8c38613034542ff7aa1b3cf7818a636810d568365850f80ee8513c8"
+    },
+    "scripts/test_clickbench_query_uat.py": {
+      "measured_sha256": "a23ae405d83ae9aa465adb11481b597dfc5c8feb485dd56ba0dd0cf162843a77",
+      "merged_sha256": "dea6880e71c63e856633839963c0013ba37e4e25dd1d576f4b2838605652f101"
+    },
+    "shardloom-vortex/src/native_provider_decoder_scratch_tests.rs": {
+      "measured_sha256": "7e4015b1b441293142aaaa87cfc3eab8788fb8eefbe5ccf3f218166085e30221",
+      "merged_sha256": "3489790f84bcd13f70ec00c2e39cb61b8a1d672bcdd92589ce06712cc9fff9fc"
+    }
+  },
+  "collected_utc_date": "2026-10-15",
+  "equal_reviewed_synthetic_merged_trees": {
+    "4bf75be76e6f2439caa75d971f37b3541eb2fdde": "4296602448ef30ee1219adea9b8b234d1dbc233a",
+    "b6d9318d42efb84275742fb3ff972d2adb350b41": "4296602448ef30ee1219adea9b8b234d1dbc233a",
+    "e48a82f9597127fda3ded100daa91fdfd71f1515": "4296602448ef30ee1219adea9b8b234d1dbc233a"
+  },
+  "installed_wheel_lanes": 3,
+  "limitations": [
+    "The intermediate hosted verification predates the separate successful production observation; both originals are preserved.",
+    "native-job-backend.json contains a truncated backend log; all native test claims use native-job-full.log.",
+    "Hosted proof covers the three named Linux/macOS lanes; these 0.5.1 source wheels were not published.",
+    "Website source is unchanged from the preceding deployed proof; no new rendered browser inspection is claimed.",
+    "Historical UAT retains its source, executable and protocol; hosted checks are not new performance measurements.",
+    "This finite closure does not complete whole PERF/CG gates or general decoder/allocation coverage."
+  ],
+  "manifest": {
+    "bytes": 3821,
+    "path": "native-decoder-hosted-2026-10-15.manifest.json",
+    "sha256": "0c3d545ff22b926563fe18452960a65c213903276a81604ffe031c954f803ebd"
+  },
+  "native_failures_errors_skips_per_lane": 0,
+  "native_test_groups": [
+    {
+      "failed": 0,
+      "ignored": 25,
+      "passed": 2786
+    },
+    {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 10
+    },
+    {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 7
+    },
+    {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 17
+    }
+  ],
+  "native_tests_per_lane": 80,
+  "production": {
+    "browser_basis": "Unchanged website source retains the preceding rendered proof; no new browser run.",
+    "deployment": {
+      "completed_at": "2026-10-15T00:25:27Z",
+      "conclusion": "success",
+      "details_url": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/af0f2d11-e86a-49fe-a52c-4c42f0542fab",
+      "head_sha": "b6d9318d42efb84275742fb3ff972d2adb350b41",
+      "id": 116178540333,
+      "status": "completed"
+    },
+    "merge": "b6d9318d42efb84275742fb3ff972d2adb350b41",
+    "observed_at": "2026-10-15T00:26:50.067882+00:00",
+    "responses": [
+      {
+        "expected_bytes": 62056,
+        "expected_sha256": "41f103a8842ddab50a8bf4d2bfe71528dce7460a9916c27fc937e5f509f7cf66",
+        "final_url": "https://shardloom.io/field-guide/python-surface/",
+        "http_status": 200,
+        "insertion_bytes": 1305,
+        "insertion_sha256": "072147ce8f4c9b87d1a204451513d2f3e94c2a239cd0ea995789c15f85878646",
+        "observed_bytes": 63361,
+        "observed_sha256": "ef5f98eb7316d0812d497545d1fe5a54136c0486bfde2879ceb0a1e79d9eaa83",
+        "raw_byte_identical": false,
+        "response": "field-guide_python-surface_index.html",
+        "route": "field-guide/python-surface/index.html",
+        "source_preserved": true,
+        "url": "https://shardloom.io/field-guide/python-surface/"
+      },
+      {
+        "expected_bytes": 57987,
+        "expected_sha256": "5018994920a4f046a2321432df25196b983f20c6a997ce6c0314455486f4e881",
+        "final_url": "https://shardloom.io/field-guide/runtime-and-io/",
+        "http_status": 200,
+        "insertion_bytes": 1305,
+        "insertion_sha256": "ad5ece20df86b5629ae3452a6728f28919c4373efaa4d2697415ba65295345ec",
+        "observed_bytes": 59292,
+        "observed_sha256": "54c242f97397cf8fe6e098ed268b13360e35b0657a5411b5f97f10aa8579c3ea",
+        "raw_byte_identical": false,
+        "response": "field-guide_runtime-and-io_index.html",
+        "route": "field-guide/runtime-and-io/index.html",
+        "source_preserved": true,
+        "url": "https://shardloom.io/field-guide/runtime-and-io/"
+      },
+      {
+        "expected_bytes": 46784,
+        "expected_sha256": "339e388b49ff427e34110daf0b23ee65e23c2b506f04471c0876a8d5d804c9fd",
+        "final_url": "https://shardloom.io/field-guide/limitations/",
+        "http_status": 200,
+        "insertion_bytes": 1305,
+        "insertion_sha256": "3a096fda382a9f3c8b69a963d8936df22df14abb1874cb766ba0f5fd86e64f41",
+        "observed_bytes": 48089,
+        "observed_sha256": "a618bb8f9538bca767e93c73050a37cd56a15f3605b4c7e32b01e76613956314",
+        "raw_byte_identical": false,
+        "response": "field-guide_limitations_index.html",
+        "route": "field-guide/limitations/index.html",
+        "source_preserved": true,
+        "url": "https://shardloom.io/field-guide/limitations/"
+      },
+      {
+        "expected_bytes": 171,
+        "expected_sha256": "28c665ad7bf8143c29c9fe33a198632faa1b370aefee8ce9472dd9678793c8d5",
+        "final_url": "https://shardloom.io/pagefind/pagefind-entry.json",
+        "http_status": 200,
+        "insertion_bytes": 0,
+        "insertion_sha256": null,
+        "observed_bytes": 171,
+        "observed_sha256": "28c665ad7bf8143c29c9fe33a198632faa1b370aefee8ce9472dd9678793c8d5",
+        "raw_byte_identical": true,
+        "response": "pagefind_pagefind-entry.json",
+        "route": "pagefind/pagefind-entry.json",
+        "source_preserved": true,
+        "url": "https://shardloom.io/pagefind/pagefind-entry.json"
+      }
+    ],
+    "status": "passed",
+    "website_unchanged_from": "22b2cde04973ce4462517d73fe67b5f7a1e8177c"
+  },
+  "production_runtime_source_preserved": true,
+  "pull_request": {
+    "checks_passed": 44,
+    "head": "e48a82f9597127fda3ded100daa91fdfd71f1515",
+    "merge": "b6d9318d42efb84275742fb3ff972d2adb350b41",
+    "number": 1551,
+    "url": "https://github.com/depsilon/shardloom/pull/1551"
+  },
+  "review_disposition": "One test-only CodeQL thread is outdated and resolved by the security bot; no requested changes.",
+  "schema_version": "shardloom.native_decoder_hosted_index.v1",
+  "source_files_checked": 2245,
+  "source_version": "0.5.1",
+  "status": "completed_finite_unit",
+  "verification": {
+    "bytes": 649,
+    "path": "native-decoder-hosted-2026-10-15.verification.json",
+    "sha256": "99ff066fd5b0ad0891c49f679be919d525621ad66f81ff02767089cbd159b814"
+  },
+  "verified_members": 21
+}

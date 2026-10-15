@@ -249,47 +249,41 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-DECODER-SCRATCH` admit reviewed fixed-width child decoder buffers
-  during native Chunked append, close the FSST metadata finish overlap and
-  preserve the admitted context through the remaining native helper chains.
+- [ ] `RELEASE-060` package the accepted native Python, typed-input, finite
+  streaming and resource-accounting milestone as one v0.6.0 technical preview.
   - V1 scope classification: `required_for_v1`.
-  - Existing owners: PERF-03/06/08/09 and CG-5/19/20/21; RFCs 0014/0044.
-  - Source and contract: [native decoder scratch](native-decoder-scratch-2026-10-14.md).
-  - Current state: implementation revised after 12 repeated material cost
-    regressions in the first candidate's complete paired screen. The revised
-    3,888-sample comparison has no material cells in either order. All six broad
-    gates, 80 direct binding tests, 757 public cases and 129 complete Full43 calls
-    pass for the decoder-only stage. The final combined helper-context source
-    passes all six gates, 80 direct tests, 757 public cases and 516 matched query
-    calls, with no repeated declared cost breach. Both stages and original
-    failures are packaged; hosted integration remains pending. Existing
-    builder output ownership, direct BitPacked/Patched append and native FoR
-    fusion are preserved.
-  - ShardLoom technique review: reserve through the existing query pool below
-    all front doors, preserve encoded work avoidance and native array lifetimes,
-    and retain complete-operation evidence. Capillary selection and PulseWeave
-    scheduling are unchanged.
+  - Source: October 14 maintainer direction, RFC 0024, the
+    [release notes](../release/v0.6.0-release-notes.md), and the existing
+    [channel contract](../release/package-channel-readiness-matrix.md).
+  - Current state: fresh pre-bump UAT and PR #1551 integration are complete;
+    canonical and derived source versions are 0.6.0. Packaging adds the accepted native extension to Linux/macOS
+    registry wheels, preserving the Windows CLI package and clean source archive.
+    Published v0.5.1 and its immutable proofs remain the selected channel record
+    until the successor's complete proof exists.
+  - ShardLoom technique review: this distributes accepted shared runtime families;
+    it does not change PulseWeave, capillary selection, metadata-first execution
+    or dynamic admission. Source timings and package-install evidence remain
+    distinct. Explicit caller resources and no-fallback evidence are preserved.
   - Execution checklist:
-    - [x] Implement source-derived temporary capacity bounds for the reviewed
-      physical trees, with explicit exclusions and unchanged native append paths.
-    - [x] Prove refusal, retry, late-error release, aligned/padded extents and
-      output ownership; regress the FSST metadata finish allocation gap.
-    - [x] Complete workspace/native gates, public/direct/streaming regression,
-      retained Full43 and a frozen baseline/candidate cost screen.
-    - [x] Review and package the decoder source, original failures and acceptance.
-    - [x] Preserve the actual query context and provider errors through native
-      helper chains, including list offsets and nested validity; pass 22 regressions.
-    - [x] Complete final combined direct/public acceptance and all 43 queries
-      in both matched starting orders; package the correction's complete evidence.
-    - [x] Record the maintainer-requested fresh complete UAT and current timings
-      without artificial pacing or device admission; preserve historical samples,
-      needed capabilities and the unresolved causal boundary. The later maintainer
-      direction resumes the PR, one version bump and the remaining work.
-    - [ ] Complete hosted integration and move the finite unit to the completed ledger.
-  - Claim/fallback boundary: temporary-capacity accounting is not a process-RSS
-    ceiling. Other expression/validity trees, compression/training and metadata
-    remain with existing owners. No new execution provider, encoding, dependency,
-    package release or performance-superiority claim; no external executor.
+    - [x] Preserve the complete fresh pre-bump UAT and migration/release scope.
+    - [x] Add payload-preserving Linux audit, isolated native wheel tests and
+      uninstall verification to the existing package workflow; correct Windows
+      wheel staging and retain hash-pinned build tools.
+    - [x] Integrate PR #1551 and bump canonical and derived sources once to 0.6.0.
+    - [ ] Pass local source/package gates and the exact candidate's hosted checks.
+    - [ ] Publish and independently verify GitHub assets, TestPyPI, PyPI and
+      Homebrew in the established order, binding native payloads to installed
+      registry wheels and retaining channel-specific build provenance.
+    - [ ] Update selected-channel records, public docs/site and production proof,
+      then move this finite release to the completed ledger.
+  - Acceptance: complete clean install, smoke, uninstall, checksum, SBOM,
+    provenance and recovery-policy proof for all four selected channels.
+    Internal Rust crates and additional channels remain unpublished.
+  - Claim/fallback boundary: local technical-preview package availability only;
+    no production certification, broad platform parity, new execution provider,
+    external executor or reassignment of pre-bump timings to published binaries.
+    After this one train, resume the six areas and eight investigations under
+    their existing owners without starting another bump for each work unit.
 
 October 14 maintainer follow-through priority within the existing work: the
 latest direction resumes PR #1551, one version bump after integration and the
@@ -3055,12 +3049,12 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
-October 14 direction takes precedence over the earlier version hold: complete
-the composition timing investigation and admitted-context corrections together
-with the pending decoder resource work in the next PR. After its acceptance and
-integration, make one version bump through the existing release workflow, then
-resume the remaining work and optimizations. Keep the current 0.5.1 package
-artifacts immutable and choose the next version from the accepted milestone.
+October 14 direction takes precedence over the earlier version hold. PR #1551
+completes the composition timing investigation, admitted-context corrections and
+finite decoder resource work; its [hosted receipt](../benchmarks/evidence/native-decoder-hosted-2026-10-15.json)
+and completed ledger retain acceptance. Complete `RELEASE-060` through the
+existing release workflow, then resume the remaining work and optimizations.
+The accepted milestone selects 0.6.0; published 0.5.1 artifacts remain immutable.
 
 October 13 direction supersedes the breadth pause below: first run fresh full
 UAT, then resume streaming capability gaps and broader memory/spill/recovery,
@@ -3068,9 +3062,9 @@ cancellation and operational hardening in order of quickest coherent completion.
 The fresh baseline passes all 129 query executions and all 18 modular cohorts.
 `NATIVE-STREAM-INPUT-COMPOSITION` is complete in PR #1548 and recorded in the
 completed ledger. `NATIVE-OPERATOR-RECOVERY` is complete in PR #1549.
-`NATIVE-SELECTION-RESOURCES` is complete in PR #1550. Proceed through
-`NATIVE-DECODER-SCRATCH` and remaining
-allocation/operational hardening under the existing owners;
+`NATIVE-SELECTION-RESOURCES` is complete in PR #1550 and
+`NATIVE-DECODER-SCRATCH` in PR #1551. After `RELEASE-060`, proceed through
+remaining allocation/operational hardening under the existing owners;
 leave caching, learned indexes, rematerialization and the other conditional
 investigations until qualifying workloads justify them. This is a sequencing
 override, not completion of any whole PERF gate or CG-1 through CG-23. The later

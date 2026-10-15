@@ -18,6 +18,7 @@ import sys
 import time
 
 from check_native_python_wheel import verify
+from audit_native_python_wheel import audit
 from local_uat_storage import require_local_path
 from stage_native_python_package import sha, stage
 
@@ -62,7 +63,8 @@ raise SystemExit(0 if passed else 1)
 """
 
 
-def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Path) -> dict:
+def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Path, *,
+          audit_linux: bool = False) -> dict:
     if sys.platform not in {"darwin", "linux"}:
         raise ValueError("native wheel proof currently requires macOS or Linux")
     if output.is_symlink() or library.is_symlink() or binary.is_symlink():
@@ -84,6 +86,9 @@ def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Pat
     for key in ("PYTHONPATH", "PYTHONHOME", "SHARDLOOM_NATIVE_TEST_LIBRARY", "SHARDLOOM_BIN",
                 "SHARDLOOM_REPO_ROOT", "SHARDLOOM_PROFILE_ORDER", "SHARDLOOM_WHEEL_PLAT_NAME"):
         env.pop(key, None)
+    for key in list(env):
+        if key.startswith("AUDITWHEEL_"):
+            env.pop(key)
 
     def run(name, command):
         log = output / f"{name}.log"
@@ -107,7 +112,8 @@ def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Pat
         report["stage"] = stage(root, staged, library, binary)
         if report["stage"]["wheel_platform_tag"]:
             env["SHARDLOOM_WHEEL_PLAT_NAME"] = report["stage"]["wheel_platform_tag"]
-        dist = output / "dist"
+        needs_linux_audit = audit_linux and sys.platform == "linux"
+        dist = output / ("unaudited" if needs_linux_audit else "dist")
         run("build", [sys.executable, "-m", "pip", "wheel", "--no-build-isolation",
                       "--no-deps", "--no-index", "--wheel-dir", dist, staged])
         wheels = list(dist.glob("*.whl"))
@@ -115,6 +121,11 @@ def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Pat
             raise ValueError("native proof requires exactly one built wheel")
         wheel = wheels[0]
         report["integrity"] = verify(root, wheel, library, binary)
+        if needs_linux_audit:
+            report["unaudited_integrity"] = report["integrity"]
+            wheel, report["linux_audit"] = audit(wheel, output / "dist", run)
+            report["integrity"] = verify(root, wheel, library, binary,
+                                         linux_audit=report["linux_audit"])
         virtualenv = output / "venv"
         run("create_environment", [sys.executable, "-m", "venv", virtualenv])
         python = virtualenv / "bin/python"
@@ -130,6 +141,13 @@ def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Pat
         report["installed_load"] = json.loads((output / "load.log").read_text())
         if sha(wheel) != report["integrity"]["wheel_sha256"]:
             raise ValueError("native wheel changed during installation proof")
+        run("uninstall", [python, "-I", "-m", "pip", "uninstall", "--yes", "shardloom"])
+        run("verify_uninstalled", [python, "-I", "-c",
+            "import importlib.util, pathlib, sys; "
+            "assert importlib.util.find_spec('shardloom') is None; "
+            "assert all(not pathlib.Path(path).exists() for path in sys.argv[1:])",
+            report["installed_load"]["native_library"], report["installed_load"]["cli"]])
+        report["uninstall_status"] = "passed"
         report["status"] = "passed"
     except BaseException as error:
         report.update(status="failed", error=f"{type(error).__name__}: {error}")
@@ -146,8 +164,11 @@ def main() -> int:
     parser.add_argument("--native-library", type=Path, required=True)
     parser.add_argument("--cli-binary", type=Path, required=True)
     parser.add_argument("--wheelhouse", type=Path, required=True)
+    parser.add_argument("--audit-linux", action="store_true",
+                        help="Require the reviewed Linux compatibility audit before installation.")
     args = parser.parse_args()
-    report = prove(args.repo_root, args.output_dir, args.native_library, args.cli_binary, args.wheelhouse)
+    report = prove(args.repo_root, args.output_dir, args.native_library, args.cli_binary, args.wheelhouse,
+                   audit_linux=args.audit_linux)
     print(json.dumps(report, indent=2))
     return 0
 

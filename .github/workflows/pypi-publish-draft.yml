@@ -32,7 +32,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             artifact_suffix: linux
           - os: macos-latest
             artifact_suffix: macos
@@ -52,51 +52,77 @@ jobs:
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # Swatinem/rust-cache@v2
-      - name: Build Python package with bundled CLI
+      - name: Reserve fresh package build directory and resolve Cargo artifacts
         run: |
-          python -m pip install --require-hashes -r .github/requirements/ci-python-build.txt
+          python - <<'PY'
+          import json, os, subprocess, tempfile
+          root = tempfile.mkdtemp(prefix="registry-python-", dir=os.environ["RUNNER_TEMP"])
+          metadata = json.loads(subprocess.check_output(["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"]))
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              output.write("SHARDLOOM_REGISTRY_BUILD_ROOT=" + root + "\n")
+              output.write("SHARDLOOM_REGISTRY_CARGO_TARGET=" + metadata["target_directory"] + "\n")
+          PY
+      - name: Build shared release CLI
+        run: |
+          python -m pip install --require-hashes -r .github/requirements/ci-native-python-build.txt
           python scripts/sync_workspace_package_versions.py --check
           python scripts/check_workspace_version_sources.py
-          cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces
-          if [[ "$RUNNER_OS" != "Windows" ]]; then
-            strip target/release/shardloom || true
-          fi
+          cargo build --locked --release -p shardloom-cli --bin shardloom --features release-user-surfaces
+      - name: Build and prove Linux or macOS native wheel
+        if: ${{ matrix.artifact_suffix != 'windows' }}
+        run: |
+          python -m pip download --require-hashes --only-binary=:all: --no-deps -r .github/requirements/ci-native-python.txt --dest "$SHARDLOOM_REGISTRY_BUILD_ROOT/wheelhouse"
+          python scripts/build_native_python.py --output-dir "$SHARDLOOM_REGISTRY_BUILD_ROOT/extension" --release > "$SHARDLOOM_REGISTRY_BUILD_ROOT/native-build.json"
+          python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_REGISTRY_BUILD_ROOT/proof" --native-library "$SHARDLOOM_REGISTRY_BUILD_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_REGISTRY_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_REGISTRY_BUILD_ROOT/wheelhouse" --audit-linux
+          python - <<'PY'
+          import json, os, shutil, sys
+          from pathlib import Path
+          sys.path.insert(0, "scripts")
+          from stage_native_python_package import sha
+          root = Path(os.environ["SHARDLOOM_REGISTRY_BUILD_ROOT"])
+          report = json.loads((root / "proof/report.json").read_text())
+          if report["status"] != "passed" or report["uninstall_status"] != "passed":
+              raise SystemExit("native release wheel lacks complete installed-package proof")
+          wheel = root / "proof/dist" / report["integrity"]["wheel"]
+          if sha(wheel) != report["integrity"]["wheel_sha256"]:
+              raise SystemExit("verified native wheel changed before release staging")
+          dist = root / "dist"
+          dist.mkdir()
+          copied = Path(shutil.copy2(wheel, dist))
+          if sha(copied) != report["integrity"]["wheel_sha256"]:
+              raise SystemExit("native wheel changed during release staging")
+          PY
+      - name: Build Windows Python wheel with bundled CLI
+        if: ${{ matrix.artifact_suffix == 'windows' }}
+        run: |
           python - <<'PY'
           from pathlib import Path
+          import os
+          import subprocess
           import sys
           import zipfile
 
           sys.path.insert(0, "scripts")
           from release_dry_run_proof import (
-              build_python_artifacts,
               stage_python_package_with_bundled_cli,
           )
 
           repo_root = Path(".").resolve()
-          stage_dir = repo_root / "target" / "pypi-python-package-stage"
-          dist_dir = stage_dir / "dist"
-          release_binary = repo_root / "target" / "release" / (
+          build_root = Path(os.environ["SHARDLOOM_REGISTRY_BUILD_ROOT"])
+          stage_dir = build_root / "windows-package"
+          dist_dir = build_root / "dist"
+          release_binary = Path(os.environ["SHARDLOOM_REGISTRY_CARGO_TARGET"]) / "release" / (
               "shardloom.exe" if sys.platform == "win32" else "shardloom"
           )
-          steps = [
-              stage_python_package_with_bundled_cli(
-                  repo_root,
-                  stage_dir,
-                  release_binary,
-              ),
-          ]
-          if steps[0]["returncode"] == 0:
-              steps.append(build_python_artifacts(repo_root, stage_dir, dist_dir))
-          failures = [
-              f"{step['name']}: {step.get('stderr') or step.get('stdout')}"
-              for step in steps
-              if step["returncode"] != 0
-          ]
-          if failures:
-              raise SystemExit("; ".join(failures))
+          staged = stage_python_package_with_bundled_cli(repo_root, stage_dir, release_binary)
+          if staged["returncode"] != 0:
+              raise SystemExit(staged.get("stderr") or staged.get("stdout"))
+          subprocess.run([sys.executable, "-m", "pip", "wheel", "--no-build-isolation",
+                          "--no-deps", "--no-index", "--wheel-dir", str(dist_dir),
+                          str(stage_dir)], check=True)
           wheels = sorted(dist_dir.glob("shardloom-*.whl"))
-          if not wheels:
-              raise SystemExit("missing platform wheel")
+          if len(wheels) != 1:
+              raise SystemExit("expected exactly one platform wheel")
           for wheel in wheels:
               if wheel.name.endswith("-py3-none-any.whl"):
                   raise SystemExit(f"bundled CLI wheel must not be universal: {wheel.name}")
@@ -108,22 +134,33 @@ jobs:
               if "Root-Is-Purelib: false" not in wheel_text:
                   raise SystemExit(f"bundled CLI wheel must be platform-specific: {wheel.name}")
           PY
+      - name: Upload native installed-package proof
+        if: ${{ always() && matrix.artifact_suffix != 'windows' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+        with:
+          name: native-registry-proof-${{ matrix.artifact_suffix }}
+          path: |
+            ${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/native-build.json
+            ${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/proof/report.json
+            ${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/proof/integration.json
+            ${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/proof/*.log
+          if-no-files-found: error
       - name: Upload Python dist artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
         with:
           name: python-dist-${{ matrix.artifact_suffix }}
-          path: target/pypi-python-package-stage/dist/*.whl
+          path: ${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/dist/*.whl
           if-no-files-found: error
       - name: Build clean Python sdist
         if: ${{ matrix.artifact_suffix == 'linux' }}
         run: |
-          python -m build --sdist --outdir target/pypi-python-package-sdist/dist python
+          python -m build --sdist --no-isolation --outdir "$SHARDLOOM_REGISTRY_BUILD_ROOT/sdist" python
       - name: Upload Python sdist artifact
         if: ${{ matrix.artifact_suffix == 'linux' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
         with:
           name: python-dist-sdist
-          path: target/pypi-python-package-sdist/dist/*.tar.gz
+          path: ${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/sdist/*.tar.gz
           if-no-files-found: error
 
   publish-testpypi:

@@ -7,8 +7,10 @@ passing, including 3,219 workspace and 4,200 native tests. All 80 direct binding
 tests and 757 public cases across 19 families pass on the same frozen source.
 The [final combined acceptance](../benchmarks/native-admitted-context-2026-10-14.md)
 passes all 516 matched query calls without a repeated declared cost breach and
-retains 2,240 verified evidence members. Hosted integration remains pending
-under PERF-03/06/08/09 and CG-5/19/20/21. The subsequent
+retains 2,240 verified evidence members. PR #1551 completes hosted integration;
+all 44 checks and three installed-wheel lanes pass in the
+[hosted receipt](../benchmarks/evidence/native-decoder-hosted-2026-10-15.json).
+This closes the finite unit under PERF-03/06/08/09 and CG-5/19/20/21. The subsequent
 [fresh UAT](../benchmarks/native-fresh-unpaced-uat-2026-10-14.md) passes fresh
 ingest, all 129 query calls and all 18 format/workflow cohorts without artificial
 pacing or battery/thermal admission. The same executable totals 194.125941 query

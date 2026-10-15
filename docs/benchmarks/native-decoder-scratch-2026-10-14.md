@@ -10,7 +10,9 @@ defines this finite extension of PERF-03/06/08/09 and CG-5/19/20/21. Version
 0.5.1 remains unchanged. The measurements below precede the subsequent
 [helper-context correction](../architecture/native-admitted-context-2026-10-14.md).
 The later [combined acceptance](native-admitted-context-2026-10-14.md) passes
-its complete direct/public and paired query checks; hosted integration is pending.
+its complete direct/public and paired query checks. PR #1551 completes hosted
+integration; the [hosted receipt](evidence/native-decoder-hosted-2026-10-15.json)
+retains all 44 checks, three installed-wheel proofs and the merged deployment.
 
 ## Behavior and limits
 

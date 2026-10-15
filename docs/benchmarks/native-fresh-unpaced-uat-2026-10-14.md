@@ -61,6 +61,14 @@ the focused native decoder exclusion test and four documentation/CI validators
 also pass. Comparing all selected source hashes leaves only the four runner/test
 files and the decoder test diagnostic changed after this observation.
 
+PR #1551 subsequently merges at `b6d9318d42efb84275742fb3ff972d2adb350b41`
+after all 44 hosted checks pass. The
+[hosted receipt](evidence/native-decoder-hosted-2026-10-15.json) verifies all
+2,245 selected source hashes against that merge, preserving the five-file
+post-measurement boundary above and every production runtime source. Three
+installed Linux/macOS wheel lanes each pass 80 native binding tests. These are
+integration results, not timings for the subsequent 0.6.0 package.
+
 The source Parquet is 14,779,976,446 bytes, SHA-256
 `a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f`.
 The fresh `unpaced-native-435-a1.vortex` is 15,713,610,513 bytes, SHA-256
