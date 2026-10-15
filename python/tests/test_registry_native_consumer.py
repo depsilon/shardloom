@@ -2,6 +2,7 @@
 """Reject native registry evidence drift using inert, offline fixtures."""
 import copy
 import hashlib
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -66,6 +67,34 @@ class NativeRegistryConsumerTests(unittest.TestCase):
             elif mutation == "duplicate_file": rows[0]["original_files"].append(copy.deepcopy(rows[0]["original_files"][0]))
             with self.subTest(mutation=mutation):
                 self.assertTrue(self.check(artifacts, provenance, policy))
+
+    def test_malformed_original_json_shapes_are_blocked(self):
+        artifacts, original, policy = self.fixture()
+        cases = [(name, None) for name in (
+            "native-build.json", "proof/report.json", "proof/integration.json")]
+        cases.extend(("proof/report.json", field) for field in (
+            "integrity", "stage", "installed_load", "linux_audit"))
+        for name, field in cases:
+            for malformed in ([], None, 7, "not an object"):
+                with self.subTest(file=name, field=field, value=malformed):
+                    provenance = copy.deepcopy(original)
+                    # Select Linux so its audit shape is also checked. Rebind
+                    # each original file's hash to exercise structural checking.
+                    row = provenance["native_installed_wheel_proofs"][1]
+                    member = next(item for item in row["original_files"]
+                                  if item["name"] == name)
+                    value = malformed
+                    if field is not None:
+                        value = json.loads(member["text"])
+                        value[field] = malformed
+                    member["text"] = json.dumps(value)
+                    raw = member["text"].encode("utf-8")
+                    member["size_bytes"] = len(raw)
+                    member["sha256"] = hashlib.sha256(raw).hexdigest()
+                    blockers = self.check(artifacts, provenance, policy)
+                    self.assertTrue(blockers)
+                    self.assertTrue(all("registry native installation" in item
+                                        for item in blockers))
 
     def test_native_sbom_graph_requires_module_and_edge(self):
         artifacts, _, _ = self.fixture()

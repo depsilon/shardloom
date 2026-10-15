@@ -1099,7 +1099,7 @@ def registry_native_installation_blockers(channel_id, artifact_rows, provenance)
             checked = verify_native_proof(files, artifact, programs, package_version=SELECTED_PACKAGE_RELEASE_VERSION)
             if checked != {key: row.get(key) for key in checked}:
                 raise ValueError("native proof summary differs from original verified files")
-        except (KeyError, TypeError, ValueError, IndexError, UnicodeError) as error:
+        except (AttributeError, KeyError, TypeError, ValueError, IndexError, UnicodeError) as error:
             blockers.append(prefix + f"{row.get('wheel')}: {error}")
     return blockers
 
