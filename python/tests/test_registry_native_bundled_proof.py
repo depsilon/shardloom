@@ -1,8 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
 """Unit-only 0.6.0 smoke fixtures; no registry observation or package execution."""
 import copy
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import sys
 import unittest
 from unittest.mock import patch
@@ -35,7 +36,7 @@ class NativeBundledProofTests(unittest.TestCase):
         supplement['steps'][3]['command'][3] = SMOKE
         result = supplement['result']
         result['native_module_proof'] = {
-            'library': str(Path(result['package_path']).parent / '_native.abi3.so'),
+            'library': str(PurePosixPath(result['package_path']).parent / '_native.abi3.so'),
             'library_sha256': MODULE_SHA,
             'execution_provider': 'shared_shardloom_native',
             'retained_after_session_close': True,

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Reject native registry evidence drift using inert, offline fixtures."""
 import copy
 import hashlib
@@ -8,7 +9,10 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
-from test_registry_release_evidence import evidence, native_fixture
+if __package__:
+    from .test_registry_release_evidence import evidence, native_fixture
+else:
+    from test_registry_release_evidence import evidence, native_fixture
 import check_package_channel_readiness as consumer
 
 
