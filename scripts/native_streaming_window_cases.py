@@ -200,15 +200,17 @@ def run(harness):
                     assert list(workspace.iterdir()) == []
                 harness.case(name, fail)
 
-    def repeated():
-        frame, trace = source(harness)
-        query = frame.window(expressions[0])
-        try:
-            query.union_all(query).collect(check=True, **policy)
-        except ShardLoomCommandError as error:
-            harness.envelope("window-deny-repeated-source", error.envelope, success=False)
-            assert "SL-NATIVE-BATCH" in json.dumps(error.envelope.raw)
-        else:
-            raise AssertionError("a repeated window source was admitted")
-        assert trace["opened"] == 0
-    harness.case("window-deny-repeated-source", repeated)
+    for spilled in (False, True):
+        name = f"window-repeated-source-spill-{spilled}"
+        def repeated(name=name, spilled=spilled):
+            frame, trace = source(harness)
+            query = frame.window(expressions[0])
+            assert trace["opened"] == 0
+            requested = dict(policy, spill=spill) if spilled else policy
+            result = query.union_all(query).collect(check=True, **requested)
+            rows = [{key: row[key] for key in ("n", "s", "position")} for row in expected]
+            harness.values(name, result.result_rows, rows + rows)
+            completed(name, result.envelope, trace, spilled, stages=2)
+            assert result.envelope.field_int("native_input_replay_sources") == 1
+            assert result.envelope.field_int("native_input_replay_passes") == 1
+        harness.case(name, repeated)

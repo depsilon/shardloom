@@ -1,0 +1,86 @@
+{
+  "schema_version": "shardloom.stream_sets_acceptance.v1",
+  "status": "passed_local",
+  "base_commit": "54f107d4add9d1d218f0f78e47c8d6f76785120a",
+  "source_files": 2272,
+  "member_count": 5460,
+  "all_members_reopened": true,
+  "raw_bytes": 257522826,
+  "acceptance": {
+    "workspace_tests": 3219,
+    "native_tests": 4241,
+    "native_manual_platform_exclusions": 29,
+    "corrected_focused_public_cases": 588,
+    "new_native_tests": 9,
+    "direct_tests": 87,
+    "new_direct_methods": 3,
+    "public_cases": 1121,
+    "public_families": 22,
+    "new_set_cases": 324,
+    "new_set_pressure_cases": 19,
+    "public_expected_rows": 23567,
+    "public_pressure_rows": 726729,
+    "complete_queries": 43,
+    "complete_query_rows": 381
+  },
+  "full43_timing_totals": {
+    "raw_calls": 43,
+    "calls_with_engine_timing": 43,
+    "aggregation": "sum_of_every_raw_call_not_best_of_repeats_or_workflow_elapsed",
+    "process_other_boundary": "startup;parsing;preparation;control_plane;report_rendering;exit;unattributed_process_work",
+    "cpu_boundary": "whole_process_cpu_overlaps_wall_time_includes_parallel_workers",
+    "totals": {
+      "engine_execution_seconds": 93.12172241,
+      "result_serialization_seconds": 0.008430089,
+      "process_other_seconds": 3.8265484589768644,
+      "process_wall_seconds": 96.95670095797686,
+      "supervision_overhead_seconds": 2.3847683310305,
+      "supervised_wall_seconds": 99.34146928900736,
+      "user_cpu_seconds": 241.35280600000002,
+      "system_cpu_seconds": 57.483998,
+      "validation_seconds": 0.0479122119868407
+    }
+  },
+  "source_overlay": [
+    "python/tests/test_native_set_binding.py",
+    "scripts/native_streaming_input_cases.py",
+    "scripts/native_streaming_set_boundary_cases.py",
+    "scripts/native_streaming_set_cases.py",
+    "scripts/native_streaming_set_composition_cases.py",
+    "scripts/native_streaming_set_pressure_cases.py",
+    "scripts/native_streaming_window_cases.py",
+    "scripts/run_native_streaming_input_uat.py",
+    "shardloom-vortex/src/local_primitive_relational_batch_dynamic_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_input.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_input_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_set_fault_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_set_pressure_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_set_tests.rs"
+  ],
+  "archive": {
+    "file": "native-stream-sets-2026-10-15.tar.xz",
+    "bytes": 3615712,
+    "sha256": "83689c83f74864560ae5789b527fb505e583e997ff4aeff7bbee3e3e24623431"
+  },
+  "manifest": {
+    "file": "native-stream-sets-2026-10-15.manifest.json.xz",
+    "bytes": 194720,
+    "sha256": "715c8350d20025568bb814a97cfd08508eab71d2efc33e1dfd38a7de70d501ca",
+    "raw_sha256": "9e6480bcf57ec6bd5d3484f60afa5e0c9432cb2f9e6aec6d661e4507ca938ed4"
+  },
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-streamsets484.json",
+    "bytes": 298438,
+    "sha256": "caa6aa9ceb4d60b66a7e99fabcba4df59858d644365b91d29036b250f5af77e2"
+  },
+  "hosted_integration_complete": false,
+  "accepted_source": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-sets-acceptance-source-487.json",
+    "bytes": 300952,
+    "sha256": "b2f880969ecc48c8758b89131ee7cbb484131581120da4dc69aa2e0e60ff9f11"
+  },
+  "test_fixture_only_source_transition": true,
+  "installed_wheel_proof": false,
+  "publication_attempted": false,
+  "limitations": "Finite local workflow acceptance and one retained-reference query pass. Set membership remains resident under the shared grant; replay spill is a separate admitted mechanism. No matched performance comparison, whole-process memory cap, group-atomic publication, network transport, all-platform acceptance or new package release is claimed. Installed-wheel and hosted integration proof are subsequent gates."
+}

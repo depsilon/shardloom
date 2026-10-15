@@ -2,11 +2,15 @@
 
 # Streaming input through local destinations
 
-Status: local runtime acceptance passes under PERF-03/06/07/11/12 and CG-5/19/20/21.
+Status: local and hosted acceptance complete under PERF-03/06/07/11/12 and CG-5/19/20/21.
 The [acceptance report](../benchmarks/native-stream-destinations-2026-10-15.md)
 records 3,219 default workspace tests, 4,229 native tests, 84 direct Python tests,
-777 public cases across 20 families and all 43 complete query results. Hosted
-integration remains pending. These source changes do not publish a release.
+777 public cases across 20 families and all 43 complete query results. The
+test-only review follow-through passes 4,232 native tests. PR #1557 merges after
+all 44 checks pass, with three installed-wheel lanes passing 84 tests each and
+complete preview/production source and browser verification. The
+[hosted packet](../benchmarks/evidence/native-stream-destinations-hosted-2026-10-15.json)
+preserves 99 verified members. These source changes do not publish a release.
 The [phase plan](phased-execution-plan.md) owns sequencing. This unit follows
 the selected-view acceptance and dropped dictionary-growth experiment; native
 transport remains after the optimization/breadth completion contract.

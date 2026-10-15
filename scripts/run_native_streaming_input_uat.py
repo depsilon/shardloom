@@ -37,6 +37,8 @@ from native_streaming_dynamic_pressure_cases import run as dynamic_pressure_case
 from native_streaming_replay_cases import run as replay_cases
 from native_streaming_replay_pressure_cases import run as replay_pressure_cases
 from native_streaming_destination_cases import run as destination_cases
+from native_streaming_set_cases import run as set_cases
+from native_streaming_set_pressure_cases import run as set_pressure_cases
 import shardloom as sl
 
 FAMILIES = {"input": public_cases, "growth": growth_cases, "typed-input": typed_cases, "ordering": ordering_cases, "ordering-pressure": ordering_pressure_cases,
@@ -46,7 +48,8 @@ FAMILIES = {"input": public_cases, "growth": growth_cases, "typed-input": typed_
             "preparation": preparation_cases, "multiple": multiple_cases,
             "multiple-pressure": multiple_pressure_cases, "dynamic": dynamic_cases,
             "dynamic-pressure": dynamic_pressure_cases, "replay": replay_cases,
-            "replay-pressure": replay_pressure_cases, "destinations": destination_cases}
+            "replay-pressure": replay_pressure_cases, "destinations": destination_cases,
+            "sets": set_cases, "sets-pressure": set_pressure_cases}
 
 
 def sha(path):
@@ -166,7 +169,11 @@ def main():
               Path(__file__).with_name("native_streaming_dynamic_pressure_cases.py"),
               Path(__file__).with_name("native_streaming_replay_cases.py"),
               Path(__file__).with_name("native_streaming_replay_pressure_cases.py"),
-              Path(__file__).with_name("native_streaming_destination_cases.py")]
+              Path(__file__).with_name("native_streaming_destination_cases.py"),
+              Path(__file__).with_name("native_streaming_set_cases.py"),
+              Path(__file__).with_name("native_streaming_set_composition_cases.py"),
+              Path(__file__).with_name("native_streaming_set_boundary_cases.py"),
+              Path(__file__).with_name("native_streaming_set_pressure_cases.py")]
     sources = {str(path): sha(path) for path in inputs}
     for path in inputs[1:]:
         with (harness.logs / path.name).open("xb") as snapshot:

@@ -18,6 +18,9 @@ mod join_tests;
 #[path = "local_primitive_relational_batch_window_tests.rs"]
 mod window_tests;
 
+#[path = "local_primitive_relational_batch_set_tests.rs"]
+mod set_tests;
+
 #[cfg(feature = "universal-format-io")]
 #[path = "local_primitive_relational_batch_destination_tests.rs"]
 mod destination_tests;
@@ -349,13 +352,11 @@ fn completion_input_foreign_shared_and_untracked_owners_are_denied() {
 
 #[test]
 fn completion_input_plan_and_provider_admission_precede_payload() {
-    let union = VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
-        left: scan(),
-        right: scan(),
-        kind: crate::relational_query::VortexRelationalSetKind::UnionAll,
-    }));
-    let error = prepare(&union, 2 << 20).err().unwrap().to_string();
-    assert!(error.contains("SL-NATIVE-BATCH") && error.contains("set operation/repeated source"));
+    let error = prepare(&VortexRelationalPlan::Outer, 2 << 20)
+        .err()
+        .unwrap()
+        .to_string();
+    assert!(error.contains("SL-NATIVE-BATCH") && error.contains("correlated source"));
     let prepared = prepare(&scan(), 2 << 20).unwrap();
     assert!(
         prepared

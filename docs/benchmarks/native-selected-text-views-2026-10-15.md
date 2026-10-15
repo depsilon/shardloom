@@ -15,9 +15,11 @@ gates, 80 direct Python tests, 757 public workflow cases and one Full43 pass.
 The [portable evidence index](evidence/native-selected-text-views-2026-10-15.json)
 records 2,305 verified members. PR #1556 is merged after 44 successful checks;
 the [hosted packet](evidence/native-selected-view-hosted-2026-10-15.json) records
-the installed-wheel and served-source proof. The production deployment
-notification remains pending, as detailed below. This source change follows
-the immutable 0.6.0 packages and does not publish a release.
+the installed-wheel and served-source proof. A later
+[deployment addendum](evidence/native-stream-destinations-hosted-2026-10-15.json)
+confirms production completion and corrects the earlier pending observation,
+as detailed below. This source change follows the immutable 0.6.0 packages and
+does not publish a release.
 
 ## Shared implementation and exact work avoided
 
@@ -264,10 +266,18 @@ sole source-inventory difference; the measured runtime is preserved.
 
 All seven preview responses match accepted source. All seven production
 responses preserve merged source, with only the captured Cloudflare script
-insertions in HTML. Cloudflare's production check still reports `in_progress`
-and supplies no version ID. The packet records that unresolved status explicitly;
-served-source verification does not claim that the notification completed.
-The earlier rendered guide/search proof remains separately scoped. Remaining
+insertions in HTML. The original packet records the initially observed
+Cloudflare check as `in_progress` without a version ID; that observation remains
+unchanged in its evidence.
+
+October 15 deployment correction: enumerating the merged commit's latest checks
+finds completed check `116464471394`, successful at `2026-10-15T13:59:07Z`, with
+version `ac5adae2-94da-44de-acbe-1d1038fc6c13`. Cloudflare used a new check ID for
+completion; repeatedly reading the initial ID had left the reported status stale.
+The [dated addendum](evidence/native-stream-destinations-hosted-2026-10-15.json)
+preserves the complete check response and verifies its revision, success and
+version. It supersedes the pending conclusion without rewriting the original
+packet or claiming another rendering check. Remaining
 optimization and breadth work continues under its existing owners.
 
 ## Diagnostic basis and remaining work

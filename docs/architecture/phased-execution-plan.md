@@ -250,109 +250,29 @@ the ledger.
 ## Planned
 
 
-- [x] `NATIVE-SELECTED-TEXT-VIEWS` decide the sparse Zstd selected-view candidate
-  under PERF-01/04/05 and PERF-03/06 after completed compression/timing integration.
-  - Source: [finite contract](native-selected-text-views-2026-10-15.md), the
-    October 15 complete timing baseline and diagnostic hotspot samples.
-  - Accepted baseline: the admitted filter prunes compressed frames, then constructs
-    native text views for every retained-frame row before gathering selected rows.
-    Q23's caller attributes 2.980844037 seconds to native text execution. That
-    elapsed span includes provider work and is not an isolated CPU measurement.
-  - V1 scope classification: `required_for_v1` for the finite ship/drop decision;
-    retention of the proposed optimization depends on its measured gate.
-  - October 15 feedback priority remains Q29/Q19/Q23 and shared Q34/Q35 under
-    PERF-01/04/05/10. Together they account for 33.147% of the fresh measured
-    engine total. Preserve all five diagnostic samples and existing dictionary/
-    parallel-reduction evidence before choosing subsequent shared changes.
-    Separate scan/decode, transformation, key/state construction, reconciliation
-    and selection costs; do not infer cold-cache status or a Q34/Q35 cause.
-  - ShardLoom technique review: reuse encoded frame pruning, selected-row
-    materialization, native decoding and shared allocation admission. Preserve
-    PulseWeave/work shaping and separate engine clocks from other process work.
-  - Execution checklist:
-    - [x] Preserve the current five-query diagnostic packet and prove an
-      allocation regression against the accepted sparse-filter implementation.
-      The 2,305-member packet retains all five raw profiles, frozen identities
-      and the baseline-failing/candidate-passing allocation regression.
-    - [x] Implement selected-only native views with exact-value, malformed-input,
-      allocator-denial, source-owner and independent-buffer lifetime tests.
-    - [x] Run the frozen targeted comparison and retain or remove the candidate.
-      All 70 complete calls pass; Q23 improves in 10/10 target pairs and its
-      engine median improves 2.55%. All four other parallel control medians are
-      slower within the unchanged limits. The [report](../benchmarks/native-selected-text-views-2026-10-15.md)
-      records all six cases and the independent raw-clock replay.
-    - [x] Complete broad/native/public and single-pass Full43 acceptance for
-      retained code: all seven Rust/provider gates, 80 direct tests, 757 public
-      cases and 43 complete queries pass. README, field guide, provenance and
-      evidence describe the bounded decision; hosted integration remains below.
-    - [x] Complete review, hosted checks and served-source verification; record
-      the finite decision in the ledger with residual PERF/CG owners preserved.
-      PR #1556 merges at `fb1812de` after 44 successful checks and three
-      installed-wheel lanes passing 80 tests each. The
-      [hosted packet](../benchmarks/evidence/native-selected-view-hosted-2026-10-15.json)
-      verifies 67 members and all seven preview/production responses. Cloudflare's
-      production notification remains `in_progress` without a version ID;
-      matching served source does not prove that notification completed.
-  - Implementation scope: existing vendored Zstd decoder, admitted filter,
-    focused tests and evidence. User surfaces converge on the same provider.
-  - Acceptance/verification: the contract fixes full-value/resource checks and
-    repeatability/control gates before timing; required workspace/native tests
-    and public workflow checks remain mandatory for retained behavior.
-  - Non-goals/claim boundary: no dense decoder rewrite, codec/layout change,
-    query-specific route, new execution engine, dependency or release. The
-    dropped October 13 full-view rewrite stays dropped. Decoded frame bytes do
-    not decrease merely because fewer views are constructed; no zero-decode or
-    whole-process memory-cap claim. Both fallback fields must remain false.
-
-- [x] `NATIVE-AGGREGATE-DICTIONARY-GROWTH` decide whether avoiding speculative
-  capacity growth during native dictionary binding improves complete queries.
-  - Source: [finite contract](native-aggregate-dictionary-growth-2026-10-15.md),
-    exact current interner/caller inventory and the preserved Q19 diagnostic.
-  - V1 scope classification: `required_for_v1` for the finite ship/drop decision;
-    retention depends on its frozen complete-operation gate.
-  - Existing owners: PERF-01/03/04/05/06; preserve CG-1 through CG-23 and the
-    six-area/eight-investigation completion contract. Transport remains later.
-  - Execution checklist:
-    - [x] Prove duplicate binding grows capacity on the baseline and preserve
-      exact IDs/owners, mixed input, declined shapes and failure semantics.
-    - [x] Freeze the shared-state candidate and complete public-call comparison;
-      retain only if the target, CPU, RSS and all control gates pass.
-    - [x] Remove a dropped candidate or complete broad/native/public/Full43
-      acceptance and hosted integration for retained code in a cohesive batch.
-  - Decision: DROP. The [report](../benchmarks/native-aggregate-dictionary-growth-2026-10-15.md)
-    preserves all 80 correct calls; Q19 improves in only five of ten target
-    pairs and Q22 exceeds its control limit. The accepted runtime is restored.
-    The portable packet verifies 82 outer and 320 nested raw members. Retention
-    gates do not run for removed code; the remaining breadth queue stays open.
-  - Boundary: preserve current dictionary ownership, cached hashes, exact
-    preunion and partition workers. Do not revive the dropped triple-sort route
-    or count existing mechanisms as new gains. No allocator-wide memory cap,
-    codec change, external engine or release claim follows from this experiment.
-
-- [ ] `NATIVE-STREAM-DESTINATIONS` complete the existing bounded compatibility
-  writers and multi-destination publication for finite single-use input.
-  - Source: [implementation contract](native-stream-destinations-2026-10-15.md)
-    and the existing PERF-07 destination/fanout obligation.
+- [ ] `NATIVE-STREAM-SETS` admit all four existing native set operations over
+  finite streaming producers under the [implementation contract](native-stream-set-operations-2026-10-15.md).
   - V1 scope classification: `required_for_v1`.
-  - Owners: PERF-03/06/07/11/12 and CG-5/19/20/21; keep the complete Competitive
-    Engine Track and six-area/eight-investigation contract open.
-  - ShardLoom technique review: reuse bounded native replay, shared memory/spill
-    owners and static admission; preserve existing PulseWeave scheduling and
-    separate engine/boundary clocks. No query-specific path is introduced.
-  - [x] Share credited native replay and existing writer preparation; complete
-    one producer execution, every adapter and owned spill cleanup before publish.
-  - [x] Cover complete values/types, multiple/repeated producers, dynamic schema,
-    constrained spill, cancellation, quota/corruption and partial-commit recovery.
-  - [x] Complete direct/public/subprocess and native/workspace regression, one
-    Full43 pass and portable evidence: 84 direct tests, 777 public cases,
-    3,219 workspace tests, 4,229 native tests and all 43 complete query results
-    pass in the [acceptance report](../benchmarks/native-stream-destinations-2026-10-15.md).
-  - [ ] Complete generated documentation, review and hosted integration in the
-    same cohesive batch before recording the finite unit in the completed ledger.
-  - Boundary: preserve native Vortex as highest fidelity, explicit compatibility
-    loss, existing repeatable-source fanout and both false fallback fields.
-    Temporary storage remains explicit. No group-atomic commit, network transport,
-    performance superiority, process-RSS cap or package release is claimed.
+  - Owners: PERF-03/06/07/11/12 and CG-5/19/20/21; preserve the complete
+    Competitive Engine Track and six-area/eight-investigation completion contract.
+  - ShardLoom technique review: reuse the native binder, full-row membership, credited compact selection,
+    finite source completion and declared replay. Capillary batching, PulseWeave
+    and shared query resource policy retain their existing ownership.
+  - Execution checklist:
+    - [x] Admit both set branches with existing depth/subtree checks; prove
+      complete values, positional types, nulls, repeated sources and composed stages.
+    - [x] Prove producer release, retained output, bounded distinct membership,
+      explicit native replay, failures, cancellation and complete publication.
+    - [ ] Complete native/direct/public/workspace checks, one Full43 pass,
+      portable evidence, generated documentation, review and hosted integration.
+      Local acceptance passes all six Rust gates, 4,241 native tests, 87 direct
+      binding tests, 1,121 public cases across 22 families and all 43 complete
+      query results. The [5,460-member packet](../benchmarks/native-stream-sets-2026-10-15.md)
+      retains the original failures and fixture corrections; hosted integration
+      is the remaining closure gate.
+  - Boundary: distinct membership remains resident under credits and refuses
+    excess growth even when replay spill is enabled. No high-cardinality set
+    spill, execution resume, package release, transport or speedup is claimed.
 
 October 14 maintainer follow-through priority within the existing work: the
 latest direction resumes PR #1551, one version bump after integration and the
@@ -3219,8 +3139,9 @@ optimization and breadth work. Preserve that dependency while completing the
 measured hotspot/breadth queue. Compression/timing integration is complete in
 PR #1555, with exact source, hosted and production evidence in the completed
 ledger. Selected text views are retained and merged in PR #1556; dictionary
-capacity growth is dropped with its complete evidence preserved. The current
-finite breadth unit is `NATIVE-STREAM-DESTINATIONS`.
+capacity growth is dropped with its complete evidence preserved. Streaming
+destinations are integrated in PR #1557 with complete local, hosted and production
+proof. The current finite breadth unit is `NATIVE-STREAM-SETS`.
 
 October 14 direction takes precedence over the earlier version hold. PR #1551
 completes the composition timing investigation, admitted-context corrections and

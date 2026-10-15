@@ -13,8 +13,11 @@ Local runtime acceptance passes: 3,219 default workspace tests, 4,229 native
 tests, 84 direct Python tests, 777 public cases across 20 families and one complete
 43-query pass. The [portable evidence index](evidence/native-stream-destinations-2026-10-15.json)
 records 3,993 verified outer members and the preserved 2,300-member failed public
-run. Hosted integration remains pending. These source changes follow the
-immutable 0.6.0 packages and do not publish another release.
+run. PR #1557 is merged after all 44 hosted checks pass; the
+[hosted packet](evidence/native-stream-destinations-hosted-2026-10-15.json)
+records three installed-wheel lanes, source identity, and preview/production
+verification. These source changes follow the immutable 0.6.0 packages and do
+not publish another release.
 
 ## Shared execution and ownership
 
@@ -81,8 +84,8 @@ Independent public-evidence inspection reopens 893 complete-value files with
 22,491 expected rows, 1,408 native envelopes, 20 pressure files with 677,251 rows,
 and 305 artifact references. The exact 777-case list matches the frozen protocol.
 Complete values, resource evidence and both false fallback fields are checked.
-The direct tests use an explicit frozen native library with the source package;
-installed-wheel and cross-platform proof remain hosted gates.
+The local direct tests use an explicit frozen native library with the source
+package. Separate installed-wheel and cross-platform results are recorded below.
 
 ## Preserved failures and corrections
 
@@ -151,6 +154,48 @@ against the actual schemas and complete original logs; both failed helpers or
 receipts remain retained. The original 84 direct tests, 777 public cases and
 Full43 pass retain their original source and executable identities. They are
 not presented as new runs, and no new release build was needed.
+
+## Hosted integration and production verification
+
+[PR #1557](https://github.com/depsilon/shardloom/pull/1557) merges at
+`e4814c5e1b58972924aa95f5de2e51024f6b24d8` after all 44 checks succeed on
+`54f107d4add9d1d218f0f78e47c8d6f76785120a`. CI executes the synthetic merge
+`4e9b27921c71c7176ad5b215704e531f2b20bf0e`; the PR head, synthetic merge and
+actual merge have the same tree. The existing-target review comment is answered
+with the paired reproduction and added regressions above. Its thread is resolved
+and no requested changes remain. The final test-only commit does not change the
+reviewed runtime.
+
+The completed native CI job passes 2,813 tests with the same 26 declared manual
+exclusions; provider groups pass 10/7/7/23/4 tests, for 2,864 total. All seven
+new native destination tests pass. The native public job passes 1,076 Rust tests,
+including all three added existing-target regressions. Isolated installed wheels
+on Linux Python 3.10, Linux Python 3.13 and macOS arm64 Python 3.13 each pass all
+84 native binding tests without failures, errors or skips. These integration
+wheels retain the source version; no package publication is attempted.
+
+The [hosted index](evidence/native-stream-destinations-hosted-2026-10-15.json)
+and [archive](evidence/native-stream-destinations-hosted-2026-10-15.tar.xz)
+preserve and verify 99 original members. The complete selected source inventory
+contains 2,264 files and matches immutable merged Git blobs. Compared with the
+original 2,263-file acceptance map, one integration-test file is added and its
+test root changes; runtime/package sources and both frozen executable hashes
+are preserved. The inventory's historical recorded head is distinguished from
+the later commit whose file contents are independently checked.
+
+All eight preview and eight production responses preserve their corresponding
+immutable source. Production check `116622064868` completes successfully with
+version `7afed4af-08f4-4cf7-8e72-ee0766555815`. Separate rendered checks inspect
+the benchmark and Python pages, five search results and navigation to the batch
+guide, with no console warnings or errors. Their two viewport screenshots per
+environment were inspected inline; the packet does not claim saved images.
+Original pending observations, a GitHub TLS capture failure and corrected log
+parser offsets remain recorded separately from this complete proof.
+
+The same packet retains a dated correction for PR #1556: its production
+deployment had completed in a new check record while the earlier observer kept
+reading the initial pending record. The original selected-view packet is
+unchanged; the later completed-check evidence supersedes that pending conclusion.
 
 ## Single-pass query acceptance
 

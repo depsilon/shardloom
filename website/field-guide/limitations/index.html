@@ -156,8 +156,8 @@ The later source-only
 reduce view construction inside sparse native filtering, with complete local
 acceptance and a bounded retained comparison. PR #1556 merged after all 44
 checks and three installed-wheel lanes passed. Preview and production responses
-match the merged source; the outstanding deployment notification remains
-explicit in the report. The slower controls remain visible; this does not
+match the merged source, and production deployment completion is verified.
+The report corrects the earlier stale notification. The slower controls remain visible; this does not
 establish general workload acceleration or change published packages.
 Default input remains resident under the query grant. Opt-in
 <a href="/field-guide/python-surface#consume-results-in-batches">streaming input</a> in 0.6.0
@@ -177,9 +177,14 @@ records the source acceptance included in 0.6.0. The subsequent source
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-destinations-2026-10-15.md">destination contract</a>
 admits all eight existing local writers and one-execution streaming fanout,
 including independent producers in the direct binding. Complete local runtime
-acceptance passes; hosted integration remains pending. Writer type/fidelity
+acceptance passes. PR #1557 merged after all 44 checks passed, with three
+installed-wheel lanes and preview/production verification. Writer type/fidelity
 limits, explicit result replay/spill and non-atomic multi-file publication
-remain. Unadmitted stateful/subquery families stay separate work.
+remain. The current-source <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md">set-operation contract</a>
+admits <code dir="auto">UNION ALL</code>, <code dir="auto">UNION</code>, <code dir="auto">INTERSECT</code> and <code dir="auto">EXCEPT</code> over finite inputs.
+Set membership remains resident under the grant, with deterministic growth refusal
+even when replay spill is enabled. Complete local acceptance passes; hosted
+integration remains pending. Unadmitted stateful/subquery families stay separate work.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.</p>
