@@ -1,0 +1,50 @@
+{
+  "schema_version": "shardloom.stream_destination_review.v1",
+  "status": "passed_local",
+  "reviewed_head": "c7726047b6d9d01f4fed878cb5c16bb8203d0830",
+  "adjudication": {
+    "review_comment_id": 4286139155,
+    "outcome": "not_reproduced_review_premise_disproved",
+    "reason": "All eight underlying writers reject existing destinations. The preflight moves that denial before resident input demand; it removes no supported replacement.",
+    "original_runtime_restored_byte_identical": true,
+    "changed_source_files": [
+      "shardloom-cli/tests/public_workflow_route.rs",
+      "shardloom-cli/tests/support/public_batch_writes.rs"
+    ],
+    "pair_cases": 32,
+    "compared_value_files": 16,
+    "compared_rows": 48,
+    "inspected_envelopes": 60,
+    "new_rust_tests": 3,
+    "new_rust_scenarios": 50,
+    "workspace_tests": 3219,
+    "native_tests": 4232,
+    "native_manual_platform_exclusions": 29,
+    "final_required_gates": 6,
+    "no_new_release_build_required": "Only CLI integration tests changed; every original runtime/package source hash is unchanged.",
+    "prior_acceptance_retained": "84 direct, 777 public and Full43 remain bound to their original immutable artifacts and sources; these runs were not relabeled as new runs.",
+    "preserved_failures": [
+      "Initial positive-overwrite test reproduced rejection.",
+      "Narrowed-preflight experiment still failed at the unchanged OwnedOutput replacement restriction; runtime experiment was reverted.",
+      "First policy test passed all writes but its reopen omitted bounded=true; corrected test passes.",
+      "All six broad commands passed; their final verifier used the old manual-exclusion inventory. Revalidated the same complete logs against the existing current inventory and all 29 literal declarations without rerunning native commands.",
+      "The first packet verifier incorrectly concatenated canonical envelope fields and the result payload mirror. It now follows OutputEnvelope.from_json, checks uniqueness in each list, and requires every mirrored field to agree. Original failed helper is retained."
+    ]
+  },
+  "member_count": 185,
+  "raw_bytes": 7375114,
+  "archive": {
+    "file": "native-stream-destinations-review-2026-10-15.tar.xz",
+    "bytes": 313128,
+    "sha256": "0f2a4c11ec09e55fe3233408e90b2232d41d24f08336665fd7ef60d59b30e398"
+  },
+  "manifest": {
+    "file": "native-stream-destinations-review-2026-10-15.manifest.json.xz",
+    "bytes": 9100,
+    "sha256": "7f6a7901c3905168c11a54ff3c6d428a0631ae7734128ea1660a4607bdce8d28",
+    "raw_sha256": "cbf80f3342d0712de29fe40ac3a71fda769d7a6d234b0636b1662768ad5a19a6"
+  },
+  "all_members_reopened": true,
+  "hosted_acceptance_pending": true,
+  "original_acceptance_packet_unchanged": true
+}

@@ -118,6 +118,40 @@ only `scripts/run_native_streaming_input_uat.py` differs. The manifest explicitl
 links the original build source, current harness source and equivalence receipt;
 it does not claim that the binaries were rebuilt.
 
+## Existing-destination publication
+
+All eight writers already reject an existing destination, including a resident
+single write with overwrite permission. Their shared `OwnedOutput` publication
+boundary has no atomic generation-conditional replacement. The new preflight
+moves that refusal before producer demand; it does not remove supported
+replacement behavior.
+
+The [review evidence index](evidence/native-stream-destinations-review-2026-10-15.json),
+[archive](evidence/native-stream-destinations-review-2026-10-15.tar.xz) and
+[manifest](evidence/native-stream-destinations-review-2026-10-15.manifest.json.xz)
+retain 185 verified members. Three added CLI integration tests exercise 50
+scenarios: 16 absent-target creations, 32 existing-target single-write refusals
+and two fanout refusals. Rejected calls preserve existing bytes, create no
+staging or other destination, and demand no input. A separate 32-case comparison
+of the frozen prior and current CLIs confirms both versions reject existing
+targets and create absent ones across all eight formats. All 16 successful
+outputs are reopened and compared completely: 48 rows and 60 native envelopes
+are retained. The prior version consumes the producer before refusing existing
+targets; the current version does not open it.
+
+The initial overwrite-success expectation failed on the original runtime and
+again after narrowing the preflight. That experiment was reverted: runtime and
+package sources remain byte-identical to the original accepted source, with only
+the two integration-test files changed. A missing bounded-read option in the
+first readback test was corrected. All six validation commands pass again, with
+3,219 workspace tests and 4,232 native tests, including the three new tests and
+the same 29 declared exclusions. A stale manual-test inventory in the wrapper
+and an incorrect duplicate-field check in the packet verifier were corrected
+against the actual schemas and complete original logs; both failed helpers or
+receipts remain retained. The original 84 direct tests, 777 public cases and
+Full43 pass retain their original source and executable identities. They are
+not presented as new runs, and no new release build was needed.
+
 ## Single-pass query acceptance
 
 One sequential pass runs each query once against the resident 99,997,497-row,

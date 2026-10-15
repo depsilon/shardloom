@@ -1,0 +1,315 @@
+{
+  "schema_version": "shardloom.stream_destination_review_audit.v1",
+  "status": "passed",
+  "packet": {
+    "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-stream-destinations-review-2026-10-15.json",
+    "bytes": 2750,
+    "sha256": "55c7f6f1884117049f0ee5a139fd8e2f6fa973a895164d66d50a0969f336e5d1"
+  },
+  "current_source_files": 2264,
+  "source_scope": "Current working-tree inventory, including the two reviewed integration-test files; not a claim that those files were already in HEAD.",
+  "primary_checks": {
+    "archive_and_compressed_manifest_match_index": true,
+    "all_members_regular_unique_and_match_originals": true,
+    "member_count": 185,
+    "raw_bytes": 7375114,
+    "original_runtime_and_package_sources_unchanged": true,
+    "exact_current_source_inventory": true,
+    "values": 16,
+    "compared_rows": 48,
+    "envelopes": 60,
+    "nested_fields_are_matching_subset": true,
+    "all_six_gate_receipts_and_logs_verified": true,
+    "test_counts": {
+      "workspace-tests": 3219,
+      "native-tests": 4232
+    }
+  },
+  "worker_audit": {
+    "identity": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-packet-audit-480.json",
+      "bytes": 11704,
+      "sha256": "7846b8b905b438075655dfc5cb9956156a712ee5581c94adde04dde8df61e550"
+    },
+    "result": {
+      "checks": {
+        "accepted_inventory_files": 2264,
+        "archive_mismatches": [],
+        "archive_sha256": "0f2a4c11ec09e55fe3233408e90b2232d41d24f08336665fd7ef60d59b30e398",
+        "current_head_mismatches": [],
+        "envelopes": 60,
+        "fallback_false_objects": 60,
+        "gate_logs": [
+          {
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "name": "stream-destination-review-fmt-479",
+            "receipt_ok": true
+          },
+          {
+            "log_sha256": "40e9ffae8944ce22ab16deaf8640bbd4234c4c962caa6c015ee0cfab2b09ae79",
+            "name": "stream-destination-review-native-tests-479",
+            "receipt_ok": true
+          },
+          {
+            "log_sha256": "3b3de22b6308d692d750c4d1f3e4d93406f83baa7f22eb6cd227088038e59403",
+            "name": "stream-destination-review-read-clippy-479",
+            "receipt_ok": true
+          },
+          {
+            "log_sha256": "58ac86580c5e6f0d1bb6f4155bcbb4e5cad8c3a23ce2758ca8646f9c240dffa4",
+            "name": "stream-destination-review-release-clippy-479",
+            "receipt_ok": true
+          },
+          {
+            "log_sha256": "ba728b8cc516b1c90b48c3a8d113f27a581112f4e6cc236e2908a5a809260ca6",
+            "name": "stream-destination-review-workspace-clippy-479",
+            "receipt_ok": true
+          },
+          {
+            "log_sha256": "e65a86b4af4edb5c94f4b363a6197f54a83cf3106e045f8d9fee05ce4c827487",
+            "name": "stream-destination-review-workspace-tests-479",
+            "receipt_ok": true
+          }
+        ],
+        "manifest_raw_sha256": "cbf80f3342d0712de29fe40ac3a71fda769d7a6d234b0636b1662768ad5a19a6",
+        "member_count": 185,
+        "mirrored_fields_checked": 11678,
+        "original_source_mismatches": [],
+        "paired_value_files": 16,
+        "raw_member_bytes": 7375114,
+        "stream477_changed_paths": [
+          "shardloom-cli/tests/public_workflow_route.rs",
+          "shardloom-cli/tests/support/public_batch_writes.rs"
+        ],
+        "tar_member_count": 185,
+        "unique_nested_result_objects": 60,
+        "unique_top_level_objects": 60,
+        "value_pairs": 8,
+        "value_rows": 48
+      },
+      "failures": [],
+      "preserved_prior_attempt": {
+        "failures": [
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-arrow_ipc-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-arrow_ipc-prepare-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-arrow_ipc-reopen-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-arrow_ipc-schema-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-avro-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-avro-prepare-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-avro-reopen-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-avro-schema-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-csv-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-json-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-jsonl-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-orc-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-orc-prepare-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-orc-reopen-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-orc-schema-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-parquet-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-parquet-prepare-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-parquet-reopen-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-parquet-schema-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-vortex-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-vortex-reopen-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/current/logs/current-existing-False-vortex-schema-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-arrow_ipc-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-arrow_ipc-prepare-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-arrow_ipc-reopen-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-arrow_ipc-schema-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-avro-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-avro-prepare-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-avro-reopen-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-avro-schema-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-csv-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-json-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-jsonl-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-orc-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-orc-prepare-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-orc-reopen-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-orc-schema-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-parquet-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-parquet-prepare-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-parquet-reopen-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-parquet-schema-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-vortex-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-vortex-reopen-envelope.json",
+          "mirrored top/nested result fields agree /Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-paired-479/prior/logs/prior-existing-False-vortex-schema-envelope.json",
+          "gate receipt/log stream-destination-review-native-tests-479",
+          "gate receipt/log stream-destination-review-workspace-tests-479"
+        ],
+        "note": "Initial audit run used incorrect assumptions for manifest key, source checkout identity, JSON structures, envelope field mirrors, and receipt contract; this failed attempt is preserved here.",
+        "status": "failed"
+      },
+      "status": "passed"
+    },
+    "helper": {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/audit_stream_destination_review_packet_480.py",
+        "bytes": 10569,
+        "sha256": "f0401dd760cd6f6de9aef6b61d90b27be419f560065ed94cf740c3eb1468ba3a"
+      },
+      "text": "#!/usr/bin/env python3\n\"\"\"Read-only independent audit of the stream-destination review archive.\"\"\"\nimport hashlib\nimport json\nimport lzma\nimport re\nimport tarfile\nfrom pathlib import Path\n\nR = Path('/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo')\nO = Path('/Users/dylan/LocalData/shardloom/native-python-surface-20261010')\nBASE = R / 'docs/benchmarks/evidence/native-stream-destinations-review-2026-10-15'\nOUT = O / 'stream-destination-review-packet-audit-480.json'\n\n\ndef sha(data):\n    return hashlib.sha256(data).hexdigest()\n\n\ndef file_bytes(path):\n    return Path(path).read_bytes()\n\n\ndef check(condition, label, failures):\n    if not condition:\n        failures.append(label)\n\n\ndef main():\n    failures = []\n    previous = json.loads(OUT.read_text()) if OUT.exists() else None\n    summary = {'checks': {}, 'failures': failures}\n    packet = json.loads(file_bytes(str(BASE) + '.json'))\n    manifest_raw = lzma.decompress(file_bytes(str(BASE) + '.manifest.json.xz'))\n    manifest = json.loads(manifest_raw)\n    archive_raw = file_bytes(str(BASE) + '.tar.xz')\n    check(sha(archive_raw) == manifest['archive']['sha256'], 'archive sha256', failures)\n    check(len(archive_raw) == manifest['archive']['bytes'], 'archive bytes', failures)\n    check(sha(manifest_raw) == packet.get('manifest', {}).get('raw_sha256'), 'raw manifest sha256 vs packet', failures)\n    summary['checks']['archive_sha256'] = sha(archive_raw)\n    summary['checks']['manifest_raw_sha256'] = sha(manifest_raw)\n\n    members = manifest['members']\n    names = [m['archive_path'] for m in members]\n    check(len(names) == len(set(names)) == 185, 'manifest member uniqueness/count', failures)\n    raw_sum = 0\n    source_mismatches = []\n    archive_mismatches = []\n    with tarfile.open(fileobj=__import__('io').BytesIO(archive_raw), mode='r:xz') as tf:\n        infos = [x for x in tf.getmembers() if x.isfile()]\n        tar_names = [x.name for x in infos]\n        check(len(infos) == len(set(tar_names)) == 185, 'tar regular-file uniqueness/count', failures)\n        check(set(tar_names) == set(names), 'tar/manifest member set', failures)\n        for m in members:\n            body = tf.extractfile(m['archive_path']).read()\n            raw_sum += len(body)\n            if len(body) != m['bytes'] or sha(body) != m['sha256']:\n                archive_mismatches.append(m['archive_path'])\n            p = Path(m['path'])\n            if not p.is_file() or len(file_bytes(p)) != m['bytes'] or sha(file_bytes(p)) != m['sha256']:\n                source_mismatches.append(str(p))\n    check(raw_sum == manifest['raw_bytes'], 'raw member byte total', failures)\n    check(not archive_mismatches, 'archived member bytes vs manifest', failures)\n    check(not source_mismatches, 'original member bytes vs manifest', failures)\n    summary['checks'].update({'member_count': len(names), 'tar_member_count': len(infos),\n                              'raw_member_bytes': raw_sum, 'archive_mismatches': archive_mismatches,\n                              'original_source_mismatches': source_mismatches})\n\n    # The accepted source inventory is compared with the original stream477 inventory.\n    accepted_path = O / 'native-release-source-streamreview479accepted.json'\n    accepted = json.loads(accepted_path.read_text())\n    archived = {}\n    with tarfile.open(fileobj=__import__('io').BytesIO(archive_raw), mode='r:xz') as tf:\n        for key in ('evidence/native-release-source-stream477.json',\n                    'evidence/native-release-source-streamreview479accepted.json'):\n            obj = json.loads(tf.extractfile(key).read())\n            archived[key.rsplit('/', 1)[-1]] = obj\n    old = archived['native-release-source-stream477.json']['source_sha256']\n    new = accepted['source_sha256']\n    check(accepted == archived['native-release-source-streamreview479accepted.json'], 'accepted source inventory equals archived', failures)\n    diffs = sorted(k for k in set(old) | set(new) if old.get(k) != new.get(k))\n    check(len(diffs) == 2 and set(diffs) == set(manifest['adjudication']['changed_source_files']),\n          'stream477 source delta is exactly declared two files', failures)\n    current = {}\n    for path in new:\n        p = R / path\n        current[path] = sha(p.read_bytes()) if p.is_file() else None\n    current_diffs = sorted(k for k, v in new.items() if current.get(k) != v)\n    check(not current_diffs, 'accepted inventory equals current HEAD', failures)\n    summary['checks'].update({'stream477_changed_paths': diffs, 'accepted_inventory_files': len(new),\n                              'current_head_mismatches': current_diffs})\n\n    # Each listed value file must be byte-identical across current/prior and contain 3 rows.\n    values = manifest['values']\n    value_groups = {}\n    for m in values:\n        p = Path(m['path']); data = file_bytes(p)\n        check(len(data) == m['bytes'] and sha(data) == m['sha256'], 'value inventory hash '+str(p), failures)\n        side = str(p).split('/stream-destination-review-paired-479/', 1)[-1].split('/', 1)[0]\n        key = p.name.replace(side + '-', '')\n        value_groups.setdefault(key, {})[side] = data\n    value_rows = 0\n    for key, pair in value_groups.items():\n        check(set(pair) == {'current', 'prior'} and pair.get('current') == pair.get('prior'), 'paired values equal '+key, failures)\n        for b in pair.values():\n            obj = json.loads(b)\n            value_rows += len(obj.get('actual', [])) if isinstance(obj, dict) else 0\n            check(isinstance(obj, dict) and obj.get('actual') == obj.get('expected') and len(obj.get('actual', [])) == 3,\n                  'three equal actual/expected value rows '+key, failures)\n    check(len(values) == 16 and value_rows == 48, '16 value files/48 rows', failures)\n    summary['checks'].update({'paired_value_files': len(values), 'value_pairs': len(value_groups), 'value_rows': value_rows})\n\n    # Envelopes contain a canonical envelope and a mirrored result payload.\n    envelope_count = 0\n    unique_top = unique_nested = mirrors = fallback = 0\n    for m in manifest['envelopes']:\n        b = file_bytes(m['path']); check(len(b) == m['bytes'] and sha(b) == m['sha256'], 'envelope hash '+m['path'], failures)\n        obj = json.loads(b); envelope_count += 1\n        check(isinstance(obj, dict), 'envelope object '+m['path'], failures)\n        if isinstance(obj, dict):\n            top_fields = obj.get('fields')\n            payload_fields = obj.get('result', {}).get('fields')\n            def field_map(fields):\n                if not isinstance(fields, list) or any(not isinstance(f, dict) or 'key' not in f for f in fields):\n                    return None\n                keys = [f['key'] for f in fields]\n                return ({f['key']: f.get('value') for f in fields}, len(keys) == len(set(keys)))\n            top = field_map(top_fields); nested = field_map(payload_fields)\n            if top is not None:\n                unique_top += 1\n                check(top[1], 'unique top-level fields '+m['path'], failures)\n            if nested is not None:\n                unique_nested += 1\n                check(nested[1], 'unique nested result fields '+m['path'], failures)\n            if top is not None and nested is not None:\n                common = set(top[0]) & set(nested[0])\n                check(all(top[0][key] == nested[0][key] for key in common),\n                      'mirrored top/nested result fields agree '+m['path'], failures)\n                mirrors += len(common)\n            fb = obj.get('fallback', {})\n            check(isinstance(fb, dict) and fb.get('attempted') is False and fb.get('allowed') is False,\n                  'fallback flags false '+m['path'], failures)\n            fallback += 1\n    check(envelope_count == 60, '60 envelopes', failures)\n    summary['checks'].update({'envelopes': envelope_count, 'unique_top_level_objects': unique_top,\n                              'unique_nested_result_objects': unique_nested, 'mirrored_fields_checked': mirrors,\n                              'fallback_false_objects': fallback})\n\n    # Six designated broad gate logs and their receipts, using the reviewed helper's receipt contract.\n    # freeze_native_release_298.receipt checks passed status, drained process group, release command, log hash.\n    gate_names = ['stream-destination-review-fmt-479', 'stream-destination-review-native-tests-479',\n                  'stream-destination-review-read-clippy-479', 'stream-destination-review-release-clippy-479',\n                  'stream-destination-review-workspace-clippy-479', 'stream-destination-review-workspace-tests-479']\n    log_results = []\n    for name in gate_names:\n        logp = O / (name + '.log'); receiptp = O / (name + '.json')\n        rec = json.loads(receiptp.read_text()); logdata = file_bytes(logp)\n        ok = rec.get('status') == 'passed' and rec.get('process_group_drained') is True and rec.get('returncode') == 0 and sha(logdata) == rec.get('log_sha256')\n        # Also ensure the evidence copies reopened from the archive match the receipt-bound local logs.\n        arc = 'evidence/' + name + '.log'\n        with tarfile.open(fileobj=__import__('io').BytesIO(archive_raw), mode='r:xz') as tf:\n            body = tf.extractfile(arc).read()\n        ok = ok and body == logdata\n        if name.endswith('workspace-tests-479'):\n            passed = sum(int(x) for x in re.findall(r'test result: ok\\. (\\d+) passed;', logdata.decode(errors='replace')))\n            ok = ok and passed == 3219\n        if name.endswith('native-tests-479'):\n            passed = sum(int(x) for x in re.findall(r'test result: ok\\. (\\d+) passed;', logdata.decode(errors='replace')))\n            ok = ok and passed == 4232\n        log_results.append({'name': name, 'receipt_ok': ok, 'log_sha256': sha(logdata)})\n        check(ok, 'gate receipt/log '+name, failures)\n    summary['checks']['gate_logs'] = log_results\n    summary['status'] = 'passed' if not failures else 'failed'\n    if previous is not None:\n        summary['preserved_prior_attempt'] = {\n            'status': previous.get('status'), 'failures': previous.get('failures', []),\n            'note': 'Initial audit run used incorrect assumptions for manifest key, source checkout identity, JSON structures, envelope field mirrors, and receipt contract; this failed attempt is preserved here.'}\n    OUT.write_text(json.dumps(summary, indent=2, sort_keys=True) + '\\n')\n    print(json.dumps({'status': summary['status'], 'failures': failures, 'result': str(OUT)}, indent=2))\n\n\nif __name__ == '__main__':\n    main()\n"
+    },
+    "acceptance": "The primary inspected the helper and output, then independently completed the strict checks above. The worker result retains its immediately preceding failed assertion list."
+  },
+  "documentation": {
+    "identity": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/summary.json",
+      "bytes": 3822,
+      "sha256": "7722845ae06561f48959d4f5eb6b0085952d8a5cbc2d581d7d432da7873ad840"
+    },
+    "result": {
+      "status": "passed",
+      "error": null,
+      "checks": [
+        {
+          "name": "public-status",
+          "command": [
+            "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+            "-B",
+            "scripts/check_public_status_docs.py",
+            "--output",
+            "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/public-status.json"
+          ],
+          "returncode": 0,
+          "seconds": 0.24791662499774247,
+          "log": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/public-status.log",
+          "sha256": "47eb3def760dd1343d8f958dfbc23785c1dca3099ceca07a3123540165cde9a4"
+        },
+        {
+          "name": "scope",
+          "command": [
+            "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+            "-B",
+            "scripts/check_v1_inclusion_scope.py",
+            "--output",
+            "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/scope.json"
+          ],
+          "returncode": 0,
+          "seconds": 0.048121874999196734,
+          "log": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/scope.log",
+          "sha256": "8745f51ac1bc59bd2b78edab995adce8e26d2bec564c90ca9afc828c5c514c62"
+        },
+        {
+          "name": "contribution",
+          "command": [
+            "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+            "-B",
+            "scripts/check_contribution_governance.py",
+            "--output",
+            "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/contribution.json"
+          ],
+          "returncode": 0,
+          "seconds": 0.04799175000516698,
+          "log": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/contribution.log",
+          "sha256": "f451fae34765da871d396ba36ca3858fe96b7165431d3dde2c6559dcf1ff8831"
+        },
+        {
+          "name": "schema-registry",
+          "command": [
+            "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+            "-B",
+            "scripts/check_evidence_schema_registry.py",
+            "--output",
+            "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/schema-registry.json"
+          ],
+          "returncode": 0,
+          "seconds": 0.02377666699612746,
+          "log": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/schema-registry.log",
+          "sha256": "cf02e6b047a33926de9520848d7395761aad8e18919a9dc9e39673437bc417ac"
+        },
+        {
+          "name": "diff",
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "returncode": 0,
+          "seconds": 0.020903332995658275,
+          "log": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/diff.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "local_links": [
+        "evidence/native-stream-destinations-2026-10-15.json",
+        "../architecture/native-stream-destinations-2026-10-15.md",
+        "evidence/native-stream-destinations-review-2026-10-15.json",
+        "evidence/native-stream-destinations-review-2026-10-15.tar.xz",
+        "evidence/native-stream-destinations-review-2026-10-15.manifest.json.xz",
+        "evidence/native-stream-destinations-2026-10-15.query-timings.csv",
+        "evidence/native-stream-destinations-2026-10-15.tar.xz",
+        "evidence/native-stream-destinations-2026-10-15.manifest.json.xz",
+        "evidence/native-stream-destinations-local-review-2026-10-15.json"
+      ],
+      "helper_sha256": "015a99e46634abcb0d712437dab653a1b0a269ffb74ddf387540c38edd730dfa",
+      "source_identity_preserved": true
+    },
+    "logs": [
+      {
+        "identity": {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/public-status.log",
+          "bytes": 118,
+          "sha256": "47eb3def760dd1343d8f958dfbc23785c1dca3099ceca07a3123540165cde9a4"
+        },
+        "text": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/public-status.json\n"
+      },
+      {
+        "identity": {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/scope.log",
+          "bytes": 110,
+          "sha256": "8745f51ac1bc59bd2b78edab995adce8e26d2bec564c90ca9afc828c5c514c62"
+        },
+        "text": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/scope.json\n"
+      },
+      {
+        "identity": {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/contribution.log",
+          "bytes": 117,
+          "sha256": "f451fae34765da871d396ba36ca3858fe96b7165431d3dde2c6559dcf1ff8831"
+        },
+        "text": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/contribution.json\n"
+      },
+      {
+        "identity": {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/schema-registry.log",
+          "bytes": 722,
+          "sha256": "cf02e6b047a33926de9520848d7395761aad8e18919a9dc9e39673437bc417ac"
+        },
+        "text": "{\n  \"blockers\": [],\n  \"external_engine_invoked\": false,\n  \"fallback_attempted\": false,\n  \"registry_docs\": \"docs/status/evidence-field-schema-registry.md\",\n  \"registry_schema_version\": \"shardloom.evidence_field_schema_registry.v1\",\n  \"registry_source\": \"shardloom-cli/src/evidence_schema_registry.rs\",\n  \"schema_version\": \"shardloom.evidence_field_schema_registry_validation.v1\",\n  \"status\": \"passed\",\n  \"surface_count\": 8,\n  \"surface_order\": [\n    \"execution_mode_selection_report\",\n    \"compute_flow_evidence\",\n    \"execution_certificate_report\",\n    \"native_io_report\",\n    \"benchmark_plan_report\",\n    \"benchmark_constitution_report\",\n    \"benchmark_claim_evidence_report\",\n    \"compute_capability_matrix_report\"\n  ]\n}\n"
+      },
+      {
+        "identity": {
+          "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-destination-review-docs-480/diff.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "text": ""
+      }
+    ],
+    "helper": {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/check_stream_destination_review_docs_480.py",
+        "bytes": 2682,
+        "sha256": "015a99e46634abcb0d712437dab653a1b0a269ffb74ddf387540c38edd730dfa"
+      },
+      "text": "\"\"\"Check the test-only review addendum without relabeling runtime evidence.\"\"\"\nimport json\nfrom pathlib import Path\nimport re\nimport subprocess\nimport sys\nimport time\n\nfrom freeze_native_release_298 import ROOT, OUT, save, sha, sources\n\nDEST = OUT / 'stream-destination-review-docs-480'\n\n\ndef main():\n    expected = json.loads((OUT / 'native-release-source-streamreview479accepted.json').read_text())['source_sha256']\n    assert sources() == expected\n    DEST.mkdir()\n    commands = [\n        ('public-status', [sys.executable, '-B', 'scripts/check_public_status_docs.py', '--output', str(DEST / 'public-status.json')]),\n        ('scope', [sys.executable, '-B', 'scripts/check_v1_inclusion_scope.py', '--output', str(DEST / 'scope.json')]),\n        ('contribution', [sys.executable, '-B', 'scripts/check_contribution_governance.py', '--output', str(DEST / 'contribution.json')]),\n        ('schema-registry', [sys.executable, '-B', 'scripts/check_evidence_schema_registry.py', '--output', str(DEST / 'schema-registry.json')]),\n        ('diff', ['git', 'diff', '--check']),\n    ]\n    rows, links, error = [], [], None\n    try:\n        for name, command in commands:\n            log = DEST / (name + '.log')\n            started = time.monotonic()\n            with log.open('xb') as output:\n                result = subprocess.run(command, cwd=ROOT, stdout=output, stderr=subprocess.STDOUT, timeout=120)\n            rows.append(dict(name=name, command=command, returncode=result.returncode,\n                seconds=time.monotonic() - started, log=str(log), sha256=sha(log)))\n            result.check_returncode()\n        report = ROOT / 'docs/benchmarks/native-stream-destinations-2026-10-15.md'\n        text = report.read_text()\n        assert len(re.findall(r'^\\| Q\\d+ \\|', text, re.MULTILINE)) == 43\n        assert '4,232 native tests' in text and '50\\nscenarios' in text\n        for target in re.findall(r'(?<!!)\\[[^\\]]*\\]\\(([^\\s)]+)\\)', text):\n            if target.startswith(('https:', 'http:', 'mailto:', '#')):\n                continue\n            assert (report.parent / target.split('#', 1)[0]).resolve().exists(), target\n            links.append(target)\n        assert sources() == expected\n    except BaseException as failure:\n        error = f'{type(failure).__name__}: {failure}'\n        raise\n    finally:\n        save(DEST / 'summary.json', dict(status='passed' if error is None else 'failed',\n            error=error, checks=rows, local_links=links, helper_sha256=sha(__file__),\n            source_identity_preserved=sources() == expected))\n    print(json.dumps(dict(status='passed', checks=len(rows), local_links=len(links))))\n\n\nif __name__ == '__main__':\n    main()\n"
+    },
+    "report": {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/native-stream-destinations-2026-10-15.md",
+      "bytes": 17717,
+      "sha256": "655b09ba9ac6a49506eaeb805af330c3b0c5e8e90e4a809180165bfd3e5eb087"
+    }
+  },
+  "primary_helper": {
+    "identity": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/finalize_stream_destination_review_480.py",
+      "bytes": 6990,
+      "sha256": "ac091ac379a86988ee5832ab2c01d1b141e676e1bc0065b0c02a6f3119c243fa"
+    },
+    "text": "\"\"\"Primary acceptance of the independent archive audit and document addendum.\"\"\"\nimport hashlib\nimport io\nimport json\nimport lzma\nfrom pathlib import Path\nimport re\nimport tarfile\n\nfrom freeze_native_release_298 import ROOT, OUT, sha, save, sources\n\n\ndef identity(path):\n    path = Path(path)\n    return dict(path=str(path), bytes=path.stat().st_size, sha256=sha(path))\n\n\ndef embedded(path):\n    path = Path(path)\n    return dict(identity=identity(path), text=path.read_text())\n\n\ndef main():\n    base = ROOT / 'docs/benchmarks/evidence'\n    index_path = base / 'native-stream-destinations-review-2026-10-15.json'\n    index = json.loads(index_path.read_text())\n    for key in ('archive', 'manifest'):\n        record = index[key]\n        path = base / record['file']\n        assert path.stat().st_size == record['bytes'] and sha(path) == record['sha256']\n    raw_manifest = lzma.decompress((base / index['manifest']['file']).read_bytes())\n    assert hashlib.sha256(raw_manifest).hexdigest() == index['manifest']['raw_sha256']\n    manifest = json.loads(raw_manifest)\n    assert index['member_count'] == manifest['member_count'] == len(manifest['members']) == 185\n    assert index['raw_bytes'] == manifest['raw_bytes'] == 7375114\n    declared = {row['archive_path']: row for row in manifest['members']}\n    assert len(declared) == 185\n    bodies = {}\n    with tarfile.open(base / index['archive']['file'], 'r|xz') as archive:\n        for member in archive:\n            assert member.isfile() and member.name in declared and member.name not in bodies\n            row = declared[member.name]\n            body = archive.extractfile(member).read()\n            assert len(body) == member.size == row['bytes']\n            assert hashlib.sha256(body).hexdigest() == row['sha256']\n            assert body == Path(row['path']).read_bytes()\n            bodies[member.name] = body\n    assert set(bodies) == set(declared)\n    assert sum(map(len, bodies.values())) == index['raw_bytes']\n    before = json.loads(bodies['evidence/native-release-source-stream477.json'])['source_sha256']\n    accepted = json.loads(bodies['evidence/native-release-source-streamreview479accepted.json'])['source_sha256']\n    assert sources() == accepted\n    assert sorted(p for p in set(before) | set(accepted) if before.get(p) != accepted.get(p)) == [\n        'shardloom-cli/tests/public_workflow_route.rs',\n        'shardloom-cli/tests/support/public_batch_writes.rs']\n    values = [json.loads(body) for name, body in bodies.items() if name.endswith('-values.json')]\n    assert len(values) == 16 and all(v['actual'] == v['expected'] and len(v['actual']) == 3 for v in values)\n    envelopes = [json.loads(body) for name, body in bodies.items() if name.endswith('-envelope.json')]\n    assert len(envelopes) == 60\n    for envelope in envelopes:\n        assert envelope['fallback']['attempted'] is envelope['fallback']['allowed'] is False\n        fields = envelope['fields']\n        mapping = {f['key']: f['value'] for f in fields}\n        assert len(mapping) == len(fields)\n        nested = envelope['result']['fields']\n        assert len(nested) == len({f['key'] for f in nested})\n        assert all(f['key'] in mapping and mapping[f['key']] == f['value'] for f in nested)\n    checks = json.loads(bodies['evidence/stream-destination-review-checks-479b.json'])\n    assert checks['status'] == 'passed' and len(checks['completed']) == 6\n    by_original = {r['path']: bodies[r['archive_path']] for r in manifest['members']}\n    totals = {}\n    for check in checks['completed']:\n        log, receipt_body = by_original[check['log']], by_original[check['receipt']]\n        assert hashlib.sha256(receipt_body).hexdigest() == check['receipt_sha256']\n        receipt = json.loads(receipt_body)\n        assert receipt['status'] == 'passed' and receipt['returncode'] == 0\n        assert receipt['process_group_drained'] and receipt['direct_child_reaped']\n        assert hashlib.sha256(log).hexdigest() == check['log_sha256'] == receipt['log_sha256']\n        if 'tests' in check:\n            groups = re.findall(r'test result: ok\\. (\\d+) passed; (\\d+) failed; (\\d+) ignored; (\\d+) measured; (\\d+) filtered out;', log.decode())\n            assert all(int(row[1]) == int(row[3]) == int(row[4]) == 0 for row in groups)\n            totals[check['stage']] = sum(int(row[0]) for row in groups)\n    assert totals == {'workspace-tests': 3219, 'native-tests': 4232}\n    audit_path = OUT / 'stream-destination-review-packet-audit-480.json'\n    audit = json.loads(audit_path.read_text())\n    assert audit['status'] == 'passed' and not audit['failures']\n    assert audit['checks']['member_count'] == 185 and audit['checks']['value_rows'] == 48\n    docs_path = OUT / 'stream-destination-review-docs-480/summary.json'\n    docs = json.loads(docs_path.read_text())\n    assert docs['status'] == 'passed' and len(docs['checks']) == 5 and len(docs['local_links']) == 9\n    logs = []\n    for check in docs['checks']:\n        assert check['returncode'] == 0 and sha(check['log']) == check['sha256']\n        logs.append(embedded(check['log']))\n    report = dict(schema_version='shardloom.stream_destination_review_audit.v1', status='passed',\n        packet=identity(index_path), current_source_files=len(accepted),\n        source_scope='Current working-tree inventory, including the two reviewed integration-test files; not a claim that those files were already in HEAD.',\n        primary_checks=dict(archive_and_compressed_manifest_match_index=True,\n            all_members_regular_unique_and_match_originals=True, member_count=185, raw_bytes=7375114,\n            original_runtime_and_package_sources_unchanged=True, exact_current_source_inventory=True,\n            values=16, compared_rows=48, envelopes=60, nested_fields_are_matching_subset=True,\n            all_six_gate_receipts_and_logs_verified=True, test_counts=totals),\n        worker_audit=dict(identity=identity(audit_path), result=audit,\n            helper=embedded(OUT / 'audit_stream_destination_review_packet_480.py'),\n            acceptance='The primary inspected the helper and output, then independently completed the strict checks above. The worker result retains its immediately preceding failed assertion list.'),\n        documentation=dict(identity=identity(docs_path), result=docs, logs=logs,\n            helper=embedded(OUT / 'check_stream_destination_review_docs_480.py'),\n            report=identity(ROOT / 'docs/benchmarks/native-stream-destinations-2026-10-15.md')),\n        primary_helper=embedded(__file__), native_workloads_rerun=False,\n        hosted_acceptance_pending=True, publication_attempted=False)\n    destination = base / 'native-stream-destinations-review-audit-2026-10-15.json'\n    save(destination, report)\n    assert json.loads(destination.read_text()) == report\n    print(json.dumps(dict(status='passed', destination=identity(destination), members=185,\n        native_tests=4232, workspace_tests=3219, documentation_checks=5)))\n\n\nif __name__ == '__main__':\n    main()\n"
+  },
+  "native_workloads_rerun": false,
+  "hosted_acceptance_pending": true,
+  "publication_attempted": false
+}
