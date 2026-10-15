@@ -8966,13 +8966,19 @@ def from_batches(
     filters/projections, sorting, aggregation, joins, analytic windows, dynamic
     pivot and limits,
     alongside ordinary file or resident sources.
-    Incremental results, bounded small collection and one native Vortex output
-    are admitted. Limits drain and validate every source. Stateful work
-    shares the query grant; ordering, aggregation, joins, windows and pivot can
-    use an explicit spill policy. Repeated references consume the producer once
-    per execution and replay credited native copies, with query-local native
-    runs when spill is enabled. Unsupported operator families reject before
-    consumption. A factory is still required for repeated executions.
+    Incremental results, bounded small collection and all eight existing local
+    writers (Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV) are
+    admitted under each writer's existing type, fidelity and feature limits. A
+    single output streams directly. Multiple outputs consume each producer once
+    and execute the plan once, then use credited native result replay under the
+    same memory grant and explicit spill policy. This is distinct from
+    repeated-source replay. All producers must end, and all writers and owned
+    spill cleanup must succeed before publication. Local multi-file publication
+    is not group-atomic and retains existing partial-publication diagnostics.
+    Limits drain and validate every source. Stateful work shares the query grant;
+    ordering, aggregation, joins, windows and pivot can use explicit spill.
+    Unsupported operator families reject before consumption. A factory is still
+    required for repeated executions.
     Results remain provisional until every producer ends and final validation
     succeeds.
     """

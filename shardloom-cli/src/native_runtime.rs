@@ -23,7 +23,7 @@ mod operation;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 pub use operation::{
     ExecutedArrowNativeOperation, ExecutedNativeOperation, ExecutedOwnedNativeOperation,
-    NativeWorkflowDeclaration, PreparedNativeOperation,
+    NativeArrowInput, NativeWorkflowDeclaration, PreparedNativeOperation,
 };
 
 #[cfg(test)]
@@ -200,6 +200,39 @@ pub fn written_many_fields(
         .collect::<Vec<_>>();
     let mut fields = Vec::new();
     resident_relational::append_written(&mut fields, &targets, written, reused);
+    Ok(fields)
+}
+
+/// Complete input execution is reported once, independently of output adapters.
+/// # Errors
+/// Rejects an empty or mismatched output set before constructing success evidence.
+#[cfg(feature = "vortex-write")]
+pub fn written_stream_fanout_fields(
+    targets: &[(
+        std::path::PathBuf,
+        shardloom_vortex::VortexLocalPrimitiveRowExportFormat,
+    )],
+    written: shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelationalFanout,
+    reused: bool,
+) -> Result<Vec<(String, String)>> {
+    if targets.is_empty() || targets.len() != written.outputs.len() {
+        return Err(failed(
+            "fanout completion does not match its declared targets",
+        ));
+    }
+    let targets = targets
+        .iter()
+        .enumerate()
+        .map(
+            |(index, (path, format))| super::NativeVortexPrimitiveRowExportTarget {
+                role: if index == 0 { "primary" } else { "fanout" },
+                format: *format,
+                path: path.clone(),
+            },
+        )
+        .collect::<Vec<_>>();
+    let mut fields = Vec::new();
+    resident_relational::append_written_fanout(&mut fields, &targets, written, reused);
     Ok(fields)
 }
 

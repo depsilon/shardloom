@@ -17,6 +17,7 @@ SCHEMA_VERSION = "shardloom.user_surface_index.v1"
 MD_PATH = Path("docs/reference/shardloom-user-surface-index.md")
 JSON_PATH = Path("docs/reference/shardloom-user-surface-index.json")
 COMMAND_REGISTRY_PATH = Path("shardloom-cli/src/command_registry.rs")
+STREAM_DESTINATION_REFERENCE = "docs/architecture/native-stream-destinations-2026-10-15.md"
 
 REQUIRED_MD_MARKERS = (
     "Schema marker: `shardloom.user_surface_index.v1`",
@@ -286,18 +287,37 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         ("input_spill", True),
         ("input_spill_scope", "declared_repeated_source_replay;explicit_native_query_spill_policy_required"),
         ("composition_reference", "docs/architecture/native-stream-input-composition-2026-10-13.md"),
+        ("destination_reference", STREAM_DESTINATION_REFERENCE),
+        ("output_modes", ["incremental_results", "bounded_small_collection", "single_local_destination", "multiple_local_destinations"]),
+        ("output_formats", ["vortex", "parquet", "arrow_ipc", "avro", "orc", "json", "jsonl", "csv"]),
+        ("output_execution_count", 1),
+        ("multiple_output_retention", "credited_native_result_replay"),
+        ("result_replay_spill", "same_explicit_query_store_and_quota"),
+        ("publication_requires", ["all_inputs_ended", "all_adapters_completed", "owned_spill_cleanup_completed", "final_source_validation"]),
+        ("group_atomic_publication", False),
+        ("partial_publication", "preserve_completed_targets_with_recovery_diagnostic"),
+        ("native_binding_multiple_producers", True),
     ):
         if streaming.get(field) != value:
             blockers.append(f"{JSON_PATH}: streaming_input.{field} differs from its contract")
 
     relational_spill = payload.get("native_relational_order_spill", {})
-    for field in ("cleanup_required_before_publication", "stable_ties", "multiple_keys"):
+    for field in ("cleanup_required_before_publication", "stable_ties", "multiple_keys", "relational_fanout"):
         if relational_spill.get(field) is not True:
             blockers.append(f"{JSON_PATH}: native_relational_order_spill.{field} must be true")
-    for field in ("other_relational_state_spill", "relational_fanout", "total_rss_bound",
+    for field in ("other_relational_state_spill", "total_rss_bound",
                   "fallback_attempted", "external_engine_invoked"):
         if relational_spill.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_relational_order_spill.{field} must be false")
+    if relational_spill.get("relational_fanout_scope") != "repeatable_inputs_reexecute_per_target;finite_inputs_execute_once_with_credited_result_replay":
+        blockers.append(f"{JSON_PATH}: relational fanout must distinguish repeatable and finite input execution")
+    for family in ("order", "aggregate", "join", "window"):
+        section_name = f"native_relational_{family}_spill"
+        section = payload.get(section_name, {})
+        if section.get("streaming_destination_reference") != STREAM_DESTINATION_REFERENCE:
+            blockers.append(f"{JSON_PATH}: {section_name} must reference the shared streaming destination contract")
+        if family != "order" and section.get("streaming_input_writer") != "existing_local_writers_with_credited_result_replay":
+            blockers.append(f"{JSON_PATH}: {section_name} must preserve existing local writers and credited result replay")
 
     guardrails = payload["guardrails"]
     nested = payload.get("native_nested_composition", {})

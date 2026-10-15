@@ -113,6 +113,22 @@ pub fn write<T>(
     mut validate: impl FnMut(&Path) -> Result<()>,
     mut write: impl FnMut(&Path, Format) -> Result<T>,
 ) -> Result<Vec<T>> {
+    stage(targets, overwrite, &mut validate, &mut write)?.publish(validate)
+}
+
+/// Private completed outputs whose publication still requires caller completion.
+pub(super) struct Staged<T> {
+    plans: Vec<shardloom_core::WorkspaceSafeLocalWritePlan>,
+    outputs: Vec<(OwnedOutput, Directory)>,
+    results: Vec<T>,
+}
+
+pub(super) fn stage<T>(
+    targets: &[(PathBuf, Format)],
+    overwrite: bool,
+    mut validate: impl FnMut(&Path) -> Result<()>,
+    mut write: impl FnMut(&Path, Format) -> Result<T>,
+) -> Result<Staged<T>> {
     let plans = plan_targets(targets, overwrite, &mut validate)?;
     let mut staged = Vec::with_capacity(targets.len());
     let mut results = Vec::with_capacity(targets.len());
@@ -124,24 +140,37 @@ pub fn write<T>(
         results.push(result);
         staged.push((output, directory));
     }
-    // Revalidate every input generation and final destination after all adapters
-    // complete, before exposing any target. Publication remains create-if-absent.
-    for plan in &plans {
-        validate(&plan.target_path)?;
-    }
-    for (index, (output, _directory)) in staged.iter_mut().enumerate() {
-        if let Err(error) = output.commit() {
-            let published = plans[..index]
-                .iter()
-                .map(|plan| plan.target_path.display().to_string())
-                .collect::<Vec<_>>();
-            return Err(failed(&format!(
-                "fanout publication failed at {}: {error}; previously published complete outputs are preserved: {published:?}; inspect the failing target before retrying",
-                plans[index].target_path.display()
-            )));
+    Ok(Staged {
+        plans,
+        outputs: staged,
+        results,
+    })
+}
+
+impl<T> Staged<T> {
+    pub(super) fn publish(
+        mut self,
+        mut validate: impl FnMut(&Path) -> Result<()>,
+    ) -> Result<Vec<T>> {
+        // Revalidate every input generation and final destination after all adapters
+        // complete, before exposing any target. Publication remains create-if-absent.
+        for plan in &self.plans {
+            validate(&plan.target_path)?;
         }
+        for (index, (output, _directory)) in self.outputs.iter_mut().enumerate() {
+            if let Err(error) = output.commit() {
+                let published = self.plans[..index]
+                    .iter()
+                    .map(|plan| plan.target_path.display().to_string())
+                    .collect::<Vec<_>>();
+                return Err(failed(&format!(
+                    "fanout publication failed at {}: {error}; previously published complete outputs are preserved: {published:?}; inspect the failing target before retrying",
+                    self.plans[index].target_path.display()
+                )));
+            }
+        }
+        Ok(self.results)
     }
-    Ok(results)
 }
 
 /// Check destination declarations before an input factory is consumed.

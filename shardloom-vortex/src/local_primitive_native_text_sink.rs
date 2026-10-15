@@ -26,6 +26,17 @@ fn failed(reason: &str) -> ShardLoomError {
     ))
 }
 
+pub(super) fn validate_schema(dtype: &vortex::array::dtype::DType) -> Result<()> {
+    if let Some(fields) = dtype.as_struct_fields_opt() {
+        for dtype in fields.fields() {
+            if super::native_payload::is_nested(&dtype) {
+                super::native_payload::metadata_bytes(&dtype)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub(super) fn write(
     plan: NativeSinkPlan,
@@ -42,13 +53,7 @@ pub(super) fn write(
         return Err(failed("requires JSON, JSONL or CSV output"));
     }
     cancellation.check()?;
-    if let Some(fields) = plan.dtype.as_struct_fields_opt() {
-        for dtype in fields.fields() {
-            if super::native_payload::is_nested(&dtype) {
-                super::native_payload::metadata_bytes(&dtype)?;
-            }
-        }
-    }
+    validate_schema(&plan.dtype)?;
     plan.validate_destination(path)?;
     let mut scratch = plan.session.memory().reserve(128 * 1024)?;
     let mut output = OwnedOutput::new(path, overwrite)?;

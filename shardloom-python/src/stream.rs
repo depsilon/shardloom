@@ -112,10 +112,14 @@ impl State {
                                 })
                             };
                             let executed = if let Some(input) = input {
-                                let mut next = || input.next();
-                                operation.for_each_arrow_batch(
+                                let mut next = |uri: &shardloom_core::DatasetUri, ordinal| {
+                                    input.next(uri, ordinal)
+                                };
+                                operation.for_each_arrow_batch_with_inputs(
                                     &cancellation,
-                                    Some(&mut next),
+                                    Some(shardloom_runtime::native::NativeArrowInput::Sources(
+                                        &mut next,
+                                    )),
                                     consume,
                                 )?
                             } else {

@@ -621,6 +621,19 @@ which records the source acceptance included in 0.6.0, and the
 [streamed ordering contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-streamed-ordering-2026-10-07.md)
 and [aggregate, join and window spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
 
+The subsequent source implementation extends finite streaming input to all eight
+admitted local writers: Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON and JSONL.
+The direct native binding also routes independent producers through collection,
+incremental delivery and writes. One destination streams directly; several
+destinations execute once and share credited native result replay, with spill
+only when explicitly enabled. Every producer, writer and owned cleanup must
+finish before publication. Multi-file publication remains non-atomic, and each
+writer retains its type and fidelity limits. The
+[destination acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md)
+passes 84 direct tests, 777 public cases and all 43 complete query results;
+hosted integration remains pending. These source changes do not alter the
+immutable 0.6.0 packages.
+
 Relational pivots over file or resident-memory sources can deliver complete
 admitted results through \`iter_batches()\` with an explicit \`spill\` policy.
 The [sparse pivot example](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state)
@@ -892,10 +905,12 @@ make no speedup claim, and a query grant still does not bound total process RSS.
 The subsequent source-only
 [selected text view change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
 constructs views only for selected rows inside sparse native Zstd filtering.
-Complete local checks and its bounded paired comparison pass; hosted integration
-is pending. The report retains the slower control cases and all 43 acceptance
-timings. The same frames are decoded, and this result makes no general speedup
-or zero-decode claim.
+Complete local checks and its bounded paired comparison pass. PR #1556 merged
+after all 44 checks and three installed-wheel lanes passed. Preview and
+production responses match the merged source, with an outstanding deployment
+notification recorded separately. The report retains the slower control cases
+and all 43 acceptance timings. The same frames are decoded, and this result
+makes no general speedup or zero-decode claim.
 
 Opt-in \`from_batches(..., streaming=True)\` retains at most one original native input
 batch. The 0.6.0 packages admit distinct finite producers, declared repeated-source
@@ -931,8 +946,14 @@ compaction prevents retained results from pinning input; native sink metadata
 and retained output still consume credits. Limits drain the complete source,
 and late failure prevents completion and incomplete file publication.
 The runtime also rejects malformed FSST row lengths before decoder allocation.
-Broader streaming destinations, unadmitted
-state/recovery and remaining allocation coverage stay open after v0.6.0 publication.
+The subsequent source implementation admits finite single-use input through
+all eight existing local writers and one-execution fanout. A single destination
+streams directly; several destinations share credited native result replay and
+explicit spill. Input completion, adapter completion and owned cleanup precede
+publication; multi-file publication remains non-atomic. The
+[destination acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md)
+records complete local runtime and query checks; hosted integration remains
+pending. Unadmitted state/recovery and remaining allocation coverage stay open.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
@@ -994,7 +1015,8 @@ Reviewed October 15, 2026. Recent local work validates complete query results an
 individual changes against a frozen ShardLoom control:
 
 - [Fresh UAT and all 43 query timings](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-timing-uat-2026-10-15.md) — one execution per query: 62.560 s engine execution, 0.002827 s result serialization and 2.859 s other process work; fresh ingestion and all 18 format/workflow cohorts pass. This is a local baseline on source after 0.6.0, with an explicit boundary for every clock.
-- [Selected text view acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md) — the 70-call comparison retains the sparse-filter change: Q23's engine median improves 2.55%, while all four other parallel control medians are slower within their declared limits. A separate single pass verifies all 43 complete results and records 58.445 s engine time; it does not replace the paired decision. Complete local acceptance passes; hosted integration is pending.
+- [Selected text view acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md) — the 70-call comparison retains the sparse-filter change: Q23's engine median improves 2.55%, while all four other parallel control medians are slower within their declared limits. A separate single pass verifies all 43 complete results and records 58.445 s engine time; it does not replace the paired decision. PR #1556 merged with complete hosted and installed-wheel acceptance. Preview/production source is verified; the report distinguishes the outstanding deployment notification.
+- [Streaming destination acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md) — all eight existing local writers and one-execution fanout pass 777 public cases and complete direct/native regression checks. A single pass verifies all 43 query results and records 60.985 s engine time. This is descriptive regression evidence without a matched speedup claim; hosted integration remains pending.
 - [Native execution and ingestion comparisons](https://github.com/depsilon/shardloom/blob/main/docs/architecture/performance-quiet-intake-2026-09-30.md) — retained mechanisms, rejected experiments, and links to their acceptance evidence.
 - [Dictionary preparation](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md) — source-backed strings, bounded preparation overlap, and measured tradeoffs.
 - [Native runtime completion](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md) — complete-value Full43 regression runs, public-call checks, and the remaining availability inventory.
@@ -1106,9 +1128,11 @@ remain separate.
 The later source-only
 [selected text views](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
 reduce view construction inside sparse native filtering, with complete local
-acceptance and a bounded retained comparison. Hosted integration is pending.
-The report preserves the slower controls; this does not establish general
-workload acceleration or change published packages.
+acceptance and a bounded retained comparison. PR #1556 merged after all 44
+checks and three installed-wheel lanes passed. Preview and production responses
+match the merged source; the outstanding deployment notification remains
+explicit in the report. The slower controls remain visible; this does not
+establish general workload acceleration or change published packages.
 Default input remains resident under the query grant. Opt-in
 [streaming input](/field-guide/python-surface#consume-results-in-batches) in 0.6.0
 packages admits distinct finite producers, declared repeated-source replay
@@ -1123,8 +1147,13 @@ and [join acceptance](https://github.com/depsilon/shardloom/blob/main/docs/bench
 and [window acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-window-pressure-2026-10-08.md).
 Join and window hosted integration are complete. The
 [streaming composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md)
-records the source acceptance included in 0.6.0. Unadmitted stateful/subquery
-families, streamed compatibility writes and fanout remain separate work.
+records the source acceptance included in 0.6.0. The subsequent source
+[destination contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-destinations-2026-10-15.md)
+admits all eight existing local writers and one-execution streaming fanout,
+including independent producers in the direct binding. Complete local runtime
+acceptance passes; hosted integration remains pending. Writer type/fidelity
+limits, explicit result replay/spill and non-atomic multi-file publication
+remain. Unadmitted stateful/subquery families stay separate work.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.

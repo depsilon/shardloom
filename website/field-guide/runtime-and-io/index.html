@@ -330,10 +330,12 @@ make no speedup claim, and a query grant still does not bound total process RSS.
 <p>The subsequent source-only
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md">selected text view change</a>
 constructs views only for selected rows inside sparse native Zstd filtering.
-Complete local checks and its bounded paired comparison pass; hosted integration
-is pending. The report retains the slower control cases and all 43 acceptance
-timings. The same frames are decoded, and this result makes no general speedup
-or zero-decode claim.</p>
+Complete local checks and its bounded paired comparison pass. PR #1556 merged
+after all 44 checks and three installed-wheel lanes passed. Preview and
+production responses match the merged source, with an outstanding deployment
+notification recorded separately. The report retains the slower control cases
+and all 43 acceptance timings. The same frames are decoded, and this result
+makes no general speedup or zero-decode claim.</p>
 <p>Opt-in <code dir="auto">from_batches(..., streaming=True)</code> retains at most one original native input
 batch. The 0.6.0 packages admit distinct finite producers, declared repeated-source
 replay and dynamic pivots through the
@@ -368,8 +370,14 @@ compaction prevents retained results from pinning input; native sink metadata
 and retained output still consume credits. Limits drain the complete source,
 and late failure prevents completion and incomplete file publication.
 The runtime also rejects malformed FSST row lengths before decoder allocation.
-Broader streaming destinations, unadmitted
-state/recovery and remaining allocation coverage stay open after v0.6.0 publication.</p>
+The subsequent source implementation admits finite single-use input through
+all eight existing local writers and one-execution fanout. A single destination
+streams directly; several destinations share credited native result replay and
+explicit spill. Input completion, adapter completion and owned cleanup precede
+publication; multi-file publication remains non-atomic. The
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md">destination acceptance</a>
+records complete local runtime and query checks; hosted integration remains
+pending. Unadmitted state/recovery and remaining allocation coverage stay open.</p>
 <p>Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
 explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.

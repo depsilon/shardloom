@@ -36,6 +36,7 @@ from native_streaming_dynamic_cases import run as dynamic_cases
 from native_streaming_dynamic_pressure_cases import run as dynamic_pressure_cases
 from native_streaming_replay_cases import run as replay_cases
 from native_streaming_replay_pressure_cases import run as replay_pressure_cases
+from native_streaming_destination_cases import run as destination_cases
 import shardloom as sl
 
 FAMILIES = {"input": public_cases, "growth": growth_cases, "typed-input": typed_cases, "ordering": ordering_cases, "ordering-pressure": ordering_pressure_cases,
@@ -45,7 +46,7 @@ FAMILIES = {"input": public_cases, "growth": growth_cases, "typed-input": typed_
             "preparation": preparation_cases, "multiple": multiple_cases,
             "multiple-pressure": multiple_pressure_cases, "dynamic": dynamic_cases,
             "dynamic-pressure": dynamic_pressure_cases, "replay": replay_cases,
-            "replay-pressure": replay_pressure_cases}
+            "replay-pressure": replay_pressure_cases, "destinations": destination_cases}
 
 
 def sha(path):
@@ -70,7 +71,9 @@ class Harness:
 
     def json(self, path, value):
         with path.open("x") as stream:
-            json.dump(value, stream, ensure_ascii=False, indent=2, allow_nan=False)
+            # Complete wide-schema envelopes dominate retained evidence. Preserve
+            # every field and value without indentation consuming the log budget.
+            json.dump(value, stream, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
             stream.write("\n")
 
     def artifact(self, path):
@@ -162,7 +165,8 @@ def main():
               Path(__file__).with_name("native_streaming_dynamic_cases.py"),
               Path(__file__).with_name("native_streaming_dynamic_pressure_cases.py"),
               Path(__file__).with_name("native_streaming_replay_cases.py"),
-              Path(__file__).with_name("native_streaming_replay_pressure_cases.py")]
+              Path(__file__).with_name("native_streaming_replay_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_destination_cases.py")]
     sources = {str(path): sha(path) for path in inputs}
     for path in inputs[1:]:
         with (harness.logs / path.name).open("xb") as snapshot:

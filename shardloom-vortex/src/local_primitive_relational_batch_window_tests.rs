@@ -423,32 +423,55 @@ fn streaming_window_failures_and_zero_limit_require_complete_input_and_refund_ow
 }
 
 #[test]
-fn streaming_window_rejects_compatibility_sink_before_demand() {
-    let fixture = Fixture::new(
-        single("n", PrimitiveArray::from_iter([1i64]).into_array()),
-        1,
-    );
-    let prepared = prepared(&fixture, &window(scan()), true);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
-    let mut producer = |_: &ResidentVortexSession| -> Result<Option<ResidentMemorySource>> {
-        panic!("unsupported sink must reject before demand")
-    };
-    let target = fixture.0.join("rejected.json");
-    let result = prepared
-        .with_batch_input(&mut producer)
-        .unwrap()
-        .write_controlled(&target, Format::Json, false, &CancellationToken::default());
-    assert!(
-        result
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("native Vortex destination")
-    );
-    assert!(!target.exists());
-    assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
-    clean(&fixture, true);
+fn streaming_window_compatibility_writers_require_complete_input_and_refund_owners() {
+    for spill in [false, true] {
+        for format in [Format::Json, Format::Jsonl] {
+            let fixture = Fixture::new(
+                single("n", PrimitiveArray::from_iter([1i64]).into_array()),
+                1,
+            );
+            let prepared = prepared(&fixture, &window(scan()), spill);
+            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let target = fixture.0.join(format!("window.{}", format.as_str()));
+            let mut input = Input::new();
+            let mut producer = |session: &ResidentVortexSession| {
+                assert!(!target.exists(), "publication requires complete input");
+                input.next(session)
+            };
+            let written = prepared
+                .with_batch_input(&mut producer)
+                .unwrap()
+                .write_controlled(&target, format, false, &CancellationToken::default())
+                .unwrap();
+            let raw = fs::read_to_string(&target).unwrap();
+            let actual: Vec<Value> = if format == Format::Json {
+                serde_json::from_str(&raw).unwrap()
+            } else {
+                raw.lines()
+                    .map(|row| serde_json::from_str(row).unwrap())
+                    .collect()
+            };
+            assert_eq!(actual, expected(), "{format:?}, spill={spill}");
+            assert_eq!(input.calls.get(), 5);
+            assert!(input.ended.get());
+            assert_eq!(written.execution.output_rows, 5);
+            assert_eq!(written.output.rows_written, 5);
+            assert!(
+                written
+                    .execution
+                    .input
+                    .as_ref()
+                    .unwrap()
+                    .end_of_input_observed
+            );
+            assert!(written.execution.native_io_certificate.is_certified());
+            assert!(!written.output.evidence.side_effects.fallback_attempted);
+            drop(written);
+            assert_eq!(prepared.snapshot().completed_executions, 1);
+            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            clean(&fixture, spill);
+        }
+    }
 }
 
 #[test]

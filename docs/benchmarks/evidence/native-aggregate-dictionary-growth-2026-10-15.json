@@ -1,0 +1,270 @@
+{
+  "archive": {
+    "bytes": 913324,
+    "file": "native-aggregate-dictionary-growth-2026-10-15.tar.xz",
+    "sha256": "c6443ac6d63983b00785088b1fdb9fad8fe9b62cf0810cc24e68c4f983e8ef7f"
+  },
+  "broad_retention_gates_executed": false,
+  "complete_values_reopened": true,
+  "decision": "drop",
+  "frozen_source_assets": 2259,
+  "gates": [
+    {
+      "cpu_passed": true,
+      "engine_median_improvement_percent": -0.01280364703757463,
+      "engine_passed": false,
+      "lanes": 12,
+      "medians": {
+        "candidate": {
+          "cpu_seconds": 8.977738,
+          "engine_execution_seconds": 4.8335464575,
+          "native_peak_rss_bytes": 4641570816.0,
+          "seconds": 4.929575541500526
+        },
+        "control": {
+          "cpu_seconds": 9.001939499999999,
+          "engine_execution_seconds": 4.8329276665,
+          "native_peak_rss_bytes": 4618551296.0,
+          "seconds": 4.9205994795011065
+        }
+      },
+      "paired_engine_savings_seconds": [
+        0.16243158300000005,
+        -0.04989170700000045,
+        0.0026337100000004554,
+        -0.011516791000000026,
+        0.04263075000000072,
+        -0.0596704990000001,
+        0.03644758300000017,
+        -0.1625175849999998,
+        0.21247633499999985,
+        -0.10142145799999991
+      ],
+      "pairs": 10,
+      "passed": false,
+      "positive_pairs": 5,
+      "query": 19,
+      "rss_passed": true,
+      "target": true
+    },
+    {
+      "cpu_passed": true,
+      "engine_median_improvement_percent": -1.7856597158091858,
+      "engine_passed": true,
+      "lanes": 1,
+      "medians": {
+        "candidate": {
+          "cpu_seconds": 7.802278,
+          "engine_execution_seconds": 7.625477584,
+          "native_peak_rss_bytes": 4600627200,
+          "seconds": 7.720069250004599
+        },
+        "control": {
+          "cpu_seconds": 7.670727,
+          "engine_execution_seconds": 7.491701292,
+          "native_peak_rss_bytes": 4574183424,
+          "seconds": 7.5550571249987115
+        }
+      },
+      "paired_engine_savings_seconds": [
+        -0.1337762920000003,
+        -0.10924949999999978,
+        -0.20957250000000016,
+        0.06685874900000055,
+        -0.1586339170000004
+      ],
+      "pairs": 5,
+      "passed": true,
+      "positive_pairs": 1,
+      "query": 19,
+      "rss_passed": true,
+      "target": false
+    },
+    {
+      "cpu_passed": true,
+      "engine_median_improvement_percent": -0.09721981571867347,
+      "engine_passed": true,
+      "lanes": 12,
+      "medians": {
+        "candidate": {
+          "cpu_seconds": 18.915501,
+          "engine_execution_seconds": 2.587418166,
+          "native_peak_rss_bytes": 3247226880,
+          "seconds": 2.6683570419991156
+        },
+        "control": {
+          "cpu_seconds": 18.969829999999998,
+          "engine_execution_seconds": 2.584905126,
+          "native_peak_rss_bytes": 3246309376,
+          "seconds": 2.6484784579952247
+        }
+      },
+      "paired_engine_savings_seconds": [
+        0.0015966239999998244,
+        -0.08274179399999992,
+        -0.0025130399999997444,
+        -0.21089466599999973,
+        0.012672457999999942
+      ],
+      "pairs": 5,
+      "passed": true,
+      "positive_pairs": 2,
+      "query": 17,
+      "rss_passed": true,
+      "target": false
+    },
+    {
+      "cpu_passed": true,
+      "engine_median_improvement_percent": -5.930959706398962,
+      "engine_passed": false,
+      "lanes": 12,
+      "medians": {
+        "candidate": {
+          "cpu_seconds": 8.711644,
+          "engine_execution_seconds": 1.317386458,
+          "native_peak_rss_bytes": 3082895360,
+          "seconds": 1.387754750001477
+        },
+        "control": {
+          "cpu_seconds": 8.518507,
+          "engine_execution_seconds": 1.243627417,
+          "native_peak_rss_bytes": 3000647680,
+          "seconds": 1.3581121249953867
+        }
+      },
+      "paired_engine_savings_seconds": [
+        -0.22551579200000016,
+        -0.03775929199999983,
+        0.1265237910000001,
+        -0.03261874900000006,
+        -0.1248734170000001
+      ],
+      "pairs": 5,
+      "passed": false,
+      "positive_pairs": 1,
+      "query": 22,
+      "rss_passed": true,
+      "target": false
+    },
+    {
+      "cpu_passed": true,
+      "engine_median_improvement_percent": -0.5530913527886006,
+      "engine_passed": true,
+      "lanes": 12,
+      "medians": {
+        "candidate": {
+          "cpu_seconds": 12.512634,
+          "engine_execution_seconds": 3.227749792,
+          "native_peak_rss_bytes": 4637376512,
+          "seconds": 3.311444416998711
+        },
+        "control": {
+          "cpu_seconds": 12.41504,
+          "engine_execution_seconds": 3.209995584,
+          "native_peak_rss_bytes": 4625121280,
+          "seconds": 3.2926992079956108
+        }
+      },
+      "paired_engine_savings_seconds": [
+        0.10152029200000001,
+        -0.045239710999999794,
+        -0.06318349899999998,
+        0.22329208299999959,
+        -0.07053000099999984
+      ],
+      "pairs": 5,
+      "passed": true,
+      "positive_pairs": 2,
+      "query": 23,
+      "rss_passed": true,
+      "target": false
+    },
+    {
+      "cpu_passed": true,
+      "engine_median_improvement_percent": 0.6536293909994482,
+      "engine_passed": true,
+      "lanes": 12,
+      "medians": {
+        "candidate": {
+          "cpu_seconds": 11.283732,
+          "engine_execution_seconds": 5.741519417,
+          "native_peak_rss_bytes": 1569488896,
+          "seconds": 5.842411167002865
+        },
+        "control": {
+          "cpu_seconds": 11.378855,
+          "engine_execution_seconds": 5.779294585,
+          "native_peak_rss_bytes": 1565343744,
+          "seconds": 5.87692620800226
+        }
+      },
+      "paired_engine_savings_seconds": [
+        0.0897731239999997,
+        0.09789187799999954,
+        -0.1397901260000003,
+        0.18108112600000048,
+        -0.168256167
+      ],
+      "pairs": 5,
+      "passed": true,
+      "positive_pairs": 3,
+      "query": 29,
+      "rss_passed": true,
+      "target": false
+    },
+    {
+      "cpu_passed": true,
+      "engine_median_improvement_percent": 0.5499419708217855,
+      "engine_passed": true,
+      "lanes": 12,
+      "medians": {
+        "candidate": {
+          "cpu_seconds": 0.588198,
+          "engine_execution_seconds": 0.1466365,
+          "native_peak_rss_bytes": 600932352,
+          "seconds": 0.20134037499519764
+        },
+        "control": {
+          "cpu_seconds": 0.5960909999999999,
+          "engine_execution_seconds": 0.147447375,
+          "native_peak_rss_bytes": 601604096,
+          "seconds": 0.19954529099777574
+        }
+      },
+      "paired_engine_savings_seconds": [
+        -0.045495125,
+        0.00047495799999999755,
+        -0.00108512500000002,
+        0.0038500840000000036,
+        0.0023702079999999848
+      ],
+      "pairs": 5,
+      "passed": true,
+      "positive_pairs": 3,
+      "query": 2,
+      "rss_passed": true,
+      "target": false
+    }
+  ],
+  "limitations": [
+    "Local frozen comparison only; operating-system cache was shared and uncontrolled.",
+    "The original independent replay receipt is preserved unchanged. It applied the CPU threshold to controls as well as the target; the corrected primary replay records the target-only CPU gate, validates complete call order, and reaches the same DROP.",
+    "The separate complete-values replay verifies values, schemas, resources, certificates, source generation, and exact gate equality. No new timing, build, or execution evidence was produced while packaging.",
+    "Excluded native executables and the 15.7-GB input are identified by full protocol byte counts and SHA-256 values; they are not packaged."
+  ],
+  "manifest": {
+    "bytes": 16760,
+    "file": "native-aggregate-dictionary-growth-2026-10-15.manifest.json.xz",
+    "sha256": "f594ed3b6ff69b8432fb2e8c9f35bc919bdcc9d62aeb9846555928a2760dd624"
+  },
+  "manifest_raw_sha256": "8f8a51240e4cb1c4d044b98e6dedf84687e337b567a72415d8b07f6dedc5f46a",
+  "member_count": 82,
+  "native_runtime_candidate_retained": false,
+  "nested_raw_archives": 7,
+  "nested_raw_members": 320,
+  "primary_packet_audit": true,
+  "publication_attempted": false,
+  "raw_bytes": 8268246,
+  "schema_version": "shardloom.dictionary_growth_packet_index.v1",
+  "status": "passed_local"
+}

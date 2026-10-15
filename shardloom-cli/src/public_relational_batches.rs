@@ -40,6 +40,17 @@ fn execute(
         ShardLoomError::InvalidOperation("native batch SQL declaration is absent".into())
     })?;
     let cancellation = transport.cancellation.clone();
+    cancellation.check()?;
+    #[cfg(feature = "vortex-write")]
+    if is_write_request(request) {
+        shardloom_vortex::local_primitives::output_fanout::preflight_targets(
+            &write_targets(request)?
+                .into_iter()
+                .map(|target| (target.path, target.format))
+                .collect::<Vec<_>>(),
+            request.allow_overwrite,
+        )?;
+    }
     let adapter = std::cell::RefCell::new(&mut *transport);
     let (operation, normalized) = sources::prepare_with_input_adapter(
         statement,
@@ -122,30 +133,28 @@ fn execute_streaming(
     if is_write_request(request) {
         #[cfg(feature = "vortex-write")]
         {
-            let targets = super::native_vortex_primitive_row_export_targets(request, "run")
-                .map_err(|blocked| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "{}: {:?}",
-                        blocked.blocker_reason, blocked.diagnostics,
-                    ))
-                })?;
-            if targets.len() != 1 {
-                return Err(ShardLoomError::InvalidOperation(
-                    "SL-NATIVE-BATCH: streaming input requires one native Vortex destination; choose explicit resident mode for fanout; no fallback execution was attempted".into(),
-                ));
-            }
-            let result = execution.write_controlled(
-                &targets[0].path,
-                targets[0].format,
+            let targets = write_targets(request)?;
+            let result = execution.write_many_controlled(
+                &targets
+                    .iter()
+                    .map(|target| (target.path.clone(), target.format))
+                    .collect::<Vec<_>>(),
                 request.allow_overwrite,
                 &cancellation,
             )?;
-            super::emit_written(
+            let mut fields = completed_fields();
+            let primary = super::append_written_fanout(&mut fields, &targets, result, false);
+            emit(
+                "run",
                 OutputFormat::Json,
-                &targets,
-                vec![result],
-                completed_fields(),
-                false,
+                CommandStatus::Success,
+                "native relational write".into(),
+                format!(
+                    "wrote {} rows to {}",
+                    primary.rows_written, primary.output_path
+                ),
+                primary.diagnostics,
+                fields,
             );
             return Ok(());
         }
@@ -164,6 +173,18 @@ fn execute_streaming(
     })?;
     emit_batches(completed_fields(), &result, &transport.borrow());
     Ok(())
+}
+
+#[cfg(feature = "vortex-write")]
+fn write_targets(
+    request: &PublicWorkflowRouteRequest,
+) -> Result<Vec<super::super::NativeVortexPrimitiveRowExportTarget>, ShardLoomError> {
+    super::native_vortex_primitive_row_export_targets(request, "run").map_err(|blocked| {
+        ShardLoomError::InvalidOperation(format!(
+            "{}: {:?}",
+            blocked.blocker_reason, blocked.diagnostics
+        ))
+    })
 }
 
 fn emit_batches(

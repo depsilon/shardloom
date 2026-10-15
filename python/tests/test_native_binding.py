@@ -1338,9 +1338,8 @@ assert later.row_count == 2
                 frame.fanout([("vortex", root / "uncreated/a"), ("jsonl", root / "uncreated/b")],
                              memory_bytes=1)
             streaming = sl.from_batches(producer, schema={"id": "int64"}, streaming=True, client=client)
-            with self.assertRaises(ShardLoomCommandError) as rejected:
-                streaming.fanout([("vortex", root / "stream"), ("jsonl", root / "stream.jsonl")])
-            self.assertIn("resident", str(rejected.exception))
+            with self.assertRaises(ShardLoomCommandError):
+                streaming.fanout([("vortex", root / "stream"), ("jsonl", existing)])
             self.assertEqual(events, [])
             self.assertEqual(list(root.iterdir()), [existing])
             outputs = {"vortex": root / "complete.vortex", "jsonl": root / "complete.jsonl"}
@@ -1357,6 +1356,283 @@ assert later.row_count == 2
             self.assertEqual(set(root.iterdir()), {existing, *outputs.values()})
         client.close()
         self.assertEqual(retained.to_arrow()["id"].to_pylist(), [999])
+
+    def test_public_native_stream_destinations_consume_once_and_preserve_empty_schema(self):
+        import csv
+        import shardloom as sl
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=64 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        formats = ("vortex", "parquet", "arrow_ipc", "avro", "orc", "csv", "json", "jsonl")
+        for empty in (False, True):
+            wanted = [] if empty else [{"id": -1, "label": 'λ"\n'}, {"id": None, "label": None},
+                                      {"id": (1 << 63) - 1, "label": ""}]
+            events = []
+            with tempfile.TemporaryDirectory(prefix="shardloom-stream-destinations-") as directory:
+                root = Path(directory)
+                targets = {name: root / ("output." + name) for name in formats}
+
+                def producer():
+                    events.append("opened")
+                    try:
+                        for batch in ([], wanted[:2], [], wanted[2:]):
+                            self.assertFalse(any(path.exists() for path in targets.values()))
+                            yield batch
+                        events.append("ended")
+                    finally:
+                        events.append("closed")
+
+                frame = sl.from_batches(producer, schema={"id": "int64", "label": "utf8"},
+                                        streaming=True, client=client)
+                with patch("subprocess.Popen", side_effect=AssertionError("child process")), \
+                     patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON input")):
+                    report = frame.fanout(targets)
+                    fields = report.envelope
+                    self.assertEqual(events, ["opened", "ended", "closed"])
+                    self.assertEqual(fields.field_int("native_input_batches"), 4)
+                    self.assertEqual(fields.field_int("native_input_batch_rows"), len(wanted))
+                    self.assertTrue(fields.field_bool("native_input_end_observed"))
+                    self.assertEqual(fields.field_int("native_vortex_result_export_execution_count"), 1)
+                    self.assertEqual(fields.field("native_vortex_result_export_execution_model"),
+                                     "native_query_once_with_credited_result_replay")
+                    self.assertEqual(fields.field_int("native_vortex_result_export_replay_count"), 8)
+                    self.assertEqual(fields.field_int("native_vortex_result_export_replay_rows_detached"), len(wanted))
+                    self.assertEqual(fields.field_int("native_input_replay_sources"), 0)
+                    self.assertFalse(fields.fallback.attempted)
+                    self.assertEqual(fields.field("external_engine_invoked"), "false")
+                    self.assertEqual(set(root.iterdir()), set(targets.values()))
+                    for name, path in targets.items():
+                        with self.subTest(empty=empty, format=name):
+                            if name == "csv":
+                                with path.open(newline="") as stream:
+                                    reader = csv.DictReader(stream)
+                                    self.assertEqual(reader.fieldnames, ["id", "label"])
+                                    self.assertEqual(list(reader), [
+                                        {key: "" if value is None else str(value) for key, value in row.items()}
+                                        for row in wanted])
+                            elif name == "json":
+                                self.assertEqual(json.loads(path.read_text()), wanted)
+                            elif name == "jsonl":
+                                self.assertEqual([json.loads(line) for line in path.read_text().splitlines()], wanted)
+                            else:
+                                reopened = getattr(sl, "read_" + name)(path, client=client).collect(check=True).to_arrow()
+                                self.assertEqual(reopened.to_pylist(), wanted)
+                                self.assertEqual(reopened.column_names, ["id", "label"])
+                                self.assertEqual(reopened.schema.field("id").type, self.arrow().int64())
+                    self.assertFalse(list(root.glob(".shardloom-fanout-*")))
+
+    def test_public_native_stream_destinations_keep_exact_recursive_values_and_admit_schema_first(self):
+        from decimal import Decimal
+        import shardloom as sl
+        from shardloom.errors import ShardLoomCommandError
+
+        pa = self.arrow()
+        table = pa.table({
+            "id": pa.array([1, None, 3], pa.int64()),
+            "items": pa.array([[1, None, -2], None, []], pa.list_(pa.int32())),
+            "record": pa.array([{"name": "λ", "value": 4}, None, {"name": "", "value": None}],
+                               pa.struct([("name", pa.string()), ("value", pa.int64())])),
+            "amount": pa.array([Decimal("-9999999999.99"), None, Decimal("0.01")], pa.decimal128(12, 2)),
+            "payload": pa.array([b"\x00\xff", None, b""], pa.binary()),
+        })
+        schema = {"id": "int64", "items": {"type": "list", "item": "int32"},
+                  "record": {"type": "struct", "fields": {"name": "utf8", "value": "int64"}},
+                  "amount": "decimal128(12,2)", "payload": "binary"}
+        client = sl.ShardLoomClient(transport="native", memory_bytes=64 << 20, max_parallelism=1)
+        self.addCleanup(client.close)
+        with tempfile.TemporaryDirectory(prefix="shardloom-stream-rich-destinations-") as directory:
+            root = Path(directory)
+            events = []
+
+            def producer():
+                events.append("opened")
+                try:
+                    yield from table.to_batches(max_chunksize=1)
+                    events.append("ended")
+                finally:
+                    events.append("closed")
+
+            frame = sl.from_batches(producer, schema=schema, streaming=True, client=client)
+            with self.assertRaises(ShardLoomCommandError) as rejected:
+                frame.fanout({"vortex": root / "denied.vortex", "orc": root / "denied.orc"})
+            self.assertIn("ORC does not admit nested output", str(rejected.exception))
+            self.assertEqual(events, [])
+            self.assertEqual(list(root.iterdir()), [])
+            targets = {name: root / ("rich." + name) for name in ("vortex", "parquet", "arrow_ipc", "avro")}
+            with patch("subprocess.Popen", side_effect=AssertionError("child process")), \
+                 patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON input")):
+                report = frame.fanout(targets)
+                self.assertEqual(events, ["opened", "ended", "closed"])
+                self.assertEqual(report.envelope.field_int("native_vortex_result_export_execution_count"), 1)
+                self.assertEqual(set(root.iterdir()), set(targets.values()))
+                for name, path in targets.items():
+                    with self.subTest(format=name):
+                        actual = getattr(sl, "read_" + name)(path, client=client).collect(check=True).to_arrow()
+                        self.assertTrue(actual.equals(table), (actual.schema, table.schema, actual.to_pylist()))
+            self.assertFalse(list(root.glob(".shardloom-fanout-*")))
+
+    def test_public_native_stream_composition_preserves_each_producer_across_terminals(self):
+        import shardloom as sl
+        from shardloom.query import SqlWorkflow
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(client.close)
+        for shape in ("multiple", "repeated", "dynamic"):
+            for surface in ("dataframe", "sql"):
+                for terminal in ("collect", "batches", "single", "fanout"):
+                    with self.subTest(shape=shape, surface=surface, terminal=terminal), \
+                         tempfile.TemporaryDirectory(prefix="shardloom-native-composed-stream-") as directory:
+                        root, traces = Path(directory), []
+
+                        def source(rows, schema, columnar=False):
+                            events = []
+                            traces.append(events)
+
+                            def producer():
+                                events.append("opened")
+                                try:
+                                    for batch in ([], rows[:1], [], rows[1:]):
+                                        yield self.arrow().Table.from_pylist(batch, schema=self.arrow().schema([
+                                            (key, self.arrow().int64() if kind == "int64" else self.arrow().string())
+                                            for key, kind in schema.items()])) if columnar else batch
+                                    events.append("ended")
+                                finally:
+                                    events.append("closed")
+
+                            return sl.from_batches(producer, schema=schema, streaming=True, client=client)
+
+                        if shape == "dynamic":
+                            frame = source([{"entity": 1, "category": "a", "amount": 3},
+                                            {"entity": 1, "category": "b", "amount": 5},
+                                            {"entity": 2, "category": "a", "amount": 7}],
+                                           {"entity": "int64", "category": "utf8", "amount": "int64"})
+                            query = frame.pivot_table(index="entity", columns="category", values="amount", aggfunc="sum")
+                            expected = [{"entity": 1, "pivot_a": 3.0, "pivot_b": 5.0},
+                                        {"entity": 2, "pivot_a": 7.0, "pivot_b": None}]
+                        else:
+                            frame = source([{"n": 1, "label": "a"}, {"n": 2, "label": "b"}],
+                                           {"n": "int64", "label": "utf8"})
+                            if shape == "multiple":
+                                other = source([{"n": 1, "metric": 11}, {"n": 3, "metric": 33}],
+                                               {"n": "int64", "metric": "int64"}, columnar=True)
+                                query = frame.join(other, on="n", how="full").select("f.label AS label", "d.metric AS metric")
+                                expected = [{"label": "a", "metric": 11}, {"label": "b", "metric": None},
+                                            {"label": None, "metric": 33}]
+                            else:
+                                query = frame.join(frame, on="n").select("f.label AS label", "d.label AS copy")
+                                expected = [{"label": "a", "copy": "a"}, {"label": "b", "copy": "b"}]
+                        if surface == "sql":
+                            query = SqlWorkflow(query._relation_statement(), client, source_bindings=query._declared_sources())
+                        with patch("subprocess.Popen", side_effect=AssertionError("child process")), \
+                             patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON input")):
+                            if terminal == "collect":
+                                report = query.collect(check=True)
+                                actual = report.to_arrow().to_pylist()
+                            elif terminal == "batches":
+                                with query.iter_batches(batch_rows=1) as stream:
+                                    actual = [row for batch in stream for row in batch.result_rows]
+                                    report = stream.report
+                            else:
+                                targets = {name: root / ("output." + name) for name in
+                                           (("vortex", "parquet", "jsonl") if terminal == "fanout" else ("parquet",))}
+                                report = query.fanout(targets) if terminal == "fanout" else query.write_parquet(targets["parquet"])
+                                self.assertEqual(set(root.iterdir()), set(targets.values()))
+                                for name, path in targets.items():
+                                    actual = ([json.loads(line) for line in path.read_text().splitlines()] if name == "jsonl"
+                                              else getattr(sl, "read_" + name)(path, client=client).collect(check=True).to_arrow().to_pylist())
+                                    self.assertCountEqual(actual, expected)
+                            self.assertCountEqual(actual, expected)
+                            self.assertEqual(traces, [["opened", "ended", "closed"]] * len(traces))
+                            envelope = report.envelope
+                            self.assertEqual(envelope.field_int("native_input_batch_sources"), len(traces))
+                            self.assertTrue(envelope.field_bool("native_input_end_observed"))
+                            self.assertEqual(envelope.field_int("native_input_replay_sources"), int(shape == "repeated"))
+                            if shape == "dynamic":
+                                self.assertEqual(envelope.field("relational_schema_binding"), "during_execution")
+                            if terminal == "fanout":
+                                self.assertEqual(envelope.field_int("native_vortex_result_export_execution_count"), 1)
+                                self.assertEqual(envelope.field_int("native_vortex_result_export_replay_count"), 3)
+                            self.assertFalse(envelope.fallback.attempted)
+                            self.assertEqual(envelope.field("external_engine_invoked"), "false")
+
+    def test_public_native_multiple_producers_drain_fail_and_close_without_publication(self):
+        import shardloom as sl
+        from shardloom.errors import ShardLoomCommandError
+
+        pa = self.arrow()
+        client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(client.close)
+        retained = sl.from_rows([{"n": 99}], schema={"n": "int64"}, client=client).collect(check=True)
+        for mode in ("empty", "zero", "denial", "producer", "close", "schema", "cancel", "consumer-close"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory(prefix="shardloom-native-multiple-fault-") as directory:
+                root = Path(directory)
+                trace, opened = [[], []], []
+                sentinel = LookupError("second producer sentinel")
+
+                def source(index):
+                    def producer():
+                        trace[index].append("opened")
+                        opened.append(index)
+                        second = len(opened) == 2
+                        try:
+                            if not (mode == "empty" and index == 1):
+                                yield [{"n": n} for n in (1, 2, 3)]
+                            if second:
+                                if mode == "producer":
+                                    raise sentinel
+                                if mode == "schema":
+                                    yield pa.table({"changed": pa.array([1], pa.int64())})
+                                if mode == "cancel":
+                                    client.cancel()
+                            trace[index].append("ended")
+                        finally:
+                            trace[index].append("closed")
+                            if mode == "close" and second:
+                                raise sentinel
+                    return sl.from_batches(producer, schema={"n": "int64"}, streaming=True, client=client)
+
+                first, second = source(0), source(1)
+                query = first.join(second, on="n").select("f.n AS n")
+                if mode == "zero":
+                    query = query.limit(0)
+                targets = {name: root / ("output." + name) for name in ("vortex", "jsonl")}
+                if mode == "consumer-close":
+                    with query.iter_batches(batch_rows=1) as stream:
+                        batch = next(stream)
+                        self.assertIsNone(stream.report)
+                    self.assertIsNone(stream.report)
+                    self.assertEqual(batch.to_arrow().to_pylist(), [{"n": 1}])
+                    self.assertEqual(len(opened), 2)
+                    self.assertTrue(all(events[-1] == "closed" for events in trace))
+                    self.assertTrue(any("ended" not in events for events in trace))
+                elif mode in {"empty", "zero"}:
+                    report = query.fanout(targets)
+                    self.assertEqual(trace, [["opened", "ended", "closed"]] * 2)
+                    self.assertEqual(report.envelope.field_int("native_input_batch_sources"), 2)
+                    self.assertTrue(report.envelope.field_bool("native_input_end_observed"))
+                    self.assertEqual(sl.read_vortex(targets["vortex"], client=client).collect(check=True).to_arrow().to_pylist(), [])
+                    self.assertEqual(targets["jsonl"].read_bytes(), b"")
+                    self.assertEqual(set(root.iterdir()), set(targets.values()))
+                else:
+                    expected_error = LookupError if mode in {"producer", "close"} else ValueError if mode == "schema" else ShardLoomCommandError
+                    with self.assertRaises(expected_error) as raised:
+                        query.fanout(targets, **({"memory_bytes": 1} if mode == "denial" else {}))
+                    if mode in {"producer", "close"}:
+                        self.assertIs(raised.exception, sentinel)
+                    elif mode == "schema":
+                        self.assertIn("declared schema", str(raised.exception))
+                    elif mode == "cancel":
+                        self.assertIn("cancelled", str(raised.exception))
+                    if mode == "denial":
+                        self.assertEqual(trace, [[], []])
+                    else:
+                        self.assertEqual(len(opened), 2)
+                        self.assertEqual(trace[opened[0]], ["opened", "ended", "closed"])
+                        self.assertEqual(trace[opened[1]][-1], "closed")
+                    self.assertEqual(list(root.iterdir()), [])
+                self.assertEqual(retained.to_arrow().to_pylist(), [{"n": 99}])
+                self.assertEqual(sl.from_rows([{"n": 7}], schema={"n": "int64"}, client=client)
+                                 .collect(check=True).to_arrow().to_pylist(), [{"n": 7}])
 
     def test_public_native_fanout_producer_failure_publishes_no_prefix(self):
         import shardloom as sl
@@ -1375,13 +1651,15 @@ assert later.row_count == 2
 
         client = sl.ShardLoomClient(transport="native", memory_bytes=32 << 20, max_parallelism=1)
         self.addCleanup(client.close)
-        frame = sl.from_batches(producer, schema={"id": "int64"}, streaming=False, client=client)
-        with tempfile.TemporaryDirectory(prefix="shardloom-native-fanout-failure-") as directory:
-            root = Path(directory)
-            with self.assertRaisesRegex(ProducerFailure, "fanout input failed"):
-                frame.fanout({"vortex": root / "new/one.vortex", "jsonl": root / "new/two.jsonl"})
-            self.assertEqual(list(root.iterdir()), [])
-            self.assertEqual(events, ["closed"])
+        for streaming in (False, True):
+            events.clear()
+            frame = sl.from_batches(producer, schema={"id": "int64"}, streaming=streaming, client=client)
+            with tempfile.TemporaryDirectory(prefix="shardloom-native-fanout-failure-") as directory:
+                root = Path(directory)
+                with self.assertRaisesRegex(ProducerFailure, "fanout input failed"):
+                    frame.fanout({"vortex": root / "new/one.vortex", "jsonl": root / "new/two.jsonl"})
+                self.assertEqual(list(root.iterdir()), [])
+                self.assertEqual(events, ["closed"])
 
     def test_public_native_object_intake_infers_and_converts_without_json_cells(self):
         import shardloom as sl

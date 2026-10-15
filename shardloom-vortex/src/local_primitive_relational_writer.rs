@@ -7,6 +7,10 @@ use super::{
 };
 use shardloom_core::{ColumnRef, DatasetUri};
 
+#[path = "local_primitive_relational_writer_fanout.rs"]
+mod fanout;
+pub use fanout::{VortexRelationalOutputReplay, WrittenVortexRelationalFanout};
+
 /// Relational execution proof and its terminal output-adapter proof.
 pub struct WrittenVortexRelational {
     pub execution: ExecutedVortexRelational,
@@ -63,21 +67,7 @@ impl PreparedVortexRelational {
         let mut written = super::super::output_fanout::write(
             targets,
             overwrite,
-            |path| {
-                cancellation.check()?;
-                for source in &self.sources {
-                    source.validate_generation()?;
-                    if source.aliases_file(path)? {
-                        return Err(failed("source and output must be different files"));
-                    }
-                }
-                #[cfg(feature = "universal-format-io")]
-                for source in &self.preparation_sources {
-                    source.validate_generation()?;
-                    source.validate_destination(path)?;
-                }
-                Ok(())
-            },
+            |path| self.validate_writer_destination(path, cancellation),
             |path, format| self.write_controlled(path, format, false, cancellation),
         )?;
         for (result, (path, _)) in written.iter_mut().zip(targets) {
@@ -125,35 +115,11 @@ impl PreparedVortexRelational {
             self.session
                 .with_sources_execution(&self.sources, cancellation, |context| {
                     self.with_bound_root(context, input, |root, metrics| {
-                        let source = self.writer_source()?;
                         // This request describes only the terminal adapter's projection of the
                         // completed native columns. The relational tree has its own certificate.
-                        let _declaration_metadata = crate::native_payload_schema::reserve_names(
-                            context.memory(),
-                            root.fields.len(),
-                            |index| root.fields[index].0.as_str(),
-                        )?;
-                        let request = VortexQueryPrimitiveRequest::project(
-                            source,
-                            shardloom_plan::ProjectionRequest::columns(
-                                root.fields
-                                    .iter()
-                                    .map(|(name, _)| ColumnRef::new(name))
-                                    .collect::<Result<Vec<_>>>()?,
-                            ),
-                        );
-                        let plan = super::super::native_sink::NativeSinkPlan::produced_sources(
-                            self.session.clone(),
-                            super::DType::struct_(
-                                root.fields.clone(),
-                                super::Nullability::NonNullable,
-                            ),
-                            root.upper_rows(&self.sources).unwrap_or(u64::MAX),
-                            None,
-                            self.sources.clone(),
-                        )?;
-                        #[cfg(feature = "universal-format-io")]
-                        let plan = plan.with_preparation_sources(self.preparation_sources.clone());
+                        let (_declaration_metadata, request) =
+                            self.writer_request(root, context)?;
+                        let plan = self.writer_plan(root)?;
                         let mut execution = None;
                         let mut producer =
             |context: &NativeExecutionContext<'_>,
@@ -215,6 +181,64 @@ impl PreparedVortexRelational {
                 })?;
         written.execution.runtime = self.snapshot();
         Ok(written)
+    }
+
+    fn validate_writer_destination(
+        &self,
+        path: &std::path::Path,
+        cancellation: &CancellationToken,
+    ) -> Result<()> {
+        cancellation.check()?;
+        for source in &self.sources {
+            source.validate_generation()?;
+            if source.aliases_file(path)? {
+                return Err(failed("source and output must be different files"));
+            }
+        }
+        #[cfg(feature = "universal-format-io")]
+        for source in &self.preparation_sources {
+            source.validate_generation()?;
+            source.validate_destination(path)?;
+        }
+        cancellation.check()
+    }
+
+    fn writer_request(
+        &self,
+        root: &super::Node,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<(
+        shardloom_exec::live_memory::MemoryLease,
+        VortexQueryPrimitiveRequest,
+    )> {
+        let metadata = crate::native_payload_schema::reserve_names(
+            context.memory(),
+            root.fields.len(),
+            |index| root.fields[index].0.as_str(),
+        )?;
+        let request = VortexQueryPrimitiveRequest::project(
+            self.writer_source()?,
+            shardloom_plan::ProjectionRequest::columns(
+                root.fields
+                    .iter()
+                    .map(|(name, _)| ColumnRef::new(name))
+                    .collect::<Result<Vec<_>>>()?,
+            ),
+        );
+        Ok((metadata, request))
+    }
+
+    fn writer_plan(&self, root: &super::Node) -> Result<super::super::native_sink::NativeSinkPlan> {
+        let plan = super::super::native_sink::NativeSinkPlan::produced_sources(
+            self.session.clone(),
+            super::DType::struct_(root.fields.clone(), super::Nullability::NonNullable),
+            root.upper_rows(&self.sources).unwrap_or(u64::MAX),
+            None,
+            self.sources.clone(),
+        )?;
+        #[cfg(feature = "universal-format-io")]
+        let plan = plan.with_preparation_sources(self.preparation_sources.clone());
+        Ok(plan)
     }
 
     fn writer_source(&self) -> Result<DatasetUri> {

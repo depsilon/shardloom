@@ -2279,7 +2279,29 @@ fn append_native_vortex_primitive_row_export_target_fields(
     targets: &[NativeVortexPrimitiveRowExportTarget],
     reports: &[shardloom_vortex::VortexLocalPrimitiveRowExportReport],
 ) {
-    append_native_vortex_primitive_row_export_target_summary_fields(fields, targets, reports);
+    append_native_vortex_primitive_row_export_target_fields_with_execution(
+        fields,
+        targets,
+        reports,
+        targets.len(),
+        "native_query_replayed_once_per_output_adapter",
+    );
+}
+
+fn append_native_vortex_primitive_row_export_target_fields_with_execution(
+    fields: &mut Vec<(String, String)>,
+    targets: &[NativeVortexPrimitiveRowExportTarget],
+    reports: &[shardloom_vortex::VortexLocalPrimitiveRowExportReport],
+    execution_count: usize,
+    execution_model: &str,
+) {
+    append_native_vortex_primitive_row_export_target_summary_fields(
+        fields,
+        targets,
+        reports,
+        execution_count,
+        execution_model,
+    );
     append_native_vortex_primitive_row_export_target_commit_fields(fields, targets, reports);
 }
 
@@ -2287,6 +2309,8 @@ fn append_native_vortex_primitive_row_export_target_summary_fields(
     fields: &mut Vec<(String, String)>,
     targets: &[NativeVortexPrimitiveRowExportTarget],
     reports: &[shardloom_vortex::VortexLocalPrimitiveRowExportReport],
+    execution_count: usize,
+    execution_model: &str,
 ) {
     push_field(
         fields,
@@ -2306,12 +2330,12 @@ fn append_native_vortex_primitive_row_export_target_summary_fields(
     push_field(
         fields,
         "native_vortex_result_export_execution_count",
-        targets.len().to_string(),
+        execution_count.to_string(),
     );
     push_field(
         fields,
         "native_vortex_result_export_execution_model",
-        "native_query_replayed_once_per_output_adapter",
+        execution_model,
     );
     push_field(
         fields,

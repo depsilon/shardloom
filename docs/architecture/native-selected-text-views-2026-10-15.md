@@ -4,7 +4,12 @@
 
 Status: the frozen targeted comparison retains the candidate; all seven
 Rust/provider gates, 80 direct tests, 757 public cases and one Full43 pass succeed.
-The portable packet verifies all 2,305 members. Hosted acceptance remains pending.
+The local packet verifies all 2,305 members. PR #1556 is merged after 44 successful
+checks and three installed-wheel lanes. The
+[hosted packet](../benchmarks/evidence/native-selected-view-hosted-2026-10-15.json)
+verifies 67 members and all seven preview and production responses against the
+accepted source. The production deployment notification remains `in_progress`
+without a version ID; served-source equality does not claim that check completed.
 See the [bounded acceptance report](../benchmarks/native-selected-text-views-2026-10-15.md).
 This work remains under PERF-01/04/05 and the existing PERF-03/06 ownership boundary.
 The compression/timing integration in

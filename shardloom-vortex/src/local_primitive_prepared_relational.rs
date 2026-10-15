@@ -45,6 +45,8 @@ use vortex::array::{
 mod batch_input;
 #[path = "local_primitive_relational_bind.rs"]
 mod bind;
+#[path = "local_primitive_relational_batch_replay.rs"]
+mod replay;
 pub use batch_input::{ExecutedVortexBatchInput, VortexRelationalBatchInput};
 pub(super) use bind::{
     arithmetic_dtype as scalar_arithmetic_dtype, literal_dtype as scalar_literal_dtype,
@@ -68,7 +70,9 @@ mod transform;
 #[path = "local_primitive_relational_writer.rs"]
 mod writer;
 #[cfg(feature = "vortex-write")]
-pub use writer::WrittenVortexRelational;
+pub use writer::{
+    VortexRelationalOutputReplay, WrittenVortexRelational, WrittenVortexRelationalFanout,
+};
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "local_primitive_relational_arrow.rs"]
 mod arrow;
@@ -981,6 +985,22 @@ impl PreparedVortexRelational {
         batch_rows: usize,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
+        self.consume_bound_with_completion(root, context, metrics, batch_rows, consume, || Ok(()))
+            .map(|(execution, ())| execution)
+    }
+
+    // Finish provisional consumers while the query's single native spill owner
+    // remains live. Only successful completion and cleanup can be certified.
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    fn consume_bound_with_completion<T>(
+        &self,
+        root: &Node,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        batch_rows: usize,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+        complete: impl FnOnce() -> Result<T>,
+    ) -> Result<(ExecutedVortexRelational, T)> {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.validate_preparation_sources()?;
         let metadata_bytes =
@@ -1046,6 +1066,9 @@ impl PreparedVortexRelational {
             let array = super::native_payload::empty_record(&dtype, context)?;
             emit(array)?;
         }
+        context.check_cancelled()?;
+        let completed = complete()?;
+        context.check_cancelled()?;
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.validate_preparation_sources()?;
         #[cfg(feature = "vortex-write")]
@@ -1065,54 +1088,59 @@ impl PreparedVortexRelational {
             input.as_ref(),
             spill.as_ref(),
         )?;
-        Ok(ExecutedVortexRelational {
-            resources: self.policy.resource_envelope.declared_resources,
-            output_rows: rows,
-            output_batches: batches,
-            max_output_batch_rows: max_rows,
-            output_buffer_bytes: bytes,
-            scan_rows_delivered: metrics.scan_rows.get(),
-            scan_batches: metrics.scan_batches.get(),
-            prepared_sources: self.sources.len()
-                + self.memory_sources.len()
-                + self.batch_sources.len(),
-            prepared_file_sources: self.sources.len(),
-            schema_binding_deferred: matches!(self.root, PreparedRoot::Dynamic(_)),
-            dynamic_schema_stages: metrics.schema_discovery_stages.get(),
-            spilled_pivot_stages: metrics.spilled_pivot_stages.get(),
-            spilled_pivot_input_rows: metrics.spilled_pivot_input_rows.get(),
-            spilled_pivot_index_rows: metrics.spilled_pivot_index_rows.get(),
-            spilled_pivot_domains: metrics.spilled_pivot_domains.get(),
-            spilled_pivot_cells: metrics.spilled_pivot_cells.get(),
-            spilled_pivot_lookup_blocks: metrics.spilled_pivot_lookup_blocks.get(),
-            spilled_pivot_reader_opens: metrics.spilled_pivot_reader_opens.get(),
-            ordered_aggregate_stages: metrics.ordered_aggregate_stages.get(),
-            ordered_aggregate_input_rows: metrics.ordered_aggregate_input_rows.get(),
-            ordered_aggregate_distinct_rows: metrics.ordered_aggregate_distinct_rows.get(),
-            ordered_join_stages: metrics.ordered_join_stages.get(),
-            ordered_join_build_rows: metrics.ordered_join_build_rows.get(),
-            ordered_join_probe_rows: metrics.ordered_join_probe_rows.get(),
-            ordered_join_candidate_rows: metrics.ordered_join_candidate_rows.get(),
-            ordered_join_match_records: metrics.ordered_join_match_records.get(),
-            ordered_join_lookup_blocks: metrics.ordered_join_lookup_blocks.get(),
-            ordered_window_stages: metrics.ordered_window_stages.get(),
-            ordered_window_input_rows: metrics.ordered_window_input_rows.get(),
-            ordered_window_groups: metrics.ordered_window_groups.get(),
-            ordered_window_partitions: metrics.ordered_window_partitions.get(),
-            ordered_window_peer_records: metrics.ordered_window_peer_records.get(),
-            ordered_window_bounds_rows: metrics.ordered_window_bounds_rows.get(),
-            ordered_window_distinct_intervals: metrics.ordered_window_distinct_intervals.get(),
-            ordered_window_distinct_events: metrics.ordered_window_distinct_events.get(),
-            ordered_window_extrema_summary_rows: metrics.ordered_window_extrema_summary_rows.get(),
-            ordered_window_lookup_blocks: metrics.ordered_window_lookup_blocks.get(),
-            output_columns: root.fields.iter().map(|(name, _)| name.clone()).collect(),
-            bytes_decoded: None,
-            native_io_certificate: certificate,
-            runtime: self.snapshot(),
-            spill,
-            input,
-            _metadata: metadata,
-        })
+        Ok((
+            ExecutedVortexRelational {
+                resources: self.policy.resource_envelope.declared_resources,
+                output_rows: rows,
+                output_batches: batches,
+                max_output_batch_rows: max_rows,
+                output_buffer_bytes: bytes,
+                scan_rows_delivered: metrics.scan_rows.get(),
+                scan_batches: metrics.scan_batches.get(),
+                prepared_sources: self.sources.len()
+                    + self.memory_sources.len()
+                    + self.batch_sources.len(),
+                prepared_file_sources: self.sources.len(),
+                schema_binding_deferred: matches!(self.root, PreparedRoot::Dynamic(_)),
+                dynamic_schema_stages: metrics.schema_discovery_stages.get(),
+                spilled_pivot_stages: metrics.spilled_pivot_stages.get(),
+                spilled_pivot_input_rows: metrics.spilled_pivot_input_rows.get(),
+                spilled_pivot_index_rows: metrics.spilled_pivot_index_rows.get(),
+                spilled_pivot_domains: metrics.spilled_pivot_domains.get(),
+                spilled_pivot_cells: metrics.spilled_pivot_cells.get(),
+                spilled_pivot_lookup_blocks: metrics.spilled_pivot_lookup_blocks.get(),
+                spilled_pivot_reader_opens: metrics.spilled_pivot_reader_opens.get(),
+                ordered_aggregate_stages: metrics.ordered_aggregate_stages.get(),
+                ordered_aggregate_input_rows: metrics.ordered_aggregate_input_rows.get(),
+                ordered_aggregate_distinct_rows: metrics.ordered_aggregate_distinct_rows.get(),
+                ordered_join_stages: metrics.ordered_join_stages.get(),
+                ordered_join_build_rows: metrics.ordered_join_build_rows.get(),
+                ordered_join_probe_rows: metrics.ordered_join_probe_rows.get(),
+                ordered_join_candidate_rows: metrics.ordered_join_candidate_rows.get(),
+                ordered_join_match_records: metrics.ordered_join_match_records.get(),
+                ordered_join_lookup_blocks: metrics.ordered_join_lookup_blocks.get(),
+                ordered_window_stages: metrics.ordered_window_stages.get(),
+                ordered_window_input_rows: metrics.ordered_window_input_rows.get(),
+                ordered_window_groups: metrics.ordered_window_groups.get(),
+                ordered_window_partitions: metrics.ordered_window_partitions.get(),
+                ordered_window_peer_records: metrics.ordered_window_peer_records.get(),
+                ordered_window_bounds_rows: metrics.ordered_window_bounds_rows.get(),
+                ordered_window_distinct_intervals: metrics.ordered_window_distinct_intervals.get(),
+                ordered_window_distinct_events: metrics.ordered_window_distinct_events.get(),
+                ordered_window_extrema_summary_rows: metrics
+                    .ordered_window_extrema_summary_rows
+                    .get(),
+                ordered_window_lookup_blocks: metrics.ordered_window_lookup_blocks.get(),
+                output_columns: root.fields.iter().map(|(name, _)| name.clone()).collect(),
+                bytes_decoded: None,
+                native_io_certificate: certificate,
+                runtime: self.snapshot(),
+                spill,
+                input,
+                _metadata: metadata,
+            },
+            completed,
+        ))
     }
 
     #[allow(clippy::too_many_lines)] // Keep the exhaustive dispatch table together; native kernels own the algorithms.

@@ -17,6 +17,53 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-SELECTED-TEXT-VIEWS` — sparse native Zstd filtering constructs
+  views only for selected rows under PERF-01/04/05 and PERF-03/06. The
+  [acceptance report](../benchmarks/native-selected-text-views-2026-10-15.md)
+  retains all 70 complete comparison calls, seven Rust/provider gates,
+  80 direct binding tests, 757 public cases and one complete Full43 pass.
+  The frozen target improves in 10/10 pairs; four parallel controls have
+  slower medians within their declared limits. This is a bounded retention
+  decision, not a dense-decoder or general performance claim.
+  - [PR #1556](https://github.com/depsilon/shardloom/pull/1556) merges at
+    `fb1812dec4f9fa724b2c587353c74162935e0b2c` after all 44 pre-merge checks pass
+    on `ba7643df4576c1869dae33ed0c2ef4f9a2e335bb`. The reviewed, tested and
+    merged trees match. Automated review completes without recorded findings.
+    All 2,259 measured source identities are checked against merged Git blobs;
+    only the mirrored Python license-provenance description changes.
+  - The [hosted packet](../benchmarks/evidence/native-selected-view-hosted-2026-10-15.json)
+    verifies 67 archive members and 67 literal excerpts. Native tests pass
+    2,807 cases with 26 pre-existing manual exclusions; provider groups pass
+    10/7/7/23/4 cases. Three isolated Linux/macOS installed-wheel lanes pass
+    all 80 tests each without publication. Original license-check failures
+    and their correction remain separate from successful attempts.
+  - All seven checked preview responses preserve the accepted source, and all
+    seven production responses preserve merged source after accounting for
+    Cloudflare's inserted scripts. Its production status notification remains
+    `in_progress` with no version ID; completed-notification proof is unavailable.
+    This does not change the observed served content or establish a new rendering
+    claim. No package release follows this unit. The six areas, eight
+    investigations and broader PERF/CG obligations retain their owners.
+
+- [x] `NATIVE-AGGREGATE-DICTIONARY-GROWTH` — the finite dictionary-capacity
+  experiment is dropped under PERF-01/03/04/05/06. The
+  [report](../benchmarks/native-aggregate-dictionary-growth-2026-10-15.md)
+  preserves the expected baseline capacity regression, five focused and 102
+  broader dictionary tests, and all 80 complete correct query calls. Q19 passes
+  only five of ten target pairs; Q22 exceeds its frozen control limit. All
+  candidate runtime and test changes are removed. The accepted selected-view
+  runtime is restored, with only its already reviewed notice-description change
+  differing from the measured source inventory.
+  - The [portable packet](../benchmarks/evidence/native-aggregate-dictionary-growth-2026-10-15.json)
+    reopens 82 outer members and all 320 original comparison members. It includes
+    the removed patch, exact candidate source, original frozen design and complete
+    failure/results history. Primary replay applies the CPU limit only to the
+    target and verifies complete call order, values and every original gate;
+    the earlier replay is preserved and the DROP decision is unchanged.
+  - No new broad retention run, Full43 observation or release follows a removed
+    candidate. The six areas, eight investigations and all broader PERF/CG
+    obligations remain open; native transport stays after optimization/breadth.
+
 - [x] `NATIVE-COMPRESSION-RESOURCES` — existing native Zstd compression,
   default dictionary training and their covered buffers now use the caller's
   shared grant under PERF-03/06 and RFC 0044. The

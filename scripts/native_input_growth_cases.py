@@ -74,7 +74,7 @@ def run(harness):
         harness.case(f"growth-wide-{mode}-iter", incremental)
 
         def outputs(mode=mode):
-            formats = ("vortex",) if mode == "streaming" else LOCAL_FORMATS
+            formats = LOCAL_FORMATS
             destinations = write_outputs(
                 context, harness.output, wide(mode), expected, columns,
                 name=f"growth-wide-{mode}", guard=harness.guard,
