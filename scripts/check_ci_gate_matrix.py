@@ -210,7 +210,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python -B -m unittest discover -s scripts -p test_python_license_bundle.py -v",
             "cargo build --locked --release -p shardloom-cli --bin shardloom --features release-user-surfaces",
             'python scripts/build_native_python.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension" --release',
-            'python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse"',
+            'python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse" --audit-linux',
         ),
         artifact_refs=(
             "${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/build.json",
@@ -223,7 +223,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         release_blocker_refs=("native Python wheel integrity and isolated installation",),
         workflow_markers=(
             'python-version: "3.10"', 'python-version: "3.13"',
-            "ubuntu-latest", "macos-latest", "if-no-files-found: error",
+            "ubuntu-24.04", "macos-latest", "if-no-files-found: error",
             'tempfile.mkdtemp(prefix="native-python-", dir=os.environ["RUNNER_TEMP"])',
         ),
     ),

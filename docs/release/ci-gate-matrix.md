@@ -28,13 +28,17 @@ skipped_gate=real_publication
 ## Required Lanes
 
 `native_python_wheel` enforces native Python wheel integrity and isolated installation
-under job `python-native-wheel`. Ubuntu checks Python 3.10 and 3.13; macOS checks
+under job `python-native-wheel`. Ubuntu 24.04 (`ubuntu-24.04`) checks Python 3.10 and 3.13; macOS checks
 3.13. Its `native-python-wheel-${{ matrix.lane }}` artifacts retain the actual wheel,
 build identity, installation logs and the full required native integration suite.
 Zero tests or any skipped native test fails the proof. `release-readiness` requires
-this job to succeed. Windows extension support and portable Linux wheel certification
-remain unclaimed. Linux native wheels use a host platform tag until a separate
-shared-library audit establishes manylinux compliance.
+this job to succeed. The Linux lanes audit both the extension and bundled CLI
+against `manylinux_2_39_x86_64` before installation. The pinned auditwheel tool
+must succeed without patching binaries or adding libraries; every payload except
+WHEEL/RECORD metadata must remain byte-identical. The exact resulting wheel then
+passes isolated loading, all binding tests and uninstall verification. This is
+the same helper used by registry publication. Windows extension support remains
+unclaimed; ordinary local builds without this audit retain a host Linux tag.
 Each attempt reserves a fresh `SHARDLOOM_NATIVE_WHEEL_ROOT` inside `RUNNER_TEMP`.
 The extension staging, dependency wheels and installation proof remain outside
 the Cargo cache, so restored build outputs cannot reuse an earlier proof or its
@@ -48,7 +52,7 @@ python -B -m unittest discover -s scripts -p 'test_*native_python*.py' -v
 python -B -m unittest discover -s scripts -p test_python_license_bundle.py -v
 cargo build --locked --release -p shardloom-cli --bin shardloom --features release-user-surfaces
 python scripts/build_native_python.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension" --release
-python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse"
+python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse" --audit-linux
 ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/build.json
 ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/report.json
 ${{ env.SHARDLOOM_NATIVE_WHEEL_ROOT }}/proof/integration.json

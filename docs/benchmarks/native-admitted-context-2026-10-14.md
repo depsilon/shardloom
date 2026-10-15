@@ -7,8 +7,11 @@ context regressions, six broad gates, 80 direct binding tests, 757 public cases
 and 516 complete paired query calls. No query repeats a declared elapsed-time,
 CPU or RSS cost breach in both starting orders. The
 [portable packet](evidence/native-admitted-context-2026-10-14.json) contains
-2,240 verified members. Hosted integration remains pending; version 0.5.1 is
-unchanged.
+2,240 verified members. PR #1551 completes hosted integration with all 44 checks
+and three installed-wheel lanes passing; the
+[hosted receipt](evidence/native-decoder-hosted-2026-10-15.json) binds the exact
+merged tree and production observation. These measurements retain source version
+0.5.1; the authorized 0.6.0 release is a separate work item.
 
 This closes the local proof for the [context continuity contract](../architecture/native-admitted-context-2026-10-14.md)
 and the [decoder resource correction](native-decoder-scratch-2026-10-14.md).

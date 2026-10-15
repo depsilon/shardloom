@@ -17,6 +17,40 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-DECODER-SCRATCH` — reviewed fixed-width child scratch, FSST finish
+  overlap and admitted helper-context continuity under PERF-03/06/08/09 and
+  CG-5/19/20/21, following RFCs 0014/0044. The
+  [combined acceptance](../benchmarks/native-admitted-context-2026-10-14.md)
+  preserves 22 focused regressions, six broad gates, 80 direct binding tests,
+  757 public cases and 516 matched query calls. Revised decoder cost acceptance,
+  rejected candidates and historical composition observations retain their own
+  packets; no repeated declared query cost breach remains.
+  - [PR #1551](https://github.com/depsilon/shardloom/pull/1551) merges at
+    `b6d9318d42efb84275742fb3ff972d2adb350b41` after all 44 checks pass on
+    `e48a82f9597127fda3ded100daa91fdfd71f1515`. Reviewed, synthetic and merged
+    trees match. All 2,245 measured source hashes are checked; only four UAT
+    runner/test files and one test diagnostic change after measurement.
+    Production runtime sources are unchanged.
+  - The [hosted receipt](../benchmarks/evidence/native-decoder-hosted-2026-10-15.json)
+    retains the complete native log with 2,786 passes and 25 ignored tests,
+    vendor groups with 10/7/17 passes, and three installed Linux/macOS wheel
+    lanes with 80 passes each and no failures/errors/skips. The obsolete
+    test-only CodeQL thread is resolved by the security bot. All archive
+    members are reopened and hash-checked. Exact-merge production deployment
+    and four live responses pass; unchanged website source retains the earlier
+    rendered proof, with no new browser observation claimed.
+  - The [fresh UAT](../benchmarks/native-fresh-unpaced-uat-2026-10-14.md)
+    passes fresh ingest, all 129 predeclared queries and all 18 modular cohorts:
+    54.603468 seconds native ingest, 194.125941 summed query seconds and
+    331.624211 seconds supervised ingest-plus-query work. Future UAT defaults
+    to one execution per query, without artificial pacing or device admission.
+  - Admission reuses the query pool and native providers; encoded append/fusion,
+    capillary selection and PulseWeave scheduling are preserved. This finite
+    accounting closure is not a process-RSS ceiling, general provider/metadata
+    coverage, comparative performance claim or whole PERF/CG completion.
+    The authorized successor release is tracked separately as `RELEASE-060`;
+    the hosted observations here use source version 0.5.1.
+
 - [x] `NATIVE-SELECTION-RESOURCES` — sparse native Zstd selection metadata,
   borrowed decoder ranges and query-context preservation through reviewed
   aggregate/dictionary helpers under PERF-03/06/08/09 and CG-5/19/20/21.

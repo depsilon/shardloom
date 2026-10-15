@@ -5,11 +5,14 @@
 Status: revised implementation passes local resource, cost, public-workflow and
 Full43 acceptance, with [portable evidence](../benchmarks/evidence/native-decoder-scratch-2026-10-14.json)
 complete. [Combined helper-context acceptance](../benchmarks/native-admitted-context-2026-10-14.md)
-also passes, including all 516 matched query calls. Hosted integration remains
-pending under PERF-03/06/08/09 and CG-5/19/20/21, following RFCs 0014/0044. This continues
+also passes, including all 516 matched query calls. PR #1551 completes hosted
+integration with all 44 checks and three installed-wheel lanes passing; the
+[hosted receipt](../benchmarks/evidence/native-decoder-hosted-2026-10-15.json)
+binds the merged source and production deployment. This finite unit remains under
+PERF-03/06/08/09 and CG-5/19/20/21, following RFCs 0014/0044. It continues
 the existing builder resource boundary and does not close general provider
-memory accounting. Version 0.5.1 remains immutable; the single authorized
-version bump follows integration of this work and the context correction.
+memory accounting. Published 0.5.1 remains immutable; the single authorized
+0.6.0 successor is tracked separately in the release queue.
 
 ## Provider decision
 

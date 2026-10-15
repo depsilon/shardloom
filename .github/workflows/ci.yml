@@ -325,10 +325,10 @@ jobs:
       matrix:
         include:
           - lane: py310_ubuntu
-            os: ubuntu-latest
+            os: ubuntu-24.04
             python-version: "3.10"
           - lane: py313_ubuntu
-            os: ubuntu-latest
+            os: ubuntu-24.04
             python-version: "3.13"
           - lane: py313_macos
             os: macos-latest
@@ -374,7 +374,7 @@ jobs:
       - name: Build optional native Python extension
         run: python scripts/build_native_python.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension" --release > "$SHARDLOOM_NATIVE_WHEEL_ROOT/build.json"
       - name: Prove native wheel installation and complete binding tests
-        run: python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse"
+        run: python scripts/prove_native_python_wheel.py --output-dir "$SHARDLOOM_NATIVE_WHEEL_ROOT/proof" --native-library "$SHARDLOOM_NATIVE_WHEEL_ROOT/extension/_native.abi3.so" --cli-binary "$SHARDLOOM_NATIVE_CARGO_TARGET/release/shardloom" --wheelhouse "$SHARDLOOM_NATIVE_WHEEL_ROOT/wheelhouse" --audit-linux
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
         if: always()
         with:

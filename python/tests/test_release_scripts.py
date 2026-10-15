@@ -4946,14 +4946,21 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn("python scripts/sync_workspace_package_versions.py --check", workflow)
         self.assertIn("python scripts/check_workspace_version_sources.py", workflow)
         self.assertIn("stage_python_package_with_bundled_cli", workflow)
-        self.assertIn("build_python_artifacts(repo_root, stage_dir, dist_dir)", workflow)
+        self.assertIn('"--no-deps", "--no-index", "--wheel-dir", str(dist_dir)', workflow)
+        self.assertIn("python -m build --sdist --no-isolation --outdir", workflow)
         self.assertIn("artifact_suffix: linux", workflow)
         self.assertIn("artifact_suffix: macos", workflow)
         self.assertIn("artifact_suffix: windows", workflow)
         self.assertIn("python-dist-${{ matrix.artifact_suffix }}", workflow)
         self.assertIn("python-dist-sdist", workflow)
         self.assertIn("Build clean Python sdist", workflow)
-        self.assertIn("target/pypi-python-package-sdist/dist/*.tar.gz", workflow)
+        self.assertIn("${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/sdist/*.tar.gz", workflow)
+        self.assertIn("${{ env.SHARDLOOM_REGISTRY_BUILD_ROOT }}/dist/*.whl", workflow)
+        self.assertIn("scripts/build_native_python.py", workflow)
+        self.assertIn("scripts/prove_native_python_wheel.py", workflow)
+        self.assertIn("--audit-linux", workflow)
+        self.assertIn('report["uninstall_status"] != "passed"', workflow)
+        self.assertIn("native-registry-proof-${{ matrix.artifact_suffix }}", workflow)
         self.assertIn("pattern: python-dist-*", workflow)
         self.assertIn("merge-multiple: true", workflow)
         self.assertIn("bundled CLI wheel must not be universal", workflow)
@@ -4962,6 +4969,57 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn("expected_version = resolve_python_package_version()", workflow)
         self.assertNotIn('pyproject["project"]["version"]', workflow)
         self.assertEqual(CURRENT_PYTHON_PACKAGE_VERSION, CURRENT_WORKSPACE_PACKAGE_VERSION)
+
+    def test_pypi_windows_build_writes_the_uploaded_directory_and_stops_on_failure(self) -> None:
+        from types import ModuleType
+        from unittest.mock import patch
+        import zipfile
+
+        workflow = (REPO_ROOT / ".github/workflows/pypi-publish-draft.yml").read_text()
+        windows = workflow.split("- name: Build Windows Python wheel with bundled CLI", 1)[1]
+        script = textwrap.dedent(windows.split("python - <<'PY'\n", 1)[1].split("\n          PY", 1)[0])
+        for mode in ("passed", "stage_failure", "build_failure", "multiple_wheels"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                calls = []
+                module = ModuleType("release_dry_run_proof")
+
+                def stage(repo, destination, binary):
+                    self.assertEqual(binary, root / "cargo/release/shardloom.exe")
+                    self.assertEqual(destination, root / "windows-package")
+                    destination.mkdir()
+                    return {"returncode": 1 if mode == "stage_failure" else 0,
+                            "stderr": "fixture staging refusal"}
+
+                def build(command, *, check):
+                    calls.append(command)
+                    self.assertTrue(check)
+                    for option in ("--no-build-isolation", "--no-index", "--no-deps"):
+                        self.assertIn(option, command)
+                    destination = Path(command[command.index("--wheel-dir") + 1])
+                    self.assertEqual(destination, root / "dist")
+                    self.assertEqual(Path(command[-1]), root / "windows-package")
+                    if mode == "build_failure":
+                        raise subprocess.CalledProcessError(1, command)
+                    destination.mkdir()
+                    for suffix in (["win_amd64", "win_arm64"] if mode == "multiple_wheels" else ["win_amd64"]):
+                        wheel = destination / f"shardloom-{CURRENT_PYTHON_PACKAGE_VERSION}-cp313-cp313-{suffix}.whl"
+                        with zipfile.ZipFile(wheel, "w") as archive:
+                            archive.writestr("shardloom.dist-info/WHEEL", "Root-Is-Purelib: false\n")
+
+                module.stage_python_package_with_bundled_cli = stage
+                with patch.dict(sys.modules, {"release_dry_run_proof": module}), \
+                        patch.dict(os.environ, {"SHARDLOOM_REGISTRY_BUILD_ROOT": str(root),
+                                               "SHARDLOOM_REGISTRY_CARGO_TARGET": str(root / "cargo")}), \
+                        patch.object(sys, "platform", "win32"), patch.object(sys, "path", list(sys.path)), \
+                        patch.object(subprocess, "run", side_effect=build):
+                    if mode == "passed":
+                        exec(compile(script, "<Windows registry wheel step>", "exec"), {})
+                    else:
+                        failure = subprocess.CalledProcessError if mode == "build_failure" else SystemExit
+                        with self.assertRaises(failure):
+                            exec(compile(script, "<Windows registry wheel step>", "exec"), {})
+                self.assertEqual(len(calls), 0 if mode == "stage_failure" else 1)
 
     def test_v1_local_source_package_release_track_gate_passes_current_contract(self) -> None:
         module = self._load_script_module(
