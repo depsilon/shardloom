@@ -116,6 +116,18 @@ their original build source to the corrected test fixture. All Rust and public
 Python runtime sources remain unchanged across that correction. The later
 documentation-validator update is recorded separately from runtime acceptance.
 
+The first hosted Python core shard then finds a test-module import error:
+package loading cannot resolve the new test's absolute sibling import. The test
+now selects the existing repository pattern for package and directory loading.
+The corrected core check passes with 606 discovered tests; its console records
+519 tests run and nine skip records. Separate runs against the same frozen
+native binding pass all 87 tests in each loading mode, with no skips. The
+[import-correction supplement](evidence/native-stream-sets-test-import-correction-2026-10-15.json.xz)
+retains the original hosted log, both test sources, complete native logs and the
+2,272-file source transition. Runtime code and native artifact hashes remain
+unchanged; the Rust and public workflow gates above are retained without reruns.
+Corrected hosted acceptance remains pending.
+
 ## Single-pass query observation
 
 One sequential pass executes all 43 queries against the resident
