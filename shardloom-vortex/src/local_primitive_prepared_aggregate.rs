@@ -34,6 +34,7 @@ pub struct ExecutedVortexAggregate {
 
 /// Complete small row payload produced by the same native aggregate execution.
 pub struct CollectedVortexAggregate {
+    pub timing: super::query_timing::QueryTiming,
     pub execution: ExecutedVortexAggregate,
     pub result_jsonl: shardloom_exec::live_memory::Budgeted<String>,
     pub result_schema_json: shardloom_exec::live_memory::Budgeted<String>,
@@ -738,14 +739,16 @@ impl PreparedVortexAggregate {
         &self,
         cancellation: &shardloom_exec::compute_pool::CancellationToken,
     ) -> Result<CollectedVortexAggregate> {
+        let started = std::time::Instant::now();
         let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
         let mut execution = self.for_each_batch(cancellation, |array, context| {
             sink.append_native(&array, context)
         })?;
-        let (result_jsonl, result_schema_json) =
-            sink.finish_certified(&mut execution.native_io_certificate)?;
+        let (result_jsonl, result_schema_json, timing) =
+            sink.finish_with_timing(&mut execution.native_io_certificate, started)?;
         execution.runtime = self.snapshot();
         Ok(CollectedVortexAggregate {
+            timing,
             execution,
             result_jsonl,
             result_schema_json,

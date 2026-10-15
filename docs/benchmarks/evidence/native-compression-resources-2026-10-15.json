@@ -1,0 +1,100 @@
+{
+  "schema_version": "shardloom.completed_native_evidence_index.v1",
+  "status": "completed_local_acceptance_hosted_integration_pending",
+  "archive": {
+    "path": "native-compression-resources-2026-10-15.tar.xz",
+    "bytes": 3005364,
+    "sha256": "603bc36f0963548e3b7875fd350d298ce9c3d899874fd28b9da722dad0e8b543"
+  },
+  "manifest": {
+    "path": "native-compression-resources-2026-10-15.manifest.json.xz",
+    "bytes": 127652,
+    "sha256": "765d9c978b7b75ee335541c1bf9ec36636d909699bb3727e2f43186682985f2f",
+    "uncompressed_bytes": 1513250,
+    "uncompressed_sha256": "14aa7984b451fbdc3937327d597fec75585e50ddf05148d860eb2922f7942d85"
+  },
+  "verification": {
+    "path": "native-compression-resources-2026-10-15.verification.json",
+    "bytes": 286,
+    "sha256": "3dce47deece9ff0a50ccb609f361494ac4c5357855c52ce48bf1002e857a73f3"
+  },
+  "verified_member_count": 3068,
+  "all_archive_bytes_preserved": true,
+  "all_original_manifest_bytes_preserved": true,
+  "native_execution_repeated_for_copy": false,
+  "base_commit": "e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7",
+  "source_files": 2255,
+  "changed_source_files": 15,
+  "acceptance": {
+    "broad_gates": 6,
+    "cost_cells": 18,
+    "cost_operations_per_role": 1368,
+    "direct_tests": 80,
+    "full43_calls": 43,
+    "full43_rows": 381,
+    "native_ignored": 29,
+    "native_tests": 4219,
+    "new_native_regressions": 19,
+    "public_cases": 757,
+    "public_families": 19,
+    "repeated_cost_breaches": 0,
+    "vendor_tests": 72,
+    "workspace_tests": 3219
+  },
+  "lifecycle_cost": {
+    "cases": 18,
+    "complete_operations_per_role": 1368,
+    "breaches": [],
+    "decision": "within_declared_cost_bounds",
+    "process_timing": {
+      "baseline": {
+        "seconds": 9.63630641599957,
+        "returncode": 0,
+        "peak_rss_bytes": 66748416,
+        "user_cpu_seconds": 9.542096,
+        "system_cpu_seconds": 0.050585,
+        "minor_page_faults": 3920,
+        "major_page_faults": 583,
+        "input_block_operations": 0,
+        "output_block_operations": 0,
+        "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies",
+        "cpu_timing_boundary": "native child CPU work; parallel work overlaps wall time",
+        "peak_rss_scope": "native_child_os_high_water_mark_not_a_reservation_limit",
+        "timing_boundary": "native process creation through complete output and process exit"
+      },
+      "candidate": {
+        "seconds": 9.945133833,
+        "returncode": 0,
+        "peak_rss_bytes": 68714496,
+        "user_cpu_seconds": 9.84626,
+        "system_cpu_seconds": 0.051283999999999996,
+        "minor_page_faults": 4037,
+        "major_page_faults": 579,
+        "input_block_operations": 0,
+        "output_block_operations": 0,
+        "os_counter_scope": "native child getrusage counters; block operations are not bytes; platform accounting varies",
+        "cpu_timing_boundary": "native child CPU work; parallel work overlaps wall time",
+        "peak_rss_scope": "native_child_os_high_water_mark_not_a_reservation_limit",
+        "timing_boundary": "native process creation through complete output and process exit"
+      }
+    },
+    "all_serialized_bytes_equal": true,
+    "reverse_order_required": false,
+    "original_cached_candidate_rejected_before_timing": true
+  },
+  "full43": {
+    "calls": 43,
+    "repeats": 1,
+    "complete_rows": 381,
+    "complete_operation_seconds": 155.89098658198782,
+    "supervised_suite_seconds": 203.92364004099727,
+    "reference_kind": "retained_native_regression",
+    "hot_run_score": null
+  },
+  "source_files_and_executables": "Complete source hashes, changed source overlay, original five-test reproduction, build/executable identities, raw lifecycle and query outputs, and public workflow evidence are retained; bulk executable and dataset payloads are excluded.",
+  "companion_report": "../native-compression-resources-2026-10-15.md",
+  "contract": "../../architecture/native-compression-resources-2026-10-15.md",
+  "performance_superiority_claim": false,
+  "publication_attempted": false,
+  "limitations": "Finite local compression admission. All archive members were reopened and every copied byte is unchanged. No installed-wheel, general allocation, process-RSS ceiling, all-platform or speedup claim. This source change follows the immutable 0.6.0 packages."
+}

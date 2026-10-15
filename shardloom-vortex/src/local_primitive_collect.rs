@@ -12,6 +12,7 @@ use crate::resident_session::{
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
 use std::io::Write as _;
+use std::time::{Duration, Instant};
 use vortex::array::{ArrayRef, ExecutionCtx, dtype::DType};
 
 const MAX_COLLECT_ROWS: u64 = 65_536;
@@ -96,6 +97,7 @@ fn validate_count_request(
 }
 
 pub struct CollectedVortexRows {
+    pub timing: Option<super::query_timing::QueryTiming>,
     pub rows: u64,
     pub projected_columns: Vec<String>,
     pub source_order_limit: Option<usize>,
@@ -108,6 +110,7 @@ pub struct CollectedVortexRows {
 
 /// The exact scalar count rendered at a requested collection boundary.
 pub struct CollectedCountRows {
+    pub timing: super::query_timing::QueryTiming,
     pub result_jsonl: Budgeted<String>,
     pub result_schema_json: Budgeted<String>,
 }
@@ -129,6 +132,7 @@ pub fn render_count_rows(
     session: &ResidentVortexSession,
 ) -> Result<CollectedCountRows> {
     use vortex::array::dtype::{Nullability, PType};
+    let started = Instant::now();
     let memory = session.memory();
     let dtype = DType::struct_(
         [(
@@ -142,6 +146,10 @@ pub fn render_count_rows(
     writeln!(&mut output, "{{\"count_all\":{count}}}").map_err(collect_io_error)?;
     let text = String::from_utf8(output.bytes).map_err(collect_io_error)?;
     Ok(CollectedCountRows {
+        timing: super::query_timing::QueryTiming {
+            execution: Duration::ZERO,
+            result_serialization: started.elapsed(),
+        },
         result_jsonl: Budgeted::new(text, output.lease),
         result_schema_json,
     })
@@ -359,9 +367,10 @@ impl PreparedVortexCollect {
         &self,
         cancellation: &CancellationToken,
     ) -> Result<CollectedVortexRows> {
+        let started = Instant::now();
         cancellation.check()?;
         let result = self.execute_arrays_with_cancellation(cancellation)?;
-        self.complete_json(result, cancellation)
+        self.complete_json(result, cancellation, started)
     }
 
     #[cfg(test)]
@@ -369,17 +378,20 @@ impl PreparedVortexCollect {
         &self,
         after_scan: impl FnOnce(),
     ) -> Result<CollectedVortexRows> {
+        let started = Instant::now();
         let result = self.execute_arrays()?;
         after_scan();
-        self.complete_json(result, &CancellationToken::default())
+        self.complete_json(result, &CancellationToken::default(), started)
     }
 
     fn complete_json(
         &self,
         result: OwnedVortexResultBatch,
         cancellation: &CancellationToken,
+        started: Instant,
     ) -> Result<CollectedVortexRows> {
         cancellation.check()?;
+        let serialization_started = Instant::now();
         let values_json = result.render_admitted_json_controlled(
             &self.projected_columns,
             MAX_JSON_BYTES,
@@ -387,6 +399,7 @@ impl PreparedVortexCollect {
         )?;
         cancellation.check()?;
         let result_schema_json = serialize_result_schema(result.dtype(), self.session.memory())?;
+        let result_serialization = serialization_started.elapsed();
         cancellation.check()?;
         self.source.validate_generation()?;
         cancellation.check()?;
@@ -395,6 +408,10 @@ impl PreparedVortexCollect {
         let rows = result.row_count();
         drop(result);
         Ok(CollectedVortexRows {
+            timing: Some(super::query_timing::QueryTiming::from_elapsed(
+                started.elapsed(),
+                result_serialization,
+            )),
             rows,
             projected_columns: self.projected_columns.clone(),
             source_order_limit: self.request.source_order_limit,
@@ -585,10 +602,22 @@ pub(super) struct JsonRows {
     rows: u64,
     lines: bool,
     schema: Option<(DType, MemoryLease)>,
+    serialization: Duration,
 }
 
 impl JsonRows {
     pub(super) fn append_native(
+        &mut self,
+        array: &ArrayRef,
+        context: &crate::resident_session::NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        let started = Instant::now();
+        let result = self.append_native_inner(array, context);
+        self.serialization += started.elapsed();
+        result
+    }
+
+    fn append_native_inner(
         &mut self,
         array: &ArrayRef,
         context: &crate::resident_session::NativeExecutionContext<'_>,
@@ -619,6 +648,7 @@ impl JsonRows {
     }
 
     pub(super) fn new(memory: &LiveMemoryPool, max_bytes: usize, lines: bool) -> Result<Self> {
+        let started = Instant::now();
         if max_bytes == 0 || max_bytes > MAX_JSON_BYTES {
             return Err(collect_error("JSON collection requires a 1..=8 MiB bound"));
         }
@@ -632,6 +662,7 @@ impl JsonRows {
             rows: 0,
             lines,
             schema: None,
+            serialization: started.elapsed(),
         })
     }
 
@@ -691,6 +722,26 @@ impl JsonRows {
             self.rows += 1;
         }
         Ok(())
+    }
+
+    /// Complete the sink while separating its synchronous conversion from the
+    /// enclosing prepared query's wall time. No worker durations are summed.
+    pub(super) fn finish_with_timing(
+        self,
+        certificate: &mut shardloom_core::NativeIoCertificate,
+        query_started: Instant,
+    ) -> Result<(
+        Budgeted<String>,
+        Budgeted<String>,
+        super::query_timing::QueryTiming,
+    )> {
+        let serialization = self.serialization;
+        let started = Instant::now();
+        let (output, schema) = self.finish_certified(certificate)?;
+        let serialization = serialization + started.elapsed();
+        let timing =
+            super::query_timing::QueryTiming::from_elapsed(query_started.elapsed(), serialization);
+        Ok((output, schema, timing))
     }
 
     /// Preserve execution/source evidence and record the actual terminal sink.

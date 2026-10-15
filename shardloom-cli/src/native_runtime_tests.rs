@@ -22,6 +22,46 @@ fn session() -> ResidentVortexSession {
     ResidentVortexSession::new(allocation.memory_bytes(), allocation.max_parallelism()).unwrap()
 }
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn prepared_native_query_timing_excludes_preparation_and_later_row_export() {
+    let session = session();
+    let source = ResidentMemorySource::from_int64_range(&session, "value", 0, 1, 17).unwrap();
+    let operation = prepare_sql_operation(
+        "SELECT value FROM 'memory://input' WHERE value >= 15 ORDER BY value",
+        allocation(),
+        &session,
+        &[binding(source)],
+        None,
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    for reused in [false, true] {
+        let started = std::time::Instant::now();
+        let completed = operation
+            .execute_native(&CancellationToken::default(), None)
+            .unwrap();
+        let enclosing = started.elapsed().as_nanos();
+        let fields = completed.execution.fields(reused).unwrap();
+        let get = |name: &str| {
+            fields
+                .iter()
+                .find(|(key, _)| key == name)
+                .unwrap()
+                .1
+                .as_str()
+        };
+        assert_eq!(get("native_query_timing_reported"), "true");
+        assert_eq!(get("native_query_timing_clock"), "monotonic_wall_not_cpu");
+        assert_eq!(get("native_result_serialization_nanos"), "0");
+        assert!(get("native_query_execution_nanos").parse::<u128>().unwrap() <= enclosing);
+        let result = Arc::new(completed.result);
+        assert_eq!(integers(&result, 0), vec![15, 16]);
+        // Later report/export calls must retain this execution's original clock.
+        assert_eq!(fields, completed.execution.fields(reused).unwrap());
+    }
+}
+
 fn binding(source: ResidentMemorySource) -> SqlSourceBinding {
     SqlSourceBinding {
         reference: "memory://input".into(),

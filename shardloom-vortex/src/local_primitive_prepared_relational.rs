@@ -151,6 +151,7 @@ pub struct ExecutedVortexRelational {
 
 /// Complete small collection; streaming delivery has an independent row bound.
 pub struct CollectedVortexRelational {
+    pub timing: super::query_timing::QueryTiming,
     pub execution: ExecutedVortexRelational,
     pub result_jsonl: Budgeted<String>,
     pub result_schema_json: Budgeted<String>,
@@ -1431,6 +1432,7 @@ impl PreparedVortexRelational {
         cancellation: &CancellationToken,
         input: Option<batch_input::Provider<'_>>,
     ) -> Result<CollectedVortexRelational> {
+        let started = std::time::Instant::now();
         let mut sink = super::collect::JsonRows::new(self.session.memory(), 8 * 1024 * 1024, true)?;
         let mut execution = self.for_each_batch_with_input(
             cancellation,
@@ -1439,10 +1441,11 @@ impl PreparedVortexRelational {
             input,
             |array, context| sink.append_native(&array, context),
         )?;
-        let (result_jsonl, result_schema_json) =
-            sink.finish_certified(&mut execution.native_io_certificate)?;
+        let (result_jsonl, result_schema_json, timing) =
+            sink.finish_with_timing(&mut execution.native_io_certificate, started)?;
         execution.runtime = self.snapshot();
         Ok(CollectedVortexRelational {
+            timing,
             execution,
             result_jsonl,
             result_schema_json,

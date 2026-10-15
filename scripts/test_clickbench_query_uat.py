@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import json
+import csv
 import gzip
 import hashlib
 import os
@@ -19,6 +20,7 @@ from run_clickbench_query_uat import compress_completed_log, correctness_boundar
 from native_workflow_protocol import public_workflow_command
 from clickbench_reference_packet import canonical_values_sha256
 from native_workflow_test_support import schema_payload
+from query_timing_report import TIMING_BOUNDARY, TIMING_CLOCK
 
 
 def envelope(summary):
@@ -79,6 +81,11 @@ class ClickBenchUatTests(unittest.TestCase):
                     {"key": "output_row_count", "value": "1"},
                     {"key": "result_schema_json", "value": json.dumps(schema)},
                     {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
+                    {"key": "native_query_timing_reported", "value": "true"},
+                    {"key": "native_query_execution_nanos", "value": "60000000"},
+                    {"key": "native_result_serialization_nanos", "value": "5000000"},
+                    {"key": "native_query_timing_clock", "value": TIMING_CLOCK},
+                    {"key": "native_query_timing_boundary", "value": TIMING_BOUNDARY},
                 ],
             }
             prefix.with_suffix(".stdout.json").write_text(json.dumps(envelope))
@@ -494,6 +501,8 @@ class ClickBenchUatTests(unittest.TestCase):
     def test_full_suite_default_executes_each_query_once_and_has_no_hot_score(self):
         with tempfile.TemporaryDirectory() as directory:
             result, summary = self._run_mocked_single(Path(directory), query_ids=None)
+            with Path(summary["timing_csv"]).open(newline="") as stream:
+                timing_rows = list(csv.DictReader(stream))
         self.assertEqual(result, 0)
         self.assertTrue(summary["complete"])
         self.assertTrue(summary["full_result_validation"])
@@ -505,6 +514,9 @@ class ClickBenchUatTests(unittest.TestCase):
         self.assertIsNone(summary["hot_total_seconds"])
         self.assertIsNone(summary["hot_geomean_seconds"])
         self.assertEqual(summary["query_total_seconds"], summary["all_raw_run_seconds"])
+        self.assertEqual([int(row["query"]) for row in timing_rows], list(range(1, 44)))
+        self.assertEqual(summary["timing_totals"]["calls_with_engine_timing"], 43)
+        self.assertAlmostEqual(summary["timing_totals"]["totals"]["engine_execution_seconds"], 43 * 0.06)
 
     def test_repeats_are_explicit_and_persisted_by_both_runners(self):
         for paired in (False, True):

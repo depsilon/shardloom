@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "all_members_reopened": true,
+  "member_count": 2076,
+  "archive": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-timing-acceptance-463/native-query-timing-acceptance-2026-10-15.tar.xz",
+    "bytes": 2377780,
+    "sha256": "e313666e52bfcd01d0327960b647a541bd6705436124d35cdb19beb9f8e9dd73"
+  },
+  "manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-timing-acceptance-463/native-query-timing-acceptance-2026-10-15.manifest.json.xz",
+    "bytes": 83744,
+    "sha256": "d7005b353ffdf9fa4889f3ca37f2683044d860d320c1f038cc01444cff929dae"
+  },
+  "manifest_uncompressed_sha256": "8a60e6221cbd873b29c3cdc960c60d18f301c528cf40f3e2a485f4d834d6529e",
+  "source_identity_preserved": true,
+  "helper": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/package_query_timing_acceptance_463.py",
+    "bytes": 13156,
+    "sha256": "0aa79f04fde65a37f2f2d32a678299d9972c4c503e19f0ea964f8e506f7edf56"
+  }
+}

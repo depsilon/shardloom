@@ -1,0 +1,46 @@
+{
+  "schema_version": "shardloom.native_query_timing_acceptance.v1",
+  "status": "passed_local_acceptance_hosted_integration_pending",
+  "source_commit": "e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7",
+  "source_files": 2258,
+  "source_state": "uncommitted_compression_and_query_timing",
+  "archive": {
+    "file": "native-query-timing-acceptance-2026-10-15.tar.xz",
+    "bytes": 2377780,
+    "sha256": "e313666e52bfcd01d0327960b647a541bd6705436124d35cdb19beb9f8e9dd73"
+  },
+  "manifest": {
+    "file": "native-query-timing-acceptance-2026-10-15.manifest.json.xz",
+    "bytes": 83744,
+    "sha256": "d7005b353ffdf9fa4889f3ca37f2683044d860d320c1f038cc01444cff929dae",
+    "uncompressed_sha256": "8a60e6221cbd873b29c3cdc960c60d18f301c528cf40f3e2a485f4d834d6529e"
+  },
+  "verification": {
+    "file": "native-query-timing-acceptance-2026-10-15.verification.json",
+    "sha256": "50ad473c8ef5a5771d74bdd57d531acddda430b602f40693733a5cf31ca1eb86"
+  },
+  "verified_members": 2076,
+  "all_archive_members_reopened": true,
+  "acceptance": {
+    "workspace_tests": 3219,
+    "native_tests": 4222,
+    "native_manual_platform_exclusions": 29,
+    "vendor_tests": 72,
+    "direct_tests": 80,
+    "public_cases": 757,
+    "public_families": 19,
+    "explicit_expected_value_files": 724,
+    "explicit_expected_value_rows": 22002,
+    "envelopes": 1062,
+    "pressure_files": 20,
+    "pressure_rows": 677251,
+    "documentation_checks": 18
+  },
+  "original_failure_history_preserved": true,
+  "source_identity_preserved": true,
+  "native_execution_rerun_for_packaging": false,
+  "fresh_uat": "native-query-timing-uat-2026-10-15.json",
+  "compression_cost": "native-compression-resources-2026-10-15.json",
+  "report": "../native-query-timing-uat-2026-10-15.md",
+  "limitations": "Finite local source-package acceptance. Existing fresh Full43 and compression cost evidence remain separate and unchanged. No all-platform, process-RSS ceiling, cold-cache, speedup or new-release claim."
+}

@@ -29,6 +29,7 @@ from local_uat_storage import (
 )
 from native_workflow_protocol import extract_result, public_workflow_command, report_fields, strict_json
 from clickbench_reference_packet import load_reference_packet, query_statements
+from query_timing_report import query_phase_timings, timing_totals, write_timing_csv
 
 
 def extract_reference_result(envelope: dict):
@@ -114,6 +115,7 @@ def clickbench_harness_paths() -> tuple[Path, ...]:
             "clickbench_reference_packet.py",
             "native_workflow_protocol.py",
             "timed_native_command.py",
+            "query_timing_report.py",
             "local_uat_storage.py",
         )
     )
@@ -238,6 +240,7 @@ def run_profiled_command(command: list[str], prefix: Path, timeout: float, guard
     if timing.exists():
         native = strict_json(timing.read_text())
         result["seconds"] = native["seconds"]
+        result["supervision_overhead_seconds"] = max(0.0, result["supervised_wall_seconds"] - native["seconds"])
         result["native_peak_rss_bytes"] = native["peak_rss_bytes"]
         result["user_cpu_seconds"] = native["user_cpu_seconds"]
         result["system_cpu_seconds"] = native["system_cpu_seconds"]
@@ -272,6 +275,7 @@ def score(records: list[dict], query_count: int, selected: list[int] | None = No
         "complete": True, "queries_passed": len(queries), "query_ids": queries,
         "runs_completed": len(records), "runs_passed": len(records),
         "query_total_seconds": sum(best), "hot_total_seconds": sum(hot) if hot is not None else None,
+        "query_total_timing_boundary": "sum_of_best_complete_process_wall_times_not_engine_execution",
         "all_raw_run_seconds": sum(sum(runs) for runs in timings),
         "geomean_seconds": math.exp(sum(math.log(value) for value in best) / len(queries)),
         "hot_geomean_seconds": (math.exp(sum(math.log(value) for value in hot) / len(queries))
@@ -297,6 +301,8 @@ def main() -> int:
     parser.add_argument("--query-ids", help="comma-separated targeted query ids; never a full-suite score")
     parser.add_argument("--repeats", type=int, default=1,
                         help="executions per query (default: 1); repeated trials require an explicit value")
+    parser.add_argument("--allow-missing-engine-timing", action="store_true",
+                        help="historical binary comparison only; missing engine clocks remain unavailable")
     parser.add_argument("--compress-logs", action="store_true", help="losslessly archive each completed stdout/stderr after validation, within the unchanged log budget")
     add_log_budget_arguments(parser)
     args = parser.parse_args()
@@ -357,6 +363,9 @@ def main() -> int:
         summary_path = logs / "summary.json"
 
         def save_summary() -> None:
+            summary["timing_totals"] = timing_totals(records)
+            summary["timing_csv"] = str(logs / "query-timings.csv")
+            write_timing_csv(logs / "query-timings.csv", records)
             summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
             try:
                 guard()
@@ -388,6 +397,7 @@ def main() -> int:
                 "active_run": math.floor(args.max_run_log_mib * MIB),
             },
             "timing_boundary": "native process creation through completed public CLI output and process exit",
+            "engine_timing_required": not args.allow_missing_engine_timing,
             "cpu_timing_boundary": "native child CPU work; overlaps wall time and other worker CPU",
             "selected_query_ids": selected,
             "repeats": args.repeats,
@@ -416,12 +426,14 @@ def main() -> int:
                     memory_gb=args.memory_gb, max_parallelism=args.max_parallelism,
                 )
                 result = run_profiled_command(command, prefix, args.timeout, guard)
-                result.update(query=index, run=run, command=command, passed=False)
+                result.update(query=index, run=run, command=command, query_statement=query, passed=False)
                 validation_started = time.perf_counter()
                 try:
                     if result["returncode"] != 0 or result["guard_failures"]:
                         raise ValueError("native command or watchdog failed")
                     envelope = strict_json(prefix.with_suffix(".stdout.json").read_text())
+                    result.update(query_phase_timings(report_fields(envelope), result["seconds"],
+                                                     allow_missing=args.allow_missing_engine_timing))
                     actual = extract_result(envelope)
                     if not equivalent(actual, expected):
                         raise ValueError("complete result differs from retained reference")

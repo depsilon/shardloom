@@ -12,6 +12,16 @@ Current native ordering spill and its failure/cleanup evidence are defined by th
 
 ## Current Local Engine Boundary
 
+The [compression resource unit](native-compression-resources-2026-10-15.md)
+passes [complete local acceptance](../benchmarks/native-compression-resources-2026-10-15.md).
+It extends the existing Vortex allocator
+with explicit reservations for bounded synchronous codec storage and uses
+actual admitted buffers for compression preparation and output. Its 18-cell
+cost screen, six broad gates, 72 vendor tests, 80 direct tests, 757 public cases
+and one Full43 pass are complete. Hosted integration remains pending. This
+finite source change follows the immutable 0.6.0 packages; metadata vectors,
+other provider trees and process RSS remain outside its accounting claim.
+
 Public SQL, Python/DataFrame and CLI workflows carry the same declared memory and parallelism
 through native execution and local output. Admitted native batches retain their ownership and
 reservation credits through the consumer. Explicit native spill is available for selected
@@ -132,8 +142,11 @@ The later [combined decoder/context correction](../benchmarks/native-admitted-co
 extends local coverage to reviewed fixed-width child-buffer trees and remaining
 native helper context propagation. Its six broad gates, 80 direct tests,
 757 public cases and 516 matched query calls pass; no cost breach repeats in
-both starting orders. Hosted integration remains pending. The contract retains
-explicit exclusions for unreviewed trees, metadata and compression/training.
+both starting orders. [PR #1551](https://github.com/depsilon/shardloom/pull/1551)
+completes all 44 hosted checks and three installed-wheel lanes; its
+[hosted receipt](../benchmarks/evidence/native-decoder-hosted-2026-10-15.json)
+also verifies the merged source and production deployment. Unreviewed trees
+and metadata remain separate; the compression unit above has its own acceptance.
 
 Other unadmitted state spill, complete reader/codec/upstream scratch
 accounting and whole-process RSS bounds remain open. Other operators retain their own resource admission
@@ -228,8 +241,9 @@ The following need separate implementation or acceptance before broader support 
   pivot and repeated-source replay acceptance.
 - reader/codec/upstream scratch accounting beyond the finite accepted provider
   buffers, Zstd decoder/prepared-dictionary workspaces and Chunked value/validity/
-  finalization buffers, including child decoder scratch, structural metadata,
-  compression contexts, dictionary training and other unreviewed builders.
+  finalization buffers, reviewed fixed-width child-decoder trees and the named
+  compressor/trainer allocations above. Structural metadata, other decoder
+  trees/codecs and unreviewed reader/provider/builder allocations remain open.
 - larger-than-resident-state guarantees beyond the admitted spill families.
 - workload-wide pressure, interruption and recovery acceptance for a declared production envelope.
 - object-store recovery.

@@ -50,7 +50,12 @@ The [builder resource unit](/field-guide/runtime-and-io#resources-and-recovery)
 covers primitive/Boolean/decimal Chunked output, nullable bitmaps and
 numeric/string finalization buffers, with local and hosted acceptance complete
 in PR #1529. Later accepted units admit reviewed fixed-width child-decoder
-scratch; structural metadata and unreviewed provider trees remain separate.
+scratch. The subsequent source-only
+[compression correction](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-compression-resources-2026-10-15.md)
+passes complete local acceptance for named buffers and pinned compressor/trainer
+heap reservations; its report tracks hosted status. It follows the immutable
+0.6.0 packages. Structural metadata, other codecs and unreviewed provider trees
+remain separate.
 Default input remains resident under the query grant. Opt-in
 [streaming input](/field-guide/python-surface#consume-results-in-batches) in 0.6.0
 packages admits distinct finite producers, declared repeated-source replay

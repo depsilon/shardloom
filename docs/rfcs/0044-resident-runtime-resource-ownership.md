@@ -149,6 +149,37 @@ guarantee. Acceptance requires negative workspace/legacy/dictionary tests,
 complete value and ownership checks, a frozen native cost screen and the existing
 whole-engine regression gates. No speed or support claim follows from the design.
 
+### Pinned Zstd compression and training admission
+
+`NATIVE-COMPRESSION-RESOURCES` extends PERF-03/06 allocation coverage to the
+existing Vortex `ZstdData` compression entry points. The
+[compression contract](../architecture/native-compression-resources-2026-10-15.md)
+owns the finite scope and acceptance. Reuse the pinned provider, compression
+level, frame boundaries, default dictionary trainer and by-copy dictionary
+loading. Preserve native encoding and decoded values.
+
+Allocate the length-prefixed input, offsets, sample lengths, compression output
+and dictionary output through the existing session `HostAllocator`. Admit
+foreign compression/training heap storage before constructing its C state,
+using a separate lifetime-bound reservation on that same allocator. This is
+a reservation for a source-audited upper bound, not an extra allocated buffer.
+The default allocator may explicitly remain unbounded; a custom allocator
+without the reservation capability must reject it. ShardLoom's allocator uses
+the existing shared `LiveMemoryPool` and preserves typed denial errors.
+
+Keep the safe `zstd`/`zstd-safe` owners and synchronous one-shot calls. Only the
+pure size/parameter estimators, default-level query and error predicate extend the vendored
+unsafe exception; no raw compressor pointer, allocation callback, C-owned
+pointer lifetime, streaming codec or new workspace-crate unsafe code is needed.
+Check linked Zstandard 1.5.7 and default level 3 before applying its bounds. A reservation survives
+all context/dictionary allocations and frees, including an error return.
+Training uses the audited sequential default FASTCOVER configuration. Changed
+codec versions or parameters require a new bound before admission.
+
+Structural frame/metadata vectors and their infallible clones, Rust allocator
+bookkeeping, C stacks, OS page cache and total process RSS remain outside this
+finite allocation claim. The existing decoder workspace decision is unchanged.
+
 ## Verification
 
 PERF-04/09 numeric consumer follow-up admits a per-source-array native Primitive

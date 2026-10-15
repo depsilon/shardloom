@@ -70,3 +70,15 @@ Remove this patch when an approved upstream release preserves the full storage
 domain and passes scalar, compression, statistics, pruning, writer, resource,
 package and complete-workflow checks. Keep the existing feature gates and shared
 resource owners when changing the provider.
+
+## External memory reservations
+
+`HostAllocator::reserve_external(len)` admits a provider's requested external
+heap bytes and returns an opaque lifetime owner. The provider must release the
+covered allocations before dropping that owner. Custom allocators refuse this
+request by default; `DefaultHostAllocator` explicitly retains an unbounded
+policy. ShardLoom's allocator adapter connects the owner to the existing shared
+`LiveMemoryPool` grant. This reservation does not duplicate the provider's
+payload in a Vortex buffer.
+The provider supplies the bound; allocator bookkeeping, C call stacks, process
+RSS and providers without reviewed bounds are outside this reservation claim.

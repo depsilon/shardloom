@@ -6,6 +6,12 @@ mod workspace_tests;
 #[path = "native_provider_zstd_filter_tests.rs"]
 mod filter_tests;
 
+#[path = "native_provider_zstd_compression_tests.rs"]
+mod compression_tests;
+
+#[path = "native_provider_zstd_compression_cost_tests.rs"]
+mod compression_cost_tests;
+
 use vortex::{
     VortexSessionDefault as _,
     array::{

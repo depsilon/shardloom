@@ -876,10 +876,17 @@ for its separate local and hosted evidence. The
 also covers native primitive/Boolean/decimal Chunked output, nullable bitmaps and
 numeric/string builder finalization buffers. Local source and complete workflow
 checks pass; PR #1529 merged after all 39 hosted checks passed, with the accepted
-runtime unchanged. Child decoder scratch, structural
-metadata, compression contexts, dictionary training and other unreviewed
-allocations remain outside this finite scope. These resource corrections make
-no speedup claim, and a query grant still does not bound total process RSS.
+runtime unchanged. The 0.6.0 packages also include
+[reviewed fixed-width child-decoder admission](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-admitted-context-2026-10-14.md).
+
+The subsequent source-only
+[compression resource correction](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-compression-resources-2026-10-15.md)
+admits named Zstd preparation/output buffers and audited compressor/default-trainer
+heap storage. Complete local ownership, cost, public-workflow and single-pass
+Full43 checks pass; the report tracks hosted integration separately. This change
+follows the immutable 0.6.0 packages. Structural frame/metadata storage, other
+codecs and unreviewed provider trees remain separate. These resource corrections
+make no speedup claim, and a query grant still does not bound total process RSS.
 
 Opt-in \`from_batches(..., streaming=True)\` retains at most one original native input
 batch. The 0.6.0 packages admit distinct finite producers, declared repeated-source
@@ -974,9 +981,10 @@ engineering evidence and measurement boundaries; it does not present a public ra
 
 ## Current engineering evidence
 
-Reviewed October 1, 2026. Recent local work validates complete query results and measures
+Reviewed October 15, 2026. Recent local work validates complete query results and measures
 individual changes against a frozen ShardLoom control:
 
+- [Fresh UAT and all 43 query timings](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-timing-uat-2026-10-15.md) — one execution per query: 62.560 s engine execution, 0.002827 s result serialization and 2.859 s other process work; fresh ingestion and all 18 format/workflow cohorts pass. This is a local baseline on source after 0.6.0, with an explicit boundary for every clock.
 - [Native execution and ingestion comparisons](https://github.com/depsilon/shardloom/blob/main/docs/architecture/performance-quiet-intake-2026-09-30.md) — retained mechanisms, rejected experiments, and links to their acceptance evidence.
 - [Dictionary preparation](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md) — source-backed strings, bounded preparation overlap, and measured tradeoffs.
 - [Native runtime completion](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md) — complete-value Full43 regression runs, public-call checks, and the remaining availability inventory.
@@ -989,11 +997,23 @@ or production readiness. Earlier receipts remain historical evidence for their n
 
 | Measurement | Read it as |
 | --- | --- |
+| Native engine execution | Prepared native query wall time, including query I/O, decoding, operators, source validation and provider certification. Source preparation, result serialization and the CLI process boundary are excluded. This is elapsed time, not pure CPU time. |
+| Result serialization | Synchronous conversion of complete native results into the requested bounded JSON output. It is removed from the engine clock, including when batches are delivered during execution. |
+| Other process work | Complete process time minus engine execution and result serialization. It includes startup, preparation, control/report work and exit; those individual components are not independently timed. |
 | Cold preparation | Source read and parse, Vortex construction, persistence, and the checks included by that runner. Keep this separate from warm queries. |
 | Query over existing Vortex data | Execution against a native or previously prepared artifact. State whether setup, process startup, output, and verification are timed. |
 | Fresh-process complete query | A complete invocation and result, with startup and output costs. OS cache can still be warm. |
 | Resident call | A retained local worker or session; state which source handles and lowering are reused. Every query still executes. |
 | Replay/publication proof | Additional validation and evidence work, where the runner includes it. Do not silently fold it into or remove it from runtime. |
+
+The current source runners use this separation for new UAT and optimization runs.
+Each Full43 run produces a complete per-query table and \`query-timings.csv\`, with one
+execution per query by default. Process CPU time and peak memory accompany elapsed
+time; CPU time overlaps wall time and can include parallel workers. Ingestion,
+builds, hashing, validation and actual workflow elapsed are reported separately.
+Engine execution is the primary optimization measure. Missing engine clocks are
+accepted only for an explicitly declared historical binary comparison and stay
+unavailable. These source-runner changes postdate the published 0.6.0 artifacts.
 
 Older artifacts use \`hot_runtime\`, \`full_replay_proof\`, \`publication_proof\`, and
 \`external_baseline\` labels. Use each artifact's exact formula and evidence tier rather than
@@ -1066,7 +1086,12 @@ The [builder resource unit](/field-guide/runtime-and-io#resources-and-recovery)
 covers primitive/Boolean/decimal Chunked output, nullable bitmaps and
 numeric/string finalization buffers, with local and hosted acceptance complete
 in PR #1529. Later accepted units admit reviewed fixed-width child-decoder
-scratch; structural metadata and unreviewed provider trees remain separate.
+scratch. The subsequent source-only
+[compression correction](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-compression-resources-2026-10-15.md)
+passes complete local acceptance for named buffers and pinned compressor/trainer
+heap reservations; its report tracks hosted status. It follows the immutable
+0.6.0 packages. Structural metadata, other codecs and unreviewed provider trees
+remain separate.
 Default input remains resident under the query grant. Opt-in
 [streaming input](/field-guide/python-surface#consume-results-in-batches) in 0.6.0
 packages admits distinct finite producers, declared repeated-source replay

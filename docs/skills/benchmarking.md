@@ -42,6 +42,13 @@ Use this skill for tasks involving:
 - Freeze the source revision, build command/features, executable hash, workload,
   input generation and complete reference results before timing. A reused binary
   needs source-file equality with the requested revision, including Cargo files.
+- When comparison worktrees share a Cargo target directory and package/version
+  identities, a successful cached build is insufficient source proof. Use separate
+  output directories or invalidate the affected package artifacts and verify their
+  fresh compilation. Check role-distinguishing behavior or test inventories before
+  timing; reject an unexpected identical executable. The October 15 compression
+  screen caught a baseline binary reused for its candidate and rejected that
+  setup before any measurements.
 - Keep native builds, tests, profilers and timed workloads sequential under the
   shared workload guard and UAT lock. Record host load and process CPU/RSS samples
   around and during the run; ordinary desktop activity is observation context,
@@ -50,6 +57,21 @@ Use this skill for tasks involving:
   supervised workflow wall time separately. State whether hashing, validation,
   archiving and cleanup fall inside each clock. A sum of process times must not
   be labeled elapsed end-to-end time.
+- For all new query UAT and optimization runs, use the engine-owned prepared
+  execution clock as the primary optimization measure. Report result serialization,
+  remaining process work, complete process wall time, supervisor overhead and
+  complete-value validation separately. Remaining process work includes startup,
+  parsing/preparation, control/report work and exit; do not mislabel that residual
+  as measured startup or preparation alone. Engine elapsed includes query-time
+  I/O, decoding, native operators, source checks and provider certification;
+  it is not pure CPU time. Keep process user/system CPU and peak RSS alongside it.
+- Both Full43 runners produce `query-timings.csv` and raw timing totals, retaining
+  every query and repeat. A standard single pass has 43 rows. Require engine clocks
+  by default; `--allow-missing-engine-timing` is only for explicitly identified
+  historical binaries. Missing clocks remain unavailable. Keep ingest, build,
+  input/output hashing, validation, archival, cleanup and actual workflow elapsed
+  as distinct stage measurements. Publish the complete per-query table with the
+  UAT report before returning to optimization work. Never rewrite old clock meanings.
 - Label a single sequential Full43 pass as one observation. Preserve every
   sample in comparative cohorts and apply their frozen symmetric scoring rule;
   never replace a paired cohort with a faster later single pass.

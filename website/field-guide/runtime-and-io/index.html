@@ -316,10 +316,16 @@ for its separate local and hosted evidence. The
 also covers native primitive/Boolean/decimal Chunked output, nullable bitmaps and
 numeric/string builder finalization buffers. Local source and complete workflow
 checks pass; PR #1529 merged after all 39 hosted checks passed, with the accepted
-runtime unchanged. Child decoder scratch, structural
-metadata, compression contexts, dictionary training and other unreviewed
-allocations remain outside this finite scope. These resource corrections make
-no speedup claim, and a query grant still does not bound total process RSS.</p>
+runtime unchanged. The 0.6.0 packages also include
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-admitted-context-2026-10-14.md">reviewed fixed-width child-decoder admission</a>.</p>
+<p>The subsequent source-only
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-compression-resources-2026-10-15.md">compression resource correction</a>
+admits named Zstd preparation/output buffers and audited compressor/default-trainer
+heap storage. Complete local ownership, cost, public-workflow and single-pass
+Full43 checks pass; the report tracks hosted integration separately. This change
+follows the immutable 0.6.0 packages. Structural frame/metadata storage, other
+codecs and unreviewed provider trees remain separate. These resource corrections
+make no speedup claim, and a query grant still does not bound total process RSS.</p>
 <p>Opt-in <code dir="auto">from_batches(..., streaming=True)</code> retains at most one original native input
 batch. The 0.6.0 packages admit distinct finite producers, declared repeated-source
 replay and dynamic pivots through the

@@ -1,0 +1,286 @@
+{
+  "schema_version": "query-timing-packet-inspection.v1",
+  "status": "COMPLETE",
+  "index": {
+    "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-query-timing-acceptance-2026-10-15.json",
+    "sha256": "4ff4c96c4f4f450002a97bf1576cc24a67972a7c8f030a665b3991b0ff601d4c",
+    "reported_status": "passed_local_acceptance_hosted_integration_pending",
+    "hosted_integration_complete": false
+  },
+  "artifacts": {
+    "archive": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-timing-acceptance-463/native-query-timing-acceptance-2026-10-15.tar.xz",
+    "compressed_manifest": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/query-timing-acceptance-463/native-query-timing-acceptance-2026-10-15.manifest.json.xz",
+    "frozen_source_manifest": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-timing460.json",
+    "verification": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-query-timing-acceptance-2026-10-15.verification.json"
+  },
+  "checks": [
+    {
+      "check": "archive_hash_length",
+      "status": "passed",
+      "bytes": 2377780,
+      "sha256": "e313666e52bfcd01d0327960b647a541bd6705436124d35cdb19beb9f8e9dd73",
+      "expected": {
+        "file": "native-query-timing-acceptance-2026-10-15.tar.xz",
+        "bytes": 2377780,
+        "sha256": "e313666e52bfcd01d0327960b647a541bd6705436124d35cdb19beb9f8e9dd73"
+      }
+    },
+    {
+      "check": "compressed_manifest_hash_length",
+      "status": "passed",
+      "bytes": 83744,
+      "sha256": "d7005b353ffdf9fa4889f3ca37f2683044d860d320c1f038cc01444cff929dae",
+      "expected": {
+        "file": "native-query-timing-acceptance-2026-10-15.manifest.json.xz",
+        "bytes": 83744,
+        "sha256": "d7005b353ffdf9fa4889f3ca37f2683044d860d320c1f038cc01444cff929dae",
+        "uncompressed_sha256": "8a60e6221cbd873b29c3cdc960c60d18f301c528cf40f3e2a485f4d834d6529e"
+      }
+    },
+    {
+      "check": "uncompressed_manifest_hash",
+      "status": "passed",
+      "bytes": 1137323,
+      "sha256": "8a60e6221cbd873b29c3cdc960c60d18f301c528cf40f3e2a485f4d834d6529e",
+      "expected": "8a60e6221cbd873b29c3cdc960c60d18f301c528cf40f3e2a485f4d834d6529e"
+    },
+    {
+      "check": "verification_receipt_hash",
+      "status": "passed",
+      "bytes": 1025,
+      "sha256": "50ad473c8ef5a5771d74bdd57d531acddda430b602f40693733a5cf31ca1eb86",
+      "expected": "50ad473c8ef5a5771d74bdd57d531acddda430b602f40693733a5cf31ca1eb86"
+    },
+    {
+      "check": "all_tar_members_match_manifest",
+      "status": "passed",
+      "tar_members": 2076,
+      "index_members": 2076,
+      "manifest_members": 2076,
+      "missing": 0,
+      "extra": 0,
+      "hash_length_mismatches": 0,
+      "unsafe_or_duplicate": 0,
+      "nonregular_or_unreadable": 0
+    },
+    {
+      "check": "all_current_source_overlay_files_match",
+      "status": "passed",
+      "count": 40,
+      "mismatches": []
+    },
+    {
+      "check": "frozen_source_manifest_matches_metadata",
+      "status": "passed",
+      "count": 2258,
+      "bytes": 296594,
+      "sha256": "3f250ee24516bfd349475afd0beed4eda52e25808b09ce701571a8903a32a96e",
+      "head": "e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7",
+      "expected_head": "e8611a3c00af2a7b3f3f742c8b7128c3a258fbc7"
+    },
+    {
+      "check": "all_2258_frozen_hashes_match_checkout",
+      "status": "passed",
+      "count": 2258,
+      "mismatches": 0,
+      "missing": 0
+    },
+    {
+      "check": "acceptance_count_reconciliation",
+      "status": "passed",
+      "counts": {
+        "workspace_tests": {
+          "claimed": 3219,
+          "raw_log": {
+            "result_lines": 106,
+            "passed": 3219,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0
+          },
+          "matches": true
+        },
+        "native_tests": {
+          "claimed": 4222,
+          "raw_log": {
+            "result_lines": 92,
+            "passed": 4222,
+            "failed": 0,
+            "ignored": 29,
+            "measured": 0
+          },
+          "matches": true
+        },
+        "native_manual_platform_exclusions": {
+          "claimed": 29,
+          "manual_inventory": 29,
+          "native_log_ignored": 29,
+          "matches": true,
+          "note": "Kept inventory count separate from raw ignored count."
+        },
+        "vendor_tests": {
+          "claimed": 72,
+          "count_correction_total_passed": 72,
+          "status": "passed",
+          "native_tests_repeated": false,
+          "matches": true
+        },
+        "direct_tests": {
+          "claimed": 80,
+          "direct_summary_count": 80,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "status": "passed",
+          "raw_log_80_OK": true,
+          "matches": true
+        },
+        "public_cases": {
+          "claimed": 757,
+          "inspection": 757,
+          "matches": true,
+          "summary_count": 757
+        },
+        "public_families": {
+          "claimed": 19,
+          "inspection": 19,
+          "matches": true,
+          "summary_count": 19
+        },
+        "explicit_expected_value_files": {
+          "claimed": 724,
+          "inspection": 724,
+          "matches": true
+        },
+        "explicit_expected_value_rows": {
+          "claimed": 22002,
+          "inspection": 22002,
+          "summed_rows": 22002,
+          "matches": true
+        },
+        "envelopes": {
+          "claimed": 1062,
+          "inspection": 1062,
+          "matches": true
+        },
+        "pressure_files": {
+          "claimed": 20,
+          "inspection": 20,
+          "matches": true
+        },
+        "pressure_rows": {
+          "claimed": 677251,
+          "inspection": 677251,
+          "summed_rows": 677251,
+          "matches": true
+        },
+        "documentation_checks": {
+          "claimed": 18,
+          "status": "passed",
+          "summary_count": 18,
+          "nonzero_returncodes": [],
+          "matches": true
+        }
+      }
+    },
+    {
+      "check": "failure_history_entries_and_support_present",
+      "status": "passed",
+      "entries": 4,
+      "support_presence": {
+        "broad_postcheck": true,
+        "direct_first_attempt": true,
+        "public_readback": true,
+        "verification_first_attempt": true
+      },
+      "records": {
+        "broad_postcheck": {
+          "description": "One stale source hash in the manual-exclusion inventory; all 29 declarations preserved, completed native commands verified without rerunning.",
+          "evidence_statuses": {
+            "evidence/query-timing-checks-461.json": "failed",
+            "evidence/query-timing-checks-461b.json": "passed"
+          },
+          "separate_raw_record": "UNKNOWN: no distinctly named broad-postcheck receipt identified"
+        },
+        "direct_first_attempt": {
+          "description": "Nine missing-pyarrow child-process failures; private environment correction, same native binaries, all 80 pass.",
+          "receipts": {
+            "evidence/query-timing-direct-461.json": "failed",
+            "evidence/query-timing-direct-tests-461.json": "failed",
+            "evidence/query-timing-direct-461.log": "present"
+          }
+        },
+        "public_readback": {
+          "description": "First detailed readback report shared a name with its outer guard receipt; retained the successful log and repeated read-only inspection with distinct paths.",
+          "receipts": {
+            "evidence/query-timing-public-review-463.json": "passed",
+            "evidence/query-timing-public-review-463b.json": "passed"
+          },
+          "separate_failed_readback": "UNKNOWN: named review receipts are successful, while manifest narrative records collision and repeat"
+        },
+        "verification_first_attempt": {
+          "description": "Corrected recognition of cfg_attr(unix, ignore) declarations without changing tests.",
+          "status": "failed",
+          "failure": "Assertion at line 29 assumed every Rust ignore attribute starts with #[ignore = ; three unchanged Windows-only tests use #[cfg_attr(unix, ignore = ...)]."
+        }
+      }
+    }
+  ],
+  "verified_counts": {
+    "archive_members": 2076,
+    "source_overlay_files": 40,
+    "frozen_source_files": 2258,
+    "acceptance_counts": {
+      "workspace_tests": 3219,
+      "native_tests": 4222,
+      "native_manual_platform_exclusions": 29,
+      "vendor_tests": 72,
+      "direct_tests": 80,
+      "public_cases": 757,
+      "public_families": 19,
+      "explicit_expected_value_files": 724,
+      "explicit_expected_value_rows": 22002,
+      "envelopes": 1062,
+      "pressure_files": 20,
+      "pressure_rows": 677251,
+      "documentation_checks": 18
+    }
+  },
+  "discrepancies": {
+    "archive_missing": [],
+    "archive_extra": [],
+    "archive_member_mismatches": [],
+    "unsafe_or_duplicate_paths": [],
+    "nonregular_or_unreadable": [],
+    "source_overlay_mismatches": [],
+    "frozen_source_mismatches": [],
+    "frozen_source_missing": [],
+    "acceptance_count_mismatches": [],
+    "unknowns": [
+      "The broad-postcheck history sentence has no separately named raw receipt identified in this packet.",
+      "The public-readback history sentence has no separately identified failed readback receipt; successful review receipts and narrative are retained.",
+      "Verification receipt has no index byte-length field; its SHA256 was checked."
+    ]
+  },
+  "not_performed": [
+    "No builds, tests, UAT, native workloads, external services, or evidence changes."
+  ],
+  "primary_acceptance": {
+    "status": "passed",
+    "original_inspection_sha256": "26aabef2414577583999964962b17c38869f78227f17514a8ba23bc3079922c6",
+    "all_committed_packet_copy_hashes_verified": true,
+    "frozen_source_files_rechecked": 2258,
+    "acceptance_counter_count": 13,
+    "final_documentation_checks": 9,
+    "final_local_links": 564,
+    "final_documentation_receipt_sha256": "c95e9b22ff2a7143dc06a702617139b0c3a9078dc1bb207cf2407c246c87dc66",
+    "clarifications": [
+      "query-timing-checks-461.json is the original failed driver postcheck report. Native gate receipts/logs all pass; there was no separate native workload for that postcheck.",
+      "Both public readbacks succeeded. The first detailed JSON was replaced by its outer guard receipt because the paths collided; the original success log remains and the corrected independent inspection uses a distinct path. No failed native or value-readback receipt exists for that event.",
+      "The portable index verifies the full verification receipt by SHA256; the inspected receipt is 1025 bytes. No content or length mismatch was found.",
+      "The final documentation validator caught a missing inclusion-matrix row for queued native exchange. The row was added with its after-optimization-and-breadth dependency; all nine final checks and 564 local links then pass."
+    ],
+    "source_unchanged": true,
+    "native_workloads_rerun": false
+  }
+}

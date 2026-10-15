@@ -1,0 +1,207 @@
+{
+  "schema_version": "shardloom.compression_packet_inspection.v1",
+  "status": "complete",
+  "inputs": {
+    "index": "docs/benchmarks/evidence/native-compression-resources-2026-10-15.json",
+    "manifest": "docs/benchmarks/evidence/native-compression-resources-2026-10-15.manifest.json.xz",
+    "verification": "docs/benchmarks/evidence/native-compression-resources-2026-10-15.verification.json",
+    "archive": "docs/benchmarks/evidence/native-compression-resources-2026-10-15.tar.xz"
+  },
+  "integrity": {
+    "archive_bytes": 3005364,
+    "archive_sha256": "603bc36f0963548e3b7875fd350d298ce9c3d899874fd28b9da722dad0e8b543",
+    "compressed_manifest_bytes": 127652,
+    "compressed_manifest_sha256": "765d9c978b7b75ee335541c1bf9ec36636d909699bb3727e2f43186682985f2f",
+    "raw_manifest_bytes": 1513250,
+    "raw_manifest_sha256": "14aa7984b451fbdc3937327d597fec75585e50ddf05148d860eb2922f7942d85",
+    "verification_bytes": 286,
+    "verification_sha256": "3dce47deece9ff0a50ccb609f361494ac4c5357855c52ce48bf1002e857a73f3",
+    "member_count": 3068,
+    "unique_member_names": 3068,
+    "regular_members": 3068,
+    "safe_relative_paths": true,
+    "all_member_lengths_and_sha256_match_manifest": true,
+    "total_member_bytes": 162049407,
+    "excluded_entries_in_manifest": 291,
+    "source_files_in_manifest": 2255
+  },
+  "acceptance_cross_checks": {
+    "broad_gates": {"expected": 6, "verified": 6, "all_passed": true},
+    "workspace_tests": {"passed": 3219, "failed": 0, "ignored": 0},
+    "native_tests": {
+      "passed": 4219,
+      "failed": 0,
+      "ignored": 29,
+      "named_ignored_tests": [
+        "non_unix_cli_reports_refusal_without_admitted_resource_fields",
+        "non_unix_primitives_refuse_before_existing_or_missing_source_access",
+        "non_unix_writer_refusal_preserves_existing_destination_and_creates_nothing",
+        "local_primitives::bounded_numeric_reduction_experiment::tests::bounded_numeric_measured_scalar_consumers",
+        "local_primitives::columnar_compat_sink::tests::benchmark::columnar_compatibility_release_lifecycle",
+        "local_primitives::compact_string_state::benchmark::paired::compact_string_state_actual_retained_paired_release",
+        "local_primitives::encoded_numeric_reduction::tests::encoded_numeric_reduction_measured_native_scalar_consumers",
+        "local_primitives::native_sink::tests::overlap_screen::complete_native_sink_overlap_screen",
+        "local_primitives::numeric_worker_selection_screen::extended_small_numeric_count_selection_screen",
+        "local_primitives::numeric_worker_selection_screen::held_out_small_numeric_count_selection_screen",
+        "local_primitives::numeric_worker_selection_screen::paired_small_numeric_count_selection_screen",
+        "local_primitives::string_count_partitions::owner_scheduling::benchmark::owner_scheduling_actual_retained_paired_release",
+        "local_primitives::string_count_partitions::tests::tagged_directory_real_input_work_diagnostic",
+        "local_primitives::tests::regenerate_checked_in_local_primitive_struct_fixture",
+        "local_primitives::weighted_count_spill_query::tests::owner_bench::complete_spill_key_owner_workflows",
+        "native_provider_memory::builder_tests::cost::native_builder_lifecycle_cost_screen",
+        "native_provider_memory::builder_tests::decoder_cost::native_decoder_lifecycle_cost_sample",
+        "resident_session::composition_bench::native_composition_producer_memory_attribution",
+        "resident_session::composition_bench::native_memory_file_composition_baseline",
+        "resident_session::composition_bench::native_owned_array_composition_candidate",
+        "resident_session::concurrent_serving_tests::load_harness::serving_fixed_arrival_load_receipt",
+        "resident_session::segment_reuse::tests::io_tests::release_bench::scan_segment_reuse_release_lifecycle_pairs",
+        "resident_session::source_reuse_bench::concurrent_source_reuse_attribution",
+        "resident_session::source_reuse_bench::fanout::existing_owned_producer_fanout_pairs",
+        "vortex_ingest::column_layout_tests::benchmark::column_footer_release_lifecycle_and_repeated_native_consumers",
+        "vortex_ingest::dictionary_preservation::source_dictionary_bench::clickbench_source_dictionary_admission_screen",
+        "vortex_ingest::dictionary_preservation::source_dictionary_bench::fsst_screen::clickbench_fsst_predicate_admission_screen",
+        "vortex_ingest::text_codec_portfolio::text_codec_portfolio_release_reuse_1_10_100",
+        "native_provider_memory::zstd_tests::compression_cost_tests::native_zstd_complete_compression_cost_screen"
+      ]
+    },
+    "added_native_regressions": {
+      "candidate_test_list_additions": 19,
+      "matching_success_lines_in_native_test_log": 19,
+      "all_passed": true,
+      "names": [
+        "native_provider_memory::zstd_tests::compression_tests::allocator_tests::native_zstd_compression_overlapping_contexts_share_one_grant",
+        "native_provider_memory::zstd_tests::compression_tests::allocator_tests::native_zstd_compression_validates_every_actual_mutable_extent",
+        "native_provider_memory::zstd_tests::compression_tests::allocator_tests::native_zstd_compression_validates_frozen_extents_and_actual_offset_alignment",
+        "native_provider_memory::zstd_tests::compression_tests::native_zstd_compression_binary_admission_and_retention",
+        "native_provider_memory::zstd_tests::compression_tests::native_zstd_compression_empty_default_frame_round_trips",
+        "native_provider_memory::zstd_tests::compression_tests::native_zstd_compression_empty_strings_use_default_frame",
+        "native_provider_memory::zstd_tests::compression_tests::native_zstd_compression_frame_limit_above_input_does_not_overflow",
+        "native_provider_memory::zstd_tests::compression_tests::native_zstd_compression_overaligned_frames_preserve_counts_and_slices",
+        "native_provider_memory::zstd_tests::compression_tests::native_zstd_compression_primitive_admission_and_retention",
+        "native_provider_memory::zstd_tests::compression_tests::native_zstd_compression_rejects_a_short_training_partition_before_foreign_admission",
+        "native_provider_memory::zstd_tests::compression_tests::native_zstd_compression_small_samples_keep_default_training",
+        "native_provider_memory::zstd_tests::compression_tests::native_zstd_compression_tiny_payload_requires_context_admission",
+        "native_provider_memory::zstd_tests::compression_tests::native_zstd_compression_unknown_allocator_cannot_bypass_foreign_admission",
+        "native_provider_memory::zstd_tests::compression_tests::values_tests::native_zstd_compression_all_null_input_skips_foreign_contexts",
+        "native_provider_memory::zstd_tests::compression_tests::values_tests::native_zstd_compression_all_primitive_widths_preserve_nullable_bits_and_serialization",
+        "native_provider_memory::zstd_tests::compression_tests::values_tests::native_zstd_compression_extreme_levels_use_bounded_normalization",
+        "native_provider_memory::zstd_tests::compression_tests::values_tests::native_zstd_compression_nullable_unicode_and_binary_dictionary_roundtrip",
+        "owned_buffers::tests::external_reservation_wrapper_keeps_both_foreign_and_structural_owners",
+        "owned_buffers::tests::external_reservations_share_the_payload_grant_and_release_without_a_buffer"
+      ]
+    },
+    "vendor_tests": {
+      "corrected_module_counts": [10, 7, 55],
+      "total": 72,
+      "verified_from_vendor_log_test_result_lines": [
+        {"passed": 10, "failed": 0, "ignored": 0},
+        {"passed": 7, "failed": 0, "ignored": 0},
+        {"passed": 55, "failed": 0, "ignored": 0}
+      ],
+      "correction_receipt_and_log_present_and_hash_verified": true
+    },
+    "direct_tests": {"passed": 80, "failed": 0, "errors": 0, "skipped": 0},
+    "public_workflows": {
+      "cases": 757,
+      "families": 19,
+      "exact_value_files": 724,
+      "exact_value_rows": 22002,
+      "all_actual_values_equal_expected": true,
+      "envelopes": 1062,
+      "envelope_status_counts": {"success": 954, "error": 106, "unsupported": 2},
+      "all_envelope_hashes_and_statuses_match": true,
+      "pressure_files": 20,
+      "pressure_rows": 677251,
+      "all_gzip_hashes_raw_hashes_and_rows_match": true,
+      "fallback_attempts_allowed_or_engines_found": 0
+    },
+    "full43": {
+      "review_status": "passed",
+      "calls": 43,
+      "repeats": 1,
+      "completed_and_passed_queries": 43,
+      "reopened_complete_result_rows": 381,
+      "sum_of_43_output_row_counts": 381,
+      "all_values_and_schemas_reopened": true,
+      "source": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/persisted-native-343-a1.vortex",
+      "source_bytes": 15713610513,
+      "source_generation_recorded": true,
+      "original_input_and_sources_unchanged": true,
+      "all_43_result_envelopes_marked_success": true,
+      "all_43_fallback_attempted_false_and_allowed_false": true,
+      "no_new_ingest": true,
+      "performance_claim_allowed": false,
+      "reference_kind": "retained_native_regression"
+    },
+    "lifecycle_cost": {
+      "cells": 18,
+      "samples_per_cell_per_role": 3,
+      "operations_per_sample": 25,
+      "warmups_per_cell_per_role": 1,
+      "complete_operations_per_role": 1368,
+      "serialized_byte_counts_and_sha256_identical_in_all_cells": true,
+      "declared_breaches": 0,
+      "forward_decision": "within_declared_cost_bounds",
+      "reverse_run": false,
+      "reverse_order_triggered": false,
+      "repeated_breaches": 0,
+      "performance_claim_allowed": false,
+      "rejected_cached_candidate_setup": {
+        "status": "rejected_before_timing",
+        "timed_operations": 0,
+        "baseline_and_candidate_binary_hashes_identical": true,
+        "candidate_compression_regressions_present": false
+      }
+    }
+  },
+  "retained_source_build_and_failure_records": {
+    "source_build_protocol_records_present_and_member_hash_verified": [
+      "history/compression-resources-457-source.json",
+      "acceptance/compression-resources-457-release.json",
+      "acceptance/compression-acceptance-457b.json",
+      "guards/native-compression-release-build-457.json",
+      "guards/native-compression-binding-build-457.json",
+      "guards/native-compression-native-tests-457.json",
+      "guards/native-compression-vendor-457.json",
+      "vendor-tests/protocol.json",
+      "cost/compression-cost-456c/protocol.json",
+      "cost/compression-cost-456c/baseline-build.json",
+      "cost/compression-cost-456c/candidate-build.json",
+      "cost/compression-cost-456c/decision.json",
+      "acceptance/compression-resources-full43-primary-review-457.json",
+      "full43/summary.json"
+    ],
+    "original_five_test_red_source": {
+      "path": "history/compression-original-regressions-454.rs",
+      "test_attribute_count": 5,
+      "source_sha256": "b959e95f1c87f0cec0ac40c41440a8f7d9dcdea71b7f7737434019d1b4037d2a",
+      "parent_source_path": "history/compression-original-parent-454.rs",
+      "parent_source_sha256": "1c1f642bd85722018a245cdbe1037d5e49894b201150e71509c0d508bef0f74f",
+      "red_run_logs": [
+        {"path": "history/compression-old-regressions-454.log", "sha256": "56aef07a6e6b4b7e7d0d0b9ade5bdbbc73a2524b6e7063a0cfc974e9a30eb09a", "failed_tests": 2, "failed": true},
+        {"path": "history/compression-old-boundaries-454.log", "sha256": "6419e5091d04e49ee1318992426088187b2c4c8a59db41604775e67143884b5b", "failed_tests": 5, "failed": true}
+      ],
+      "source_and_log_hashes_match_retained_receipts": true
+    },
+    "all_historical_failed_reports_retained": [
+      {"report": "history/compression-acceptance-457.json", "paired_log_present": false, "note": "pre-run assertion failure receipt; no separate process log recorded"},
+      {"report": "history/compression-all-zstd-455a.json", "paired_log_present": true},
+      {"report": "history/compression-cost-build-456a.json", "paired_log_present": true},
+      {"report": "history/compression-focused-455a.json", "paired_log_present": true},
+      {"report": "history/compression-focused-455b.json", "paired_log_present": true},
+      {"report": "history/compression-native-clippy-456a.json", "paired_log_present": true},
+      {"report": "history/compression-old-boundaries-454.json", "paired_log_present": true},
+      {"report": "history/compression-old-regressions-454.json", "paired_log_present": true}
+    ],
+    "vendor_count_correction_record": "acceptance/compression-vendor-count-correction-457.json",
+    "no_bulk_excluded_binaries_or_datasets_opened": true
+  },
+  "claim_boundaries": {
+    "hosted_integration_complete": false,
+    "installed_wheel_claim": false,
+    "performance_superiority_claim": false,
+    "general_allocation_or_process_rss_ceiling_claim": false,
+    "finite_local_compression_acceptance_only": true,
+    "0_6_0_packages_unchanged": true
+  }
+}

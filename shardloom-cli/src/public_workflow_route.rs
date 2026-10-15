@@ -2796,6 +2796,7 @@ fn execute_native_vortex_owned_collect_with_source(
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
     append_owned_collect_fields(&mut fields, primitive, &result);
+    crate::execution_resources::append_query_timing_fields(&mut fields, result.timing);
     let (schema, _schema_ownership) = result.result_schema_json.into_parts();
     let (values_json, _json_ownership) = result.values_json.into_parts();
     append_native_result_schema_fields(&mut fields, schema);
@@ -3142,6 +3143,7 @@ fn execute_native_vortex_sort_collect(
         Some(&result.native_io_certificate),
         None,
     );
+    crate::execution_resources::append_query_timing_fields(&mut fields, Some(result.timing));
     let (jsonl, _json_ownership) = result.result_jsonl.into_parts();
     let (schema, _schema_ownership) = result.result_schema_json.into_parts();
     append_native_result_schema_fields(&mut fields, schema);

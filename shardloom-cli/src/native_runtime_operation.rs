@@ -77,6 +77,7 @@ enum PrimitiveProvider {
 pub struct ExecutedNativeOperation {
     pub resources: ExecutionResources,
     kind: ExecutedKind,
+    timing: Option<shardloom_vortex::local_primitives::query_timing::QueryTiming>,
 }
 
 enum ExecutedKind {
@@ -137,7 +138,8 @@ impl PreparedNativeOperation {
         cancellation: &CancellationToken,
         input: Option<ArrowInput<'_>>,
     ) -> Result<ExecutedOwnedNativeOperation> {
-        match &self.kind {
+        let started = std::time::Instant::now();
+        let mut completed = match &self.kind {
             PreparedKind::Relational(operation) => {
                 let completed = if let Some(input) = input {
                     operation
@@ -146,20 +148,27 @@ impl PreparedNativeOperation {
                 } else {
                     operation.execute_native(cancellation)?
                 };
-                Ok(ExecutedOwnedNativeOperation {
+                ExecutedOwnedNativeOperation {
                     execution: self.relational_execution(completed.execution),
                     result: completed.result,
-                })
+                }
             }
             PreparedKind::Primitive(operation) => {
                 no_streaming_input(input.is_some())?;
                 let (report, result) = operation.execute_native(cancellation)?;
-                Ok(ExecutedOwnedNativeOperation {
+                ExecutedOwnedNativeOperation {
                     execution: self.primitive_execution(operation, report),
                     result,
-                })
+                }
             }
-        }
+        };
+        completed.execution.timing = Some(
+            shardloom_vortex::local_primitives::query_timing::QueryTiming {
+                execution: started.elapsed(),
+                result_serialization: std::time::Duration::ZERO,
+            },
+        );
+        Ok(completed)
     }
 
     /// Deliver batches directly from the native producer. Consumer backpressure
@@ -286,6 +295,7 @@ impl PreparedNativeOperation {
     fn relational_execution(&self, report: ExecutedVortexRelational) -> ExecutedNativeOperation {
         ExecutedNativeOperation {
             resources: self.resources,
+            timing: None,
             kind: ExecutedKind::Relational(Box::new(report)),
         }
     }
@@ -297,6 +307,7 @@ impl PreparedNativeOperation {
     ) -> ExecutedNativeOperation {
         ExecutedNativeOperation {
             resources: self.resources,
+            timing: None,
             kind: ExecutedKind::Primitive {
                 report,
                 shared: Arc::clone(&operation.shared),
@@ -607,7 +618,9 @@ impl ExecutedNativeOperation {
             let ExecutedKind::Relational(report) = &self.kind else {
                 unreachable!()
             };
-            return Ok(super::execution_fields(report, reused));
+            let mut fields = super::execution_fields(report, reused);
+            crate::execution_resources::append_query_timing_fields(&mut fields, self.timing);
+            return Ok(fields);
         };
         let mut fields = shared.binding.evidence_fields();
         fields.extend(shared.preparation_fields.clone());
@@ -705,6 +718,7 @@ impl ExecutedNativeOperation {
                 reused.to_string(),
             ),
         ]);
+        crate::execution_resources::append_query_timing_fields(&mut fields, self.timing);
         Ok(fields)
     }
 }

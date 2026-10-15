@@ -277,6 +277,28 @@ pub(crate) fn command_args(resources: ExecutionResources) -> Vec<String> {
     args
 }
 
+/// Emit only measured per-call clocks. They never imply complete route timing,
+/// CPU time, source preparation timing or a sum of parallel worker durations.
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) fn append_query_timing_fields(
+    fields: &mut Vec<(String, String)>,
+    timing: Option<shardloom_vortex::local_primitives::query_timing::QueryTiming>,
+) {
+    fields.push((
+        "native_query_timing_reported".into(),
+        timing.is_some().to_string(),
+    ));
+    if let Some(timing) = timing {
+        fields.extend([
+            ("native_query_execution_nanos".into(), timing.execution.as_nanos().to_string()),
+            ("native_result_serialization_nanos".into(), timing.result_serialization.as_nanos().to_string()),
+            ("native_query_timing_clock".into(), "monotonic_wall_not_cpu".into()),
+            ("native_query_timing_boundary".into(), "prepared_native_execution_including_io_generation_validation_and_certification_excluding_result_serialization".into()),
+            ("native_query_timing_excludes".into(), "process_startup;preparation;result_serialization;report_rendering;process_exit;ingest;external_validation".into()),
+        ]);
+    }
+}
+
 /// Attach a declaration without turning missing measurements into zero usage.
 pub(crate) fn append_declaration_fields(
     fields: &mut Vec<(String, String)>,

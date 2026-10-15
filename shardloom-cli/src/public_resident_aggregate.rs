@@ -226,6 +226,10 @@ fn render(
     fields.append(&mut extra_fields);
     fields.extend(binding.evidence_fields());
     let result = &executed.value.execution;
+    crate::execution_resources::append_query_timing_fields(
+        &mut fields,
+        Some(executed.value.timing),
+    );
     append_native_vortex_materializing_primitive_fields(
         &mut fields,
         &result.report,

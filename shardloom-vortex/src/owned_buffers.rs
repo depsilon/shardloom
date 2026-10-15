@@ -5,7 +5,10 @@
 
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use vortex::{
-    array::memory::{DefaultHostAllocator, HostAllocator, HostBufferMut, WritableHostBuffer},
+    array::memory::{
+        DefaultHostAllocator, HostAllocator, HostBufferMut, HostMemoryReservation,
+        WritableHostBuffer,
+    },
     buffer::{Alignment, ByteBuffer},
     error::{VortexResult, vortex_err},
 };
@@ -36,6 +39,12 @@ impl HostAllocator for ReservedHostAllocator {
             buffer,
             lease,
         })))
+    }
+
+    fn reserve_external(&self, len: usize) -> VortexResult<HostMemoryReservation> {
+        let bytes = u64::try_from(len)
+            .map_err(|_| vortex_err!("native external reservation size overflow"))?;
+        Ok(HostMemoryReservation::new(reserve(&self.memory, bytes)?))
     }
 }
 
@@ -193,6 +202,15 @@ impl HostAllocator for CreditAllocator {
             lease: std::sync::Arc::clone(&self.lease),
         })))
     }
+
+    fn reserve_external(&self, len: usize) -> VortexResult<HostMemoryReservation> {
+        // Keep both the foreign-storage credit and the existing structural owner
+        // alive until the provider has released its covered allocations.
+        Ok(HostMemoryReservation::new((
+            self.allocator.reserve_external(len)?,
+            std::sync::Arc::clone(&self.lease),
+        )))
+    }
 }
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -283,6 +301,43 @@ mod tests {
         let buffer = allocator.allocate(128, Alignment::new(512)).unwrap();
         assert_eq!(memory.snapshot().reserved_bytes, 640);
         drop(buffer);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn external_reservations_share_the_payload_grant_and_release_without_a_buffer() {
+        let memory = LiveMemoryPool::new(1024).unwrap();
+        let allocator = ReservedHostAllocator::new(memory.clone());
+        let buffer = allocator.allocate(128, Alignment::none()).unwrap();
+        let external = allocator.reserve_external(640).unwrap();
+        assert_eq!(memory.snapshot().reserved_bytes, 1024);
+        assert!(allocator.reserve_external(1).is_err());
+        assert!(allocator.allocate(1, Alignment::none()).is_err());
+        drop(buffer);
+        drop(allocator);
+        assert_eq!(memory.snapshot().reserved_bytes, 640);
+        drop(external);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn external_reservation_wrapper_keeps_both_foreign_and_structural_owners() {
+        let memory = LiveMemoryPool::new(1024).unwrap();
+        let structural = std::sync::Arc::new(memory.reserve(128).unwrap());
+        let witness = std::sync::Arc::downgrade(&structural);
+        let allocator = with_shared_credit(
+            std::sync::Arc::new(ReservedHostAllocator::new(memory.clone())),
+            structural,
+        );
+        let external = allocator.reserve_external(896).unwrap();
+        let error = allocator.reserve_external(1).unwrap_err();
+        assert!(is_owned_reservation_denial(&error));
+        drop(allocator);
+        assert!(witness.upgrade().is_some());
+        assert_eq!(memory.snapshot().reserved_bytes, 1024);
+        drop(external);
+        assert!(witness.upgrade().is_none());
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }

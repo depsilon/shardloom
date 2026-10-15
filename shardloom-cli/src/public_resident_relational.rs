@@ -268,6 +268,7 @@ fn emit_collected(
     reused: bool,
 ) {
     append_execution(&mut fields, &collected.execution, reused);
+    crate::execution_resources::append_query_timing_fields(&mut fields, Some(collected.timing));
     let (jsonl, _ownership) = collected.result_jsonl.into_parts();
     let (schema, _schema_ownership) = collected.result_schema_json.into_parts();
     append_native_result_schema_fields(&mut fields, schema);

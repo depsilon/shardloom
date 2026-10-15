@@ -179,6 +179,15 @@ passing all 80 native methods, and production verification. The separate
 keeps its own source, executable and timing protocol. Unreviewed decoder trees,
 metadata and compression/training retain their owners.
 
+The later [compression resource unit](native-compression-resources-2026-10-15.md)
+passes complete local acceptance for named primitive/variable-binary compression
+buffers, the pinned one-shot compressor and default dictionary trainer. Its
+[report](../benchmarks/native-compression-resources-2026-10-15.md) retains the
+18-cell lifecycle gate, complete public workflows, one Full43 pass and original
+failures in 3,068 verified evidence members. Hosted integration remains pending.
+Structural frame/metadata storage, other codecs and unreviewed provider trees
+remain open. The 0.6.0 packages are unchanged.
+
 ## Coverage that must remain visible
 
 October 13 composition update: the
@@ -201,7 +210,7 @@ platform obligations below remain separate.
 | Area and existing owner | Intake disposition and concrete remaining obligation | Completion evidence |
 | --- | --- | --- |
 | Stateful pressure and recovery — PERF-03/06/10/12 | General high-cardinality grouping/DISTINCT and relational ordering are accepted in PR #1531. Oversized join build/intermediate state has complete local and hosted acceptance in PR #1532. Analytic windows have complete local and hosted pressure/workflow acceptance in PR #1533. Growing relational pivot domain/cell state has complete local pressure/workflow acceptance, independent packet inspection and hosted integration in PR #1534. Other unadmitted state and broader recovery retain their own contracts. Reuse shared native mechanisms only where each family's semantics permit. | Complete exact workloads beyond the admitted resident allowance; native reservations/runs and disk quota; cancellation, corruption, exhausted resources, owned cleanup and publication. Distinguish cleanup/restart from actual execution resume. An intentionally resident-only supported shape may close with a documented bound and deterministic growth denial, not a spill claim. |
-| Remaining allocation coverage — PERF-03/06/08/09 | Merge into current resource inventory: child-decoder and selection scratch, structural metadata, compression contexts, dictionary training and other unreviewed reader/provider/builder allocations. Preserve completed provider fixes. | Valid credits before allocation, an implemented bounded/spill transition, or deterministic denial with cleanup for the supported workflow. Identify Python retention, conversion-library memory, allocator overhead and excluded providers separately. |
+| Remaining allocation coverage — PERF-03/06/08/09 | Extend the current resource inventory beyond the reviewed selection/child-decoder and compressor/trainer units: structural metadata, other decoder/selection providers and unreviewed reader/provider/builder allocations. Preserve each completed or locally accepted unit's exact scope and hosted status above. | Valid credits before allocation, an implemented bounded/spill transition, or deterministic denial with cleanup for the supported workflow. Identify Python retention, conversion-library memory, allocator overhead and excluded providers separately. |
 | Broader streaming — PERF-03/06/07/11/12 | The current-source composition unit passes local acceptance for multiple finite producers, declared repeated-source/self-join replay, dynamic pivot discovery and exact rich-type native write/reopen. Ordering/aggregation, complete drain for limits, joins and analytic windows retain their existing acceptance. Compatibility destinations and fanout, remaining bounded/spill stateful families and unadmitted operator/type combinations remain separate obligations. Preserve the accepted source-completion and ownership contracts when admitting further shapes. | A producer consumed once per execution, bounded owners, complete schema/value/order checks, late failure and cancellation, sink cleanup/publication, and declared native replay. Cumulative input and top-level schema metadata use shared-grant admission; preserve the 2,048-row / 8-MiB frame boundaries and explicit finite completion. Ordinary file-backed datasets do not inherit these transport bounds. |
 | Adapter and composition coverage — PERF-02/07/10/11/12 and CG-19/20/21 | Merge into the universal-workflow matrix: typed/nested format boundaries, partition/schema evolution, prepared/public parity and remaining operator/type result streams. Automatic compatibility preparation now shares the incremental transaction's cancellation owner and native allocation; its local acceptance is recorded in the composition unit. `NATIVE-PERSISTED-REUSE` is integrated in PR #1544: output preparation survives writer close and producer teardown and is used by a fresh process running a different computation. Keep native retained-object transfer and independent-producer interchange separately evidenced. | Read → transform → retain or spill → consume again → write → reopen, checking intended types and every value. Format existence alone is insufficient. Small-result collect may remain deliberately bounded. |
 | Defined local support and release — PERF-12 and existing local-engine/release gates | Bind a specific release to declared workloads, operators/types/formats/resource conditions and supported OS/architectures. Add actual platform runtime evidence, pressure/failure/slow-consumer acceptance, recovery promises, known issues, compatibility, upgrade/rollback and install guidance. | The [local-engine exit criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria), workload-scoped runtime records, supported/unsupported matrix and normal publication gates. Current full-size local UAT is macOS arm64 with Unix facilities. PR #1541 additionally proves 75 installed native methods on each named Linux/macOS wheel lane; that finite evidence does not complete the broader platform/workload contract. A successful cross-platform build alone is insufficient. Package publication itself is already implemented. |
@@ -265,6 +274,13 @@ integrated in PR #1551; [PR #1552](https://github.com/depsilon/shardloom/pull/15
 prepares the resulting 0.6.0 release. Its
 [publication record](../release/v0.6.0-publication-verification.md) binds GitHub,
 TestPyPI, PyPI and Homebrew to actual artifacts and installation proofs.
+Publication documents integrated in
+[PR #1554](https://github.com/depsilon/shardloom/pull/1554) at `e8611a3c` after
+all 44 checks passed. The [production observation](../release/channel-proofs/website-v0.6.0-deployment.json)
+binds the deployed source, four live URLs and six public documents.
+`RELEASE-060` is complete. The subsequent
+[native compression admission](native-compression-resources-2026-10-15.md)
+passes complete local acceptance and awaits hosted integration.
 Historical UAT keeps its original source and executable identity. Earlier
 published artifacts stay immutable; subsequent work under the six areas and
 eight investigations does not receive a separate release for each unit.
