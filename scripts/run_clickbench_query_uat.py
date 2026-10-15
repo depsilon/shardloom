@@ -256,7 +256,18 @@ def run_profiled_command(command: list[str], prefix: Path, timeout: float, guard
 
 
 def score(records: list[dict], query_count: int, selected: list[int] | None = None,
-          *, repeats: int = 1) -> dict:
+          *, repeats: int = 1, timing_key: str = "seconds") -> dict:
+    """Score one explicit clock; the legacy helper default remains process time."""
+    boundaries = {
+        "seconds": ("process_wall_seconds", "sum_of_best_complete_process_wall_times_not_engine_execution"),
+        "engine_execution_seconds": (
+            "engine_execution_seconds",
+            "sum_of_best_prepared_native_execution_times_excluding_result_serialization",
+        ),
+    }
+    if timing_key not in boundaries:
+        raise ValueError("unsupported score timing key")
+    metric, boundary = boundaries[timing_key]
     if type(repeats) is not int or repeats <= 0:
         raise ValueError("repeats must be a positive integer")
     queries = list(range(1, query_count + 1)) if selected is None else selected
@@ -266,21 +277,40 @@ def score(records: list[dict], query_count: int, selected: list[int] | None = No
                 and all(record["passed"] for record in records)
                 and {(record["query"], record["run"]) for record in records}
                 == {(query, run) for query in queries for run in range(1, repeats + 1)})
+    result = {
+        "complete": complete, "runs_completed": len(records),
+        "runs_passed": sum(record["passed"] for record in records),
+        "timing_metric": metric, "timing_available": False,
+        "timing_unavailable_reason": "incomplete_results",
+        "query_total_timing_boundary": boundary,
+        "query_total_seconds": None, "hot_total_seconds": None,
+        "all_raw_run_seconds": None, "geomean_seconds": None,
+        "hot_geomean_seconds": None, "query_runs": None,
+    }
     if not complete:
-        return {"complete": False, "runs_completed": len(records), "runs_passed": sum(record["passed"] for record in records)}
-    timings = [[record["seconds"] for record in sorted(records, key=lambda r: r["run"]) if record["query"] == query] for query in queries]
+        return result
+    timings = [[record.get(timing_key) for record in sorted(records, key=lambda r: r["run"])
+                if record["query"] == query] for query in queries]
+    values = [value for runs in timings for value in runs]
+    if any(value is not None and (type(value) not in (int, float)
+                                 or not math.isfinite(value) or value < 0) for value in values):
+        raise ValueError(f"{metric} must contain finite nonnegative measurements")
+    result.update(queries_passed=len(queries), query_ids=queries, query_runs=timings)
+    if any(value is None for value in values):
+        result["timing_unavailable_reason"] = "missing_measurements"
+        return result
+
+    def geomean(values):
+        return 0.0 if 0 in values else math.exp(sum(math.log(value) for value in values) / len(values))
+
     best = [min(runs) for runs in timings]
     hot = [min(runs[1:]) for runs in timings] if repeats > 1 else None
     return {
-        "complete": True, "queries_passed": len(queries), "query_ids": queries,
-        "runs_completed": len(records), "runs_passed": len(records),
+        **result, "timing_available": True, "timing_unavailable_reason": None,
         "query_total_seconds": sum(best), "hot_total_seconds": sum(hot) if hot is not None else None,
-        "query_total_timing_boundary": "sum_of_best_complete_process_wall_times_not_engine_execution",
         "all_raw_run_seconds": sum(sum(runs) for runs in timings),
-        "geomean_seconds": math.exp(sum(math.log(value) for value in best) / len(queries)),
-        "hot_geomean_seconds": (math.exp(sum(math.log(value) for value in hot) / len(queries))
-                                if hot is not None else None),
-        "query_runs": timings,
+        "geomean_seconds": geomean(best),
+        "hot_geomean_seconds": geomean(hot) if hot is not None else None,
     }
 
 
@@ -382,7 +412,7 @@ def main() -> int:
                 raise
 
         summary = {
-            "schema_version": "shardloom.clickbench.public_result_regression.v1",
+            "schema_version": "shardloom.clickbench.public_result_regression.v2",
             "build_commit": args.build_commit, "binary_sha256": file_sha256(args.binary),
             "queries_sha256": queries_sha256, "source": str(source),
             "source_bytes": identity.st_size, "platform": platform.platform(),
@@ -457,7 +487,9 @@ def main() -> int:
                         if prefix.with_suffix(suffix).stat().st_size
                     ]
                 records.append(result)
-                summary.update(score(records, 43, selected, repeats=args.repeats))
+                summary.update(score(records, 43, selected, repeats=args.repeats,
+                                     timing_key="engine_execution_seconds"))
+                summary["secondary_process_wall"] = score(records, 43, selected, repeats=args.repeats)
                 summary["full_result_validation"] = (
                     summary["complete"] and selected == list(range(1, 44))
                     and all(record.get("validation") == "complete_values" for record in records)

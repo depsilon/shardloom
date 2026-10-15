@@ -72,6 +72,13 @@ Use this skill for tasks involving:
   input/output hashing, validation, archival, cleanup and actual workflow elapsed
   as distinct stage measurements. Publish the complete per-query table with the
   UAT report before returning to optimization work. Never rewrite old clock meanings.
+- Version 2 single-run and paired summaries score engine execution primarily and
+  retain complete process scores under `secondary_process_wall`. The paired
+  medians and candidate-minus-control deltas use the same declared clock as their
+  role totals. `complete` describes passed result coverage; `timing_available`
+  separately requires every expected clock sample. Missing historical clocks
+  leave engine scores unavailable even when process scores and result checks pass.
+  Version 1 archived summaries keep their original process-time meanings.
 - Label a single sequential Full43 pass as one observation. Preserve every
   sample in comparative cohorts and apply their frozen symmetric scoring rule;
   never replace a paired cohort with a faster later single pass.

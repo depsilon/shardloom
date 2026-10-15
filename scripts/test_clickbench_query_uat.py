@@ -58,7 +58,7 @@ class ClickBenchUatTests(unittest.TestCase):
 
     def _run_mocked_single(self, root, *, identity_mutation=None, log_options=(),
                            historical_bytes=0, check_storage=False, budget_probe=None,
-                           query_ids="1", repeats=None, paired=False):
+                           query_ids="1", repeats=None, paired=False, engine_timing=True):
         runner = paired_uat if paired else query_uat
         query_path, packet_path, binary, source, uat_root = self._runner_fixture(root)
         if historical_bytes:
@@ -88,6 +88,9 @@ class ClickBenchUatTests(unittest.TestCase):
                     {"key": "native_query_timing_boundary", "value": TIMING_BOUNDARY},
                 ],
             }
+            if not engine_timing:
+                envelope["fields"] = [field for field in envelope["fields"]
+                                      if not field["key"].startswith(("native_query_", "native_result_serialization_"))]
             prefix.with_suffix(".stdout.json").write_text(json.dumps(envelope))
             prefix.with_suffix(".stderr.txt").write_text("")
             prefix.with_suffix(".timing.json").write_text("{}")
@@ -517,6 +520,10 @@ class ClickBenchUatTests(unittest.TestCase):
         self.assertEqual([int(row["query"]) for row in timing_rows], list(range(1, 44)))
         self.assertEqual(summary["timing_totals"]["calls_with_engine_timing"], 43)
         self.assertAlmostEqual(summary["timing_totals"]["totals"]["engine_execution_seconds"], 43 * 0.06)
+        self.assertEqual(summary["schema_version"], "shardloom.clickbench.public_result_regression.v2")
+        self.assertEqual(summary["timing_metric"], "engine_execution_seconds")
+        self.assertAlmostEqual(summary["query_total_seconds"], 43 * 0.06)
+        self.assertAlmostEqual(summary["secondary_process_wall"]["query_total_seconds"], 43 * 0.1)
 
     def test_repeats_are_explicit_and_persisted_by_both_runners(self):
         for paired in (False, True):
@@ -532,11 +539,35 @@ class ClickBenchUatTests(unittest.TestCase):
                 scores = summary["scores"]["roles"].values() if paired else [summary]
                 for result_score in scores:
                     self.assertTrue(result_score["complete"])
+                    self.assertTrue(result_score["timing_available"])
+                    self.assertEqual(result_score["timing_metric"], "engine_execution_seconds")
+                    self.assertEqual(result_score["query_total_seconds"], 0.06)
                     self.assertEqual(result_score["hot_total_seconds"] is None, count == 1)
                 if paired:
+                    self.assertEqual(summary["schema_version"], "shardloom.clickbench.counterbalanced_pairs.v2")
+                    self.assertEqual(summary["scores"]["secondary_process_wall"]["roles"]["control"]["query_total_seconds"], 0.1)
                     self.assertTrue(summary["complete_result_validation"])
                     self.assertTrue(summary["completed_identity_check"])
                     self.assertEqual({row["role"] for row in summary["records"]}, {"control", "candidate"})
+
+    def test_historical_runners_validate_values_without_engine_scores(self):
+        for paired in (False, True):
+            with self.subTest(paired=paired), tempfile.TemporaryDirectory() as directory:
+                result, summary = self._run_mocked_single(
+                    Path(directory), paired=paired, engine_timing=False,
+                    log_options=("--allow-missing-engine-timing",))
+            self.assertEqual(result, 0)
+            scores = summary["scores"] if paired else summary
+            self.assertTrue(scores["complete"])
+            self.assertFalse(scores["timing_available"])
+            self.assertTrue(scores["secondary_process_wall"]["timing_available"])
+            role_scores = scores["roles"].values() if paired else [scores]
+            for result_score in role_scores:
+                self.assertIsNone(result_score["query_total_seconds"])
+            self.assertTrue(summary["completed_identity_check"])
+            if paired:
+                self.assertTrue(summary["complete_result_validation"])
+                self.assertIsNone(scores["per_query"])
 
     def test_invalid_repeats_fail_before_either_runner_creates_logs(self):
         for paired in (False, True):

@@ -436,7 +436,10 @@ For a future authorized observation:
    report rendering and exit; it does not isolate those individual components.
    Both Full43 runners require engine clocks by default and write the complete
    `query-timings.csv`. Explicit historical comparisons may allow missing clocks,
-   which must remain unavailable. Also time the actual workflow. Declare the exact treatment of
+   which must remain unavailable. Version 2 summaries use engine time for primary
+   totals and paired comparisons, with `secondary_process_wall` retaining the
+   complete process comparison. Result completeness and clock availability are
+   separate fields; no partial clock cohort is ranked. Also time the actual workflow. Declare the exact treatment of
    input hashing, validation, archiving and final output hashing. Use one call
    per query by default. Both query runners accept `--repeats N` for explicitly
    requested repeats and record that count; a single pass reports hot-run

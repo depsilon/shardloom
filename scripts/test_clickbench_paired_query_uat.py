@@ -72,7 +72,8 @@ class PairedQueryUatTests(unittest.TestCase):
             for run in (1, 2, 3):
                 for role in ("candidate", "control"):
                     seconds = (100 if query == 1 else 2) + (3 if role == "candidate" else 0) + run
-                    records.append(dict(query=query, run=run, role=role, seconds=seconds, passed=True))
+                    records.append(dict(query=query, run=run, role=role, seconds=seconds,
+                                        engine_execution_seconds=seconds, passed=True))
         result = paired_scores(list(reversed(records)), [1, 2], repeats=3)
         self.assertTrue(result["complete"])
         self.assertEqual(result["score_scope"], "targeted_only")
@@ -86,7 +87,8 @@ class PairedQueryUatTests(unittest.TestCase):
         self.assertFalse(paired_scores(records, [1, 2], repeats=3)["complete"])
 
     def test_full_suite_default_needs_exactly_one_pair_per_query(self):
-        records = [dict(query=query, run=1, role=role, seconds=1.0, passed=True)
+        records = [dict(query=query, run=1, role=role, seconds=1.0,
+                        engine_execution_seconds=0.5, passed=True)
                    for query in range(1, 44) for role in role_order(query, 1)]
         result = paired_scores(records, list(range(1, 44)))
         self.assertTrue(result["complete"])
@@ -96,6 +98,75 @@ class PairedQueryUatTests(unittest.TestCase):
             self.assertIsNone(result["roles"][role]["hot_total_seconds"])
         self.assertFalse(paired_scores(records[:-1], list(range(1, 44)))["complete"])
         self.assertFalse(paired_scores(records + [records[0]], list(range(1, 44)))["complete"])
+
+    def test_engine_and_process_comparisons_can_rank_candidates_differently(self):
+        records = [dict(query=1, run=run, role=role, passed=True,
+                        seconds=process + run, engine_execution_seconds=engine + run)
+                   for run in (1, 2, 3)
+                   for role, engine, process in (("control", 4, 6), ("candidate", 2, 8))]
+        result = paired_scores(list(reversed(records)), [1], repeats=3)
+        self.assertEqual(result["timing_metric"], "engine_execution_seconds")
+        self.assertTrue(result["timing_available"])
+        self.assertEqual(result["roles"]["control"]["query_total_seconds"], 5)
+        self.assertEqual(result["roles"]["candidate"]["query_total_seconds"], 3)
+        self.assertEqual(result["roles"]["candidate"]["hot_total_seconds"], 4)
+        self.assertEqual(result["per_query"][0]["median_seconds"], {"control": 6, "candidate": 4})
+        self.assertEqual(result["per_query"][0]["paired_candidate_minus_control_seconds"], [-2, -2, -2])
+        secondary = result["secondary_process_wall"]
+        self.assertEqual(secondary["timing_metric"], "process_wall_seconds")
+        self.assertEqual(secondary["roles"]["control"]["query_total_seconds"], 7)
+        self.assertEqual(secondary["roles"]["candidate"]["query_total_seconds"], 9)
+        self.assertEqual(secondary["per_query"][0]["median_seconds"], {"control": 8, "candidate": 10})
+        self.assertEqual(secondary["per_query"][0]["paired_candidate_minus_control_seconds"], [2, 2, 2])
+
+    def test_missing_engine_samples_never_use_process_time_or_partial_pairs(self):
+        for missing in (("control", 1), ("control", 2), ("candidate", 1)):
+            for absent in (False, True):
+                with self.subTest(missing=missing, absent=absent):
+                    records = [dict(query=1, run=run, role=role, seconds=4.0,
+                                    engine_execution_seconds=1.0, passed=True)
+                               for run in (1, 2) for role in ("control", "candidate")]
+                    record = next(r for r in records if (r["role"], r["run"]) == missing)
+                    if absent:
+                        del record["engine_execution_seconds"]
+                    else:
+                        record["engine_execution_seconds"] = None
+                    result = paired_scores(records, [1], repeats=2)
+                    self.assertTrue(result["complete"])
+                    self.assertFalse(result["timing_available"])
+                    self.assertIsNone(result["per_query"])
+                    missing_score = result["roles"][missing[0]]
+                    self.assertEqual(missing_score["timing_unavailable_reason"], "missing_measurements")
+                    for key in ("query_total_seconds", "hot_total_seconds", "geomean_seconds",
+                                "hot_geomean_seconds", "all_raw_run_seconds"):
+                        self.assertIsNone(missing_score[key])
+                    self.assertTrue(result["secondary_process_wall"]["timing_available"])
+
+    def test_zero_engine_measurements_are_valid_and_malformed_clocks_are_rejected(self):
+        records = [dict(query=1, run=run, role=role, seconds=1.0,
+                        engine_execution_seconds=0.0, passed=True)
+                   for run in (1, 2) for role in ("control", "candidate")]
+        result = paired_scores(records, [1], repeats=2)
+        self.assertTrue(result["timing_available"])
+        self.assertEqual(result["roles"]["control"]["geomean_seconds"], 0.0)
+        self.assertEqual(result["roles"]["candidate"]["hot_geomean_seconds"], 0.0)
+        self.assertEqual(result["per_query"][0]["paired_candidate_minus_control_seconds"], [0.0, 0.0])
+        for value in (-1, float("nan"), float("inf"), True, "1.0"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "finite nonnegative"):
+                paired_scores([{**r, "engine_execution_seconds": value} for r in records], [1], repeats=2)
+
+    def test_incomplete_or_invalid_results_cannot_produce_either_comparison(self):
+        records = [dict(query=1, run=1, role=role, seconds=1.0,
+                        engine_execution_seconds=0.5, passed=True)
+                   for role in ("control", "candidate")]
+        for cohort in (records[:1], records + [records[0]],
+                       [records[0], {**records[1], "passed": False}]):
+            with self.subTest(cohort=cohort):
+                result = paired_scores(cohort, [1])
+                for comparison in (result, result["secondary_process_wall"]):
+                    self.assertFalse(comparison["complete"])
+                    self.assertFalse(comparison["timing_available"])
+                    self.assertIsNone(comparison["per_query"])
 
     def test_archive_preserves_values_hashes_and_rejects_overwrite(self):
         with tempfile.TemporaryDirectory() as directory:

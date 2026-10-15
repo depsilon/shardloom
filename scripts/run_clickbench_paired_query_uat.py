@@ -137,16 +137,27 @@ def archive_completed_logs(paths, target, guard):
 def paired_scores(records, selected, *, repeats=1):
     if any(r.get("role") not in ("control", "candidate") for r in records):
         raise ValueError("unknown paired role")
-    scores = {role: score([r for r in records if r["role"] == role], 43, selected, repeats=repeats)
+    result = paired_clock_scores(records, selected, repeats=repeats, timing_key="engine_execution_seconds")
+    result["secondary_process_wall"] = paired_clock_scores(records, selected, repeats=repeats, timing_key="seconds")
+    return result
+
+
+def paired_clock_scores(records, selected, *, repeats, timing_key):
+    scores = {role: score([r for r in records if r["role"] == role], 43, selected,
+                          repeats=repeats, timing_key=timing_key)
               for role in ("control", "candidate")}
     complete = all(s["complete"] for s in scores.values())
-    result = {"complete": complete, "roles": scores, "score_scope": "full_43" if selected == list(range(1, 44)) else "targeted_only"}
-    if complete:
+    available = all(s["timing_available"] for s in scores.values())
+    result = {"complete": complete, "roles": scores,
+              "timing_metric": scores["control"]["timing_metric"],
+              "timing_available": available, "per_query": None,
+              "score_scope": "full_43" if selected == list(range(1, 44)) else "targeted_only"}
+    if available:
         result["per_query"] = []
         for query in selected:
             by_role = {role: sorted((r for r in records if r["role"] == role and r["query"] == query), key=lambda r: r["run"])
                        for role in scores}
-            times = {role: [r["seconds"] for r in runs] for role, runs in by_role.items()}
+            times = {role: [r[timing_key] for r in runs] for role, runs in by_role.items()}
             result["per_query"].append({"query": query, "seconds": times,
                 "median_seconds": {role: statistics.median(t) for role, t in times.items()},
                 "paired_candidate_minus_control_seconds": [c - b for c, b in zip(times["candidate"], times["control"])]})
@@ -258,7 +269,7 @@ def main():
             if packet_receipt is not None else "retained_native_regression"
         )
         records = []
-        summary = {"schema_version": "shardloom.clickbench.counterbalanced_pairs.v1", "binaries": identities,
+        summary = {"schema_version": "shardloom.clickbench.counterbalanced_pairs.v2", "binaries": identities,
                    "harness_sha256": harness,
                    "source": str(source), "source_generation": original_generations["control"],
                    "sources": frozen_sources, "queries_sha256": queries_sha256,
@@ -326,7 +337,9 @@ def main():
                     records.append(record)
                     summary["scores"] = paired_scores(records, selected, repeats=args.repeats)
                     save()
-                    print(json.dumps({k: record[k] for k in ("query", "run", "role", "pair_position", "seconds", "passed")}), flush=True)
+                    print(json.dumps({k: record.get(k) for k in (
+                        "query", "run", "role", "pair_position", "engine_execution_seconds",
+                        "process_wall_seconds", "seconds", "passed")}), flush=True)
                     if not record["passed"]:
                         return 1
             summary["archives"].append(archive_completed_logs(closed, logs / f"q{query:02d}_completed.tar.xz", guard))

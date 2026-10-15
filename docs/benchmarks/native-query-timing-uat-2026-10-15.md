@@ -115,6 +115,14 @@ now require engine clocks by default, record one execution per query by default,
 and produce the same timing columns. Explicit historical comparisons can allow
 absent engine clocks; those values remain unavailable.
 
+The version 2 runner summaries use engine execution for primary totals, geometric
+means and paired medians/deltas. Complete process scores remain separately
+available under `secondary_process_wall`. Result coverage (`complete`) is distinct
+from clock coverage (`timing_available`); a missing engine sample prevents an
+engine comparison without substituting process time. This run's archived version
+1 summary preserves its original process-score fields; the engine totals and
+table above come from its separately recorded raw engine clocks.
+
 ## Profiling priorities
 
 The engine clock accounts for 95.625% of complete process time in this pass.
@@ -190,3 +198,13 @@ binaries. A stale manual-test inventory hash was also corrected after proving
 all exclusion declarations unchanged; the passing Rust commands were preserved.
 These are source-package checks, not installed-wheel or all-platform proof.
 Hosted integration remains pending. No additional query timing run was needed.
+
+Review subsequently found that the runners recorded engine clocks but still
+scored comparisons using process time. The reporting correction changes only
+the two Python runners and their tests within the frozen source set. All 46
+focused timing/runner tests pass, including reversed engine/process rankings,
+missing historical clocks, zero clocks and incomplete/failed result cohorts.
+The [scoring follow-up evidence](evidence/native-query-timing-scoring-2026-10-15.json)
+retains the original regression failures, successful checks and exact source
+differences. Native execution sources and the accepted binaries remain unchanged;
+the original UAT and acceptance archives retain their hashes and clock meanings.
