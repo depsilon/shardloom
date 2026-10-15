@@ -197,7 +197,11 @@ the retained dependency fixed that setup; the rerun uses identical native
 binaries. A stale manual-test inventory hash was also corrected after proving
 all exclusion declarations unchanged; the passing Rust commands were preserved.
 These are source-package checks, not installed-wheel or all-platform proof.
-Hosted integration remains pending. No additional query timing run was needed.
+Subsequent [hosted integration](evidence/native-compression-hosted-2026-10-15.json)
+passes all 44 checks and three installed Linux/macOS wheel lanes, each with
+80 binding tests, before PR #1555 merges. Exact-merge production deployment and
+all seven checked served documents/assets pass. No additional query timing run
+was needed for this integration-only proof.
 
 Review subsequently found that the runners recorded engine clocks but still
 scored comparisons using process time. The reporting correction changes only

@@ -80,6 +80,10 @@ These clocks describe source builds newer than the published 0.6.0 artifacts.
 The [October 15 fresh UAT](docs/benchmarks/native-query-timing-uat-2026-10-15.md)
 records all 43 query timings, fresh ingestion, complete-result checks and the
 18-cohort format/workflow matrix, with each timing boundary stated separately.
+The subsequent [selected-text-view acceptance](docs/benchmarks/native-selected-text-views-2026-10-15.md)
+records fewer constructed views in sparse native filtering, its bounded paired
+comparison, complete local checks and all 43 query timings. Hosted integration
+remains pending; the report retains the slower control cases and claim limits.
 
 For repository work, see [contributing](CONTRIBUTING.md), [agent and development instructions](AGENTS.md),
 the [phase plan](docs/architecture/phased-execution-plan.md), and the

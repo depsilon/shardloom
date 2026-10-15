@@ -147,9 +147,16 @@ in PR #1529. Later accepted units admit reviewed fixed-width child-decoder
 scratch. The subsequent source-only
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-compression-resources-2026-10-15.md">compression correction</a>
 passes complete local acceptance for named buffers and pinned compressor/trainer
-heap reservations; its report tracks hosted status. It follows the immutable
+heap reservations. PR #1555 merged after all 44 checks passed, with installed-wheel
+and production verification retained in its report. It follows the immutable
 0.6.0 packages. Structural metadata, other codecs and unreviewed provider trees
 remain separate.
+The later source-only
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md">selected text views</a>
+reduce view construction inside sparse native filtering, with complete local
+acceptance and a bounded retained comparison. Hosted integration is pending.
+The report preserves the slower controls; this does not establish general
+workload acceleration or change published packages.
 Default input remains resident under the query grant. Opt-in
 <a href="/field-guide/python-surface#consume-results-in-batches">streaming input</a> in 0.6.0
 packages admits distinct finite producers, declared repeated-source replay

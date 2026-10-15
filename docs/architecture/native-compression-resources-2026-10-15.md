@@ -2,8 +2,10 @@
 
 # Native compression resource admission — October 15, 2026
 
-Status: local implementation and acceptance complete under PERF-03/06;
-hosted integration remains pending. The [acceptance report](../benchmarks/native-compression-resources-2026-10-15.md)
+Status: implementation, acceptance and hosted integration complete under
+PERF-03/06 in PR #1555. The [hosted packet](../benchmarks/evidence/native-compression-hosted-2026-10-15.json)
+binds all 44 checks and production deployment to the merge. The
+[acceptance report](../benchmarks/native-compression-resources-2026-10-15.md)
 records six broad gates, 72 vendor tests, 80 direct tests, 757 public cases,
 one Full43 pass and 18 lifecycle cells within their frozen cost limits. The
 portable packet preserves this contract's exact premeasurement text.

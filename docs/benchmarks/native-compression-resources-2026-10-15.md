@@ -7,7 +7,11 @@ admission before allocating their covered storage. Local acceptance passes the
 six broad gates, 72 vendored-provider tests, 80 direct binding tests, 757 public
 cases and one complete 43-query pass. All 18 compression lifecycle cells stay
 within their frozen cost limits, with identical serialized bytes between the
-old and corrected implementations. Hosted integration remains pending.
+old and corrected implementations. [PR #1555](https://github.com/depsilon/shardloom/pull/1555)
+is merged after all 44 checks pass. The
+[hosted packet](evidence/native-compression-hosted-2026-10-15.json) preserves
+the complete native and installed-wheel logs, source equality, resolved review
+finding, and exact-merge production documentation checks in 37 verified members.
 
 The [portable packet](evidence/native-compression-resources-2026-10-15.json)
 contains 3,068 verified members. This is the finite

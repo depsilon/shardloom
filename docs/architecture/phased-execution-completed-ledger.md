@@ -17,6 +17,45 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-COMPRESSION-RESOURCES` — existing native Zstd compression,
+  default dictionary training and their covered buffers now use the caller's
+  shared grant under PERF-03/06 and RFC 0044. The
+  [acceptance report](../benchmarks/native-compression-resources-2026-10-15.md)
+  retains all 18 lifecycle cells within frozen limits, unchanged serialized
+  bytes, six broad gates, 72 vendor tests, 80 direct tests, 757 public cases
+  and the complete Full43 results. Timing-enabled follow-through retains
+  4,222 native tests and the same complete direct/public workflow acceptance.
+  - [PR #1555](https://github.com/depsilon/shardloom/pull/1555) merges at
+    `2b87cf7f911d667b7ef279fdedb1ba4ef2167459` after all 44 checks pass on
+    `419ac33ff9888b586df706b5e29b5592439070c0`. Reviewed, synthetic and merged
+    trees match. All 2,258 accepted source hashes are compared with the merge;
+    only four Python runner/test files change after runtime measurement.
+    Native sources and both accepted executable hashes are preserved.
+  - The [hosted packet](../benchmarks/evidence/native-compression-hosted-2026-10-15.json)
+    verifies all 37 archive members and 140 literal log excerpts. The native
+    job passes 2,806 tests with 26 declared exclusions; vendor groups pass
+    10/7/7/17/4 tests. Three installed Linux/macOS wheel lanes pass all 80
+    binding tests each, with no failures/errors/skips and no publication.
+    The engine-scoring review finding is fixed and resolved; final-head
+    automated review finds no major issues. Preview and exact-merge production
+    deployment preserve all seven checked documentation/asset responses each.
+    Existing rendered guide/search evidence remains in the acceptance packet.
+  - The [fresh timing UAT](../benchmarks/native-query-timing-uat-2026-10-15.md)
+    passes 99,997,497 ingested rows, 43 calls with 381 complete returned rows
+    and all 18 modular cohorts. Engine time totals 62.560288 seconds; result
+    serialization 0.002827 seconds; other process work 2.859121 seconds.
+    The [scoring correction](../benchmarks/evidence/native-query-timing-scoring-2026-10-15.json)
+    makes engine execution primary and process time secondary, with 46 focused
+    tests and no substituted or partial engine cohort. Historical observations
+    keep their original boundaries. The
+    [scoped cleanup](local-artifact-cleanup-2026-10-15.md) recovers 38.18 GB.
+  - Preserve metadata-first execution, native frame ownership, PulseWeave,
+    unchanged codec parameters and false fallback certificates. Structural
+    metadata, other providers and whole-process RSS retain separate scope.
+    Resume the measured hotspot and breadth queue under all existing PERF/CG
+    owners. This finite closure neither completes the six areas/eight
+    investigations nor publishes a successor to immutable v0.6.0 packages.
+
 - [x] `RELEASE-060` — the approved native Python, typed-input, finite streaming
   and resource-accounting milestone is published as v0.6.0. RFC 0024 and the
   [release notes](../release/v0.6.0-release-notes.md) define its finite scope.

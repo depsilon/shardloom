@@ -7,8 +7,7 @@ use super::*;
 use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
-        arrays::varbinview::{BinaryView, build_views::MAX_BUFFER_LEN},
-        memory::HostAllocatorExt as _,
+        arrays::varbinview::build_views::MAX_BUFFER_LEN, memory::HostAllocatorExt as _,
         vtable::child_to_validity,
     },
     buffer::{Buffer, ByteBuffer},
@@ -44,7 +43,7 @@ pub(super) fn execute(
         .and_then(|v| v.checked_add(1))
         .ok_or_else(size_overflow)?;
     // Cover the decoder's Vec/Arc conversions and our temporary handle list.
-    // The decoder uses an exactly counted capacity; allocator bookkeeping and
+    // The selected decoder uses the same conservative capacity; bookkeeping and
     // fixed-size array headers are outside this collection-capacity contract.
     let byte_headers = mul(buffers, 2 * size_of::<ByteBuffer>())?;
     let handle_headers = mul(buffers, 3 * size_of::<BufferHandle>())?;
@@ -55,14 +54,15 @@ pub(super) fn execute(
             4 * size_of::<usize>() as u64,
         )?,
     )?;
-    let decoded = selection.array.clone().execute::<VarBinViewArray>(ctx)?;
+    let decoded =
+        Zstd::decompress_selected(selection.array.as_::<Zstd>(), &selection.indices, ctx)?;
     vortex_ensure!(
         decoded.data_buffers().len() <= buffers,
         "Zstd view handle bound exceeded"
     );
-    let output = gather(&decoded, &selection.indices, ctx, &memory)?;
+    let output = retain_structure(&decoded, &memory)?;
     // Keep the compressed metadata and selection owner until native execution
-    // and gathering have both finished, including every error return.
+    // and output ownership transfer have both finished, including every error return.
     drop(selection);
     Ok(Some(output))
 }
@@ -184,27 +184,9 @@ pub(super) fn metadata_bytes(frames: usize) -> VortexResult<u64> {
     )
 }
 
-fn gather(
-    decoded: &VarBinViewArray,
-    indices: &[usize],
-    ctx: &mut ExecutionCtx,
-    memory: &LiveMemoryPool,
-) -> VortexResult<ArrayRef> {
-    // The old canonical Filter allocated views and cached mask indices outside
-    // the session allocator. Gather the already-decoded native views directly.
-    let mut storage = ctx
-        .allocator()
-        .allocate_typed::<BinaryView>(indices.len())?;
-    for (target, &index) in storage
-        .as_mut_slice_typed::<BinaryView>()?
-        .iter_mut()
-        .zip(indices)
-    {
-        *target = *decoded
-            .views()
-            .get(index)
-            .ok_or_else(|| vortex_err!("Zstd selected view is out of bounds"))?;
-    }
+fn retain_structure(decoded: &VarBinViewArray, memory: &LiveMemoryPool) -> VortexResult<ArrayRef> {
+    // The provider already constructed only selected views. Attach collection
+    // credit to every independent output buffer without copying those views.
     let bytes = add(
         mul(decoded.data_buffers().len(), size_of::<BufferHandle>())?,
         2 * size_of::<usize>() as u64,
@@ -220,7 +202,10 @@ fn gather(
             ))
         })
         .collect();
-    let views = crate::owned_buffers::retain_shared_credit(storage.freeze(), credit);
+    let views = crate::owned_buffers::retain_shared_credit(
+        decoded.views_handle().as_host().clone(),
+        credit,
+    );
     Ok(VarBinViewArray::new_handle(
         BufferHandle::new_host(views),
         Arc::from(buffers),

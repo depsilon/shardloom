@@ -96,10 +96,21 @@ The subsequent [compression resource correction](../benchmarks/native-compressio
 passes complete local acceptance for named Zstd input/output buffers and
 audited compressor/default-trainer heap reservations. Six broad gates, 72 vendor
 tests, 80 direct tests, 757 public cases and one Full43 pass succeed; its
-18-cell lifecycle screen stays within the declared cost limits. Hosted
-integration remains pending. This source change follows the immutable 0.6.0
+18-cell lifecycle screen stays within the declared cost limits. PR #1555 merged
+after all 44 checks passed, with three installed-wheel lanes and production
+verification recorded in the [hosted packet](../benchmarks/evidence/native-compression-hosted-2026-10-15.json).
+This source change follows the immutable 0.6.0
 packages. Structural metadata, unreviewed providers and process RSS retain
 their separate boundaries; the public support label is unchanged.
+
+The source-only [selected text views](../benchmarks/native-selected-text-views-2026-10-15.md)
+construct views only for selected rows inside the admitted sparse Zstd filter.
+The frozen comparison retains this change: Q23 improves in all ten target pairs,
+while all four other parallel controls have slower medians within their declared
+limits. Seven Rust/provider gates, 80 direct tests, 757 public cases and one
+Full43 pass succeed. The 2,305-member packet preserves all samples and failures.
+Hosted integration is pending; published 0.6.0 packages are unchanged. Decoded
+frame bytes are unchanged, and no general speedup or process-RSS cap is claimed.
 
 The [completion-aware input unit](../architecture/native-input-completion-2026-10-07.md)
 adds opt-in `from_batches(..., streaming=True)` for one finite source used once,
