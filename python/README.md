@@ -644,7 +644,7 @@ with frame.iter_batches() as batches:
     assert batches.report is not None
 ```
 
-The complete output is `[{"id": 1, "label": "kept"}]`. Streaming admits
+The complete output is `[{"id": 1, "label": "kept"}]`. In version 0.6.0, streaming admits
 incremental results, bounded small collection, or one native Vortex destination.
 All seven join kinds admit the batch source on either side, and admitted analytic
 windows preserve frame state across input batches. Dynamic pivot discovers its
@@ -660,6 +660,19 @@ failure publishes no destination or final success. Limits and offsets
 apply to the complete relation and drain every producer, including `LIMIT 0`.
 Each producer must reach its own explicit end event before results are final; earlier
 batches remain provisional and late failures remain failures.
+
+Current source builds extend finite streaming input through all eight existing
+local writers: Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV.
+The native binding also routes multiple independent producers through collection,
+incremental results and writes. Each writer retains its type and fidelity limits.
+A single destination streams directly; `fanout(...)` consumes each producer once
+and executes the query once, retaining a credited native result for its writers.
+Result replay shares the query grant and, when explicitly enabled, the same native
+spill store and quota. Every producer, writer and owned spill cleanup must complete
+before publication. Local multi-file publication remains non-atomic; a later
+commit failure reports the complete targets already published. See the
+[destination contract](../docs/architecture/native-stream-destinations-2026-10-15.md).
+These source additions do not change the published 0.6.0 packages.
 
 The per-batch row and frame bounds still apply, with a separate 16 MiB wire-frame
 ceiling and 32 MiB native logical-intake limit per batch. Version 0.6.0

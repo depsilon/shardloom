@@ -7,8 +7,7 @@ use super::{
 };
 use std::cell::{Cell, RefCell};
 
-#[path = "local_primitive_relational_batch_replay.rs"]
-mod replay;
+use super::replay;
 
 pub(super) struct Source {
     pub(super) uri: shardloom_core::DatasetUri,
@@ -29,11 +28,17 @@ type ColumnsBySource<'a> = dyn FnMut(
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 type ArrowProvider<'a> = dyn FnMut() -> Result<Option<arrow_array::RecordBatch>> + 'a;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+type ArrowSources<'a> =
+    dyn FnMut(&shardloom_core::DatasetUri, u64) -> Result<Option<arrow_array::RecordBatch>> + 'a;
+
 pub(super) enum Provider<'a> {
     Columns(&'a mut ColumnProvider<'a>),
     ColumnsBySource(&'a mut ColumnsBySource<'a>),
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     Arrow(&'a mut ArrowProvider<'a>),
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    ArrowSources(&'a mut ArrowSources<'a>),
 }
 
 impl Provider<'_> {
@@ -50,6 +55,12 @@ impl Provider<'_> {
             Self::ColumnsBySource(input) => input(uri, ordinal, session),
             #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
             Self::Arrow(input) => input()?
+                .map(|batch| {
+                    ResidentMemorySource::from_arrow_in_context(session, batch, context, true)
+                })
+                .transpose(),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            Self::ArrowSources(input) => input(uri, ordinal)?
                 .map(|batch| {
                     ResidentMemorySource::from_arrow_in_context(session, batch, context, true)
                 })
@@ -203,6 +214,24 @@ impl PreparedVortexRelational {
         Ok(VortexRelationalBatchInput {
             prepared: self,
             input: Provider::Arrow(input),
+        })
+    }
+
+    /// Import caller-owned Arrow batches by source URI and zero-based ordinal.
+    /// Each declared source must independently reach `None`; repeated scans use
+    /// native replay rather than reopening the producer. Schema, ownership,
+    /// allocation and callback rules match [`Self::with_arrow_batch_input`].
+    /// # Errors
+    /// Rejects a provider when the plan has no streaming source declarations.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub fn with_arrow_batch_inputs<'p, 'i>(
+        &'p self,
+        input: &'i mut ArrowSources<'i>,
+    ) -> Result<VortexRelationalBatchInput<'p, 'i>> {
+        self.validate_batch_provider(true)?;
+        Ok(VortexRelationalBatchInput {
+            prepared: self,
+            input: Provider::ArrowSources(input),
         })
     }
 
@@ -424,7 +453,12 @@ impl Input for Execution<'_, '_> {
             self.record_input(&source)?;
             let array = source.batch_array(context)?;
             if let Some(recorder) = &mut recorder {
-                recorder.build(array, &mut self.report.borrow_mut(), context)?;
+                let mut copied = replay::CopyStats::default();
+                recorder.build(array, &mut copied, context)?;
+                let mut report = self.report.borrow_mut();
+                checked_add(&mut report.replay_batches_detached, copied.batches)?;
+                checked_add(&mut report.replay_rows_detached, copied.rows)?;
+                checked_add(&mut report.replay_buffer_bytes_copied, copied.buffer_bytes)?;
             }
             let result = consume(array);
             drop(source);
@@ -472,6 +506,26 @@ impl Input for Execution<'_, '_> {
 }
 
 impl VortexRelationalBatchInput<'_, '_> {
+    /// Execute each finite input once and stage every admitted local destination.
+    /// Multiple destinations retain the native result under the existing query
+    /// memory/spill policy; publication follows input completion and certification.
+    /// # Errors
+    /// Propagates source, schema, resource, cancellation, adapter and commit failures.
+    /// Late commit failures preserve already published complete targets.
+    #[cfg(feature = "vortex-write")]
+    pub fn write_many_controlled(
+        self,
+        targets: &[(
+            std::path::PathBuf,
+            super::super::VortexLocalPrimitiveRowExportFormat,
+        )],
+        overwrite: bool,
+        cancellation: &CancellationToken,
+    ) -> Result<super::WrittenVortexRelationalFanout> {
+        self.prepared
+            .write_many_with_input(targets, overwrite, cancellation, self.input)
+    }
+
     /// Retain a complete native result after consuming the source exactly once.
     /// All retained output must fit the shared allocation. No row bridge occurs.
     /// # Errors
@@ -545,9 +599,9 @@ impl VortexRelationalBatchInput<'_, '_> {
             .collect_jsonl_with_input(cancellation, Some(self.input))
     }
 
-    /// Publish one native Vortex output only after input and sink completion.
+    /// Publish one admitted local output only after input and sink completion.
     /// # Errors
-    /// Rejects compatibility output before demand; propagates input/sink failures.
+    /// Propagates schema, destination, cancellation, input and sink failures.
     #[cfg(feature = "vortex-write")]
     pub fn write_controlled(
         self,
@@ -556,11 +610,6 @@ impl VortexRelationalBatchInput<'_, '_> {
         overwrite: bool,
         cancellation: &CancellationToken,
     ) -> Result<super::WrittenVortexRelational> {
-        if format != super::super::VortexLocalPrimitiveRowExportFormat::Vortex {
-            return Err(failed(
-                "streaming input requires one native Vortex destination; choose explicit resident mode for compatibility exports",
-            ));
-        }
         self.prepared
             .write_with_input(path, format, overwrite, cancellation, Some(self.input))
     }

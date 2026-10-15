@@ -14,7 +14,8 @@ use shardloom_vortex::{
         prepared_count::{ExecutedVortexCountWhere, PreparedVortexCountWhere},
         prepared_dispatch::{self, ExecutedVortexSort},
         prepared_relational::{
-            ExecutedVortexRelational, PreparedVortexRelational, WrittenVortexRelational,
+            ExecutedVortexRelational, PreparedVortexRelational, VortexRelationalBatchInput,
+            WrittenVortexRelational,
         },
         prepared_unary::{ExecutedVortexUnary, PreparedVortexUnary},
     },
@@ -33,6 +34,27 @@ mod declaration;
 pub use declaration::NativeWorkflowDeclaration;
 
 type ArrowInput<'a> = &'a mut dyn FnMut() -> Result<Option<RecordBatch>>;
+
+/// Borrowed input demand over the existing admitted Arrow boundary. Source-aware
+/// callers keep independent producer order; the prepared plan owns native replay.
+pub enum NativeArrowInput<'a> {
+    /// Compatibility adapter for a plan declaring exactly one streaming source.
+    Single(ArrowInput<'a>),
+    /// Demand identifies a declared source and its next zero-based batch ordinal.
+    Sources(&'a mut dyn FnMut(&shardloom_core::DatasetUri, u64) -> Result<Option<RecordBatch>>),
+}
+
+impl<'i> NativeArrowInput<'i> {
+    fn bind<'p>(
+        self,
+        operation: &'p PreparedVortexRelational,
+    ) -> Result<VortexRelationalBatchInput<'p, 'i>> {
+        match self {
+            Self::Single(input) => operation.with_arrow_batch_input(input),
+            Self::Sources(input) => operation.with_arrow_batch_inputs(input),
+        }
+    }
+}
 
 /// One prepared operation, retaining providers and the original resource owner.
 pub struct PreparedNativeOperation {
@@ -138,13 +160,22 @@ impl PreparedNativeOperation {
         cancellation: &CancellationToken,
         input: Option<ArrowInput<'_>>,
     ) -> Result<ExecutedOwnedNativeOperation> {
+        self.execute_native_with_inputs(cancellation, input.map(NativeArrowInput::Single))
+    }
+
+    /// Execute with independent demand for one or more declared input sources.
+    /// # Errors
+    /// Propagates provider, source, pressure, cancellation and input failures.
+    pub fn execute_native_with_inputs(
+        &self,
+        cancellation: &CancellationToken,
+        input: Option<NativeArrowInput<'_>>,
+    ) -> Result<ExecutedOwnedNativeOperation> {
         let started = std::time::Instant::now();
         let mut completed = match &self.kind {
             PreparedKind::Relational(operation) => {
                 let completed = if let Some(input) = input {
-                    operation
-                        .with_arrow_batch_input(input)?
-                        .execute_native(cancellation)?
+                    input.bind(operation)?.execute_native(cancellation)?
                 } else {
                     operation.execute_native(cancellation)?
                 };
@@ -181,11 +212,27 @@ impl PreparedNativeOperation {
         input: Option<ArrowInput<'_>>,
         consume: impl FnMut(RecordBatch) -> Result<()>,
     ) -> Result<ExecutedArrowNativeOperation> {
+        self.for_each_arrow_batch_with_inputs(
+            cancellation,
+            input.map(NativeArrowInput::Single),
+            consume,
+        )
+    }
+
+    /// Deliver native batches with independent source demand and backpressure.
+    /// # Errors
+    /// Propagates native, conversion, consumer, input and cancellation failures.
+    pub fn for_each_arrow_batch_with_inputs(
+        &self,
+        cancellation: &CancellationToken,
+        input: Option<NativeArrowInput<'_>>,
+        consume: impl FnMut(RecordBatch) -> Result<()>,
+    ) -> Result<ExecutedArrowNativeOperation> {
         match &self.kind {
             PreparedKind::Relational(operation) => {
                 let completed = if let Some(input) = input {
-                    operation
-                        .with_arrow_batch_input(input)?
+                    input
+                        .bind(operation)?
                         .for_each_arrow_batch(cancellation, consume)?
                 } else {
                     operation.for_each_arrow_batch(cancellation, consume)?
@@ -219,10 +266,33 @@ impl PreparedNativeOperation {
         input: Option<ArrowInput<'_>>,
         reused: bool,
     ) -> Result<Vec<(String, String)>> {
+        self.write_fields_with_inputs(
+            path,
+            format,
+            overwrite,
+            cancellation,
+            input.map(NativeArrowInput::Single),
+            reused,
+        )
+    }
+
+    /// Execute one writer with independent demand for declared input sources.
+    /// # Errors
+    /// Propagates validation, provider and publication errors without replaying input.
+    #[allow(clippy::too_many_arguments)] // One output request and its original input owners.
+    pub fn write_fields_with_inputs(
+        &self,
+        path: &Path,
+        format: Format,
+        overwrite: bool,
+        cancellation: &CancellationToken,
+        input: Option<NativeArrowInput<'_>>,
+        reused: bool,
+    ) -> Result<Vec<(String, String)>> {
         match &self.kind {
             PreparedKind::Relational(operation) => {
                 let written = if let Some(input) = input {
-                    operation.with_arrow_batch_input(input)?.write_controlled(
+                    input.bind(operation)?.write_controlled(
                         path,
                         format,
                         overwrite,
@@ -251,13 +321,62 @@ impl PreparedNativeOperation {
         cancellation: &CancellationToken,
         reused: bool,
     ) -> Result<Vec<(String, String)>> {
+        self.write_many_fields_with_input(targets, overwrite, cancellation, None, reused)
+    }
+
+    /// Single-use input executes once; each writer consumes its credited native result.
+    /// # Errors
+    /// Propagates source, replay, resource, cancellation and publication failures.
+    pub fn write_many_fields_with_input(
+        &self,
+        targets: &[(PathBuf, Format)],
+        overwrite: bool,
+        cancellation: &CancellationToken,
+        input: Option<ArrowInput<'_>>,
+        reused: bool,
+    ) -> Result<Vec<(String, String)>> {
+        self.write_many_fields_with_inputs(
+            targets,
+            overwrite,
+            cancellation,
+            input.map(NativeArrowInput::Single),
+            reused,
+        )
+    }
+
+    /// Execute each declared producer once and replay its native result to all writers.
+    /// # Errors
+    /// Propagates source, replay, resource, cancellation and publication failures.
+    pub fn write_many_fields_with_inputs(
+        &self,
+        targets: &[(PathBuf, Format)],
+        overwrite: bool,
+        cancellation: &CancellationToken,
+        input: Option<NativeArrowInput<'_>>,
+        reused: bool,
+    ) -> Result<Vec<(String, String)>> {
         match &self.kind {
-            PreparedKind::Relational(operation) => super::written_many_fields(
-                targets,
-                operation.write_many_controlled(targets, overwrite, cancellation)?,
-                reused,
-            ),
+            PreparedKind::Relational(operation) => {
+                if let Some(input) = input {
+                    super::written_stream_fanout_fields(
+                        targets,
+                        input.bind(operation)?.write_many_controlled(
+                            targets,
+                            overwrite,
+                            cancellation,
+                        )?,
+                        reused,
+                    )
+                } else {
+                    super::written_many_fields(
+                        targets,
+                        operation.write_many_controlled(targets, overwrite, cancellation)?,
+                        reused,
+                    )
+                }
+            }
             PreparedKind::Primitive(operation) => {
+                no_streaming_input(input.is_some())?;
                 let mut reports = shardloom_vortex::local_primitives::output_fanout::write(
                     targets,
                     overwrite,

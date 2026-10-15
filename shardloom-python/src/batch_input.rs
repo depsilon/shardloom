@@ -10,7 +10,7 @@ use pyo3::{
     prelude::*,
     types::{PyIterator, PySequence},
 };
-use shardloom_core::{Result, ShardLoomError};
+use shardloom_core::{DatasetUri, Result, ShardLoomError};
 use shardloom_exec::{
     compute_pool::CancellationToken,
     live_memory::{Budgeted, MemoryLease},
@@ -39,6 +39,102 @@ impl From<BatchArgument> for BatchDeclaration {
             fields,
             streaming,
         }
+    }
+}
+
+struct ReaderEntry<'a> {
+    reader: BatchReader<'a>,
+    next_batch: u64,
+}
+
+/// Source routing retains lazy readers, never a collection of input batches.
+/// Reader slots and each reader's schema/builder share the execution allocation.
+pub(super) struct BatchReaders<'a> {
+    entries: Vec<ReaderEntry<'a>>,
+    _metadata: MemoryLease,
+    capacity: usize,
+    previous: Option<usize>,
+}
+
+impl<'a> BatchReaders<'a> {
+    pub(super) fn reserve(
+        declarations: &[BatchDeclaration],
+        session: &ResidentVortexSession,
+    ) -> Result<Option<Self>> {
+        let capacity = declarations
+            .iter()
+            .filter(|declaration| declaration.streaming)
+            .count();
+        if capacity == 0 {
+            return Ok(None);
+        }
+        let bytes = |count: usize| {
+            count
+                .checked_mul(std::mem::size_of::<ReaderEntry<'a>>())
+                .and_then(|bytes| u64::try_from(bytes).ok())
+                .ok_or_else(|| failed("batch reader metadata size overflow"))
+        };
+        let mut metadata = session.reserve_input_scratch(bytes(capacity)?)?;
+        let mut entries = Vec::new();
+        entries
+            .try_reserve_exact(capacity)
+            .map_err(|_| failed("batch reader metadata allocation failed"))?;
+        metadata.resize(bytes(entries.capacity())?)?;
+        Ok(Some(Self {
+            entries,
+            _metadata: metadata,
+            capacity,
+            previous: None,
+        }))
+    }
+
+    pub(super) fn push(&mut self, reader: BatchReader<'a>) -> Result<()> {
+        if self.entries.len() == self.capacity {
+            return Err(failed(
+                "batch reader count exceeds its admitted declaration",
+            ));
+        }
+        if self
+            .entries
+            .iter()
+            .any(|entry| entry.reader.declaration.reference == reader.declaration.reference)
+        {
+            return Err(failed("streaming source references must be distinct"));
+        }
+        self.entries.push(ReaderEntry {
+            reader,
+            next_batch: 0,
+        });
+        Ok(())
+    }
+
+    pub(super) fn next(&mut self, uri: &DatasetUri, ordinal: u64) -> Result<Option<RecordBatch>> {
+        let index = self
+            .entries
+            .iter()
+            .position(|entry| entry.reader.declaration.reference == uri.as_str())
+            .ok_or_else(|| failed("native demand names an undeclared streaming source"))?;
+        let entry = &self.entries[index];
+        if entry.next_batch != ordinal || entry.reader.closed {
+            return Err(failed(
+                "native demand has an invalid streaming source ordinal",
+            ));
+        }
+        // The engine consumed the previous batch before asking for this one.
+        // Release its conversion credit even when demand switches source URI.
+        if let Some(previous) = self.previous.take() {
+            self.entries[previous].reader.conversion = None;
+        }
+        let entry = &mut self.entries[index];
+        let batch = entry.reader.next()?;
+        if batch.is_some() {
+            entry.next_batch = entry
+                .next_batch
+                .checked_add(1)
+                .ok_or_else(|| failed("streaming source batch ordinal overflow"))?;
+            self.previous = Some(index);
+        }
+        Ok(batch)
     }
 }
 

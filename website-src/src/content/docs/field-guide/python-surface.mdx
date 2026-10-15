@@ -185,6 +185,19 @@ which records the source acceptance included in 0.6.0, and the
 [streamed ordering contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-streamed-ordering-2026-10-07.md)
 and [aggregate, join and window spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
 
+The subsequent source implementation extends finite streaming input to all eight
+admitted local writers: Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON and JSONL.
+The direct native binding also routes independent producers through collection,
+incremental delivery and writes. One destination streams directly; several
+destinations execute once and share credited native result replay, with spill
+only when explicitly enabled. Every producer, writer and owned cleanup must
+finish before publication. Multi-file publication remains non-atomic, and each
+writer retains its type and fidelity limits. The
+[destination acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md)
+passes 84 direct tests, 777 public cases and all 43 complete query results;
+hosted integration remains pending. These source changes do not alter the
+immutable 0.6.0 packages.
+
 Relational pivots over file or resident-memory sources can deliver complete
 admitted results through `iter_batches()` with an explicit `spill` policy.
 The [sparse pivot example](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state)

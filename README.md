@@ -82,8 +82,17 @@ records all 43 query timings, fresh ingestion, complete-result checks and the
 18-cohort format/workflow matrix, with each timing boundary stated separately.
 The subsequent [selected-text-view acceptance](docs/benchmarks/native-selected-text-views-2026-10-15.md)
 records fewer constructed views in sparse native filtering, its bounded paired
-comparison, complete local checks and all 43 query timings. Hosted integration
-remains pending; the report retains the slower control cases and claim limits.
+comparison, complete local checks and all 43 query timings. PR #1556 is merged
+after CI and installed-wheel checks; the report preserves the slower controls,
+served-source evidence and outstanding production deployment notification.
+
+Current source builds extend finite streaming input through all eight existing
+local writers and multiple destinations from one execution. The
+[streaming destination contract](docs/architecture/native-stream-destinations-2026-10-15.md)
+defines source completion, native result replay, shared memory/spill admission
+and publication. The [local acceptance report](docs/benchmarks/native-stream-destinations-2026-10-15.md)
+records complete workflow, pressure and query evidence. Hosted integration is
+pending; these additions follow the immutable 0.6.0 packages.
 
 For repository work, see [contributing](CONTRIBUTING.md), [agent and development instructions](AGENTS.md),
 the [phase plan](docs/architecture/phased-execution-plan.md), and the

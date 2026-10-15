@@ -375,6 +375,56 @@ pub(super) fn append_written(
     reports.remove(0)
 }
 
+#[cfg(feature = "vortex-write")]
+pub(super) fn append_written_fanout(
+    fields: &mut Vec<(String, String)>,
+    targets: &[super::NativeVortexPrimitiveRowExportTarget],
+    mut written: shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelationalFanout,
+    reused: bool,
+) -> shardloom_vortex::VortexLocalPrimitiveRowExportReport {
+    append_native_vortex_primitive_row_export_fields(fields, &written.outputs[0]);
+    super::append_native_vortex_primitive_row_export_target_fields_with_execution(
+        fields,
+        targets,
+        &written.outputs,
+        1,
+        if written.replay.is_some() {
+            "native_query_once_with_credited_result_replay"
+        } else {
+            "native_query_once_direct_output"
+        },
+    );
+    append_execution(fields, &written.execution, reused);
+    let replay = written.replay.as_ref();
+    fields.extend([
+        (
+            "native_vortex_result_export_replay_performed".into(),
+            replay.is_some().to_string(),
+        ),
+        (
+            "native_vortex_result_export_replay_batches_detached".into(),
+            replay.map_or(0, |r| r.batches_detached).to_string(),
+        ),
+        (
+            "native_vortex_result_export_replay_rows_detached".into(),
+            replay.map_or(0, |r| r.rows_detached).to_string(),
+        ),
+        (
+            "native_vortex_result_export_replay_buffer_bytes_copied".into(),
+            replay.map_or(0, |r| r.buffer_bytes_copied).to_string(),
+        ),
+        (
+            "native_vortex_result_export_replay_spilled".into(),
+            replay.is_some_and(|r| r.spilled).to_string(),
+        ),
+        (
+            "native_vortex_result_export_replay_count".into(),
+            replay.map_or(0, |r| r.replays).to_string(),
+        ),
+    ]);
+    written.outputs.remove(0)
+}
+
 fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {
     fields.push((
         "relational_spill_requested".into(),

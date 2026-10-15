@@ -118,7 +118,7 @@ def run(harness):
 
                 def outputs(name=name, mode=mode, front=front, supplied=supplied, wanted=wanted, profile=profile,
                             wanted_python=wanted_python):
-                    formats = ("vortex",) if mode == "streaming" else LOCAL_FORMATS
+                    formats = LOCAL_FORMATS
                     denials = {"orc": "ORC does not admit nested output"}
                     if profile == "values":
                         denials["avro"] = "exceeds i64::MAX"
@@ -302,7 +302,8 @@ def run(harness):
     harness.case("typed-cancel-retained", cancel)
 
     def deny_stream_outputs():
-        for extension in LOCAL_FORMATS[1:]:
+        # Type admission still precedes producer demand for an incompatible adapter.
+        for extension in ("orc",):
             name = f"typed-stream-deny-{extension}"
             opened = []
 
@@ -317,12 +318,12 @@ def run(harness):
                 getattr(frame, f"write_{extension}")(target, **policy)
             except ShardLoomCommandError as error:
                 harness.envelope(name, error.envelope, success=False)
-                assert "SL-NATIVE-BATCH" in json.dumps(error.envelope.raw)
+                assert "ORC does not admit nested output" in json.dumps(error.envelope.raw)
             else:
-                raise AssertionError("streaming compatibility output unexpectedly admitted")
+                raise AssertionError("nested ORC output unexpectedly admitted")
             assert opened == [] and set(harness.output.iterdir()) == before
-        return {"denied_before_producer_open": len(LOCAL_FORMATS) - 1}
-    harness.case("typed-stream-compatibility-denied", deny_stream_outputs)
+        return {"denied_before_producer_open": 1}
+    harness.case("typed-stream-orc-schema-denied", deny_stream_outputs)
 
     native_schema = {"v": {"type": "struct", "fields": {
         "n": {"type": "uint8", "nullable": False},

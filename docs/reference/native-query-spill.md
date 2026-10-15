@@ -123,7 +123,8 @@ does not establish zero-decode execution or a total RSS ceiling.
 owned directory through the same namespace/identity rules. It refuses active,
 unknown, replaced or symlinked entries. This permits cleanup and restart, not
 resuming an interrupted operator. Set state retains a separate pressure contract.
-Relational fanout remains separate work. See the
+Resident fanout retains its existing per-destination execution behavior. Finite
+streamed input uses the shared writer/replay contract below. See the
 [ordering contract and acceptance](../architecture/native-relational-resources-2026-10-02.md).
 
 ## General aggregation and completion-aware input
@@ -140,9 +141,16 @@ aggregation, joins, analytic windows, dynamic pivot and limits alongside ordinar
 file/resident sources. Each producer is consumed once. Limits
 and offsets apply globally and drain all input,
 including zero limits. A late producer or value error prevents completion and
-file publication. Incremental results, bounded collection and one new native
-Vortex destination are admitted. Repeated references use the execution-scoped
-native replay contract below. Compatibility streaming writes and other
+file publication. Incremental results, bounded collection and all eight existing
+local writers are admitted: Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and
+CSV. Each writer retains its existing type, fidelity and feature admissions. One
+destination streams directly to its writer. Multiple destinations consume each
+producer once and execute the relational plan once, then stage outputs from
+credited native result replay under the same memory grant and explicit spill
+policy. Result replay is distinct from repeated-source replay. Every producer
+must end, and all writers plus owned spill cleanup must succeed before
+publication. Local multi-file publication is not group-atomic; existing
+partial-publication diagnostics and commit behavior remain in effect. Other
 unadmitted stateful families retain their separate contracts.
 
 ```python
@@ -255,11 +263,15 @@ in a streamed plan; they are not counts of distinct input rows or copied bytes.
 
 File/resident joins retain the eight scalar writers and the seven admitted
 typed/nested writers under each format's representability contract. Streamed
-input permits incremental results, bounded collection or one new native Vortex
-file. Final success requires complete input and source validation, sink completion
-and owned cleanup. Errors, cancellation, replaced/corrupt runs or failed cleanup
-cannot publish a successful result. Dead-owner recovery permits safe cleanup and
-restart, not resuming an interrupted join. See the
+input permits incremental results, bounded collection or any of the eight
+existing local writers under each format's existing admission. One output streams
+directly; multiple outputs use credited native result replay under the same grant
+and explicit spill policy after each producer is consumed once. Final success
+requires complete input and source validation, all writers to finish, and owned
+cleanup. Errors, cancellation, replaced/corrupt runs or failed cleanup cannot
+publish a successful result. Multi-file publication remains non-group-atomic
+with existing partial-publication behavior. Dead-owner recovery permits safe
+cleanup and restart, not resuming an interrupted join. See the
 [join contract](../architecture/native-join-pressure-2026-10-08.md) and
 [complete local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
 for the exact implementation and evidence. Hosted integration completed in
@@ -324,8 +336,18 @@ values, resident denial, ample controls and owned cleanup/restart.
 
 File/resident windows retain all eight scalar writers and the seven admitted
 typed/nested writers under their format contracts. Streamed input permits
-incremental results, bounded collection or one new Vortex file. Shared
-`relational_spill_*` fields report actual run, reader, quota and cleanup work;
+incremental results, bounded collection and all eight existing local writers:
+Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV. Each writer retains
+its existing format, type, fidelity and feature admissions. One output streams
+directly; multiple destinations consume each producer once and execute the
+relational plan once, then replay credited native results under the same grant
+and explicit query spill store/quota. This result replay is distinct from repeated
+source replay. Every input must end, all writers and owned spill cleanup must
+succeed, and final source validation must complete before publication. Local
+multi-file publication is not group-atomic; already completed targets remain
+published if a later commit fails, with the existing recovery diagnostic. See the
+[streaming destination contract](../architecture/native-stream-destinations-2026-10-15.md).
+The shared `relational_spill_*` fields report actual run, reader, quota and cleanup work;
 `relational_ordered_window_*` reports stages, input rows, groups, partitions,
 peer/frame records, distinct intervals/events, extrema summaries and lookup
 blocks. `native_input_window_*_detached` counts input ownership released at each
@@ -337,8 +359,7 @@ grants/quotas, cancellation and source/consumer failures remain errors. Recovery
 cleans a named abandoned directory and permits a fresh restart; it does not
 resume execution. Large individual values or overlapping metadata/readers may
 still exceed the grant. This window contract does not bound total RSS, admit set
-spill, widen input types or enable compatibility
-streaming destinations. See the [window design](../architecture/native-window-pressure-2026-10-08.md)
+spill or widen input types. See the [window design](../architecture/native-window-pressure-2026-10-08.md)
 for the precise ownership and observation-order contract.
 
 ## Sparse pivot state
@@ -355,9 +376,17 @@ through execution-time pivot discovery and the same completed native state.
 Distinct streamed pivots and successive pivots share the transaction's allocation
 and spill quota. Input completion is required before certification/publication;
 an absent downstream domain can fail after discovery consumes input. Streaming
-destinations remain one native Vortex file. The direct prepared unary API remains
-resident. The [streaming composition contract](../architecture/native-stream-input-composition-2026-10-13.md)
-tracks this later extension and its acceptance separately from the historical report.
+destinations use all eight existing local writers under their existing type,
+fidelity and feature admissions. One output streams directly; multiple outputs
+use credited native result replay under the same memory grant and explicit spill
+policy, after each producer is consumed once. Result replay is distinct from
+repeated-source replay. Every producer must end, and all writers and owned spill
+cleanup must succeed before publication. Local multi-file publication remains
+non-group-atomic with its existing partial-publication diagnostics. The direct
+prepared unary API remains resident. The
+[streaming composition contract](../architecture/native-stream-input-composition-2026-10-13.md)
+tracks this later extension and its acceptance separately from the historical
+report.
 
 For an existing Vortex file with `entity`, `category` and numeric `amount` columns:
 

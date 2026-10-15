@@ -76,7 +76,12 @@ file/resident sources. Repeated references and self-joins consume the producer
 once per execution, then use credited native replay of its complete schema.
 Static plans and dynamic SQL declare reuse before demand; custom Rust dynamic
 lowering declares cross-stage reuse before its first discovery call. Incremental results,
-bounded small collection and one native Vortex destination are admitted.
+bounded small collection and all eight existing local writers are admitted: Vortex,
+Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV. Each writer keeps its existing
+type, fidelity and feature admissions. A single destination streams directly to its
+writer. Multiple destinations consume each producer once and execute the relational
+plan once, then use credited native result replay under the same memory grant and
+explicit spill policy. Result replay is distinct from repeated-source replay.
 Cumulative input may exceed the query grant while each batch/frame stays bounded;
 typed intake, retained operator state, output compaction and result/sink owners
 remain charged. Ordering, aggregation, joins and analytic windows admit explicit
@@ -86,7 +91,10 @@ downstream output uses that state without requesting the source again. A later
 schema-dependent binding failure aborts publication and certification even when
 discovery has already consumed input.
 Limits, including zero, drain and validate every input; each source's end is required
-for success. Replay retains compact native arrays under the shared grant and,
+for success. Every writer and owned spill cleanup must also succeed before publication.
+Local multi-file publication is not group-atomic; existing partial-publication
+diagnostics and commit behavior remain in effect.
+Replay retains compact native arrays under the shared grant and,
 with an explicit spill policy, may spool through the existing native query-run
 store. It preserves source order, releases original input owners before the next
 producer demand, and discards replay state before completion. The
@@ -171,7 +179,9 @@ Composed relational ordering also uses those sinks after stable multi-key native
 row spill/merge under one query workspace, quota and resident memory grant. Public
 SQL and DataFrame collection/writers forward `memory_gb`, `max_parallelism` and
 optional `spill` to the selected native provider. Other relational state spill
-and relational fanout remain separate work. See the
+remains separate work. Resident fanout retains its existing per-destination
+execution behavior; finite streamed input uses the writer/replay contract above.
+See the
 [relational resource contract](../architecture/native-relational-resources-2026-10-02.md).
 In-memory collection limits no longer cap these file outputs. Native writers
 request at most 8,192 rows per batch; text and compatibility writers request

@@ -1,0 +1,89 @@
+{
+  "schema_version": "shardloom.stream_destinations_acceptance.v1",
+  "status": "passed_local",
+  "base_commit": "fb1812dec4f9fa724b2c587353c74162935e0b2c",
+  "source_files": 2263,
+  "member_count": 3993,
+  "all_members_reopened": true,
+  "raw_bytes": 243565848,
+  "acceptance": {
+    "workspace_tests": 3219,
+    "native_tests": 4229,
+    "native_manual_platform_exclusions": 29,
+    "direct_tests": 84,
+    "public_cases": 777,
+    "public_families": 20,
+    "public_expected_rows": 22491,
+    "public_pressure_rows": 677251,
+    "complete_queries": 43,
+    "complete_query_rows": 381
+  },
+  "full43_timing_totals": {
+    "raw_calls": 43,
+    "calls_with_engine_timing": 43,
+    "aggregation": "sum_of_every_raw_call_not_best_of_repeats_or_workflow_elapsed",
+    "process_other_boundary": "startup;parsing;preparation;control_plane;report_rendering;exit;unattributed_process_work",
+    "cpu_boundary": "whole_process_cpu_overlaps_wall_time_includes_parallel_workers",
+    "totals": {
+      "engine_execution_seconds": 60.98480974,
+      "result_serialization_seconds": 0.007515338999999999,
+      "process_other_seconds": 2.9409037550447112,
+      "process_wall_seconds": 63.93322883404471,
+      "supervision_overhead_seconds": 1.6954901219360181,
+      "supervised_wall_seconds": 65.62871895598073,
+      "user_cpu_seconds": 172.169437,
+      "system_cpu_seconds": 36.633583,
+      "validation_seconds": 0.03426758498244453
+    }
+  },
+  "source_overlay": [
+    "python/src/shardloom/query.py",
+    "python/tests/test_native_binding.py",
+    "scripts/check_user_surface_reference.py",
+    "scripts/native_input_growth_cases.py",
+    "scripts/native_streaming_destination_cases.py",
+    "scripts/native_streaming_input_cases.py",
+    "scripts/native_typed_input_cases.py",
+    "scripts/run_native_streaming_input_uat.py",
+    "shardloom-cli/src/native_runtime.rs",
+    "shardloom-cli/src/native_runtime_operation.rs",
+    "shardloom-cli/src/public_relational_batches.rs",
+    "shardloom-cli/src/public_resident_relational.rs",
+    "shardloom-cli/src/public_workflow_route.rs",
+    "shardloom-python/src/batch_input.rs",
+    "shardloom-python/src/plan.rs",
+    "shardloom-python/src/stream.rs",
+    "shardloom-vortex/src/local_primitive_completed_result.rs",
+    "shardloom-vortex/src/local_primitive_native_text_sink.rs",
+    "shardloom-vortex/src/local_primitive_output_fanout.rs",
+    "shardloom-vortex/src/local_primitive_prepared_relational.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_destination_pressure_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_destination_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_input.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_input_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_replay.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_window_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_writer.rs",
+    "shardloom-vortex/src/local_primitive_relational_writer_fanout.rs"
+  ],
+  "archive": {
+    "file": "native-stream-destinations-2026-10-15.tar.xz",
+    "bytes": 4694236,
+    "sha256": "b79cec798b9fabe01d03a616ffd5606275db63c271d9982fe280b5807dc47d7e"
+  },
+  "manifest": {
+    "file": "native-stream-destinations-2026-10-15.manifest.json.xz",
+    "bytes": 167248,
+    "sha256": "50c59d90228f5518ee1a4decb45bf6a09c8c5424b116223db6db396ef562a9a2",
+    "raw_sha256": "2a3bb3b4b58ff21274089cbde18d32f02e5780e36176a9a3d452cca06378b6be"
+  },
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-stream477.json",
+    "bytes": 297274,
+    "sha256": "2126a2f61568cde54f0ea6957e27141a01a583c0e23da39dc80f0b0cb10c49f9"
+  },
+  "hosted_integration_complete": false,
+  "installed_wheel_proof": false,
+  "publication_attempted": false,
+  "limitations": "Finite local workflow acceptance and one retained-reference query pass. No matched performance comparison, whole-process memory cap, group-atomic publication, network transport, all-platform acceptance or new package release is claimed. Installed-wheel and hosted integration proof are subsequent gates."
+}

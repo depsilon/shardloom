@@ -1,9 +1,7 @@
 //! Query-local replay uses credited native payloads and the existing run store.
 
-use super::{
-    ArrayRef, ExecutedVortexBatchInput, Metrics, NativeExecutionContext, ReservedVec, Result,
-    checked_add, failed,
-};
+use super::batch_input::failed;
+use super::{ArrayRef, Metrics, NativeExecutionContext, ReservedVec, Result};
 use crate::local_primitives::{native_payload, vortex_error};
 #[cfg(feature = "vortex-write")]
 use crate::local_primitives::{native_relational_sort::Spec, native_relational_spill};
@@ -11,6 +9,21 @@ use shardloom_exec::live_memory::MemoryLease;
 use vortex::array::dtype::DType;
 
 const COPY_ROWS: usize = 1024;
+
+#[derive(Default)]
+pub(super) struct CopyStats {
+    pub(super) batches: u64,
+    pub(super) rows: u64,
+    pub(super) buffer_bytes: u64,
+    pub(super) max_batch_rows: usize,
+}
+
+fn checked_add(total: &mut u64, value: u64) -> Result<()> {
+    *total = total
+        .checked_add(value)
+        .ok_or_else(|| failed("native replay counter overflow"))?;
+    Ok(())
+}
 
 pub(super) struct Schema {
     #[cfg(feature = "vortex-write")]
@@ -82,11 +95,12 @@ impl<'p, 's> Recorder<'p, 's> {
     pub(super) fn build(
         &mut self,
         array: &ArrayRef,
-        report: &mut ExecutedVortexBatchInput,
+        report: &mut CopyStats,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
-        // Copy the complete schema before any scan projection/filter. Bounded
-        // slices limit transient gather work even for large Arrow input batches.
+        // Retain only the supplied native relation. Input replay supplies its
+        // full source schema; output replay supplies the completed query schema.
+        // Bounded slices limit transient gather work for either producer.
         for start in (0..array.len()).step_by(COPY_ROWS) {
             context.check_cancelled()?;
             let end = start.saturating_add(COPY_ROWS).min(array.len());
@@ -95,9 +109,10 @@ impl<'p, 's> Recorder<'p, 's> {
                 native_payload::CopyPolicy::PreserveUnobserved,
                 context,
             )?;
-            checked_add(&mut report.replay_batches_detached, 1)?;
-            checked_add(&mut report.replay_rows_detached, compact.len() as u64)?;
-            checked_add(&mut report.replay_buffer_bytes_copied, compact.nbytes())?;
+            checked_add(&mut report.batches, 1)?;
+            checked_add(&mut report.rows, compact.len() as u64)?;
+            checked_add(&mut report.buffer_bytes, compact.nbytes())?;
+            report.max_batch_rows = report.max_batch_rows.max(compact.len());
             #[cfg(feature = "vortex-write")]
             if let Some(ordering) = &mut self.ordering {
                 ordering.build(compact, context)?;
@@ -121,6 +136,41 @@ impl<'p, 's> Recorder<'p, 's> {
 }
 
 impl Completed {
+    /// Deliver the retained relation to an admitted sink, including typed empties.
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn produce(
+        &self,
+        dtype: &DType,
+        metrics: &Metrics<'_>,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        rows: u64,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<bool>,
+    ) -> Result<()> {
+        if batch_rows == 0 {
+            return Err(failed("invalid output replay batch bound"));
+        }
+        let mut submitted = 0_u64;
+        self.run(dtype, metrics, context, &mut |array| {
+            for start in (0..array.len()).step_by(batch_rows) {
+                let end = start.saturating_add(batch_rows).min(array.len());
+                let batch = array.slice(start..end).map_err(vortex_error)?;
+                checked_add(&mut submitted, batch.len() as u64)?;
+                if !consume(batch)? {
+                    return Err(failed("output replay consumer stopped before completion"));
+                }
+            }
+            Ok(())
+        })?;
+        if submitted != rows {
+            return Err(failed("output replay row count changed"));
+        }
+        if submitted == 0 && !consume(native_payload::empty_record(dtype, context)?)? {
+            return Err(failed("output replay consumer stopped before completion"));
+        }
+        context.check_cancelled()
+    }
+
     pub(super) fn is_spilled(&self) -> bool {
         match self {
             Self::Resident(_) => false,

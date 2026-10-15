@@ -18,6 +18,10 @@ mod join_tests;
 #[path = "local_primitive_relational_batch_window_tests.rs"]
 mod window_tests;
 
+#[cfg(feature = "universal-format-io")]
+#[path = "local_primitive_relational_batch_destination_tests.rs"]
+mod destination_tests;
+
 fn scan() -> VortexRelationalPlan {
     VortexRelationalPlan::Scan(VortexRelationalScan {
         source_uri: DatasetUri::new("memory://stream").unwrap(),
@@ -367,6 +371,8 @@ fn completion_input_plan_and_provider_admission_precede_payload() {
         "shardloom-stream-rejected-{}.json",
         std::process::id()
     ));
+    let cancelled = CancellationToken::default();
+    cancelled.cancel();
     assert!(
         prepared
             .with_batch_input(&mut input)
@@ -375,7 +381,7 @@ fn completion_input_plan_and_provider_admission_precede_payload() {
                 &path,
                 super::super::super::VortexLocalPrimitiveRowExportFormat::Json,
                 false,
-                &CancellationToken::default(),
+                &cancelled,
             )
             .is_err()
     );

@@ -622,16 +622,45 @@ pub(super) fn write_stream_admitted(
     cancellation: &CancellationToken,
     admitted: Option<&crate::resident_session::NativeExecutionContext<'_>>,
 ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+    prepare_stream(plan, request, format, policy, cancellation)?.write(
+        request,
+        path,
+        overwrite,
+        policy,
+        producer,
+        cancellation,
+        admitted,
+    )
+}
+
+/// Admit every adapter before consuming a single-use source or creating outputs.
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) enum PreparedStreamWriter {
+    Native(super::native_sink::NativeSinkPlan),
+    Text(
+        super::native_sink::NativeSinkPlan,
+        super::VortexLocalPrimitiveRowExportFormat,
+    ),
+    #[cfg(feature = "universal-format-io")]
+    Compatibility {
+        plan: Box<super::columnar_compat_sink::PreparedCompatibilityExport>,
+        _metadata: shardloom_exec::live_memory::MemoryLease,
+    },
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) fn prepare_stream(
+    plan: super::native_sink::NativeSinkPlan,
+    request: &VortexQueryPrimitiveRequest,
+    format: super::VortexLocalPrimitiveRowExportFormat,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    cancellation: &CancellationToken,
+) -> Result<PreparedStreamWriter> {
+    cancellation.check()?;
+    #[cfg(not(feature = "universal-format-io"))]
+    let _ = (request, policy);
     if format == super::VortexLocalPrimitiveRowExportFormat::Vortex {
-        return plan.write_produced(
-            request,
-            path,
-            overwrite,
-            policy,
-            Some(producer),
-            cancellation,
-            admitted,
-        );
+        return Ok(PreparedStreamWriter::Native(plan));
     }
     if matches!(
         format,
@@ -639,17 +668,8 @@ pub(super) fn write_stream_admitted(
             | super::VortexLocalPrimitiveRowExportFormat::Jsonl
             | super::VortexLocalPrimitiveRowExportFormat::Csv
     ) {
-        return super::native_text_sink::write(
-            plan,
-            request,
-            path,
-            format,
-            overwrite,
-            policy,
-            Some(producer),
-            cancellation,
-            admitted,
-        );
+        super::native_text_sink::validate_schema(&plan.dtype)?;
+        return Ok(PreparedStreamWriter::Text(plan, format));
     }
     #[cfg(feature = "universal-format-io")]
     if format.is_compatibility_binary() {
@@ -657,12 +677,60 @@ pub(super) fn write_stream_admitted(
             plan.row_count,
             cancellation,
         );
-        return super::columnar_compat_sink::prepare_plan(request, plan, format, policy, limits)?
-            .ok_or_else(|| failed("result schema is outside compatibility output admission"))?
-            .write_produced(path, overwrite, producer, cancellation, admitted)
-            .map(|completed| completed.report);
+        let metadata = plan.session.memory().reserve(std::mem::size_of::<
+            super::columnar_compat_sink::PreparedCompatibilityExport,
+        >() as u64)?;
+        let plan =
+            super::columnar_compat_sink::prepare_plan(request, plan, format, policy, limits)?
+                .ok_or_else(|| failed("result schema is outside compatibility output admission"))?;
+        return Ok(PreparedStreamWriter::Compatibility {
+            plan: Box::new(plan),
+            _metadata: metadata,
+        });
     }
     Err(failed("result stream format is not admitted"))
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+impl PreparedStreamWriter {
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn write(
+        self,
+        request: &VortexQueryPrimitiveRequest,
+        path: &std::path::Path,
+        overwrite: bool,
+        policy: super::VortexLocalPrimitiveExecutionPolicy,
+        producer: &mut super::native_sink::ArrayProducer<'_>,
+        cancellation: &CancellationToken,
+        admitted: Option<&crate::resident_session::NativeExecutionContext<'_>>,
+    ) -> Result<super::VortexLocalPrimitiveRowExportReport> {
+        match self {
+            Self::Native(plan) => plan.write_produced(
+                request,
+                path,
+                overwrite,
+                policy,
+                Some(producer),
+                cancellation,
+                admitted,
+            ),
+            Self::Text(plan, format) => super::native_text_sink::write(
+                plan,
+                request,
+                path,
+                format,
+                overwrite,
+                policy,
+                Some(producer),
+                cancellation,
+                admitted,
+            ),
+            #[cfg(feature = "universal-format-io")]
+            Self::Compatibility { plan, _metadata } => plan
+                .write_produced(path, overwrite, producer, cancellation, admitted)
+                .map(|completed| completed.report),
+        }
+    }
 }
 
 #[cfg(all(feature = "vortex-write", unix))]

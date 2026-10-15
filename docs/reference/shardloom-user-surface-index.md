@@ -150,15 +150,23 @@ contracts, extended by the [join contract](../architecture/native-join-pressure-
 and [window contract](../architecture/native-window-pressure-2026-10-08.md),
 admit `streaming=True` for finite batch sources used once each through
 Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window/PivotRows alongside ordinary file/resident
-sources, with incremental results, bounded small collection or one native Vortex
-destination. It retains at most one native input batch, permitting
-cumulative input above the shared grant while each frame remains bounded and
-every finite producer must reach its own explicit end.
+sources, with incremental results, bounded small collection and all eight existing
+local writers: Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV. Each
+writer retains its existing format, type, fidelity and feature admissions. A
+single output streams directly; multiple destinations consume each producer once
+and execute the relational plan once, then replay credited native results under
+the same grant and explicit query spill store/quota. Native and subprocess input
+routes support multiple producers without adding public Python methods or a new
+transport. It retains at most one native input batch, permitting cumulative input
+above the shared grant while each frame remains bounded.
 Typed intake and output compaction remain charged; result and sink reservations
 remain separate. Unsupported plans reject before producer consumption, and success
-requires observed end-of-input. Limits, including zero, drain and validate the
-complete input. Ordering, general aggregation, joins and analytic windows share the grant and can
-use an explicit native spill policy. Ordering/aggregate
+requires every input to end, all writers and owned spill cleanup to succeed, and
+final source validation to complete before publication. Limits, including zero,
+drain and validate the complete input. Local multi-file publication is not
+group-atomic and preserves already completed targets with a recovery diagnostic
+if a later commit fails. Ordering, general aggregation, joins and analytic windows
+share the grant and can use an explicit native spill policy. Ordering/aggregate
 [local acceptance](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
 and hosted integration pass in [PR #1531](https://github.com/depsilon/shardloom/pull/1531).
 The [join local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
@@ -179,7 +187,13 @@ existing query-run store available under explicit spill policy. Replay preserves
 source order and releases its owners before completion. Separate
 `native_input_replay_*` counters expose that copy/pass/spill boundary. Ordinary
 one-pass pivots use completed pivot state without retaining a source replay cache.
-Compatibility streaming writes and a process-RSS bound remain outside this contract.
+Compatibility writers follow their existing format/type/fidelity admissions; a
+process-RSS bound remains outside this contract. See the
+[streaming destination contract](../architecture/native-stream-destinations-2026-10-15.md).
+The [local acceptance report](../benchmarks/native-stream-destinations-2026-10-15.md)
+records 84 direct Python tests, including 24 composition combinations and eight
+multi-source lifecycle modes, 777 public cases across 20 families, all six Rust
+gates and one complete Full43 pass. Hosted integration remains pending.
 
 Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
 with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:
@@ -388,9 +402,10 @@ objects. Common admitted methods include:
   [hosted receipt](../benchmarks/evidence/native-pivot-hosted-2026-10-08.json).
   Direct prepared unary pivots remain resident. Current source builds also admit
   finite streaming input through one-pass native discovery and completed pivot
-  state, with incremental results, bounded collection or one native Vortex
-  destination. The [streaming composition contract](../architecture/native-stream-input-composition-2026-10-13.md)
-  tracks the later extension. Spill does not expand
+  state, with incremental results, bounded collection and the existing local
+  writers and fanout under the [destination contract](../architecture/native-stream-destinations-2026-10-15.md).
+  The [streaming composition contract](../architecture/native-stream-input-composition-2026-10-13.md)
+  records the input extension. Spill does not expand
   aggregate, type, margin or 128-field admission.
 - Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
   primitive; `sum`/`mean`/`min`/`max` require numeric inputs, `count` admits scalar rows, centered windows
@@ -556,7 +571,10 @@ admit [scalar-value subqueries](../architecture/native-scalar-subqueries-2026-10
 with one static output column and explicit correlation; published v0.4.0 packages
 predate that addition. Unadmitted operator/type combinations, lateral relations,
 dynamic-pivot-dependent scalar schemas, named windows, variable frame offsets,
-set state spill and relational fanout remain explicit boundaries.
+and set state spill remain explicit boundaries. Relational fanout uses the shared
+[streaming destination contract](../architecture/native-stream-destinations-2026-10-15.md),
+with per-target execution for repeatable inputs and one execution plus credited
+result replay for finite producers.
 General aggregation, joins, analytic windows and file/resident-memory pivots have their own
 [spill strategies](native-query-spill.md).
 

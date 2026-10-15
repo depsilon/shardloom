@@ -156,10 +156,6 @@ def run(harness):
         ("deny-repeated-window", lambda q: q.window("ROW_NUMBER() OVER (ORDER BY n) AS rn")
          .union_all(q.window("ROW_NUMBER() OVER (ORDER BY n) AS rn")).collect(check=True, **policy)),
         ("deny-unary", lambda q: q.drop_duplicates(["n"]).collect(check=True, **policy)),
-        ("deny-parquet", lambda q: q.write_parquet(harness.output / "deny-parquet.parquet", **policy)),
-        ("deny-fanout", lambda q: q.fanout([
-            ("vortex", harness.output / "deny-fanout-a.vortex"),
-            ("vortex", harness.output / "deny-fanout-b.vortex")], **policy)),
     ]:
         harness.case(name, lambda name=name, operation=operation: reject(name, operation))
 

@@ -1,5 +1,5 @@
 use super::{
-    batch_input::{self, BatchDeclaration, BatchReader},
+    batch_input::{self, BatchDeclaration, BatchReader, BatchReaders},
     native_error,
     resources::NativeResources,
     result::NativeResult,
@@ -111,7 +111,7 @@ impl PlanCore {
         &self,
         resources: ExecutionResources,
         cancellation: &CancellationToken,
-        execute: impl FnOnce(&PreparedNativeOperation, bool, Option<&mut BatchReader<'_>>) -> Result<T>,
+        execute: impl FnOnce(&PreparedNativeOperation, bool, Option<&mut BatchReaders<'_>>) -> Result<T>,
     ) -> PyResult<T> {
         self.with_prepared_and_preflight(resources, cancellation, || Ok(()), execute)
     }
@@ -121,7 +121,7 @@ impl PlanCore {
         resources: ExecutionResources,
         cancellation: &CancellationToken,
         preflight: impl FnOnce() -> Result<()>,
-        execute: impl FnOnce(&PreparedNativeOperation, bool, Option<&mut BatchReader<'_>>) -> Result<T>,
+        execute: impl FnOnce(&PreparedNativeOperation, bool, Option<&mut BatchReaders<'_>>) -> Result<T>,
     ) -> PyResult<T> {
         let errors = Arc::new(Mutex::new(None));
         super::failure::with_resources(
@@ -148,17 +148,15 @@ impl PlanCore {
                 } else {
                     self.bindings_in_session(session, cancellation)?
                 };
-                let mut streaming = None;
+                let mut streaming = BatchReaders::reserve(&self.batches, session)?;
                 for declaration in &self.batches {
                     let reader = BatchReader::new(declaration, session, cancellation, &errors)?;
                     let source = if declaration.streaming {
-                        if streaming.is_some() {
-                            return Err(failed(
-                                "one native operation admits one streaming input producer",
-                            ));
-                        }
                         let schema = reader.schema();
-                        streaming = Some(reader);
+                        streaming
+                            .as_mut()
+                            .ok_or_else(|| failed("streaming reader ownership is absent"))?
+                            .push(reader)?;
                         SqlSource::ColumnarStream(schema)
                     } else {
                         SqlSource::Memory(reader.collect_resident()?)
@@ -291,8 +289,12 @@ impl NativePlan {
         py.detach(|| {
             self.with_prepared(resources, &cancellation, |operation, reused, input| {
                 let completed = if let Some(input) = input {
-                    let mut next = || input.next();
-                    operation.execute_native(&cancellation, Some(&mut next))?
+                    let mut next =
+                        |uri: &shardloom_core::DatasetUri, ordinal| input.next(uri, ordinal);
+                    operation.execute_native_with_inputs(
+                        &cancellation,
+                        Some(native::NativeArrowInput::Sources(&mut next)),
+                    )?
                 } else {
                     operation.execute_native(&cancellation, None)?
                 };
@@ -323,13 +325,14 @@ impl NativePlan {
         let fields = py.detach(|| {
             self.with_prepared(resources, &cancellation, |operation, reused, input| {
                 if let Some(input) = input {
-                    let mut next = || input.next();
-                    operation.write_fields(
+                    let mut next =
+                        |uri: &shardloom_core::DatasetUri, ordinal| input.next(uri, ordinal);
+                    operation.write_fields_with_inputs(
                         &path,
                         format,
                         overwrite,
                         &cancellation,
-                        Some(&mut next),
+                        Some(native::NativeArrowInput::Sources(&mut next)),
                         reused,
                     )
                 } else {
@@ -363,17 +366,24 @@ impl NativePlan {
                 resources,
                 &cancellation,
                 || {
-                    if self.batches.iter().any(|input| input.streaming) {
-                        return Err(failed(
-                            "streaming input requires one native Vortex destination; choose explicit resident mode for fanout",
-                        ));
-                    }
                     shardloom_vortex::local_primitives::output_fanout::preflight_targets(
                         &targets, overwrite,
                     )
                 },
-                |operation, reused, _| {
-                    operation.write_many_fields(&targets, overwrite, &cancellation, reused)
+                |operation, reused, input| {
+                    if let Some(input) = input {
+                        let mut next =
+                            |uri: &shardloom_core::DatasetUri, ordinal| input.next(uri, ordinal);
+                        operation.write_many_fields_with_inputs(
+                            &targets,
+                            overwrite,
+                            &cancellation,
+                            Some(native::NativeArrowInput::Sources(&mut next)),
+                            reused,
+                        )
+                    } else {
+                        operation.write_many_fields(&targets, overwrite, &cancellation, reused)
+                    }
                 },
             )
         })?;

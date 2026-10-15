@@ -13,8 +13,11 @@ limits; this evidence does not establish a general workload speedup.
 Status: complete local acceptance passes, including all seven Rust/provider
 gates, 80 direct Python tests, 757 public workflow cases and one Full43 pass.
 The [portable evidence index](evidence/native-selected-text-views-2026-10-15.json)
-records 2,305 verified members. Hosted integration remains pending. This source
-change follows the immutable 0.6.0 packages and does not publish a release.
+records 2,305 verified members. PR #1556 is merged after 44 successful checks;
+the [hosted packet](evidence/native-selected-view-hosted-2026-10-15.json) records
+the installed-wheel and served-source proof. The production deployment
+notification remains pending, as detailed below. This source change follows
+the immutable 0.6.0 packages and does not publish a release.
 
 ## Shared implementation and exact work avoided
 
@@ -115,7 +118,8 @@ Public acceptance independently reopens 724 complete-value files containing
 677,251 rows, and 136 native/compatibility artifact references. The complete
 case inventory matches the accepted public suite. CLI and binding identities
 match the same frozen source. These local direct tests do not establish an
-installed-wheel or all-platform claim; hosted package lanes remain pending.
+installed-wheel or all-platform claim; the later hosted package proof is
+recorded in the integration section below.
 
 The Full43 preflight first stopped before any native query because its temporary
 wrapper copied an obsolete log ceiling. The corrected wrapper uses the maintained
@@ -225,7 +229,8 @@ scope-matrix row; adding that row and recording completed PR #1555 resolves it
 without changing runtime sources. Local browser inspection verifies the new
 evidence paragraph at desktop and 390-pixel widths, with no horizontal overflow
 or browser warnings, and search navigation reaches the updated resource section.
-Hosted review, package lanes and deployment still require their separate proof.
+At that local acceptance point, hosted review, package lanes and deployment
+still required their separate proof, recorded below.
 
 The first hosted wheel attempt stopped in all three lanes before building: the
 bundled Zstd provenance description had not been synchronized with the reviewed
@@ -235,7 +240,35 @@ locally. Updating only that description makes all seven license tests and all
 registry and five vendored packages. All 2,259 frozen source identities were
 rechecked: the notice manifest is the sole difference, with runtime sources and
 benchmark artifacts unchanged. The original failures remain in the integration
-evidence; hosted wheel acceptance is still pending.
+evidence; the subsequent hosted acceptance is recorded below.
+
+## Hosted integration and production source
+
+[PR #1556](https://github.com/depsilon/shardloom/pull/1556) merges at
+`fb1812dec4f9fa724b2c587353c74162935e0b2c` after all 44 pre-merge checks succeed
+on `ba7643df4576c1869dae33ed0c2ef4f9a2e335bb`. Reviewed, synthetic-test and merged
+trees match. Automated review completes on that head, with no findings in the
+final review/thread snapshots. The full native log records 2,807 passing tests
+and 26 unchanged manual exclusions; provider groups pass 10/7/7/23/4 tests.
+Three isolated installed-wheel lanes—Python 3.10 and 3.13 on Linux and 3.13 on
+macOS—each pass all 80 native binding tests without failures, errors or skips.
+These are integration wheels; no new package publication is attempted.
+
+The [hosted evidence index](evidence/native-selected-view-hosted-2026-10-15.json)
+and [archive](evidence/native-selected-view-hosted-2026-10-15.tar.xz) preserve
+67 members, including all successful raw logs, earlier failed attempts, source
+identities and the executed verifier. Primary verification checks 67 literal
+excerpts, all 2,259 accepted source hashes against immutable merged Git blobs,
+and both accepted executable hashes. The notice-manifest description is the
+sole source-inventory difference; the measured runtime is preserved.
+
+All seven preview responses match accepted source. All seven production
+responses preserve merged source, with only the captured Cloudflare script
+insertions in HTML. Cloudflare's production check still reports `in_progress`
+and supplies no version ID. The packet records that unresolved status explicitly;
+served-source verification does not claim that the notification completed.
+The earlier rendered guide/search proof remains separately scoped. Remaining
+optimization and breadth work continues under its existing owners.
 
 ## Diagnostic basis and remaining work
 
