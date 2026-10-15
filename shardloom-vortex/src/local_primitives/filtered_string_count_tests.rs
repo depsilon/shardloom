@@ -108,6 +108,7 @@ fn run_filtered(chunks: &[ArrayRef], memory_bytes: usize) -> serde_json::Value {
         false,
         true,
         VortexLocalPrimitiveResourceEnvelope::new(24, 12).expect("envelope"),
+        Some(vortex::array::legacy_session()),
     )
     .expect("states");
     states
@@ -192,6 +193,7 @@ fn filtered_exact_histogram_budget_pressure_preserves_exact_refinement() {
         false,
         true,
         VortexLocalPrimitiveResourceEnvelope::new(24, 12).expect("envelope"),
+        Some(vortex::array::legacy_session()),
     )
     .expect("states");
     states
@@ -224,8 +226,16 @@ fn filtered_exact_histogram_budget_pressure_preserves_exact_refinement() {
     let mut exact =
         GroupedAggregateStates::new(&request, Some(2), &columns, false, false).expect("exact");
     for chunk in &chunks {
-        super::update_grouped_exact_states_from_chunk(&mut exact, chunk, &columns, None)
-            .expect("refinement");
+        super::update_grouped_exact_states_from_chunk(
+            &mut exact,
+            chunk,
+            &columns,
+            None,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .expect("refinement");
     }
     let (_, summary) = exact
         .result_row_count_and_summary(Some(2))

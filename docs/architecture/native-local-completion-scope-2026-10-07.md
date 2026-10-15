@@ -155,8 +155,24 @@ coverage remains open. A native grant is not a process-RSS limit.
 The [selection resource unit](native-selection-resources-2026-10-13.md) passes
 local provider/aggregate-context refusal and retention checks, complete public
 and Full43 regression, and its paired cost gate after rejecting the first
-candidate. Its source-bound portable proof is complete; hosted integration
-remains pending. Other child-decoder scratch and metadata are still separate work.
+candidate. [PR #1550](https://github.com/depsilon/shardloom/pull/1550) integrates
+its source-bound proof after all 44 checks pass, with unchanged accepted source
+and verified production content. Other child-decoder scratch and metadata are
+still separate work.
+
+The [fixed-width decoder unit](native-decoder-scratch-2026-10-14.md) now passes
+local resource/cost checks, complete public workflows and Full43. It admits the
+reviewed child-buffer trees during native Chunked append and the FSST metadata
+finish overlap, preserving direct append and fusion. Portable evidence is complete.
+The [matched composition investigation](../benchmarks/native-composition-attribution-2026-10-14.md)
+does not reproduce the historical increase under its declared thresholds and
+does not establish the historical cause. The
+[native helper correction](native-admitted-context-2026-10-14.md) preserves the
+actual query context and provider errors. Its [combined acceptance](../benchmarks/native-admitted-context-2026-10-14.md)
+passes the final direct/public workflows and 516 matched complete query calls
+with no repeated declared cost breach; hosted integration is pending.
+Unreviewed decoder trees, metadata and
+compression/training retain their owners.
 
 ## Coverage that must remain visible
 
@@ -236,12 +252,15 @@ investigations above, prioritizing natural-scale batch execution and
 source/type/destination composition. This is a substantial
 capability release, not a declaration that the whole completion contract is done.
 
-The maintainer's later October 9 instruction supersedes discretionary release
-timing: after the now-completed v0.5.1 train, keep the version fixed
-until all remaining ShardLoom work is complete. Do not start another patch or
-milestone bump for an intermediate capability or investigation. Continue the
-six areas, all eight investigations and their acceptance/documentation work
-under the existing phase owners without additional release trains.
+The October 9 instruction originally held the version after v0.5.1 until all
+remaining work was complete. The maintainer's October 14 instruction supersedes
+that hold: finish the current corrections and next PR, make one version bump,
+then return to remaining work and optimizations. The current milestone includes
+the composition timing investigation, admitted-context follow-through and pending
+decoder resource corrections. The normal release evidence and selected-channel
+gates remain required. Published v0.5.1 artifacts stay immutable; subsequent
+work under the six areas and eight investigations does not receive a separate
+release for each unit.
 
 For every cohesive unit, keep a reuse map, native-I/O and execution evidence,
 resource/failure tests, complete public workflow checks, applicable regression

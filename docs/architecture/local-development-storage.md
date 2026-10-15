@@ -377,7 +377,14 @@ No automated deletion of old runs, cloud files, or user data is performed.
 
 ## Current runtime observation procedure
 
-The latest complete current-main observation is recorded in
+The [October 14 fresh observation](../benchmarks/native-fresh-unpaced-uat-2026-10-14.md)
+records the current decoder/context correction: 54.603468 seconds native ingest,
+194.125941 seconds summed over the predeclared 129 query calls, and 331.624211
+seconds supervised ingest-plus-query work. All 18 format/workflow cohorts pass.
+It has no artificial pacing, battery/thermal admission or automatic retry.
+Future full-query UAT defaults to one call per query (43 calls).
+
+The historical September 30 current-main observation is recorded in
 [the September 30 report](../benchmarks/current-runtime-e2e-2026-09-30.md):
 65.806017 seconds native ingest, 55.251837 seconds for one Full43 pass,
 121.057854 seconds combined native work, and 136.696318 seconds actual
@@ -401,11 +408,22 @@ For a future authorized observation:
    run without recording unrelated command arguments. Keep ordinary host
    activity visible and do not describe sampled process CPU as exclusive
    attribution. Record profiler/build overlap or other disturbances explicitly.
+   Host metadata is observation context. Do not gate these runners on battery
+   charge, power source or thermal state. Those readings do not establish the
+   cause of a performance difference. The October 14 experimental host gate was
+   removed following maintainer direction; its interrupted measurements remain
+   in the [investigation record](../benchmarks/native-performance-gap-2026-10-14.md).
+   Do not insert artificial delays or cooling pauses between queries, repeated
+   trials or UAT stages. Run the next operation after required validation and
+   cleanup finish. Watchdog polling while a child is running is not a pacing
+   policy and must not delay an already completed child deliberately.
 4. Time each complete public native process, including startup, full output
    and exit. Also time the actual workflow. Declare the exact treatment of
    input hashing, validation, archiving and final output hashing. Use one call
-   per query for a single-pass observation; retain the existing symmetric
-   fastest-valid-run rule only for explicitly paired comparative cohorts.
+   per query by default. Both query runners accept `--repeats N` for explicitly
+   requested repeats and record that count; a single pass reports hot-run
+   metrics as unavailable. Preserve the declared symmetric scoring rule for
+   comparative cohorts and never rewrite historical three-run observations.
 5. Validate every complete result and record no-fallback certificates. Preserve
    raw output, timing, PID, result/reference hashes and every sample. Record
    source prehashing and newly written-input cache effects; do not infer a

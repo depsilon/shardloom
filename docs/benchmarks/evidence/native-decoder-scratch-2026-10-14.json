@@ -1,0 +1,32 @@
+{
+  "schema_version": "shardloom.completed_native_evidence_index.v1",
+  "status": "completed_decoder_only_acceptance_precedes_final_combined_correction",
+  "archive": {
+    "path": "native-decoder-scratch-2026-10-14.tar.xz",
+    "bytes": 6361024,
+    "sha256": "e2e9c4137680c1373679745c82fb562668bca3c4fb42cef37589b048782a7d49"
+  },
+  "manifest": {
+    "path": "native-decoder-scratch-2026-10-14.manifest.json.xz",
+    "bytes": 534864,
+    "sha256": "94116d833e2aa3dc77d5b7da1b1d13b98a606b3ca6948e5d2da519a305ca30f4",
+    "uncompressed_bytes": 5373961,
+    "uncompressed_sha256": "3dfe0e16dec46fe47d99c3ace8b81fe42d5913333658d818aad934369eaa3854"
+  },
+  "verification": {
+    "path": "native-decoder-scratch-2026-10-14.verification.json",
+    "bytes": 287,
+    "sha256": "6b1274fb545f5100762573fe788cbf05208f4dec3329413b5ec073cbafad432a"
+  },
+  "verified_member_count": 10351,
+  "all_archive_bytes_preserved": true,
+  "all_original_manifest_bytes_preserved": true,
+  "native_execution_repeated_for_copy": false,
+  "source_files_and_executables": "Exact identities and source overlays are inside the manifest and archive; bulk dataset and executable payloads are excluded.",
+  "historical_cause_established": false,
+  "performance_superiority_claim": false,
+  "publication_attempted": false,
+  "companion_report": "../native-decoder-scratch-2026-10-14.md",
+  "final_combined_correction": "../native-admitted-context-2026-10-14.md",
+  "limitations": "Prior complete member reopening remains bound to unchanged archive and manifest hashes. This copy verifies every copied archive byte without rerunning native workloads."
+}

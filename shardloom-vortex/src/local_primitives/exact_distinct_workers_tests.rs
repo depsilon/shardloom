@@ -98,6 +98,7 @@ fn exact_distinct_order_admission_matches_native_integer_ties_and_rejects_other_
             false,
             false,
             policy.resource_envelope(),
+            Some(vortex::array::legacy_session()),
         )
         .unwrap();
         let memory = LiveMemoryPool::new(4 << 20).unwrap();
@@ -156,6 +157,7 @@ fn exact_distinct_workers_renamed_reordered_complete_values_and_exact_pressure_s
                 false,
                 false,
                 policy.resource_envelope,
+                Some(vortex::array::legacy_session()),
             )
             .unwrap();
             let base = 1_u64 << 61;

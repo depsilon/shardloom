@@ -376,6 +376,7 @@ fn compound_workers_renamed_reordered_offset_ties_and_weighted_handoff() {
                 false,
                 false,
                 policy.resource_envelope,
+                Some(vortex::array::legacy_session()),
             )
             .unwrap();
             let memory = LiveMemoryPool::new(8 << 20).unwrap();

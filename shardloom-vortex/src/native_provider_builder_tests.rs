@@ -2,6 +2,8 @@ use super::*;
 
 #[path = "native_provider_builder_cost.rs"]
 mod cost;
+#[path = "native_provider_decoder_cost.rs"]
+mod decoder_cost;
 use vortex::{
     VortexSessionDefault as _,
     array::{

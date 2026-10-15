@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Counterbalanced old/new native queries using the existing guarded UAT clock.
 
-Both roles run three times per query, with order reversed at each pair and query.
+Both roles run once per query by default; explicit repeats add paired trials.
+Role order alternates at each pair and query.
 This controls temporal drift better than comparing suites from separate days; it
 does not flush the OS cache or claim cold-storage, production or official rank.
 """
@@ -131,10 +132,10 @@ def archive_completed_logs(paths, target, guard):
     return receipt
 
 
-def paired_scores(records, selected):
+def paired_scores(records, selected, *, repeats=1):
     if any(r.get("role") not in ("control", "candidate") for r in records):
         raise ValueError("unknown paired role")
-    scores = {role: score([r for r in records if r["role"] == role], 43, selected)
+    scores = {role: score([r for r in records if r["role"] == role], 43, selected, repeats=repeats)
               for role in ("control", "candidate")}
     complete = all(s["complete"] for s in scores.values())
     result = {"complete": complete, "roles": scores, "score_scope": "full_43" if selected == list(range(1, 44)) else "targeted_only"}
@@ -164,6 +165,8 @@ def main():
                         help="candidate Vortex input (defaults to --input)")
     parser.add_argument("--queries", type=Path, default=Path(__file__).resolve().parents[1] / "benchmarks/clickbench/queries.sql")
     parser.add_argument("--query-ids")
+    parser.add_argument("--repeats", type=int, default=1,
+                        help="paired executions per query (default: 1); repeated trials require an explicit value")
     parser.add_argument("--memory-gb", type=int, default=24)
     parser.add_argument("--max-parallelism", type=int, default=12)
     parser.add_argument("--timeout", type=float, default=120)
@@ -175,7 +178,7 @@ def main():
         parser.error("memory, parallelism and timeout must be positive")
     try:
         selected = [int(q) for q in args.query_ids.split(",")] if args.query_ids else list(range(1, 44))
-        score([], 43, selected)
+        score([], 43, selected, repeats=args.repeats)
     except ValueError as error:
         parser.error(str(error))
     root = require_local_path(args.uat_root, Path.home(), sys.platform)
@@ -251,6 +254,7 @@ def main():
                    "reference_packet": packet_receipt,
                    "reference_kind": reference_kind,
                    "memory_gb": args.memory_gb, "max_parallelism": args.max_parallelism,
+                   "repeats": args.repeats,
                    "max_workspace_gib": args.max_workspace_gib,
                    "storage_preflight": storage_preflight,
                    "log_budget_bytes": {"retained": math.floor(args.max_log_mib * MIB),
@@ -268,11 +272,12 @@ def main():
                    "order_policy": "alternate role order at each pair and query", "reverse_order": args.reverse_order,
                    "host_counter_scope": "host-wide VM observations, not unique query traffic or exclusive attribution",
                    "correctness_boundary": correctness_boundary(reference_kind),
-                   "records": records, "archives": [], "scores": paired_scores(records, selected)}
+                   "records": records, "archives": [],
+                   "scores": paired_scores(records, selected, repeats=args.repeats)}
         save()
         for query in selected:
             closed = []
-            for run in range(1, 4):
+            for run in range(1, args.repeats + 1):
                 for position, role in enumerate(role_order(query, run, args.reverse_order), 1):
                     prefix = logs / f"q{query:02d}_run{run}_{role}"
                     verify_source_generations(sources, original_generations)
@@ -300,7 +305,7 @@ def main():
                         record["failure"] = str(error)
                     closed.extend(prefix.with_suffix(suffix) for suffix in (".stdout.json", ".stderr.txt", ".timing.json", ".pid"))
                     records.append(record)
-                    summary["scores"] = paired_scores(records, selected)
+                    summary["scores"] = paired_scores(records, selected, repeats=args.repeats)
                     save()
                     print(json.dumps({k: record[k] for k in ("query", "run", "role", "pair_position", "seconds", "passed")}), flush=True)
                     if not record["passed"]:

@@ -216,7 +216,14 @@ fn coordinator_chunked_logical_projection_and_nullable_admission_remain_exact() 
             .update_compact_direct_from_chunk(&chunk, &columns, None)
             .unwrap()
         {
-            let values = super::super::row_export_columns_from_chunk(&chunk, &columns).unwrap();
+            let values = super::super::row_export_columns_from_chunk(
+                &chunk,
+                &columns,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
+            )
+            .unwrap();
             states.update(&values, chunk.len()).unwrap();
         }
     }
@@ -377,8 +384,16 @@ fn partition_pressure_preserves_native_exact_refinement_and_total_weight() {
         let mut exact =
             GroupedAggregateStates::new(&request, Some(1), &columns, false, false).unwrap();
         for chunk in &chunks {
-            super::super::update_grouped_exact_states_from_chunk(&mut exact, chunk, &columns, None)
-                .unwrap();
+            super::super::update_grouped_exact_states_from_chunk(
+                &mut exact,
+                chunk,
+                &columns,
+                None,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
+            )
+            .unwrap();
         }
         let (_, summary) = exact.result_row_count_and_summary(Some(1)).unwrap();
         let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();

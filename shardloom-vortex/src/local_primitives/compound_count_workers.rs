@@ -873,6 +873,7 @@ pub(super) fn request_schema_may_be_admitted(
         false,
         false,
         resource_envelope,
+        None,
     ) else {
         return false;
     };

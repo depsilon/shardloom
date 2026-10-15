@@ -287,6 +287,7 @@ pub(super) fn request_may_be_admitted(
         false,
         false,
         envelope,
+        None,
     )
     .is_ok_and(|states| numeric_state_admitted(&states))
 }

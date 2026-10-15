@@ -134,6 +134,7 @@ pub(super) fn request_may_be_admitted(
         true,
         false,
         envelope,
+        None,
     )
     .is_ok_and(|states| shape(&states))
 }
@@ -161,6 +162,7 @@ pub(super) fn request_schema_may_be_admitted(
         true,
         false,
         envelope,
+        None,
     )
     .is_ok_and(|states| roles(&states, dtype, &columns).is_some())
 }
@@ -360,7 +362,7 @@ impl PairWorkers {
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             &self.columns,
-            &mut states.native_execution_ctx,
+            super::required_native_execution_ctx(&mut states.native_execution_ctx)?,
         )?;
         self.accessor_nanos += started.elapsed().as_nanos();
         states

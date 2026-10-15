@@ -95,6 +95,7 @@ mod tests {
             false,
             compact_admitted,
             VortexLocalPrimitiveResourceEnvelope::new(24, 12).unwrap(),
+            Some(vortex::array::legacy_session()),
         )
         .unwrap();
         let mut timing = super::AggregateFirstPassTiming::default();
@@ -152,6 +153,7 @@ mod tests {
             false,
             true,
             VortexLocalPrimitiveResourceEnvelope::new(24, 12).unwrap(),
+            Some(vortex::array::legacy_session()),
         )
         .unwrap();
         states

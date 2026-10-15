@@ -244,7 +244,10 @@ fn mixed_distinct_partial_capacity_and_group_bound_cover_dense_and_sparse_pairs(
         let accessors = aggregate_direct_column_accessors_from_chunk(
             &input,
             &columns,
-            &mut state.native_execution_ctx,
+            state
+                .native_execution_ctx
+                .as_mut()
+                .expect("admitted test context"),
         )
         .unwrap();
         let partial = state

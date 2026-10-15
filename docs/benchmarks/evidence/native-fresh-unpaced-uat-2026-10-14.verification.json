@@ -1,0 +1,161 @@
+{
+  "archive": {
+    "byte_count": 5090200,
+    "expected_identity_match": true,
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/fresh-unpaced-uat-435/unpaced-native-fresh-uat-1-evidence.tar.xz",
+    "sha256": "61f3dfcddbd5e21e132373e92101146b158f822bb0d53f7f1cdac98508d7ea73"
+  },
+  "manifest": {
+    "byte_count": 10122660,
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/fresh-unpaced-uat-435/unpaced-native-fresh-uat-1-evidence.manifest.json",
+    "schema_version": "shardloom.local_fresh_uat_evidence.v1",
+    "sha256": "f5db1bf07d9b5d9350aed7b189dc36e847bbb7f82a658a70405b07d1cb40f353",
+    "status": "passed"
+  },
+  "manifest_summary": {
+    "coverage": {
+      "clickbench_queries_and_reference_packet": true,
+      "complete_full43_summary_parent": true,
+      "complete_ingest_summary_parent": true,
+      "complete_modular_output_fixtures_reports": true,
+      "fresh_uat_output_files": true,
+      "protocol_helpers_verified": true
+    },
+    "excluded_assets": [
+      {
+        "byte_count": 14779976446,
+        "evidence": "frozen protocol and final results",
+        "kind": "original Parquet source",
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f"
+      },
+      {
+        "byte_count": 15713610513,
+        "evidence": "final result artifact identity",
+        "kind": "fresh Vortex output/input",
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/unpaced-native-435-a1.vortex",
+        "sha256": "ceac4cf2cf8e0c8bc0e3da82fed82e4e24c8238c6f1a6768246d6d975c02bffc"
+      },
+      {
+        "byte_count": 75293552,
+        "evidence": "frozen protocol and release manifest",
+        "kind": "frozen release binary",
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/context-resources-425-release/shardloom",
+        "sha256": "fee87124c91b90f5f02ff1f9f00d9eaae7fd87724e152641a98bda2efb8725c9"
+      }
+    ],
+    "explicitly_excluded_bulk": [
+      "original hits.parquet at protocol.source",
+      "fresh Vortex output/input at protocol.target",
+      "frozen release binary at protocol.binary",
+      "any additional Vortex input named in results.artifact_identities"
+    ],
+    "package": "local-fresh-unpaced-uat-435",
+    "result_status": "passed_local_fresh_uat",
+    "runtime_build_commit": "22b2cde04973ce4462517d73fe67b5f7a1e8177c",
+    "source_commit": "9dd328f5cbdae08fa396910e7c6ce747ff16dda1",
+    "uat_results": {
+      "full43_calls": 129,
+      "full43_rows": 1143,
+      "ingest_rows": 99997497,
+      "modular_cohorts": 18,
+      "modular_native_records": 704,
+      "modular_records": 1408
+    }
+  },
+  "member_verification": {
+    "duplicates": 0,
+    "expected": 13345,
+    "missing": 0,
+    "observed": 13345,
+    "original_bytes_expected": 284782310,
+    "original_bytes_observed": 284782310,
+    "unexpected": 0,
+    "verified": 13345
+  },
+  "schema_version": "shardloom.unpaced_evidence_audit.v1",
+  "semantic_verification": {
+    "all_required_semantic_checks_passed": true,
+    "bulk_asset_rehash_performed": false,
+    "full43": {
+      "complete": true,
+      "complete_values_passed": 129,
+      "full_result_validation": true,
+      "guard_error_free": 129,
+      "independently_reopened_calls": 129,
+      "native_query_seconds_sum": 194.12594078899906,
+      "query_count": 43,
+      "returncode_zero": 129,
+      "runs_completed": 129,
+      "runs_passed": 129,
+      "runs_per_query": 3,
+      "unique_pairs": 129
+    },
+    "modular": {
+      "cohorts": 18,
+      "independently_reopened_cohorts": 18,
+      "native_records": 704,
+      "receipt_guard_error_free": 18,
+      "receipt_returncode_zero": 18,
+      "records": 1408
+    },
+    "outer_supervision": {
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "head": "9dd328f5cbdae08fa396910e7c6ce747ff16dda1",
+      "interrupted_signal": null,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 932.0439925000001,
+      "status": "passed",
+      "timed_out": false
+    },
+    "source_identity": {
+      "binary_sha256": "fee87124c91b90f5f02ff1f9f00d9eaae7fd87724e152641a98bda2efb8725c9",
+      "build_manifest_sha256": "98097ccc6a2c4af958da6b17ec55c687f26a0c42914d548cb3692039c590893b",
+      "original_source_sha256_recorded": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+      "package_version": "0.5.1",
+      "queries_sha256": "4afa04814edf3a4c52ff26fd87ea3b5dd92c7264b2d8d69ee718709f3df6f09b",
+      "reference_packet_sha256": "cb83c770674073f31ad0c4224f02faeb1ba557c512595a5c2d36f92bb2344b39",
+      "runtime_build_commit": "22b2cde04973ce4462517d73fe67b5f7a1e8177c",
+      "source_commit": "9dd328f5cbdae08fa396910e7c6ce747ff16dda1",
+      "source_sha_rehashed": false
+    },
+    "stage_supervision_receipts": {
+      "fresh-full43": {
+        "direct_child_reaped": true,
+        "group_absence_unproved_at_cleanup": false,
+        "head": "9dd328f5cbdae08fa396910e7c6ce747ff16dda1",
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 266.8145625410001,
+        "status": "passed",
+        "timed_out": false
+      },
+      "full-ingest": {
+        "direct_child_reaped": true,
+        "group_absence_unproved_at_cleanup": false,
+        "head": "9dd328f5cbdae08fa396910e7c6ce747ff16dda1",
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 62.83297508399994,
+        "status": "passed",
+        "timed_out": false
+      },
+      "modular-native": {
+        "direct_child_reaped": true,
+        "group_absence_unproved_at_cleanup": false,
+        "head": "9dd328f5cbdae08fa396910e7c6ce747ff16dda1",
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 575.9912495419999,
+        "status": "passed",
+        "timed_out": false
+      }
+    }
+  },
+  "status": "archive_members_match_manifest"
+}

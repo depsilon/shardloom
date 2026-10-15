@@ -288,6 +288,7 @@ fn ordered_partial_merge_preserves_global_counts_across_native_pressure_transiti
             false,
             true,
             VortexLocalPrimitiveResourceEnvelope::new(24, 4).unwrap(),
+            Some(vortex::array::legacy_session()),
         )
         .unwrap();
         states
@@ -352,6 +353,7 @@ fn worker_pressure_sketch_cannot_hide_a_winner_outside_every_local_top_one() {
         false,
         true,
         VortexLocalPrimitiveResourceEnvelope::new(24, 4).unwrap(),
+        Some(vortex::array::legacy_session()),
     )
     .unwrap();
     states
@@ -404,8 +406,16 @@ fn worker_pressure_sketch_cannot_hide_a_winner_outside_every_local_top_one() {
     let mut refined =
         GroupedAggregateStates::new(&request, Some(1), &columns, false, false).unwrap();
     for chunk in &chunks {
-        super::super::update_grouped_exact_states_from_chunk(&mut refined, chunk, &columns, None)
-            .unwrap();
+        super::super::update_grouped_exact_states_from_chunk(
+            &mut refined,
+            chunk,
+            &columns,
+            None,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .unwrap();
     }
     let (_, summary) = refined.result_row_count_and_summary(Some(1)).unwrap();
     let payload: serde_json::Value = serde_json::from_str(&summary).unwrap();
@@ -431,6 +441,7 @@ fn ordered_partial_merge_checks_global_count_overflow_and_invalidates_reducer() 
         false,
         true,
         VortexLocalPrimitiveResourceEnvelope::new(24, 4).unwrap(),
+        Some(vortex::array::legacy_session()),
     )
     .unwrap();
     states

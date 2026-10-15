@@ -88,7 +88,14 @@ fn verify_complete(path: &Path, filtered: bool) -> (usize, String, String) {
         .unwrap()
     {
         let chunk = chunk.unwrap();
-        let columns = row_export_columns_from_chunk(&chunk, &names).unwrap();
+        let columns = row_export_columns_from_chunk(
+            &chunk,
+            &names,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .unwrap();
         for row in 0..chunk.len() {
             let index = expected_indices.next().unwrap();
             let mut actual = serde_json::Map::new();

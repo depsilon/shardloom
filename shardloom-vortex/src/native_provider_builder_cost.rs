@@ -22,7 +22,7 @@ const PAIRS: usize = 9;
 const WARMUP: usize = 8;
 const GRANT: u64 = 64 << 20;
 
-fn fixture(shape: &str, rows: usize, count: usize) -> (ArrayRef, ArrayRef) {
+pub(super) fn fixture(shape: &str, rows: usize, count: usize) -> (ArrayRef, ArrayRef) {
     let integers = || {
         PrimitiveArray::from_option_iter(
             (0..rows)
@@ -99,7 +99,7 @@ fn fixture(shape: &str, rows: usize, count: usize) -> (ArrayRef, ArrayRef) {
     (input, expected)
 }
 
-fn fingerprint(array: &ArrayRef) -> String {
+pub(super) fn fingerprint(array: &ArrayRef) -> String {
     fn update(hash: &mut Sha256, array: &ArrayRef) {
         hash.update(array.encoding_id().to_string().as_bytes());
         hash.update(array.dtype().to_string().as_bytes());
@@ -123,7 +123,7 @@ fn fingerprint(array: &ArrayRef) -> String {
     result
 }
 
-fn complete(input: &ArrayRef, ctx: &mut ExecutionCtx) -> ArrayRef {
+pub(super) fn complete(input: &ArrayRef, ctx: &mut ExecutionCtx) -> ArrayRef {
     let result = input
         .clone()
         .execute::<Canonical>(ctx)
@@ -134,7 +134,7 @@ fn complete(input: &ArrayRef, ctx: &mut ExecutionCtx) -> ArrayRef {
     result
 }
 
-fn verify(input: &ArrayRef, expected: &ArrayRef, ctx: &mut ExecutionCtx) {
+pub(super) fn verify(input: &ArrayRef, expected: &ArrayRef, ctx: &mut ExecutionCtx) {
     let result = complete(input, ctx);
     assert_eq!(result.dtype(), expected.dtype());
     for row in 0..expected.len() {

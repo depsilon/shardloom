@@ -96,7 +96,7 @@ fn aggregate_roles(
         .map(|column| column.as_str().to_owned())
         .collect::<Vec<_>>();
     GroupedAggregateStates::new_with_resource_envelope(
-        aggregate, limit, &columns, false, false, envelope,
+        aggregate, limit, &columns, false, false, envelope, None,
     )
     .ok()
     .and_then(|states| roles(&states, dtype, &columns))
@@ -422,7 +422,7 @@ impl TripleWorkers {
         let accessors = aggregate_direct_column_accessors_from_chunk(
             chunk,
             &self.columns,
-            &mut states.native_execution_ctx,
+            super::required_native_execution_ctx(&mut states.native_execution_ctx)?,
         )?;
         self.accessor += started.elapsed().as_nanos();
         states

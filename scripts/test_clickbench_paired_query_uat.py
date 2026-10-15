@@ -73,17 +73,29 @@ class PairedQueryUatTests(unittest.TestCase):
                 for role in ("candidate", "control"):
                     seconds = (100 if query == 1 else 2) + (3 if role == "candidate" else 0) + run
                     records.append(dict(query=query, run=run, role=role, seconds=seconds, passed=True))
-        result = paired_scores(list(reversed(records)), [1, 2])
+        result = paired_scores(list(reversed(records)), [1, 2], repeats=3)
         self.assertTrue(result["complete"])
         self.assertEqual(result["score_scope"], "targeted_only")
         self.assertEqual(result["roles"]["control"]["query_total_seconds"], 104)
         self.assertEqual(result["roles"]["candidate"]["query_total_seconds"], 110)
         self.assertEqual(result["per_query"][0]["median_seconds"], {"control": 102, "candidate": 105})
         self.assertEqual(result["per_query"][1]["paired_candidate_minus_control_seconds"], [3, 3, 3])
-        self.assertFalse(paired_scores(records[:-1], [1, 2])["complete"])
-        self.assertFalse(paired_scores(records[:-1] + [records[0]], [1, 2])["complete"])
+        self.assertFalse(paired_scores(records[:-1], [1, 2], repeats=3)["complete"])
+        self.assertFalse(paired_scores(records[:-1] + [records[0]], [1, 2], repeats=3)["complete"])
         records[0]["passed"] = False
-        self.assertFalse(paired_scores(records, [1, 2])["complete"])
+        self.assertFalse(paired_scores(records, [1, 2], repeats=3)["complete"])
+
+    def test_full_suite_default_needs_exactly_one_pair_per_query(self):
+        records = [dict(query=query, run=1, role=role, seconds=1.0, passed=True)
+                   for query in range(1, 44) for role in role_order(query, 1)]
+        result = paired_scores(records, list(range(1, 44)))
+        self.assertTrue(result["complete"])
+        self.assertEqual(result["score_scope"], "full_43")
+        for role in ("control", "candidate"):
+            self.assertEqual(result["roles"][role]["runs_completed"], 43)
+            self.assertIsNone(result["roles"][role]["hot_total_seconds"])
+        self.assertFalse(paired_scores(records[:-1], list(range(1, 44)))["complete"])
+        self.assertFalse(paired_scores(records + [records[0]], list(range(1, 44)))["complete"])
 
     def test_archive_preserves_values_hashes_and_rejects_overwrite(self):
         with tempfile.TemporaryDirectory() as directory:

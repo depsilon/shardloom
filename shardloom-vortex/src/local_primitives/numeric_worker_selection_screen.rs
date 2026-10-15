@@ -363,6 +363,7 @@ fn small_count_selection_preserves_nullable_parent_semantics() {
             false,
             false,
             policy.resource_envelope(),
+            Some(vortex::array::legacy_session()),
         )
         .unwrap();
         assert!(
@@ -375,7 +376,16 @@ fn small_count_selection_preserves_nullable_parent_semantics() {
             ),
             "nullable parent must retain existing admission"
         );
-        super::update_grouped_exact_states_from_chunk(&mut states, &array, &columns, None).unwrap();
+        super::update_grouped_exact_states_from_chunk(
+            &mut states,
+            &array,
+            &columns,
+            None,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .unwrap();
         let (_, summary) = states.result_row_count_and_summary(Some(10)).unwrap();
         let payload: serde_json::Value = serde_json::from_str(&summary).unwrap();
         assert_eq!(payload["values"], expected_counts(&expected_values, 10));

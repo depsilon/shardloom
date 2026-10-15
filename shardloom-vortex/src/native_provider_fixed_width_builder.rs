@@ -1,12 +1,19 @@
-//! Own the output of pinned fixed-width Chunked builders.
+//! Own the output and reviewed decoder scratch of fixed-width Chunked builders.
 //!
 //! Keep each native append strategy: pre-decoding leaves would discard direct
-//! `BitPacked` append and other work avoidance. Child codecs, encoded validity
-//! and selection scratch retain their separate resource boundaries.
+//! `BitPacked` append and other work avoidance. Unreviewed physical/expression
+//! trees and encoded validity retain their separate resource boundaries.
 
 use super::*;
 use shardloom_exec::live_memory::MemoryLease;
-use vortex::array::{arrays::Decimal, builders::builder_with_capacity, dtype::DecimalType};
+use vortex::array::{
+    arrays::Decimal,
+    builders::{ArrayBuilder, builder_with_capacity},
+    dtype::DecimalType,
+};
+
+#[path = "native_provider_decoder_scratch.rs"]
+mod scratch;
 
 pub(super) fn decode(
     array: &ArrayRef,
@@ -35,7 +42,7 @@ pub(super) fn decode(
     // Chunked appends nested chunks into this same builder. Native leaf append
     // implementations own their decode decisions; no second concatenation or
     // per-row adapter representation is introduced here.
-    array.append_to_builder(builder.as_mut(), ctx)?;
+    append_leaves(array, builder.as_mut(), ctx, memory)?;
     vortex_ensure!(
         builder.len() == array.len(),
         "native fixed-width builder changed row count"
@@ -60,6 +67,28 @@ pub(super) fn decode(
     };
     retained.statistics().inherit_from(array.statistics());
     Ok(retained)
+}
+
+fn append_leaves(
+    array: &ArrayRef,
+    builder: &mut dyn ArrayBuilder,
+    ctx: &mut ExecutionCtx,
+    memory: &LiveMemoryPool,
+) -> VortexResult<()> {
+    if let Some(chunks) = array.as_opt::<Chunked>() {
+        for child in chunks.iter_chunks() {
+            append_leaves(child, builder, ctx, memory)?;
+        }
+        return Ok(());
+    }
+    // None is an explicit coverage exclusion, not a zero-byte allocation proof.
+    // Keep existing native behavior for those shapes (including allocator-owned
+    // Zstd), without charging a second or unreviewed transitive bound.
+    let _scratch = scratch::workspace(array, scratch::Mode::Append, 0)?
+        .filter(|workspace| workspace.bytes != 0)
+        .map(|workspace| crate::owned_buffers::reserve(memory, workspace.bytes))
+        .transpose()?;
+    array.append_to_builder(builder, ctx)
 }
 
 fn value_capacity(dtype: &DType, rows: usize) -> VortexResult<u64> {

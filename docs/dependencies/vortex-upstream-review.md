@@ -1,5 +1,19 @@
 # Vortex Upstream Dependency Review
 
+## October 14, 2026 decoder and execution-context follow-through
+
+The [combined correction](../benchmarks/native-admitted-context-2026-10-14.md)
+uses the same pinned Vortex 0.85 graph and provider implementations. The
+ShardLoom wrapper derives finite temporary-buffer bounds from reviewed native
+append/canonicalization paths and preserves direct append and FoR fusion.
+Helper callers pass their existing `ExecutionCtx`; list offsets/sizes are
+prepared through that owner before upstream row convenience access, and struct
+extraction uses the declared-field iterator. No dependency, vendor source,
+unsafe code or external execution engine is added by this correction.
+Its complete local source, behavior, cost and public/query proof is retained;
+hosted integration remains pending. Unreviewed allocation trees receive no new
+accounting claim.
+
 ## October 13, 2026 selection resource follow-up
 
 The [selection resource contract](../architecture/native-selection-resources-2026-10-13.md)
@@ -14,7 +28,8 @@ skipping policy is preserved at explicit execution. The
 [acceptance report](../benchmarks/native-selection-resources-2026-10-13.md) records
 passing final workspace/native, direct/public, Full43 and paired cost gates,
 the exact dependency/source identities and both rejected earlier cost cohorts.
-Hosted integration remains pending.
+Hosted integration completes in [PR #1550](https://github.com/depsilon/shardloom/pull/1550)
+after all 44 checks pass with the accepted runtime and dependency graph unchanged.
 
 ## October 13, 2026 sparse Zstd filter follow-up
 

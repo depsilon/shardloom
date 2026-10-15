@@ -91,7 +91,16 @@ fn accessors(rows: &[Row]) -> Vec<AggregateDirectColumnAccessor> {
     arrays
         .iter()
         .enumerate()
-        .map(|(index, array)| aggregate_direct_column_accessor(&columns()[index], array).unwrap())
+        .map(|(index, array)| {
+            aggregate_direct_column_accessor(
+                &columns()[index],
+                array,
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
+            )
+            .unwrap()
+        })
         .collect()
 }
 

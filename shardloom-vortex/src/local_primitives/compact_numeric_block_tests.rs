@@ -31,6 +31,9 @@ fn accessor<T: NativePType>(values: Vec<T>) -> AggregateDirectColumnAccessor {
     aggregate_direct_column_accessor(
         "amount",
         &PrimitiveArray::new(values, Validity::NonNullable).into_array(),
+        &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+            vortex::array::legacy_session(),
+        ),
     )
     .unwrap()
 }
@@ -95,11 +98,17 @@ fn compact_numeric_block_matches_all_widths_nullable_slices_and_selected_order()
         aggregate_direct_column_accessor(
             "amount",
             &PrimitiveArray::from_option_iter([Some(5_i32), None, Some(-2), Some(8)]).into_array(),
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
         )
         .unwrap(),
         aggregate_direct_column_accessor(
             "amount",
             &PrimitiveArray::from_option_iter([None::<u16>, None, None, None]).into_array(),
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
         )
         .unwrap(),
         aggregate_direct_column_accessor(
@@ -115,6 +124,9 @@ fn compact_numeric_block_matches_all_widths_nullable_slices_and_selected_order()
             .into_array()
             .slice(1..5)
             .unwrap(),
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
         )
         .unwrap(),
     ];
@@ -124,6 +136,9 @@ fn compact_numeric_block_matches_all_widths_nullable_slices_and_selected_order()
                 "category",
                 &PrimitiveArray::from_option_iter([Some(2_i32), None, Some(2), Some(3)])
                     .into_array(),
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
             )
             .unwrap(),
             array,
@@ -278,6 +293,9 @@ fn compact_numeric_block_rejects_other_shapes_before_updating_state() {
             aggregate_direct_column_accessor(
                 "amount",
                 &VarBinViewArray::from_iter_str(["seven"]).into_array(),
+                &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                    vortex::array::legacy_session(),
+                ),
             )
             .unwrap(),
             1,

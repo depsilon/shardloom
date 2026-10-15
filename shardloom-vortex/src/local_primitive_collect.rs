@@ -1122,8 +1122,14 @@ mod tests {
             actual,
             serde_json::json!([pair[0], pair[1], pair[0], pair[1]])
         );
-        let complete =
-            super::super::row_export_columns_from_chunk(&chunked.arrays()[0], &names).unwrap();
+        let complete = super::super::row_export_columns_from_chunk(
+            &chunked.arrays()[0],
+            &names,
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
+        )
+        .unwrap();
         assert_eq!(
             complete,
             vec![
@@ -1145,6 +1151,9 @@ mod tests {
             &chunked.arrays()[0],
             &names,
             &[3, 0],
+            &mut vortex::array::VortexSessionExecute::create_execution_ctx(
+                vortex::array::legacy_session(),
+            ),
         )
         .unwrap();
         assert_eq!(
