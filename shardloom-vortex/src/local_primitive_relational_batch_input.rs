@@ -674,7 +674,11 @@ fn count_sources(
             // Only zero, exactly one and repeated use are relevant here.
             return Ok((left + right).min(2));
         }
-        VortexRelationalPlan::Set(_) => "set operation/repeated source",
+        VortexRelationalPlan::Set(set) => {
+            let left = count_sources(&set.left, uri, depth + 1, dynamic)?;
+            let right = count_sources(&set.right, uri, depth + 1, dynamic)?;
+            return Ok((left + right).min(2));
+        }
         VortexRelationalPlan::Subquery(_) | VortexRelationalPlan::CorrelatedSubquery(_) => {
             "subquery"
         }

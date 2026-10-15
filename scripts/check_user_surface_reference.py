@@ -273,7 +273,11 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
 
     streaming = payload.get("native_python_batch_adapters", {}).get("streaming_input", {})
     for field, value in (
-        ("supported_plan", ["Scan", "Filter", "Project", "Sort", "Limit", "Aggregate", "Join", "Window", "PivotRows"]),
+        ("supported_plan", ["Scan", "Filter", "Project", "Sort", "Limit", "Aggregate", "Join", "Window", "PivotRows", "Set"]),
+        ("set_reference", "docs/architecture/native-stream-set-operations-2026-10-15.md"),
+        ("set_acceptance_reference", "docs/benchmarks/native-stream-sets-2026-10-15.md"),
+        ("set_operations", ["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]),
+        ("set_membership_spill", False),
         ("single_source_single_use", False),
         ("multiple_batch_producers", True),
         ("each_streaming_source_single_use", True),

@@ -312,12 +312,13 @@ probing or creating it. Composed relational ordering, general aggregation, joins
 `buffer_bytes` as a retained-input flush threshold within one query memory grant; specialized numeric sort and
 aggregate providers use their existing operator-memory admission. Native sort spill
 also applies to the flat typed keys scoped by the [typed key contract](../docs/architecture/native-typed-keys-2026-10-03.md).
-Supported keys,
-minimum buffers and spill families remain provider-specific. The general aggregate,
-join and analytic-window strategies use the same explicit policy. A spill request does not enable
-pivot or set state spill or fanout, relax collection limits, or
-establish an RSS bound. Successful writes require verified spill cleanup before
-publication. See `docs/reference/native-query-spill.md` for exact contracts.
+Supported keys, minimum buffers and spill families remain provider-specific.
+General aggregation, joins, analytic windows and relational pivot have their own
+strategies under the same explicit policy. Set membership remains resident.
+A spill request does not relax collection limits or establish an RSS bound.
+Result replay for finite-input fanout has a separate contract, described below.
+Successful writes require verified spill cleanup before publication. See
+`docs/reference/native-query-spill.md` for exact contracts.
 
 Bounded materialization is explicit. Local-source workflows can carry a `limit(...)` or pass
 `collect(limit=...)`; SQL workflows can also pass `collect(limit=...)` or chain
@@ -673,6 +674,17 @@ before publication. Local multi-file publication remains non-atomic; a later
 commit failure reports the complete targets already published. See the
 [destination contract](../docs/architecture/native-stream-destinations-2026-10-15.md).
 These source additions do not change the published 0.6.0 packages.
+
+Current source also admits `UNION ALL`, `UNION`, `INTERSECT` and `EXCEPT` over
+finite streaming inputs through the existing `union_all`, `union`, `intersect`
+and `except_` methods. Independent inputs keep separate completion state;
+repeated references consume each producer once through declared native replay.
+Both branches preserve positional type admission, full-row/null semantics and
+the existing writer limits. Set membership remains resident under the shared
+grant and refuses excess growth, including when replay spill is enabled. See the
+[set-operation contract](../docs/architecture/native-stream-set-operations-2026-10-15.md)
+and [local acceptance](../docs/benchmarks/native-stream-sets-2026-10-15.md).
+The 0.6.0 package behavior described above remains unchanged.
 
 The per-batch row and frame bounds still apply, with a separate 16 MiB wire-frame
 ceiling and 32 MiB native logical-intake limit per batch. Version 0.6.0

@@ -152,9 +152,8 @@ def run(harness):
         assert not list(harness.output.glob(name + "*")), "denial left output artifacts"
 
     for name, operation in [
-        ("deny-union", lambda q: q.union_all(q).collect(check=True, **policy)),
-        ("deny-repeated-window", lambda q: q.window("ROW_NUMBER() OVER (ORDER BY n) AS rn")
-         .union_all(q.window("ROW_NUMBER() OVER (ORDER BY n) AS rn")).collect(check=True, **policy)),
+        ("deny-unary-left-set", lambda q: q.drop_duplicates(["n"]).union_all(q).collect(check=True, **policy)),
+        ("deny-unary-right-set", lambda q: q.union_all(q.drop_duplicates(["n"])).collect(check=True, **policy)),
         ("deny-unary", lambda q: q.drop_duplicates(["n"]).collect(check=True, **policy)),
     ]:
         harness.case(name, lambda name=name, operation=operation: reject(name, operation))

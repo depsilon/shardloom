@@ -441,14 +441,24 @@ fn streamed_dynamic_consumer_failure_and_unused_source_never_certify_completion(
 
 #[test]
 fn streamed_dynamic_unsupported_shapes_and_initial_cancellation_precede_demand() {
-    for shape in ["set", "unary", "cancel"] {
+    for shape in ["set-left-outer", "set-right-outer", "unary", "cancel"] {
         let prepared = prepare_streams(1, move |schemas| {
             let plan = match shape {
-                "set" => VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
-                    left: scan(0),
-                    right: scan(0),
-                    kind: SetKind::UnionAll,
-                })),
+                "set-left-outer" | "set-right-outer" => {
+                    VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
+                        left: if shape == "set-left-outer" {
+                            VortexRelationalPlan::Outer
+                        } else {
+                            scan(0)
+                        },
+                        right: if shape == "set-right-outer" {
+                            VortexRelationalPlan::Outer
+                        } else {
+                            scan(0)
+                        },
+                        kind: SetKind::UnionAll,
+                    }))
+                }
                 "unary" => VortexRelationalPlan::Unary(Box::new(VortexRelationalUnary {
                     input: scan(0),
                     request: VortexQueryPrimitiveRequest::for_relational_input(
@@ -475,7 +485,7 @@ fn streamed_dynamic_unsupported_shapes_and_initial_cancellation_precede_demand()
             .err()
             .unwrap();
         let expected = match shape {
-            "set" => "set",
+            "set-left-outer" | "set-right-outer" => "correlated source",
             "unary" => "unary stateful",
             _ => "cancel",
         };

@@ -149,7 +149,7 @@ and [general aggregate](../architecture/native-aggregate-pressure-2026-10-07.md)
 contracts, extended by the [join contract](../architecture/native-join-pressure-2026-10-08.md)
 and [window contract](../architecture/native-window-pressure-2026-10-08.md),
 admit `streaming=True` for finite batch sources used once each through
-Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window/PivotRows alongside ordinary file/resident
+Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window/PivotRows/Set alongside ordinary file/resident
 sources, with incremental results, bounded small collection and all eight existing
 local writers: Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV. Each
 writer retains its existing format, type, fidelity and feature admissions. A
@@ -193,7 +193,20 @@ process-RSS bound remains outside this contract. See the
 The [local acceptance report](../benchmarks/native-stream-destinations-2026-10-15.md)
 records 84 direct Python tests, including 24 composition combinations and eight
 multi-source lifecycle modes, 777 public cases across 20 families, all six Rust
-gates and one complete Full43 pass. Hosted integration remains pending.
+gates and one complete Full43 pass. [PR #1557](https://github.com/depsilon/shardloom/pull/1557)
+completed hosted integration after all 44 checks passed. Three installed-wheel
+lanes each passed 84 native tests, and preview/production content and navigation
+were verified in the [hosted packet](../benchmarks/evidence/native-stream-destinations-hosted-2026-10-15.json).
+
+The subsequent [set-operation contract](../architecture/native-stream-set-operations-2026-10-15.md)
+admits `UNION ALL`, `UNION`, `INTERSECT` and `EXCEPT` over those finite producers,
+including independent and repeated inputs, surrounding operators and existing
+destinations. Both branches retain complete admission and source-count checks.
+Set membership remains resident under the shared grant and refuses excess growth
+even when source/output replay spill is enabled. The [local acceptance report](../benchmarks/native-stream-sets-2026-10-15.md)
+records 4,241 native tests, 87 direct binding tests, 1,121 public cases across 22
+families and one complete Full43 pass. Hosted integration remains pending.
+These source additions do not change the immutable 0.6.0 packages.
 
 Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
 with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:

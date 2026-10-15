@@ -194,9 +194,22 @@ only when explicitly enabled. Every producer, writer and owned cleanup must
 finish before publication. Multi-file publication remains non-atomic, and each
 writer retains its type and fidelity limits. The
 [destination acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md)
-passes 84 direct tests, 777 public cases and all 43 complete query results;
-hosted integration remains pending. These source changes do not alter the
+passes 84 direct tests, 777 public cases and all 43 complete query results.
+PR #1557 merged after all 44 checks passed; three installed-wheel lanes each
+pass 84 tests, with preview/production source and navigation verified.
+These source changes do not alter the
 immutable 0.6.0 packages.
+
+Current source also admits `UNION ALL`, `UNION`, `INTERSECT` and `EXCEPT`
+over finite streaming inputs through the existing SQL and DataFrame methods.
+Independent producers keep separate completion state; repeated references use
+declared native replay. Both branches preserve type admission and complete
+source validation. Set membership remains resident under the query grant and
+refuses excess growth, including when replay spill is enabled. The
+[set-operation contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md)
+and [local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-sets-2026-10-15.md)
+record 87 direct tests, 1,121 public cases and one complete 43-query pass.
+Hosted integration remains pending; the 0.6.0 packages keep their release-time scope.
 
 Relational pivots over file or resident-memory sources can deliver complete
 admitted results through `iter_batches()` with an explicit `spill` policy.

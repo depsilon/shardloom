@@ -17,6 +17,38 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-STREAM-DESTINATIONS` — finite streaming input reaches all eight
+  existing local writers and one-execution fanout under PERF-03/06/07/11/12 and
+  CG-5/19/20/21. Native result replay, shared allocation/spill owners and complete
+  producer/adapter/cleanup validation precede publication. The direct Python
+  binding also admits independent producers through its existing writer path.
+  - The [acceptance report](../benchmarks/native-stream-destinations-2026-10-15.md)
+    retains six Rust gates, 3,219 workspace and 4,229 initial native tests,
+    84 direct tests, 777 public cases and one 43-query complete-result pass.
+    Its original 3,993-member packet and 2,300-member failed public run remain
+    preserved. The test-only review follow-through passes 4,232 native tests;
+    its 185-member packet proves existing-target refusal and absent-target
+    creation on both prior and current runtimes without changing accepted code.
+  - [PR #1557](https://github.com/depsilon/shardloom/pull/1557) merges at
+    `e4814c5e1b58972924aa95f5de2e51024f6b24d8` after all 44 checks pass on
+    `54f107d4add9d1d218f0f78e47c8d6f76785120a`. PR, synthetic-test and merged
+    trees match. The review finding is answered with complete reproduction
+    evidence and resolved; no requested changes remain.
+  - The [hosted packet](../benchmarks/evidence/native-stream-destinations-hosted-2026-10-15.json)
+    verifies 99 original members, all 2,264 merged source identities and both
+    frozen executable hashes. Native/provider jobs pass 2,864 tests with 26
+    declared manual exclusions; native public tests pass 1,076. Three isolated
+    Linux/macOS installed-wheel lanes each pass 84 methods without publication.
+    All eight preview and eight production responses preserve source. Production
+    version `7afed4af-08f4-4cf7-8e72-ee0766555815` is complete; rendered guide,
+    search and navigation checks pass in both environments.
+  - Native Vortex remains highest fidelity. Writer type/loss limits, explicit
+    replay/spill and non-atomic multi-file publication remain. The single
+    Full43 timing is descriptive regression evidence, not a matched speedup.
+    `NATIVE-STREAM-SETS` is the next active breadth unit; remaining allocation,
+    state/recovery, all six areas/eight investigations and CG-1 through CG-23
+    retain their owners. No package release or transport completion is claimed.
+
 - [x] `NATIVE-SELECTED-TEXT-VIEWS` — sparse native Zstd filtering constructs
   views only for selected rows under PERF-01/04/05 and PERF-03/06. The
   [acceptance report](../benchmarks/native-selected-text-views-2026-10-15.md)
@@ -39,10 +71,14 @@ phase plan first.
     and their correction remain separate from successful attempts.
   - All seven checked preview responses preserve the accepted source, and all
     seven production responses preserve merged source after accounting for
-    Cloudflare's inserted scripts. Its production status notification remains
-    `in_progress` with no version ID; completed-notification proof is unavailable.
-    This does not change the observed served content or establish a new rendering
-    claim. No package release follows this unit. The six areas, eight
+    Cloudflare's inserted scripts. The original packet records the initial
+    `in_progress` notification. The later
+    [deployment addendum](../benchmarks/evidence/native-stream-destinations-hosted-2026-10-15.json)
+    identifies completed check `116464471394`, successful at
+    `2026-10-15T13:59:07Z`, with version
+    `ac5adae2-94da-44de-acbe-1d1038fc6c13`. The new check ID supersedes the stale
+    pending conclusion; original evidence and rendering scope are unchanged.
+    No package release follows this unit. The six areas, eight
     investigations and broader PERF/CG obligations retain their owners.
 
 - [x] `NATIVE-AGGREGATE-DICTIONARY-GROWTH` — the finite dictionary-capacity

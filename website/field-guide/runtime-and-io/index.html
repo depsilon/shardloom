@@ -332,8 +332,9 @@ make no speedup claim, and a query grant still does not bound total process RSS.
 constructs views only for selected rows inside sparse native Zstd filtering.
 Complete local checks and its bounded paired comparison pass. PR #1556 merged
 after all 44 checks and three installed-wheel lanes passed. Preview and
-production responses match the merged source, with an outstanding deployment
-notification recorded separately. The report retains the slower control cases
+production responses match the merged source, and the completed production
+deployment is verified. The report preserves and corrects the earlier stale
+notification observation. It retains the slower control cases
 and all 43 acceptance timings. The same frames are decoded, and this result
 makes no general speedup or zero-decode claim.</p>
 <p>Opt-in <code dir="auto">from_batches(..., streaming=True)</code> retains at most one original native input
@@ -376,8 +377,14 @@ streams directly; several destinations share credited native result replay and
 explicit spill. Input completion, adapter completion and owned cleanup precede
 publication; multi-file publication remains non-atomic. The
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md">destination acceptance</a>
-records complete local runtime and query checks; hosted integration remains
-pending. Unadmitted state/recovery and remaining allocation coverage stay open.</p>
+records complete local runtime and query checks. PR #1557 merged after all 44
+checks passed, with three installed-wheel lanes and preview/production verification.
+The current-source <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md">set-operation contract</a>
+also admits all four existing set operations over finite producers, including
+repeated sources and surrounding native operators. Set membership remains resident
+under the grant; source/output replay spill does not spill that state. Complete
+local acceptance passes, with hosted integration still pending.
+Unadmitted state/recovery and remaining allocation coverage stay open.</p>
 <p>Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
 explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.

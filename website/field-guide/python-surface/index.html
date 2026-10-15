@@ -203,9 +203,21 @@ only when explicitly enabled. Every producer, writer and owned cleanup must
 finish before publication. Multi-file publication remains non-atomic, and each
 writer retains its type and fidelity limits. The
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md">destination acceptance</a>
-passes 84 direct tests, 777 public cases and all 43 complete query results;
-hosted integration remains pending. These source changes do not alter the
+passes 84 direct tests, 777 public cases and all 43 complete query results.
+PR #1557 merged after all 44 checks passed; three installed-wheel lanes each
+pass 84 tests, with preview/production source and navigation verified.
+These source changes do not alter the
 immutable 0.6.0 packages.</p>
+<p>Current source also admits <code dir="auto">UNION ALL</code>, <code dir="auto">UNION</code>, <code dir="auto">INTERSECT</code> and <code dir="auto">EXCEPT</code>
+over finite streaming inputs through the existing SQL and DataFrame methods.
+Independent producers keep separate completion state; repeated references use
+declared native replay. Both branches preserve type admission and complete
+source validation. Set membership remains resident under the query grant and
+refuses excess growth, including when replay spill is enabled. The
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md">set-operation contract</a>
+and <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-sets-2026-10-15.md">local acceptance</a>
+record 87 direct tests, 1,121 public cases and one complete 43-query pass.
+Hosted integration remains pending; the 0.6.0 packages keep their release-time scope.</p>
 <p>Relational pivots over file or resident-memory sources can deliver complete
 admitted results through <code dir="auto">iter_batches()</code> with an explicit <code dir="auto">spill</code> policy.
 The <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state">sparse pivot example</a>
