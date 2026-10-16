@@ -89,8 +89,16 @@ limits, explicit result replay/spill and non-atomic multi-file publication
 remain. The current-source [set-operation contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md)
 admits `UNION ALL`, `UNION`, `INTERSECT` and `EXCEPT` over finite inputs.
 Set membership remains resident under the grant, with deterministic growth refusal
-even when replay spill is enabled. Complete local acceptance passes; hosted
-integration remains pending. Unadmitted stateful/subquery families stay separate work.
+even when replay spill is enabled. Complete local and hosted acceptance passes in
+PR #1558 after all 44 checks, three installed-wheel lanes and preview/production
+verification. The current-source
+[finite unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md)
+admits the nine existing static unary families over finite producers while
+preserving complete input observation and current option/type rules. Unary
+membership and population state remain resident under the grant; source/output
+replay spill does not spill that state. Local runtime checks pass, with review
+and hosted integration pending. Unadmitted stateful/subquery families stay
+separate work.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.

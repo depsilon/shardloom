@@ -462,7 +462,7 @@ fn streamed_dynamic_unsupported_shapes_and_initial_cancellation_precede_demand()
                 "unary" => VortexRelationalPlan::Unary(Box::new(VortexRelationalUnary {
                     input: scan(0),
                     request: VortexQueryPrimitiveRequest::for_relational_input(
-                        VortexQueryPrimitiveKind::DistinctRows,
+                        VortexQueryPrimitiveKind::Unsupported,
                         shardloom_plan::ProjectionRequest::All,
                     ),
                 })),

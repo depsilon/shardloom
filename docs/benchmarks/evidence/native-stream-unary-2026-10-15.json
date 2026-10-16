@@ -1,0 +1,92 @@
+{
+  "acceptance": {
+    "baseline_controls": 18,
+    "baseline_resident_controls": 9,
+    "baseline_streaming_refusals": 9,
+    "direct_methods": 91,
+    "direct_skips": 0,
+    "focused_new_public_cases": 1480,
+    "focused_public_cases": 1564,
+    "full43_calls": 43,
+    "full43_queries": 43,
+    "full43_repeats": 1,
+    "harness_methods": 5,
+    "harness_skips": 0,
+    "native_ignored": 29,
+    "native_manual_ignored": 26,
+    "native_platform_ignored": 3,
+    "native_tests": 4249,
+    "new_direct_methods": 4,
+    "new_direct_subcases": 468,
+    "new_native_tests": 8,
+    "prior_native_tests": 4241,
+    "public_cases": 2601,
+    "public_families": 27,
+    "workspace_ignored": 0,
+    "workspace_tests": 3219
+  },
+  "accepted_verification_source": {
+    "bytes": 305559,
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-unary-verification-source-496.json",
+    "sha256": "f9415120f44f839482494eec722363ceccbcec7f81c6ba3bcde46e4f4eb4b113"
+  },
+  "all_members_reopened": true,
+  "archive": {
+    "bytes": 26638492,
+    "file": "native-stream-unary-2026-10-15.tar.xz",
+    "sha256": "213b3b41eac0b5a2ebf461a0c255746d9f096139df806e00f75c15d6d2f0b13c"
+  },
+  "base_commit": "e859b3a8b9d323587cee9641f5ebacd21e7e799c",
+  "build_source_files": 2282,
+  "extra_reference_fixture": {
+    "bytes": 84741,
+    "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/native_streaming_unary_reference_fixtures.json",
+    "sha256": "9d8fd8258cbf9d9e10b84540054e1e3d6ef8d609bb8516f7f3dc104f53eddb2f"
+  },
+  "limitations": "Local finite unary workflow acceptance only. Unary operator state remains resident; source/result replay spill is a separate mechanism. No matched performance gain, package release, hosted integration, all-platform acceptance, process-wide memory ceiling, or zero-copy claim is made.",
+  "manifest": {
+    "bytes": 515976,
+    "file": "native-stream-unary-2026-10-15.manifest.json.xz",
+    "raw_sha256": "b7d4578ae7fa06e5f68765e9ffe625ab8968768390e236a72d378efaa8eb7465",
+    "sha256": "cad551ba421e5ce672555dae0be73ca36444359194b6784313ab043ee991e996"
+  },
+  "member_count": 14733,
+  "previous_verification_source": {
+    "bytes": 304031,
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-unary-verification-source-495.json",
+    "sha256": "749910189f8d91c7ddb24bcea0dcb38f4c00047edd264994de2488998d72f612"
+  },
+  "publication_attempted": false,
+  "raw_bytes": 90887120,
+  "schema_version": "shardloom.native_stream_unary_evidence.v1",
+  "source_files": 2283,
+  "source_manifest": {
+    "bytes": 299723,
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-streamunary494.json",
+    "sha256": "8ef10febe0565f8fbcd4122148dc54cb55f31a63f8061adb61242ada2adbb404"
+  },
+  "source_overlay": [
+    "python/src/shardloom/query.py",
+    "python/tests/test_native_streaming_uat_compression.py",
+    "python/tests/test_native_unary_binding.py",
+    "scripts/native_streaming_input_cases.py",
+    "scripts/native_streaming_unary_cases.py",
+    "scripts/native_streaming_unary_composition_cases.py",
+    "scripts/native_streaming_unary_fault_cases.py",
+    "scripts/native_streaming_unary_pressure_cases.py",
+    "scripts/native_streaming_unary_reference_cases.py",
+    "scripts/native_unary_reference.py",
+    "scripts/run_native_streaming_input_uat.py",
+    "shardloom-vortex/src/local_primitive_relational_batch_dynamic_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_input.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_input_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_unary_fault_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_unary_pressure_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_unary_tests.rs"
+  ],
+  "status": "passed_local",
+  "independent_packet_audit_passed": true,
+  "test_and_harness_only_verification_corrections": true,
+  "hosted_integration_complete": false,
+  "installed_wheel_proof": false
+}

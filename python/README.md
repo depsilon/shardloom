@@ -686,6 +686,19 @@ grant and refuses excess growth, including when replay spill is enabled. See the
 and [local acceptance](../docs/benchmarks/native-stream-sets-2026-10-15.md).
 The 0.6.0 package behavior described above remains unchanged.
 
+Current source also connects the existing DISTINCT, `drop_duplicates`,
+`duplicated`, `tail`, `sample`, scalar rewrite, `melt`, `explode` and rolling
+families to finite streaming input. Their existing options and typed/nested
+domains remain in force. Each stage consumes the preceding schema and rows;
+limits and early output stop conditions still drain complete input. Repeated
+sources use declared native replay, and admitted local writers and fanout keep
+their format and publication rules. Unary membership and population state stay
+resident under the shared grant, even when replay spill is enabled. The
+[unary contract](../docs/architecture/native-stream-unary-2026-10-15.md) and
+[acceptance report](../docs/benchmarks/native-stream-unary-2026-10-15.md) record
+91 direct methods and 2,601 public cases passing locally; review and hosted
+integration remain pending. These are source changes after 0.6.0.
+
 The per-batch row and frame bounds still apply, with a separate 16 MiB wire-frame
 ceiling and 32 MiB native logical-intake limit per batch. Version 0.6.0
 admits cumulative batches and field metadata through the shared grant.
@@ -777,9 +790,9 @@ domain fails explicitly. Correlated inner pivots bind independently for each
 outer row. All eight writers accept representable scalar results above the small
 collection limit, subject to the existing 128-field and memory limits. File/resident-memory relational pivots can use the explicit
 native sparse-state spill policy. Source builds also admit finite streaming
-producers through the same dynamic discovery and spill state. Streaming input
-retains its incremental/collection/single-Vortex-destination boundary; the broader
-ordinary-source composition and writer list above does not widen that contract.
+producers through the same dynamic discovery and spill state, with incremental
+results, collection, all eight existing local writers and fanout. The existing
+format/type restrictions and complete-source publication rules still apply.
 The direct prepared unary path remains resident. See the
 [current pivot spill contract](../docs/reference/native-query-spill.md#sparse-pivot-state).
 

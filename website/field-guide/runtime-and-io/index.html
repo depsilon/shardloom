@@ -383,7 +383,16 @@ The current-source <a href="https://github.com/depsilon/shardloom/blob/main/docs
 also admits all four existing set operations over finite producers, including
 repeated sources and surrounding native operators. Set membership remains resident
 under the grant; source/output replay spill does not spill that state. Complete
-local acceptance passes, with hosted integration still pending.
+local acceptance and hosted integration pass in PR #1558 after all 44 checks,
+three installed-wheel lanes and preview/production verification.
+The current-source <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md">finite unary contract</a>
+also admits DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites,
+melt, explode and rolling over finite producers with complete source validation.
+Unary membership and population state remain resident under the shared grant;
+replay spill does not spill those states. Local runtime acceptance passes with
+91 direct methods and 2,601 public cases; review and hosted integration remain
+pending. Existing option/type limits and dynamic pivot’s separate schema path
+remain in force.
 Unadmitted state/recovery and remaining allocation coverage stay open.</p>
 <p>Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an

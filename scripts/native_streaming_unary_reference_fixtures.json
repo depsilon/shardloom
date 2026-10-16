@@ -1,0 +1,4711 @@
+{
+  "status": "predeclared_only",
+  "engine_executions": 0,
+  "runtime_changed": false,
+  "sampling_rows": [
+    {
+      "id": 0,
+      "value": 0,
+      "weight": 1.0
+    },
+    {
+      "id": 1,
+      "value": null,
+      "weight": 2.0
+    },
+    {
+      "id": 2,
+      "value": 8,
+      "weight": 3.0
+    },
+    {
+      "id": 3,
+      "value": 12,
+      "weight": 4.0
+    },
+    {
+      "id": 4,
+      "value": 16,
+      "weight": 1.0
+    },
+    {
+      "id": 5,
+      "value": 20,
+      "weight": 2.0
+    },
+    {
+      "id": 6,
+      "value": null,
+      "weight": 3.0
+    },
+    {
+      "id": 7,
+      "value": 28,
+      "weight": 4.0
+    },
+    {
+      "id": 8,
+      "value": 32,
+      "weight": 1.0
+    },
+    {
+      "id": 9,
+      "value": 36,
+      "weight": 2.0
+    },
+    {
+      "id": 10,
+      "value": 40,
+      "weight": 3.0
+    },
+    {
+      "id": 11,
+      "value": null,
+      "weight": 4.0
+    }
+  ],
+  "sampling_cases": [
+    {
+      "name": "sample-seed-0-weighted-False-replace-False-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 0,
+        "weights": null,
+        "replace": false
+      },
+      "ordinals": [
+        3
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-False-replace-False-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 0,
+        "weights": null,
+        "replace": false
+      },
+      "ordinals": [
+        0,
+        3,
+        7,
+        9,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-False-replace-False-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 0,
+        "weights": null,
+        "replace": false
+      },
+      "ordinals": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-False-replace-True-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 0,
+        "weights": null,
+        "replace": true
+      },
+      "ordinals": [
+        7
+      ],
+      "expected": [
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-False-replace-True-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 0,
+        "weights": null,
+        "replace": true
+      },
+      "ordinals": [
+        7,
+        0,
+        7,
+        4,
+        7
+      ],
+      "expected": [
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-False-replace-True-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 0,
+        "weights": null,
+        "replace": true
+      },
+      "ordinals": [
+        7,
+        0,
+        7,
+        4,
+        7,
+        6,
+        5,
+        8,
+        11,
+        2,
+        1,
+        10,
+        3,
+        3,
+        5
+      ],
+      "expected": [
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-True-replace-False-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 0,
+        "weights": "weight",
+        "replace": false
+      },
+      "ordinals": [
+        3
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-True-replace-False-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 0,
+        "weights": "weight",
+        "replace": false
+      },
+      "ordinals": [
+        0,
+        3,
+        7,
+        9,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-True-replace-False-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 0,
+        "weights": "weight",
+        "replace": false
+      },
+      "ordinals": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-True-replace-True-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 0,
+        "weights": "weight",
+        "replace": true
+      },
+      "ordinals": [
+        3
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-True-replace-True-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 0,
+        "weights": "weight",
+        "replace": true
+      },
+      "ordinals": [
+        3,
+        2,
+        8,
+        3,
+        1
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-0-weighted-True-replace-True-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 0,
+        "weights": "weight",
+        "replace": true
+      },
+      "ordinals": [
+        3,
+        2,
+        8,
+        3,
+        1,
+        11,
+        11,
+        10,
+        10,
+        7,
+        8,
+        2,
+        7,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-False-replace-False-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 7,
+        "weights": null,
+        "replace": false
+      },
+      "ordinals": [
+        1
+      ],
+      "expected": [
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-False-replace-False-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 7,
+        "weights": null,
+        "replace": false
+      },
+      "ordinals": [
+        1,
+        2,
+        4,
+        7,
+        10
+      ],
+      "expected": [
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-False-replace-False-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 7,
+        "weights": null,
+        "replace": false
+      },
+      "ordinals": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-False-replace-True-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 7,
+        "weights": null,
+        "replace": true
+      },
+      "ordinals": [
+        3
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-False-replace-True-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 7,
+        "weights": null,
+        "replace": true
+      },
+      "ordinals": [
+        3,
+        5,
+        9,
+        10,
+        6
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-False-replace-True-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 7,
+        "weights": null,
+        "replace": true
+      },
+      "ordinals": [
+        3,
+        5,
+        9,
+        10,
+        6,
+        4,
+        3,
+        9,
+        5,
+        3,
+        0,
+        11,
+        7,
+        5,
+        9
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-True-replace-False-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": false
+      },
+      "ordinals": [
+        1
+      ],
+      "expected": [
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-True-replace-False-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": false
+      },
+      "ordinals": [
+        1,
+        2,
+        7,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-True-replace-False-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": false
+      },
+      "ordinals": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-True-replace-True-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": true
+      },
+      "ordinals": [
+        4
+      ],
+      "expected": [
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-True-replace-True-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": true
+      },
+      "ordinals": [
+        4,
+        9,
+        0,
+        7,
+        7
+      ],
+      "expected": [
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-7-weighted-True-replace-True-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": true
+      },
+      "ordinals": [
+        4,
+        9,
+        0,
+        7,
+        7,
+        5,
+        11,
+        9,
+        9,
+        7,
+        11,
+        6,
+        9,
+        4,
+        7
+      ],
+      "expected": [
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-False-replace-False-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 18446744073709551615,
+        "weights": null,
+        "replace": false
+      },
+      "ordinals": [
+        9
+      ],
+      "expected": [
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-False-replace-False-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 18446744073709551615,
+        "weights": null,
+        "replace": false
+      },
+      "ordinals": [
+        0,
+        1,
+        2,
+        4,
+        9
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-False-replace-False-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 18446744073709551615,
+        "weights": null,
+        "replace": false
+      },
+      "ordinals": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-False-replace-True-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 18446744073709551615,
+        "weights": null,
+        "replace": true
+      },
+      "ordinals": [
+        8
+      ],
+      "expected": [
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-False-replace-True-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 18446744073709551615,
+        "weights": null,
+        "replace": true
+      },
+      "ordinals": [
+        8,
+        3,
+        8,
+        11,
+        4
+      ],
+      "expected": [
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-False-replace-True-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 18446744073709551615,
+        "weights": null,
+        "replace": true
+      },
+      "ordinals": [
+        8,
+        3,
+        8,
+        11,
+        4,
+        5,
+        2,
+        0,
+        4,
+        9,
+        2,
+        1,
+        2,
+        4,
+        2
+      ],
+      "expected": [
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-True-replace-False-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 18446744073709551615,
+        "weights": "weight",
+        "replace": false
+      },
+      "ordinals": [
+        9
+      ],
+      "expected": [
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-True-replace-False-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 18446744073709551615,
+        "weights": "weight",
+        "replace": false
+      },
+      "ordinals": [
+        0,
+        1,
+        2,
+        7,
+        9
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-True-replace-False-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 18446744073709551615,
+        "weights": "weight",
+        "replace": false
+      },
+      "ordinals": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-True-replace-True-n-1",
+      "options": {
+        "n": 1,
+        "random_state": 18446744073709551615,
+        "weights": "weight",
+        "replace": true
+      },
+      "ordinals": [
+        7
+      ],
+      "expected": [
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-True-replace-True-n-5",
+      "options": {
+        "n": 5,
+        "random_state": 18446744073709551615,
+        "weights": "weight",
+        "replace": true
+      },
+      "ordinals": [
+        7,
+        0,
+        8,
+        4,
+        5
+      ],
+      "expected": [
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-seed-18446744073709551615-weighted-True-replace-True-n-15",
+      "options": {
+        "n": 15,
+        "random_state": 18446744073709551615,
+        "weights": "weight",
+        "replace": true
+      },
+      "ordinals": [
+        7,
+        0,
+        8,
+        4,
+        5,
+        3,
+        11,
+        3,
+        3,
+        9,
+        3,
+        5,
+        10,
+        3,
+        2
+      ],
+      "expected": [
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.25-weighted-False-replace-False",
+      "options": {
+        "frac": 0.25,
+        "random_state": 7,
+        "weights": null,
+        "replace": false
+      },
+      "declared_target": 3,
+      "ordinals": [
+        1,
+        4,
+        10
+      ],
+      "expected": [
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.25-weighted-False-replace-True",
+      "options": {
+        "frac": 0.25,
+        "random_state": 7,
+        "weights": null,
+        "replace": true
+      },
+      "declared_target": 3,
+      "ordinals": [
+        3,
+        5,
+        9
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.25-weighted-True-replace-False",
+      "options": {
+        "frac": 0.25,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": false
+      },
+      "declared_target": 3,
+      "ordinals": [
+        1,
+        7,
+        10
+      ],
+      "expected": [
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.25-weighted-True-replace-True",
+      "options": {
+        "frac": 0.25,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": true
+      },
+      "declared_target": 3,
+      "ordinals": [
+        4,
+        9,
+        0
+      ],
+      "expected": [
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.5-weighted-False-replace-False",
+      "options": {
+        "frac": 0.5,
+        "random_state": 7,
+        "weights": null,
+        "replace": false
+      },
+      "declared_target": 6,
+      "ordinals": [
+        1,
+        2,
+        4,
+        7,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.5-weighted-False-replace-True",
+      "options": {
+        "frac": 0.5,
+        "random_state": 7,
+        "weights": null,
+        "replace": true
+      },
+      "declared_target": 6,
+      "ordinals": [
+        3,
+        5,
+        9,
+        10,
+        6,
+        4
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.5-weighted-True-replace-False",
+      "options": {
+        "frac": 0.5,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": false
+      },
+      "declared_target": 6,
+      "ordinals": [
+        1,
+        2,
+        4,
+        7,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.5-weighted-True-replace-True",
+      "options": {
+        "frac": 0.5,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": true
+      },
+      "declared_target": 6,
+      "ordinals": [
+        4,
+        9,
+        0,
+        7,
+        7,
+        5
+      ],
+      "expected": [
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.75-weighted-False-replace-False",
+      "options": {
+        "frac": 0.75,
+        "random_state": 7,
+        "weights": null,
+        "replace": false
+      },
+      "declared_target": 9,
+      "ordinals": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        7,
+        9,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.75-weighted-False-replace-True",
+      "options": {
+        "frac": 0.75,
+        "random_state": 7,
+        "weights": null,
+        "replace": true
+      },
+      "declared_target": 9,
+      "ordinals": [
+        3,
+        5,
+        9,
+        10,
+        6,
+        4,
+        3,
+        9,
+        5
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.75-weighted-True-replace-False",
+      "options": {
+        "frac": 0.75,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": false
+      },
+      "declared_target": 9,
+      "ordinals": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        7,
+        9,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-0.75-weighted-True-replace-True",
+      "options": {
+        "frac": 0.75,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": true
+      },
+      "declared_target": 9,
+      "ordinals": [
+        4,
+        9,
+        0,
+        7,
+        7,
+        5,
+        11,
+        9,
+        9
+      ],
+      "expected": [
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-1.0-weighted-False-replace-False",
+      "options": {
+        "frac": 1.0,
+        "random_state": 7,
+        "weights": null,
+        "replace": false
+      },
+      "declared_target": 12,
+      "ordinals": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-1.0-weighted-False-replace-True",
+      "options": {
+        "frac": 1.0,
+        "random_state": 7,
+        "weights": null,
+        "replace": true
+      },
+      "declared_target": 12,
+      "ordinals": [
+        3,
+        5,
+        9,
+        10,
+        6,
+        4,
+        3,
+        9,
+        5,
+        3,
+        0,
+        11
+      ],
+      "expected": [
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-1.0-weighted-True-replace-False",
+      "options": {
+        "frac": 1.0,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": false
+      },
+      "declared_target": 12,
+      "ordinals": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 2.0
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 3.0
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 4.0
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 3.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        }
+      ]
+    },
+    {
+      "name": "sample-fraction-1.0-weighted-True-replace-True",
+      "options": {
+        "frac": 1.0,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": true
+      },
+      "declared_target": 12,
+      "ordinals": [
+        4,
+        9,
+        0,
+        7,
+        7,
+        5,
+        11,
+        9,
+        9,
+        7,
+        11,
+        6
+      ],
+      "expected": [
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 1.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 1.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 2.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 2.0
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 4.0
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 4.0
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 3.0
+        }
+      ]
+    },
+    {
+      "name": "sample-tied-negative-infinity-scores-preserve-earliest-ordinals",
+      "options": {
+        "n": 5,
+        "random_state": 7,
+        "weights": "weight",
+        "replace": false
+      },
+      "rows": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 5e-324
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 5e-324
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 5e-324
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 5e-324
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 5e-324
+        },
+        {
+          "id": 5,
+          "value": 20,
+          "weight": 5e-324
+        },
+        {
+          "id": 6,
+          "value": null,
+          "weight": 5e-324
+        },
+        {
+          "id": 7,
+          "value": 28,
+          "weight": 5e-324
+        },
+        {
+          "id": 8,
+          "value": 32,
+          "weight": 5e-324
+        },
+        {
+          "id": 9,
+          "value": 36,
+          "weight": 5e-324
+        },
+        {
+          "id": 10,
+          "value": 40,
+          "weight": 5e-324
+        },
+        {
+          "id": 11,
+          "value": null,
+          "weight": 5e-324
+        }
+      ],
+      "ordinals": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "expected": [
+        {
+          "id": 0,
+          "value": 0,
+          "weight": 5e-324
+        },
+        {
+          "id": 1,
+          "value": null,
+          "weight": 5e-324
+        },
+        {
+          "id": 2,
+          "value": 8,
+          "weight": 5e-324
+        },
+        {
+          "id": 3,
+          "value": 12,
+          "weight": 5e-324
+        },
+        {
+          "id": 4,
+          "value": 16,
+          "weight": 5e-324
+        }
+      ]
+    },
+    {
+      "name": "sample-empty-population",
+      "options": {
+        "n": 5,
+        "random_state": 7
+      },
+      "rows": [],
+      "ordinals": [],
+      "expected": []
+    }
+  ],
+  "rolling_values": [
+    4,
+    null,
+    8,
+    0,
+    null,
+    12,
+    -4,
+    16
+  ],
+  "rolling_cases": [
+    {
+      "name": "rolling-sum-window-1-minimum-1-center-False",
+      "window": 1,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "sum",
+      "expected": [
+        4.0,
+        8.0,
+        0.0,
+        12.0,
+        -4.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-1-minimum-1-center-False",
+      "window": 1,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        8.0,
+        0.0,
+        12.0,
+        -4.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-1-minimum-1-center-False",
+      "window": 1,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        8.0,
+        0.0,
+        12.0,
+        -4.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-1-minimum-1-center-False",
+      "window": 1,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "max",
+      "expected": [
+        4.0,
+        8.0,
+        0.0,
+        12.0,
+        -4.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-1-minimum-1-center-False",
+      "window": 1,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "count",
+      "expected": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rolling-sum-window-1-minimum-1-center-True",
+      "window": 1,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "sum",
+      "expected": [
+        4.0,
+        8.0,
+        0.0,
+        12.0,
+        -4.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-1-minimum-1-center-True",
+      "window": 1,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        8.0,
+        0.0,
+        12.0,
+        -4.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-1-minimum-1-center-True",
+      "window": 1,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        8.0,
+        0.0,
+        12.0,
+        -4.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-1-minimum-1-center-True",
+      "window": 1,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "max",
+      "expected": [
+        4.0,
+        8.0,
+        0.0,
+        12.0,
+        -4.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-1-minimum-1-center-True",
+      "window": 1,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "count",
+      "expected": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "rolling-sum-window-2-minimum-1-center-False",
+      "window": 2,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "sum",
+      "expected": [
+        4.0,
+        4.0,
+        8.0,
+        8.0,
+        0.0,
+        12.0,
+        8.0,
+        12.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-2-minimum-1-center-False",
+      "window": 2,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        4.0,
+        8.0,
+        4.0,
+        0.0,
+        12.0,
+        4.0,
+        6.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-2-minimum-1-center-False",
+      "window": 2,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        4.0,
+        8.0,
+        0.0,
+        0.0,
+        12.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-2-minimum-1-center-False",
+      "window": 2,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "max",
+      "expected": [
+        4.0,
+        4.0,
+        8.0,
+        8.0,
+        0.0,
+        12.0,
+        12.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-2-minimum-1-center-False",
+      "window": 2,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "count",
+      "expected": [
+        1,
+        1,
+        1,
+        2,
+        1,
+        1,
+        2,
+        2
+      ]
+    },
+    {
+      "name": "rolling-sum-window-2-minimum-1-center-True",
+      "window": 2,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "sum",
+      "expected": [
+        4.0,
+        8.0,
+        8.0,
+        0.0,
+        12.0,
+        8.0,
+        12.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-2-minimum-1-center-True",
+      "window": 2,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        8.0,
+        4.0,
+        0.0,
+        12.0,
+        4.0,
+        6.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-2-minimum-1-center-True",
+      "window": 2,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        8.0,
+        0.0,
+        0.0,
+        12.0,
+        -4.0,
+        -4.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-2-minimum-1-center-True",
+      "window": 2,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "max",
+      "expected": [
+        4.0,
+        8.0,
+        8.0,
+        0.0,
+        12.0,
+        12.0,
+        16.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-2-minimum-1-center-True",
+      "window": 2,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "count",
+      "expected": [
+        1,
+        1,
+        2,
+        1,
+        1,
+        2,
+        2,
+        1
+      ]
+    },
+    {
+      "name": "rolling-sum-window-2-minimum-2-center-False",
+      "window": 2,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "sum",
+      "expected": [
+        8.0,
+        8.0,
+        12.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-2-minimum-2-center-False",
+      "window": 2,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        4.0,
+        6.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-2-minimum-2-center-False",
+      "window": 2,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "min",
+      "expected": [
+        0.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-2-minimum-2-center-False",
+      "window": 2,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "max",
+      "expected": [
+        8.0,
+        12.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-2-minimum-2-center-False",
+      "window": 2,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "count",
+      "expected": [
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "name": "rolling-sum-window-2-minimum-2-center-True",
+      "window": 2,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "sum",
+      "expected": [
+        8.0,
+        8.0,
+        12.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-2-minimum-2-center-True",
+      "window": 2,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        4.0,
+        6.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-2-minimum-2-center-True",
+      "window": 2,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "min",
+      "expected": [
+        0.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-2-minimum-2-center-True",
+      "window": 2,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "max",
+      "expected": [
+        8.0,
+        12.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-2-minimum-2-center-True",
+      "window": 2,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "count",
+      "expected": [
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "name": "rolling-sum-window-3-minimum-1-center-False",
+      "window": 3,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "sum",
+      "expected": [
+        4.0,
+        4.0,
+        12.0,
+        8.0,
+        8.0,
+        12.0,
+        8.0,
+        24.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-3-minimum-1-center-False",
+      "window": 3,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        4.0,
+        6.0,
+        4.0,
+        4.0,
+        6.0,
+        4.0,
+        8.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-3-minimum-1-center-False",
+      "window": 3,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        4.0,
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-3-minimum-1-center-False",
+      "window": 3,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "max",
+      "expected": [
+        4.0,
+        4.0,
+        8.0,
+        8.0,
+        8.0,
+        12.0,
+        12.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-3-minimum-1-center-False",
+      "window": 3,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "count",
+      "expected": [
+        1,
+        1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        3
+      ]
+    },
+    {
+      "name": "rolling-sum-window-3-minimum-1-center-True",
+      "window": 3,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "sum",
+      "expected": [
+        4.0,
+        12.0,
+        8.0,
+        8.0,
+        12.0,
+        8.0,
+        24.0,
+        12.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-3-minimum-1-center-True",
+      "window": 3,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        6.0,
+        4.0,
+        4.0,
+        6.0,
+        4.0,
+        8.0,
+        6.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-3-minimum-1-center-True",
+      "window": 3,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        -4.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-3-minimum-1-center-True",
+      "window": 3,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "max",
+      "expected": [
+        4.0,
+        8.0,
+        8.0,
+        8.0,
+        12.0,
+        12.0,
+        16.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-3-minimum-1-center-True",
+      "window": 3,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "count",
+      "expected": [
+        1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        3,
+        2
+      ]
+    },
+    {
+      "name": "rolling-sum-window-3-minimum-2-center-False",
+      "window": 3,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "sum",
+      "expected": [
+        12.0,
+        8.0,
+        8.0,
+        12.0,
+        8.0,
+        24.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-3-minimum-2-center-False",
+      "window": 3,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "mean",
+      "expected": [
+        6.0,
+        4.0,
+        4.0,
+        6.0,
+        4.0,
+        8.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-3-minimum-2-center-False",
+      "window": 3,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-3-minimum-2-center-False",
+      "window": 3,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "max",
+      "expected": [
+        8.0,
+        8.0,
+        8.0,
+        12.0,
+        12.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-3-minimum-2-center-False",
+      "window": 3,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "count",
+      "expected": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        3
+      ]
+    },
+    {
+      "name": "rolling-sum-window-3-minimum-2-center-True",
+      "window": 3,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "sum",
+      "expected": [
+        12.0,
+        8.0,
+        8.0,
+        12.0,
+        8.0,
+        24.0,
+        12.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-3-minimum-2-center-True",
+      "window": 3,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "mean",
+      "expected": [
+        6.0,
+        4.0,
+        4.0,
+        6.0,
+        4.0,
+        8.0,
+        6.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-3-minimum-2-center-True",
+      "window": 3,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        -4.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-3-minimum-2-center-True",
+      "window": 3,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "max",
+      "expected": [
+        8.0,
+        8.0,
+        8.0,
+        12.0,
+        12.0,
+        16.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-3-minimum-2-center-True",
+      "window": 3,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "count",
+      "expected": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        3,
+        2
+      ]
+    },
+    {
+      "name": "rolling-sum-window-3-minimum-3-center-False",
+      "window": 3,
+      "min_periods": 3,
+      "center": false,
+      "aggregate": "sum",
+      "expected": [
+        24.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-3-minimum-3-center-False",
+      "window": 3,
+      "min_periods": 3,
+      "center": false,
+      "aggregate": "mean",
+      "expected": [
+        8.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-3-minimum-3-center-False",
+      "window": 3,
+      "min_periods": 3,
+      "center": false,
+      "aggregate": "min",
+      "expected": [
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-3-minimum-3-center-False",
+      "window": 3,
+      "min_periods": 3,
+      "center": false,
+      "aggregate": "max",
+      "expected": [
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-3-minimum-3-center-False",
+      "window": 3,
+      "min_periods": 3,
+      "center": false,
+      "aggregate": "count",
+      "expected": [
+        3
+      ]
+    },
+    {
+      "name": "rolling-sum-window-3-minimum-3-center-True",
+      "window": 3,
+      "min_periods": 3,
+      "center": true,
+      "aggregate": "sum",
+      "expected": [
+        24.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-3-minimum-3-center-True",
+      "window": 3,
+      "min_periods": 3,
+      "center": true,
+      "aggregate": "mean",
+      "expected": [
+        8.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-3-minimum-3-center-True",
+      "window": 3,
+      "min_periods": 3,
+      "center": true,
+      "aggregate": "min",
+      "expected": [
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-3-minimum-3-center-True",
+      "window": 3,
+      "min_periods": 3,
+      "center": true,
+      "aggregate": "max",
+      "expected": [
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-3-minimum-3-center-True",
+      "window": 3,
+      "min_periods": 3,
+      "center": true,
+      "aggregate": "count",
+      "expected": [
+        3
+      ]
+    },
+    {
+      "name": "rolling-sum-window-4-minimum-1-center-False",
+      "window": 4,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "sum",
+      "expected": [
+        4.0,
+        4.0,
+        12.0,
+        12.0,
+        8.0,
+        20.0,
+        8.0,
+        24.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-4-minimum-1-center-False",
+      "window": 4,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        4.0,
+        6.0,
+        4.0,
+        4.0,
+        6.666666666666667,
+        2.6666666666666665,
+        8.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-4-minimum-1-center-False",
+      "window": 4,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        4.0,
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-4-minimum-1-center-False",
+      "window": 4,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "max",
+      "expected": [
+        4.0,
+        4.0,
+        8.0,
+        8.0,
+        8.0,
+        12.0,
+        12.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-4-minimum-1-center-False",
+      "window": 4,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "count",
+      "expected": [
+        1,
+        1,
+        2,
+        3,
+        2,
+        3,
+        3,
+        3
+      ]
+    },
+    {
+      "name": "rolling-sum-window-4-minimum-1-center-True",
+      "window": 4,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "sum",
+      "expected": [
+        12.0,
+        12.0,
+        8.0,
+        20.0,
+        8.0,
+        24.0,
+        24.0,
+        12.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-4-minimum-1-center-True",
+      "window": 4,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "mean",
+      "expected": [
+        6.0,
+        4.0,
+        4.0,
+        6.666666666666667,
+        2.6666666666666665,
+        8.0,
+        8.0,
+        6.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-4-minimum-1-center-True",
+      "window": 4,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-4-minimum-1-center-True",
+      "window": 4,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "max",
+      "expected": [
+        8.0,
+        8.0,
+        8.0,
+        12.0,
+        12.0,
+        16.0,
+        16.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-4-minimum-1-center-True",
+      "window": 4,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "count",
+      "expected": [
+        2,
+        3,
+        2,
+        3,
+        3,
+        3,
+        3,
+        2
+      ]
+    },
+    {
+      "name": "rolling-sum-window-4-minimum-2-center-False",
+      "window": 4,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "sum",
+      "expected": [
+        12.0,
+        12.0,
+        8.0,
+        20.0,
+        8.0,
+        24.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-4-minimum-2-center-False",
+      "window": 4,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "mean",
+      "expected": [
+        6.0,
+        4.0,
+        4.0,
+        6.666666666666667,
+        2.6666666666666665,
+        8.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-4-minimum-2-center-False",
+      "window": 4,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-4-minimum-2-center-False",
+      "window": 4,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "max",
+      "expected": [
+        8.0,
+        8.0,
+        8.0,
+        12.0,
+        12.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-4-minimum-2-center-False",
+      "window": 4,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "count",
+      "expected": [
+        2,
+        3,
+        2,
+        3,
+        3,
+        3
+      ]
+    },
+    {
+      "name": "rolling-sum-window-4-minimum-2-center-True",
+      "window": 4,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "sum",
+      "expected": [
+        12.0,
+        12.0,
+        8.0,
+        20.0,
+        8.0,
+        24.0,
+        24.0,
+        12.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-4-minimum-2-center-True",
+      "window": 4,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "mean",
+      "expected": [
+        6.0,
+        4.0,
+        4.0,
+        6.666666666666667,
+        2.6666666666666665,
+        8.0,
+        8.0,
+        6.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-4-minimum-2-center-True",
+      "window": 4,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-4-minimum-2-center-True",
+      "window": 4,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "max",
+      "expected": [
+        8.0,
+        8.0,
+        8.0,
+        12.0,
+        12.0,
+        16.0,
+        16.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-4-minimum-2-center-True",
+      "window": 4,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "count",
+      "expected": [
+        2,
+        3,
+        2,
+        3,
+        3,
+        3,
+        3,
+        2
+      ]
+    },
+    {
+      "name": "rolling-sum-window-4-minimum-4-center-False",
+      "window": 4,
+      "min_periods": 4,
+      "center": false,
+      "aggregate": "sum",
+      "expected": []
+    },
+    {
+      "name": "rolling-mean-window-4-minimum-4-center-False",
+      "window": 4,
+      "min_periods": 4,
+      "center": false,
+      "aggregate": "mean",
+      "expected": []
+    },
+    {
+      "name": "rolling-min-window-4-minimum-4-center-False",
+      "window": 4,
+      "min_periods": 4,
+      "center": false,
+      "aggregate": "min",
+      "expected": []
+    },
+    {
+      "name": "rolling-max-window-4-minimum-4-center-False",
+      "window": 4,
+      "min_periods": 4,
+      "center": false,
+      "aggregate": "max",
+      "expected": []
+    },
+    {
+      "name": "rolling-count-window-4-minimum-4-center-False",
+      "window": 4,
+      "min_periods": 4,
+      "center": false,
+      "aggregate": "count",
+      "expected": []
+    },
+    {
+      "name": "rolling-sum-window-4-minimum-4-center-True",
+      "window": 4,
+      "min_periods": 4,
+      "center": true,
+      "aggregate": "sum",
+      "expected": []
+    },
+    {
+      "name": "rolling-mean-window-4-minimum-4-center-True",
+      "window": 4,
+      "min_periods": 4,
+      "center": true,
+      "aggregate": "mean",
+      "expected": []
+    },
+    {
+      "name": "rolling-min-window-4-minimum-4-center-True",
+      "window": 4,
+      "min_periods": 4,
+      "center": true,
+      "aggregate": "min",
+      "expected": []
+    },
+    {
+      "name": "rolling-max-window-4-minimum-4-center-True",
+      "window": 4,
+      "min_periods": 4,
+      "center": true,
+      "aggregate": "max",
+      "expected": []
+    },
+    {
+      "name": "rolling-count-window-4-minimum-4-center-True",
+      "window": 4,
+      "min_periods": 4,
+      "center": true,
+      "aggregate": "count",
+      "expected": []
+    },
+    {
+      "name": "rolling-sum-window-12-minimum-1-center-False",
+      "window": 12,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "sum",
+      "expected": [
+        4.0,
+        4.0,
+        12.0,
+        12.0,
+        12.0,
+        24.0,
+        20.0,
+        36.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-12-minimum-1-center-False",
+      "window": 12,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        4.0,
+        6.0,
+        4.0,
+        4.0,
+        6.0,
+        4.0,
+        6.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-12-minimum-1-center-False",
+      "window": 12,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        4.0,
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-12-minimum-1-center-False",
+      "window": 12,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "max",
+      "expected": [
+        4.0,
+        4.0,
+        8.0,
+        8.0,
+        8.0,
+        12.0,
+        12.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-12-minimum-1-center-False",
+      "window": 12,
+      "min_periods": 1,
+      "center": false,
+      "aggregate": "count",
+      "expected": [
+        1,
+        1,
+        2,
+        3,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "rolling-sum-window-12-minimum-1-center-True",
+      "window": 12,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "sum",
+      "expected": [
+        20.0,
+        36.0,
+        36.0,
+        36.0,
+        36.0,
+        36.0,
+        32.0,
+        32.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-12-minimum-1-center-True",
+      "window": 12,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        6.0,
+        6.0,
+        6.0,
+        6.0,
+        6.0,
+        6.4,
+        6.4
+      ]
+    },
+    {
+      "name": "rolling-min-window-12-minimum-1-center-True",
+      "window": 12,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "min",
+      "expected": [
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-12-minimum-1-center-True",
+      "window": 12,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "max",
+      "expected": [
+        12.0,
+        16.0,
+        16.0,
+        16.0,
+        16.0,
+        16.0,
+        16.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-12-minimum-1-center-True",
+      "window": 12,
+      "min_periods": 1,
+      "center": true,
+      "aggregate": "count",
+      "expected": [
+        5,
+        6,
+        6,
+        6,
+        6,
+        6,
+        5,
+        5
+      ]
+    },
+    {
+      "name": "rolling-sum-window-12-minimum-2-center-False",
+      "window": 12,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "sum",
+      "expected": [
+        12.0,
+        12.0,
+        12.0,
+        24.0,
+        20.0,
+        36.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-12-minimum-2-center-False",
+      "window": 12,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "mean",
+      "expected": [
+        6.0,
+        4.0,
+        4.0,
+        6.0,
+        4.0,
+        6.0
+      ]
+    },
+    {
+      "name": "rolling-min-window-12-minimum-2-center-False",
+      "window": 12,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "min",
+      "expected": [
+        4.0,
+        0.0,
+        0.0,
+        0.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-12-minimum-2-center-False",
+      "window": 12,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "max",
+      "expected": [
+        8.0,
+        8.0,
+        8.0,
+        12.0,
+        12.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-12-minimum-2-center-False",
+      "window": 12,
+      "min_periods": 2,
+      "center": false,
+      "aggregate": "count",
+      "expected": [
+        2,
+        3,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "rolling-sum-window-12-minimum-2-center-True",
+      "window": 12,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "sum",
+      "expected": [
+        20.0,
+        36.0,
+        36.0,
+        36.0,
+        36.0,
+        36.0,
+        32.0,
+        32.0
+      ]
+    },
+    {
+      "name": "rolling-mean-window-12-minimum-2-center-True",
+      "window": 12,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "mean",
+      "expected": [
+        4.0,
+        6.0,
+        6.0,
+        6.0,
+        6.0,
+        6.0,
+        6.4,
+        6.4
+      ]
+    },
+    {
+      "name": "rolling-min-window-12-minimum-2-center-True",
+      "window": 12,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "min",
+      "expected": [
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0,
+        -4.0
+      ]
+    },
+    {
+      "name": "rolling-max-window-12-minimum-2-center-True",
+      "window": 12,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "max",
+      "expected": [
+        12.0,
+        16.0,
+        16.0,
+        16.0,
+        16.0,
+        16.0,
+        16.0,
+        16.0
+      ]
+    },
+    {
+      "name": "rolling-count-window-12-minimum-2-center-True",
+      "window": 12,
+      "min_periods": 2,
+      "center": true,
+      "aggregate": "count",
+      "expected": [
+        5,
+        6,
+        6,
+        6,
+        6,
+        6,
+        5,
+        5
+      ]
+    },
+    {
+      "name": "rolling-sum-window-12-minimum-12-center-False",
+      "window": 12,
+      "min_periods": 12,
+      "center": false,
+      "aggregate": "sum",
+      "expected": []
+    },
+    {
+      "name": "rolling-mean-window-12-minimum-12-center-False",
+      "window": 12,
+      "min_periods": 12,
+      "center": false,
+      "aggregate": "mean",
+      "expected": []
+    },
+    {
+      "name": "rolling-min-window-12-minimum-12-center-False",
+      "window": 12,
+      "min_periods": 12,
+      "center": false,
+      "aggregate": "min",
+      "expected": []
+    },
+    {
+      "name": "rolling-max-window-12-minimum-12-center-False",
+      "window": 12,
+      "min_periods": 12,
+      "center": false,
+      "aggregate": "max",
+      "expected": []
+    },
+    {
+      "name": "rolling-count-window-12-minimum-12-center-False",
+      "window": 12,
+      "min_periods": 12,
+      "center": false,
+      "aggregate": "count",
+      "expected": []
+    },
+    {
+      "name": "rolling-sum-window-12-minimum-12-center-True",
+      "window": 12,
+      "min_periods": 12,
+      "center": true,
+      "aggregate": "sum",
+      "expected": []
+    },
+    {
+      "name": "rolling-mean-window-12-minimum-12-center-True",
+      "window": 12,
+      "min_periods": 12,
+      "center": true,
+      "aggregate": "mean",
+      "expected": []
+    },
+    {
+      "name": "rolling-min-window-12-minimum-12-center-True",
+      "window": 12,
+      "min_periods": 12,
+      "center": true,
+      "aggregate": "min",
+      "expected": []
+    },
+    {
+      "name": "rolling-max-window-12-minimum-12-center-True",
+      "window": 12,
+      "min_periods": 12,
+      "center": true,
+      "aggregate": "max",
+      "expected": []
+    },
+    {
+      "name": "rolling-count-window-12-minimum-12-center-True",
+      "window": 12,
+      "min_periods": 12,
+      "center": true,
+      "aggregate": "count",
+      "expected": []
+    }
+  ],
+  "source_sha256": {
+    "shardloom-vortex/src/local_primitives.rs": "79fa99aca30bc30ae19613ae5db83efdfe1aa568eee0155aa47e27e1c8babc7b",
+    "shardloom-vortex/src/local_primitive_unary_sample.rs": "6ca99e7dfd44339cc387a231ecd0e5a83665a5fb1708cfe1b9183873130ea96f",
+    "shardloom-vortex/src/local_primitive_unary_rolling.rs": "1f418e17667090bd9c165e3a6dfc9ad8274f6753135113da317e5652100cf0b2",
+    "shardloom-vortex/src/local_primitives/rolling_observation.rs": "c8666a3fd36bfa876d703ec4f78d88667d1b456dcc1cabbd768a65cb96e6277a",
+    "python/src/shardloom/query.py": "f5127648f27c9aedfdedc820df01f48e87ce20fa78e8827c3afb3c0e52ba748f"
+  },
+  "helper_sha256": "bf618b8958e17fd3e508f927fc27bf6eb4e249e1a4c882aa366f92d1764560ac",
+  "oracle_scope": "global ranking or linear weighted draw and independently recomputed rolling frames",
+  "limitations": [
+    "The pinned 64-bit seed mapping is shared contract, not an independent random generator.",
+    "Fraction cases use exact binary fractions and explicit target counts.",
+    "These references do not establish runtime, ownership, resource or publication acceptance."
+  ]
+}

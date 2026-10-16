@@ -17,6 +17,34 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-STREAM-SETS` — all four existing native set operations accept
+  finite streaming producers under PERF-03/06/07/11/12 and CG-5/19/20/21.
+  Complete-plan source counting preserves independent producers, once-only
+  replay, positional types, exact membership and complete source validation.
+  - The [acceptance report](../benchmarks/native-stream-sets-2026-10-15.md)
+    retains six Rust gates, 3,219 workspace and 4,241 native tests, 87 direct
+    binding tests, 1,121 public cases across 22 families and all 43 complete
+    query results. Its 5,460-member packet and separate correction supplements
+    preserve original fixture/import failures and the accepted source changes.
+  - [PR #1558](https://github.com/depsilon/shardloom/pull/1558) merges at
+    `e859b3a8b9d323587cee9641f5ebacd21e7e799c` after all 44 checks pass on
+    `42440f5fb6585accb0553add4dad065820171cab`. Reviewed, synthetic-test and
+    merged trees match. Final-head automated review completes without findings.
+  - The [hosted packet](../benchmarks/evidence/native-stream-sets-hosted-2026-10-15.json)
+    verifies 107 members and 2,272 immutable source identities. Native/provider
+    tests pass 2,873 cases with 26 declared manual exclusions; native public
+    tests pass 1,076. Three isolated installed-wheel lanes each pass 87 tests
+    without skips or publication. Hosted core records 606 discovered, 519 run
+    and 11 skipped tests. All 16 preview/production responses preserve source;
+    production version `785c4ca6-95bc-4b1b-94f7-8408af584d2e` completes.
+    Actual browser guide, search and navigation observations are retained.
+  - Set membership stays resident under credits. Replay spill does not spill
+    membership state. Native Vortex remains highest fidelity; writer type/loss
+    limits and non-atomic fanout publication remain. The single Full43 timing
+    is descriptive regression evidence. The next unit is `NATIVE-STREAM-UNARY`;
+    broader allocation/state/recovery, all six areas/eight investigations and
+    CG-1 through CG-23 retain their owners. No release or transport is claimed.
+
 - [x] `NATIVE-STREAM-DESTINATIONS` — finite streaming input reaches all eight
   existing local writers and one-execution fanout under PERF-03/06/07/11/12 and
   CG-5/19/20/21. Native result replay, shared allocation/spill owners and complete
@@ -45,7 +73,7 @@ phase plan first.
   - Native Vortex remains highest fidelity. Writer type/loss limits, explicit
     replay/spill and non-atomic multi-file publication remain. The single
     Full43 timing is descriptive regression evidence, not a matched speedup.
-    `NATIVE-STREAM-SETS` is the next active breadth unit; remaining allocation,
+    `NATIVE-STREAM-SETS` follows as the next accepted breadth unit; remaining allocation,
     state/recovery, all six areas/eight investigations and CG-1 through CG-23
     retain their owners. No package release or transport completion is claimed.
 

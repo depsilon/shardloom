@@ -149,7 +149,7 @@ and [general aggregate](../architecture/native-aggregate-pressure-2026-10-07.md)
 contracts, extended by the [join contract](../architecture/native-join-pressure-2026-10-08.md)
 and [window contract](../architecture/native-window-pressure-2026-10-08.md),
 admit `streaming=True` for finite batch sources used once each through
-Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window/PivotRows/Set alongside ordinary file/resident
+Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window/PivotRows/Set/Unary alongside ordinary file/resident
 sources, with incremental results, bounded small collection and all eight existing
 local writers: Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV. Each
 writer retains its existing format, type, fidelity and feature admissions. A
@@ -205,8 +205,24 @@ destinations. Both branches retain complete admission and source-count checks.
 Set membership remains resident under the shared grant and refuses excess growth
 even when source/output replay spill is enabled. The [local acceptance report](../benchmarks/native-stream-sets-2026-10-15.md)
 records 4,241 native tests, 87 direct binding tests, 1,121 public cases across 22
-families and one complete Full43 pass. Hosted integration remains pending.
+families and one complete Full43 pass. [PR #1558](https://github.com/depsilon/shardloom/pull/1558)
+completed all 44 checks; three installed-wheel lanes each passed all 87 native
+tests. The [107-member hosted packet](../benchmarks/evidence/native-stream-sets-hosted-2026-10-15.json)
+verifies merged source, eight preview/eight production responses, successful
+production deployment and browser navigation.
 These source additions do not change the immutable 0.6.0 packages.
+
+The [finite unary contract](../architecture/native-stream-unary-2026-10-15.md)
+connects the nine existing static families: DISTINCT, duplicate removal,
+duplicate masks, tail, sampling, scalar rewrites, melt, explode and rolling.
+Existing option/type rules and dynamic pivot's separate schema path remain.
+Stages consume their preceding schema and rows; every producer completes even
+after an output stop condition. Unary membership/population state remains
+resident under the shared grant; replay spill does not spill it. The
+[acceptance report](../benchmarks/native-stream-unary-2026-10-15.md) records
+4,249 native tests, 91 direct methods, 2,601 public cases and all 43 regression
+queries passing locally. Review and hosted integration remain pending. This
+source addition does not change the published 0.6.0 packages.
 
 Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
 with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:

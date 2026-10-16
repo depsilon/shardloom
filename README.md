@@ -84,15 +84,25 @@ The subsequent [selected-text-view acceptance](docs/benchmarks/native-selected-t
 records fewer constructed views in sparse native filtering, its bounded paired
 comparison, complete local checks and all 43 query timings. PR #1556 is merged
 after CI and installed-wheel checks; the report preserves the slower controls,
-served-source evidence and outstanding production deployment notification.
+served-source evidence and the later verified production deployment completion.
 
 Current source builds extend finite streaming input through all eight existing
 local writers and multiple destinations from one execution. The
 [streaming destination contract](docs/architecture/native-stream-destinations-2026-10-15.md)
 defines source completion, native result replay, shared memory/spill admission
 and publication. The [local acceptance report](docs/benchmarks/native-stream-destinations-2026-10-15.md)
-records complete workflow, pressure and query evidence. Hosted integration is
-pending; these additions follow the immutable 0.6.0 packages.
+records complete workflow, pressure and query evidence. PR #1557 is merged after
+all 44 hosted checks, three installed-wheel lanes and preview/production
+verification pass. These additions follow the immutable 0.6.0 packages.
+
+Current source also admits all four existing set operations and nine static
+unary families over finite streaming producers. The
+[set-operation report](docs/benchmarks/native-stream-sets-2026-10-15.md) records
+completed local and hosted integration in PR #1558. The
+[unary report](docs/benchmarks/native-stream-unary-2026-10-15.md) records passing
+local runtime checks, with review and hosted integration pending. Unary and set
+membership state remain resident under the grant; source/result replay spill
+does not spill that state.
 
 For repository work, see [contributing](CONTRIBUTING.md), [agent and development instructions](AGENTS.md),
 the [phase plan](docs/architecture/phased-execution-plan.md), and the

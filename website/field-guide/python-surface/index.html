@@ -217,7 +217,21 @@ refuses excess growth, including when replay spill is enabled. The
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md">set-operation contract</a>
 and <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-sets-2026-10-15.md">local acceptance</a>
 record 87 direct tests, 1,121 public cases and one complete 43-query pass.
-Hosted integration remains pending; the 0.6.0 packages keep their release-time scope.</p>
+PR #1558 merged after all 44 checks passed. Three installed-wheel lanes each
+pass 87 tests, and the <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-sets-hosted-2026-10-15.json">107-member hosted packet</a>
+verifies preview/production source, navigation and successful deployment.
+The 0.6.0 packages keep their release-time scope.</p>
+<p>Current source also connects the nine existing static unary families to finite
+streaming producers: DISTINCT, duplicate removal and masks, tail, sampling,
+scalar rewrites, melt, explode and rolling. Existing option/type rules remain,
+and each stage consumes its preceding schema and rows. Output stop conditions
+still drain complete input. Unary membership and population state remain resident
+under the grant; source/output replay spill does not spill that state. The
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md">unary contract</a>
+and <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-unary-2026-10-15.md">acceptance report</a>
+record 91 direct methods, 2,601 public cases and all 43 regression queries
+passing locally. Review and hosted integration remain pending. These source
+changes do not alter the immutable 0.6.0 packages.</p>
 <p>Relational pivots over file or resident-memory sources can deliver complete
 admitted results through <code dir="auto">iter_batches()</code> with an explicit <code dir="auto">spill</code> policy.
 The <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state">sparse pivot example</a>
