@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-16: share admitted frame storage on nullability casts.
 
 use vortex_array::ArrayRef;
 use vortex_array::ArrayView;
@@ -11,7 +12,6 @@ use vortex_array::vtable::child_to_validity;
 use vortex_error::VortexResult;
 
 use crate::Zstd;
-use crate::ZstdData;
 use crate::ZstdSlots;
 
 impl CastReduce for Zstd {
@@ -59,18 +59,7 @@ impl CastReduce for Zstd {
 
         // If there are no nulls, the cast is trivial
         Ok(Some(
-            Zstd::try_new(
-                dtype.clone(),
-                ZstdData::new(
-                    array.dictionary.clone(),
-                    array.frames.clone(),
-                    array.metadata.clone(),
-                    array.unsliced_n_rows(),
-                ),
-                new_validity,
-            )?
-            .into_array()
-            .slice(array.slice_start()..array.slice_stop())?,
+            Zstd::try_new(dtype.clone(), array.data().clone(), new_validity)?.into_array(),
         ))
     }
 }

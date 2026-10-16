@@ -101,11 +101,15 @@ fn assert_admission_stages(
     let data = operation(&mut ctx).unwrap();
     assert_data_bytes_equal(&data, &reference);
     let requests = recorder.requests.lock().unwrap().clone();
-    let foreign_calls = requests
+    let external_calls = requests
         .iter()
         .filter(|request| matches!(request, Request::External(_)))
         .count();
-    assert_eq!(foreign_calls, if dictionary { 2 } else { 1 });
+    assert_eq!(
+        external_calls,
+        if dictionary { 3 } else { 2 },
+        "frame table, compression and optional dictionary training"
+    );
     let peak = memory.snapshot().peak_reserved_bytes;
     let retained = memory.snapshot().reserved_bytes;
     assert!(peak > retained && retained > 0);
@@ -216,8 +220,8 @@ fn native_zstd_compression_small_samples_keep_default_training() {
             .iter()
             .filter(|request| matches!(request, Request::External(_)))
             .count(),
-        2,
-        "default training followed by dictionary compression"
+        3,
+        "frame table, default training and dictionary compression"
     );
     drop(data);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
@@ -242,13 +246,20 @@ fn native_zstd_compression_rejects_a_short_training_partition_before_foreign_adm
     let error =
         ZstdData::from_primitive(&values, 0, 1, &mut session.create_execution_ctx()).unwrap_err();
     assert!(error.to_string().contains("training partition"), "{error}");
-    assert!(
-        !recorder
+    assert_eq!(
+        recorder
             .requests
             .lock()
             .unwrap()
             .iter()
-            .any(|request| matches!(request, Request::External(_)))
+            .filter(|request| matches!(request, Request::External(_)))
+            .cloned()
+            .collect::<Vec<_>>(),
+        vec![Request::External(
+            8 * (size_of::<vortex::buffer::ByteBuffer>()
+                + size_of::<vortex::encodings::zstd::ZstdFrameMetadata>())
+        )],
+        "only the Rust frame table is admitted before the training-domain check"
     );
     assert_eq!(memory.snapshot().reserved_bytes, 0);
     // The explicit no-dictionary entry point still admits these exact values.

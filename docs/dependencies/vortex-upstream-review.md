@@ -1,5 +1,28 @@
 # Vortex Upstream Dependency Review
 
+## October 16, 2026 frame metadata ownership
+
+The [frame metadata contract](../architecture/native-zstd-metadata-resources-2026-10-16.md)
+extends the same Apache-2.0 `vortex-zstd` 0.85.0 patch with immutable shared
+frame tables. Compression and deserialization reserve the two vectors before
+construction; clones, slices and nullability casts share their owner. Selected
+frame copies and native transfers use the receiving allocator, replacing their
+previous outer frame-metadata charges. The parser uses the already locked
+Prost 0.14.3 APIs; no dependency, unsafe code or wire-format change is added.
+The [codec provenance](../../vendor/vortex-zstd/upstream-provenance.json) and
+Python license bundle carry the same local-change description. Original
+archive, member and license identities remain unchanged.
+
+The [complete local acceptance](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
+passes six Rust gates, 67 standalone Zstd provider tests, 100 direct methods,
+4,827 public cases, all 18 lifecycle cells and one complete Full43 pass.
+All 13,728 portable evidence members pass independent inspection; hosted
+integration remains pending. The claim covers requested frame-vector capacity,
+with raw caller-owned construction/export, fixed allocator/Arc overhead and
+process RSS explicitly outside it. Independently supplied IPC still does not
+admit Zstd. This extends the finite compression contract below without closing
+the broader resource or transport queue.
+
 ## October 15, 2026 compression resource admission
 
 The [compression contract](../architecture/native-compression-resources-2026-10-15.md)
@@ -18,7 +41,10 @@ The original archive and member hashes remain authoritative in the
 Python license bundle carries their matching local-change descriptions.
 The [complete local acceptance](../benchmarks/native-compression-resources-2026-10-15.md)
 passes ownership/value, lifecycle cost, workspace/native/vendor, direct/public
-and single-pass Full43 gates. Hosted integration remains pending. Foreign requested
+and single-pass Full43 gates. Hosted integration completes in PR #1555 after
+all 44 checks, three installed-wheel lanes and production verification, as
+recorded in the [hosted packet](../benchmarks/evidence/native-compression-hosted-2026-10-15.json).
+Foreign requested
 heap and named payload buffers are the finite accounting claim; structural
 vectors, allocator bookkeeping, stacks and process RSS remain outside it.
 

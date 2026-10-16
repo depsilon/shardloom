@@ -100,8 +100,18 @@ tests, 80 direct tests, 757 public cases and one Full43 pass succeed; its
 after all 44 checks passed, with three installed-wheel lanes and production
 verification recorded in the [hosted packet](../benchmarks/evidence/native-compression-hosted-2026-10-15.json).
 This source change follows the immutable 0.6.0
-packages. Structural metadata, unreviewed providers and process RSS retain
-their separate boundaries; the public support label is unchanged.
+packages. Its original claim excludes structural metadata; the subsequent
+extension below retains a separate acceptance record. Unreviewed providers and
+process RSS retain their separate boundaries; the public support label is unchanged.
+
+The source-only [Zstd frame metadata extension](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
+admits the two frame vectors before construction, shares ownership through
+clones/slices/nullability casts and creates fresh receiving metadata for native
+transfer. Six Rust gates, 67 provider tests, 100 direct methods, 4,827 public cases,
+all 18 lifecycle cells and one Full43 pass succeed. All 13,728 portable members
+pass independent inspection. Hosted integration remains pending. Raw caller-owned
+APIs, fixed allocator/Arc overhead, other codecs and process RSS remain outside
+this requested-capacity claim. Published 0.6.0 packages are unchanged.
 
 The source-only [selected text views](../benchmarks/native-selected-text-views-2026-10-15.md)
 construct views only for selected rows inside the admitted sparse Zstd filter.

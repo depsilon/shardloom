@@ -38,8 +38,8 @@ fn test_zstd_compress_decompress() {
 
     let compressed = Zstd::from_primitive(&array, 3, 0, &mut ctx).unwrap();
     // this data should be compressible
-    assert!(compressed.frames.len() < array.into_array().nbytes() as usize);
-    assert!(compressed.dictionary.is_none());
+    assert!(compressed.storage.frames.len() < array.into_array().nbytes() as usize);
+    assert!(compressed.storage.dictionary.is_none());
 
     // check full decompression works
     let decompressed = Zstd::decompress(&compressed, &mut ctx).unwrap();
@@ -91,7 +91,7 @@ fn test_zstd_with_validity_and_multi_frame() {
     );
 
     let compressed = Zstd::from_primitive(&array, 0, 30, &mut ctx).unwrap();
-    assert!(compressed.dictionary.is_none());
+    assert!(compressed.storage.dictionary.is_none());
     assert_nth_scalar!(compressed, 0, None::<i32>, &mut ctx);
     assert_nth_scalar!(compressed, 3, 3, &mut ctx);
     assert_nth_scalar!(compressed, 10, None::<i32>, &mut ctx);
@@ -142,7 +142,7 @@ fn test_zstd_with_dict() {
     );
 
     let compressed = Zstd::from_primitive(&array, 0, 16, &mut ctx).unwrap();
-    assert!(compressed.dictionary.is_some());
+    assert!(compressed.storage.dictionary.is_some());
     assert_nth_scalar!(compressed, 0, 0, &mut ctx);
     assert_nth_scalar!(compressed, 199, 199, &mut ctx);
 
@@ -203,7 +203,7 @@ fn test_zstd_var_bin_view() {
     let array = VarBinViewArray::from_iter(data, DType::Utf8(Nullability::Nullable));
 
     let compressed = Zstd::from_var_bin_view(&array, 0, 3, &mut ctx).unwrap();
-    assert!(compressed.dictionary.is_none());
+    assert!(compressed.storage.dictionary.is_none());
     assert_nth_scalar!(compressed, 0, "foo", &mut ctx);
     assert_nth_scalar!(compressed, 1, "bar", &mut ctx);
     assert_nth_scalar!(compressed, 2, None::<String>, &mut ctx);
@@ -301,7 +301,7 @@ fn test_zstd_decompress_var_bin_view() {
     let array = VarBinViewArray::from_iter(data, DType::Utf8(Nullability::Nullable));
 
     let compressed = Zstd::from_var_bin_view(&array, 0, 3, &mut ctx).unwrap();
-    assert!(compressed.dictionary.is_none());
+    assert!(compressed.storage.dictionary.is_none());
     assert_nth_scalar!(compressed, 0, "foo", &mut ctx);
     assert_nth_scalar!(compressed, 1, "bar", &mut ctx);
     assert_nth_scalar!(compressed, 2, None::<String>, &mut ctx);
@@ -348,7 +348,7 @@ fn corrupt_var_bin_view_metadata(
         DType::Utf8(Nullability::Nullable),
     );
     let mut data = ZstdData::from_var_bin_view(&array, 0, values_per_frame, ctx)?;
-    corrupt(&mut data.metadata);
+    corrupt(&mut std::sync::Arc::get_mut(&mut data.storage).unwrap().metadata);
     let compressed = Zstd::try_new(array.dtype().clone(), data, array.validity()?)?;
     Ok((array, compressed))
 }
@@ -445,7 +445,11 @@ fn test_zstd_reads_legacy_primitive_frame_metadata() -> VortexResult<()> {
     let mut ctx = array_session().create_execution_ctx();
     let array = PrimitiveArray::from_iter(0..200_i32);
     let mut data = ZstdData::from_primitive(&array, 3, 30, &mut ctx)?;
-    for frame in &mut data.metadata.frames {
+    for frame in &mut std::sync::Arc::get_mut(&mut data.storage)
+        .unwrap()
+        .metadata
+        .frames
+    {
         frame.n_values = 0;
     }
     let compressed = Zstd::try_new(array.dtype().clone(), data, array.validity()?)?;
@@ -478,8 +482,9 @@ fn test_zstd_rejects_mismatched_frame_content_size() {
     let mut ctx = array_session().create_execution_ctx();
     let compressed =
         Zstd::from_primitive(&PrimitiveArray::from_iter([1_i32, 2, 3]), 0, 0, &mut ctx).unwrap();
-    let mut data = compressed.data().clone();
-    data.metadata.frames[0].uncompressed_size = 16 * 1024 * 1024 * 1024;
+    let mut parts = compressed.data().clone().into_parts(Validity::NonNullable);
+    parts.metadata.frames[0].uncompressed_size = 16 * 1024 * 1024 * 1024;
+    let data = ZstdData::new(parts.dictionary, parts.frames, parts.metadata, parts.n_rows);
 
     let error = Zstd::try_new(
         DType::Primitive(PType::I32, Nullability::NonNullable),

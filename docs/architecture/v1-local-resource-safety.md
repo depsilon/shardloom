@@ -18,9 +18,21 @@ It extends the existing Vortex allocator
 with explicit reservations for bounded synchronous codec storage and uses
 actual admitted buffers for compression preparation and output. Its 18-cell
 cost screen, six broad gates, 72 vendor tests, 80 direct tests, 757 public cases
-and one Full43 pass are complete. Hosted integration remains pending. This
-finite source change follows the immutable 0.6.0 packages; metadata vectors,
-other provider trees and process RSS remain outside its accounting claim.
+and one Full43 pass are complete. PR #1555 completes hosted integration after
+all 44 checks and three installed-wheel lanes pass, with production verification
+retained in its report. This finite source change follows the immutable 0.6.0
+packages; its original accounting claim excludes metadata vectors.
+
+The subsequent [frame metadata unit](native-zstd-metadata-resources-2026-10-16.md)
+admits Zstd frame-handle and protobuf-description vectors before construction.
+Clones, slices and nullability casts share their immutable owner; encoded
+transfer uses fresh receiving credits without double charging the vectors.
+Its [complete local acceptance](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
+passes six Rust gates, 67 provider tests, 100 direct methods, 4,827 public cases,
+all 18 lifecycle cells and one Full43 pass. Independent portable inspection
+passes; hosted integration remains pending. Raw caller-owned construction/export,
+fixed headers, allocator bookkeeping, other provider trees and process RSS
+retain their separate boundaries. Published 0.6.0 packages are unchanged.
 
 Public SQL, Python/DataFrame and CLI workflows carry the same declared memory and parallelism
 through native execution and local output. Admitted native batches retain their ownership and
@@ -242,8 +254,9 @@ The following need separate implementation or acceptance before broader support 
 - reader/codec/upstream scratch accounting beyond the finite accepted provider
   buffers, Zstd decoder/prepared-dictionary workspaces and Chunked value/validity/
   finalization buffers, reviewed fixed-width child-decoder trees and the named
-  compressor/trainer allocations above. Structural metadata, other decoder
-  trees/codecs and unreviewed reader/provider/builder allocations remain open.
+  compressor/trainer allocations above. The Zstd frame-vector extension has
+  complete local acceptance as recorded above; other structural metadata,
+  decoder trees/codecs and unreviewed reader/provider/builder allocations remain open.
 - larger-than-resident-state guarantees beyond the admitted spill families.
 - workload-wide pressure, interruption and recovery acceptance for a declared production envelope.
 - object-store recovery.

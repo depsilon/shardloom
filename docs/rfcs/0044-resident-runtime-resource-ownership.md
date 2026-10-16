@@ -180,6 +180,24 @@ Structural frame/metadata vectors and their infallible clones, Rust allocator
 bookkeeping, C stacks, OS page cache and total process RSS remain outside this
 finite allocation claim. The existing decoder workspace decision is unchanged.
 
+### Pinned Zstd structural metadata admission
+
+`NATIVE-ZSTD-METADATA-RESOURCES` extends the finite provider allocation claim
+to Zstd frame-handle and protobuf-description vectors. The
+[metadata ownership contract](../architecture/native-zstd-metadata-resources-2026-10-16.md)
+defines requested-capacity admission before allocation, immutable shared
+ownership for clones/slices/nullability casts, and fresh receiving ownership
+for encoded transfer. Remove superseded sparse-selection and transfer charges
+instead of charging the same vectors twice. Preserve raw caller-owned APIs as
+an explicit boundary, native encoding/serialization, typed denial and existing
+no-fallback certificates. Independent IPC encoding admission is unchanged.
+Fixed Rust/Arc headers, allocator bookkeeping, other codecs and total process
+RSS remain outside this extension. The contract's complete correctness and cost
+gates must pass before retention; this design alone is not support evidence.
+The [October 16 local acceptance](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
+passes those gates with exact serialized identity and independently inspected
+portable evidence. Hosted integration remains pending.
+
 ## Verification
 
 PERF-04/09 numeric consumer follow-up admits a per-source-array native Primitive

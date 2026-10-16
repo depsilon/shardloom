@@ -187,8 +187,12 @@ buffers, the pinned one-shot compressor and default dictionary trainer. Its
 failures in 3,068 verified evidence members. PR #1555 merged after all 44 checks
 passed; its [hosted packet](../benchmarks/evidence/native-compression-hosted-2026-10-15.json)
 verifies the native and installed-wheel logs, accepted source and production docs.
-Structural frame/metadata storage, other codecs and unreviewed provider trees
-remain open. The 0.6.0 packages are unchanged.
+Its original claim excludes structural frame/metadata storage. The subsequent
+[frame metadata extension](native-zstd-metadata-resources-2026-10-16.md) now has
+[complete local acceptance](../benchmarks/native-zstd-metadata-resources-2026-10-16.md),
+including preallocation admission, shared clones and fresh receiving ownership.
+Hosted integration remains pending. Other metadata, codecs and unreviewed
+provider trees remain open. The 0.6.0 packages are unchanged.
 
 The subsequent [selected text views](native-selected-text-views-2026-10-15.md)
 avoid constructing unselected views inside the admitted sparse Zstd filter.
@@ -218,8 +222,18 @@ The [finite unary unit](native-stream-unary-2026-10-15.md) now passes local runt
 acceptance: all six Rust gates, 91 direct methods, 2,601 public cases and one
 complete 43-query pass. Its [report](../benchmarks/native-stream-unary-2026-10-15.md)
 preserves failed fixtures and corrections alongside complete evidence. Independent
-archive inspection and documentation verification pass; hosted integration remains pending;
-resident unary-state limits and the broader obligations below remain separate.
+archive inspection and documentation verification pass. PR #1559 is integrated
+after all 44 hosted checks, three installed-wheel lanes and verified
+preview/production acceptance, as recorded in the
+[completed ledger](phased-execution-completed-ledger.md). Resident unary-state
+limits and the broader obligations below remain separate.
+
+The subsequent [static-inner subquery unit](native-stream-subqueries-2026-10-15.md)
+and [declared dynamic-subquery unit](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
+complete the scoped streaming subquery families. PRs #1560 and #1561 pass all
+44 hosted checks and verified preview/production acceptance, as recorded in the
+[completed ledger](phased-execution-completed-ledger.md). Their finite source,
+schema and membership boundaries do not close the broader obligations below.
 
 ## Coverage that must remain visible
 
@@ -243,8 +257,8 @@ platform obligations below remain separate.
 | Area and existing owner | Intake disposition and concrete remaining obligation | Completion evidence |
 | --- | --- | --- |
 | Stateful pressure and recovery — PERF-03/06/10/12 | General high-cardinality grouping/DISTINCT and relational ordering are accepted in PR #1531. Oversized join build/intermediate state has complete local and hosted acceptance in PR #1532. Analytic windows have complete local and hosted pressure/workflow acceptance in PR #1533. Growing relational pivot domain/cell state has complete local pressure/workflow acceptance, independent packet inspection and hosted integration in PR #1534. Other unadmitted state and broader recovery retain their own contracts. Reuse shared native mechanisms only where each family's semantics permit. | Complete exact workloads beyond the admitted resident allowance; native reservations/runs and disk quota; cancellation, corruption, exhausted resources, owned cleanup and publication. Distinguish cleanup/restart from actual execution resume. An intentionally resident-only supported shape may close with a documented bound and deterministic growth denial, not a spill claim. |
-| Remaining allocation coverage — PERF-03/06/08/09 | Extend the current resource inventory beyond the reviewed selection/child-decoder and compressor/trainer units: structural metadata, other decoder/selection providers and unreviewed reader/provider/builder allocations. Preserve each completed or locally accepted unit's exact scope and hosted status above. | Valid credits before allocation, an implemented bounded/spill transition, or deterministic denial with cleanup for the supported workflow. Identify Python retention, conversion-library memory, allocator overhead and excluded providers separately. |
-| Broader streaming — PERF-03/06/07/11/12 | The composition unit is integrated for multiple finite producers, declared repeated-source/self-join replay, dynamic pivot discovery and exact rich-type native write/reopen. Ordering/aggregation, complete drain for limits, joins and analytic windows retain their existing acceptance. All eight existing local destinations and one-execution fanout are integrated in PR #1557; all four existing set operations are integrated in PR #1558. `NATIVE-STREAM-UNARY` is active; remaining bounded/spill stateful families and unadmitted operator/type combinations retain separate obligations. Preserve accepted source-completion and ownership contracts when admitting further shapes. | A producer consumed once per execution, bounded owners, complete schema/value/order checks, late failure and cancellation, sink cleanup/publication, and declared native replay. Cumulative input and top-level schema metadata use shared-grant admission; preserve the 2,048-row / 8-MiB frame boundaries and explicit finite completion. Ordinary file-backed datasets do not inherit these transport bounds. |
+| Remaining allocation coverage — PERF-03/06/08/09 | Extend the current resource inventory beyond the reviewed selection/child-decoder, compressor/trainer and locally accepted Zstd frame-vector units: other structural metadata, decoder/selection providers and unreviewed reader/provider/builder allocations. Preserve each completed or locally accepted unit's exact scope and hosted status above. | Valid credits before allocation, an implemented bounded/spill transition, or deterministic denial with cleanup for the supported workflow. Identify Python retention, conversion-library memory, allocator overhead and excluded providers separately. |
+| Broader streaming — PERF-03/06/07/11/12 | The composition unit is integrated for multiple finite producers, declared repeated-source/self-join replay, dynamic pivot discovery and exact rich-type native write/reopen. Ordering/aggregation, complete drain for limits, joins and analytic windows retain their existing acceptance. All eight existing local destinations and one-execution fanout are integrated in PR #1557; all four existing set operations are integrated in PR #1558; the nine static unary families are integrated in PR #1559; static-inner subqueries and declared parameter-dependent predicate inner subqueries are integrated in PRs #1560 and #1561. Remaining bounded/spill stateful families and unadmitted operator/type combinations retain separate obligations. Preserve accepted source-completion and ownership contracts when admitting further shapes. | A producer consumed once per execution, bounded owners, complete schema/value/order checks, late failure and cancellation, sink cleanup/publication, and declared native replay. Cumulative input and top-level schema metadata use shared-grant admission; preserve the 2,048-row / 8-MiB frame boundaries and explicit finite completion. Ordinary file-backed datasets do not inherit these transport bounds. |
 | Adapter and composition coverage — PERF-02/07/10/11/12 and CG-19/20/21 | Merge into the universal-workflow matrix: typed/nested format boundaries, partition/schema evolution, prepared/public parity and remaining operator/type result streams. Automatic compatibility preparation now shares the incremental transaction's cancellation owner and native allocation; its local acceptance is recorded in the composition unit. `NATIVE-PERSISTED-REUSE` is integrated in PR #1544: output preparation survives writer close and producer teardown and is used by a fresh process running a different computation. Keep native retained-object transfer and independent-producer interchange separately evidenced. | Read → transform → retain or spill → consume again → write → reopen, checking intended types and every value. Format existence alone is insufficient. Small-result collect may remain deliberately bounded. |
 | Defined local support and release — PERF-12 and existing local-engine/release gates | Bind a specific release to declared workloads, operators/types/formats/resource conditions and supported OS/architectures. Add actual platform runtime evidence, pressure/failure/slow-consumer acceptance, recovery promises, known issues, compatibility, upgrade/rollback and install guidance. | The [local-engine exit criteria](../release/production-certification-gate.md#local-engine-preview-exit-criteria), workload-scoped runtime records, supported/unsupported matrix and normal publication gates. Current full-size local UAT is macOS arm64 with Unix facilities. PR #1541 additionally proves 75 installed native methods on each named Linux/macOS wheel lane; that finite evidence does not complete the broader platform/workload contract. A successful cross-platform build alone is insufficient. Package publication itself is already implemented. |
 | Conditional performance investigations — existing campaign/PERF owners | Preserve all eight rows below, attached to the components they may improve. Evidence prerequisites decide whether to prototype; each retained implementation still needs its frozen complete-operation gate. | Complete output, mechanism counters, grants and controls, original failures, all samples and an explicit retain/drop/defer decision. No investigation is a promised speedup. |
@@ -313,7 +327,9 @@ all 44 checks passed. The [production observation](../release/channel-proofs/web
 binds the deployed source, four live URLs and six public documents.
 `RELEASE-060` is complete. The subsequent
 [native compression admission](native-compression-resources-2026-10-15.md)
-passes complete local acceptance and awaits hosted integration.
+is complete: PR #1555 passed all 44 hosted checks, with its hosted packet
+verifying the accepted source, native and installed-wheel logs, and production
+documentation.
 Historical UAT keeps its original source and executable identity. Earlier
 published artifacts stay immutable; subsequent work under the six areas and
 eight investigations does not receive a separate release for each unit.

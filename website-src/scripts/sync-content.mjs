@@ -962,9 +962,20 @@ admits named Zstd preparation/output buffers and audited compressor/default-trai
 heap storage. Complete local ownership, cost, public-workflow and single-pass
 Full43 checks pass. PR #1555 merged after all 44 checks passed, including native
 and installed-wheel acceptance; production documentation is verified. This change
-follows the immutable 0.6.0 packages. Structural frame/metadata storage, other
-codecs and unreviewed provider trees remain separate. These resource corrections
+follows the immutable 0.6.0 packages. Its original scope excludes structural
+frame metadata; the extension below has separate acceptance. Other codecs and
+unreviewed provider trees remain separate. These resource corrections
 make no speedup claim, and a query grant still does not bound total process RSS.
+
+The source-only
+[Zstd frame metadata extension](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-zstd-metadata-resources-2026-10-16.md)
+admits frame-handle and metadata vectors before allocation. Clones, slices and
+nullability casts share their owner; native transfer receives fresh credits
+without duplicate vector charges. Six Rust gates, 67 provider tests, 100 direct
+methods, 4,827 public cases, all 18 lifecycle cells and one Full43 pass succeed.
+Independent inspection verifies 13,728 evidence members. Hosted integration
+remains pending. Raw caller-owned APIs, fixed allocator/Arc overhead and process
+RSS stay outside this claim; published 0.6.0 packages are unchanged.
 
 The subsequent source-only
 [selected text view change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
@@ -1239,8 +1250,15 @@ scratch. The subsequent source-only
 passes complete local acceptance for named buffers and pinned compressor/trainer
 heap reservations. PR #1555 merged after all 44 checks passed, with installed-wheel
 and production verification retained in its report. It follows the immutable
-0.6.0 packages. Structural metadata, other codecs and unreviewed provider trees
-remain separate.
+0.6.0 packages. Its original scope excludes structural metadata.
+The subsequent source-only
+[Zstd frame metadata extension](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-zstd-metadata-resources-2026-10-16.md)
+has complete local acceptance for admitted frame-vector capacity, shared clone
+ownership and fresh receiving ownership. Six Rust gates, 67 provider tests,
+100 direct methods, 4,827 public cases, all 18 lifecycle cells and one Full43
+pass succeed; independent inspection verifies 13,728 members. Hosted integration
+remains pending. Raw caller-owned APIs, fixed allocator/Arc overhead, other
+codecs, unreviewed provider trees and process RSS remain outside this claim.
 The later source-only
 [selected text views](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
 reduce view construction inside sparse native filtering, with complete local

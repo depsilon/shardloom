@@ -1,4 +1,7 @@
 use super::*;
+
+#[path = "resident_memory_zstd_transfer_tests.rs"]
+mod zstd_metadata_tests;
 use crate::{
     resident_memory_source::ResidentMemorySource, resident_session::ResidentVortexSession,
 };

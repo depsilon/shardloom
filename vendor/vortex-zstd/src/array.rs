@@ -10,7 +10,10 @@
 // foreign codec storage through the same caller allocator.
 // Modified by ShardLoom on 2026-10-15: construct only selected text views in
 // the admitted sparse-filter path, preserving the existing frame decoder.
+// Modified by ShardLoom on 2026-10-16: share admitted frame metadata across
+// clones/slices and construct transferred tables under the receiving allocator.
 
+use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -45,8 +48,10 @@ use vortex_array::builders::VarBinViewBuilder;
 use vortex_array::dtype::DType;
 use vortex_array::dtype::OffsetBuilderPType;
 use vortex_array::match_each_varbin_builder;
+use vortex_array::memory::DefaultHostAllocator;
 use vortex_array::memory::HostAllocatorExt;
 use vortex_array::memory::HostAllocatorRef;
+use vortex_array::memory::MemorySessionExt;
 use vortex_array::scalar::Scalar;
 use vortex_array::serde::ArrayChildren;
 use vortex_array::smallvec::smallvec;
@@ -72,6 +77,10 @@ use vortex_session::registry::CachedId;
 
 use crate::ZstdFrameMetadata;
 use crate::ZstdMetadata;
+use crate::compression_resources::{self, AdmittedCompressor};
+use crate::decoder_workspace;
+use crate::metadata_resources::{self, FrameStorage};
+use crate::rules;
 use crate::validate_frame_content_size;
 
 #[path = "selected.rs"]
@@ -104,7 +113,7 @@ pub type ZstdArray = Array<Zstd>;
 
 impl ArrayHash for ZstdData {
     fn array_hash<H: Hasher>(&self, state: &mut H, accuracy: EqMode) {
-        match &self.dictionary {
+        match &self.storage.dictionary {
             Some(dict) => {
                 true.hash(state);
                 dict.array_hash(state, accuracy);
@@ -113,7 +122,7 @@ impl ArrayHash for ZstdData {
                 false.hash(state);
             }
         }
-        for frame in &self.frames {
+        for frame in &self.storage.frames {
             frame.array_hash(state, accuracy);
         }
         self.unsliced_n_rows.hash(state);
@@ -124,17 +133,17 @@ impl ArrayHash for ZstdData {
 
 impl ArrayEq for ZstdData {
     fn array_eq(&self, other: &Self, accuracy: EqMode) -> bool {
-        if !match (&self.dictionary, &other.dictionary) {
+        if !match (&self.storage.dictionary, &other.storage.dictionary) {
             (Some(d1), Some(d2)) => d1.array_eq(d2, accuracy),
             (None, None) => true,
             _ => false,
         } {
             return false;
         }
-        if self.frames.len() != other.frames.len() {
+        if self.storage.frames.len() != other.storage.frames.len() {
             return false;
         }
-        for (a, b) in self.frames.iter().zip(&other.frames) {
+        for (a, b) in self.storage.frames.iter().zip(&other.storage.frames) {
             if !a.array_eq(b, accuracy) {
                 return false;
             }
@@ -168,22 +177,22 @@ impl VTable for Zstd {
     }
 
     fn nbuffers(array: ArrayView<'_, Self>) -> usize {
-        array.dictionary.is_some() as usize + array.frames.len()
+        array.storage.dictionary.is_some() as usize + array.storage.frames.len()
     }
 
     fn buffer(array: ArrayView<'_, Self>, idx: usize) -> BufferHandle {
-        if let Some(dict) = &array.dictionary {
+        if let Some(dict) = &array.storage.dictionary {
             if idx == 0 {
                 return BufferHandle::new_host(dict.clone());
             }
-            BufferHandle::new_host(array.frames[idx - 1].clone())
+            BufferHandle::new_host(array.storage.frames[idx - 1].clone())
         } else {
-            BufferHandle::new_host(array.frames[idx].clone())
+            BufferHandle::new_host(array.storage.frames[idx].clone())
         }
     }
 
     fn buffer_name(array: ArrayView<'_, Self>, idx: usize) -> Option<String> {
-        if array.dictionary.is_some() {
+        if array.storage.dictionary.is_some() {
             if idx == 0 {
                 Some("dictionary".to_string())
             } else {
@@ -199,33 +208,20 @@ impl VTable for Zstd {
         array: ArrayView<'_, Self>,
         buffers: &[BufferHandle],
     ) -> VortexResult<ArrayParts<Self>> {
-        let mut data = array.data().clone();
-        if data.dictionary.is_some() {
-            let Some((dictionary, frames)) = buffers.split_first() else {
-                vortex_bail!("Expected dictionary buffer");
-            };
-            data.dictionary = Some(dictionary.clone().try_to_host_sync()?);
-            data.frames = frames
-                .iter()
-                .map(|buffer| buffer.clone().try_to_host_sync())
-                .collect::<VortexResult<Vec<_>>>()?;
-        } else {
-            data.frames = buffers
-                .iter()
-                .map(|buffer| buffer.clone().try_to_host_sync())
-                .collect::<VortexResult<Vec<_>>>()?;
-        }
-        Ok(
-            ArrayParts::new(self.clone(), array.dtype().clone(), array.len(), data)
-                .with_slots(array.slots().iter().cloned().collect()),
-        )
+        let allocator = array
+            .data()
+            .storage
+            .allocator
+            .clone()
+            .unwrap_or_else(|| Arc::new(DefaultHostAllocator));
+        Self::with_buffers_in(array, buffers, &allocator)
     }
 
     fn serialize(
         array: ArrayView<'_, Self>,
         _session: &VortexSession,
     ) -> VortexResult<Option<Vec<u8>>> {
-        Ok(Some(array.metadata.clone().encode_to_vec()))
+        Ok(Some(array.storage.metadata.encode_to_vec()))
     }
 
     fn deserialize(
@@ -235,9 +231,8 @@ impl VTable for Zstd {
         metadata: &[u8],
         buffers: &[BufferHandle],
         children: &dyn ArrayChildren,
-        _session: &VortexSession,
+        session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = ZstdMetadata::decode(metadata)?;
         let validity = if children.is_empty() {
             Validity::from(dtype.nullability())
         } else if children.len() == 1 {
@@ -247,28 +242,9 @@ impl VTable for Zstd {
             vortex_bail!("ZstdArray expected 0 or 1 child, got {}", children.len());
         };
 
-        let (dictionary_buffer, compressed_buffers) = if metadata.dictionary_size == 0 {
-            // no dictionary
-            (
-                None,
-                buffers
-                    .iter()
-                    .map(|b| b.clone().try_to_host_sync())
-                    .collect::<VortexResult<Vec<_>>>()?,
-            )
-        } else {
-            // with dictionary
-            (
-                Some(buffers[0].clone().try_to_host_sync()?),
-                buffers[1..]
-                    .iter()
-                    .map(|b| b.clone().try_to_host_sync())
-                    .collect::<VortexResult<Vec<_>>>()?,
-            )
-        };
-
+        let storage = FrameStorage::deserialize(metadata, buffers, &session.allocator())?;
         let slots = smallvec![validity_to_child(&validity, len)];
-        let data = ZstdData::new(dictionary_buffer, compressed_buffers, metadata, len);
+        let data = ZstdData::from_storage(storage, len);
         Ok(ArrayParts::new(self.clone(), dtype.clone(), len, data).with_slots(slots))
     }
 
@@ -321,7 +297,7 @@ impl VTable for Zstd {
         parent: &ArrayRef,
         child_idx: usize,
     ) -> VortexResult<Option<ArrayRef>> {
-        crate::rules::RULES.evaluate(array, parent, child_idx)
+        rules::RULES.evaluate(array, parent, child_idx)
     }
 }
 
@@ -438,6 +414,29 @@ fn append_to_varbinview(
 pub struct Zstd;
 
 impl Zstd {
+    /// Replace payload buffers and admit a fresh frame table with `allocator`.
+    ///
+    /// Native transfers use the receiving allocator here so no source table or
+    /// allocator is retained. Slice coordinates and validity slots are preserved;
+    /// the caller must replace any source validity children when transferring.
+    pub fn with_buffers_in(
+        array: ArrayView<'_, Self>,
+        buffers: &[BufferHandle],
+        allocator: &HostAllocatorRef,
+    ) -> VortexResult<ArrayParts<Self>> {
+        let storage = array.data().storage.with_buffers_in(buffers, allocator)?;
+        let data = ZstdData {
+            storage: Arc::new(storage),
+            unsliced_n_rows: array.unsliced_n_rows(),
+            slice_start: array.slice_start(),
+            slice_stop: array.slice_stop(),
+        };
+        Ok(
+            ArrayParts::new(Self, array.dtype().clone(), array.len(), data)
+                .with_slots(array.slots().iter().cloned().collect()),
+        )
+    }
+
     /// Construct a [`ZstdArray`] from validated compressed data and validity.
     pub fn try_new(dtype: DType, data: ZstdData, validity: Validity) -> VortexResult<ZstdArray> {
         let len = data.len();
@@ -530,16 +529,14 @@ pub struct ZstdSlots {
 #[derive(Clone, Debug)]
 /// Encoding-specific data for a [`ZstdArray`].
 pub struct ZstdData {
-    pub(crate) dictionary: Option<ByteBuffer>,
-    pub(crate) frames: Vec<ByteBuffer>,
-    pub(crate) metadata: ZstdMetadata,
+    pub(crate) storage: Arc<FrameStorage>,
     unsliced_n_rows: usize,
     slice_start: usize,
     slice_stop: usize,
 }
 
 impl Display for ZstdData {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "nrows: {}, slice: {}..{}",
@@ -566,14 +563,6 @@ pub struct ZstdDataParts {
     pub slice_stop: usize,
 }
 
-/// Compressed ZStd frames and their metadata
-#[derive(Debug)]
-struct Frames {
-    dictionary: Option<ByteBuffer>,
-    frames: Vec<ByteBuffer>,
-    frame_metas: Vec<ZstdFrameMetadata>,
-}
-
 fn choose_max_dict_size(uncompressed_size: usize) -> usize {
     // following recommendations from
     // https://github.com/facebook/zstd/blob/v1.5.5/lib/zdict.h#L190
@@ -594,6 +583,10 @@ fn collect_valid_primitive(
     Ok(result)
 }
 
+#[expect(
+    clippy::host_endian_bytes,
+    reason = "offsets are native Buffer<usize> storage; serialized value lengths use little endian"
+)]
 fn collect_valid_vbv(
     vbv: &VarBinViewArray,
     ctx: &mut ExecutionCtx,
@@ -672,6 +665,10 @@ fn compression_value<'a>(vbv: &'a VarBinViewArray, view: &'a BinaryView) -> Vort
         .ok_or_else(|| vortex_err!("Native Zstd input view exceeds its source buffer"))
 }
 
+#[expect(
+    clippy::host_endian_bytes,
+    reason = "initialize native Buffer<usize> storage before checked typed freezing"
+)]
 fn compression_offsets(
     count: usize,
     allocator: &HostAllocatorRef,
@@ -688,7 +685,12 @@ fn compression_offsets(
     );
     // Byte writes initialize every usize without trusting a custom allocator's
     // advertised alignment. freeze_typed checks the actual immutable pointer.
-    for (index, destination) in bytes.chunks_exact_mut(size_of::<usize>()).enumerate() {
+    for (index, destination) in bytes
+        .as_chunks_mut::<{ size_of::<usize>() }>()
+        .0
+        .iter_mut()
+        .enumerate()
+    {
         destination.copy_from_slice(&value(index)?.to_ne_bytes());
     }
     let offsets = offsets.freeze_typed::<usize>()?;
@@ -1048,20 +1050,84 @@ impl<'a> ZstdValues<'a> {
 
 impl ZstdData {
     /// Construct unsliced zstd data from raw frames and metadata.
+    ///
+    /// These vectors remain caller-owned, outside session allocator admission.
+    /// Query paths use the allocator-aware compression/deserialization factories.
     pub fn new(
         dictionary: Option<ByteBuffer>,
         frames: Vec<ByteBuffer>,
         metadata: ZstdMetadata,
         n_rows: usize,
     ) -> Self {
+        Self::from_storage(
+            FrameStorage::unmanaged(dictionary, frames, metadata),
+            n_rows,
+        )
+    }
+
+    fn from_storage(storage: FrameStorage, n_rows: usize) -> Self {
         Self {
-            dictionary,
-            frames,
-            metadata,
+            storage: Arc::new(storage),
             unsliced_n_rows: n_rows,
             slice_start: 0,
             slice_stop: n_rows,
         }
+    }
+
+    /// Borrow the immutable frame descriptions without copying or new admission.
+    pub fn frame_metadata(&self) -> &[ZstdFrameMetadata] {
+        &self.storage.metadata.frames
+    }
+
+    /// Requested capacity for a fresh copy of this frame table, excluding payloads.
+    pub fn metadata_capacity_bytes(&self) -> VortexResult<usize> {
+        metadata_resources::capacity_bytes(self.storage.frames.len())
+    }
+
+    /// Select complete frames into a freshly admitted table, sharing payloads.
+    ///
+    /// Indices must be nonempty, ordered and unique. Selected descriptions must
+    /// have explicit value counts. The returned unsliced row count is their sum;
+    /// callers supply matching all-valid validity through the checked constructor.
+    pub fn select_frames_in(
+        &self,
+        indices: &[usize],
+        allocator: &HostAllocatorRef,
+    ) -> VortexResult<Self> {
+        vortex_ensure!(!indices.is_empty(), "Zstd frame selection must be nonempty");
+        vortex_ensure!(
+            self.storage.frames.len() == self.storage.metadata.frames.len(),
+            "Zstd frame count does not match metadata"
+        );
+        let mut previous = None;
+        let mut rows = 0usize;
+        for &index in indices {
+            vortex_ensure!(
+                index < self.storage.frames.len()
+                    && previous.is_none_or(|previous| previous < index),
+                "Zstd selected frame indices must be ordered, unique and in bounds"
+            );
+            let count = usize::try_from(self.storage.metadata.frames[index].n_values)?;
+            vortex_ensure!(
+                count > 0,
+                "Zstd selected frames require explicit value counts"
+            );
+            rows = rows
+                .checked_add(count)
+                .ok_or_else(|| vortex_err!("Zstd selected frame row count overflow"))?;
+            previous = Some(index);
+        }
+        let mut storage = FrameStorage::new_in(indices.len(), allocator)?;
+        storage.dictionary = self.storage.dictionary.clone();
+        storage.metadata.dictionary_size = self.storage.metadata.dictionary_size;
+        for &index in indices {
+            storage.frames.push(self.storage.frames[index].clone());
+            storage
+                .metadata
+                .frames
+                .push(self.storage.metadata.frames[index].clone());
+        }
+        Ok(Self::from_storage(storage, rows))
     }
 
     /// Validate dtype, slice, validity, frame, and dictionary invariants.
@@ -1100,25 +1166,30 @@ impl ZstdData {
             );
         }
 
-        match &self.dictionary {
+        match &self.storage.dictionary {
             Some(dictionary) => vortex_ensure!(
-                usize::try_from(self.metadata.dictionary_size)? == dictionary.len(),
+                usize::try_from(self.storage.metadata.dictionary_size)? == dictionary.len(),
                 "Dictionary size metadata {} does not match buffer size {}",
-                self.metadata.dictionary_size,
+                self.storage.metadata.dictionary_size,
                 dictionary.len()
             ),
             None => vortex_ensure!(
-                self.metadata.dictionary_size == 0,
+                self.storage.metadata.dictionary_size == 0,
                 "Dictionary metadata present without dictionary buffer"
             ),
         }
         vortex_ensure!(
-            self.frames.len() == self.metadata.frames.len(),
+            self.storage.frames.len() == self.storage.metadata.frames.len(),
             "Frame count {} does not match metadata frame count {}",
-            self.frames.len(),
-            self.metadata.frames.len()
+            self.storage.frames.len(),
+            self.storage.metadata.frames.len()
         );
-        for (index, (frame, metadata)) in self.frames.iter().zip(&self.metadata.frames).enumerate()
+        for (index, (frame, metadata)) in self
+            .storage
+            .frames
+            .iter()
+            .zip(&self.storage.metadata.frames)
+            .enumerate()
         {
             validate_frame_content_size(frame.as_slice(), metadata.uncompressed_size, index)?;
         }
@@ -1157,23 +1228,20 @@ impl ZstdData {
         n_values: usize,
         use_dictionary: bool,
         allocator: &HostAllocatorRef,
-    ) -> VortexResult<Frames> {
+    ) -> VortexResult<FrameStorage> {
         let n_frames = frame_byte_starts.len();
         if n_frames == 0 {
             vortex_ensure!(
                 value_bytes.is_empty() && n_values == 0,
                 "Native Zstd input is missing frames"
             );
-            return Ok(Frames {
-                dictionary: None,
-                frames: Vec::new(),
-                frame_metas: Vec::new(),
-            });
+            return FrameStorage::new_in(0, allocator);
         }
         vortex_ensure!(
             frame_byte_starts[0] == 0 && values_per_frame > 0,
             "Native Zstd frame boundaries are invalid"
         );
+        let mut storage = FrameStorage::new_in(n_frames, allocator)?;
         let sample_sizes = compression_offsets(n_frames, allocator, |i| {
             let frame_byte_end = frame_byte_starts
                 .get(i + 1)
@@ -1188,28 +1256,26 @@ impl ZstdData {
                 .ok_or_else(|| vortex_err!("Native Zstd frame boundaries are not ordered"))
         })?;
 
-        let dictionary = if !use_dictionary || sample_sizes.len() < MIN_SAMPLES_FOR_DICTIONARY {
+        storage.dictionary = if !use_dictionary || sample_sizes.len() < MIN_SAMPLES_FOR_DICTIONARY {
             None
         } else {
             let max_dict_size = choose_max_dict_size(value_bytes.len());
-            Some(crate::compression_resources::train_dictionary(
+            Some(compression_resources::train_dictionary(
                 value_bytes,
                 &sample_sizes,
                 max_dict_size,
                 allocator.as_ref(),
             )?)
         };
-        let mut compressor = crate::compression_resources::AdmittedCompressor::new(
+        let mut compressor = AdmittedCompressor::new(
             level,
-            dictionary.as_ref().map(|value| value.as_slice()),
+            storage.dictionary.as_ref().map(|value| value.as_slice()),
             allocator.as_ref(),
         )?;
-        let scratch_len = crate::compression_resources::compress_bound(
+        let scratch_len = compression_resources::compress_bound(
             sample_sizes.iter().copied().max().unwrap_or_default(),
         )?;
         let mut scratch = allocator.allocate(scratch_len, Alignment::none())?;
-        let mut frame_metas = Vec::with_capacity(n_frames);
-        let mut frames = Vec::with_capacity(n_frames);
         for i in 0..n_frames {
             let frame_byte_end = frame_byte_starts
                 .get(i + 1)
@@ -1239,18 +1305,19 @@ impl ZstdData {
                 .checked_mul(values_per_frame)
                 .filter(|start| *start < n_values)
                 .ok_or_else(|| vortex_err!("Native Zstd frame value extent is invalid"))?;
-            frame_metas.push(ZstdFrameMetadata {
+            storage.metadata.frames.push(ZstdFrameMetadata {
                 uncompressed_size: uncompressed.len().try_into()?,
                 n_values: values_per_frame.min(n_values - value_start).try_into()?,
             });
-            frames.push(compressed);
+            storage.frames.push(compressed);
         }
 
-        Ok(Frames {
-            dictionary,
-            frames,
-            frame_metas,
-        })
+        storage.metadata.dictionary_size = storage
+            .dictionary
+            .as_ref()
+            .map_or(0, |dictionary| dictionary.len())
+            .try_into()?;
+        Ok(storage)
     }
 
     /// Creates a ZstdArray from a primitive array.
@@ -1329,11 +1396,7 @@ impl ZstdData {
                     .checked_mul(step_width)
                     .ok_or_else(|| vortex_err!("Native Zstd primitive frame offset overflow"))
             })?;
-        let Frames {
-            dictionary,
-            frames,
-            frame_metas,
-        } = Self::compress_values(
+        let storage = Self::compress_values(
             &value_bytes,
             &frame_byte_starts,
             level,
@@ -1343,15 +1406,7 @@ impl ZstdData {
             &allocator,
         )?;
 
-        let metadata = ZstdMetadata {
-            dictionary_size: dictionary
-                .as_ref()
-                .map_or(0, |dict| dict.len())
-                .try_into()?,
-            frames: frame_metas,
-        };
-
-        Ok(ZstdData::new(dictionary, frames, metadata, parray.len()))
+        Ok(Self::from_storage(storage, parray.len()))
     }
 
     /// Creates a ZstdArray from a VarBinView array.
@@ -1417,11 +1472,7 @@ impl ZstdData {
             compression_offsets(n_values.div_ceil(values_per_frame), &allocator, |index| {
                 Ok(value_byte_indices[index * values_per_frame])
             })?;
-        let Frames {
-            dictionary,
-            frames,
-            frame_metas,
-        } = Self::compress_values(
+        let storage = Self::compress_values(
             &value_bytes,
             &frame_byte_starts,
             level,
@@ -1431,14 +1482,7 @@ impl ZstdData {
             &allocator,
         )?;
 
-        let metadata = ZstdMetadata {
-            dictionary_size: dictionary
-                .as_ref()
-                .map_or(0, |dict| dict.len())
-                .try_into()?,
-            frames: frame_metas,
-        };
-        Ok(ZstdData::new(dictionary, frames, metadata, vbv.len()))
+        Ok(Self::from_storage(storage, vbv.len()))
     }
 
     /// Compress a supported canonical array into zstd data.
@@ -1520,7 +1564,7 @@ impl ZstdData {
         let mut uncompressed_size_to_decompress = 0usize;
         let mut n_skipped_values = 0;
         let mut n_buffered_values = 0;
-        for (index, frame_meta) in self.metadata.frames.iter().enumerate() {
+        for (index, frame_meta) in self.storage.metadata.frames.iter().enumerate() {
             if value_idx_start >= slice_value_idx_stop {
                 break;
             }
@@ -1548,7 +1592,7 @@ impl ZstdData {
                 // values, which misattributes values to frames. A single frame holds every stored
                 // value, so that case is still recoverable; anything else is not.
                 vortex_ensure!(
-                    self.frames.len() == 1,
+                    self.storage.frames.len() == 1,
                     "Zstd frame metadata for a variable-width array is missing its value count"
                 );
                 unsliced_mask.true_count()
@@ -1576,7 +1620,7 @@ impl ZstdData {
         }
 
         let frames_to_decompress =
-            first_frame.map_or(&[][..], |start| &self.frames[start..stop_frame]);
+            first_frame.map_or(&[][..], |start| &self.storage.frames[start..stop_frame]);
 
         // ShardLoom local provider patch: admit the complete selected frame
         // extent before decompression and retain the allocator's buffer owner.
@@ -1584,9 +1628,10 @@ impl ZstdData {
             .allocator()
             .allocate(uncompressed_size_to_decompress, Alignment::new(byte_width))?;
         decompressed.as_mut_slice().fill(0);
-        let uncompressed_start = crate::decoder_workspace::decompress_frames(
+        let uncompressed_start = decoder_workspace::decompress_frames(
             frames_to_decompress,
-            self.dictionary
+            self.storage
+                .dictionary
                 .as_ref()
                 .map(|dictionary| dictionary.as_slice()),
             decompressed.as_mut_slice(),
@@ -1775,12 +1820,24 @@ impl ZstdData {
         self.slice_stop == self.slice_start
     }
 
-    /// Split this data into movable parts, attaching the supplied validity.
+    /// Export raw caller-owned parts, attaching the supplied validity.
+    ///
+    /// A shared frame table is copied; a unique table is moved. Returned vector
+    /// storage is outside session allocator admission, as with [`Self::new`].
+    /// Admitted query paths must use borrowed metadata or `select_frames_in`.
     pub fn into_parts(self, validity: Validity) -> ZstdDataParts {
+        let (dictionary, frames, metadata) = match Arc::try_unwrap(self.storage) {
+            Ok(storage) => (storage.dictionary, storage.frames, storage.metadata),
+            Err(storage) => (
+                storage.dictionary.clone(),
+                storage.frames.clone(),
+                storage.metadata.clone(),
+            ),
+        };
         ZstdDataParts {
-            dictionary: self.dictionary,
-            frames: self.frames,
-            metadata: self.metadata,
+            dictionary,
+            frames,
+            metadata,
             validity,
             n_rows: self.unsliced_n_rows,
             slice_start: self.slice_start,
@@ -1788,15 +1845,18 @@ impl ZstdData {
         }
     }
 
-    pub(crate) fn slice_start(&self) -> usize {
+    /// Start of this logical slice in unsliced row coordinates.
+    pub fn slice_start(&self) -> usize {
         self.slice_start
     }
 
-    pub(crate) fn slice_stop(&self) -> usize {
+    /// End of this logical slice in unsliced row coordinates.
+    pub fn slice_stop(&self) -> usize {
         self.slice_stop
     }
 
-    pub(crate) fn unsliced_n_rows(&self) -> usize {
+    /// Complete source row count, including nulls, before logical slicing.
+    pub fn unsliced_n_rows(&self) -> usize {
         self.unsliced_n_rows
     }
 }

@@ -158,7 +158,9 @@ impl HostAllocator for HoldingForeignAllocator {
 
     fn reserve_external(&self, bytes: usize) -> VortexResult<HostMemoryReservation> {
         let reservation = self.inner.reserve_external(bytes)?;
-        if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+        // The first reservation covers the Rust frame table. Hold the second,
+        // foreign compressor reservation to preserve this contention test.
+        if self.calls.fetch_add(1, Ordering::SeqCst) == 1 {
             self.ready
                 .send(bytes)
                 .map_err(|error| vortex_err!("ready: {error}"))?;
