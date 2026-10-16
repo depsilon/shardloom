@@ -200,6 +200,22 @@ portable evidence. PR #1562 completes hosted integration after all 44 checks,
 three installed-wheel lanes and preview/production verification pass; the
 report links the separate hosted evidence.
 
+### Pinned variable-binary buffer table admission
+
+`NATIVE-VARBIN-METADATA-RESOURCES` extends the finite allocation contract to
+the named text/binary buffer tables in its
+[ownership design](../architecture/native-varbin-metadata-resources-2026-10-16.md).
+Keep table reservations with shared array data across transformations. Admit
+temporary construction/growth capacity and final storage before allocation;
+use fresh receiving ownership and remove superseded outer table charges.
+Reuse pinned VarBinView construction/builder and FSST/RunEnd/Zstd behavior.
+Preserve raw caller-owned APIs, native bytes/serialization and typed errors.
+Small version-preserving FSST/RunEnd patches require complete provenance and
+license records. No new FFI, pointer operations or workspace unsafe code is
+authorized. The design's complete ownership, cost and workflow gates precede
+retention. Other provider/builder allocations and process RSS remain outside
+this finite extension.
+
 ## Verification
 
 PERF-04/09 numeric consumer follow-up admits a per-source-array native Primitive

@@ -249,6 +249,35 @@ the ledger.
 
 ## Planned
 
+- [ ] `NATIVE-VARBIN-METADATA-RESOURCES` admit shared text/binary buffer tables.
+  - Source: [ownership and acceptance contract](native-varbin-metadata-resources-2026-10-16.md),
+    RFC 0044 and the remaining allocation row under PERF-03/06/08/09.
+  - Current state: payload reservations exist; table sharing, decode/construction
+    temporaries and concatenation metadata do not yet have one lifetime contract.
+    Selected-Zstd and encoded-transfer outer charges must be replaced where the
+    provider takes ownership. The Zstd frame-table unit remains complete.
+  - V1 scope classification: `required_for_v1` finite allocation coverage.
+  - Shared family: Vortex VarBinView construction/selection, FSST/RunEnd/Zstd
+    providers and the existing native Chunked builder below all user surfaces.
+  - ShardLoom technique review: reuse the shared PulseWeave memory grant and
+    dynamic admission; preserve metadata-first/encoded work avoidance, capillary
+    source units, selected-only decode and late materialization. No scheduling
+    or timing-surface redesign; evidence tiers and engine-clock rules remain.
+  - Execution checklist:
+    - [ ] Freeze the unchanged-production baseline and complete lifecycle harness.
+    - [ ] Implement table admission, shared lifetime and all scoped clone/selection paths.
+    - [ ] Integrate codec construction, managed builder growth/finalization and receiving ownership.
+    - [ ] Verify pinned FSST/RunEnd provenance and synchronize dependency/license records.
+    - [ ] Pass ownership/error/value tests, frozen cost screen and complete local acceptance.
+    - [ ] Package and inspect evidence; complete docs/site, hosted checks and deployment.
+    - [ ] Move the accepted finite unit to the completed ledger after integration.
+  - Acceptance/verification: exact requested-capacity ownership, unchanged native
+    values/serialization, typed denial and cleanup; the contract fixes the
+    32-cell cost gate, broad checks and one Full43 pass before implementation.
+  - Claim boundary: named table allocations only; raw APIs, general builder
+    scratch and whole-process RSS retain separate boundaries. Preserve
+    `fallback_attempted=false`, `external_engine_invoked=false` and CG-1 through CG-23.
+
 `NATIVE-ZSTD-METADATA-RESOURCES` completes in PR #1562 after all 44 checks
 pass, with unchanged accepted runtime sources, three installed-wheel lanes and
 verified preview/production responses and browser behavior. Its
@@ -3137,8 +3166,9 @@ verified preview/production source and navigation. Declared parameter-dependent
 predicate inners are integrated in PR #1561, with all 44 checks, three
 installed-wheel lanes and preview/production verification. Zstd frame metadata
 ownership is integrated in PR #1562 with all 44 checks, three installed-wheel
-lanes and verified production deployment. Continue the remaining
-allocation/operational work under PERF-03/06 before the conditional
+lanes and verified production deployment. Complete the promoted variable-binary
+buffer-table ownership unit, then remaining allocation/operational work under
+PERF-03/06 before the conditional
 investigations and encoded transport. Dynamic scalar output-schema inference
 and opaque source discovery retain their explicit boundaries.
 
