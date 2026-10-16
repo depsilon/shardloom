@@ -2,9 +2,10 @@
 
 # Finite streaming subquery acceptance
 
-Status: local runtime acceptance and independent evidence inspection pass.
-Hosted integration remains pending. This source change follows PR #1559 and
-does not modify the immutable 0.6.0 packages.
+Status: integrated through [PR #1560](https://github.com/depsilon/shardloom/pull/1560)
+at `c30846afb0ab5abfff6fdb5d95ed20f1c10a9477`. Local acceptance, independent
+inspection, all 44 hosted checks and preview/production verification pass.
+This source change does not modify the immutable 0.6.0 packages.
 
 Finite streaming producers now compose with existing IN/NOT IN, row membership,
 EXISTS/NOT EXISTS, quantified ANY/ALL and scalar subqueries. Inner sources and
@@ -21,6 +22,7 @@ defines ownership, resources and the remaining opaque dynamic-inner boundary.
 - [Per-member manifest](evidence/native-stream-subqueries-2026-10-15.manifest.json.xz).
 - [All 43 engine timings](evidence/native-stream-subqueries-2026-10-15.engine-times.csv).
 - [Final source, documentation and browser review](evidence/native-stream-subqueries-final-review-2026-10-15.json.xz).
+- [Hosted and production verification](evidence/native-stream-subqueries-hosted-2026-10-16.json).
 
 The archive contains **14,066 members**, representing 86,933,111 original bytes.
 The packager and a separate verification parser each reopen every member and
@@ -66,6 +68,34 @@ Every case identity matches the complete predeclared matrix. The four new
 families preserve 27 subquery kinds across mixed, empty-outer, empty-inner and
 all-null inputs, with separate SQL and DataFrame declarations. Existing unary
 reference values remain unchanged.
+
+## Hosted integration and production
+
+All 44 checks pass on `b6b585a45aadd144f6b90cc2053744544518897a` before
+PR #1560 merges. The reviewed, synthetic-test and merged trees match, and all
+2,291 accepted source identities are verified against each revision. Final-head
+automated review reports no findings.
+
+The separate [150-member archive](evidence/native-stream-subqueries-hosted-2026-10-16.tar.xz)
+retains raw checks, six job logs, review state, source verification and deployment
+observations. Native/provider tests pass 2,895 cases with 26 declared manual
+exclusions; native public tests pass 1,077. Each of three installed-wheel lanes
+passes all 96 methods without skips. Hosted core discovers 620 methods across
+56 modules, executes 524 and records 13 skips. These hosted counts remain
+separate from the local feature and platform selections above.
+
+Preview and production verification checks all sixteen served responses.
+Production version `9c198deb-b695-4f9a-8cf0-ec614ead833f` completes on the merged
+revision. Six production HTML responses preserve the complete generated source
+around bounded Cloudflare script insertions; the JavaScript and search entry
+are byte-identical. Actual browser checks verify all four guides, search and
+navigation. They prove the deployed pre-closeout wording, including its earlier
+pending label; this later status correction needs its own deployment. Screenshots
+were inspected inline, and no mobile or cross-browser matrix is claimed.
+
+Primary and independent inspection reopen every hosted archive member and verify
+its bytes. The original local archive and Full43 observation remain unchanged;
+no additional queries were run solely to verify merge or deployment.
 
 ## Behavior and failure boundaries
 

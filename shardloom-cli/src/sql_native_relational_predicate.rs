@@ -213,6 +213,29 @@ struct OwnedInner {
     limit: Option<usize>,
 }
 
+impl Inner<'_> {
+    fn sources(
+        self,
+        declaration: &super::dynamic::Declaration,
+    ) -> NativeResult<Vec<super::DatasetUri>> {
+        let mut leaves = std::collections::BTreeSet::new();
+        super::declared_relation_sources(self.source, &mut leaves);
+        declared_sources(self.predicate, &mut leaves);
+        if let Some(projected) = self.projected {
+            super::declared_sources(projected, &mut leaves);
+        }
+        let mut sources = std::collections::BTreeMap::new();
+        for leaf in leaves {
+            for uri in declaration.sources.get(&leaf).ok_or_else(|| {
+                unsupported_sql_error("dynamic subquery referenced an undeclared source")
+            })? {
+                sources.insert(uri.as_str().to_owned(), uri.clone());
+            }
+        }
+        Ok(sources.into_values().collect())
+    }
+}
+
 impl From<Inner<'_>> for OwnedInner {
     fn from(inner: Inner<'_>) -> Self {
         Self {
@@ -445,11 +468,12 @@ impl Lowerer<'_, '_> {
             let declaration = self.declaration.clone().ok_or_else(|| {
                 unsupported_sql_error("dynamic subquery requires an execution declaration")
             })?;
+            let sources = inner.sources(&declaration)?;
             let owned = OwnedInner::from(inner);
             let columns = input.columns.clone();
             let kind = kind.clone();
             self.schemas
-                .defer_subquery(declaration.bytes, move |schemas| {
+                .defer_subquery_with_sources(&sources, declaration.bytes, move |schemas| {
                     let mut resolver = |leaf: &super::ParsedRelationLeaf, _: Option<&shardloom_exec::live_memory::LiveMemoryPool>| {
                         declaration.sources.get(leaf).cloned().ok_or_else(|| {
                             unsupported_sql_error(

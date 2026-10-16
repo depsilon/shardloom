@@ -240,8 +240,24 @@ source replay spill is enabled. Opaque dynamically declared inner sources remain
 unsupported. The [finite subquery contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-subqueries-2026-10-15.md)
 and [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-subqueries-2026-10-15.md)
 record 96 direct methods, 3,724 public cases, all six Rust gates and all 43
-regression queries passing locally. Hosted integration remains pending; the
-published 0.6.0 packages retain their release-time behavior.
+regression queries passing locally. PR #1560 merged after all 44 checks passed;
+three installed-wheel lanes each pass 96 methods without skips. The
+[150-member hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-subqueries-hosted-2026-10-16.json)
+verifies preview/production source and navigation. The published 0.6.0 packages
+retain their release-time behavior.
+
+The [dynamic predicate extension](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md)
+also admits finite producers to existing IN/NOT IN, row membership,
+EXISTS/NOT EXISTS and quantified ANY/ALL subqueries when the inner pivot schema
+depends on the outer parameter. SQL and DataFrame declarations provide the
+complete finite source set automatically. Nested restrictions apply before
+schema discovery requests input; unused producers still require valid completion.
+The [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
+records 100 direct methods, 4,827 public cases, all six Rust gates and all 43
+regression queries passing locally. Hosted integration remains pending. Opaque
+undeclared callbacks and dynamic scalar output-schema inference remain unsupported.
+Subquery membership/index state remains resident; replay spill does not spill that
+state. Published 0.6.0 packages retain their release-time behavior.
 
 Relational pivots over file or resident-memory sources can deliver complete
 admitted results through `iter_batches()` with an explicit `spill` policy.

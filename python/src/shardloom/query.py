@@ -11737,10 +11737,11 @@ def _sql_conditional_projection_expression(expression: object) -> str:
 def _sql_case_branch(value: object) -> str:
     if value is None:
         return "NULL"
-    if isinstance(value, ColumnExpression):
+    if isinstance(value, (ColumnExpression, PredicateExpression)):
         text = value.sql.strip()
         if not text:
-            raise ValueError("CASE branch column expression must not be empty")
+            kind = "column" if isinstance(value, ColumnExpression) else "predicate"
+            raise ValueError(f"CASE branch {kind} expression must not be empty")
         return text
     return _sql_literal(value)
 

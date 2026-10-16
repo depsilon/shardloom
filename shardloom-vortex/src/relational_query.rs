@@ -126,6 +126,9 @@ pub enum VortexRelationalPlan {
 pub struct VortexRelationalDeferredRef {
     pub(crate) scope: std::sync::Arc<()>,
     pub(crate) slot: usize,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) sources: Option<std::sync::Arc<[DatasetUri]>>,
+    pub(crate) _source_metadata: Option<std::sync::Arc<shardloom_exec::live_memory::MemoryLease>>,
 }
 
 impl PartialEq for VortexRelationalDeferredRef {

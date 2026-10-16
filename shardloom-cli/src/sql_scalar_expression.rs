@@ -6,13 +6,13 @@ use super::{
     BinaryOp, CastMode, ColumnRef, ExprId, Expression, ExpressionKind, LogicalDType,
     ParsedPredicate, ScalarValue, ShardLoomError, expression_source_columns,
     find_keyword_outside_quotes_and_parentheses, find_top_level_numeric_operator,
-    matching_closing_parenthesis, parse_binary_byte_length_call_expression,
-    parse_cast_call_expression, parse_cast_target_dtype, parse_date_arithmetic_column_arg,
-    parse_date_arithmetic_days, parse_null_coalesce_column_arg, parse_predicate,
-    parse_projection_literal_value, parse_sql_literal, parse_string_length_call_expression,
-    parse_string_scalar_expression, parse_timestamp_arithmetic_column_arg,
-    parse_timestamp_arithmetic_seconds, parse_timestamp_extract_column_arg,
-    parse_top_level_projection_literal_value, split_sql_csv,
+    is_explicit_predicate_projection_shape, matching_closing_parenthesis,
+    parse_binary_byte_length_call_expression, parse_cast_call_expression, parse_cast_target_dtype,
+    parse_date_arithmetic_column_arg, parse_date_arithmetic_days, parse_null_coalesce_column_arg,
+    parse_predicate, parse_projection_literal_value, parse_sql_literal,
+    parse_string_length_call_expression, parse_string_scalar_expression,
+    parse_timestamp_arithmetic_column_arg, parse_timestamp_arithmetic_seconds,
+    parse_timestamp_extract_column_arg, parse_top_level_projection_literal_value, split_sql_csv,
     trim_enclosing_scalar_expression_parentheses, unsupported_sql_error, validate_sql_column_ref,
 };
 
@@ -125,6 +125,9 @@ impl Parser {
             .is_some_and(|prefix| prefix.eq_ignore_ascii_case("case "))
         {
             return self.case(raw, id, depth);
+        }
+        if is_explicit_predicate_projection_shape(raw)? {
+            return self.predicate_value(raw, id);
         }
         for operators in [&['+', '-'][..], &['*', '/', '%'][..]] {
             if let Some((index, operator)) = find_top_level_numeric_operator(raw, operators)? {
@@ -261,15 +264,8 @@ impl Parser {
                 "CASE requires a single ordered WHEN/THEN/ELSE/END expression",
             ));
         }
-        let predicate = parse_predicate(raw[when + 4..then].trim())?;
-        let condition = if predicate_has_bindings(&predicate) {
-            self.relational(
-                &format!("{id}.condition"),
-                RelationalBinding::Predicate(Box::new(predicate)),
-            )?
-        } else {
-            condition_expression(&predicate)?
-        };
+        let condition =
+            self.predicate_value(raw[when + 4..then].trim(), &format!("{id}.condition"))?;
         let yes = self.expression(&raw[then + 4..otherwise], &format!("{id}.then"), depth + 1)?;
         let no = self.expression(&raw[otherwise + 4..end], &format!("{id}.else"), depth + 1)?;
         Ok(Expression::new(
@@ -279,6 +275,15 @@ impl Parser {
                 args: vec![condition, yes, no],
             },
         ))
+    }
+
+    fn predicate_value(&mut self, raw: &str, id: &str) -> Result<Expression, ShardLoomError> {
+        let predicate = parse_predicate(raw)?;
+        if predicate_has_bindings(&predicate) {
+            self.relational(id, RelationalBinding::Predicate(Box::new(predicate)))
+        } else {
+            condition_expression(&predicate)
+        }
     }
 
     fn relational(
@@ -521,6 +526,53 @@ mod tests {
     use super::super::parse_sql_local_source_statement;
     use super::*;
     use shardloom_core::{ExpressionEvaluationStatus, ExpressionInputRow, evaluate_expression};
+
+    #[test]
+    fn relational_predicate_values_keep_explicit_bindings_in_scalar_positions() {
+        for predicate in [
+            "EXISTS (SELECT value FROM range(1,2))",
+            "NOT EXISTS (SELECT value FROM range(1,2))",
+            "value IN (SELECT value FROM range(1,2))",
+            "value NOT IN (SELECT value FROM range(1,2))",
+            "(value,other) IN (SELECT value,value AS other FROM range(1,2))",
+            "value > ANY (SELECT value FROM range(1,2))",
+            "value <= ALL (SELECT value FROM range(1,2))",
+        ] {
+            for raw in [
+                format!("CASE WHEN FALSE THEN {predicate} ELSE TRUE END"),
+                format!("COALESCE(({predicate}),FALSE)"),
+                format!("CAST(({predicate}) AS BOOLEAN)"),
+            ] {
+                let value = parse(&raw, "predicate.value").unwrap();
+                assert_eq!(value.bindings.len(), 1, "{raw}");
+                assert!(matches!(
+                    value.bindings[0].1,
+                    RelationalBinding::Predicate(_)
+                ));
+                assert!(value.plain().is_err(), "{raw}");
+            }
+        }
+        for raw in [
+            "exists_value",
+            "'exists'",
+            "'value IN (SELECT value)'",
+            "TRUE",
+        ] {
+            assert_eq!(
+                parse(raw, "ordinary.value").unwrap().bindings,
+                [] as [(ExprId, RelationalBinding); 0]
+            );
+        }
+        let scalar = parse("(SELECT value FROM range(1,2))", "scalar.value").unwrap();
+        assert!(matches!(scalar.bindings[0].1, RelationalBinding::Scalar(_)));
+        for raw in [
+            "EXISTS(value)",
+            "unknown(value)",
+            "EXISTS (SELECT value FROM range(1,2)) trailing",
+        ] {
+            assert!(parse(raw, "invalid.value").is_err(), "{raw}");
+        }
+    }
 
     #[test]
     fn scalar_declarations_preserve_composed_typed_values() {

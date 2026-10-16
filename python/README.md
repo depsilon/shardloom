@@ -712,8 +712,25 @@ Subquery membership/index state remains resident under the shared grant, even
 when replay spill is enabled. Opaque dynamically declared inner sources remain
 unsupported. The [finite subquery contract](../docs/architecture/native-stream-subqueries-2026-10-15.md)
 and [acceptance report](../docs/benchmarks/native-stream-subqueries-2026-10-15.md)
-describe the exact scope and verification status. Published 0.6.0 packages keep
-their release-time behavior.
+describe the exact scope and complete local acceptance. PR #1560 merged after
+all 44 checks passed, with three installed-wheel lanes passing 96 methods each
+and preview/production verification. Published 0.6.0 packages keep their
+release-time behavior.
+
+The [dynamic predicate extension](../docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md)
+also admits finite producers to existing IN/NOT IN, row membership,
+EXISTS/NOT EXISTS and quantified ANY/ALL subqueries when an inner pivot discovers
+different columns for each outer parameter. SQL and DataFrame declarations
+provide the complete finite source set automatically, without another mode flag.
+Nested input restrictions apply before schema discovery, and unused producers
+still require valid completion. Predicate values retain their existing typed
+CASE, COALESCE and NULLIF behavior, source bindings and resource limits.
+The [acceptance report](../docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
+records 100 direct methods, 4,827 public cases, all six Rust gates and all
+43 regression queries passing locally. Hosted integration remains pending.
+Opaque undeclared callbacks and dynamic scalar output-schema inference remain
+unsupported. Membership/index state remains resident; replay spill does not
+spill that state. Published 0.6.0 packages retain their release-time behavior.
 
 The per-batch row and frame bounds still apply, with a separate 16 MiB wire-frame
 ceiling and 32 MiB native logical-intake limit per batch. Version 0.6.0

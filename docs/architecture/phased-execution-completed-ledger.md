@@ -17,6 +17,54 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-STREAM-DYNAMIC-SUBQUERIES` local acceptance — finite declared
+  sources now admit existing dynamic predicate subqueries with per-parameter
+  inner schemas under PERF-03/06/07/11/12 and CG-5/19/20/21. Restrictions precede
+  discovery, nested declarations stay within their parent's source set, and
+  execution-scoped metadata and original input owners retain explicit lifetimes.
+  - The [acceptance report](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
+    retains all six Rust gates, 3,221 workspace and 4,285 native tests, 100 direct
+    methods, 4,827 public cases and one complete 43-query pass with
+    61.146182539 seconds total engine time. Independent inspection reopens all
+    25,530 members, preserving complete values, failures and exact corrections.
+  - All nineteen documentation/site checks and local Python core checks pass;
+    four generated guides, search and mobile navigation are checked in a browser.
+    Hosted checks, installed-wheel acceptance, review and integration remain in
+    the Planned queue. This entry records local completion only.
+  - Opaque undeclared callbacks, dynamic scalar output-schema inference and
+    membership/index spill remain outside this unit. The six-area/eight-
+    investigation contract and all CG-1 through CG-23 retain their owners.
+    No new algorithm, speedup, transport completion or package release is claimed.
+
+- [x] `NATIVE-STREAM-SUBQUERIES` — existing static-inner IN/NOT IN, row
+  membership, EXISTS/NOT EXISTS, quantified ANY/ALL and scalar subqueries accept
+  finite streaming producers under PERF-03/06/07/11/12 and CG-5/19/20/21.
+  Complete source roles preserve selected evaluation, nested input ownership,
+  shared replay and valid completion of unused producers before publication.
+  - The [acceptance report](../benchmarks/native-stream-subqueries-2026-10-15.md)
+    retains six Rust gates, 3,220 workspace and 4,264 native tests, 96 direct
+    methods, 3,724 public cases and all 43 complete query results. The original
+    14,066-member packet and final review preserve failures, exact corrections
+    and 61.819463793 seconds total engine time.
+  - [PR #1560](https://github.com/depsilon/shardloom/pull/1560) merges at
+    `c30846afb0ab5abfff6fdb5d95ed20f1c10a9477` after all 44 checks pass on
+    `b6b585a45aadd144f6b90cc2053744544518897a`. Reviewed, synthetic-test and
+    merged trees match; final-head review reports no findings.
+  - The [150-member hosted packet](../benchmarks/evidence/native-stream-subqueries-hosted-2026-10-16.json)
+    verifies 2,291 source identities, 2,895 native/provider tests with 26 manual
+    exclusions, 1,077 native public tests and three installed-wheel lanes with
+    96 methods each and zero skips. Hosted core discovers 620, runs 524 and
+    records 13 skips. All sixteen preview/production responses preserve source;
+    actual guide/search/navigation checks pass. Production version
+    `9c198deb-b695-4f9a-8cf0-ec614ead833f` completes. Independent packet inspection
+    passes; the deployed pages retain their pre-closeout wording until a later
+    documentation deployment. No extra Full43 pass was run for merge verification.
+  - Membership/index state remains resident under credits; replay spill does
+    not spill that state. `NATIVE-STREAM-DYNAMIC-SUBQUERIES` follows under its
+    declared-source/lifetime contract. Broader allocation/state/recovery, all
+    six areas/eight investigations and CG-1 through CG-23 retain their owners.
+    No package release, transport completion or speedup is claimed.
+
 - [x] `NATIVE-STREAM-UNARY` — nine existing static unary families accept finite
   streaming producers under PERF-03/06/07/11/12 and CG-5/19/20/21. Complete-plan
   admission preserves source reuse, existing types/options, operation order,

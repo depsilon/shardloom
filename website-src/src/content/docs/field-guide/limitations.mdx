@@ -10,7 +10,7 @@ Coverage is specific to the operation, types, source layout, enabled features, a
 The product direction is general-purpose data processing through one native pipeline. The gaps
 below are completion work within that pipeline.
 
-Current capabilities, reviewed **October 13, 2026**. See the
+Current capabilities, reviewed **October 16, 2026**. See the
 [public support matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md)
 for the detailed evidence behind this scope.
 
@@ -109,8 +109,19 @@ source replay spill. Opaque dynamically declared inner sources and other
 unadmitted stateful families remain separate work. The
 [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-subqueries-2026-10-15.md)
 records 96 direct methods, 3,724 public cases, all six Rust gates and all 43
-regression queries passing locally. Hosted integration remains pending. These
-source additions do not change the immutable 0.6.0 packages.
+regression queries passing locally. PR #1560 merged after all 44 checks, three
+installed-wheel lanes and preview/production verification. These source additions
+do not change the immutable 0.6.0 packages.
+The [declared dynamic predicate extension](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md)
+also admits parameter-specific inner pivot schemas when the complete possible
+source set is declared before demand. Nested restrictions and execution-scoped
+single-use references preserve source ownership and valid completion of unused
+inputs. The [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
+records 100 direct methods, 4,827 public cases, all six Rust gates and all 43
+regression queries passing locally. Hosted integration remains pending. Opaque
+undeclared callbacks and dynamic scalar output-schema inference remain unsupported.
+Subquery membership/index state remains resident; replay spill does not spill that
+state. Published 0.6.0 packages retain their release-time behavior.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.

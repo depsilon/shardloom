@@ -199,7 +199,13 @@ enum PreparedRoot {
 
 enum SubqueryRelation {
     Bound(Box<Node>),
-    Dynamic(Box<DynamicLowerer>),
+    Dynamic(DeferredRelation),
+}
+
+struct DeferredRelation {
+    lower: Box<DynamicLowerer>,
+    source_scope: Option<std::sync::Arc<[bind::SourceIndex]>>,
+    source_metadata: Option<std::sync::Arc<MemoryLease>>,
 }
 
 struct Node {

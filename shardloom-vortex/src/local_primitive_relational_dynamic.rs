@@ -182,7 +182,28 @@ impl VortexRelationalPreparation<'_> {
         + 'static,
     ) -> Result<VortexRelationalPlan> {
         self.binding
-            .defer_subquery(declaration_bytes, Box::new(lower))
+            .defer_subquery(declaration_bytes, None, Box::new(lower))
+    }
+
+    /// Retain a schema-dependent inner declaration with all possible native
+    /// inputs named before demand. The callback may use only these registered
+    /// sources and `Outer`; nested declarations must preserve that restriction.
+    /// Streaming inputs replay under the existing shared memory/spill policy.
+    /// An empty list admits an inner relation that needs no registered source.
+    /// The reference remains single-use and scoped to this execution.
+    /// # Errors
+    /// Rejects unknown sources, more than 128 entries, denied metadata, late
+    /// replay requirements and attempts to escape a parent source declaration.
+    pub fn defer_subquery_with_sources(
+        &mut self,
+        sources: &[DatasetUri],
+        declaration_bytes: usize,
+        lower: impl Fn(&mut VortexRelationalPreparation<'_>) -> Result<VortexRelationalPlan>
+        + Send
+        + 'static,
+    ) -> Result<VortexRelationalPlan> {
+        self.binding
+            .defer_subquery(declaration_bytes, Some(sources), Box::new(lower))
     }
 
     /// Resolve a native prefix inside the current execution. Returns authoritative

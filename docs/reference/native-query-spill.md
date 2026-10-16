@@ -395,6 +395,18 @@ prepared unary API remains resident. The
 tracks this later extension and its acceptance separately from the historical
 report.
 
+The [declared dynamic-subquery extension](../architecture/native-stream-dynamic-subqueries-2026-10-15.md)
+also allows those inner pivot schemas to vary by outer parameter in existing
+predicate subqueries. Source restrictions are installed before discovery, and
+each parameter releases its completed inner state under the shared grant.
+Source replay, pivot state and subquery membership retain separate accounting:
+explicit replay or pivot spill does not make membership/index state spillable.
+The [acceptance report](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
+verifies replay/pivot pressure, resident-state refusals, unused-source validation,
+cancellation, cleanup and fresh execution. Local runtime acceptance passes;
+hosted integration remains pending. Opaque undeclared sources and dynamic
+scalar output-schema inference remain unsupported.
+
 For an existing Vortex file with `entity`, `category` and numeric `amount` columns:
 
 ```python

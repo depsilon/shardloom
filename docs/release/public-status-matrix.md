@@ -112,6 +112,27 @@ Full43 pass succeed. The 2,305-member packet preserves all samples and failures.
 Hosted integration is pending; published 0.6.0 packages are unchanged. Decoded
 frame bytes are unchanged, and no general speedup or process-RSS cap is claimed.
 
+Current source admits finite streaming producers through existing IN/NOT IN,
+row membership, EXISTS/NOT EXISTS, quantified ANY/ALL and scalar subqueries
+with statically declared inner sources and schemas. The
+[subquery acceptance report](../benchmarks/native-stream-subqueries-2026-10-15.md)
+records 3,724 public cases, 96 direct methods, six Rust gates and all 43 queries.
+PR #1560 merged after all 44 checks passed. Three installed-wheel lanes each
+pass 96 methods without skips, and the
+[hosted packet](../benchmarks/evidence/native-stream-subqueries-hosted-2026-10-16.json)
+verifies preview/production source and navigation. Membership/index state remains
+resident under credit; replay spill does not spill that state. The published
+0.6.0 packages retain their release-time scope.
+
+The [dynamic predicate extension](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
+adds declared finite streaming sources to existing parameter-dependent IN/NOT IN,
+row membership, EXISTS/NOT EXISTS and quantified ANY/ALL subqueries. All six Rust
+gates, 100 direct methods, 4,827 public cases and all 43 query results pass locally.
+Independent inspection reopens all 25,530 evidence members. Hosted integration
+remains pending. Dynamic scalar output-schema inference and opaque undeclared
+callbacks remain unsupported; membership/index state stays resident under credit.
+This source addition does not change the immutable 0.6.0 package scope.
+
 The [completion-aware input unit](../architecture/native-input-completion-2026-10-07.md)
 adds opt-in `from_batches(..., streaming=True)` for one finite source used once,
 with incremental results, bounded small collection or one native Vortex destination. Its

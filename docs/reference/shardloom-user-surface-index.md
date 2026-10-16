@@ -241,8 +241,27 @@ does not spill it. Opaque `DeferredSubquery` inner-source declarations remain
 unsupported for streaming. The [acceptance report](../benchmarks/native-stream-subqueries-2026-10-15.md)
 records 96 direct methods, 3,724 public cases, all six Rust gates and a complete
 43-query pass, including source ownership, selected branches, pressure, cleanup
-and publication. Hosted integration remains pending. The immutable 0.6.0
-packages retain their scope.
+and publication. PR #1560 merged after all 44 checks passed. Three installed-wheel
+lanes each pass 96 methods without skips, and the
+[150-member hosted packet](../benchmarks/evidence/native-stream-subqueries-hosted-2026-10-16.json)
+verifies preview/production source and navigation. The immutable 0.6.0 packages
+retain their scope.
+
+The [dynamic predicate extension](../architecture/native-stream-dynamic-subqueries-2026-10-15.md)
+admits finite streaming inputs to existing IN/NOT IN, row membership,
+EXISTS/NOT EXISTS and quantified ANY/ALL subqueries whose inner pivot schema
+depends on the outer parameter. SQL and Python derive the finite source set
+from their declarations. Native callers use `defer_subquery_with_sources`;
+the declaration permits at most 128 source identities and remains execution-scoped
+and single-use. Restrictions apply before schema discovery can request input,
+and nested declarations must stay within the parent's set. Unused producers
+still require valid completion without skipped expression evaluation.
+The [acceptance report](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
+records 100 direct methods, 4,827 public cases, all six Rust gates and all
+43 regression queries passing locally. Hosted integration remains pending.
+Opaque undeclared callbacks and dynamic scalar output-schema inference remain
+unsupported. Membership/index state remains resident; replay spill does not
+spill that state. Published 0.6.0 packages retain their release-time behavior.
 
 Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
 with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:

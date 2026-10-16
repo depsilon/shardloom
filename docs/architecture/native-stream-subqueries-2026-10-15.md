@@ -2,10 +2,12 @@
 
 # Finite streaming subquery composition
 
-Status: finite runtime implementation and local acceptance complete for
-`NATIVE-STREAM-SUBQUERIES`, following unary integration in PR #1559. The
+Status: `NATIVE-STREAM-SUBQUERIES` is integrated in PR #1560, following unary
+integration in PR #1559. The
 [acceptance report](../benchmarks/native-stream-subqueries-2026-10-15.md) records
-the exact proof and remaining hosted gate. The phase owners remain
+local, hosted and production proof. Declared dynamic predicate inners follow
+under their [separate contract](native-stream-dynamic-subqueries-2026-10-15.md).
+The phase owners remain
 PERF-03/06/07/11/12 and CG-5/19/20/21. Preserve the complete Competitive Engine
 Track, the six-area/eight-investigation completion contract and transport's
 dependency on that work.

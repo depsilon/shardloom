@@ -9,7 +9,7 @@ Python, SQL, DataFrame-style calls, and the CLI lower admitted work into the sam
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 13, 2026.
+Current capabilities, reviewed October 16, 2026.
 
 ## Native Execution
 
@@ -326,9 +326,23 @@ membership/index state remains resident under the grant; replay spill does not
 spill it. Opaque dynamically declared inner sources remain unsupported. The
 [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-subqueries-2026-10-15.md)
 records 96 direct methods, 3,724 public cases, all six Rust gates and all 43
-regression queries passing locally. Hosted integration remains pending. These
-source changes preserve the immutable 0.6.0 package boundary.
+regression queries passing locally. PR #1560 merged after all 44 checks passed,
+three installed-wheel lanes passing 96 methods each, and preview/production
+verification. These source changes preserve the immutable 0.6.0 package boundary.
 Unadmitted state/recovery and remaining allocation coverage stay open.
+
+The [declared dynamic predicate extension](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md)
+allows each parameter's inner pivot to discover its own schema while retaining
+a finite declared source set. Restrictions are installed before discovery can
+demand input, and nested declarations stay within their parent's set. Metadata,
+detached input, replay and per-parameter state share the existing query grant.
+Unused producers still complete through raw validation without evaluating skipped
+expressions. The [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
+records 100 direct methods, 4,827 public cases, all six Rust gates and all 43
+regression queries passing locally. Hosted integration remains pending. Opaque
+undeclared callbacks and dynamic scalar output-schema inference remain unsupported.
+Subquery membership/index state remains resident; replay spill does not spill that
+state. Published 0.6.0 packages retain their release-time behavior.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an

@@ -72,6 +72,50 @@ class ScalarSubqueryDeclarationTests(unittest.TestCase):
                     self.assertIn(value.sql, frame._relation_statement())
                     self.assertEqual({item.uri for item in frame._declared_sources()}, {"outer.vortex", *(item.uri for item in value.source_bindings)})
 
+    def test_predicate_values_keep_sources_and_limits_in_scalar_branches(self) -> None:
+        client = sl.ShardLoomClient(binary="unused-shardloom", memory_bytes=32 << 20, max_parallelism=1)
+        self.addCleanup(client.close)
+        outer = sl.read_vortex("outer.vortex", client=client)
+        left = sl.read_csv("left.csv", client=client, schema={"value": "int64"},
+                           resource_limits=sl.ExecutionResourceLimits(96 << 20, 2))
+        right = sl.read_csv("right.csv", client=client, schema={"value": "int64"},
+                            resource_limits=sl.ExecutionResourceLimits(64 << 20, 4))
+        yes, no = sl.exists_source(left), sl.col("value").isin_source(right, "value")
+        scalar = sl.scalar_subquery(left.select("value > 0 AS flag"))
+        builders = [
+            lambda: sl.case_when("TRUE", yes, no),
+            lambda: sl.case_when(yes, no, False),
+            lambda: sl.case_when(no, None, yes),
+            lambda: scalar.fill_null(no),
+            lambda: scalar.null_if(no),
+        ]
+        with mock.patch.object(client, "public_workflow_run") as run, mock.patch.object(client, "vortex_prepare") as prepare:
+            for index, build in enumerate(builders):
+                with self.subTest(build=index):
+                    expression = build()
+                    self.assertIsInstance(expression, sl.ColumnExpression)
+                    self.assertIn(no.sql, expression.sql)
+                    self.assertEqual({source.uri for source in expression.source_bindings}, {"left.csv", "right.csv"})
+                    self.assertEqual(expression.resource_limits, sl.ExecutionResourceLimits(64 << 20, 2))
+                    workflow = outer.with_column("answer", expression)
+                    self.assertIn(expression.sql, workflow._relation_statement())
+                    self.assertEqual({source.uri for source in workflow._declared_sources()},
+                                     {"outer.vortex", "left.csv", "right.csv"})
+                    self.assertEqual(workflow.resource_limits, expression.resource_limits)
+            run.assert_not_called()
+            prepare.assert_not_called()
+
+    def test_predicate_values_reject_empty_branches_and_keep_strings_literal(self) -> None:
+        for empty in (sl.PredicateExpression(" "), sl.ColumnExpression(" ")):
+            for build in (lambda: sl.case_when("TRUE", empty, False),
+                          lambda: sl.case_when("FALSE", True, empty),
+                          lambda: sl.col("flag").fill_null(empty),
+                          lambda: sl.col("flag").null_if(empty)):
+                with self.subTest(kind=type(empty).__name__), self.assertRaisesRegex(ValueError, "CASE branch .*expression must not be empty"):
+                    build()
+        self.assertEqual(sl.case_when("TRUE", "EXISTS (SELECT 1)", None).sql,
+                         "CASE WHEN TRUE THEN 'EXISTS (SELECT 1)' ELSE NULL END")
+
     def test_all_declaration_sites_and_writers_submit_owned_sources_once(self) -> None:
         value = sl.scalar_subquery(self.inner.select("value"))
         expected = {
