@@ -55,6 +55,10 @@ fn malformed_host_views(input: &VarBinViewArray) -> Vec<(&'static str, BinaryVie
     // still in bounds and has the right four-byte prefix, but is not UTF-8.
     let truncated = &bytes[..bytes.len() - 1];
     assert!(std::str::from_utf8(truncated).is_err());
+    let start = bytes.len() - 1;
+    let payload = input.data_buffers()[0].as_host();
+    let split_start = &payload[start..start + 13];
+    assert!(std::str::from_utf8(split_start).is_err());
     vec![
         ("buffer index", BinaryView::new_ref(13, *b"firs", 1, 0)),
         (
@@ -65,6 +69,10 @@ fn malformed_host_views(input: &VarBinViewArray) -> Vec<(&'static str, BinaryVie
         ("prefix", BinaryView::new_ref(13, *b"WRNG", 0, 0)),
         ("inline UTF-8", BinaryView::new_inlined(&[0xff])),
         ("outlined UTF-8", BinaryView::make_view(truncated, 0, 0)),
+        (
+            "outlined UTF-8 start",
+            BinaryView::make_view(split_start, 0, u32::try_from(start).unwrap()),
+        ),
     ]
 }
 
@@ -74,15 +82,23 @@ fn native_varbin_table_safe_constructors_reject_malformed_host_views_and_refund(
     let memory = LiveMemoryPool::new(1 << 20).unwrap();
     let session = session(&memory);
     let mut accepted = Vec::new();
-    for (case, view) in malformed_host_views(&input) {
+    // Both a small input and many short views into one valid UTF-8 heap must
+    // reject malformed views, even when all rows are null. The latter can use
+    // whole-buffer validation but still needs every structural/boundary check.
+    for (case, view, count) in malformed_host_views(&input)
+        .into_iter()
+        .flat_map(|(case, view)| [1, 64].map(|count| (case, view, count)))
+    {
         for validity in [
             Validity::NonNullable,
             Validity::AllValid,
             Validity::AllInvalid,
-            Validity::Array(BoolArray::from_iter([false]).into_array()),
+            Validity::Array(BoolArray::from_iter(vec![false; count]).into_array()),
         ] {
             let dtype = DType::Utf8(validity.nullability());
-            let views = BufferHandle::new_host(Buffer::copy_from([view]).into_byte_buffer());
+            let mut views = vec![input.views()[0]; count];
+            views[count - 1] = view;
+            let views = BufferHandle::new_host(Buffer::copy_from(views).into_byte_buffer());
             let data = VarBinViewData::try_new_handle_in(
                 views.clone(),
                 input.data_buffers().iter().cloned(),
@@ -117,6 +133,37 @@ fn native_varbin_table_safe_constructors_reject_malformed_host_views_and_refund(
                 accepted.push((case, "raw data", validity));
             }
             drop(data);
+        }
+    }
+    // Unreferenced bytes are not string values. Invalid suffixes must not
+    // change acceptance, whether the heap is dense or mostly unused. A corrupt
+    // referenced value must still fail when whole-heap validation fails.
+    for suffix in [vec![], vec![0xff], vec![0xff; 16_384]] {
+        for corrupt_value in [false, true] {
+            let mut payload = input.data_buffers()[0].as_host().as_slice().to_vec();
+            payload.extend_from_slice(&suffix);
+            if corrupt_value {
+                payload[5] = 0xff;
+            }
+            let result = VarBinViewArray::try_new_handle_in(
+                BufferHandle::new_host(
+                    Buffer::copy_from(vec![input.views()[0]; 64]).into_byte_buffer(),
+                ),
+                [BufferHandle::new_host(ByteBuffer::copy_from(payload))].into_iter(),
+                DType::Utf8(Nullability::NonNullable),
+                Validity::NonNullable,
+                &session.allocator(),
+            );
+            if corrupt_value {
+                assert!(result.unwrap_err().to_string().contains("utf-8"));
+            } else {
+                let output = result.unwrap();
+                for row in 0..output.len() {
+                    assert_eq!(output.bytes_at(row), input.bytes_at(0));
+                }
+                drop(output);
+            }
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
         }
     }
     assert!(

@@ -4,9 +4,10 @@
 
 Status: the initial implementation completed local acceptance. Review found
 missing content checks in safe handle construction and arbitrary view replacement.
-The corrective implementation passes focused regressions but repeats a cost-gate
-breach in both complete comparison orders. Removing redundant validation within
-proven native transformations and refreshing acceptance remain in progress.
+The corrective implementation passes focused regressions but repeats cost-gate
+breaches in both complete comparison orders. Reusing validated native views
+removes most breaches; two UTF-8 decode cases remain. Bounded whole-buffer UTF-8
+validation and refreshed acceptance are in progress.
 Hosted integration remains pending.
 The [acceptance report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
 records the exact source, checks, cost decision and one-pass Full43 observation.
@@ -127,6 +128,15 @@ raw-pointer operations or workspace unsafe code. Safe replacement can reuse
 validation for a byte-identical host view buffer against the same payload table,
 including an owner-only buffer wrapper, while still checking shape and dtype.
 Opaque device contents are not read, and later host replacement validates them.
+
+For dense single-buffer host input with at least 64 views and no more than 64
+payload bytes per view, safe handle validation may first validate the complete
+buffer as UTF-8. It must still check every view's index, range, prefix and both
+character boundaries, including null slots, and independently validate inline
+values. This scan borrows existing bytes and creates no metadata collection.
+Invalid unused payload bytes or codec record headers disable the optimization;
+the ordinary per-value validation decides acceptance. Payloads above this relative
+size bound, multiple buffers and opaque device handles retain the ordinary path.
 
 ## Acceptance protocol
 

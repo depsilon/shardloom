@@ -361,6 +361,21 @@ impl VarBinViewData {
             return Ok(());
         };
         let host_views = Buffer::<BinaryView>::from_byte_buffer(host_views.clone());
+        // Short outlined strings otherwise invoke scalar UTF-8 validation once
+        // per row. For a dense, single host buffer, validate the heap together
+        // and then check each view's character boundaries below. Bound this
+        // extra scan to 64 bytes per view so a sparse slice cannot cause an
+        // unbounded read of unrelated payload. No table or copied bytes are
+        // needed. Invalid unused bytes (including codec record headers) merely
+        // disable this optimization; the ordinary per-value checks still apply.
+        let validated_utf8 = if check_utf8 && buffers.len() == 1 && host_views.len() >= 64 {
+            buffers[0]
+                .as_host_opt()
+                .filter(|buffer| buffer.len() <= host_views.len().saturating_mul(64))
+                .and_then(|buffer| simdutf8::basic::from_utf8(buffer.as_slice()).ok())
+        } else {
+            None
+        };
         for (idx, view) in host_views.iter().enumerate() {
             Self::validate_view_with(
                 idx,
@@ -371,6 +386,7 @@ impl VarBinViewData {
                     (buffer.len(), buffer.as_host_opt().map(ByteBuffer::as_slice))
                 },
                 check_utf8,
+                validated_utf8,
             )?;
         }
         Ok(())
@@ -618,6 +634,7 @@ impl VarBinViewData {
             buffers.len(),
             |index| (buffers[index].len(), Some(buffers[index].as_slice())),
             check_utf8,
+            None,
         )
     }
 
@@ -627,6 +644,7 @@ impl VarBinViewData {
         buffer_count: usize,
         buffer_at: impl FnOnce(usize) -> (usize, Option<&'a [u8]>),
         check_utf8: bool,
+        validated_utf8: Option<&str>,
     ) -> VortexResult<()> {
         let valid_utf8 = |bytes: &[u8]| !check_utf8 || simdutf8::basic::from_utf8(bytes).is_ok();
         if view.is_inlined() {
@@ -674,8 +692,16 @@ impl VarBinViewData {
             );
 
             // Validate the full string
+            // `validated_utf8`, when present, is this exact single buffer.
+            // A substring of valid UTF-8 is valid iff both endpoints are
+            // character boundaries; all index, range and prefix checks above
+            // remain necessary, as do independent checks for inlined values.
+            let value_is_utf8 = validated_utf8.map_or_else(
+                || valid_utf8(bytes),
+                |text| text.is_char_boundary(start_offset) && text.is_char_boundary(end_offset),
+            );
             vortex_ensure!(
-                valid_utf8(bytes),
+                value_is_utf8,
                 InvalidArgument: "view at index {idx}: outlined bytes fails utf-8 validation"
             );
         }
