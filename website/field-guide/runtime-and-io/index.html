@@ -417,7 +417,10 @@ detached input, replay and per-parameter state share the existing query grant.
 Unused producers still complete through raw validation without evaluating skipped
 expressions. The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md">acceptance report</a>
 records 100 direct methods, 4,827 public cases, all six Rust gates and all 43
-regression queries passing locally. Hosted integration remains pending. Opaque
+regression queries passing locally. PR #1561 merged after all 44 checks passed;
+three installed-wheel lanes each pass 100 methods without skips. The
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json">147-member hosted packet</a>
+verifies preview/production source and navigation. Opaque
 undeclared callbacks and dynamic scalar output-schema inference remain unsupported.
 Subquery membership/index state remains resident; replay spill does not spill that
 state. Published 0.6.0 packages retain their release-time behavior.</p>

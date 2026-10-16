@@ -727,7 +727,10 @@ still require valid completion. Predicate values retain their existing typed
 CASE, COALESCE and NULLIF behavior, source bindings and resource limits.
 The [acceptance report](../docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
 records 100 direct methods, 4,827 public cases, all six Rust gates and all
-43 regression queries passing locally. Hosted integration remains pending.
+43 regression queries passing locally. PR #1561 merged after all 44 checks
+passed; three installed-wheel lanes each pass 100 methods without skips. The
+[147-member hosted packet](../docs/benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json)
+verifies preview/production source and navigation.
 Opaque undeclared callbacks and dynamic scalar output-schema inference remain
 unsupported. Membership/index state remains resident; replay spill does not
 spill that state. Published 0.6.0 packages retain their release-time behavior.

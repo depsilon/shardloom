@@ -2,9 +2,10 @@
 
 # Declared dynamic streaming subquery acceptance
 
-Status: local runtime acceptance, independent packet inspection and documentation
-verification pass. Hosted integration remains pending. This source
-change does not modify the immutable 0.6.0 packages.
+Status: local acceptance and hosted integration complete in
+[PR #1561](https://github.com/depsilon/shardloom/pull/1561), with all 44 checks
+passing and preview/production verification complete. This source change does
+not modify the immutable 0.6.0 packages.
 
 Finite streaming inputs now compose with existing parameter-dependent IN/NOT IN,
 row membership, EXISTS/NOT EXISTS and quantified ANY/ALL subqueries. Each inner
@@ -48,8 +49,8 @@ retained. Later documentation and hosted verification do not rewrite this archiv
 
 The 29 native exclusions remain the previous 26 manual and three platform cases;
 there are no new dynamic-subquery exclusions. Direct binding tests use the source
-Python package with the frozen extension. Installed-wheel and hosted proof remain
-separate gates.
+Python package with the frozen extension. The installed-wheel and hosted proof
+below records its separate build and integration identities.
 
 All nineteen documentation/site checks pass. Python core discovery finds
 626 methods across 57 modules; 526 execute with 12 skip records in the local
@@ -69,6 +70,51 @@ retain 18 dynamic predicate kinds across mixed, empty-outer, empty-inner and
 all-null shapes, all 108 inherited static-subquery kind/shape combinations and
 39 inherited unary value entries. Original baseline values are compared directly
 with the new streaming and resident controls.
+
+## Hosted integration
+
+PR #1561 merged at `4217c2cd7d322e054d483e3e389f6f22df8d0970` after all
+44 checks passed on `18b61c23d1f68bedc8bf70e06a54fb9d7f00f1c6`.
+Final-head review reports no findings. Reviewed, synthetic-test and merged trees
+are identical. All 2,303 frozen source identities match the merged source.
+
+The [147-member hosted index](evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json)
+and [compact archive](evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.tar.xz)
+retain complete logs and cleanup tails for the six scoped jobs, source checks,
+merge receipts, deployment responses and browser observations. The archive is
+558,640 bytes with SHA-256
+`96b8d94e0afc7087efaa37f4e2af9698e7409a256866b1b9de435be7f98e81d3`.
+The [independent archive audit](evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.audit.json)
+checks every member and the recorded job/deployment totals. This is evidence
+integrity and consistency verification, not a new runtime execution.
+
+| Hosted gate | Result |
+| --- | --- |
+| Native/provider tests | 2,914 pass; 26 existing manual exclusions |
+| Native public-surface tests | 1,079 pass, zero ignored |
+| Installed native wheels | Linux Python 3.10/3.13 and macOS arm64 Python 3.13 each pass 100 methods, zero skips |
+| Wheel lifecycle | Isolated install, payload identity, native load and uninstall pass on all three lanes |
+| Python core | 626 discovered across 57 modules; 526 run, 14 skip records |
+| Focused hosted coverage | All 33 required native regressions, 19 new native declarations and four CLI regressions appear in complete passing logs |
+| Preview and production | All sixteen checked responses preserve reviewed source; search, desktop layout and mobile navigation pass |
+
+Production deployment check `116904627523` completes successfully for the merge
+commit, with version `fa42ee3b-6011-40b6-b843-0152334292d4`. The HTML responses
+preserve source around Cloudflare's injected script; the JavaScript and search
+entry responses are byte-identical. Browser coverage is limited to the Codex
+in-app browser at desktop and phone widths. The observed pages still contain
+the reviewed pre-closeout wording; this documentation update has its own later
+deployment. No query rerun supplies merge or deployment evidence.
+
+The packet also retains early partial captures and three evidence-helper
+corrections. Source-checker lookup/attribute corrections and a malformed helper
+string replacement did not change engine code. Their original helpers and
+failure receipts remain separate from the successful complete verification.
+The [documentation closeout](evidence/native-stream-dynamic-subqueries-closeout-2026-10-16.json.xz)
+retains ten passing generated-site/documentation checks, 584 verified local
+links and desktop/phone inspection of the completion paragraph. All 2,303
+runtime source identities remain unchanged; this later wording is verified
+locally and awaits its own hosted deployment.
 
 ## Behavior and failure boundaries
 

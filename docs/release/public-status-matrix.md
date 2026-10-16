@@ -109,8 +109,10 @@ The frozen comparison retains this change: Q23 improves in all ten target pairs,
 while all four other parallel controls have slower medians within their declared
 limits. Seven Rust/provider gates, 80 direct tests, 757 public cases and one
 Full43 pass succeed. The 2,305-member packet preserves all samples and failures.
-Hosted integration is pending; published 0.6.0 packages are unchanged. Decoded
-frame bytes are unchanged, and no general speedup or process-RSS cap is claimed.
+PR #1556 merged after all 44 checks passed, with three installed-wheel lanes
+and preview/production source verification. The acceptance report's deployment
+addendum records the completed production check. Published 0.6.0 packages and
+decoded frame bytes are unchanged; no general speedup or process-RSS cap is claimed.
 
 Current source admits finite streaming producers through existing IN/NOT IN,
 row membership, EXISTS/NOT EXISTS, quantified ANY/ALL and scalar subqueries
@@ -128,8 +130,10 @@ The [dynamic predicate extension](../benchmarks/native-stream-dynamic-subqueries
 adds declared finite streaming sources to existing parameter-dependent IN/NOT IN,
 row membership, EXISTS/NOT EXISTS and quantified ANY/ALL subqueries. All six Rust
 gates, 100 direct methods, 4,827 public cases and all 43 query results pass locally.
-Independent inspection reopens all 25,530 evidence members. Hosted integration
-remains pending. Dynamic scalar output-schema inference and opaque undeclared
+Independent inspection reopens all 25,530 evidence members. PR #1561 merged
+after all 44 checks passed; three installed-wheel lanes each pass 100 methods
+without skips. The [hosted packet](../benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json)
+verifies preview/production source and navigation. Dynamic scalar output-schema inference and opaque undeclared
 callbacks remain unsupported; membership/index state stays resident under credit.
 This source addition does not change the immutable 0.6.0 package scope.
 

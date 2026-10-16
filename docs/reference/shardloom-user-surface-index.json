@@ -174,7 +174,7 @@
       "opaque_deferred_subquery_streaming": false,
       "dynamic_subquery_reference": "docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md",
       "dynamic_subquery_acceptance_reference": "docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md",
-      "dynamic_subquery_acceptance_status": "local_acceptance_complete_pending_hosted",
+      "dynamic_subquery_acceptance_status": "local_and_hosted_acceptance_complete",
       "dynamic_subquery_kinds": ["in", "exists", "quantified"],
       "dynamic_subquery_inner_scope": "finite_declared_sources;parameter_specific_schema_discovery;restriction_before_demand",
       "dynamic_subquery_source_limit": 128,

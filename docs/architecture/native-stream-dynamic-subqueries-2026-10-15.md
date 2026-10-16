@@ -2,9 +2,11 @@
 
 # Declared streaming inputs for dynamic subqueries
 
-Status: local runtime acceptance, independent packet inspection and documentation
-verification pass; hosted integration remains pending. This contract
-was prepared before runtime edits. The [acceptance report](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
+Status: integrated through [PR #1561](https://github.com/depsilon/shardloom/pull/1561)
+after all 44 checks passed, with three installed-wheel lanes and
+[preview/production verification](../benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json).
+This contract was prepared before runtime edits. The
+[acceptance report](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
 retains all six Rust gates, 100 direct methods, 4,827 public cases and one
 complete Full43 pass. The preceding `NATIVE-STREAM-SUBQUERIES` unit is integrated through
 [PR #1560](https://github.com/depsilon/shardloom/pull/1560) at
