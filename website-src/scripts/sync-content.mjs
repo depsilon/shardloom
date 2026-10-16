@@ -980,6 +980,16 @@ verifies three installed-wheel lanes, accepted sources and preview/production
 responses and navigation. Raw caller-owned APIs, fixed allocator/Arc overhead and process
 RSS stay outside this claim; published 0.6.0 packages are unchanged.
 
+The source-only
+[variable-binary buffer-table extension](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-varbin-metadata-resources-2026-10-16.md)
+shares table credit through text/binary selections and admits new tables in
+reviewed constructors, codecs, the Chunked builder and receiving sessions.
+Six Rust gates, 3,587 standalone provider tests, 100 direct methods, 4,827 public cases,
+all 32 lifecycle cells and one Full43 pass succeed. Independent inspection
+verifies 18,023 evidence members. Hosted integration remains pending.
+Raw caller-owned exports, general builder/compaction scratch, fixed allocator/Arc
+overhead and process RSS stay outside this claim. Published 0.6.0 packages are unchanged.
+
 The subsequent source-only
 [selected text view change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
 constructs views only for selected rows inside sparse native Zstd filtering.
@@ -1265,6 +1275,14 @@ after all 44 checks passed; the
 verifies three installed-wheel lanes and preview/production source and navigation.
 Raw caller-owned APIs, fixed allocator/Arc overhead, other
 codecs, unreviewed provider trees and process RSS remain outside this claim.
+The source-only
+[variable-binary buffer-table extension](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-varbin-metadata-resources-2026-10-16.md)
+has complete local acceptance for shared table credit, admitted construction
+and fresh receiving ownership. Six Rust gates, 3,587 standalone provider tests,
+100 direct methods, 4,827 public cases, all 32 lifecycle cells and one Full43 pass
+succeed; independent inspection verifies 18,023 members. Hosted integration remains pending.
+Raw caller-owned exports, general builder/compaction scratch, fixed allocator/Arc
+overhead and process RSS retain their separate boundaries. Published 0.6.0 packages are unchanged.
 The later source-only
 [selected text views](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
 reduce view construction inside sparse native filtering, with complete local

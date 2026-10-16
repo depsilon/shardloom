@@ -1,5 +1,31 @@
 # Vortex Upstream Dependency Review
 
+## October 16, 2026 variable-binary buffer-table ownership
+
+The [buffer-table contract](../architecture/native-varbin-metadata-resources-2026-10-16.md)
+extends the existing `vortex-array` and `vortex-zstd` 0.85.0 patches and vendors
+the already-transitive Apache-2.0 `vortex-fsst` and `vortex-runend` 0.85.0 crates.
+The two new patches call shared managed construction and owner-preserving APIs;
+they add no codec algorithm, dependency version or external execution engine.
+The complete resolved lock graph changes only those two registry sources to
+local patches. Native layout, serialization and feature boundaries are preserved.
+
+The [FSST provenance](../../vendor/vortex-fsst/upstream-provenance.json) and
+[RunEnd provenance](../../vendor/vortex-runend/upstream-provenance.json) retain
+registry checksums, all 50 original archive-member hashes, license identities
+and the published dirty-VCS markers. Supplemental upstream golden files retain
+their exact Git-blob and SHA-256 identities. Existing array/Zstd original
+provenance is preserved, and the Python license bundle contains all four exact
+provider provenance records.
+
+The [local acceptance report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
+records all eight standalone provider test/Clippy commands, 3,587 passing tests,
+complete workspace/native/public validation and independent inspection of
+18,023 evidence members. The portable audit verifies all 841 selected provider
+source files and separately preserves earlier failed fixture/lint attempts.
+Hosted integration remains pending. This finite table-capacity contract leaves
+raw APIs, general builder scratch, other allocation trees and process RSS open.
+
 ## October 16, 2026 frame metadata ownership
 
 The [frame metadata contract](../architecture/native-zstd-metadata-resources-2026-10-16.md)

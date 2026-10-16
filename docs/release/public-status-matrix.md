@@ -116,6 +116,16 @@ preserves those separate observations. Raw caller-owned
 APIs, fixed allocator/Arc overhead, other codecs and process RSS remain outside
 this requested-capacity claim. Published 0.6.0 packages are unchanged.
 
+The source-only [variable-binary buffer-table extension](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
+shares table ownership through native text/binary selections and admits new
+tables in the reviewed constructors, codecs, Chunked builder and receiving
+session. Six Rust gates, 3,587 standalone provider tests, 100 direct methods,
+4,827 public cases, all 32 lifecycle cells and one Full43 pass succeed.
+Independent inspection verifies all 18,023 portable members. Hosted integration
+remains pending. Raw table exports, general builder/deduplication/compaction
+scratch, fixed allocator/Arc overhead and process RSS remain outside this finite
+claim. Published 0.6.0 packages and the public support label are unchanged.
+
 The source-only [selected text views](../benchmarks/native-selected-text-views-2026-10-15.md)
 construct views only for selected rows inside the admitted sparse Zstd filter.
 The frozen comparison retains this change: Q23 improves in all ten target pairs,

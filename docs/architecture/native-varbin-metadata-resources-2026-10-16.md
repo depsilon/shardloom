@@ -2,8 +2,10 @@
 
 # Native variable-binary buffer table ownership — October 16, 2026
 
-Status: implementation and focused provider validation complete; broad local
-acceptance, frozen cost comparison and hosted integration pending.
+Status: implementation, complete local acceptance, the frozen cost comparison
+and independent portable inspection pass. Hosted integration remains pending.
+The [acceptance report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
+records the exact source, checks, cost decision and one-pass Full43 observation.
 `NATIVE-VARBIN-METADATA-RESOURCES` extends PERF-03/06/08/09 under
 [RFC 0044](../rfcs/0044-resident-runtime-resource-ownership.md). It follows the
 completed Zstd frame-metadata unit and leaves the broader
@@ -163,3 +165,16 @@ All CG-1 through CG-23 retain their existing owners. This work contributes
 finite resource and workflow evidence to CG-5/19/20/21 and does not close broader
 competitive claims. `fallback_attempted=false` and `external_engine_invoked=false`
 remain required throughout.
+
+## Local acceptance
+
+All six Rust gates pass: 3,221 workspace tests and 4,315 native tests, including
+all 21 added regressions. Four standalone provider suites pass 3,587 tests;
+their eight test/Clippy commands are bound to the exact accepted sources.
+All 164 release-script tests, 100 direct binding methods and 4,827 public cases
+across 36 families pass. The 32-cell lifecycle screen verifies 4,864 complete
+operations and identical native serialized outputs without a declared breach.
+Full43 passes all 43 queries once, with complete values and schemas checked.
+Independent inspection verifies all 18,023 portable members. These are local
+source-package observations; installed wheels and hosted integration remain
+separate gates. The predeclared acceptance protocol above is unchanged.

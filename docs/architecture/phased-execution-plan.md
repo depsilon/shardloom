@@ -253,10 +253,12 @@ the ledger.
   - Source: [ownership and acceptance contract](native-varbin-metadata-resources-2026-10-16.md),
     RFC 0044 and the remaining allocation row under PERF-03/06/08/09.
   - Current state: the scoped table-sharing, decode/construction, concatenation
-    and receiving-session ownership paths are implemented with focused provider
-    validation. Superseded selected-Zstd and encoded-transfer table charges are
-    removed. Broad local acceptance, the frozen cost comparison and hosted
-    integration remain pending. The Zstd frame-table unit remains complete.
+    and receiving-session paths pass [complete local acceptance](../benchmarks/native-varbin-metadata-resources-2026-10-16.md).
+    Six Rust gates, 3,587 standalone provider tests, 100 direct methods, 4,827
+    public cases, all 32 lifecycle cells and one Full43 pass succeed. Independent
+    inspection verifies 18,023 portable members. Documentation/site checks and
+    desktop/phone search and navigation pass; hosted integration remains pending.
+    The Zstd frame-table unit remains complete.
   - V1 scope classification: `required_for_v1` finite allocation coverage.
   - Shared family: Vortex VarBinView construction/selection, FSST/RunEnd/Zstd
     providers and the existing native Chunked builder below all user surfaces.
@@ -269,7 +271,7 @@ the ledger.
     - [x] Implement table admission, shared lifetime and all scoped clone/selection paths.
     - [x] Integrate codec construction, managed builder growth/finalization and receiving ownership.
     - [x] Verify pinned FSST/RunEnd provenance and synchronize dependency/license records.
-    - [ ] Pass ownership/error/value tests, frozen cost screen and complete local acceptance.
+    - [x] Pass ownership/error/value tests, frozen cost screen and complete local acceptance.
     - [ ] Package and inspect evidence; complete docs/site, hosted checks and deployment.
     - [ ] Move the accepted finite unit to the completed ledger after integration.
   - Acceptance/verification: exact requested-capacity ownership, unchanged native
