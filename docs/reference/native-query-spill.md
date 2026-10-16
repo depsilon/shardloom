@@ -403,8 +403,9 @@ Source replay, pivot state and subquery membership retain separate accounting:
 explicit replay or pivot spill does not make membership/index state spillable.
 The [acceptance report](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
 verifies replay/pivot pressure, resident-state refusals, unused-source validation,
-cancellation, cleanup and fresh execution. Local runtime acceptance passes;
-hosted integration remains pending. Opaque undeclared sources and dynamic
+cancellation, cleanup and fresh execution. PR #1561 completes hosted integration
+after all 44 checks, three installed-wheel lanes and preview/production
+verification pass. Opaque undeclared sources and dynamic
 scalar output-schema inference remain unsupported.
 
 For an existing Vortex file with `entity`, `category` and numeric `amount` columns:

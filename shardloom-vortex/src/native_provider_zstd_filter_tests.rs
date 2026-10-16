@@ -1,5 +1,5 @@
 use super::*;
-use vortex::array::memory::{HostAllocator, WritableHostBuffer};
+use vortex::array::memory::{HostAllocator, HostMemoryReservation, WritableHostBuffer};
 use vortex::mask::Mask;
 
 #[derive(Debug)]
@@ -15,6 +15,14 @@ impl HostAllocator for OwnerCheckingAllocator {
             "source owner dropped during execution"
         );
         self.inner.allocate(len, alignment)
+    }
+
+    fn reserve_external(&self, bytes: usize) -> VortexResult<HostMemoryReservation> {
+        assert!(
+            self.owner.upgrade().is_some(),
+            "source owner dropped during execution"
+        );
+        self.inner.reserve_external(bytes)
     }
 }
 
@@ -55,6 +63,10 @@ impl HostAllocator for ViewAllocationRecorder {
             self.views.lock().unwrap().push(len);
         }
         self.inner.allocate(len, alignment)
+    }
+
+    fn reserve_external(&self, bytes: usize) -> VortexResult<HostMemoryReservation> {
+        self.inner.reserve_external(bytes)
     }
 }
 
@@ -334,7 +346,6 @@ fn native_zstd_sparse_text_filter_round_trips_retained_native_frames() {
         filter.child().as_::<Zstd>(),
         filter.data().filter_mask(),
         &mut session(&memory).create_execution_ctx(),
-        &memory,
     )
     .unwrap()
     .unwrap();
@@ -391,7 +402,6 @@ fn native_zstd_sparse_text_filter_preserves_validated_frame_parts() {
             filter.child().as_::<Zstd>(),
             filter.data().filter_mask(),
             &mut session(&memory).create_execution_ctx(),
-            &memory,
         )
         .unwrap()
         .unwrap();
@@ -461,7 +471,6 @@ fn native_zstd_sparse_filter_normalizes_explicit_all_valid_child() {
                 filter.child().as_::<Zstd>(),
                 filter.data().filter_mask(),
                 &mut session(&memory).create_execution_ctx(),
-                &memory,
             )
             .unwrap()
             .unwrap();
@@ -636,14 +645,21 @@ fn native_zstd_sparse_selection_admits_metadata_before_allocation_without_mask_c
     assert!(ArrayRef::ptr_eq(input, &encoded));
     assert!(mask.values().unwrap().cached_indices().is_none());
     assert!(mask.values().unwrap().cached_slices().is_none());
-    let metadata = zstd_filter::metadata_bytes(encoded.nbuffers()).unwrap();
-    let denied = LiveMemoryPool::new(metadata - 1).unwrap();
+    let metadata = u64::try_from(
+        2 * (size_of::<vortex::buffer::ByteBuffer>()
+            + size_of::<vortex::encodings::zstd::ZstdFrameMetadata>()),
+    )
+    .unwrap();
+    let index_bytes = u64::try_from(selected.len() * size_of::<usize>() + 256).unwrap();
+    let denied = LiveMemoryPool::new(index_bytes + metadata - 1).unwrap();
     let error = filtered
         .clone()
         .execute::<VarBinViewArray>(&mut session(&denied).create_execution_ctx())
         .unwrap_err();
     assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
-    assert_eq!(denied.snapshot().peak_reserved_bytes, 0);
+    // Row indices are admitted first. The selected table is denied before its
+    // vectors are constructed, and the temporary indices are then released.
+    assert_eq!(denied.snapshot().peak_reserved_bytes, index_bytes);
     assert_eq!(denied.snapshot().reserved_bytes, 0);
 
     let ample = LiveMemoryPool::new(16 << 20).unwrap();
@@ -697,6 +713,10 @@ impl HostAllocator for SelectionFailAllocator {
             return Err(vortex_err!("injected sparse selection allocation failure"));
         }
         self.inner.allocate(len, alignment)
+    }
+
+    fn reserve_external(&self, bytes: usize) -> VortexResult<HostMemoryReservation> {
+        self.inner.reserve_external(bytes)
     }
 }
 

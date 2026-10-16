@@ -1,17 +1,16 @@
 //! Sparse text-frame selection inside the admitted native execution boundary.
 //!
-//! Frame/metadata lists live only during this call. Row indices and output views
-//! use the session allocator; the input mask never acquires a lazy cache.
+//! Selected frame tables retain the provider's allocator reservation. Row indices
+//! and output views use that same session; the mask never acquires a lazy cache.
 
 use super::*;
-use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
         arrays::varbinview::build_views::MAX_BUFFER_LEN, memory::HostAllocatorExt as _,
         vtable::child_to_validity,
     },
     buffer::{Buffer, ByteBuffer},
-    encodings::zstd::{Zstd, ZstdData, ZstdFrameMetadata, ZstdMetadata, ZstdSlots},
+    encodings::zstd::{Zstd, ZstdSlots},
     mask::{AllOr, Mask},
 };
 
@@ -31,7 +30,7 @@ pub(super) fn execute(
     else {
         return Ok(None);
     };
-    let Some(selection) = prepare(array, filter.data().filter_mask(), ctx, &memory)? else {
+    let Some(selection) = prepare(array, filter.data().filter_mask(), ctx)? else {
         return Ok(None);
     };
     // The view decoder splits at MAX_BUFFER_LEN. Every adjacent pair of
@@ -71,15 +70,12 @@ pub(super) struct Selection {
     pub(super) array: ArrayRef,
     pub(super) indices: Buffer<usize>,
     payload_bytes: usize,
-    // Drop all owned metadata before releasing its credit.
-    _metadata: MemoryLease,
 }
 
 pub(super) fn prepare(
     array: ArrayView<'_, Zstd>,
     mask: &Mask,
     ctx: &mut ExecutionCtx,
-    memory: &LiveMemoryPool,
 ) -> VortexResult<Option<Selection>> {
     let upper_frames = array.as_ref().nbuffers(); // May include one dictionary handle.
     if !matches!(array.dtype(), DType::Utf8(_) | DType::Binary(_))
@@ -99,32 +95,31 @@ pub(super) fn prepare(
     let AllOr::Some(bits) = mask.bit_buffer() else {
         return Ok(None);
     };
-    // into_parts consumes one clone of the original encoding data. Admit both
-    // cloned vectors and both retained-frame vectors before creating any of them.
-    let metadata = crate::owned_buffers::reserve(memory, metadata_bytes(upper_frames)?)?;
-    let parts = array.data().clone().into_parts(validity.clone());
-    if !(2..=64).contains(&parts.frames.len()) {
+    let data = array.data();
+    if !(2..=64).contains(&data.frame_metadata().len()) {
         return Ok(None);
     }
     let mut indices = ctx.allocator().allocate_typed::<usize>(mask.true_count())?;
     let selected = indices.as_mut_slice_typed::<usize>()?;
     let mut source_indices = bits.set_indices().peekable();
-    let mut frames = Vec::with_capacity(parts.frames.len());
-    let mut descriptions = Vec::with_capacity(parts.metadata.frames.len());
+    // Eligibility bounds this list independently of row count. The original
+    // table is borrowed; only the selected table receives a new reservation.
+    let mut frame_indices = [0usize; 64];
+    let mut frame_count = 0;
     let (mut source_start, mut kept_rows, mut cursor, mut touched, mut payload_bytes) =
         (0usize, 0usize, 0, 0, 0usize);
-    for (frame, description) in parts.frames.into_iter().zip(parts.metadata.frames) {
+    for (frame_index, description) in data.frame_metadata().iter().enumerate() {
         let rows = usize::try_from(description.n_values)?;
         let source_stop = source_start
             .checked_add(rows)
             .ok_or_else(|| vortex_err!("Zstd frame row count overflow"))?;
-        if source_start < parts.slice_stop && source_stop > parts.slice_start {
+        if source_start < data.slice_stop() && source_stop > data.slice_start() {
             touched += 1;
         }
         let first = cursor;
         while let Some(&index) = source_indices.peek() {
-            let source_row = parts
-                .slice_start
+            let source_row = data
+                .slice_start()
                 .checked_add(index)
                 .ok_or_else(size_overflow)?;
             if source_row >= source_stop {
@@ -144,27 +139,23 @@ pub(super) fn prepare(
             payload_bytes = payload_bytes
                 .checked_add(usize::try_from(description.uncompressed_size)?)
                 .ok_or_else(size_overflow)?;
-            frames.push(frame);
-            descriptions.push(description);
+            frame_indices[frame_count] = frame_index;
+            frame_count += 1;
             kept_rows = kept_rows.checked_add(rows).ok_or_else(size_overflow)?;
         }
         source_start = source_stop;
     }
     vortex_ensure!(
-        source_start == parts.n_rows && cursor == selected.len(),
+        source_start == data.unsliced_n_rows() && cursor == selected.len(),
         "Zstd frame value counts do not cover the non-null source rows"
     );
-    if frames.len() >= touched || selected.is_empty() || kept_rows > array.len() {
+    if frame_count >= touched || selected.is_empty() || kept_rows > array.len() {
         return Ok(None);
     }
-    let data = ZstdData::new(
-        parts.dictionary,
-        frames,
-        ZstdMetadata {
-            dictionary_size: parts.metadata.dictionary_size,
-            frames: descriptions,
-        },
-        kept_rows,
+    let data = data.select_frames_in(&frame_indices[..frame_count], &ctx.allocator())?;
+    vortex_ensure!(
+        data.len() == kept_rows,
+        "Zstd selected frame length changed"
     );
     // Execution may read headers; this checked constructor verifies retained
     // frames and normalizes all-valid validity to the new complete frame length.
@@ -173,15 +164,7 @@ pub(super) fn prepare(
         array,
         indices: indices.freeze_typed::<usize>()?,
         payload_bytes,
-        _metadata: metadata,
     }))
-}
-
-pub(super) fn metadata_bytes(frames: usize) -> VortexResult<u64> {
-    mul(
-        frames,
-        2 * (size_of::<ByteBuffer>() + size_of::<ZstdFrameMetadata>()),
-    )
 }
 
 fn retain_structure(decoded: &VarBinViewArray, memory: &LiveMemoryPool) -> VortexResult<ArrayRef> {

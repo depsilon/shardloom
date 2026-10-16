@@ -17,7 +17,7 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
-- [x] `NATIVE-STREAM-DYNAMIC-SUBQUERIES` local acceptance — finite declared
+- [x] `NATIVE-STREAM-DYNAMIC-SUBQUERIES` — finite declared
   sources now admit existing dynamic predicate subqueries with per-parameter
   inner schemas under PERF-03/06/07/11/12 and CG-5/19/20/21. Restrictions precede
   discovery, nested declarations stay within their parent's source set, and
@@ -29,8 +29,19 @@ phase plan first.
     25,530 members, preserving complete values, failures and exact corrections.
   - All nineteen documentation/site checks and local Python core checks pass;
     four generated guides, search and mobile navigation are checked in a browser.
-    Hosted checks, installed-wheel acceptance, review and integration remain in
-    the Planned queue. This entry records local completion only.
+  - [PR #1561](https://github.com/depsilon/shardloom/pull/1561) merges at
+    `4217c2cd7d322e054d483e3e389f6f22df8d0970` after all 44 checks pass on
+    `18b61c23d1f68bedc8bf70e06a54fb9d7f00f1c6`. Reviewed, synthetic-test and
+    merged trees match; final-head review reports no findings.
+  - The [147-member hosted packet](../benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json)
+    verifies 2,303 source identities, 2,914 native/provider tests with 26 manual
+    exclusions, 1,079 native public tests and three installed-wheel lanes with
+    100 methods each and zero skips. Hosted core discovers 626, runs 526 and
+    records 14 skips. All sixteen preview/production responses preserve source;
+    actual guide/search/navigation checks pass. Production version
+    `fa42ee3b-6011-40b6-b843-0152334292d4` completes. The observed pages retain
+    their pre-closeout wording until a later documentation deployment. No extra
+    Full43 pass was run for merge verification.
   - Opaque undeclared callbacks, dynamic scalar output-schema inference and
     membership/index spill remain outside this unit. The six-area/eight-
     investigation contract and all CG-1 through CG-23 retain their owners.

@@ -243,9 +243,20 @@ admits named Zstd preparation/output buffers and audited compressor/default-trai
 heap storage. Complete local ownership, cost, public-workflow and single-pass
 Full43 checks pass. PR #1555 merged after all 44 checks passed, including native
 and installed-wheel acceptance; production documentation is verified. This change
-follows the immutable 0.6.0 packages. Structural frame/metadata storage, other
-codecs and unreviewed provider trees remain separate. These resource corrections
+follows the immutable 0.6.0 packages. Its original scope excludes structural
+frame metadata; the extension below has separate acceptance. Other codecs and
+unreviewed provider trees remain separate. These resource corrections
 make no speedup claim, and a query grant still does not bound total process RSS.
+
+The source-only
+[Zstd frame metadata extension](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-zstd-metadata-resources-2026-10-16.md)
+admits frame-handle and metadata vectors before allocation. Clones, slices and
+nullability casts share their owner; native transfer receives fresh credits
+without duplicate vector charges. Six Rust gates, 67 provider tests, 100 direct
+methods, 4,827 public cases, all 18 lifecycle cells and one Full43 pass succeed.
+Independent inspection verifies 13,728 evidence members. Hosted integration
+remains pending. Raw caller-owned APIs, fixed allocator/Arc overhead and process
+RSS stay outside this claim; published 0.6.0 packages are unchanged.
 
 The subsequent source-only
 [selected text view change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
@@ -339,7 +350,10 @@ detached input, replay and per-parameter state share the existing query grant.
 Unused producers still complete through raw validation without evaluating skipped
 expressions. The [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
 records 100 direct methods, 4,827 public cases, all six Rust gates and all 43
-regression queries passing locally. Hosted integration remains pending. Opaque
+regression queries passing locally. PR #1561 merged after all 44 checks passed;
+three installed-wheel lanes each pass 100 methods without skips. The
+[147-member hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json)
+verifies preview/production source and navigation. Opaque
 undeclared callbacks and dynamic scalar output-schema inference remain unsupported.
 Subquery membership/index state remains resident; replay spill does not spill that
 state. Published 0.6.0 packages retain their release-time behavior.

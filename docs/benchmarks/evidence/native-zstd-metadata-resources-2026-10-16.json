@@ -1,0 +1,90 @@
+{
+  "schema_version": "shardloom.native_zstd_metadata_resources_evidence.v1",
+  "status": "passed_local",
+  "base_commit": "b1f4397065861d0e7def468b39f706a4610ece80",
+  "source_files": 2307,
+  "member_count": 13728,
+  "raw_bytes": 84206438,
+  "all_members_reopened": true,
+  "acceptance": {
+    "workspace_tests": 3221,
+    "workspace_ignored": 0,
+    "native_tests": 4294,
+    "native_ignored": 29,
+    "vendor_tests": 67,
+    "new_vendor_tests": 6,
+    "new_native_tests": 9,
+    "direct_methods": 100,
+    "direct_skips": 0,
+    "public_cases": 4827,
+    "public_families": 36,
+    "lifecycle_cases": 18,
+    "lifecycle_operations": 2736,
+    "full43_queries": 43,
+    "full43_calls": 43,
+    "full43_repeats": 1,
+    "full43_complete_rows": 381
+  },
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-zstdmetadata532.json",
+    "bytes": 303153,
+    "sha256": "8de15354cd09b08a6a6fae21da55ddde940d305b367524d59ef6486e32aedc26"
+  },
+  "artifact_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-zstdmetadata532.json",
+    "bytes": 304517,
+    "sha256": "0f7584b9685163d429ca18d1a80a4f1450f6ad435f35a47a1c2c73ab45851b39"
+  },
+  "source_overlay": [
+    "python/THIRD_PARTY_LICENSES/manifest.json",
+    "shardloom-vortex/src/native_provider_zstd_compression_allocator_tests.rs",
+    "shardloom-vortex/src/native_provider_zstd_compression_tests.rs",
+    "shardloom-vortex/src/native_provider_zstd_filter.rs",
+    "shardloom-vortex/src/native_provider_zstd_filter_tests.rs",
+    "shardloom-vortex/src/native_provider_zstd_metadata_tests.rs",
+    "shardloom-vortex/src/native_provider_zstd_tests.rs",
+    "shardloom-vortex/src/resident_memory_encoded_transfer.rs",
+    "shardloom-vortex/src/resident_memory_encoded_transfer_tests.rs",
+    "shardloom-vortex/src/resident_memory_zstd_transfer_tests.rs",
+    "vendor/vortex-zstd/src/array.rs",
+    "vendor/vortex-zstd/src/compute/cast.rs",
+    "vendor/vortex-zstd/src/lib.rs",
+    "vendor/vortex-zstd/src/metadata_resources.rs",
+    "vendor/vortex-zstd/src/metadata_resources_tests.rs",
+    "vendor/vortex-zstd/src/test.rs",
+    "vendor/vortex-zstd/upstream-provenance.json"
+  ],
+  "archive": {
+    "file": "native-zstd-metadata-resources-2026-10-16.tar.xz",
+    "bytes": 21807188,
+    "sha256": "f4daf64835d46c784144b80c2e307423d42a7b6a30a15ea830aefef00db51905"
+  },
+  "manifest": {
+    "file": "native-zstd-metadata-resources-2026-10-16.manifest.json.xz",
+    "bytes": 520376,
+    "sha256": "9028cf1d2da9ac34ec2915f9d99b1141fc139eb1523c2b8110943a37dbdb89a4",
+    "raw_sha256": "55cbb475ebb673c1e9e80559471967fa62934f00f4070168754ef358b7595c30"
+  },
+  "limitations": [
+    "The reservation covers requested frame-vector capacities, not fixed Arc headers, allocator bookkeeping, all process RSS or OS allocation success.",
+    "Raw construction/export remains caller-owned; independently supplied Zstd IPC, other codecs, general state spill and transport retain separate contracts.",
+    "One finite regression pass and a cost-retention screen do not establish a speedup, package release or all-platform readiness.",
+    "Direct binding tests use the source Python package with frozen native artifacts; installed-wheel and hosted proof remain separate gates."
+  ],
+  "publication_attempted": false,
+  "hosted_integration_complete": false,
+  "independent_packet_audit_passed": true,
+  "source_overlay_verified": true,
+  "installed_wheel_proof": false,
+  "audit": {
+    "file": "native-zstd-metadata-resources-2026-10-16.audit.json.xz",
+    "bytes": 4336,
+    "sha256": "4d98cd3acd7b007794933f58bd25a68c74edd6bc89f0e1e0da126f7d401a1180"
+  },
+  "engine_execution_seconds": 61.660146584,
+  "engine_timings": {
+    "file": "native-zstd-metadata-resources-2026-10-16.engine-times.csv",
+    "bytes": 757,
+    "sha256": "66394cbe494e70dd41e8214d62b3d80f1ec69dda81116179f41b70944c046c03"
+  }
+}

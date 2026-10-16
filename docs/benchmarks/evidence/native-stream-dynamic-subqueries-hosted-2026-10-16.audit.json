@@ -1,0 +1,449 @@
+{
+  "archive_path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.tar.xz",
+  "checks": {
+    "archive_identity": {
+      "actual_bytes": 558640,
+      "actual_sha256": "96b8d94e0afc7087efaa37f4e2af9698e7409a256866b1b9de435be7f98e81d3",
+      "indexed_bytes": 558640,
+      "indexed_sha256": "96b8d94e0afc7087efaa37f4e2af9698e7409a256866b1b9de435be7f98e81d3",
+      "matches": true
+    },
+    "archive_members": {
+      "all_integrity_checks_pass": true,
+      "archive_member_count": 147,
+      "duplicate_names": [],
+      "index_member_count": 147,
+      "json_members_parsed": 96,
+      "json_parse_errors": [],
+      "missing_names": [],
+      "nonregular_members": [],
+      "size_hash_mismatches": [],
+      "unindexed_names": [],
+      "unique_count": 147,
+      "unsafe_names": []
+    },
+    "hosted_evidence": {
+      "browser_match": true,
+      "checks_passed": 44,
+      "core_metrics": {
+        "console_tests_run": 526,
+        "error_count": 0,
+        "failure_count": 0,
+        "module_count": 57,
+        "skipped_count": 14,
+        "test_count": 626
+      },
+      "deployment_match": true,
+      "preview_responses": {
+        "count": 8,
+        "http_200_source_preserved_count": 8
+      },
+      "production_browser": {
+        "desktop_record_present": true,
+        "head": "4217c2cd7d322e054d483e3e389f6f22df8d0970",
+        "limits_record_present": true,
+        "mobile_menu_navigation_passed": true,
+        "mobile_record_present": true,
+        "origin": "https://shardloom.io",
+        "search": {
+          "clicked": "Resources And Recovery",
+          "destination": "https://shardloom.io/field-guide/runtime-and-io/#resources-and-recovery",
+          "query": "dynamic predicate",
+          "result_pages": 4
+        },
+        "stage": "production"
+      },
+      "production_responses": {
+        "count": 8,
+        "http_200_source_preserved_count": 8
+      },
+      "production_workers_deployment": {
+        "check": {
+          "conclusion": "success",
+          "head_sha": "4217c2cd7d322e054d483e3e389f6f22df8d0970",
+          "id": 116904627523,
+          "name": "Workers Builds: shardloom",
+          "status": "completed"
+        },
+        "deployment": {
+          "completed_at": "2026-10-16T09:23:39Z",
+          "conclusion": "success",
+          "details_url": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/20b2bb99-b40c-4408-8f0d-ddbe75eefc68",
+          "head_sha": "4217c2cd7d322e054d483e3e389f6f22df8d0970",
+          "id": 116904627523,
+          "status": "completed"
+        },
+        "version": "fa42ee3b-6011-40b6-b843-0152334292d4"
+      },
+      "responses_match": true,
+      "run_id": 38875631835,
+      "rust_totals_matched_to_acceptance": {
+        "116889886542": {
+          "failed_sum": 0,
+          "groups": [
+            [
+              949,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              0
+            ],
+            [
+              65,
+              0,
+              0
+            ],
+            [
+              44,
+              0,
+              0
+            ],
+            [
+              15,
+              0,
+              0
+            ]
+          ],
+          "ignored_sum": 0,
+          "passed_sum": 1079,
+          "reported_total_passed": 1079
+        },
+        "116889886793": {
+          "failed_sum": 0,
+          "groups": [
+            [
+              2863,
+              0,
+              26
+            ],
+            [
+              10,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              0
+            ],
+            [
+              23,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0
+            ]
+          ],
+          "ignored_sum": 26,
+          "passed_sum": 2914,
+          "reported_total_passed": 2914
+        }
+      },
+      "rust_totals_recomputed_from_logs": {
+        "116889886542": {
+          "failed_sum": 0,
+          "groups": [
+            [
+              949,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              0
+            ],
+            [
+              65,
+              0,
+              0
+            ],
+            [
+              44,
+              0,
+              0
+            ],
+            [
+              15,
+              0,
+              0
+            ]
+          ],
+          "ignored_sum": 0,
+          "passed_sum": 1079
+        },
+        "116889886793": {
+          "failed_sum": 0,
+          "groups": [
+            [
+              2863,
+              0,
+              26
+            ],
+            [
+              10,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              0
+            ],
+            [
+              23,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0
+            ]
+          ],
+          "ignored_sum": 26,
+          "passed_sum": 2914
+        }
+      },
+      "source_files_verified": 2303,
+      "wheel_proofs": [
+        {
+          "errors": 0,
+          "failures": 0,
+          "integration_status": "passed",
+          "isolated_install": true,
+          "job_id": 116889886241,
+          "skipped": 0,
+          "status": "passed",
+          "tests": 100,
+          "uninstall_status": "passed"
+        },
+        {
+          "errors": 0,
+          "failures": 0,
+          "integration_status": "passed",
+          "isolated_install": true,
+          "job_id": 116889886215,
+          "skipped": 0,
+          "status": "passed",
+          "tests": 100,
+          "uninstall_status": "passed"
+        },
+        {
+          "errors": 0,
+          "failures": 0,
+          "integration_status": "passed",
+          "isolated_install": true,
+          "job_id": 116889886404,
+          "skipped": 0,
+          "status": "passed",
+          "tests": 100,
+          "uninstall_status": "passed"
+        }
+      ]
+    },
+    "index_identity_and_totals": {
+      "all_match": true,
+      "expected": {
+        "checks_passed": 44,
+        "core_discovered": 626,
+        "core_modules": 57,
+        "core_run": 526,
+        "core_skipped": 14,
+        "head": "18b61c23d1f68bedc8bf70e06a54fb9d7f00f1c6",
+        "merge": "4217c2cd7d322e054d483e3e389f6f22df8d0970",
+        "native_public_total": 1079,
+        "native_total": 2914,
+        "pr": 1561,
+        "production_deployment_check_complete": true,
+        "production_deployment_check_id": 116904627523,
+        "production_version": "fa42ee3b-6011-40b6-b843-0152334292d4",
+        "served_responses_verified": 16,
+        "source_files_verified": 2303,
+        "synthetic": "7892decfc6d45fccd3c3868055f74474f6e11a62",
+        "wheel_lanes": 3,
+        "wheel_tests_per_lane": 100
+      },
+      "observed": {
+        "checks_passed": 44,
+        "core_discovered": 626,
+        "core_modules": 57,
+        "core_run": 526,
+        "core_skipped": 14,
+        "head": "18b61c23d1f68bedc8bf70e06a54fb9d7f00f1c6",
+        "merge": "4217c2cd7d322e054d483e3e389f6f22df8d0970",
+        "native_public_total": 1079,
+        "native_total": 2914,
+        "pr": 1561,
+        "production_deployment_check_complete": true,
+        "production_deployment_check_id": 116904627523,
+        "production_version": "fa42ee3b-6011-40b6-b843-0152334292d4",
+        "served_responses_verified": 16,
+        "source_files_verified": 2303,
+        "synthetic": "7892decfc6d45fccd3c3868055f74474f6e11a62",
+        "wheel_lanes": 3,
+        "wheel_tests_per_lane": 100
+      },
+      "schema_version": "shardloom.native_stream_dynamic_subquery_hosted_packet.v1",
+      "status": "passed"
+    },
+    "primary_acceptance": {
+      "all_six_metadata_completed_success": true,
+      "capture_status": "COMPLETE",
+      "captured_job_count": 6,
+      "core_metrics": {
+        "console_tests_run": 526,
+        "error_count": 0,
+        "failure_count": 0,
+        "module_count": 57,
+        "skipped_count": 14,
+        "test_count": 626
+      },
+      "errors": [],
+      "head": "18b61c23d1f68bedc8bf70e06a54fb9d7f00f1c6",
+      "pending": [],
+      "run_identity_matches_pr_head_base": true,
+      "rust_totals_from_primary": {
+        "116889886542": {
+          "failed_sum": 0,
+          "groups": [
+            [
+              949,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              0
+            ],
+            [
+              65,
+              0,
+              0
+            ],
+            [
+              44,
+              0,
+              0
+            ],
+            [
+              15,
+              0,
+              0
+            ]
+          ],
+          "ignored_sum": 0,
+          "passed_sum": 1079,
+          "reported_total_passed": 1079
+        },
+        "116889886793": {
+          "failed_sum": 0,
+          "groups": [
+            [
+              2863,
+              0,
+              26
+            ],
+            [
+              10,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              0
+            ],
+            [
+              23,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0
+            ]
+          ],
+          "ignored_sum": 26,
+          "passed_sum": 2914,
+          "reported_total_passed": 2914
+        }
+      },
+      "status": "passed_all_six",
+      "synthetic": "7892decfc6d45fccd3c3868055f74474f6e11a62",
+      "wheel_binding_method_count": 100
+    },
+    "verification_vs_index": {
+      "all_indexed_totals_match": true,
+      "identity": {
+        "head": "18b61c23d1f68bedc8bf70e06a54fb9d7f00f1c6",
+        "merge": "4217c2cd7d322e054d483e3e389f6f22df8d0970",
+        "pr": 1561,
+        "synthetic": "7892decfc6d45fccd3c3868055f74474f6e11a62"
+      },
+      "matched_metrics": {
+        "checks_passed": 44,
+        "core_discovered": 626,
+        "core_modules": 57,
+        "core_run": 526,
+        "core_skipped": 14,
+        "native_public_total": 1079,
+        "native_total": 2914,
+        "source_files_verified": 2303,
+        "wheel_lanes": [
+          "Native Python wheel (py310_ubuntu)",
+          "Native Python wheel (py313_ubuntu)",
+          "Native Python wheel (py313_macos)"
+        ],
+        "wheel_tests_per_lane": 100
+      },
+      "production_check_id": 116904627523,
+      "production_version": "fa42ee3b-6011-40b6-b843-0152334292d4",
+      "served_responses_recomputed": 16,
+      "verification_status": "passed"
+    }
+  },
+  "errors": [],
+  "index_path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json",
+  "schema_version": "shardloom.native_stream_dynamic_subquery_hosted_archive_audit.v1",
+  "scope_note": "Integrity and consistency audit of archived records only; this does not independently validate semantic runtime behavior.",
+  "status": "COMPLETE"
+}

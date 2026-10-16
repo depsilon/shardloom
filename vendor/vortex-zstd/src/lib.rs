@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-15: register bounded compression admission.
+// Modified by ShardLoom on 2026-10-16: register shared frame metadata admission.
 
 //! Zstd-backed compression encodings for variable-width Vortex arrays.
 //!
@@ -27,6 +28,7 @@ use vortex_array::dtype::proto::dtype as pb;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure;
 use vortex_error::vortex_err;
+use zstd::zstd_safe;
 #[cfg(feature = "unstable_encodings")]
 pub use zstd_buffers::*;
 
@@ -34,6 +36,7 @@ mod array;
 mod compression_resources;
 mod compute;
 mod decoder_workspace;
+mod metadata_resources;
 mod rules;
 mod slice;
 #[cfg(feature = "unstable_encodings")]
@@ -49,7 +52,7 @@ pub(crate) fn validate_frame_content_size(
     index: usize,
 ) -> VortexResult<()> {
     decoder_workspace::reject_legacy_header(frame)?;
-    let frame_content_size = zstd::zstd_safe::get_frame_content_size(frame)
+    let frame_content_size = zstd_safe::get_frame_content_size(frame)
         .map_err(|error| vortex_err!("Invalid zstd frame {index}: {error}"))?
         .ok_or_else(|| vortex_err!("Zstd frame {index} does not declare a content size"))?;
     vortex_ensure!(

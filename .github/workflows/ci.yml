@@ -133,6 +133,10 @@ jobs:
                 --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
                 --features vortex-array/table-display \
                 --lib compression_resources::tests:: -- --test-threads=1
+              cargo test --manifest-path vendor/vortex-zstd/Cargo.toml \
+                --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+                --features vortex-array/table-display \
+                --lib metadata_resources::tests:: -- --test-threads=1
           - lane: synthetic_spill_resources
             command: |
               cargo test -p shardloom-exec --lib --features spill-payload-fs spill_payload::tests -- --test-threads=1

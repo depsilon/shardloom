@@ -12,6 +12,9 @@ mod compression_tests;
 #[path = "native_provider_zstd_compression_cost_tests.rs"]
 mod compression_cost_tests;
 
+#[path = "native_provider_zstd_metadata_tests.rs"]
+mod metadata_tests;
+
 use vortex::{
     VortexSessionDefault as _,
     array::{

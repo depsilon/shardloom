@@ -62,6 +62,7 @@ enum Kind {
     Slice,
     Shared,
     AlpRd,
+    Zstd,
     Parts,
     Serialized,
 }
@@ -78,6 +79,7 @@ struct Plan {
     bookkeeping: MemoryLease,
     metadata: MemoryLease,
     scratch: MemoryLease,
+    provider_metadata_bytes: u64,
     reused_array_references: u64,
 }
 
@@ -89,6 +91,7 @@ impl Plan {
             bookkeeping: context.memory().reserve(0)?,
             metadata: context.memory().reserve(0)?,
             scratch: context.memory().reserve(0)?,
+            provider_metadata_bytes: 0,
             reused_array_references: 0,
         })
     }
@@ -113,7 +116,8 @@ impl Plan {
             "vortex.slice" => Kind::Slice,
             "vortex.shared" => Kind::Shared,
             "vortex.alprd" => Kind::AlpRd,
-            "vortex.zstd" | "vortex.alp" | "fastlanes.bitpacked" => Kind::Parts,
+            "vortex.zstd" => Kind::Zstd,
+            "vortex.alp" | "fastlanes.bitpacked" => Kind::Parts,
             "vortex.null"
             | "vortex.bool"
             | "vortex.primitive"
@@ -156,7 +160,8 @@ impl Plan {
         // Pinned serializers have fixed scalar metadata. Checked parts preserve
         // Zstd frame coordinates and patch caches; ALPRD's dictionary is copied
         // directly. Constants and sparse fills never synthesize protobuf.
-        let metadata_limit = add(1024, mul(buffers, 64)?)?;
+        let (metadata_limit, retained_buffers) =
+            self.buffer_metadata_bounds(array, kind, buffers)?;
         let schema_bytes = native_payload_schema::encoded_schema_bytes(array.dtype())?;
         let retained = add(
             schema_bytes,
@@ -166,7 +171,7 @@ impl Plan {
                     1024,
                     add(
                         mul(slots, 128)?,
-                        add(mul(buffers, 256)?, mul(metadata_limit, 2)?)?,
+                        add(retained_buffers, mul(metadata_limit, 2)?)?,
                     )?,
                 )?,
             )?,
@@ -199,6 +204,31 @@ impl Plan {
         }
         self.order.push(array.addr())?;
         Ok(true)
+    }
+
+    fn buffer_metadata_bounds(
+        &mut self,
+        array: &ArrayRef,
+        kind: Kind,
+        buffers: u64,
+    ) -> Result<(u64, u64)> {
+        // Zstd admits its own frame vectors under the receiving allocator. Our
+        // retained charge covers only the schema/slots/fixed node structure;
+        // temporary buffer lists still belong to this transfer's scratch credit.
+        if matches!(kind, Kind::Zstd) {
+            let provider_bytes = u64::try_from(
+                array
+                    .as_::<vortex_zstd::Zstd>()
+                    .data()
+                    .metadata_capacity_bytes()
+                    .map_err(native_error)?,
+            )
+            .map_err(|_| memory_error("Zstd metadata capacity exceeds transfer accounting"))?;
+            self.provider_metadata_bytes = add(self.provider_metadata_bytes, provider_bytes)?;
+            Ok((0, 0))
+        } else {
+            Ok((add(1024, mul(buffers, 64)?)?, mul(buffers, 256)?))
+        }
     }
 
     fn fixed_width_copy_expands(
@@ -312,12 +342,13 @@ pub(super) fn copy_records(
         bookkeeping: _bookkeeping,
         metadata,
         scratch,
+        provider_metadata_bytes,
         reused_array_references,
     } = plan;
     let report = NativeTransferReport {
         encoded_array_nodes_copied: nodes.len() as u64,
         reused_array_references,
-        retained_metadata_bytes: metadata.bytes(),
+        retained_metadata_bytes: add(metadata.bytes(), provider_metadata_bytes)?,
         provider_scratch_peak_reserved_bytes: scratch.bytes(),
         ..NativeTransferReport::default()
     };
@@ -480,7 +511,7 @@ impl Copier<'_, '_> {
                 // Retain the copied encoded child with a fresh receiving cache.
                 SharedArray::new(child).into_array()
             }
-            Kind::Serialized | Kind::Parts => {
+            Kind::Serialized | Kind::Parts | Kind::Zstd => {
                 let (output, buffer_bytes) = self.copy_buffered_node(node, dtype, children)?;
                 bytes = add(bytes, buffer_bytes)?;
                 output
@@ -519,7 +550,15 @@ impl Copier<'_, '_> {
             bytes = add(bytes, host.len() as u64)?;
             buffers.push(BufferHandle::new_host(self.copy_buffer(host)?));
         }
-        let output = if matches!(node.kind, Kind::Parts) {
+        let output = if matches!(node.kind, Kind::Zstd) {
+            let parts = vortex_zstd::Zstd::with_buffers_in(
+                input.as_::<vortex_zstd::Zstd>(),
+                &buffers,
+                &self.context.native_session().allocator(),
+            )
+            .map_err(native_error)?;
+            finish_parts(parts, dtype, input, children)?
+        } else if matches!(node.kind, Kind::Parts) {
             // These pinned data objects carry slice/patch coordinates that their
             // serializers omit or reset. Replace payloads and keep those coordinates.
             if input.is::<ALP>() {
@@ -527,14 +566,9 @@ impl Copier<'_, '_> {
                     .with_buffers(input.as_::<ALP>(), &buffers)
                     .map_err(native_error)?;
                 finish_parts(parts, dtype, input, children)?
-            } else if input.is::<BitPacked>() {
+            } else {
                 let parts = BitPacked
                     .with_buffers(input.as_::<BitPacked>(), &buffers)
-                    .map_err(native_error)?;
-                finish_parts(parts, dtype, input, children)?
-            } else {
-                let parts = vortex_zstd::Zstd
-                    .with_buffers(input.as_::<vortex_zstd::Zstd>(), &buffers)
                     .map_err(native_error)?;
                 finish_parts(parts, dtype, input, children)?
             }
