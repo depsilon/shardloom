@@ -240,8 +240,11 @@ impl VarBinViewData {
         )
     }
 
-    /// Construct an admitted table from host or device handles. As with
-    /// `try_new_handle`, this checks view layout, not device data or value contents.
+    /// Construct an admitted table from host or device handles. Host views are
+    /// checked against their buffers, including prefixes and UTF-8 contents.
+    /// Null slots must also contain valid views because raw value access does
+    /// not consult validity. Device contents remain opaque until host replacement,
+    /// which performs the same validation without an implicit device copy here.
     /// The iterator's requested capacity and the final Arc slice overlap until
     /// conversion completes. Raw exported buffers do not carry this table credit.
     pub fn try_new_handle_in(
@@ -298,10 +301,47 @@ impl VarBinViewData {
         dtype: DType,
         validity: Validity,
     ) -> VortexResult<Self> {
-        Self::check_view_layout(&views)?;
+        Self::validate_handle_contents(&views, &buffers, &dtype, &validity)?;
 
-        // SAFETY: preserves the existing host/device handle constructor contract.
+        // SAFETY: host values and structure have been validated. Device contents
+        // cannot be accessed on the host; replacing them with host buffers checks
+        // the contents again through this constructor.
         Ok(unsafe { Self::new_handle_unchecked(views, buffers, dtype, validity) })
+    }
+
+    fn validate_handle_contents(
+        views: &BufferHandle,
+        buffers: &[BufferHandle],
+        dtype: &DType,
+        validity: &Validity,
+    ) -> VortexResult<()> {
+        Self::check_view_layout(views)?;
+        let check_utf8 = Self::check_nullability(dtype, validity)?;
+        vortex_ensure!(
+            validity
+                .maybe_len()
+                .is_none_or(|len| len == views.len() / size_of::<BinaryView>()),
+            "VarBinView validity length differs from its views"
+        );
+        let Some(host_views) = views.as_host_opt() else {
+            // This path retains opaque device handles only. It does not read,
+            // copy, or certify their contents for execution on the host.
+            return Ok(());
+        };
+        let host_views = Buffer::<BinaryView>::from_byte_buffer(host_views.clone());
+        for (idx, view) in host_views.iter().enumerate() {
+            Self::validate_view_with(
+                idx,
+                view,
+                buffers.len(),
+                |index| {
+                    let buffer = &buffers[index];
+                    (buffer.len(), buffer.as_host_opt().map(ByteBuffer::as_slice))
+                },
+                check_utf8,
+            )?;
+        }
+        Ok(())
     }
 
     pub(super) fn check_view_layout(views: &BufferHandle) -> VortexResult<()> {
@@ -524,6 +564,22 @@ impl VarBinViewData {
         buffers: &[ByteBuffer],
         check_utf8: bool,
     ) -> VortexResult<()> {
+        Self::validate_view_with(
+            idx,
+            view,
+            buffers.len(),
+            |index| (buffers[index].len(), Some(buffers[index].as_slice())),
+            check_utf8,
+        )
+    }
+
+    fn validate_view_with<'a>(
+        idx: usize,
+        view: &BinaryView,
+        buffer_count: usize,
+        buffer_at: impl FnOnce(usize) -> (usize, Option<&'a [u8]>),
+        check_utf8: bool,
+    ) -> VortexResult<()> {
         let valid_utf8 = |bytes: &[u8]| !check_utf8 || simdutf8::basic::from_utf8(bytes).is_ok();
         if view.is_inlined() {
             // Validate the inline bytestring
@@ -537,26 +593,33 @@ impl VarBinViewData {
             let view = view.as_view();
             let buf_index = view.buffer_index as usize;
             let start_offset = view.offset as usize;
-            let end_offset = start_offset.saturating_add(view.size as usize);
-
-            let buf = buffers.get(buf_index).ok_or_else(||
-                vortex_err!(InvalidArgument: "view at index {idx} references invalid buffer: {buf_index} out of bounds for VarBinViewData with {} buffers",
-                    buffers.len()))?;
+            let end_offset = view.offset.checked_add(view.size).ok_or_else(
+                || vortex_err!(InvalidArgument: "view at index {idx}: end offset exceeds u32"),
+            )? as usize;
 
             vortex_ensure!(
-                start_offset < buf.len(),
-                InvalidArgument: "start offset {start_offset} out of bounds for buffer {buf_index} with size {}",
-                buf.len(),
+                buf_index < buffer_count,
+                InvalidArgument: "view at index {idx} references invalid buffer: {buf_index} out of bounds for VarBinViewData with {buffer_count} buffers"
+            );
+            let (buffer_len, bytes) = buffer_at(buf_index);
+
+            vortex_ensure!(
+                start_offset < buffer_len,
+                InvalidArgument: "start offset {start_offset} out of bounds for buffer {buf_index} with size {buffer_len}",
             );
 
             vortex_ensure!(
-                end_offset <= buf.len(),
-                InvalidArgument: "end offset {end_offset} out of bounds for buffer {buf_index} with size {}",
-                buf.len(),
+                end_offset <= buffer_len,
+                InvalidArgument: "end offset {end_offset} out of bounds for buffer {buf_index} with size {buffer_len}",
             );
 
+            let Some(bytes) = bytes else {
+                // Device bytes cannot be read here. A later host replacement
+                // must pass this validation before any host value access.
+                return Ok(());
+            };
             // Make sure the prefix data matches the buffer data.
-            let bytes = &buf[start_offset..end_offset];
+            let bytes = &bytes[start_offset..end_offset];
             vortex_ensure!(
                 view.prefix == bytes[..4],
                 InvalidArgument: "VarBinView prefix does not match full string"
@@ -743,7 +806,8 @@ impl VarBinViewData {
 
 pub trait VarBinViewArrayExt: TypedArrayRef<VarBinView> {
     /// Replace views, dtype nullability and validity while sharing the original
-    /// table and its owner. Views must still reference the original buffers.
+    /// table and its owner. Host views are validated against the original buffers,
+    /// including null slots, so changing validity cannot expose malformed values.
     /// This preserves any independent outer array lifetime owner as well.
     fn with_views_and_validity(
         &self,
@@ -751,19 +815,12 @@ pub trait VarBinViewArrayExt: TypedArrayRef<VarBinView> {
         dtype: DType,
         validity: Validity,
     ) -> VortexResult<Array<VarBinView>> {
-        VarBinViewData::check_view_layout(&views)?;
         vortex_ensure!(
             self.as_ref().dtype().eq_ignore_nullability(&dtype),
             "VarBinView reconstruction cannot change its value type"
         );
-        VarBinViewData::check_nullability(&dtype, &validity)?;
+        VarBinViewData::validate_handle_contents(&views, &self.buffers, &dtype, &validity)?;
         let len = views.len() / size_of::<BinaryView>();
-        if let Validity::Array(bitmap) = &validity {
-            vortex_ensure!(
-                bitmap.len() == len,
-                "VarBinView validity length differs from its views"
-            );
-        }
         let data = VarBinViewData {
             buffers: Arc::clone(&self.buffers),
             views,

@@ -32,6 +32,69 @@ fn raw() -> VarBinViewArray {
 }
 
 #[test]
+fn native_varbin_safe_builders_validate_utf8_per_value_and_refund() {
+    let cases = [
+        (vec![0xff], vec![1u32]),
+        ([b'a'; 13].into_iter().chain([0xff]).collect(), vec![14]),
+        ("λ猫".as_bytes().to_vec(), vec![1, 4]),
+    ];
+    for (bytes, lengths) in cases {
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let session = session(&memory);
+        let mut ctx = session.create_execution_ctx();
+        let offsets: Vec<u32> = std::iter::once(0)
+            .chain(lengths.iter().scan(0, |sum, length| {
+                *sum += length;
+                Some(*sum)
+            }))
+            .collect();
+        for binary in [false, true] {
+            for from_offsets in [false, true] {
+                let dtype = if binary {
+                    DType::Binary(Nullability::NonNullable)
+                } else {
+                    DType::Utf8(Nullability::NonNullable)
+                };
+                let bytes = ByteBuffer::copy_from(&bytes);
+                let result = if from_offsets {
+                    build_views_from_offsets_in(
+                        MAX_BUFFER_LEN,
+                        bytes.clone(),
+                        &offsets,
+                        dtype,
+                        Validity::NonNullable,
+                        &mut ctx,
+                    )
+                } else {
+                    build_views_in(
+                        MAX_BUFFER_LEN,
+                        bytes.clone(),
+                        &lengths,
+                        dtype,
+                        Validity::NonNullable,
+                        &mut ctx,
+                    )
+                };
+                if binary {
+                    let output = result.unwrap();
+                    for (row, range) in offsets.windows(2).enumerate() {
+                        assert_eq!(
+                            output.bytes_at(row).as_slice(),
+                            &bytes[range[0] as usize..range[1] as usize]
+                        );
+                    }
+                    drop(output);
+                } else {
+                    let error = result.unwrap_err();
+                    assert!(error.to_string().contains("utf-8"), "{error}");
+                }
+                assert_eq!(memory.snapshot().reserved_bytes, 0);
+            }
+        }
+    }
+}
+
+#[test]
 fn native_varbin_builder_exact_finalization_overlap_and_terminal_refund() {
     let input = raw();
     assert_eq!(input.data_buffers().len(), 1);

@@ -106,7 +106,8 @@ pub fn build_views_from_offsets<P: NativePType + AsPrimitive<usize>>(
 }
 
 /// Build native views with admitted temporary and final buffer tables.
-/// The input bytes must already satisfy the requested binary/UTF-8 dtype.
+/// Validate each value against the requested binary/UTF-8 dtype, including
+/// boundaries that split a multibyte character in an otherwise valid byte heap.
 /// This reuses the ordinary view-building loops and does not decode payloads.
 pub fn build_views_in<P: NativePType + AsPrimitive<usize>>(
     max_buffer_len: usize,

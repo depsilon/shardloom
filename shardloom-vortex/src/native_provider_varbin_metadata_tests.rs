@@ -9,7 +9,7 @@ use vortex::{
         Canonical, CanonicalValidity, RecursiveCanonical, VortexSessionExecute as _,
         arrays::{
             BoolArray, MaskedArray,
-            varbinview::{VarBinViewArrayExt as _, VarBinViewData},
+            varbinview::{BinaryView, VarBinViewArrayExt as _, VarBinViewData},
         },
         builtins::ArrayBuiltins as _,
         dtype::Nullability,
@@ -18,7 +18,7 @@ use vortex::{
             WritableHostBuffer,
         },
     },
-    buffer::ByteBuffer,
+    buffer::{Buffer, ByteBuffer},
     encodings::runend::RunEnd,
     mask::Mask,
 };
@@ -47,6 +47,114 @@ fn admit(input: &VarBinViewArray, session: &VortexSession) -> VortexResult<VarBi
         input.validity()?,
         &session.allocator(),
     )
+}
+
+fn malformed_host_views(input: &VarBinViewArray) -> Vec<(&'static str, BinaryView)> {
+    let bytes = input.bytes_at(0);
+    // The first value ends in a multibyte character. Its truncated prefix is
+    // still in bounds and has the right four-byte prefix, but is not UTF-8.
+    let truncated = &bytes[..bytes.len() - 1];
+    assert!(std::str::from_utf8(truncated).is_err());
+    vec![
+        ("buffer index", BinaryView::new_ref(13, *b"firs", 1, 0)),
+        (
+            "start offset",
+            BinaryView::new_ref(13, *b"firs", 0, u32::MAX),
+        ),
+        ("end offset", BinaryView::new_ref(u32::MAX, *b"firs", 0, 1)),
+        ("prefix", BinaryView::new_ref(13, *b"WRNG", 0, 0)),
+        ("inline UTF-8", BinaryView::new_inlined(&[0xff])),
+        ("outlined UTF-8", BinaryView::make_view(truncated, 0, 0)),
+    ]
+}
+
+#[test]
+fn native_varbin_table_safe_constructors_reject_malformed_host_views_and_refund() {
+    let input = raw();
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let session = session(&memory);
+    let mut accepted = Vec::new();
+    for (case, view) in malformed_host_views(&input) {
+        for validity in [
+            Validity::NonNullable,
+            Validity::AllValid,
+            Validity::AllInvalid,
+            Validity::Array(BoolArray::from_iter([false]).into_array()),
+        ] {
+            let dtype = DType::Utf8(validity.nullability());
+            let views = BufferHandle::new_host(Buffer::copy_from([view]).into_byte_buffer());
+            let data = VarBinViewData::try_new_handle_in(
+                views.clone(),
+                input.data_buffers().iter().cloned(),
+                dtype.clone(),
+                validity.clone(),
+                &session.allocator(),
+            );
+            if data.is_ok() {
+                accepted.push((case, "admitted data", validity.clone()));
+            }
+            drop(data);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            let array = VarBinViewArray::try_new_handle_in(
+                views.clone(),
+                input.data_buffers().iter().cloned(),
+                dtype.clone(),
+                validity.clone(),
+                &session.allocator(),
+            );
+            if array.is_ok() {
+                accepted.push((case, "admitted array", validity.clone()));
+            }
+            drop(array);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            let data = VarBinViewData::try_new_handle(
+                views,
+                Arc::clone(input.data_buffers()),
+                dtype,
+                validity.clone(),
+            );
+            if data.is_ok() {
+                accepted.push((case, "raw data", validity));
+            }
+            drop(data);
+        }
+    }
+    assert!(
+        accepted.is_empty(),
+        "malformed views accepted: {accepted:?}"
+    );
+}
+
+#[test]
+fn native_varbin_table_safe_replacement_rejects_malformed_host_views_and_preserves_owner() {
+    let input = raw();
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let output = admit(&input, &session(&memory)).unwrap();
+    let table = memory.snapshot().reserved_bytes;
+    let identity = Arc::as_ptr(output.data_buffers());
+    let mut accepted = Vec::new();
+    for (case, view) in malformed_host_views(&input) {
+        for validity in [Validity::NonNullable, Validity::AllInvalid] {
+            let result = output.with_views_and_validity(
+                BufferHandle::new_host(Buffer::copy_from([view]).into_byte_buffer()),
+                DType::Utf8(validity.nullability()),
+                validity.clone(),
+            );
+            if result.is_ok() {
+                accepted.push((case, validity));
+            }
+            drop(result);
+            assert_eq!(memory.snapshot().reserved_bytes, table);
+            assert_eq!(Arc::as_ptr(output.data_buffers()), identity);
+            assert_eq!(output.bytes_at(0), input.bytes_at(0));
+        }
+    }
+    drop(output);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    assert!(
+        accepted.is_empty(),
+        "malformed replacement views accepted: {accepted:?}"
+    );
 }
 
 #[test]

@@ -182,3 +182,65 @@ fn native_varbin_deserialize_device_handles_are_admitted_without_device_access()
     drop(output);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
+
+#[test]
+fn native_varbin_device_host_replacement_validates_newly_accessible_values() {
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let session = session(&memory);
+    let device = BufferHandle::new_device(Arc::new(UnreadableDevice(28)));
+    let output = VarBinViewArray::try_new_handle_in(
+        BufferHandle::new_device(Arc::new(UnreadableDevice(16))),
+        std::iter::once(device.clone()),
+        DType::Utf8(Nullability::NonNullable),
+        Validity::NonNullable,
+        &session.allocator(),
+    )
+    .unwrap();
+    let table = memory.snapshot().reserved_bytes;
+    let views = |view| BufferHandle::new_host(Buffer::copy_from([view]).into_byte_buffer());
+    // An unrelated device buffer must not suppress checks of host inline values.
+    let error = VarBinView
+        .with_buffers(
+            output.as_view(),
+            &[device.clone(), views(BinaryView::new_inlined(&[0xff]))],
+        )
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("inlined bytes failed utf-8"));
+    assert_eq!(memory.snapshot().reserved_bytes, table);
+    // Host views can check the known extent of an opaque device buffer.
+    let error = VarBinView
+        .with_buffers(
+            output.as_view(),
+            &[
+                device.clone(),
+                views(BinaryView::new_ref(29, *b"aaaa", 0, 0)),
+            ],
+        )
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("end offset"));
+    assert_eq!(memory.snapshot().reserved_bytes, table);
+    // Retaining a well-shaped reference never copies from the device. On later
+    // host replacement, the now-readable bytes must pass UTF-8 validation.
+    let view = BinaryView::new_ref(14, *b"aaaa", 0, 0);
+    let partial = VarBinViewArray::try_from_parts(
+        VarBinView
+            .with_buffers(output.as_view(), &[device, views(view)])
+            .unwrap(),
+    )
+    .unwrap();
+    let mut bytes = vec![b'a'; 28];
+    bytes[13] = 0xff;
+    let error = VarBinView
+        .with_buffers(
+            partial.as_view(),
+            &[BufferHandle::new_host(ByteBuffer::from(bytes)), views(view)],
+        )
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("outlined bytes fails utf-8"));
+    assert_eq!(memory.snapshot().reserved_bytes, 2 * table);
+    drop((partial, output, session));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
