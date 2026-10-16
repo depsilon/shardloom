@@ -252,10 +252,11 @@ the ledger.
 - [ ] `NATIVE-VARBIN-METADATA-RESOURCES` admit shared text/binary buffer tables.
   - Source: [ownership and acceptance contract](native-varbin-metadata-resources-2026-10-16.md),
     RFC 0044 and the remaining allocation row under PERF-03/06/08/09.
-  - Current state: payload reservations exist; table sharing, decode/construction
-    temporaries and concatenation metadata do not yet have one lifetime contract.
-    Selected-Zstd and encoded-transfer outer charges must be replaced where the
-    provider takes ownership. The Zstd frame-table unit remains complete.
+  - Current state: the scoped table-sharing, decode/construction, concatenation
+    and receiving-session ownership paths are implemented with focused provider
+    validation. Superseded selected-Zstd and encoded-transfer table charges are
+    removed. Broad local acceptance, the frozen cost comparison and hosted
+    integration remain pending. The Zstd frame-table unit remains complete.
   - V1 scope classification: `required_for_v1` finite allocation coverage.
   - Shared family: Vortex VarBinView construction/selection, FSST/RunEnd/Zstd
     providers and the existing native Chunked builder below all user surfaces.
@@ -264,10 +265,10 @@ the ledger.
     source units, selected-only decode and late materialization. No scheduling
     or timing-surface redesign; evidence tiers and engine-clock rules remain.
   - Execution checklist:
-    - [ ] Freeze the unchanged-production baseline and complete lifecycle harness.
-    - [ ] Implement table admission, shared lifetime and all scoped clone/selection paths.
-    - [ ] Integrate codec construction, managed builder growth/finalization and receiving ownership.
-    - [ ] Verify pinned FSST/RunEnd provenance and synchronize dependency/license records.
+    - [x] Freeze the unchanged-production baseline and complete lifecycle harness.
+    - [x] Implement table admission, shared lifetime and all scoped clone/selection paths.
+    - [x] Integrate codec construction, managed builder growth/finalization and receiving ownership.
+    - [x] Verify pinned FSST/RunEnd provenance and synchronize dependency/license records.
     - [ ] Pass ownership/error/value tests, frozen cost screen and complete local acceptance.
     - [ ] Package and inspect evidence; complete docs/site, hosted checks and deployment.
     - [ ] Move the accepted finite unit to the completed ledger after integration.

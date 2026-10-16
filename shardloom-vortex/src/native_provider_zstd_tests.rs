@@ -146,8 +146,9 @@ fn native_zstd_string_views_and_scalar_keep_their_native_owners() {
     let data = output.data_buffers()[0].as_host().clone();
     let views = output.views_handle().as_host().clone();
     let retained = memory.snapshot().reserved_bytes;
+    let table = output.metadata_capacity_bytes() as u64;
     drop(output);
-    assert_eq!(memory.snapshot().reserved_bytes, retained);
+    assert_eq!(memory.snapshot().reserved_bytes, retained - table);
     drop(views);
     assert!(memory.snapshot().reserved_bytes > 0);
     assert!(memory.snapshot().reserved_bytes < retained);
@@ -233,6 +234,7 @@ fn native_zstd_nullable_binary_preserves_bytes_and_releases_failed_scatter() {
         }
     }
     let retained = memory.snapshot().reserved_bytes;
+    let table = output.metadata_capacity_bytes() as u64;
     let peak = memory.snapshot().peak_reserved_bytes;
     assert!(peak > retained);
     let payload = output.data_buffers()[0].as_host().clone();
@@ -240,7 +242,7 @@ fn native_zstd_nullable_binary_preserves_bytes_and_releases_failed_scatter() {
     drop(output);
     drop(ctx);
     drop(session);
-    assert_eq!(memory.snapshot().reserved_bytes, retained);
+    assert_eq!(memory.snapshot().reserved_bytes, retained - table);
     drop(payload);
     assert_eq!(memory.snapshot().reserved_bytes, 4 * 16 + 256);
     drop(views);
@@ -299,7 +301,7 @@ fn native_zstd_chunked_strings_own_payload_views_and_validity() {
     let validity_credit = 1 + 256;
     assert_eq!(
         memory.snapshot().reserved_bytes,
-        payload + views_credit + validity_credit
+        payload + views_credit + validity_credit + output.metadata_capacity_bytes() as u64
     );
     let views = output.views_handle().as_host().clone();
     let Validity::Array(validity) = output.validity().unwrap() else {

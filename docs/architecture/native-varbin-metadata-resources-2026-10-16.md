@@ -2,7 +2,8 @@
 
 # Native variable-binary buffer table ownership — October 16, 2026
 
-Status: design and acceptance protocol; implementation and acceptance pending.
+Status: implementation and focused provider validation complete; broad local
+acceptance, frozen cost comparison and hosted integration pending.
 `NATIVE-VARBIN-METADATA-RESOURCES` extends PERF-03/06/08/09 under
 [RFC 0044](../rfcs/0044-resident-runtime-resource-ownership.md). It follows the
 completed Zstd frame-metadata unit and leaves the broader
@@ -41,8 +42,10 @@ Keep the existing immutable `Arc<[BufferHandle]>` payload table. Its managed
 array data also retains a shared allocator/reservation owner. A data clone
 shares both; changing only views, dtype nullability or validity preserves that
 owner. Drop the table reference before its reservation. Table identity and
-reservation identity must survive the last managed array/data clone, including
-an empty slice and an array retained after session closure.
+reservation identity must survive the last managed array/data clone that retains
+the table, including an explicitly reconstructed empty view and an array retained
+after session closure. Ordinary empty-slice reduction discards the source table
+and needs no table credit; it must not retain unused storage solely for identity.
 
 New tables reserve their checked requested element capacity before allocation.
 Use fallible exact-capacity vectors and verify their reported capacity. During
@@ -141,7 +144,8 @@ Required verification:
 - Typed denial before collection allocation, exact/one-byte-short grants,
   competing owners, zero buffers, checked overflow, malformed views/metadata,
   failed builder growth/finalization and complete refund after errors.
-- Table identity and credit lifetime across clones, nested/empty slices,
+- Table identity and credit lifetime across clones, nested slices and explicit
+  empty views, with complete release when empty-slice reduction discards the table,
   casts, masking, filter/take, canonical validity execution and RunEnd expansion.
   Verify that a raw payload clone does not retain unrelated table credit.
 - UTF-8/binary, inline/outlined values, empty/all-null/mixed validity,

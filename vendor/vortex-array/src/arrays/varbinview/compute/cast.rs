@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
-
-use std::sync::Arc;
+// Modified by ShardLoom on 2026-10-16: preserve shared buffer-table ownership.
 
 use vortex_error::VortexResult;
 
@@ -10,7 +9,7 @@ use crate::ExecutionCtx;
 use crate::IntoArray;
 use crate::array::ArrayView;
 use crate::arrays::VarBinView;
-use crate::arrays::VarBinViewArray;
+use crate::arrays::varbinview::VarBinViewArrayExt;
 use crate::dtype::DType;
 use crate::scalar_fn::fns::cast::CastKernel;
 use crate::scalar_fn::fns::cast::CastReduce;
@@ -20,17 +19,10 @@ fn build_with_validity(
     array: ArrayView<'_, VarBinView>,
     new_dtype: DType,
     new_validity: Validity,
-) -> ArrayRef {
-    // SAFETY: casting just changes the DType, does not affect invariants on views/buffers.
-    unsafe {
-        VarBinViewArray::new_handle_unchecked(
-            array.views_handle().clone(),
-            Arc::clone(array.data_buffers()),
-            new_dtype,
-            new_validity,
-        )
-        .into_array()
-    }
+) -> VortexResult<ArrayRef> {
+    Ok(array
+        .with_views_and_validity(array.views_handle().clone(), new_dtype, new_validity)?
+        .into_array())
 }
 
 impl CastReduce for VarBinView {
@@ -47,7 +39,7 @@ impl CastReduce for VarBinView {
             return Ok(None);
         };
         let new_dtype = array.dtype().with_nullability(new_nullability);
-        Ok(Some(build_with_validity(array, new_dtype, new_validity)))
+        Ok(Some(build_with_validity(array, new_dtype, new_validity)?))
     }
 }
 
@@ -66,7 +58,7 @@ impl CastKernel for VarBinView {
             .validity()?
             .cast_nullability(new_nullability, array.len(), ctx)?;
         let new_dtype = array.dtype().with_nullability(new_nullability);
-        Ok(Some(build_with_validity(array, new_dtype, new_validity)))
+        Ok(Some(build_with_validity(array, new_dtype, new_validity)?))
     }
 }
 

@@ -404,7 +404,7 @@ impl<V: VTable> DynArrayData for ArrayData<V> {
         let view = unsafe { ArrayView::new_unchecked(this, &self.data) };
         let stats = this.statistics().to_owned();
         let mut parts = V::with_buffers(&self.vtable, view, &buffers)?;
-        parts.inherit_owner(&self.retained_owner)?;
+        parts.inherit_owner(self.retained_owner.as_ref())?;
         Ok(Array::<V>::try_from_parts(parts)?
             .with_stats_set(stats)
             .into_array())

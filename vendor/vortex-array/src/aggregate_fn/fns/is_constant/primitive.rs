@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-16: use typed chunks for the unchanged fixed-width comparison.
 
 use crate::arrays::PrimitiveArray;
 use crate::dtype::NativePType;
@@ -20,15 +21,14 @@ pub fn compute_is_constant<T: NativePType, const WIDTH: usize>(values: &[T]) -> 
     let first_value = values[0];
     let first_vec = &[first_value; WIDTH];
 
-    let mut chunks = values[1..].chunks_exact(WIDTH);
-    for chunk in &mut chunks {
-        assert_eq!(chunk.len(), WIDTH); // let the compiler know each chunk is WIDTH.
+    let (chunks, remainder) = values[1..].as_chunks::<WIDTH>();
+    for chunk in chunks {
         if first_vec != chunk {
             return false;
         }
     }
 
-    for value in chunks.remainder() {
+    for value in remainder {
         if !value.is_eq(first_value) {
             return false;
         }

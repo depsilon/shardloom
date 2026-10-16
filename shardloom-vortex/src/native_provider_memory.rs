@@ -60,6 +60,18 @@ mod zstd_filter;
 #[path = "native_provider_zstd_tests.rs"]
 mod zstd_tests;
 
+#[cfg(test)]
+#[path = "native_provider_varbin_metadata_tests.rs"]
+mod varbin_metadata_tests;
+
+#[cfg(test)]
+#[path = "native_provider_varbin_construction_tests.rs"]
+mod varbin_construction_tests;
+
+#[cfg(test)]
+#[path = "native_provider_varbin_deserialize_tests.rs"]
+mod varbin_deserialize_tests;
+
 #[derive(Clone, Debug)]
 pub(crate) struct ProviderMemory {
     memory: LiveMemoryPool,
@@ -184,23 +196,23 @@ fn decode_fsst(
     let output = decoded
         .as_opt::<VarBinView>()
         .ok_or_else(|| vortex_err!("native FSST provider did not produce a variable-width view"))?;
-    let buffers: Vec<BufferHandle> = decoded
-        .buffers()
-        .into_iter()
-        .enumerate()
-        .map(|(index, buffer)| {
-            let credit = if index == output.data_buffers().len() {
-                &view_credit
-            } else {
-                &data_credit
-            };
-            BufferHandle::new_host(crate::owned_buffers::retain_shared_credit(
-                buffer,
-                Arc::clone(credit),
-            ))
-        })
-        .collect();
-    let retained = VarBinViewArray::try_from_parts(VarBinView.with_buffers(output, &buffers)?)?;
+    let views = crate::owned_buffers::retain_shared_credit(
+        output.views_handle().as_host().clone(),
+        view_credit,
+    );
+    let buffers = output.data_buffers().iter().map(|buffer| {
+        BufferHandle::new_host(crate::owned_buffers::retain_shared_credit(
+            buffer.as_host().clone(),
+            Arc::clone(&data_credit),
+        ))
+    });
+    let retained = VarBinViewArray::try_new_handle_in(
+        BufferHandle::new_host(views),
+        buffers,
+        output.dtype().clone(),
+        output.validity()?,
+        &ctx.allocator(),
+    )?;
     retained.statistics().inherit_from(array.statistics());
     Ok(retained.into_array())
 }

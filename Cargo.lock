@@ -3472,8 +3472,6 @@ dependencies = [
 [[package]]
 name = "vortex-fsst"
 version = "0.85.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa353148fd0181d6caaecd7823c46c917140f264c3a67d8f5fb3b2574ce394fc"
 dependencies = [
  "fsst-rs",
  "num-traits",
@@ -3640,8 +3638,6 @@ dependencies = [
 [[package]]
 name = "vortex-runend"
 version = "0.85.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce88ac5b091d96177e51c7bb84dcf8f11e0573edeaff804f15d81f3052cd51bb"
 dependencies = [
  "itertools 0.14.0",
  "num-traits",

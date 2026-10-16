@@ -1,6 +1,6 @@
 use super::*;
 use std::sync::Mutex;
-use vortex::array::memory::{HostAllocator, WritableHostBuffer};
+use vortex::array::memory::{HostAllocator, HostMemoryReservation, WritableHostBuffer};
 use vortex::buffer::ByteBuffer;
 
 #[path = "native_provider_zstd_workspace_allocator_tests.rs"]
@@ -13,6 +13,10 @@ struct RecordingAllocator {
 }
 
 impl HostAllocator for RecordingAllocator {
+    fn reserve_external(&self, len: usize) -> VortexResult<HostMemoryReservation> {
+        self.inner.reserve_external(len)
+    }
+
     fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
         self.requests.lock().unwrap().push((len, *alignment));
         self.inner.allocate(len, alignment)

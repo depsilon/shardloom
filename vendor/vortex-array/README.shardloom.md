@@ -66,6 +66,16 @@ the existing writer tests. The full acceptance contract is
 External readers built with the unpatched provider can still inherit its calendar
 restriction; this patch does not certify them.
 
+The full upstream library test suite also needs `goldenfiles/dict.metadata`,
+which the registry archive omits. That fixture is copied from the recorded
+upstream Git revision after verifying its Git object identity and confirming
+that the associated test source is byte-identical to the published crate.
+Its separate URL, hashes and size are recorded as supplemental test provenance.
+The same provenance section records the pinned upstream `clippy.toml` used by
+standalone provider checks. The retained-owner helper accepts an optional
+reference, and the primitive constant check uses typed fixed-width chunks;
+these preserve their existing behavior while satisfying current lint rules.
+
 Remove this patch when an approved upstream release preserves the full storage
 domain and passes scalar, compression, statistics, pruning, writer, resource,
 package and complete-workflow checks. Keep the existing feature gates and shared
@@ -82,3 +92,20 @@ policy. ShardLoom's allocator adapter connects the owner to the existing shared
 payload in a Vortex buffer.
 The provider supplies the bound; allocator bookkeeping, C call stacks, process
 RSS and providers without reviewed bounds are outside this reservation claim.
+
+## Variable-binary tables
+
+`VarBinViewData` owns one shared reservation for its immutable data-buffer table.
+Context-aware construction and deserialization admit temporary vectors and the
+final slice before allocation, including conversion overlap. Changing views,
+validity or nullability retains that owner while the same table remains live.
+Empty canonical reductions discard unused storage. Raw table exports remain
+caller-owned; raw payload buffers do not carry unrelated table credit.
+
+The existing length/offset view-building loops also create admitted tables.
+The restricted non-compacting builder admits old/new capacity overlap and its
+final table; payload views and validity retain their separate caller admission.
+Its all-kept append path avoids intermediate per-leaf tables. Legacy generic
+builders, deduplication and compaction scratch retain their separate boundary.
+The [ownership contract](../../docs/architecture/native-varbin-metadata-resources-2026-10-16.md)
+defines the exact scope and verification requirements.

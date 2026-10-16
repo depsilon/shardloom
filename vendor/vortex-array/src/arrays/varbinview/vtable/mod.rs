@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-16: admit new buffer tables through their allocator.
 
 use std::hash::Hasher;
 use std::mem::size_of;
@@ -28,6 +29,7 @@ use crate::arrays::varbinview::BinaryView;
 use crate::arrays::varbinview::VarBinViewData;
 use crate::arrays::varbinview::array::VarBinViewSlots;
 use crate::arrays::varbinview::compute::rules::PARENT_RULES;
+use crate::arrays::varbinview::metadata::MetadataVec;
 use crate::buffer::BufferHandle;
 use crate::builders::ArrayBuilder;
 use crate::builders::VarBinViewBuilder;
@@ -35,6 +37,8 @@ use crate::dtype::DType;
 use crate::hash::ArrayEq;
 use crate::hash::ArrayHash;
 use crate::match_each_varbin_builder;
+use crate::memory::DefaultHostAllocator;
+use crate::memory::MemorySessionExt;
 use crate::serde::ArrayChildren;
 use crate::validity::Validity;
 mod kernel;
@@ -142,11 +146,17 @@ impl VTable for VarBinView {
         let Some((views, data_buffers)) = buffers.split_last() else {
             vortex_bail!("Expected at least 1 buffer, got 0");
         };
-        let data = VarBinViewData::try_new_handle(
+        let allocator = array
+            .table_owner
+            .as_ref()
+            .map(|owner| Arc::clone(&owner.allocator))
+            .unwrap_or_else(|| Arc::new(DefaultHostAllocator));
+        let data = VarBinViewData::try_new_handle_in(
             views.clone(),
-            Arc::from(data_buffers.to_vec()),
+            data_buffers.iter().cloned(),
             array.dtype().clone(),
             array.validity()?,
+            &allocator,
         )?;
         Ok(
             ArrayParts::new(self.clone(), array.dtype().clone(), array.len(), data)
@@ -201,31 +211,41 @@ impl VTable for VarBinView {
                 views_nbytes
             );
         }
+        VarBinViewData::check_view_layout(views_handle)?;
+        let allocator = session.allocator();
 
         // If any buffer is on device, skip host validation and use try_new_handle.
         if buffers.iter().any(|b| b.is_on_device()) {
-            let data = VarBinViewData::try_new_handle(
+            let data = VarBinViewData::try_new_handle_in(
                 views_handle.clone(),
-                Arc::from(data_handles.to_vec()),
+                data_handles.iter().cloned(),
                 dtype.clone(),
                 validity.clone(),
+                &allocator,
             )?;
             let slots = VarBinViewData::make_slots(&validity, len);
             return Ok(ArrayParts::new(self.clone(), dtype.clone(), len, data).with_slots(slots));
         }
 
-        let data_buffers = data_handles
-            .iter()
-            .map(|b| b.as_host().clone())
-            .collect::<Vec<_>>();
+        // The temporary host-only validation list is independent of the final
+        // handle table. It remains admitted until validation has finished.
+        let data_buffers =
+            MetadataVec::from_iter(data_handles.iter().map(|b| b.as_host().clone()), &allocator)?;
         let views = Buffer::<BinaryView>::from_byte_buffer(views_handle.clone().as_host().clone());
-
-        let data = VarBinViewData::try_new(
+        let views = VarBinViewData::validate_and_fix(
             views,
-            Arc::from(data_buffers),
+            &data_buffers,
+            dtype,
+            &validity,
+            &mut session.create_execution_ctx(),
+        )?;
+        drop(data_buffers);
+        let data = VarBinViewData::try_new_handle_in(
+            BufferHandle::new_host(views.into_byte_buffer()),
+            data_handles.iter().cloned(),
             dtype.clone(),
             validity.clone(),
-            &mut session.create_execution_ctx(),
+            &allocator,
         )?;
         let slots = VarBinViewData::make_slots(&validity, len);
         Ok(ArrayParts::new(self.clone(), dtype.clone(), len, data).with_slots(slots))

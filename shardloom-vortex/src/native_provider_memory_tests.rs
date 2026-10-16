@@ -1,7 +1,10 @@
 use super::*;
 use vortex::{
     VortexSessionDefault as _,
-    array::{VortexSessionExecute as _, arrays::VarBinArray, dtype::Nullability},
+    array::{
+        VortexSessionExecute as _, arrays::VarBinArray, dtype::Nullability,
+        memory::MemorySessionExt as _,
+    },
     encodings::fsst::{FSSTArrayExt as _, fsst_compress, fsst_train_compressor},
 };
 
@@ -15,7 +18,9 @@ fn fixture(values: &[Option<&str>]) -> FSSTArray {
 }
 
 fn session(memory: &LiveMemoryPool) -> VortexSession {
-    let session = VortexSession::default();
+    let session = VortexSession::default().with_allocator(Arc::new(
+        crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
+    ));
     install(&session, memory.clone());
     session
 }
@@ -50,13 +55,14 @@ fn native_fsst_reserves_before_decode_and_keeps_credit_with_escaped_buffers() {
     let used = memory.snapshot().reserved_bytes;
     assert!(used >= 16 * output.len() as u64 + expected[0].unwrap().len() as u64);
     let view_bytes = capacity(mul(output.len(), 16).unwrap()).unwrap();
+    let table_bytes = output.metadata_capacity_bytes() as u64;
     let views = output.views_handle().as_host().clone();
     let data = output.data_buffers()[0].as_host().clone();
     let pointer = data.as_ptr();
     let slice = data.slice(1..3);
     drop(output);
     drop(session);
-    assert_eq!(memory.snapshot().reserved_bytes, used);
+    assert_eq!(memory.snapshot().reserved_bytes, used - table_bytes);
     assert_eq!(slice.as_ptr(), pointer.wrapping_add(1));
     drop(data);
     drop(slice);
@@ -562,7 +568,11 @@ fn native_fsst_admits_each_reviewed_integer_metadata_provider_before_decode() {
         }
         assert_eq!(
             memory.snapshot().peak_reserved_bytes,
-            memory.snapshot().reserved_bytes + scratch
+            // The decoded table, replacement vector and final replacement
+            // table coexist until the payload owners have been attached.
+            memory.snapshot().reserved_bytes
+                + scratch
+                + 2 * output.metadata_capacity_bytes() as u64
         );
         drop(output);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
@@ -815,7 +825,10 @@ fn native_fsst_nullable_gathers_admit_nested_indices_and_release_scratch() {
         let view_bytes = capacity(mul(output.len(), 16).unwrap()).unwrap();
         assert_eq!(
             memory.snapshot().peak_reserved_bytes,
-            scratch + view_bytes + capacity(total + 7).unwrap(),
+            scratch
+                + view_bytes
+                + capacity(total + 7).unwrap()
+                + 3 * output.metadata_capacity_bytes() as u64,
             "{kind}",
         );
         if kind == 3 {
@@ -906,7 +919,7 @@ fn native_string_concatenation_retains_data_views_and_validity_independently() {
         .sum::<u64>();
     assert_eq!(
         memory.snapshot().reserved_bytes,
-        views_bytes + bitmap_bytes + payload_bytes
+        views_bytes + bitmap_bytes + payload_bytes + output.metadata_capacity_bytes() as u64
     );
     let views = output.views_handle().as_host().clone();
     let data: Vec<_> = output
@@ -1009,7 +1022,10 @@ fn native_string_concatenation_preserves_binary_empty_and_null_chunks() {
     assert_eq!(output.dtype(), &dtype);
     assert_eq!(output.bytes_at(0).as_slice(), &bytes);
     assert_eq!(output.bytes_at(1).as_slice(), b"inline");
-    assert_eq!(memory.snapshot().reserved_bytes, 2 * 16 + 16);
+    assert_eq!(
+        memory.snapshot().reserved_bytes,
+        2 * 16 + 16 + output.metadata_capacity_bytes() as u64
+    );
     drop(output);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

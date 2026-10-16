@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-16: preserve shared buffer-table ownership.
 
 use std::sync::Arc;
 
 use vortex_buffer::Buffer;
+use vortex_error::VortexExpect;
 use vortex_mask::MaskValues;
 
 use crate::arrays::VarBinViewArray;
@@ -19,16 +21,15 @@ pub fn filter_varbinview(array: &VarBinViewArray, mask: &Arc<MaskValues>) -> Var
     let views = Buffer::<BinaryView>::from_byte_buffer(array.views_handle().as_host().clone());
     let filtered_views = buffer::filter_buffer(views, mask.as_ref());
 
-    // SAFETY: the filtered views are a subset of the original views and reference the same data
-    // buffers, and the validity is filtered by the same mask so lengths stay aligned.
-    unsafe {
-        VarBinViewArray::new_handle_unchecked(
+    // Only layout/nullability checks run here; the subset of views and the same
+    // validity mask preserve the existing invariants without allocating a table.
+    array
+        .with_views_and_validity(
             BufferHandle::new_host(filtered_views.into_byte_buffer()),
-            Arc::clone(array.data_buffers()),
             array.dtype().clone(),
             filtered_validity,
         )
-    }
+        .vortex_expect("filtered views preserve VarBinView layout and validity")
 }
 
 #[cfg(test)]

@@ -95,7 +95,7 @@ impl<V: VTable> ArrayParts<V> {
 
     pub(crate) fn inherit_owner(
         &mut self,
-        original: &Option<Arc<dyn Any + Send + Sync>>,
+        original: Option<&Arc<dyn Any + Send + Sync>>,
     ) -> VortexResult<()> {
         if let Some(original) = original {
             if let Some(replacement) = &self.retained_owner {

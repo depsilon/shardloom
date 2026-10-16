@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-16: preserve shared buffer-table ownership.
 
 //! Execution logic for MaskedArray - applies a validity mask to canonical arrays.
-
-use std::sync::Arc;
 
 use vortex_error::VortexResult;
 
@@ -32,6 +31,7 @@ use crate::arrays::map::MapArraySlotsExt;
 use crate::arrays::struct_::StructArrayExt;
 use crate::arrays::union::UnionArrayExt;
 use crate::arrays::union::UnionArraySlotsExt;
+use crate::arrays::varbinview::VarBinViewArrayExt;
 use crate::arrays::variant::VariantArraySlotsExt;
 use crate::builtins::ArrayBuiltins;
 use crate::executor::ExecutionCtx;
@@ -106,15 +106,7 @@ fn mask_validity_varbinview(
 ) -> VortexResult<VarBinViewArray> {
     let dtype = array.dtype().as_nullable();
     let new_validity = Validity::and(array.validity()?, validity)?;
-    // SAFETY: We're only changing validity, not the data structure.
-    Ok(unsafe {
-        VarBinViewArray::new_handle_unchecked(
-            array.views_handle().clone(),
-            Arc::clone(array.data_buffers()),
-            dtype,
-            new_validity,
-        )
-    })
+    array.with_views_and_validity(array.views_handle().clone(), dtype, new_validity)
 }
 
 fn mask_validity_listview(array: ListViewArray, validity: Validity) -> VortexResult<ListViewArray> {
