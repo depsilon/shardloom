@@ -7,6 +7,10 @@ mod zstd_metadata_tests;
 mod varbin_metadata_tests;
 
 #[path = "resident_memory_varbin_metadata_cost_tests.rs"]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "the frozen lifecycle verifier consumes output to release its owners before measuring final cleanup"
+)]
 mod varbin_metadata_cost_tests;
 use crate::{
     resident_memory_source::ResidentMemorySource, resident_session::ResidentVortexSession,
