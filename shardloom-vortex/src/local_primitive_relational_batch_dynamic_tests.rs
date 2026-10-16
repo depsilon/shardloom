@@ -7,6 +7,9 @@ use crate::{
 };
 use std::{cell::Cell, sync::Weak};
 
+#[path = "local_primitive_relational_batch_deferred_tests.rs"]
+mod deferred;
+
 const URIS: [&str; 2] = ["memory://pivot", "memory://other-pivot"];
 
 fn scan(index: usize) -> VortexRelationalPlan {

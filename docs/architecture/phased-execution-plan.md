@@ -250,37 +250,39 @@ the ledger.
 ## Planned
 
 
-- [ ] `NATIVE-STREAM-SUBQUERIES` compose existing native IN/NOT IN, row
-  membership, EXISTS/NOT EXISTS, quantified ANY/ALL and scalar subqueries with
-  finite streaming producers under the
-  [implementation contract](native-stream-subqueries-2026-10-15.md).
+- [ ] `NATIVE-STREAM-DYNAMIC-SUBQUERIES` admit declared finite streaming
+  inputs to the existing parameter-dependent dynamic predicate subqueries under
+  the [implementation contract](native-stream-dynamic-subqueries-2026-10-15.md).
   - V1 scope classification: `required_for_v1`.
   - Owners: PERF-03/06/07/11/12 and CG-5/19/20/21; preserve the complete
     Competitive Engine Track and six-area/eight-investigation completion contract.
-  - ShardLoom technique review: reuse the native binder, existing subquery state,
-    credited native detachment, finite source completion and declared replay.
-    Capillary batching, PulseWeave and shared query resources keep their owners.
+  - ShardLoom technique review: extend native source declarations and scoped
+    ownership; reuse the binder, pivot discovery, correlated executor, credited
+    detachment and native replay. Capillary batching, PulseWeave and shared
+    query resources keep their owners.
   - Execution checklist:
-    - [x] Record current-runtime refusal/resident controls, source inventory,
-      exact expected values and the implementation contract.
-    - [x] Admit statically bound inner relations, indexed/parameterized
-      correlation and existing guards with complete source-role declarations.
-    - [x] Prove release before nested demand, shared-source replay completion,
-      validation-only unused producers, resource denial, cancellation and publication.
-    - [ ] Complete native/direct/public/workspace checks, one Full43 pass,
-      portable evidence, generated documentation, review and hosted integration.
-      Local runtime acceptance and independent packet inspection pass:
-      3,220 workspace tests, 4,264 native tests, 96 direct methods, 3,724 public
-      cases and all 43 queries. The [14,066-member packet](../benchmarks/native-stream-subqueries-2026-10-15.md)
-      retains exact results, original failures and 61.819 seconds of engine time.
-      Documentation, review and hosted integration remain the closing gates.
-  - Boundary: subquery membership/index state stays resident under credits;
-    source/output replay spill does not spill that state. Opaque parameter-dependent
-    dynamic inner relations require a subsequent source-declaration/lifetime
-    contract under the same breadth owners. Preserve that remaining work.
-    No new subquery algorithm, state spill, package release, transport or speedup
-    is claimed. Unary composition is complete in PR #1559 and recorded in the
-    [completed ledger](phased-execution-completed-ledger.md).
+    - [x] Retain the unchanged 32-case baseline, with sixteen streaming refusals
+      and sixteen exact-value resident controls; freeze the source/lifetime contract.
+    - [x] Add bounded source declarations, enforce nested restrictions before
+      demand and preserve execution-scoped, single-use references and metadata credit.
+    - [x] Pass nineteen focused native tests for ownership, per-parameter schemas,
+      unused inputs, mixed sources, replay/pivot pressure, faults and recovery.
+    - [x] Pass all six Rust gates, 3,221 workspace and 4,285 native tests,
+      100 direct methods and all 4,827 public cases, including 1,103 focused
+      cases and 36 required named native regressions. One Full43 pass verifies
+      all 43 results and records 61.146182539 seconds total engine time.
+    - [x] Independently reopen all 25,530 portable evidence members, including
+      complete values, source transitions, failures and cleanup evidence in the
+      [acceptance report](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md).
+    - [x] Pass all nineteen documentation/site checks and Python core checks;
+      inspect the four generated guides, search and mobile navigation in a browser.
+    - [ ] Complete final review and hosted integration.
+  - Boundary: opaque undeclared callbacks remain inadmissible with streaming
+    inputs. Dynamic scalar-value subqueries still need a separate output-schema
+    contract. Membership/index state stays resident under credits; replay spill
+    does not spill that state. No new subquery algorithm, package release,
+    transport or speedup is claimed. Static-inner subqueries are integrated in
+    PR #1560 and recorded in the [completed ledger](phased-execution-completed-ledger.md).
 
 October 14 maintainer follow-through priority within the existing work: the
 latest direction resumes PR #1551, one version bump after integration and the
@@ -3152,8 +3154,11 @@ destinations are integrated in PR #1557 with complete local, hosted and producti
 proof. Streaming sets are integrated in PR #1558 with the same complete local,
 hosted and production gates. Unary composition is integrated in PR #1559 with
 all 44 hosted checks and verified preview/production source and navigation.
-The current finite breadth unit is `NATIVE-STREAM-SUBQUERIES`; opaque dynamic
-inner source declarations remain the following boundary under the same owners.
+Static-inner subqueries are integrated in PR #1560 with all 44 checks and
+verified preview/production source and navigation. The current finite breadth
+unit is `NATIVE-STREAM-DYNAMIC-SUBQUERIES`, covering declared parameter-dependent
+predicate inners under the same owners. Dynamic scalar output-schema inference
+and opaque source discovery retain their explicit boundaries.
 
 October 14 direction takes precedence over the earlier version hold. PR #1551
 completes the composition timing investigation, admitted-context corrections and

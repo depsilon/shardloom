@@ -23,6 +23,8 @@ pub(in crate::local_primitives) use expression::{arithmetic_dtype, literal_dtype
 #[path = "local_primitive_relational_subquery_bind.rs"]
 mod subquery;
 pub(super) use subquery::validate_relation as validate_subquery_relation;
+#[path = "local_primitive_relational_subquery_sources.rs"]
+mod subquery_sources;
 #[path = "local_primitive_relational_transform_bind.rs"]
 mod transform;
 #[path = "local_primitive_relational_window_bind.rs"]
@@ -39,9 +41,11 @@ pub(super) struct Binder<'a> {
     outer_fields: Option<Vec<(String, DType)>>,
     parameterized_binding: bool,
     execution: Option<dynamic::ExecutionBinding<'a>>,
+    source_scope: Option<std::sync::Arc<[SourceIndex]>>,
+    source_metadata: Option<std::sync::Arc<MemoryLease>>,
     resolved: ReservedVec<Option<Node>>,
     scope: std::sync::Arc<()>,
-    deferred: ReservedVec<Option<Box<super::DynamicLowerer>>>,
+    deferred: ReservedVec<Option<super::DeferredRelation>>,
 }
 
 pub(super) struct BoundSources {
@@ -52,8 +56,8 @@ pub(super) struct BoundSources {
     pub(super) metadata: MemoryLease,
 }
 
-#[derive(Clone, Copy)]
-enum SourceIndex {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum SourceIndex {
     File(usize),
     Memory(usize),
     Batch(usize),
@@ -91,6 +95,8 @@ impl<'a> Binder<'a> {
             outer_fields: None,
             parameterized_binding: false,
             execution: None,
+            source_scope: None,
+            source_metadata: None,
             resolved: ReservedVec::new(session.memory())?,
             scope: std::sync::Arc::new(()),
             deferred: ReservedVec::new(session.memory())?,
@@ -233,23 +239,33 @@ impl<'a> Binder<'a> {
     }
 
     fn input(&mut self, uri: &shardloom_core::DatasetUri) -> Result<SourceIndex> {
-        if let Some(index) = self
+        let source = if let Some(index) = self
             .batch_sources
             .values
             .iter()
             .position(|source| &source.uri == uri)
         {
-            return Ok(SourceIndex::Batch(index));
-        }
-        if let Some(index) = self
+            SourceIndex::Batch(index)
+        } else if let Some(index) = self
             .memory_sources
             .values
             .iter()
             .position(|(prior, _)| prior == uri)
         {
-            return Ok(SourceIndex::Memory(index));
+            SourceIndex::Memory(index)
+        } else {
+            SourceIndex::File(self.source(uri)?)
+        };
+        if self
+            .source_scope
+            .as_ref()
+            .is_some_and(|allowed| !allowed.contains(&source))
+        {
+            return Err(failed(
+                "dynamic subquery accessed a source outside its declaration",
+            ));
         }
-        self.source(uri).map(SourceIndex::File)
+        Ok(source)
     }
 
     fn source_dtype(&self, source: SourceIndex) -> &DType {
@@ -263,6 +279,7 @@ impl<'a> Binder<'a> {
     pub(super) fn bind(&mut self, input: &VortexRelationalPlan, depth: usize) -> Result<Node> {
         self.cancellation.check()?;
         if depth == 0 && self.execution.is_some() {
+            self.validate_subquery_source_scope(input, 0)?;
             // Dynamic lowering can resolve separate subtrees before returning
             // the final plan. Validate each before its discovery reads rows;
             // the execution provider then requires every source's explicit end.

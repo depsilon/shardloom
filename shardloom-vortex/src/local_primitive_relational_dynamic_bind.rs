@@ -93,6 +93,9 @@ impl<'a> Binder<'a> {
         uri: &shardloom_core::DatasetUri,
     ) -> Result<()> {
         self.cancellation.check()?;
+        if self.source_scope.is_some() {
+            self.input(uri)?;
+        }
         if let Some(index) = self
             .batch_sources
             .values
@@ -129,6 +132,7 @@ impl<'a> Binder<'a> {
     pub(in crate::local_primitives::prepared_relational) fn defer_subquery(
         &mut self,
         declaration_bytes: usize,
+        sources: Option<&[shardloom_core::DatasetUri]>,
         lower: Box<DynamicLowerer>,
     ) -> Result<VortexRelationalPlan> {
         if self.execution.is_none() || declaration_bytes == 0 {
@@ -140,12 +144,33 @@ impl<'a> Binder<'a> {
             return Err(failed("dynamic execution exceeds 128 deferred relations"));
         }
         self.charge(declaration_bytes)?;
+        let (sources, source_scope, source_metadata) = match sources {
+            Some(sources) => {
+                let declared = self.declared_subquery_sources(sources)?;
+                (
+                    Some(declared.identities),
+                    Some(declared.scope),
+                    Some(declared.metadata),
+                )
+            }
+            None => (
+                None,
+                self.source_scope.clone(),
+                self.source_metadata.clone(),
+            ),
+        };
         let slot = self.deferred.values.len();
-        self.deferred.push(Some(lower))?;
+        self.deferred.push(Some(super::super::DeferredRelation {
+            lower,
+            source_scope,
+            source_metadata: source_metadata.clone(),
+        }))?;
         Ok(VortexRelationalPlan::DeferredSubquery(
             VortexRelationalDeferredRef {
                 scope: self.scope.clone(),
                 slot,
+                sources,
+                _source_metadata: source_metadata,
             },
         ))
     }
@@ -153,7 +178,7 @@ impl<'a> Binder<'a> {
     pub(super) fn take_deferred(
         &mut self,
         reference: &VortexRelationalDeferredRef,
-    ) -> Result<Box<DynamicLowerer>> {
+    ) -> Result<super::super::DeferredRelation> {
         if self.execution.is_none() || !std::sync::Arc::ptr_eq(&self.scope, &reference.scope) {
             return Err(failed("deferred relation belongs to a different execution"));
         }

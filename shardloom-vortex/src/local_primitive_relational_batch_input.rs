@@ -942,6 +942,15 @@ fn source_usage(
         }
         VortexRelationalPlan::Unary(_) => "unary stateful operator",
         VortexRelationalPlan::ExecutionResult(_) if dynamic => return Ok(Usage::default()),
+        VortexRelationalPlan::DeferredSubquery(reference) if dynamic => {
+            if let Some(sources) = &reference.sources {
+                return Ok(Usage {
+                    uses: usize::from(sources.contains(uri)),
+                    ..Usage::default()
+                });
+            }
+            "dynamic schema"
+        }
         VortexRelationalPlan::ExecutionResult(_) | VortexRelationalPlan::DeferredSubquery(_) => {
             "dynamic schema"
         }

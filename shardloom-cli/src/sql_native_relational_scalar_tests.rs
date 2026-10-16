@@ -2,6 +2,74 @@ use super::memory_tests::verify_memory;
 use super::*;
 
 #[test]
+fn native_relational_predicate_values_preserve_selected_case_and_coalesce_demand() {
+    for (sql, expected) in [
+        (
+            "SELECT value,CASE WHEN value=1 THEN EXISTS (SELECT value FROM range(1,3) WHERE value=outer.value) ELSE FALSE END AS answer FROM range(1,3)",
+            json!([{"value":1,"answer":true},{"value":2,"answer":false}]),
+        ),
+        (
+            "SELECT CASE WHEN FALSE THEN EXISTS (SELECT 1/0 AS bad FROM range(1,2)) ELSE TRUE END AS answer",
+            json!([{"answer":true}]),
+        ),
+        (
+            "SELECT CASE WHEN CAST(NULL AS BOOLEAN) THEN NOT EXISTS (SELECT 1/0 AS bad FROM range(1,2)) ELSE TRUE END AS answer",
+            json!([{"answer":true}]),
+        ),
+        (
+            "SELECT CASE WHEN FALSE THEN value IN (SELECT 1/0 AS bad FROM range(1,2)) ELSE TRUE END AS answer FROM range(1,2)",
+            json!([{"answer":true}]),
+        ),
+        (
+            "SELECT COALESCE(TRUE,EXISTS (SELECT 1/0 AS bad FROM range(1,2))) AS answer",
+            json!([{"answer":true}]),
+        ),
+        (
+            "SELECT COALESCE(CAST(NULL AS BOOLEAN),NOT EXISTS (SELECT value FROM range(1,1))) AS answer",
+            json!([{"answer":true}]),
+        ),
+        (
+            "SELECT CASE WHEN TRUE THEN value > ANY (SELECT value FROM range(1,2)) ELSE FALSE END AS answer FROM range(1,3)",
+            json!([{"answer":false},{"answer":true}]),
+        ),
+        (
+            "SELECT CASE WHEN TRUE THEN value <= ALL (SELECT value FROM range(1,2)) ELSE FALSE END AS answer FROM range(1,3)",
+            json!([{"answer":true},{"answer":false}]),
+        ),
+        (
+            "SELECT CASE WHEN TRUE THEN (value,other) IN (SELECT value,value+1 AS other FROM range(1,2)) ELSE FALSE END AS answer FROM (SELECT value,value+1 AS other FROM range(1,3)) AS outer_values",
+            json!([{"answer":true},{"answer":false}]),
+        ),
+    ] {
+        verify_memory(sql, &expected);
+    }
+    for expression in [
+        "EXISTS (SELECT 1/0 AS bad FROM range(1,2))",
+        "value IN (SELECT 1/0 AS bad FROM range(1,2))",
+        "value > ANY (SELECT 1/0 AS bad FROM range(1,2))",
+    ] {
+        let sql = format!(
+            "SELECT CASE WHEN TRUE THEN {expression} ELSE FALSE END AS answer FROM range(1,2)"
+        );
+        let prepared = prepare(
+            &sql,
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
+            |_| panic!("memory only"),
+        )
+        .unwrap();
+        let error = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .err()
+            .expect("selected predicate must evaluate its inner expression");
+        assert!(
+            error.to_string().contains("division by zero"),
+            "{sql}: {error}"
+        );
+        assert_eq!(prepared.snapshot().completed_executions, 0);
+    }
+}
+
+#[test]
 fn native_scalar_subqueries_preserve_cardinality_types_and_expression_composition() {
     for (sql, expected) in [
         ("SELECT (SELECT 9) AS scalar", json!([{"scalar":9}])),

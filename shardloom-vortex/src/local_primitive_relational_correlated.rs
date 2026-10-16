@@ -60,7 +60,7 @@ impl PreparedVortexRelational {
                             Some(&parameter),
                             &mut build,
                         )?,
-                        SubqueryRelation::Dynamic(lower) => {
+                        SubqueryRelation::Dynamic(declaration) => {
                             let mut preparation = VortexRelationalPreparation {
                                 binding: bind::Binder::for_execution(
                                     self,
@@ -69,7 +69,11 @@ impl PreparedVortexRelational {
                                     Some(&parameter),
                                 )?,
                             };
-                            let plan = lower(&mut preparation)?;
+                            preparation.binding.restrict_subquery_sources(
+                                declaration.source_scope.clone(),
+                                declaration.source_metadata.clone(),
+                            );
+                            let plan = (declaration.lower)(&mut preparation)?;
                             let root = preparation.binding.bind(&plan, 0)?;
                             preparation.binding.ensure_consumed()?;
                             bind::validate_subquery_relation(spec, &input.fields, &root.fields)?;

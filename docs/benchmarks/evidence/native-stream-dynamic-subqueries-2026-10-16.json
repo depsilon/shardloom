@@ -1,0 +1,120 @@
+{
+  "schema_version": "shardloom.native_stream_dynamic_subqueries_evidence.v1",
+  "status": "passed_local",
+  "base_commit": "c30846afb0ab5abfff6fdb5d95ed20f1c10a9477",
+  "source_files": 2303,
+  "member_count": 25530,
+  "raw_bytes": 135710138,
+  "all_members_reopened": true,
+  "acceptance": {
+    "workspace_tests": 3221,
+    "workspace_ignored": 0,
+    "native_tests": 4285,
+    "native_ignored": 29,
+    "new_native_dynamic_tests": 19,
+    "new_parser_tests": 2,
+    "direct_methods": 100,
+    "direct_skips": 0,
+    "new_direct_methods": 4,
+    "direct_matrix_query_calls": 288,
+    "python_declaration_methods": 74,
+    "new_python_declaration_methods": 2,
+    "harness_methods": 5,
+    "focused_public_cases": 1103,
+    "public_cases": 4827,
+    "public_families": 36,
+    "full43_queries": 43,
+    "full43_calls": 43,
+    "full43_repeats": 1,
+    "full43_complete_rows": 381,
+    "baseline_controls": 32,
+    "baseline_streaming_refusals": 16,
+    "baseline_resident_controls": 16
+  },
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-streamdynamic518.json",
+    "bytes": 302637,
+    "sha256": "7dfbae34c8483b0af339c6bbfa0e857b0b7b57557a345aecbb86a4afb0ee1ec0"
+  },
+  "accepted_verification_source": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-streamdynamic524.json",
+    "bytes": 302637,
+    "sha256": "93197d4c60d5ddce2f0c3249822319c24530c276e370b7261346e1aa2b245a6b"
+  },
+  "accepted_execution_source": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-streamdynamic521.json",
+    "bytes": 302637,
+    "sha256": "12fc25da20d70cc2701c979a628f69d0330c10c6f2e9acf5a9126fe85d568495"
+  },
+  "source_transition": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-dynamic-subquery-verification-corrections-524.json",
+    "bytes": 6292,
+    "sha256": "b22d517d0d7c65d7b9b63a6e062eb3c1f38a712983b9d717bb84311492ada907"
+  },
+  "artifact_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-streamdynamic518.json",
+    "bytes": 304016,
+    "sha256": "e90f9776db84b9677f07620dba9959a839d2f7f9c6ab80ee061bf61582cb3077"
+  },
+  "source_overlay": [
+    "python/src/shardloom/query.py",
+    "python/tests/test_native_dynamic_subquery_binding.py",
+    "python/tests/test_scalar_subquery_declarations.py",
+    "scripts/native_streaming_dynamic_subquery_cases.py",
+    "scripts/native_streaming_dynamic_subquery_composition_cases.py",
+    "scripts/native_streaming_dynamic_subquery_fault_cases.py",
+    "scripts/native_streaming_dynamic_subquery_pressure_cases.py",
+    "scripts/native_streaming_dynamic_subquery_reference_cases.py",
+    "scripts/run_native_streaming_input_uat.py",
+    "shardloom-cli/src/sql_native_relational_predicate.rs",
+    "shardloom-cli/src/sql_native_relational_scalar_tests.rs",
+    "shardloom-cli/src/sql_scalar_expression.rs",
+    "shardloom-vortex/src/local_primitive_prepared_relational.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_deferred_composition_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_deferred_fault_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_deferred_lifecycle_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_deferred_pressure_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_deferred_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_dynamic_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_input.rs",
+    "shardloom-vortex/src/local_primitive_relational_bind.rs",
+    "shardloom-vortex/src/local_primitive_relational_correlated.rs",
+    "shardloom-vortex/src/local_primitive_relational_dynamic.rs",
+    "shardloom-vortex/src/local_primitive_relational_dynamic_bind.rs",
+    "shardloom-vortex/src/local_primitive_relational_subquery_sources.rs",
+    "shardloom-vortex/src/relational_query.rs"
+  ],
+  "archive": {
+    "file": "native-stream-dynamic-subqueries-2026-10-16.tar.xz",
+    "bytes": 32492412,
+    "sha256": "e3488a157860f20d79007a65ecad2fbbad6e07fa356317e21ef35d7f743b9e4e"
+  },
+  "manifest": {
+    "file": "native-stream-dynamic-subqueries-2026-10-16.manifest.json.xz",
+    "bytes": 894100,
+    "sha256": "699d0b359b27a152413d161dd7a4d9a7fe0f8c57b0e9b1ba18247db120392e83",
+    "raw_sha256": "f81a0ac5197c36950063029be1d32e7a60bf48b6f36ca92e5247d1aac0e348a2"
+  },
+  "limitations": [
+    "Dynamic predicate subqueries require a finite declared source set; opaque callbacks and dynamic scalar output-schema inference remain inadmissible.",
+    "Membership/index state remains resident; replay spill does not spill that state.",
+    "One complete regression pass does not establish a speedup, whole-process memory ceiling, package release or all-platform readiness.",
+    "Direct tests use the source Python package with the frozen native extension; installed-wheel and hosted integration are separate gates."
+  ],
+  "publication_attempted": false,
+  "hosted_integration_complete": false,
+  "independent_packet_audit_passed": true,
+  "exact_feature_and_test_source_transition_verified": true,
+  "installed_wheel_proof": false,
+  "audit": {
+    "file": "native-stream-dynamic-subqueries-2026-10-16.audit.json.xz",
+    "bytes": 3868,
+    "sha256": "8c6a4b417ae06826a5efc058d37b4ff6b350b377ae9fd6f92744fd6c4b5aec26"
+  },
+  "engine_execution_seconds": 61.146182539,
+  "engine_timings": {
+    "file": "native-stream-dynamic-subqueries-2026-10-16.engine-times.csv",
+    "bytes": 757,
+    "sha256": "ce086c3c833420542db1ca72434517b288c7e6df02200709b42de756c2812114"
+  }
+}
