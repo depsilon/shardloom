@@ -201,7 +201,10 @@ fn native_varbin_view_construction_reuses_loops_for_rollover_and_offsets() {
         b"",
         b"second outlined value",
     ];
-    let lengths: Vec<u32> = values.iter().map(|value| value.len() as u32).collect();
+    let lengths: Vec<u32> = values
+        .iter()
+        .map(|value| u32::try_from(value.len()).unwrap())
+        .collect();
     let bytes: Vec<u8> = values
         .iter()
         .flat_map(|value| value.iter().copied())
@@ -289,7 +292,7 @@ fn native_varbin_view_construction_empty_null_binary_and_malformed_inputs() {
         assert!(output.data_buffers().is_empty());
         assert_eq!(output.metadata_capacity_bytes(), 0);
     }
-    let bytes = ByteBuffer::copy_from(&[0xff, 0x80, 0]);
+    let bytes = ByteBuffer::copy_from([0xff, 0x80, 0]);
     let output = build_views_in(
         3,
         bytes.clone(),

@@ -264,7 +264,7 @@ fn native_varbin_table_rebuild_validates_layout_and_keeps_outer_owner() {
     assert!(
         output
             .with_views_and_validity(
-                BufferHandle::new_host(ByteBuffer::copy_from(&[1u8])),
+                BufferHandle::new_host(ByteBuffer::copy_from([1u8])),
                 output.dtype().clone(),
                 Validity::NonNullable,
             )
