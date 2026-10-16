@@ -645,7 +645,22 @@ refuses excess growth, including when replay spill is enabled. The
 [set-operation contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md)
 and [local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-sets-2026-10-15.md)
 record 87 direct tests, 1,121 public cases and one complete 43-query pass.
-Hosted integration remains pending; the 0.6.0 packages keep their release-time scope.
+PR #1558 merged after all 44 checks passed. Three installed-wheel lanes each
+pass 87 tests, and the [107-member hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-sets-hosted-2026-10-15.json)
+verifies preview/production source, navigation and successful deployment.
+The 0.6.0 packages keep their release-time scope.
+
+Current source also connects the nine existing static unary families to finite
+streaming producers: DISTINCT, duplicate removal and masks, tail, sampling,
+scalar rewrites, melt, explode and rolling. Existing option/type rules remain,
+and each stage consumes its preceding schema and rows. Output stop conditions
+still drain complete input. Unary membership and population state remain resident
+under the grant; source/output replay spill does not spill that state. The
+[unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md)
+and [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-unary-2026-10-15.md)
+record 91 direct methods, 2,601 public cases and all 43 regression queries
+passing locally. Review and hosted integration remain pending. These source
+changes do not alter the immutable 0.6.0 packages.
 
 Relational pivots over file or resident-memory sources can deliver complete
 admitted results through \`iter_batches()\` with an explicit \`spill\` policy.
@@ -972,7 +987,16 @@ The current-source [set-operation contract](https://github.com/depsilon/shardloo
 also admits all four existing set operations over finite producers, including
 repeated sources and surrounding native operators. Set membership remains resident
 under the grant; source/output replay spill does not spill that state. Complete
-local acceptance passes, with hosted integration still pending.
+local acceptance and hosted integration pass in PR #1558 after all 44 checks,
+three installed-wheel lanes and preview/production verification.
+The current-source [finite unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md)
+also admits DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites,
+melt, explode and rolling over finite producers with complete source validation.
+Unary membership and population state remain resident under the shared grant;
+replay spill does not spill those states. Local runtime acceptance passes with
+91 direct methods and 2,601 public cases; review and hosted integration remain
+pending. Existing option/type limits and dynamic pivot's separate schema path
+remain in force.
 Unadmitted state/recovery and remaining allocation coverage stay open.
 
 Prepared sessions retain source handles and supported lowering while calls create fresh execution
@@ -1037,7 +1061,8 @@ individual changes against a frozen ShardLoom control:
 - [Fresh UAT and all 43 query timings](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-timing-uat-2026-10-15.md) — one execution per query: 62.560 s engine execution, 0.002827 s result serialization and 2.859 s other process work; fresh ingestion and all 18 format/workflow cohorts pass. This is a local baseline on source after 0.6.0, with an explicit boundary for every clock.
 - [Selected text view acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md) — the 70-call comparison retains the sparse-filter change: Q23's engine median improves 2.55%, while all four other parallel control medians are slower within their declared limits. A separate single pass verifies all 43 complete results and records 58.445 s engine time; it does not replace the paired decision. PR #1556 merged with complete hosted, installed-wheel and production verification. The report corrects the earlier stale deployment notification.
 - [Streaming destination acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md) — all eight existing local writers and one-execution fanout pass 777 public cases and complete direct/native regression checks. A single pass verifies all 43 query results and records 60.985 s engine time. PR #1557 merged after all 44 checks passed, with three installed-wheel lanes each passing 84 tests and verified preview/production source and navigation. The timing is descriptive regression evidence without a matched speedup claim.
-- [Streaming set-operation acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-sets-2026-10-15.md) — all four existing set operations pass 1,121 public cases, 87 direct binding tests and the complete native/workspace gates. The 5,460-member packet retains exact results and original fixture failures. One pass verifies all 43 query results and records 93.122 s engine time; this is a single regression observation without a matched speedup claim. Set membership remains resident under credits. Hosted integration remains pending.
+- [Streaming set-operation acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-sets-2026-10-15.md) — all four existing set operations pass 1,121 public cases, 87 direct binding tests and the complete native/workspace gates. The 5,460-member packet retains exact results and original fixture failures. One pass verifies all 43 query results and records 93.122 s engine time; this is a single regression observation without a matched speedup claim. Set membership remains resident under credits. PR #1558 merged after all 44 checks, three installed-wheel lanes passing 87 tests each and verified preview/production deployment and navigation.
+- [Streaming unary acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-unary-2026-10-15.md) — nine existing static unary families pass 2,601 public cases, 91 direct methods and all six Rust gates. The 14,733-member packet preserves complete results, predeclared references and failed attempts with their source corrections. One pass verifies all 43 queries and records 93.003 s engine time; no matched speedup is claimed. Unary membership/population state remains resident under credits. Review and hosted integration remain pending; the immutable 0.6.0 packages retain their release-time scope.
 - [Native execution and ingestion comparisons](https://github.com/depsilon/shardloom/blob/main/docs/architecture/performance-quiet-intake-2026-09-30.md) — retained mechanisms, rejected experiments, and links to their acceptance evidence.
 - [Dictionary preparation](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md) — source-backed strings, bounded preparation overlap, and measured tradeoffs.
 - [Native runtime completion](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md) — complete-value Full43 regression runs, public-call checks, and the remaining availability inventory.
@@ -1178,8 +1203,16 @@ limits, explicit result replay/spill and non-atomic multi-file publication
 remain. The current-source [set-operation contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md)
 admits \`UNION ALL\`, \`UNION\`, \`INTERSECT\` and \`EXCEPT\` over finite inputs.
 Set membership remains resident under the grant, with deterministic growth refusal
-even when replay spill is enabled. Complete local acceptance passes; hosted
-integration remains pending. Unadmitted stateful/subquery families stay separate work.
+even when replay spill is enabled. Complete local and hosted acceptance passes in
+PR #1558 after all 44 checks, three installed-wheel lanes and preview/production
+verification. The current-source
+[finite unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md)
+admits the nine existing static unary families over finite producers while
+preserving complete input observation and current option/type rules. Unary
+membership and population state remain resident under the grant; source/output
+replay spill does not spill that state. Local runtime checks pass, with review
+and hosted integration pending. Unadmitted stateful/subquery families stay
+separate work.
 Output backpressure does
 not enable general operator spill, account for all codec scratch, or bound
 consumer-retained Python objects and total process RSS.

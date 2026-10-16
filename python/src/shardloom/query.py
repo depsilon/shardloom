@@ -8963,9 +8963,11 @@ def from_batches(
     native payloads share the query memory grant; each transport frame remains
     bounded. The default resident mode retains all native input under that grant.
     ``streaming=True`` admits distinct finite batch sources through
-    filters/projections, sorting, aggregation, joins, analytic windows, dynamic
-    pivot and limits,
-    alongside ordinary file or resident sources.
+    filters/projections, sorting, aggregation, joins, analytic windows, set
+    operations, dynamic pivot and limits, alongside ordinary file or resident
+    sources. Existing unary stages also compose:
+    distinct, deduplication, duplicate masks, tail, sampling, scalar rewrites,
+    melt, explode and rolling.
     Incremental results, bounded small collection and all eight existing local
     writers (Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV) are
     admitted under each writer's existing type, fidelity and feature limits. A
@@ -8977,6 +8979,10 @@ def from_batches(
     is not group-atomic and retains existing partial-publication diagnostics.
     Limits drain and validate every source. Stateful work shares the query grant;
     ordering, aggregation, joins, windows and pivot can use explicit spill.
+    Set membership and unary state remain resident under credits. Source or
+    result replay spill does not add spill support to that state. Fractional or
+    replacement sampling may retain the input population; future-dependent
+    duplicate masks retain row identities. Oversized state fails explicitly.
     Unsupported operator families reject before consumption. A factory is still
     required for repeated executions.
     Results remain provisional until every producer ends and final validation

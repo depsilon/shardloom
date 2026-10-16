@@ -250,28 +250,33 @@ the ledger.
 ## Planned
 
 
-- [ ] `NATIVE-STREAM-SETS` admit all four existing native set operations over
-  finite streaming producers under the [implementation contract](native-stream-set-operations-2026-10-15.md).
+- [ ] `NATIVE-STREAM-UNARY` admit the nine existing statically bound unary
+  operation families over finite streaming producers under the
+  [implementation contract](native-stream-unary-2026-10-15.md).
   - V1 scope classification: `required_for_v1`.
   - Owners: PERF-03/06/07/11/12 and CG-5/19/20/21; preserve the complete
     Competitive Engine Track and six-area/eight-investigation completion contract.
-  - ShardLoom technique review: reuse the native binder, full-row membership, credited compact selection,
-    finite source completion and declared replay. Capillary batching, PulseWeave
-    and shared query resource policy retain their existing ownership.
+  - ShardLoom technique review: reuse the native binder, existing unary state,
+    credited compact selections, finite source completion and declared replay.
+    Capillary batching, PulseWeave and shared query resources keep their owners.
   - Execution checklist:
-    - [x] Admit both set branches with existing depth/subtree checks; prove
-      complete values, positional types, nulls, repeated sources and composed stages.
-    - [x] Prove producer release, retained output, bounded distinct membership,
-      explicit native replay, failures, cancellation and complete publication.
+    - [x] Record current-runtime refusal/resident controls, source inventory,
+      independent sampling/rolling references and the implementation contract.
+    - [x] Admit existing non-pivot unary stages with complete source counting;
+      prove exact values/types and operation order across batches and composition.
+    - [x] Prove producer release, retained output, bounded-state completion,
+      resident-state denial, explicit replay, failure, cancellation and publication.
     - [ ] Complete native/direct/public/workspace checks, one Full43 pass,
       portable evidence, generated documentation, review and hosted integration.
-      Local acceptance passes all six Rust gates, 4,241 native tests, 87 direct
-      binding tests, 1,121 public cases across 22 families and all 43 complete
-      query results. The [5,460-member packet](../benchmarks/native-stream-sets-2026-10-15.md)
-      retains the original failures and fixture corrections; hosted integration
-      is the remaining closure gate.
-  - Boundary: distinct membership remains resident under credits and refuses
-    excess growth even when replay spill is enabled. No high-cardinality set
+      Local runtime checks pass: 4,249 native tests, 91 direct methods, 2,601
+      public cases and all 43 regression queries. The
+      [acceptance report](../benchmarks/native-stream-unary-2026-10-15.md)
+      preserves original failures, exact source corrections and the complete
+      timing table. Independent inspection of all 14,733 archive members passes;
+      generated documentation is aligned; hosted review remains.
+  - Boundary: unary membership/population state stays resident under credits;
+    source/output replay spill does not spill that state. Dynamic pivots retain
+    their separate execution-time schema path. No new unary algorithm, state
     spill, execution resume, package release, transport or speedup is claimed.
 
 October 14 maintainer follow-through priority within the existing work: the
@@ -3141,7 +3146,9 @@ PR #1555, with exact source, hosted and production evidence in the completed
 ledger. Selected text views are retained and merged in PR #1556; dictionary
 capacity growth is dropped with its complete evidence preserved. Streaming
 destinations are integrated in PR #1557 with complete local, hosted and production
-proof. The current finite breadth unit is `NATIVE-STREAM-SETS`.
+proof. Streaming sets are integrated in PR #1558 with the same complete local,
+hosted and production gates. The current finite breadth unit is
+`NATIVE-STREAM-UNARY`.
 
 October 14 direction takes precedence over the earlier version hold. PR #1551
 completes the composition timing investigation, admitted-context corrections and

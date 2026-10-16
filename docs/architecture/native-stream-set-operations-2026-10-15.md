@@ -2,11 +2,14 @@
 
 # Finite streaming set operations
 
-Status: local acceptance complete; hosted integration remains pending. This
+Status: local and hosted acceptance complete in PR #1558. This
 cohesive breadth unit under PERF-03/06/07/11/12 and CG-5/19/20/21 follows the
 destination work in PR #1557. The [acceptance report](../benchmarks/native-stream-sets-2026-10-15.md)
 records all six Rust gates, 4,241 native tests, 87 direct binding tests, 1,121
 public cases across 22 families and one complete 43-query regression pass.
+The [hosted packet](../benchmarks/evidence/native-stream-sets-hosted-2026-10-15.json)
+records all 44 checks, three isolated installed-wheel lanes and verified preview
+and production source, search and navigation.
 The six-area/eight-investigation completion contract stays open. Native transport
 follows the existing optimization and breadth work.
 

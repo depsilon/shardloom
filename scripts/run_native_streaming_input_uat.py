@@ -10,11 +10,14 @@ frames and failures. This is capability evidence, not a speedup or RSS claim.
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 from pathlib import Path
+import stat
 import sys
 import time
+import zlib
 
 from local_uat_storage import GIB, MIB, check_budgets, require_local_path
 from native_streaming_input_cases import run as public_cases
@@ -39,6 +42,11 @@ from native_streaming_replay_pressure_cases import run as replay_pressure_cases
 from native_streaming_destination_cases import run as destination_cases
 from native_streaming_set_cases import run as set_cases
 from native_streaming_set_pressure_cases import run as set_pressure_cases
+from native_streaming_unary_cases import run as unary_cases
+from native_streaming_unary_reference_cases import run as unary_reference_cases
+from native_streaming_unary_composition_cases import run as unary_composition_cases
+from native_streaming_unary_fault_cases import run as unary_fault_cases
+from native_streaming_unary_pressure_cases import run as unary_pressure_cases
 import shardloom as sl
 
 FAMILIES = {"input": public_cases, "growth": growth_cases, "typed-input": typed_cases, "ordering": ordering_cases, "ordering-pressure": ordering_pressure_cases,
@@ -49,7 +57,10 @@ FAMILIES = {"input": public_cases, "growth": growth_cases, "typed-input": typed_
             "multiple-pressure": multiple_pressure_cases, "dynamic": dynamic_cases,
             "dynamic-pressure": dynamic_pressure_cases, "replay": replay_cases,
             "replay-pressure": replay_pressure_cases, "destinations": destination_cases,
-            "sets": set_cases, "sets-pressure": set_pressure_cases}
+            "sets": set_cases, "sets-pressure": set_pressure_cases,
+            "unary": unary_cases, "unary-reference": unary_reference_cases,
+            "unary-composition": unary_composition_cases, "unary-fault": unary_fault_cases,
+            "unary-pressure": unary_pressure_cases}
 
 
 def sha(path):
@@ -57,11 +68,20 @@ def sha(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def json_file_identity(path):
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode):
+        raise ValueError(f"JSON evidence is not a regular file: {path}")
+    return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
+
+
 class Harness:
-    def __init__(self, binary, root, operation_timeout):
+    def __init__(self, binary, root, operation_timeout, *, compress_logs=False):
         self.binary, self.root = binary, root
         self.logs, self.output = root / "logs", root / "outputs"
         self.results = []
+        self.compress_logs = compress_logs
+        self.compressed_json_files = []
         self.client = sl.ShardLoomClient(
             binary=binary, timeout=operation_timeout, memory_gb=4, max_parallelism=2,
         )
@@ -73,11 +93,35 @@ class Harness:
                       max_workspace_bytes=100 * GIB, max_log_bytes=192 * MIB)
 
     def json(self, path, value):
-        with path.open("x") as stream:
-            # Complete wide-schema envelopes dominate retained evidence. Preserve
-            # every field and value without indentation consuming the log budget.
-            json.dump(value, stream, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
-            stream.write("\n")
+        raw = (json.dumps(value, ensure_ascii=False, separators=(",", ":"),
+                          allow_nan=False) + "\n").encode()
+        with path.open("xb") as stream:
+            stream.write(raw)
+        if not self.compress_logs or path.parent != self.logs:
+            return
+        # Keep the original until the complete compressed bytes are verified.
+        # Failed compression or readback preserves both files for inspection.
+        identity = json_file_identity(path)
+        if path.read_bytes() != raw:
+            raise ValueError(f"persisted JSON evidence differs: {path}")
+        destination = path.with_suffix(path.suffix + ".gz")
+        with destination.open("xb") as stream:
+            stream.write(gzip.compress(raw, compresslevel=6, mtime=0))
+        packed = destination.read_bytes()
+        try:
+            decoded = gzip.decompress(packed)
+        except (OSError, EOFError, zlib.error) as error:
+            raise ValueError(f"compressed JSON evidence is invalid: {destination}") from error
+        if decoded != raw:
+            raise ValueError(f"compressed JSON evidence differs: {destination}")
+        if json_file_identity(path) != identity or path.read_bytes() != raw:
+            raise ValueError(f"original JSON evidence changed before cleanup: {path}")
+        record = {"path": str(destination.relative_to(self.root)),
+                  "raw_path": str(path.relative_to(self.root)),
+                  "bytes": len(packed), "sha256": hashlib.sha256(packed).hexdigest(),
+                  "raw_bytes": len(raw), "raw_sha256": hashlib.sha256(raw).hexdigest()}
+        path.unlink()
+        self.compressed_json_files.append(record)
 
     def artifact(self, path):
         return {"path": str(path.relative_to(self.root)), "bytes": path.stat().st_size, "sha256": sha(path)}
@@ -136,13 +180,15 @@ def main():
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--uat-root", type=Path, required=True)
     parser.add_argument("--operation-timeout", type=float, default=120)
+    parser.add_argument("--compress-logs", action="store_true",
+                        help="losslessly compress JSON logs within the existing log budget")
     parser.add_argument("--families", nargs="+", choices=tuple(FAMILIES), default=list(FAMILIES))
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
     root = require_local_path(args.uat_root, Path.home(), sys.platform)
     assert not root.exists(), "use a fresh output directory; prior evidence is immutable"
     assert args.operation_timeout > 0
-    harness = Harness(binary, root, args.operation_timeout)
+    harness = Harness(binary, root, args.operation_timeout, compress_logs=args.compress_logs)
     harness.guard()
     harness.logs.mkdir(parents=True)
     harness.output.mkdir()
@@ -173,7 +219,14 @@ def main():
               Path(__file__).with_name("native_streaming_set_cases.py"),
               Path(__file__).with_name("native_streaming_set_composition_cases.py"),
               Path(__file__).with_name("native_streaming_set_boundary_cases.py"),
-              Path(__file__).with_name("native_streaming_set_pressure_cases.py")]
+              Path(__file__).with_name("native_streaming_set_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_unary_cases.py"),
+              Path(__file__).with_name("native_streaming_unary_reference_cases.py"),
+              Path(__file__).with_name("native_streaming_unary_composition_cases.py"),
+              Path(__file__).with_name("native_streaming_unary_fault_cases.py"),
+              Path(__file__).with_name("native_streaming_unary_pressure_cases.py"),
+              Path(__file__).with_name("native_unary_reference.py"),
+              Path(__file__).with_name("native_streaming_unary_reference_fixtures.json")]
     sources = {str(path): sha(path) for path in inputs}
     for path in inputs[1:]:
         with (harness.logs / path.name).open("xb") as snapshot:
@@ -188,6 +241,8 @@ def main():
         harness.client.close()
         harness.json(root / "summary.json", {"status": status, "sources": sources,
                      "cases": harness.results, "families": args.families, "operation_timeout_seconds": args.operation_timeout,
+                     "compress_logs": args.compress_logs,
+                     "compressed_json_files": harness.compressed_json_files,
                      "performance_claim": False,
                      "whole_process_memory_ceiling": False})
     return 0

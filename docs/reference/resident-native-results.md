@@ -71,7 +71,8 @@ types.
 
 Opt-in `streaming=True` consumes distinct finite batch sources once each, retaining at
 most one native input batch across the transaction. Current source composes
-Scan/Filter/Project, Sort, Limit, Aggregate, Join, Window and dynamic Pivot alongside ordinary
+Scan/Filter/Project, Sort, Limit, Aggregate, Join, Window, dynamic Pivot, Set and
+admitted Unary stages alongside ordinary
 file/resident sources. Repeated references and self-joins consume the producer
 once per execution, then use credited native replay of its complete schema.
 Static plans and dynamic SQL declare reuse before demand; custom Rust dynamic
@@ -85,7 +86,10 @@ explicit spill policy. Result replay is distinct from repeated-source replay.
 Cumulative input may exceed the query grant while each batch/frame stays bounded;
 typed intake, retained operator state, output compaction and result/sink owners
 remain charged. Ordering, aggregation, joins and analytic windows admit explicit
-native spill, as does relational pivot. Pivot consumes the producer once for
+native spill, as does relational pivot. Set membership and unary retained state
+remain resident; replay spill does not spill those states. See the
+[finite unary contract](../architecture/native-stream-unary-2026-10-15.md).
+Pivot consumes the producer once for
 execution-time domain discovery and retains the completed native pivot state;
 downstream output uses that state without requesting the source again. A later
 schema-dependent binding failure aborts publication and certification even when

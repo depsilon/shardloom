@@ -151,10 +151,13 @@ def run(harness):
         assert opened == [], opened
         assert not list(harness.output.glob(name + "*")), "denial left output artifacts"
 
+    def unsupported_subquery(query):
+        return query.filter(sl.col("n").isin_source(query.source.uri, "n"))
+
     for name, operation in [
-        ("deny-unary-left-set", lambda q: q.drop_duplicates(["n"]).union_all(q).collect(check=True, **policy)),
-        ("deny-unary-right-set", lambda q: q.union_all(q.drop_duplicates(["n"])).collect(check=True, **policy)),
-        ("deny-unary", lambda q: q.drop_duplicates(["n"]).collect(check=True, **policy)),
+        ("deny-subquery-left-set", lambda q: unsupported_subquery(q).union_all(q).collect(check=True, **policy)),
+        ("deny-subquery-right-set", lambda q: q.union_all(unsupported_subquery(q)).collect(check=True, **policy)),
+        ("deny-subquery", lambda q: unsupported_subquery(q).collect(check=True, **policy)),
     ]:
         harness.case(name, lambda name=name, operation=operation: reject(name, operation))
 

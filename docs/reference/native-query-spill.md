@@ -137,7 +137,8 @@ semantics. All stages share the query grant and disk quota. Without an explicit
 policy, resident aggregation retains its deterministic memory denial.
 
 Distinct finite `streaming=True` batch sources can compose filters, projections, sorting,
-aggregation, joins, analytic windows, dynamic pivot and limits alongside ordinary
+aggregation, joins, analytic windows, dynamic pivot, sets, admitted unary stages
+and limits alongside ordinary
 file/resident sources. Each producer is consumed once. Limits
 and offsets apply globally and drain all input,
 including zero limits. A late producer or value error prevents completion and
@@ -152,6 +153,12 @@ must end, and all writers plus owned spill cleanup must succeed before
 publication. Local multi-file publication is not group-atomic; existing
 partial-publication diagnostics and commit behavior remain in effect. Other
 unadmitted stateful families retain their separate contracts.
+
+Set membership and unary membership/population state remain resident under the
+shared grant. Permission to spill source or output replay does not spill those
+operator states. The [finite unary contract](../architecture/native-stream-unary-2026-10-15.md)
+keeps existing DISTINCT, duplicate selection/masks, tail, sampling, scalar
+rewrites, melt, explode and rolling semantics while admitting finite producers.
 
 ```python
 import tempfile

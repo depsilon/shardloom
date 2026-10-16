@@ -8,7 +8,7 @@ inspects both branches and records repeated source use. The existing binder,
 typed row comparison, credited membership, native replay and completed-result
 consumers perform the work. No new set algorithm or execution provider is added.
 
-Status: complete local acceptance passes. Hosted integration remains pending.
+Status: complete local and hosted acceptance passes; PR #1558 is merged.
 The [portable index](evidence/native-stream-sets-2026-10-15.json) records **5,460
 verified members**. This source change follows the immutable 0.6.0 packages;
 no new package is published. The [implementation contract](../architecture/native-stream-set-operations-2026-10-15.md)
@@ -126,7 +126,53 @@ native binding pass all 87 tests in each loading mode, with no skips. The
 retains the original hosted log, both test sources, complete native logs and the
 2,272-file source transition. Runtime code and native artifact hashes remain
 unchanged; the Rust and public workflow gates above are retained without reruns.
-Corrected hosted acceptance remains pending.
+The corrected hosted core shard subsequently passes with 606 discovered tests,
+519 tests run and 11 skip records. Those hosted skips remain distinct from the
+nine local skip records. Each installed native-wheel lane runs all 87 tests with
+zero skips.
+
+## Hosted integration
+
+[PR #1558](https://github.com/depsilon/shardloom/pull/1558) merges at
+`e859b3a8b9d323587cee9641f5ebacd21e7e799c` after all **44 checks** pass on
+`42440f5fb6585accb0553add4dad065820171cab`. The reviewed head, synthetic CI merge
+`f3c5c327db36c57de8ddf61f6675cdae53ae372c` and merged revision share tree
+`e3b72f03d2e2363180d600876cc9a1a6cafcbf77`. Automated code review completes on
+the final head without recorded findings; no review threads or requested
+changes remain.
+
+The [hosted index](evidence/native-stream-sets-hosted-2026-10-15.json) and
+[archive](evidence/native-stream-sets-hosted-2026-10-15.tar.xz) preserve and verify
+**107 members**, including original job logs, review/check responses, served
+bytes and complete verifier dependencies. All **2,272** accepted source hashes
+match immutable merged Git blobs. The frozen CLI and binding hashes remain
+unchanged. The three changes after the original build are the public field-order
+fixture, documentation validator and package/discovery test import; the original
+acceptance and correction evidence remain separately identified.
+
+The native Vortex job passes 2,822 tests with 26 declared manual exclusions;
+five provider groups pass 10, 7, 7, 23 and 4 tests, for 2,873 total passes.
+The raw log records all nine new set-test outcomes. Native public runtime tests
+pass 1,076 cases. Three isolated installed-wheel lanes—Linux Python 3.10/3.13 and
+macOS arm64 Python 3.13—each pass 87 integration tests, installation, independent
+load/hash checks and uninstall verification. The package-integrity inspection's
+`load_verified=false` describes that inspection's scope; a separate isolated
+load step succeeds. No package is published.
+
+All eight preview and eight production responses preserve their respective
+immutable source. Six production HTML responses include a bounded Cloudflare
+script insertion; every original byte around each insertion is unchanged.
+Production check `116698574880` completes successfully at
+`2026-10-15T22:11:22Z`, identifying version
+`785c4ca6-95bc-4b1b-94f7-8408af584d2e`. Actual browser inspection verifies four
+guides, four search results for `set membership` and navigation to the benchmark
+evidence section in both environments. Screenshots were inspected inline and
+are not archived; this is not a cross-browser or responsive test matrix.
+
+The initial preview timeout and partial responses, original failed core job,
+intermediate check states and corrected source-name parser remain in the packet.
+The deployed pages at this observation still say hosted acceptance is pending;
+this closure update supersedes that earlier status without rewriting its bytes.
 
 ## Single-pass query observation
 

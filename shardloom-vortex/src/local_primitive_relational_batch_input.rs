@@ -684,8 +684,12 @@ fn count_sources(
         }
         VortexRelationalPlan::Outer => "correlated source",
         VortexRelationalPlan::Unary(unary)
-            if dynamic && unary.request.kind == super::VortexQueryPrimitiveKind::PivotRows =>
+            if super::super::prepared_unary::supports(unary.request.kind)
+                && (dynamic
+                    || unary.request.kind != super::VortexQueryPrimitiveKind::PivotRows) =>
         {
+            // Existing unary state consumes finite native batches. Pivot still
+            // requires execution-time schema discovery through the dynamic path.
             return count_sources(&unary.input, uri, depth + 1, dynamic);
         }
         VortexRelationalPlan::Unary(_) => "unary stateful operator",
