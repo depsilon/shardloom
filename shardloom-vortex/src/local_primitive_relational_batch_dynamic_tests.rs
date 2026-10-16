@@ -105,6 +105,67 @@ fn values(
 }
 
 #[test]
+fn streaming_subqueries_static_inner_can_reuse_completed_dynamic_outer_pivot_source() {
+    use crate::relational_query::{
+        VortexRelationalLimit, VortexRelationalSubquery, VortexRelationalSubqueryKind,
+    };
+    let prepared = prepare_streams(1, |schemas| {
+        schemas.declare_source_reuse(&DatasetUri::new(URIS[0]).unwrap())?;
+        let (outer, _) = schemas.resolve_output(&pivot(scan(0)))?;
+        let relation = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+            input: project(scan(0), &["amount".into()]),
+            count: 1,
+            offset: 0,
+        }));
+        Ok(VortexRelationalPlan::Subquery(Box::new(
+            VortexRelationalSubquery {
+                input: outer,
+                relation,
+                kind: VortexRelationalSubqueryKind::Scalar,
+                evaluation_guard: None,
+                correlation: vec![],
+                output_column: "answer".into(),
+                negated: false,
+            },
+        )))
+    });
+    let baseline = prepared.snapshot().memory.reserved_bytes;
+    for execution in 1..=2 {
+        let mut ordinal = 0;
+        let mut prior: Option<Weak<MemoryLease>> = None;
+        let result = prepared
+            .with_batch_input(&mut |session| {
+                assert!(prior.as_ref().is_none_or(|owner| owner.strong_count() == 0));
+                let batch = next(session, ordinal, 1)?;
+                ordinal += 1;
+                prior = batch
+                    .as_ref()
+                    .map(ResidentMemorySource::batch_release_witness)
+                    .transpose()?;
+                Ok(batch)
+            })
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            json_rows(&result),
+            vec![
+                serde_json::json!({"entity":1,"pivot_a":3.0,"pivot_b":5.0,"answer":3}),
+                serde_json::json!({"entity":2,"pivot_a":18.0,"pivot_b":null,"answer":3}),
+            ]
+        );
+        let input = result.execution.input.as_ref().unwrap();
+        assert_eq!(ordinal, 4);
+        assert_eq!(input.replay_sources, 1);
+        assert_eq!(input.replay_passes, 1);
+        assert_eq!(input.replay_prefilled_sources, 0);
+        assert_eq!(result.execution.runtime.completed_executions, execution);
+        drop(result);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    }
+}
+
+#[test]
 fn streamed_dynamic_pivot_is_inert_until_execution_and_releases_input_before_demand() {
     let lower_calls = Arc::new(AtomicUsize::new(0));
     let calls = lower_calls.clone();

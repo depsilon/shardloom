@@ -12,7 +12,55 @@ use super::replay;
 pub(super) struct Source {
     pub(super) uri: shardloom_core::DatasetUri,
     pub(super) schema: ResidentMemorySource,
-    pub(super) replay: bool,
+    pub(super) usage: Usage,
+}
+
+/// Requirements derived from statically visible native relations before demand.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) struct Usage {
+    uses: usize,
+    replay: ReplayRequirement,
+    detach_before_consume: bool,
+    validate_if_unread: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+enum ReplayRequirement {
+    #[default]
+    None,
+    Record,
+    Prefill,
+}
+
+impl Usage {
+    pub(super) fn replay() -> Self {
+        Self {
+            replay: ReplayRequirement::Record,
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn requires_replay(self) -> bool {
+        self.replay != ReplayRequirement::None
+    }
+
+    /// Repeated binding of a subtree adds requirements, not source occurrences.
+    pub(super) fn extend(&mut self, other: Self) {
+        self.uses = self.uses.max(other.uses);
+        self.replay = self.replay.max(other.replay);
+        self.detach_before_consume |= other.detach_before_consume;
+        self.validate_if_unread |= other.validate_if_unread;
+    }
+
+    fn combine(mut self, other: Self) -> Self {
+        let uses = (self.uses + other.uses).min(2);
+        self.extend(other);
+        self.uses = uses;
+        if uses > 1 {
+            self.replay = self.replay.max(ReplayRequirement::Record);
+        }
+        self
+    }
 }
 
 type ColumnProvider<'a> =
@@ -106,9 +154,20 @@ pub struct ExecutedVortexBatchInput {
     pub window_batches_detached: u64,
     /// Rows copied at those boundaries, not distinct source rows or bytes.
     pub window_rows_detached: u64,
+    /// Source batches copied and released before a nested subquery demand.
+    pub subquery_outer_batches_detached: u64,
+    pub subquery_outer_rows_detached: u64,
+    /// Nonempty batches compacted at subquery state retention boundaries.
+    pub subquery_build_batches_detached: u64,
+    pub subquery_build_rows_detached: u64,
+    /// Conditionally unused sources drained without evaluating query operators.
+    pub subquery_validation_sources: u64,
+    pub subquery_validation_batches: u64,
+    pub subquery_validation_rows: u64,
     /// Sources retained for reuse, independently of original producer owners.
     pub replay_sources: u64,
-    /// Additional completed scans of retained input; excludes the first scan.
+    /// Scans of completed replay. Excludes direct consumption during recording,
+    /// but includes the first query read when raw replay was completed first.
     pub replay_passes: u64,
     pub replay_rows: u64,
     /// Compact copies into native replay ownership before releasing each input.
@@ -119,6 +178,8 @@ pub struct ExecutedVortexBatchInput {
     pub replay_buffer_bytes_copied: u64,
     /// Sources whose completed replay owner is an actual native spill run.
     pub replay_spilled_sources: u64,
+    /// Raw sources completed into replay before their first query consumption.
+    pub replay_prefilled_sources: u64,
 }
 
 impl Default for ExecutedVortexBatchInput {
@@ -141,6 +202,13 @@ impl Default for ExecutedVortexBatchInput {
             join_build_rows_detached: 0,
             window_batches_detached: 0,
             window_rows_detached: 0,
+            subquery_outer_batches_detached: 0,
+            subquery_outer_rows_detached: 0,
+            subquery_build_batches_detached: 0,
+            subquery_build_rows_detached: 0,
+            subquery_validation_sources: 0,
+            subquery_validation_batches: 0,
+            subquery_validation_rows: 0,
             replay_sources: 0,
             replay_passes: 0,
             replay_rows: 0,
@@ -148,6 +216,7 @@ impl Default for ExecutedVortexBatchInput {
             replay_rows_detached: 0,
             replay_buffer_bytes_copied: 0,
             replay_spilled_sources: 0,
+            replay_prefilled_sources: 0,
         }
     }
 }
@@ -260,7 +329,7 @@ impl PreparedVortexRelational {
 /// A borrowed execution-scoped source, erased only to keep provider lifetimes
 /// out of schema binding. It carries no alternate array representation.
 pub(super) trait Input {
-    fn require_replay(&self, index: usize) -> Result<()>;
+    fn require_usage(&self, index: usize, usage: Usage) -> Result<()>;
 
     fn run(
         &self,
@@ -270,12 +339,19 @@ pub(super) trait Input {
         consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
     ) -> Result<()>;
 
-    fn completed(&self) -> Result<ExecutedVortexBatchInput>;
+    fn completed(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+    ) -> Result<ExecutedVortexBatchInput>;
 }
 
 pub(super) struct Execution<'p, 'i> {
     prepared: &'p PreparedVortexRelational,
     provider: RefCell<Provider<'i>>,
+    // The provider borrow ends after each request. This separate lease prevents
+    // nested demand from retaining one original producer batch while opening another.
+    original_owner: RefCell<()>,
     states: ReservedVec<SourceState>,
     report: RefCell<ExecutedVortexBatchInput>,
 }
@@ -284,8 +360,15 @@ struct SourceState {
     started: Cell<bool>,
     ended: Cell<bool>,
     next_batch: Cell<u64>,
-    replay_required: Cell<bool>,
+    usage: Cell<Usage>,
     replay: RefCell<Option<replay::Completed>>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Consumption {
+    Query,
+    Prefill,
+    Validate,
 }
 
 impl<'p, 'i> Execution<'p, 'i> {
@@ -300,13 +383,14 @@ impl<'p, 'i> Execution<'p, 'i> {
                 started: Cell::new(false),
                 ended: Cell::new(false),
                 next_batch: Cell::new(0),
-                replay_required: Cell::new(source.replay),
+                usage: Cell::new(source.usage),
                 replay: RefCell::new(None),
             });
         }
         Ok(Self {
             prepared,
             provider: RefCell::new(provider),
+            original_owner: RefCell::new(()),
             states,
             report: RefCell::new(ExecutedVortexBatchInput::default()),
         })
@@ -342,7 +426,7 @@ impl<'p, 'i> Execution<'p, 'i> {
         metrics: &Metrics<'_>,
         consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
     ) -> Result<()> {
-        if !state.ended.get() || !state.replay_required.get() {
+        if !state.ended.get() || !state.usage.get().requires_replay() {
             return Err(failed(
                 "source reuse must be declared before its first input demand and requires completed input",
             ));
@@ -365,19 +449,201 @@ impl<'p, 'i> Execution<'p, 'i> {
     }
 }
 
-impl Input for Execution<'_, '_> {
-    fn require_replay(&self, index: usize) -> Result<()> {
+impl Execution<'_, '_> {
+    fn validate_input(
+        &self,
+        declaration: &Source,
+        source: &ResidentMemorySource,
+        transport_bounds: bool,
+    ) -> Result<()> {
+        if !source.belongs_to_session(&self.prepared.session)
+            || source.dtype() != declaration.schema.dtype()
+            || (transport_bounds
+                && (source.row_count() > crate::resident_memory_source::MAX_BATCH_ROWS
+                    || source.input_logical_bytes() > 32 * 1024 * 1024))
+        {
+            return Err(failed(
+                "input changed its declared schema, session or finite batch bounds",
+            ));
+        }
+        Ok(())
+    }
+
+    fn finish_producer(
+        &self,
+        state: &SourceState,
+        replay: Option<replay::Completed>,
+        consumption: Consumption,
+    ) -> Result<()> {
+        let mut report = self.report.borrow_mut();
+        if let Some(replay) = replay {
+            checked_add(&mut report.replay_sources, 1)?;
+            checked_add(
+                &mut report.replay_spilled_sources,
+                u64::from(replay.is_spilled()),
+            )?;
+            *state.replay.borrow_mut() = Some(replay);
+        }
+        match consumption {
+            Consumption::Query => {}
+            Consumption::Prefill => {
+                checked_add(&mut report.replay_prefilled_sources, 1)?;
+            }
+            Consumption::Validate => {
+                checked_add(&mut report.subquery_validation_sources, 1)?;
+            }
+        }
+        state.ended.set(true);
+        Ok(())
+    }
+
+    fn run_producer(
+        &self,
+        index: usize,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+        consumption: Consumption,
+        consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
+    ) -> Result<()> {
         let state = self
             .states
             .values
             .get(index)
             .ok_or_else(|| failed("streaming input source index is absent"))?;
-        if state.started.get() && !state.replay_required.get() {
-            return Err(failed(
-                "source reuse must be declared before its first input demand",
-            ));
+        let declaration = self
+            .prepared
+            .batch_sources
+            .get(index)
+            .ok_or_else(|| failed("streaming input declaration is absent"))?;
+        context.check_cancelled()?;
+        if state.started.replace(true) {
+            return Err(failed("a streaming producer cannot be opened twice"));
         }
-        state.replay_required.set(true);
+        let usage = state.usage.get();
+        let schema = (usage.requires_replay() && consumption != Consumption::Validate)
+            .then(|| replay::Schema::new(declaration.schema.dtype(), context))
+            .transpose()?;
+        let mut recorder = schema
+            .as_ref()
+            .map(|schema| replay::Recorder::new(schema, metrics, context))
+            .transpose()?;
+        loop {
+            context.check_cancelled()?;
+            let owner = self.original_owner.try_borrow_mut().map_err(|_| {
+                failed("nested input demand requires releasing the original source batch first")
+            })?;
+            let (next, transport_bounds) = {
+                let mut input = self
+                    .provider
+                    .try_borrow_mut()
+                    .map_err(|_| failed("streaming input provider is already active"))?;
+                let next = input.next(
+                    &declaration.uri,
+                    state.next_batch.get(),
+                    &self.prepared.session,
+                    context,
+                )?;
+                (next, input.has_transport_bounds())
+            };
+            context.check_cancelled()?;
+            let Some(source) = next else {
+                let replay = recorder
+                    .take()
+                    .map(|value| value.finish(context))
+                    .transpose()?;
+                context.check_cancelled()?;
+                return self.finish_producer(state, replay, consumption);
+            };
+            self.validate_input(declaration, &source, transport_bounds)?;
+            let released = source.batch_release_witness()?;
+            self.record_input(&source)?;
+            let array = source.batch_array(context)?;
+            if let Some(recorder) = &mut recorder {
+                let mut copied = replay::CopyStats::default();
+                recorder.build(array, &mut copied, context)?;
+                let mut report = self.report.borrow_mut();
+                checked_add(&mut report.replay_batches_detached, copied.batches)?;
+                checked_add(&mut report.replay_rows_detached, copied.rows)?;
+                checked_add(&mut report.replay_buffer_bytes_copied, copied.buffer_bytes)?;
+            }
+            if consumption == Consumption::Query && usage.detach_before_consume {
+                let detached = super::super::native_payload::detach_with_policy(
+                    array,
+                    super::super::native_payload::CopyPolicy::PreserveUnobserved,
+                    context,
+                )?;
+                {
+                    let mut report = self.report.borrow_mut();
+                    checked_add(&mut report.subquery_outer_batches_detached, 1)?;
+                    checked_add(&mut report.subquery_outer_rows_detached, array.len() as u64)?;
+                }
+                drop(source);
+                verify_released(&released)?;
+                drop(owner);
+                consume(&detached)?;
+            } else {
+                let result = match consumption {
+                    Consumption::Query => consume(array),
+                    Consumption::Prefill => Ok(()),
+                    Consumption::Validate => {
+                        let mut report = self.report.borrow_mut();
+                        checked_add(&mut report.subquery_validation_batches, 1)?;
+                        checked_add(&mut report.subquery_validation_rows, array.len() as u64)
+                    }
+                };
+                drop(source);
+                result?;
+                verify_released(&released)?;
+                drop(owner);
+            }
+            state.next_batch.set(
+                state
+                    .next_batch
+                    .get()
+                    .checked_add(1)
+                    .ok_or_else(|| failed("input batch ordinal overflow"))?,
+            );
+        }
+    }
+}
+
+fn verify_released(
+    released: &std::sync::Weak<shardloom_exec::live_memory::MemoryLease>,
+) -> Result<()> {
+    if released.strong_count() != 0 {
+        return Err(failed(
+            "input aliases remain live after consumption; transfer private batches",
+        ));
+    }
+    Ok(())
+}
+
+impl Input for Execution<'_, '_> {
+    fn require_usage(&self, index: usize, usage: Usage) -> Result<()> {
+        let state = self
+            .states
+            .values
+            .get(index)
+            .ok_or_else(|| failed("streaming input source index is absent"))?;
+        let mut current = state.usage.get();
+        if state.started.get() {
+            if usage.requires_replay() && !current.requires_replay() {
+                return Err(failed(
+                    "source reuse must be declared before its first input demand",
+                ));
+            }
+            if !state.ended.get()
+                && ((usage.detach_before_consume && !current.detach_before_consume)
+                    || (usage.replay == ReplayRequirement::Prefill
+                        && current.replay != ReplayRequirement::Prefill))
+            {
+                return Err(failed(
+                    "nested streaming source roles must be declared before first input demand",
+                ));
+            }
+        }
+        current.extend(usage);
+        state.usage.set(current);
         Ok(())
     }
 
@@ -399,86 +665,31 @@ impl Input for Execution<'_, '_> {
             .get(index)
             .ok_or_else(|| failed("streaming input declaration is absent"))?;
         context.check_cancelled()?;
-        if state.started.replace(true) {
+        if state.started.get() {
             return self.consume_replay(state, declaration, context, metrics, consume);
         }
-        let schema = state
-            .replay_required
-            .get()
-            .then(|| replay::Schema::new(declaration.schema.dtype(), context))
-            .transpose()?;
-        let mut recorder = schema
-            .as_ref()
-            .map(|schema| replay::Recorder::new(schema, metrics, context))
-            .transpose()?;
-        let mut input = self
-            .provider
-            .try_borrow_mut()
-            .map_err(|_| failed("streaming input provider is already active"))?;
-        loop {
-            context.check_cancelled()?;
-            let next = input.next(
-                &declaration.uri,
-                state.next_batch.get(),
-                &self.prepared.session,
-                context,
-            )?;
-            context.check_cancelled()?;
-            let Some(source) = next else {
-                if let Some(recorder) = recorder.take() {
-                    let replay = recorder.finish(context)?;
-                    let mut report = self.report.borrow_mut();
-                    checked_add(&mut report.replay_sources, 1)?;
-                    checked_add(
-                        &mut report.replay_spilled_sources,
-                        u64::from(replay.is_spilled()),
-                    )?;
-                    *state.replay.borrow_mut() = Some(replay);
-                }
-                context.check_cancelled()?;
-                state.ended.set(true);
-                return Ok(());
-            };
-            if !source.belongs_to_session(&self.prepared.session)
-                || source.dtype() != declaration.schema.dtype()
-                || (input.has_transport_bounds()
-                    && (source.row_count() > crate::resident_memory_source::MAX_BATCH_ROWS
-                        || source.input_logical_bytes() > 32 * 1024 * 1024))
-            {
-                return Err(failed(
-                    "input changed its declared schema, session or finite batch bounds",
-                ));
-            }
-            let released = source.batch_release_witness()?;
-            self.record_input(&source)?;
-            let array = source.batch_array(context)?;
-            if let Some(recorder) = &mut recorder {
-                let mut copied = replay::CopyStats::default();
-                recorder.build(array, &mut copied, context)?;
-                let mut report = self.report.borrow_mut();
-                checked_add(&mut report.replay_batches_detached, copied.batches)?;
-                checked_add(&mut report.replay_rows_detached, copied.rows)?;
-                checked_add(&mut report.replay_buffer_bytes_copied, copied.buffer_bytes)?;
-            }
-            let result = consume(array);
-            drop(source);
-            result?;
-            if released.strong_count() != 0 {
-                return Err(failed(
-                    "input aliases remain live after consumption; transfer private batches",
-                ));
-            }
-            state.next_batch.set(
-                state
-                    .next_batch
-                    .get()
-                    .checked_add(1)
-                    .ok_or_else(|| failed("input batch ordinal overflow"))?,
-            );
+        if state.usage.get().replay == ReplayRequirement::Prefill {
+            self.run_producer(index, context, metrics, Consumption::Prefill, &mut |_| {
+                Ok(())
+            })?;
+            self.consume_replay(state, declaration, context, metrics, consume)
+        } else {
+            self.run_producer(index, context, metrics, Consumption::Query, consume)
         }
     }
 
-    fn completed(&self) -> Result<ExecutedVortexBatchInput> {
+    fn completed(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        metrics: &Metrics<'_>,
+    ) -> Result<ExecutedVortexBatchInput> {
+        for (index, state) in self.states.values.iter().enumerate() {
+            if !state.started.get() && state.usage.get().validate_if_unread {
+                self.run_producer(index, context, metrics, Consumption::Validate, &mut |_| {
+                    Ok(())
+                })?;
+            }
+        }
         if self.states.values.is_empty()
             || self
                 .states
@@ -619,13 +830,14 @@ impl VortexRelationalBatchInput<'_, '_> {
 pub(super) fn classify(
     plan: &VortexRelationalPlan,
     uri: &shardloom_core::DatasetUri,
-) -> Result<bool> {
-    match count_sources(plan, uri, 0, false)? {
-        1 => Ok(false),
-        0 => Err(failed(
+) -> Result<Usage> {
+    let usage = source_usage(plan, uri, 0, false, false)?;
+    if usage.uses == 0 {
+        Err(failed(
             "streaming plan does not use its declared batch source",
-        )),
-        _ => Ok(true),
+        ))
+    } else {
+        Ok(usage)
     }
 }
 
@@ -635,53 +847,89 @@ pub(super) fn classify(
 pub(super) fn classify_dynamic(
     plan: &VortexRelationalPlan,
     uri: &shardloom_core::DatasetUri,
-) -> Result<bool> {
-    Ok(count_sources(plan, uri, 0, true)? > 1)
+    outer_scope: bool,
+) -> Result<Usage> {
+    source_usage(plan, uri, 0, true, outer_scope)
 }
 
-fn count_sources(
+fn source_usage(
     plan: &VortexRelationalPlan,
     uri: &shardloom_core::DatasetUri,
     depth: usize,
     dynamic: bool,
-) -> Result<usize> {
+    outer_scope: bool,
+) -> Result<Usage> {
     if depth > 24 {
         return Err(failed("recursive streaming plan exceeds 24 levels"));
     }
     let operator = match plan {
-        VortexRelationalPlan::Scan(scan) => return Ok(usize::from(&scan.source_uri == uri)),
+        VortexRelationalPlan::Scan(scan) => {
+            return Ok(Usage {
+                uses: usize::from(&scan.source_uri == uri),
+                ..Usage::default()
+            });
+        }
         VortexRelationalPlan::Project(project) => {
-            return count_sources(&project.input, uri, depth + 1, dynamic);
+            return source_usage(&project.input, uri, depth + 1, dynamic, outer_scope);
         }
         VortexRelationalPlan::Filter(filter) => {
-            return count_sources(&filter.input, uri, depth + 1, dynamic);
+            return source_usage(&filter.input, uri, depth + 1, dynamic, outer_scope);
         }
         VortexRelationalPlan::Sort(sort) => {
-            return count_sources(&sort.input, uri, depth + 1, dynamic);
+            return source_usage(&sort.input, uri, depth + 1, dynamic, outer_scope);
         }
         VortexRelationalPlan::Limit(limit) => {
-            return count_sources(&limit.input, uri, depth + 1, dynamic);
+            return source_usage(&limit.input, uri, depth + 1, dynamic, outer_scope);
         }
         VortexRelationalPlan::Aggregate(aggregate) => {
-            return count_sources(&aggregate.input, uri, depth + 1, dynamic);
+            return source_usage(&aggregate.input, uri, depth + 1, dynamic, outer_scope);
         }
         VortexRelationalPlan::Window(window) => {
-            return count_sources(&window.input, uri, depth + 1, dynamic);
+            return source_usage(&window.input, uri, depth + 1, dynamic, outer_scope);
         }
         VortexRelationalPlan::Join(join) => {
-            let left = count_sources(&join.left, uri, depth + 1, dynamic)?;
-            let right = count_sources(&join.right, uri, depth + 1, dynamic)?;
-            // Only zero, exactly one and repeated use are relevant here.
-            return Ok((left + right).min(2));
+            let left = source_usage(&join.left, uri, depth + 1, dynamic, outer_scope)?;
+            let right = source_usage(&join.right, uri, depth + 1, dynamic, outer_scope)?;
+            return Ok(left.combine(right));
         }
         VortexRelationalPlan::Set(set) => {
-            let left = count_sources(&set.left, uri, depth + 1, dynamic)?;
-            let right = count_sources(&set.right, uri, depth + 1, dynamic)?;
-            return Ok((left + right).min(2));
+            let left = source_usage(&set.left, uri, depth + 1, dynamic, outer_scope)?;
+            let right = source_usage(&set.right, uri, depth + 1, dynamic, outer_scope)?;
+            return Ok(left.combine(right));
         }
-        VortexRelationalPlan::Subquery(_) | VortexRelationalPlan::CorrelatedSubquery(_) => {
-            "subquery"
+        VortexRelationalPlan::Subquery(query) | VortexRelationalPlan::CorrelatedSubquery(query) => {
+            let parameterized = matches!(plan, VortexRelationalPlan::CorrelatedSubquery(_));
+            let conditional = parameterized
+                || query.evaluation_guard.is_some()
+                || matches!(
+                    query.kind,
+                    crate::relational_query::VortexRelationalSubqueryKind::Scalar
+                );
+            let mut input = source_usage(&query.input, uri, depth + 1, dynamic, outer_scope)?;
+            let mut inner = source_usage(
+                &query.relation,
+                uri,
+                depth + 1,
+                dynamic,
+                outer_scope || parameterized,
+            )?;
+            if conditional {
+                input.detach_before_consume |= input.uses > 0;
+                inner.validate_if_unread |= inner.uses > 0;
+            }
+            if parameterized && inner.uses > 0 {
+                inner.replay = inner.replay.max(ReplayRequirement::Record);
+            }
+            // The producer cannot be reopened or replayed while its original
+            // scan is active. Complete shared raw input before either query read.
+            let shared = input.uses > 0 && inner.uses > 0;
+            let mut usage = input.combine(inner);
+            if shared {
+                usage.replay = ReplayRequirement::Prefill;
+            }
+            return Ok(usage);
         }
+        VortexRelationalPlan::Outer if outer_scope => return Ok(Usage::default()),
         VortexRelationalPlan::Outer => "correlated source",
         VortexRelationalPlan::Unary(unary)
             if super::super::prepared_unary::supports(unary.request.kind)
@@ -690,10 +938,10 @@ fn count_sources(
         {
             // Existing unary state consumes finite native batches. Pivot still
             // requires execution-time schema discovery through the dynamic path.
-            return count_sources(&unary.input, uri, depth + 1, dynamic);
+            return source_usage(&unary.input, uri, depth + 1, dynamic, outer_scope);
         }
         VortexRelationalPlan::Unary(_) => "unary stateful operator",
-        VortexRelationalPlan::ExecutionResult(_) if dynamic => return Ok(0),
+        VortexRelationalPlan::ExecutionResult(_) if dynamic => return Ok(Usage::default()),
         VortexRelationalPlan::ExecutionResult(_) | VortexRelationalPlan::DeferredSubquery(_) => {
             "dynamic schema"
         }

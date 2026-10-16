@@ -24,6 +24,9 @@ mod set_tests;
 #[path = "local_primitive_relational_batch_unary_tests.rs"]
 mod unary_tests;
 
+#[path = "local_primitive_relational_batch_subquery_tests.rs"]
+mod subquery_tests;
+
 #[cfg(feature = "universal-format-io")]
 #[path = "local_primitive_relational_batch_destination_tests.rs"]
 mod destination_tests;

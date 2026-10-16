@@ -230,8 +230,24 @@ under the grant; source/output replay spill does not spill that state. The
 <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md">unary contract</a>
 and <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-unary-2026-10-15.md">acceptance report</a>
 record 91 direct methods, 2,601 public cases and all 43 regression queries
-passing locally. Review and hosted integration remain pending. These source
-changes do not alter the immutable 0.6.0 packages.</p>
+passing locally. PR #1559 merged after all 44 checks passed. Three installed-wheel
+lanes each pass 91 methods with zero skips; the
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-unary-hosted-2026-10-15.json">273-member hosted packet</a>
+retains preview/production source and browser verification. These source changes
+do not alter the immutable 0.6.0 packages.</p>
+<p>Current source also connects finite producers to existing <code dir="auto">IN</code>/<code dir="auto">NOT IN</code>, row
+membership, <code dir="auto">EXISTS</code>/<code dir="auto">NOT EXISTS</code>, quantified <code dir="auto">ANY</code>/<code dir="auto">ALL</code> and scalar subqueries.
+Inner sources and schemas must be declared before execution; indexed correlation
+and parameterized <code dir="auto">outer</code> references are supported within that scope. Shared
+inputs complete native replay before nested reads. An unused inner producer still
+drains and validates, without evaluating skipped expressions or scalar cardinality.
+Subquery membership/index state remains resident under the grant, including when
+source replay spill is enabled. Opaque dynamically declared inner sources remain
+unsupported. The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-subqueries-2026-10-15.md">finite subquery contract</a>
+and <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-subqueries-2026-10-15.md">acceptance report</a>
+record 96 direct methods, 3,724 public cases, all six Rust gates and all 43
+regression queries passing locally. Hosted integration remains pending; the
+published 0.6.0 packages retain their release-time behavior.</p>
 <p>Relational pivots over file or resident-memory sources can deliver complete
 admitted results through <code dir="auto">iter_batches()</code> with an explicit <code dir="auto">spill</code> policy.
 The <a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state">sparse pivot example</a>

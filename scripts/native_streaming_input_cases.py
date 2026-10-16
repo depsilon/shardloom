@@ -135,31 +135,37 @@ def run(harness):
         return {"artifact": harness.artifact(target)}
     harness.case("native-write", writer)
 
-    def reject(name, action):
-        opened = []
+    def self_subquery(name, operation, expected, passes):
+        events = []
         def produce():
-            opened.append(True)
-            return iter([[{"n": 1}]])
+            events.append("opened")
+            try:
+                yield []
+                yield [{"n": 1}, {"n": None}]
+                yield [{"n": 2}]
+                events.append("ended")
+            finally:
+                events.append("closed")
         query = context.from_batches(produce, schema={"n": "int64"}, streaming=True)
-        try:
-            action(query)
-        except ShardLoomCommandError as error:
-            harness.envelope(name, error.envelope, success=False)
-            assert "SL-NATIVE-BATCH" in json.dumps(error.envelope.raw)
-        else:
-            raise AssertionError(name + " unexpectedly succeeded")
-        assert opened == [], opened
-        assert not list(harness.output.glob(name + "*")), "denial left output artifacts"
+        selected = query.filter(sl.col("n").isin_source(query.source.uri, "n"))
+        composed = operation(query, selected)
+        assert events == []
+        harness.json(harness.logs / (name + "-expected.json"), {"expected": expected})
+        result = composed.collect(check=True, **policy)
+        harness.values(name, result.result_rows, expected)
+        harness.completed(name, result.envelope, batches=3, rows=3)
+        assert events == ["opened", "ended", "closed"], events
+        assert result.envelope.field_int("native_input_replay_prefilled_sources") == 1
+        assert result.envelope.field_int("native_input_replay_passes") == passes
 
-    def unsupported_subquery(query):
-        return query.filter(sl.col("n").isin_source(query.source.uri, "n"))
-
-    for name, operation in [
-        ("deny-subquery-left-set", lambda q: unsupported_subquery(q).union_all(q).collect(check=True, **policy)),
-        ("deny-subquery-right-set", lambda q: q.union_all(unsupported_subquery(q)).collect(check=True, **policy)),
-        ("deny-subquery", lambda q: unsupported_subquery(q).collect(check=True, **policy)),
+    for name, operation, numbers, passes in [
+        ("self-subquery-left-set", lambda q, selected: selected.union_all(q), [1, 2, 1, None, 2], 3),
+        ("self-subquery-right-set", lambda q, selected: q.union_all(selected), [1, None, 2, 1, 2], 3),
+        ("self-subquery", lambda q, selected: selected, [1, 2], 2),
     ]:
-        harness.case(name, lambda name=name, operation=operation: reject(name, operation))
+        expected = [{"n": number} for number in numbers]
+        harness.case(name, lambda name=name, operation=operation, expected=expected, passes=passes:
+                     self_subquery(name, operation, expected, passes))
 
     def producer_failure(name, mode, write=False):
         closed, pulls = [], []

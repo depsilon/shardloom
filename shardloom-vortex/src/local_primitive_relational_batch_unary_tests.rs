@@ -381,9 +381,16 @@ fn streaming_unary_admission_keeps_dynamic_pivot_and_unsupported_shape_boundarie
     let uri = DatasetUri::new("memory://stream").unwrap();
     for (name, request, _) in cases(&ROWS) {
         let stage = unary(scan(), request);
-        assert!(!batch_input::classify(&stage, &uri).unwrap(), "{name}");
         assert!(
-            !batch_input::classify_dynamic(&stage, &uri).unwrap(),
+            !batch_input::classify(&stage, &uri)
+                .unwrap()
+                .requires_replay(),
+            "{name}"
+        );
+        assert!(
+            !batch_input::classify_dynamic(&stage, &uri, false)
+                .unwrap()
+                .requires_replay(),
             "{name}"
         );
         let repeated = VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
@@ -391,7 +398,12 @@ fn streaming_unary_admission_keeps_dynamic_pivot_and_unsupported_shape_boundarie
             right: stage,
             kind: crate::relational_query::VortexRelationalSetKind::UnionAll,
         }));
-        assert!(batch_input::classify(&repeated, &uri).unwrap(), "{name}");
+        assert!(
+            batch_input::classify(&repeated, &uri)
+                .unwrap()
+                .requires_replay(),
+            "{name}"
+        );
     }
     for kind in [
         Kind::PivotRows,
@@ -407,9 +419,13 @@ fn streaming_unary_admission_keeps_dynamic_pivot_and_unsupported_shape_boundarie
             "{kind:?}: {error}"
         );
         if kind == Kind::PivotRows {
-            assert!(!batch_input::classify_dynamic(&stage, &uri).unwrap());
+            assert!(
+                !batch_input::classify_dynamic(&stage, &uri, false)
+                    .unwrap()
+                    .requires_replay()
+            );
         } else {
-            assert!(batch_input::classify_dynamic(&stage, &uri).is_err());
+            assert!(batch_input::classify_dynamic(&stage, &uri, false).is_err());
         }
     }
     let mut stage = scan();

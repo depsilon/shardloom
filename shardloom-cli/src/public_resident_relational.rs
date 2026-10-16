@@ -741,6 +741,13 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_join_build_rows_detached", input.join_build_rows_detached.to_string()),
         ("native_input_window_batches_detached", input.window_batches_detached.to_string()),
         ("native_input_window_rows_detached", input.window_rows_detached.to_string()),
+        ("native_input_subquery_outer_batches_detached", input.subquery_outer_batches_detached.to_string()),
+        ("native_input_subquery_outer_rows_detached", input.subquery_outer_rows_detached.to_string()),
+        ("native_input_subquery_build_batches_detached", input.subquery_build_batches_detached.to_string()),
+        ("native_input_subquery_build_rows_detached", input.subquery_build_rows_detached.to_string()),
+        ("native_input_subquery_validation_sources", input.subquery_validation_sources.to_string()),
+        ("native_input_subquery_validation_batches", input.subquery_validation_batches.to_string()),
+        ("native_input_subquery_validation_rows", input.subquery_validation_rows.to_string()),
         ("native_input_replay_sources", input.replay_sources.to_string()),
         ("native_input_replay_passes", input.replay_passes.to_string()),
         ("native_input_replay_rows", input.replay_rows.to_string()),
@@ -748,6 +755,8 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_replay_rows_detached", input.replay_rows_detached.to_string()),
         ("native_input_replay_buffer_bytes_copied", input.replay_buffer_bytes_copied.to_string()),
         ("native_input_replay_spilled_sources", input.replay_spilled_sources.to_string()),
+        ("native_input_replay_prefilled_sources", input.replay_prefilled_sources.to_string()),
+        ("native_input_replay_pass_accounting", "completed_replay_scans;includes_first_query_read_after_prefill;excludes_direct_consumption_while_recording".into()),
         ("native_batch_input_storage", if input.replay_sources > 0 {
             "single_current_producer_batch;released_before_next_demand;declared_replay_retained_as_credited_native_arrays_or_policy_admitted_query_runs;replay_and_operator_state_reported_separately"
         } else {

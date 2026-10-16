@@ -9,8 +9,7 @@ walks their inputs and records source reuse; the existing native binder,
 operation state, credited owners and result consumers execute the work.
 Dynamic pivot keeps its separate execution-time schema path.
 
-Status: complete local acceptance and independent archive inspection pass.
-Hosted integration remains pending. The
+Status: complete local and hosted acceptance pass; PR #1559 is merged. The
 [portable index](evidence/native-stream-unary-2026-10-15.json) records **14,733
 verified members**. This source change follows the immutable 0.6.0 packages.
 The [implementation contract](../architecture/native-stream-unary-2026-10-15.md)
@@ -22,6 +21,46 @@ retains the separate packet audit, exact source transition, Python core check,
 19 documentation/build checks and rendered-browser observations. It preserves
 both index states without rewriting the runtime archive. The primary source
 review and separate evidence parser do not claim an independent hosted review.
+
+## Hosted integration and postmerge verification
+
+[PR #1559](https://github.com/depsilon/shardloom/pull/1559) merged at
+`ff9aa27338ca9f1ff5581f5a57603400f5aec926` after all 44 checks passed on
+`b698b1ba5728068c4b90a4194899f9aca5e6b8eb`. The reviewed, synthetic-test and
+merged trees are identical. Final-head automated review records no findings;
+there are no unresolved review threads.
+
+The [273-member hosted packet](evidence/native-stream-unary-hosted-2026-10-15.json)
+retains all six selected job logs, final checks/review/merge metadata, 2,283
+verified immutable source identities and both frozen executable identities.
+Native/provider jobs pass 2,881 tests with 26 declared manual exclusions,
+including all eight new unary tests; native public tests pass 1,076. Linux
+Python 3.10/3.13 and macOS arm64 Python 3.13 installed-wheel lanes each pass
+91 methods with zero skips, isolated load and uninstall checks. Hosted Python
+core discovers 615 cases, runs 524 and records 12 skips. These are current-source
+wheel proofs, with no package publication or change to released 0.6.0 artifacts.
+
+All sixteen preview/production responses preserve the merged source. Six
+production HTML responses contain one bounded Cloudflare script insertion;
+the JavaScript and search entry are byte-identical. The actual browser checks
+four guides, search results, the evidence-section navigation and acceptance link
+in both environments. These observations verify the merged pre-closeout wording,
+including its historical pending statement. The later wording in this report
+does not acquire a deployment claim from those observations. The
+[independent hosted audit](evidence/native-stream-unary-hosted-audit-2026-10-15.json.xz)
+reopens all members and independently checks raw jobs, immutable Git blobs,
+served responses and complete postmerge result payloads.
+
+After merge, the unchanged accepted executable completes one additional
+execution of each of the 43 queries, with all 381 result rows and schemas
+matching the retained reference. **Total engine time is 59.996641 seconds.**
+The [engine-only table](evidence/native-stream-unary-postmerge-2026-10-15.engine-times.csv)
+retains each query's engine time; the hosted packet retains the original
+summary, complete envelopes, diagnostics and process observations. This is a
+separate observation from the original 93.002589-second pass below, without a
+matched speedup claim or a demonstrated cause for the difference. No benchmark
+was rerun to change its presentation. Routine timing communication now follows
+the permanent [engine-only policy](../skills/benchmarking.md#timing-communication-decision).
 
 ## Shared behavior and scope
 

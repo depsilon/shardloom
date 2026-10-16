@@ -149,7 +149,7 @@ and [general aggregate](../architecture/native-aggregate-pressure-2026-10-07.md)
 contracts, extended by the [join contract](../architecture/native-join-pressure-2026-10-08.md)
 and [window contract](../architecture/native-window-pressure-2026-10-08.md),
 admit `streaming=True` for finite batch sources used once each through
-Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window/PivotRows/Set/Unary alongside ordinary file/resident
+Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window/PivotRows/Set/Unary/Subquery/CorrelatedSubquery alongside ordinary file/resident
 sources, with incremental results, bounded small collection and all eight existing
 local writers: Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV. Each
 writer retains its existing format, type, fidelity and feature admissions. A
@@ -221,8 +221,28 @@ after an output stop condition. Unary membership/population state remains
 resident under the shared grant; replay spill does not spill it. The
 [acceptance report](../benchmarks/native-stream-unary-2026-10-15.md) records
 4,249 native tests, 91 direct methods, 2,601 public cases and all 43 regression
-queries passing locally. Review and hosted integration remain pending. This
-source addition does not change the published 0.6.0 packages.
+queries passing locally. [PR #1559](https://github.com/depsilon/shardloom/pull/1559)
+completed all 44 checks and three installed-wheel lanes. The
+[273-member hosted packet](../benchmarks/evidence/native-stream-unary-hosted-2026-10-15.json)
+verifies preview/production source and navigation. This source addition does not
+change the published 0.6.0 packages.
+
+The [finite subquery contract](../architecture/native-stream-subqueries-2026-10-15.md)
+connects existing IN/NOT IN, row membership, EXISTS/NOT EXISTS, quantified ANY/ALL
+and scalar subqueries to finite producers. Inner sources and schemas must be
+statically declared; indexed correlation and parameterized `Outer` plans share
+that boundary. Original outer input owners are released before nested demand.
+A source used by both outer and inner relations completes native replay before
+query reads. Conditional branches keep their evaluation rules; unused producers
+undergo raw input validation without evaluating skipped expressions or scalar
+cardinality. All producers still require valid completion before final success.
+Subquery membership/index state remains resident under the grant; replay spill
+does not spill it. Opaque `DeferredSubquery` inner-source declarations remain
+unsupported for streaming. The [acceptance report](../benchmarks/native-stream-subqueries-2026-10-15.md)
+records 96 direct methods, 3,724 public cases, all six Rust gates and a complete
+43-query pass, including source ownership, selected branches, pressure, cleanup
+and publication. Hosted integration remains pending. The immutable 0.6.0
+packages retain their scope.
 
 Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
 with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:

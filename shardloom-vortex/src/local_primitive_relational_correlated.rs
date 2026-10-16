@@ -48,7 +48,9 @@ impl PreparedVortexRelational {
                     let parameter = take_batch(&left.array, &input.fields, &[row], context)?;
                     let mut subquery =
                         native_relational_subquery::Subquery::new(spec, context.memory())?;
-                    let mut build = |array| subquery.build(array, context);
+                    let mut build = |array| {
+                        subquery.build(metrics.detach_subquery_build(array, context)?, context)
+                    };
                     match relation {
                         SubqueryRelation::Bound(relation) => self.run(
                             relation,
@@ -127,7 +129,10 @@ impl PreparedVortexRelational {
                             metrics,
                             batch_rows,
                             parameter,
-                            &mut |array| subquery.build(array, context),
+                            &mut |array| {
+                                subquery
+                                    .build(metrics.detach_subquery_build(array, context)?, context)
+                            },
                         )?;
                         initialized = true;
                     }
@@ -141,7 +146,7 @@ impl PreparedVortexRelational {
             metrics,
             batch_rows,
             parameter,
-            &mut |array| subquery.build(array, context),
+            &mut |array| subquery.build(metrics.detach_subquery_build(array, context)?, context),
         )?;
         self.run(
             input,

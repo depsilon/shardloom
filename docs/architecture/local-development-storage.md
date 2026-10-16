@@ -388,6 +388,14 @@ No automated deletion of old runs, cloud files, or user data is performed.
 
 ## Current runtime observation procedure
 
+Routine timing communication follows the standing
+[engine-time reporting decision](../skills/benchmarking.md#timing-communication-decision):
+report engine time only, with individual query engine times when requested. Other clocks and
+resource observations remain in diagnostic evidence and are discussed only when explicitly
+requested, except for failures or disturbances that invalidate the result. Preparation and
+post-run verification must be described as their actual stages, separate from query execution.
+The historical observations below retain their original clock definitions.
+
 The [October 14 fresh observation](../benchmarks/native-fresh-unpaced-uat-2026-10-14.md)
 records the current decoder/context correction: 54.603468 seconds native ingest,
 194.125941 seconds summed over the predeclared 129 query calls, and 331.624211
@@ -417,7 +425,7 @@ For a future authorized observation:
    deadlines and cleanup evidence. Do not raise storage ceilings for a rerun.
 3. Capture host load and process CPU/RSS observations before and during the
    run without recording unrelated command arguments. Keep ordinary host
-   activity visible and do not describe sampled process CPU as exclusive
+   activity visible in diagnostic evidence and do not describe sampled process CPU as exclusive
    attribution. Record profiler/build overlap or other disturbances explicitly.
    Host metadata is observation context. Do not gate these runners on battery
    charge, power source or thermal state. Those readings do not establish the
@@ -430,7 +438,8 @@ For a future authorized observation:
    policy and must not delay an already completed child deliberately.
 4. Record engine-owned prepared execution and result serialization separately
    for every query. Keep complete public process wall time, remaining process
-   work, supervision, CPU, peak RSS and validation alongside those clocks.
+   work, supervision, CPU, peak RSS and validation alongside those clocks in
+   diagnostic evidence. Routine user-facing timing summaries report engine time only.
    Engine elapsed includes query I/O and source validation; CPU is a separate,
    overlapping measure. Remaining process work includes startup, preparation,
    report rendering and exit; it does not isolate those individual components.

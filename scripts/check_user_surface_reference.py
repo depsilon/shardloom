@@ -273,7 +273,17 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
 
     streaming = payload.get("native_python_batch_adapters", {}).get("streaming_input", {})
     for field, value in (
-        ("supported_plan", ["Scan", "Filter", "Project", "Sort", "Limit", "Aggregate", "Join", "Window", "PivotRows", "Set", "Unary"]),
+        ("supported_plan", ["Scan", "Filter", "Project", "Sort", "Limit", "Aggregate", "Join", "Window", "PivotRows", "Set", "Unary", "Subquery", "CorrelatedSubquery"]),
+        ("subquery_reference", "docs/architecture/native-stream-subqueries-2026-10-15.md"),
+        ("subquery_acceptance_reference", "docs/benchmarks/native-stream-subqueries-2026-10-15.md"),
+        ("subquery_kinds", ["in", "exists", "quantified", "scalar"]),
+        ("subquery_inner_scope", "statically_declared_sources_and_schema;indexed_and_parameterized_correlation"),
+        ("subquery_selected_branch_semantics_preserved", True),
+        ("subquery_nested_demand_requires_original_owner_release", True),
+        ("subquery_shared_source_replay_completed_before_query", True),
+        ("subquery_unused_producers", "raw_validation_without_skipped_expression_or_cardinality_evaluation"),
+        ("subquery_state_spill", False),
+        ("opaque_deferred_subquery_streaming", False),
         ("unary_reference", "docs/architecture/native-stream-unary-2026-10-15.md"),
         ("unary_acceptance_reference", "docs/benchmarks/native-stream-unary-2026-10-15.md"),
         ("unary_kinds", ["distinct", "dedup", "duplicate_mask", "tail", "sample", "expression", "melt", "explode", "rolling"]),

@@ -390,9 +390,23 @@ also admits DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites,
 melt, explode and rolling over finite producers with complete source validation.
 Unary membership and population state remain resident under the shared grant;
 replay spill does not spill those states. Local runtime acceptance passes with
-91 direct methods and 2,601 public cases; review and hosted integration remain
-pending. Existing option/type limits and dynamic pivot’s separate schema path
+91 direct methods and 2,601 public cases. PR #1559 merged after all 44 checks
+passed, with three installed-wheel lanes and preview/production verification.
+Existing option/type limits and dynamic pivot’s separate schema path
 remain in force.
+The current-source <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-subqueries-2026-10-15.md">finite subquery contract</a>
+extends IN/NOT IN, row membership, EXISTS/NOT EXISTS, quantified ANY/ALL and scalar
+subqueries to finite producers with statically declared inner sources and schemas.
+Indexed and parameterized correlation preserve existing selected-branch semantics.
+Nested reads release the original outer input owner first; shared sources complete
+native replay before query consumption. Unused inner producers still undergo raw
+validation without evaluating skipped expressions or scalar cardinality. Subquery
+membership/index state remains resident under the grant; replay spill does not
+spill it. Opaque dynamically declared inner sources remain unsupported. The
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-subqueries-2026-10-15.md">acceptance report</a>
+records 96 direct methods, 3,724 public cases, all six Rust gates and all 43
+regression queries passing locally. Hosted integration remains pending. These
+source changes preserve the immutable 0.6.0 package boundary.
 Unadmitted state/recovery and remaining allocation coverage stay open.</p>
 <p>Prepared sessions retain source handles and supported lowering while calls create fresh execution
 state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an

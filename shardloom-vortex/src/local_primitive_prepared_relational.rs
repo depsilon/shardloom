@@ -685,9 +685,29 @@ struct Metrics<'a> {
     join_build_rows_detached: Cell<u64>,
     window_batches_detached: Cell<u64>,
     window_rows_detached: Cell<u64>,
+    subquery_build_batches_detached: Cell<u64>,
+    subquery_build_rows_detached: Cell<u64>,
 }
 
 impl Metrics<'_> {
+    fn detach_subquery_build(
+        &self,
+        array: ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
+        if self.input.is_none() || array.is_empty() {
+            return Ok(array);
+        }
+        let detached = super::native_payload::detach_with_policy(
+            &array,
+            super::native_payload::CopyPolicy::PreserveUnobserved,
+            context,
+        )?;
+        add(&self.subquery_build_batches_detached, 1)?;
+        add(&self.subquery_build_rows_detached, array.len() as u64)?;
+        Ok(detached)
+    }
+
     fn record_pivot_spill(&self, report: PivotSpillReport) -> Result<()> {
         add(&self.spilled_pivot_stages, report.stages)?;
         add(&self.spilled_pivot_input_rows, report.input_rows)?;
@@ -1051,7 +1071,7 @@ impl PreparedVortexRelational {
         self.run(root, context, metrics, batch_rows, None, &mut emit)?;
         let mut input = metrics
             .input
-            .map(batch_input::Input::completed)
+            .map(|input| input.completed(context, metrics))
             .transpose()?;
         if let Some(input) = &mut input {
             input.ordering_batches_detached = metrics.ordering_batches_detached.get();
@@ -1060,6 +1080,8 @@ impl PreparedVortexRelational {
             input.join_build_rows_detached = metrics.join_build_rows_detached.get();
             input.window_batches_detached = metrics.window_batches_detached.get();
             input.window_rows_detached = metrics.window_rows_detached.get();
+            input.subquery_build_batches_detached = metrics.subquery_build_batches_detached.get();
+            input.subquery_build_rows_detached = metrics.subquery_build_rows_detached.get();
         }
         // No input schema sampling, and no missing-schema sentinel for empty output.
         if !emitted.get() {

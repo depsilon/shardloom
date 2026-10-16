@@ -17,6 +17,36 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-STREAM-UNARY` — nine existing static unary families accept finite
+  streaming producers under PERF-03/06/07/11/12 and CG-5/19/20/21. Complete-plan
+  admission preserves source reuse, existing types/options, operation order,
+  producer release and complete input observation.
+  - The [acceptance report](../benchmarks/native-stream-unary-2026-10-15.md)
+    retains six Rust gates, 3,219 workspace and 4,249 native tests, 91 direct
+    methods, 2,601 public cases and all 43 complete query results. The original
+    14,733-member packet and review supplements preserve failed attempts and
+    exact test/harness corrections without changing the accepted runtime.
+  - [PR #1559](https://github.com/depsilon/shardloom/pull/1559) merges at
+    `ff9aa27338ca9f1ff5581f5a57603400f5aec926` after all 44 checks pass on
+    `b698b1ba5728068c4b90a4194899f9aca5e6b8eb`. Reviewed, synthetic-test and
+    merged trees match; final-head automated review reports no findings.
+  - The [273-member hosted packet](../benchmarks/evidence/native-stream-unary-hosted-2026-10-15.json)
+    verifies 2,283 source identities, 2,881 native/provider tests with 26 manual
+    exclusions, 1,076 native public tests and three installed-wheel lanes with
+    91 methods each and zero skips. Hosted core discovers 615, runs 524 and
+    records 12 skips. All sixteen preview/production responses preserve source;
+    actual guide/search/navigation checks pass. Independent packet inspection
+    passes under its stated browser and source-selection limits.
+  - A separate postmerge pass on the unchanged executable verifies all 43
+    queries and 381 rows, with 59.996641 seconds total engine time. Original
+    timing observations remain intact; no cause or speedup is inferred. The
+    permanent engine-only communication policy changes presentation, not runners.
+  - Unary membership/population state remains resident under credits; replay
+    spill does not spill that state. `NATIVE-STREAM-SUBQUERIES` follows under its
+    explicit static-inner contract. Deferred schemas, broader allocation/state/
+    recovery, all six areas/eight investigations and CG-1 through CG-23 retain
+    their owners. No release or native transport completion is claimed.
+
 - [x] `NATIVE-STREAM-SETS` — all four existing native set operations accept
   finite streaming producers under PERF-03/06/07/11/12 and CG-5/19/20/21.
   Complete-plan source counting preserves independent producers, once-only
