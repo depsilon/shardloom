@@ -2,13 +2,15 @@
 
 # Finite streaming unary operation composition
 
-Status: local acceptance passes under `NATIVE-STREAM-UNARY`, following
+Status: `NATIVE-STREAM-UNARY` is complete in PR #1559, following
 completed set-operation integration in PR #1558. The
 [acceptance report](../benchmarks/native-stream-unary-2026-10-15.md) records all
 six Rust gates, 91 direct binding tests, 2,601 public cases and one complete
 Full43 pass. Independent inspection of all 14,733 archive members passes.
-Generated documentation and support contracts are aligned; hosted integration
-remains pending. Keep native transport after the existing
+All 44 hosted checks pass, including three installed-wheel lanes with 91 methods
+each. The [273-member hosted packet](../benchmarks/evidence/native-stream-unary-hosted-2026-10-15.json)
+retains source/merge identity, preview/production verification and the separate
+postmerge Full43 observation. Keep native transport after the existing
 optimization and breadth obligations.
 
 ## Scope and source basis

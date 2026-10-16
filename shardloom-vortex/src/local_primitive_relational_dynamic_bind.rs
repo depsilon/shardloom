@@ -37,9 +37,7 @@ impl<'a> Binder<'a> {
         }
         for source in &owner.batch_sources {
             binder.register_batch_source(source.uri.clone(), |_| Ok(source.schema.clone()))?;
-            if source.replay {
-                binder.require_batch_replay(binder.batch_sources.values.len() - 1)?;
-            }
+            binder.require_batch_usage(binder.batch_sources.values.len() - 1, source.usage)?;
         }
         binder.execution = Some(ExecutionBinding {
             owner,
@@ -66,17 +64,27 @@ impl<'a> Binder<'a> {
     }
 
     pub(super) fn require_batch_replay(&mut self, index: usize) -> Result<()> {
+        self.require_batch_usage(index, super::super::batch_input::Usage::replay())
+    }
+
+    pub(super) fn require_batch_usage(
+        &mut self,
+        index: usize,
+        usage: super::super::batch_input::Usage,
+    ) -> Result<()> {
         self.cancellation.check()?;
         if let Some(execution) = &self.execution {
             execution
                 .metrics
                 .input
                 .ok_or_else(|| {
-                    super::super::batch_input::failed("streaming replay has no input provider")
+                    super::super::batch_input::failed(
+                        "streaming source roles have no input provider",
+                    )
                 })?
-                .require_replay(index)?;
+                .require_usage(index, usage)?;
         }
-        self.batch_sources.values[index].replay = true;
+        self.batch_sources.values[index].usage.extend(usage);
         Ok(())
     }
 

@@ -51,6 +51,22 @@ Agents and contributors must follow these requirements:
 - Every performance claim must be backed by a reproducible benchmark.
 - Every non-trivial implementation change should include tests.
 
+## Timing communication
+
+The standing maintainer decision is to report **engine time only** in routine timing updates,
+answers, and performance summaries. For a standard Full43 pass, report the sum of
+`engine_execution_seconds` across one execution of each of the 43 queries. Provide per-query
+engine times when requested. Keep the same engine clock in comparisons; missing or invalid engine
+measurements must remain unavailable.
+
+Keep process wall time, supervised workflow time, UAT pre/post-run hashing, validation, build,
+archival, cleanup, and resource observations in diagnostic evidence. Discuss those details only
+when explicitly requested, or disclose a failure/disturbance when it invalidates the result.
+Preparation and post-run checks must have accurate stage descriptions and must not be presented as
+engine execution or an engine regression. This communication rule does not change the runner,
+instrumentation, required checks, or benchmark methodology. See
+[the benchmarking policy](docs/skills/benchmarking.md#timing-communication-decision).
+
 ## Architecture principles
 
 ShardLoom should avoid work before optimizing work.

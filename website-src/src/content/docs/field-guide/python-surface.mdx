@@ -223,8 +223,25 @@ under the grant; source/output replay spill does not spill that state. The
 [unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md)
 and [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-unary-2026-10-15.md)
 record 91 direct methods, 2,601 public cases and all 43 regression queries
-passing locally. Review and hosted integration remain pending. These source
-changes do not alter the immutable 0.6.0 packages.
+passing locally. PR #1559 merged after all 44 checks passed. Three installed-wheel
+lanes each pass 91 methods with zero skips; the
+[273-member hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-unary-hosted-2026-10-15.json)
+retains preview/production source and browser verification. These source changes
+do not alter the immutable 0.6.0 packages.
+
+Current source also connects finite producers to existing `IN`/`NOT IN`, row
+membership, `EXISTS`/`NOT EXISTS`, quantified `ANY`/`ALL` and scalar subqueries.
+Inner sources and schemas must be declared before execution; indexed correlation
+and parameterized `outer` references are supported within that scope. Shared
+inputs complete native replay before nested reads. An unused inner producer still
+drains and validates, without evaluating skipped expressions or scalar cardinality.
+Subquery membership/index state remains resident under the grant, including when
+source replay spill is enabled. Opaque dynamically declared inner sources remain
+unsupported. The [finite subquery contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-subqueries-2026-10-15.md)
+and [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-subqueries-2026-10-15.md)
+record 96 direct methods, 3,724 public cases, all six Rust gates and all 43
+regression queries passing locally. Hosted integration remains pending; the
+published 0.6.0 packages retain their release-time behavior.
 
 Relational pivots over file or resident-memory sources can deliver complete
 admitted results through `iter_batches()` with an explicit `spill` policy.

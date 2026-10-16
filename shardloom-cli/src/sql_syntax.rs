@@ -4429,7 +4429,7 @@ fn is_explicit_predicate_projection_shape(raw: &str) -> Result<bool, ShardLoomEr
         return Ok(true);
     }
     for keyword in [
-        "is", "not", "in", "like", "rlike", "regexp", "between", "and", "or",
+        "is", "not", "in", "exists", "like", "rlike", "regexp", "between", "and", "or",
     ] {
         if find_keyword_outside_quotes_and_parentheses(inner, keyword)?.is_some() {
             return Ok(true);
@@ -14575,6 +14575,37 @@ mod tests {
         assert_eq!(parsed.predicate_projections[0].alias, "matched");
 
         assert!(parsed.uses_outer_correlation());
+    }
+
+    #[test]
+    fn projected_exists_subqueries_use_predicate_lowering() {
+        for (expression, correlated) in [
+            ("EXISTS (SELECT * FROM 'inner.vortex')", false),
+            ("(eXiStS (SELECT 1 FROM 'inner.vortex'))", false),
+            ("NOT EXISTS (SELECT id FROM 'inner.vortex')", false),
+            (
+                "EXISTS (SELECT id FROM 'inner.vortex' WHERE id = outer.id)",
+                true,
+            ),
+        ] {
+            let statement =
+                format!("SELECT id,{expression} AS present FROM 'outer.vortex' LIMIT 5");
+            let parsed = parse_sql_local_source_statement(&statement).unwrap();
+            assert_eq!(parsed.predicate_projections.len(), 1, "{expression}");
+            assert_eq!(parsed.predicate_projections[0].alias, "present");
+            assert_eq!(
+                parsed.generic_expression_projections,
+                [] as [ParsedGenericExpressionProjection; 0]
+            );
+            assert_eq!(parsed.uses_outer_correlation(), correlated, "{expression}");
+        }
+        for expression in [
+            "exists_value",
+            "'exists'",
+            "(SELECT id FROM 'inner.vortex' WHERE EXISTS (SELECT 1 FROM 'other.vortex'))",
+        ] {
+            assert!(!is_explicit_predicate_projection_shape(expression).unwrap());
+        }
     }
 
     #[test]

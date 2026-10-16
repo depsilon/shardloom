@@ -212,14 +212,16 @@ impl<'a> Binder<'a> {
         self.batch_sources.values.push(super::batch_input::Source {
             uri,
             schema,
-            replay: false,
+            usage: super::batch_input::Usage::default(),
         });
         Ok(())
     }
 
     pub(super) fn validate_batch_plan(&mut self, plan: &VortexRelationalPlan) -> Result<()> {
         for source in &mut self.batch_sources.values {
-            source.replay |= super::batch_input::classify(plan, &source.uri)?;
+            source
+                .usage
+                .extend(super::batch_input::classify(plan, &source.uri)?);
         }
         Ok(())
     }
@@ -265,12 +267,12 @@ impl<'a> Binder<'a> {
             // the final plan. Validate each before its discovery reads rows;
             // the execution provider then requires every source's explicit end.
             for index in 0..self.batch_sources.values.len() {
-                if super::batch_input::classify_dynamic(
+                let usage = super::batch_input::classify_dynamic(
                     input,
                     &self.batch_sources.values[index].uri,
-                )? {
-                    self.require_batch_replay(index)?;
-                }
+                    self.outer_fields.is_some(),
+                )?;
+                self.require_batch_usage(index, usage)?;
             }
         }
         if depth > crate::relational_query::NATIVE_RECURSION_LIMIT {

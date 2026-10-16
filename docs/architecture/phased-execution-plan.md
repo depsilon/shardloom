@@ -250,34 +250,37 @@ the ledger.
 ## Planned
 
 
-- [ ] `NATIVE-STREAM-UNARY` admit the nine existing statically bound unary
-  operation families over finite streaming producers under the
-  [implementation contract](native-stream-unary-2026-10-15.md).
+- [ ] `NATIVE-STREAM-SUBQUERIES` compose existing native IN/NOT IN, row
+  membership, EXISTS/NOT EXISTS, quantified ANY/ALL and scalar subqueries with
+  finite streaming producers under the
+  [implementation contract](native-stream-subqueries-2026-10-15.md).
   - V1 scope classification: `required_for_v1`.
   - Owners: PERF-03/06/07/11/12 and CG-5/19/20/21; preserve the complete
     Competitive Engine Track and six-area/eight-investigation completion contract.
-  - ShardLoom technique review: reuse the native binder, existing unary state,
-    credited compact selections, finite source completion and declared replay.
+  - ShardLoom technique review: reuse the native binder, existing subquery state,
+    credited native detachment, finite source completion and declared replay.
     Capillary batching, PulseWeave and shared query resources keep their owners.
   - Execution checklist:
     - [x] Record current-runtime refusal/resident controls, source inventory,
-      independent sampling/rolling references and the implementation contract.
-    - [x] Admit existing non-pivot unary stages with complete source counting;
-      prove exact values/types and operation order across batches and composition.
-    - [x] Prove producer release, retained output, bounded-state completion,
-      resident-state denial, explicit replay, failure, cancellation and publication.
+      exact expected values and the implementation contract.
+    - [x] Admit statically bound inner relations, indexed/parameterized
+      correlation and existing guards with complete source-role declarations.
+    - [x] Prove release before nested demand, shared-source replay completion,
+      validation-only unused producers, resource denial, cancellation and publication.
     - [ ] Complete native/direct/public/workspace checks, one Full43 pass,
       portable evidence, generated documentation, review and hosted integration.
-      Local runtime checks pass: 4,249 native tests, 91 direct methods, 2,601
-      public cases and all 43 regression queries. The
-      [acceptance report](../benchmarks/native-stream-unary-2026-10-15.md)
-      preserves original failures, exact source corrections and the complete
-      timing table. Independent inspection of all 14,733 archive members passes;
-      generated documentation is aligned; hosted review remains.
-  - Boundary: unary membership/population state stays resident under credits;
-    source/output replay spill does not spill that state. Dynamic pivots retain
-    their separate execution-time schema path. No new unary algorithm, state
-    spill, execution resume, package release, transport or speedup is claimed.
+      Local runtime acceptance and independent packet inspection pass:
+      3,220 workspace tests, 4,264 native tests, 96 direct methods, 3,724 public
+      cases and all 43 queries. The [14,066-member packet](../benchmarks/native-stream-subqueries-2026-10-15.md)
+      retains exact results, original failures and 61.819 seconds of engine time.
+      Documentation, review and hosted integration remain the closing gates.
+  - Boundary: subquery membership/index state stays resident under credits;
+    source/output replay spill does not spill that state. Opaque parameter-dependent
+    dynamic inner relations require a subsequent source-declaration/lifetime
+    contract under the same breadth owners. Preserve that remaining work.
+    No new subquery algorithm, state spill, package release, transport or speedup
+    is claimed. Unary composition is complete in PR #1559 and recorded in the
+    [completed ledger](phased-execution-completed-ledger.md).
 
 October 14 maintainer follow-through priority within the existing work: the
 latest direction resumes PR #1551, one version bump after integration and the
@@ -3147,8 +3150,10 @@ ledger. Selected text views are retained and merged in PR #1556; dictionary
 capacity growth is dropped with its complete evidence preserved. Streaming
 destinations are integrated in PR #1557 with complete local, hosted and production
 proof. Streaming sets are integrated in PR #1558 with the same complete local,
-hosted and production gates. The current finite breadth unit is
-`NATIVE-STREAM-UNARY`.
+hosted and production gates. Unary composition is integrated in PR #1559 with
+all 44 hosted checks and verified preview/production source and navigation.
+The current finite breadth unit is `NATIVE-STREAM-SUBQUERIES`; opaque dynamic
+inner source declarations remain the following boundary under the same owners.
 
 October 14 direction takes precedence over the earlier version hold. PR #1551
 completes the composition timing investigation, admitted-context corrections and

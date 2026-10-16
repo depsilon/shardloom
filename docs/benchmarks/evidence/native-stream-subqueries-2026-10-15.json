@@ -1,0 +1,93 @@
+{
+  "schema_version": "shardloom.native_stream_subqueries_evidence.v1",
+  "status": "passed_local",
+  "independent_packet_audit_passed": true,
+  "test_only_verification_source_correction": true,
+  "original_contract_feature_label_correction_verified": true,
+  "installed_wheel_proof": false,
+  "base_commit": "ff9aa27338ca9f1ff5581f5a57603400f5aec926",
+  "source_files": 2291,
+  "member_count": 14066,
+  "raw_bytes": 86933111,
+  "all_members_reopened": true,
+  "acceptance": {
+    "workspace_tests": 3220,
+    "workspace_ignored": 0,
+    "native_tests": 4264,
+    "native_ignored": 29,
+    "new_native_subquery_tests": 14,
+    "new_parser_tests": 1,
+    "direct_methods": 96,
+    "direct_skips": 0,
+    "new_direct_methods": 5,
+    "new_direct_subcases": 127,
+    "harness_methods": 5,
+    "focused_public_cases": 1123,
+    "public_cases": 3724,
+    "public_families": 31,
+    "full43_queries": 43,
+    "full43_calls": 43,
+    "full43_repeats": 1,
+    "full43_complete_rows": 381,
+    "baseline_controls": 30,
+    "baseline_streaming_refusals": 15,
+    "baseline_resident_controls": 15
+  },
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-streamsubquery509.json",
+    "bytes": 300927,
+    "sha256": "53273c21d9ca736c04945839028a223ae6c531545abae2f21b9f04838224734d"
+  },
+  "accepted_verification_source": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/stream-subquery-verification-source-510.json",
+    "bytes": 303239,
+    "sha256": "a6d32e8ac8d5f98dda7d0fb0f56ca5bb760f386b07668db1345b13df4631f52b"
+  },
+  "artifact_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-streamsubquery509.json",
+    "bytes": 302303,
+    "sha256": "797c6d6698d9e5e466f465500c282724d15d6000f68cd1540fb47af4ed06c7e1"
+  },
+  "source_overlay": [
+    "python/tests/test_native_subquery_binding.py",
+    "scripts/native_streaming_input_cases.py",
+    "scripts/native_streaming_subquery_cases.py",
+    "scripts/native_streaming_subquery_composition_cases.py",
+    "scripts/native_streaming_subquery_fault_cases.py",
+    "scripts/native_streaming_subquery_pressure_cases.py",
+    "scripts/run_native_streaming_input_uat.py",
+    "shardloom-cli/src/public_resident_relational.rs",
+    "shardloom-cli/src/sql_syntax.rs",
+    "shardloom-vortex/src/local_primitive_prepared_relational.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_dynamic_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_input.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_input_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_subquery_fault_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_subquery_pressure_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_subquery_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_batch_unary_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_bind.rs",
+    "shardloom-vortex/src/local_primitive_relational_correlated.rs",
+    "shardloom-vortex/src/local_primitive_relational_dynamic_bind.rs",
+    "shardloom-vortex/src/local_primitive_relational_report.rs"
+  ],
+  "archive": {
+    "file": "native-stream-subqueries-2026-10-15.tar.xz",
+    "bytes": 21327072,
+    "sha256": "6731ced9ba682a1f01946ba05b43893b75ccf4e44baa21784bc6f7a29855b516"
+  },
+  "manifest": {
+    "file": "native-stream-subqueries-2026-10-15.manifest.json.xz",
+    "bytes": 516452,
+    "sha256": "e11aa9a5348f75432d31baf63a0b4905e5e3da4c9562ebd186b48cde20656c72",
+    "raw_sha256": "ab0ad6cc02558c9b67478fd8b9bbc40163371679199b13c900f73b8458c91a89"
+  },
+  "limitations": [
+    "Finite statically bound streaming subqueries only; opaque dynamic-inner source declarations remain pending.",
+    "Subquery membership/index state remains resident; source/result replay spill does not spill that state.",
+    "One complete regression pass does not establish a speedup, process RSS ceiling, package release or all-platform readiness.",
+    "Direct tests use the source Python package with a frozen native extension; installed-wheel and hosted integration remain separate gates."
+  ],
+  "publication_attempted": false,
+  "hosted_integration_complete": false
+}

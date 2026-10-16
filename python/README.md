@@ -696,8 +696,24 @@ their format and publication rules. Unary membership and population state stay
 resident under the shared grant, even when replay spill is enabled. The
 [unary contract](../docs/architecture/native-stream-unary-2026-10-15.md) and
 [acceptance report](../docs/benchmarks/native-stream-unary-2026-10-15.md) record
-91 direct methods and 2,601 public cases passing locally; review and hosted
-integration remain pending. These are source changes after 0.6.0.
+91 direct methods and 2,601 public cases passing locally. PR #1559 completed
+all 44 hosted checks, three installed-wheel lanes and preview/production
+verification. These are source changes after 0.6.0.
+
+Current source also composes finite streaming inputs with existing `IN`/`NOT IN`,
+row membership, `EXISTS`/`NOT EXISTS`, quantified `ANY`/`ALL` and scalar subqueries.
+The inner relation must declare its sources and output schema before execution;
+indexed correlation and parameterized `outer` references are supported within
+that boundary. Shared or repeated inputs use completed native replay. Selected
+branches retain their existing evaluation rules: an unused inner producer is
+still drained and validated, without evaluating its skipped expressions or scalar
+cardinality. Every producer must finish before final success or publication.
+Subquery membership/index state remains resident under the shared grant, even
+when replay spill is enabled. Opaque dynamically declared inner sources remain
+unsupported. The [finite subquery contract](../docs/architecture/native-stream-subqueries-2026-10-15.md)
+and [acceptance report](../docs/benchmarks/native-stream-subqueries-2026-10-15.md)
+describe the exact scope and verification status. Published 0.6.0 packages keep
+their release-time behavior.
 
 The per-batch row and frame bounds still apply, with a separate 16 MiB wire-frame
 ceiling and 32 MiB native logical-intake limit per batch. Version 0.6.0

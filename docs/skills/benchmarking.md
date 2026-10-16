@@ -37,6 +37,31 @@ Use this skill for tasks involving:
 - Avoid cherry-picked results.
 - Include correctness validation for benchmark queries.
 
+## Timing communication decision
+
+Standing maintainer decision, October 15, 2026: routine timing updates, answers, and performance
+summaries report **engine time only**. This rule governs presentation; complete diagnostic
+measurements and correctness checks remain required.
+
+- Use the engine-owned `engine_execution_seconds` field. A standard Full43 total is its sum over
+  one execution of each of the 43 queries. Provide per-query engine times when requested. Identify
+  explicitly requested repeated or comparative cohorts with their declared aggregation rule.
+- Use the same engine clock, workload, and declared methodology for comparisons. Missing engine
+  clocks stay unavailable; never substitute process or supervised duration. An incomplete or
+  invalid pass has no accepted full-suite engine total.
+- Engine time includes query I/O, decoding, native operators, source checks, and provider
+  certification within the prepared execution boundary. It excludes result serialization and
+  UAT preparation, pre/post-run hashing, external result validation, archiving, and cleanup.
+- Keep other clocks, CPU/RSS observations, and supervision details in raw diagnostic evidence.
+  Show them only when explicitly requested. A timing-only answer does not need a validation-pass
+  narrative. Disclose failures or disturbances that invalidate the reported result.
+- Keep progress stage descriptions accurate: preparation before queries, engine execution during
+  queries, and verification after queries. Do not describe a longer supervised or diagnostic
+  duration as an engine regression. This policy does not remove safety or correctness checks,
+  alter the runner, or authorize a new benchmark run.
+
+The normal summary form is: `Full43 engine time: <seconds> s (43 queries, one execution each).`
+
 ## Local end-to-end observations
 
 - Freeze the source revision, build command/features, executable hash, workload,
@@ -53,25 +78,27 @@ Use this skill for tasks involving:
   shared workload guard and UAT lock. Record host load and process CPU/RSS samples
   around and during the run; ordinary desktop activity is observation context,
   not proof of an idle host or the cause of a timing change.
-- Report native ingest, the sum of complete native query processes, and actual
-  supervised workflow wall time separately. State whether hashing, validation,
+- Record native ingest, the sum of complete native query processes, and actual
+  supervised workflow wall time separately in diagnostic evidence. State whether hashing, validation,
   archiving and cleanup fall inside each clock. A sum of process times must not
   be labeled elapsed end-to-end time.
 - For all new query UAT and optimization runs, use the engine-owned prepared
-  execution clock as the primary optimization measure. Report result serialization,
+  execution clock as the primary optimization measure. Record result serialization,
   remaining process work, complete process wall time, supervisor overhead and
   complete-value validation separately. Remaining process work includes startup,
   parsing/preparation, control/report work and exit; do not mislabel that residual
   as measured startup or preparation alone. Engine elapsed includes query-time
   I/O, decoding, native operators, source checks and provider certification;
-  it is not pure CPU time. Keep process user/system CPU and peak RSS alongside it.
+  it is not pure CPU time. Keep process user/system CPU and peak RSS alongside it
+  in diagnostic evidence; apply the timing communication decision to user-facing summaries.
 - Both Full43 runners produce `query-timings.csv` and raw timing totals, retaining
   every query and repeat. A standard single pass has 43 rows. Require engine clocks
   by default; `--allow-missing-engine-timing` is only for explicitly identified
   historical binaries. Missing clocks remain unavailable. Keep ingest, build,
   input/output hashing, validation, archival, cleanup and actual workflow elapsed
-  as distinct stage measurements. Publish the complete per-query table with the
-  UAT report before returning to optimization work. Never rewrite old clock meanings.
+  as distinct stage measurements in diagnostic evidence. Include complete per-query
+  engine times with the UAT report and retain the full timing CSV before returning
+  to optimization work. Never rewrite old clock meanings.
 - Version 2 single-run and paired summaries score engine execution primarily and
   retain complete process scores under `secondary_process_wall`. The paired
   medians and candidate-minus-control deltas use the same declared clock as their
