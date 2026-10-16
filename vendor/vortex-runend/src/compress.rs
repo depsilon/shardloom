@@ -311,7 +311,12 @@ pub fn runend_decode_varbinview(
     });
 
     let view_handle = BufferHandle::new_host(decoded_views.into_byte_buffer());
-    values.with_views_and_validity(view_handle, values.dtype().clone(), validity)
+    // SAFETY: runend_decode_slice repeats complete valid source views (or valid
+    // empty defaults for null runs) and expands validity over the same runs.
+    // The payload table and value type remain unchanged.
+    unsafe {
+        values.with_views_and_validity_unchecked(view_handle, values.dtype().clone(), validity)
+    }
 }
 
 #[cfg(test)]

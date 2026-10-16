@@ -22,8 +22,9 @@ impl SliceReduce for VarBinView {
         let dtype = array.dtype().clone();
         let validity = array.validity()?.slice(range)?;
 
-        let array = array
-            .with_views_and_validity(views, dtype, validity)?
+        // SAFETY: the aligned view slice selects existing valid entries and the
+        // same row range is applied to validity; payload buffers do not change.
+        let array = unsafe { array.with_views_and_validity_unchecked(views, dtype, validity)? }
             .into_array();
 
         Ok(Some(array))

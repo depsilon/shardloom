@@ -214,7 +214,8 @@ impl VTable for VarBinView {
         VarBinViewData::check_view_layout(views_handle)?;
         let allocator = session.allocator();
 
-        // If any buffer is on device, skip host validation and use try_new_handle.
+        // Device contents remain opaque; the checked constructor still validates
+        // every available host view and every known payload-buffer extent.
         if buffers.iter().any(|b| b.is_on_device()) {
             let data = VarBinViewData::try_new_handle_in(
                 views_handle.clone(),
@@ -240,13 +241,18 @@ impl VTable for VarBinView {
             &mut session.create_execution_ctx(),
         )?;
         drop(data_buffers);
-        let data = VarBinViewData::try_new_handle_in(
-            BufferHandle::new_host(views.into_byte_buffer()),
-            data_handles.iter().cloned(),
-            dtype.clone(),
-            validity.clone(),
-            &allocator,
-        )?;
+        // SAFETY: validate_and_fix checked all non-null values against exactly
+        // these host payloads and replaced null slots with valid empty views.
+        // Dropping the temporary handle list does not change the buffers.
+        let data = unsafe {
+            VarBinViewData::try_new_handle_in_unchecked(
+                BufferHandle::new_host(views.into_byte_buffer()),
+                data_handles.iter().cloned(),
+                dtype.clone(),
+                validity.clone(),
+                &allocator,
+            )?
+        };
         let slots = VarBinViewData::make_slots(&validity, len);
         Ok(ArrayParts::new(self.clone(), dtype.clone(), len, data).with_slots(slots))
     }

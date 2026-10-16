@@ -21,15 +21,16 @@ pub fn filter_varbinview(array: &VarBinViewArray, mask: &Arc<MaskValues>) -> Var
     let views = Buffer::<BinaryView>::from_byte_buffer(array.views_handle().as_host().clone());
     let filtered_views = buffer::filter_buffer(views, mask.as_ref());
 
-    // Only layout/nullability checks run here; the subset of views and the same
-    // validity mask preserve the existing invariants without allocating a table.
-    array
-        .with_views_and_validity(
+    // SAFETY: filtering copies a subset of the original valid views and applies
+    // the same mask to validity. The payload table and value type are unchanged.
+    unsafe {
+        array.with_views_and_validity_unchecked(
             BufferHandle::new_host(filtered_views.into_byte_buffer()),
             array.dtype().clone(),
             filtered_validity,
         )
-        .vortex_expect("filtered views preserve VarBinView layout and validity")
+    }
+    .vortex_expect("filtered views preserve VarBinView layout and validity")
 }
 
 #[cfg(test)]

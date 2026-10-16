@@ -217,6 +217,9 @@ fn native_varbin_table_sharing_survives_native_transformations() {
     let taken = array
         .take(PrimitiveArray::from_iter([2u32, 0]).into_array())
         .unwrap();
+    let taken_with_nulls = array
+        .take(PrimitiveArray::from_option_iter([Some(2u32), None, Some(0), Some(2)]).into_array())
+        .unwrap();
     let canonical = array
         .clone()
         .execute::<CanonicalValidity>(&mut ctx)
@@ -235,10 +238,32 @@ fn native_varbin_table_sharing_survives_native_transformations() {
     let empty = empty.execute::<VarBinViewArray>(&mut ctx).unwrap();
     assert!(empty.data_buffers().is_empty());
     assert_eq!(empty.metadata_capacity_bytes(), 0);
-    for result in [slice, cast, filtered, taken, canonical, recursive] {
+    for (result, expected) in [
+        (slice, vec![Some(1)]),
+        (cast, vec![Some(0), Some(1), Some(2)]),
+        (filtered, vec![Some(0), Some(2)]),
+        (taken, vec![Some(2), Some(0)]),
+        (taken_with_nulls, vec![Some(2), None, Some(0), Some(2)]),
+        (canonical, vec![Some(0), Some(1), Some(2)]),
+        (recursive, vec![Some(0), Some(1), Some(2)]),
+    ] {
         let result = result.execute::<VarBinViewArray>(&mut ctx).unwrap();
         assert_eq!(Arc::as_ptr(result.data_buffers()), identity);
         assert_eq!(result.metadata_capacity_bytes() as u64, table);
+        assert_eq!(result.len(), expected.len());
+        let valid = result
+            .validity()
+            .unwrap()
+            .execute_mask(result.len(), &mut ctx)
+            .unwrap();
+        for (row, source) in expected.into_iter().enumerate() {
+            assert_eq!(valid.value(row), source.is_some());
+            if let Some(source) = source {
+                assert_eq!(result.bytes_at(row), input.bytes_at(source));
+            } else {
+                assert!(result.bytes_at(row).is_empty());
+            }
+        }
         copies.push(result);
     }
     drop((array, output, ctx, session));
@@ -387,6 +412,41 @@ fn native_varbin_table_rebuild_validates_layout_and_keeps_outer_owner() {
             )
             .is_err()
     );
+    // Identical view bytes may reuse content validation, even with a different
+    // buffer owner, but cannot bypass dtype/nullability/validity-length checks.
+    for views in [
+        output.views_handle().clone(),
+        BufferHandle::new_host(ByteBuffer::copy_from(
+            output.views_handle().as_host().as_slice(),
+        )),
+    ] {
+        for len in [output.len() - 1, output.len() + 1] {
+            let validity = Validity::Array(BoolArray::from_iter(vec![false; len]).into_array());
+            let error = output
+                .with_views_and_validity(views.clone(), output.dtype().as_nullable(), validity)
+                .unwrap_err();
+            assert!(error.to_string().contains("validity length differs"));
+        }
+        assert!(
+            output
+                .with_views_and_validity(views.clone(), output.dtype().clone(), Validity::AllValid)
+                .is_err()
+        );
+        let all_null = output
+            .with_views_and_validity(views, output.dtype().as_nullable(), Validity::AllInvalid)
+            .unwrap();
+        let exposed = all_null
+            .with_views_and_validity(
+                all_null.views_handle().clone(),
+                output.dtype().clone(),
+                Validity::NonNullable,
+            )
+            .unwrap();
+        for row in 0..output.len() {
+            assert_eq!(exposed.bytes_at(row), input.bytes_at(row));
+        }
+        assert!(Arc::ptr_eq(exposed.data_buffers(), output.data_buffers()));
+    }
     drop(output);
     assert_eq!(Arc::strong_count(&outer), 2);
     assert!(memory.snapshot().reserved_bytes > 0);

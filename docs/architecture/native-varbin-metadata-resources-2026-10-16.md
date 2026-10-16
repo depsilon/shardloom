@@ -2,8 +2,12 @@
 
 # Native variable-binary buffer table ownership — October 16, 2026
 
-Status: implementation, complete local acceptance, the frozen cost comparison
-and independent portable inspection pass. Hosted integration remains pending.
+Status: the initial implementation completed local acceptance. Review found
+missing content checks in safe handle construction and arbitrary view replacement.
+The corrective implementation passes focused regressions but repeats a cost-gate
+breach in both complete comparison orders. Removing redundant validation within
+proven native transformations and refreshing acceptance remain in progress.
+Hosted integration remains pending.
 The [acceptance report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
 records the exact source, checks, cost decision and one-pass Full43 observation.
 `NATIVE-VARBIN-METADATA-RESOURCES` extends PERF-03/06/08/09 under
@@ -112,6 +116,18 @@ code. Existing validated view construction can reuse its existing unsafe
 constructors with the same documented invariants; prefer checked parts APIs
 for owner-preserving reconstruction.
 
+Safe constructors and arbitrary view replacement validate all host-readable
+values, including null slots. Newly decoded bytes and arbitrary caller-supplied
+views cannot bypass UTF-8, prefix, range or buffer-index validation. Proven
+native selection, unchanged validity reconstruction and non-compacting append
+may reuse existing validated values through explicit unsafe provider helpers
+with per-call safety arguments. These helpers retain shape, dtype, validity and
+ownership checks and reuse the existing unchecked constructor; they add no
+raw-pointer operations or workspace unsafe code. Safe replacement can reuse
+validation for a byte-identical host view buffer against the same payload table,
+including an owner-only buffer wrapper, while still checking shape and dtype.
+Opaque device contents are not read, and later host replacement validates them.
+
 ## Acceptance protocol
 
 Before runtime edits, commit the unchanged-production baseline plus the same
@@ -167,6 +183,10 @@ competitive claims. `fallback_attempted=false` and `external_engine_invoked=fals
 remain required throughout.
 
 ## Local acceptance
+
+The following records the initial pre-review implementation. It does not accept
+the constructor correction or its subsequent optimization; refreshed evidence is
+required for the final source revision.
 
 All six Rust gates pass: 3,221 workspace tests and 4,315 native tests, including
 all 21 added regressions. Four standalone provider suites pass 3,587 tests;

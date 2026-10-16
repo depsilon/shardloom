@@ -57,17 +57,20 @@ impl TakeExecute for VarBinView {
             take_views(array.views(), indices.as_slice::<I>(), &indices_mask)
         });
 
-        Ok(Some(
+        // SAFETY: take_views copies valid source entries, substituting a valid
+        // empty view for null indices. The payload table and value type remain
+        // unchanged, and validity follows exactly those indices.
+        Ok(Some(unsafe {
             array
-                .with_views_and_validity(
+                .with_views_and_validity_unchecked(
                     BufferHandle::new_host(views_buffer.into_byte_buffer()),
                     array
                         .dtype()
                         .union_nullability(indices.dtype().nullability()),
                     validity,
                 )?
-                .into_array(),
-        ))
+                .into_array()
+        }))
     }
 }
 
@@ -110,15 +113,17 @@ fn take_contiguous_ranges(
     };
     let validity = array.validity()?.take(indices_ref)?;
 
-    Ok(Some(
+    // SAFETY: the checked gather copies whole valid views from source slices;
+    // the payload table is unchanged and validity uses the same indices.
+    Ok(Some(unsafe {
         array
-            .with_views_and_validity(
+            .with_views_and_validity_unchecked(
                 BufferHandle::new_host(views.into_byte_buffer()),
                 array.dtype().clone(),
                 validity,
             )?
-            .into_array(),
-    ))
+            .into_array()
+    }))
 }
 
 fn take_views<I: AsPrimitive<usize>>(

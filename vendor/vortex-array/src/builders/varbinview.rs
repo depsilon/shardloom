@@ -128,13 +128,19 @@ impl AdmittedVarBinViewBuilder {
             .nulls
             .finish_with_nullability(self.inner.dtype.nullability());
         let views = std::mem::take(&mut self.inner.views_builder).freeze();
-        let data = VarBinViewData::from_admitted_handles(
-            BufferHandle::new_host(views.into_byte_buffer()),
-            buffers,
-            owner,
-            self.inner.dtype.clone(),
-            validity.clone(),
-        )?;
+        // SAFETY: this restricted builder only appends valid host VarBinView
+        // arrays of the same dtype. The non-compacting append copies complete
+        // views, including valid null-slot views, and rebases their indices into
+        // the identical appended buffers. Table growth was checked before append.
+        let data = unsafe {
+            VarBinViewData::from_admitted_handles_unchecked(
+                BufferHandle::new_host(views.into_byte_buffer()),
+                buffers,
+                owner,
+                self.inner.dtype.clone(),
+                validity.clone(),
+            )?
+        };
         VarBinViewArray::try_from_parts(
             ArrayParts::new(VarBinView, self.inner.dtype.clone(), len, data).with_slots(
                 VarBinViewSlots {

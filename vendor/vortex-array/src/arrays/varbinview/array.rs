@@ -231,13 +231,17 @@ impl VarBinViewData {
             "VarBinView validity length differs from its views"
         );
         let views = Self::validate_and_fix(views, buffers, &dtype, &validity, ctx)?;
-        Self::try_new_handle_in(
-            BufferHandle::new_host(views.into_byte_buffer()),
-            buffers.iter().cloned().map(BufferHandle::new_host),
-            dtype,
-            validity,
-            &ctx.allocator(),
-        )
+        // SAFETY: validation checked every non-null value against these exact
+        // buffers and replaced null slots with valid empty views.
+        unsafe {
+            Self::try_new_handle_in_unchecked(
+                BufferHandle::new_host(views.into_byte_buffer()),
+                buffers.iter().cloned().map(BufferHandle::new_host),
+                dtype,
+                validity,
+                &ctx.allocator(),
+            )
+        }
     }
 
     /// Construct an admitted table from host or device handles. Host views are
@@ -254,16 +258,29 @@ impl VarBinViewData {
         validity: Validity,
         allocator: &HostAllocatorRef,
     ) -> VortexResult<Self> {
-        Self::check_view_layout(&views)?;
-        Self::check_nullability(&dtype, &validity)?;
-        if let Validity::Array(bitmap) = &validity {
-            vortex_ensure!(
-                bitmap.len() == views.len() / size_of::<BinaryView>(),
-                "VarBinView validity length differs from its views"
-            );
-        }
+        Self::check_handle_shape(&views, &dtype, &validity)?;
         let (buffers, owner) = MetadataVec::from_iter(buffers, allocator)?.into_arc()?;
         Self::from_admitted_handles(views, buffers, owner, dtype, validity)
+    }
+
+    /// Admit a table whose value contents have already been validated.
+    ///
+    /// # Safety
+    ///
+    /// Every host-readable view, including null slots, must satisfy the value
+    /// invariants of `new_handle_unchecked` against these exact buffers and dtype.
+    pub(crate) unsafe fn try_new_handle_in_unchecked(
+        views: BufferHandle,
+        buffers: impl ExactSizeIterator<Item = BufferHandle>,
+        dtype: DType,
+        validity: Validity,
+        allocator: &HostAllocatorRef,
+    ) -> VortexResult<Self> {
+        Self::check_handle_shape(&views, &dtype, &validity)?;
+        let (buffers, owner) = MetadataVec::from_iter(buffers, allocator)?.into_arc()?;
+        // SAFETY: the caller established value invariants; table conversion
+        // preserves the handles and their order, with all storage admitted.
+        unsafe { Self::from_admitted_handles_unchecked(views, buffers, owner, dtype, validity) }
     }
 
     pub(crate) fn from_admitted_handles(
@@ -273,18 +290,40 @@ impl VarBinViewData {
         dtype: DType,
         validity: Validity,
     ) -> VortexResult<Self> {
-        let mut data = Self::try_new_handle(views, buffers, dtype, validity)?;
+        Self::try_new_handle(views, buffers, dtype, validity)?.with_table_owner(owner)
+    }
+
+    /// Attach an admitted table without re-reading already validated values.
+    ///
+    /// # Safety
+    ///
+    /// The view/value contents must satisfy `new_handle_unchecked`, including
+    /// null slots. Shape, dtype, validity length and table credit remain checked.
+    pub(crate) unsafe fn from_admitted_handles_unchecked(
+        views: BufferHandle,
+        buffers: Arc<[BufferHandle]>,
+        owner: Arc<MetadataReservation>,
+        dtype: DType,
+        validity: Validity,
+    ) -> VortexResult<Self> {
+        Self::check_handle_shape(&views, &dtype, &validity)?;
+        // SAFETY: the caller established contents; the remaining structural
+        // requirements were checked above.
+        unsafe { Self::new_handle_unchecked(views, buffers, dtype, validity) }.with_table_owner(owner)
+    }
+
+    fn with_table_owner(mut self, owner: Arc<MetadataReservation>) -> VortexResult<Self> {
         vortex_ensure!(
             owner.bytes
-                == data
+                == self
                     .buffers
                     .len()
                     .checked_mul(size_of::<BufferHandle>())
                     .ok_or_else(|| vortex_err!("VarBinView metadata capacity overflow"))?,
             "VarBinView retained table differs from its admission"
         );
-        data.table_owner = Some(owner);
-        Ok(data)
+        self.table_owner = Some(owner);
+        Ok(self)
     }
 
     /// Constructs a new `VarBinViewArray`.
@@ -315,14 +354,7 @@ impl VarBinViewData {
         dtype: &DType,
         validity: &Validity,
     ) -> VortexResult<()> {
-        Self::check_view_layout(views)?;
-        let check_utf8 = Self::check_nullability(dtype, validity)?;
-        vortex_ensure!(
-            validity
-                .maybe_len()
-                .is_none_or(|len| len == views.len() / size_of::<BinaryView>()),
-            "VarBinView validity length differs from its views"
-        );
+        let check_utf8 = Self::check_handle_shape(views, dtype, validity)?;
         let Some(host_views) = views.as_host_opt() else {
             // This path retains opaque device handles only. It does not read,
             // copy, or certify their contents for execution on the host.
@@ -342,6 +374,22 @@ impl VarBinViewData {
             )?;
         }
         Ok(())
+    }
+
+    fn check_handle_shape(
+        views: &BufferHandle,
+        dtype: &DType,
+        validity: &Validity,
+    ) -> VortexResult<bool> {
+        Self::check_view_layout(views)?;
+        let check_utf8 = Self::check_nullability(dtype, validity)?;
+        vortex_ensure!(
+            validity
+                .maybe_len()
+                .is_none_or(|len| len == views.len() / size_of::<BinaryView>()),
+            "VarBinView validity length differs from its views"
+        );
+        Ok(check_utf8)
     }
 
     pub(super) fn check_view_layout(views: &BufferHandle) -> VortexResult<()> {
@@ -819,7 +867,40 @@ pub trait VarBinViewArrayExt: TypedArrayRef<VarBinView> {
             self.as_ref().dtype().eq_ignore_nullability(&dtype),
             "VarBinView reconstruction cannot change its value type"
         );
-        VarBinViewData::validate_handle_contents(&views, &self.buffers, &dtype, &validity)?;
+        let same_host_views = views
+            .as_host_opt()
+            .zip(self.views.as_host_opt())
+            .is_some_and(|(new, original)| new.as_slice() == original.as_slice());
+        if !same_host_views {
+            VarBinViewData::validate_handle_contents(&views, &self.buffers, &dtype, &validity)?;
+        }
+        // SAFETY: either the bytes equal the original valid views against the
+        // unchanged payload table, or all newly readable contents were checked.
+        // Shape and validity are checked again by the reconstruction helper.
+        unsafe { self.with_views_and_validity_unchecked(views, dtype, validity) }
+    }
+
+    /// Reconstruct a proven selection of valid views while retaining table credit.
+    /// Shape, dtype, validity and the outer array remain checked.
+    ///
+    /// # Safety
+    ///
+    /// Every host-readable view, including null slots, must satisfy the value
+    /// invariants of `VarBinViewData::new_handle_unchecked` against this array's
+    /// unchanged payload table and value type. Native kernels may copy, repeat
+    /// or slice valid views, or introduce valid empty views; arbitrary caller
+    /// input must use `with_views_and_validity` instead.
+    unsafe fn with_views_and_validity_unchecked(
+        &self,
+        views: BufferHandle,
+        dtype: DType,
+        validity: Validity,
+    ) -> VortexResult<Array<VarBinView>> {
+        vortex_ensure!(
+            self.as_ref().dtype().eq_ignore_nullability(&dtype),
+            "VarBinView reconstruction cannot change its value type"
+        );
+        VarBinViewData::check_handle_shape(&views, &dtype, &validity)?;
         let len = views.len() / size_of::<BinaryView>();
         let data = VarBinViewData {
             buffers: Arc::clone(&self.buffers),

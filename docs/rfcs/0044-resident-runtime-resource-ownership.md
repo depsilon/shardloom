@@ -216,6 +216,19 @@ authorized. The design's complete ownership, cost and workflow gates precede
 retention. Other provider/builder allocations and process RSS remain outside
 this finite extension.
 
+Safe host constructors and arbitrary view replacement must validate every
+host-readable view, including null slots, before exposing native value access.
+Within the excluded pinned providers, already validated construction and
+semantics-preserving view selection may reuse the existing unchecked constructor
+contract through explicitly unsafe helpers. Those helpers must retain structural,
+dtype, validity and ownership checks; each caller must establish the original
+view/value invariants in its safety comment. This permits no new raw-pointer
+operations, FFI, allocation implementation or workspace-crate unsafe code.
+Safe replacement may reuse the original validation when the entire host view
+buffer is byte-identical and the payload table is unchanged. Otherwise it must
+validate contents. Device contents remain opaque and host replacement validates
+newly readable values. The frozen complete-operation cost gates remain required.
+
 ## Verification
 
 PERF-04/09 numeric consumer follow-up admits a per-source-array native Primitive
