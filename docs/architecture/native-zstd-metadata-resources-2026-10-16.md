@@ -2,7 +2,7 @@
 
 # Native Zstd frame metadata ownership — October 16, 2026
 
-Status: complete local acceptance under PERF-03/06; hosted integration pending.
+Status: complete finite unit under PERF-03/06, integrated in PR #1562.
 This finite unit extends [RFC 0044](../rfcs/0044-resident-runtime-resource-ownership.md)
 after the completed compression, decoder and selected-text resource work. It
 does not close PERF-03/06 or the [local completion contract](native-local-completion-scope-2026-10-07.md).
@@ -127,7 +127,12 @@ methods, 4,827 public cases, the retained 18-cell lifecycle screen and one compl
 Full43 pass. Independent inspection verifies all 13,728 portable members and
 their complete outputs. The archive preserves this contract's original pending
 version and its predeclared gates; this status update does not alter that record.
-Hosted checks and installed-wheel evidence remain separate pending gates.
+The [hosted packet](../benchmarks/evidence/native-zstd-metadata-hosted-2026-10-16.json)
+verifies all 44 checks, unchanged accepted sources, three installed-wheel lanes
+with 100 methods each and zero skips, and actual preview/production responses
+and browser behavior. PR #1562 is merged and production deployment is complete.
+The original local acceptance record remains immutable; hosted evidence is
+recorded separately.
 
 All CG-1 through CG-23 and the conditional performance/transport queue retain
 their existing owners and proof requirements. No version bump is implied.

@@ -30,7 +30,8 @@ transfer uses fresh receiving credits without double charging the vectors.
 Its [complete local acceptance](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
 passes six Rust gates, 67 provider tests, 100 direct methods, 4,827 public cases,
 all 18 lifecycle cells and one Full43 pass. Independent portable inspection
-passes; hosted integration remains pending. Raw caller-owned construction/export,
+passes. PR #1562 completes hosted integration with all 44 checks, three
+installed-wheel lanes and verified production deployment. Raw caller-owned construction/export,
 fixed headers, allocator bookkeeping, other provider trees and process RSS
 retain their separate boundaries. Published 0.6.0 packages are unchanged.
 

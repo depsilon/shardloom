@@ -973,8 +973,11 @@ admits frame-handle and metadata vectors before allocation. Clones, slices and
 nullability casts share their owner; native transfer receives fresh credits
 without duplicate vector charges. Six Rust gates, 67 provider tests, 100 direct
 methods, 4,827 public cases, all 18 lifecycle cells and one Full43 pass succeed.
-Independent inspection verifies 13,728 evidence members. Hosted integration
-remains pending. Raw caller-owned APIs, fixed allocator/Arc overhead and process
+Independent inspection verifies 13,728 evidence members. PR #1562 merged after
+all 44 checks passed; the
+[hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-zstd-metadata-hosted-2026-10-16.json)
+verifies three installed-wheel lanes, accepted sources and preview/production
+responses and navigation. Raw caller-owned APIs, fixed allocator/Arc overhead and process
 RSS stay outside this claim; published 0.6.0 packages are unchanged.
 
 The subsequent source-only
@@ -1256,8 +1259,11 @@ The subsequent source-only
 has complete local acceptance for admitted frame-vector capacity, shared clone
 ownership and fresh receiving ownership. Six Rust gates, 67 provider tests,
 100 direct methods, 4,827 public cases, all 18 lifecycle cells and one Full43
-pass succeed; independent inspection verifies 13,728 members. Hosted integration
-remains pending. Raw caller-owned APIs, fixed allocator/Arc overhead, other
+pass succeed; independent inspection verifies 13,728 members. PR #1562 merged
+after all 44 checks passed; the
+[hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-zstd-metadata-hosted-2026-10-16.json)
+verifies three installed-wheel lanes and preview/production source and navigation.
+Raw caller-owned APIs, fixed allocator/Arc overhead, other
 codecs, unreviewed provider trees and process RSS remain outside this claim.
 The later source-only
 [selected text views](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)

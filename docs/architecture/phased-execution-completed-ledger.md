@@ -17,6 +17,39 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-ZSTD-METADATA-RESOURCES` — pinned native Zstd frame-handle and
+  protobuf-description vectors receive admission before construction under
+  PERF-03/06 and RFC 0044. Clones, slices and nullability casts share one owner;
+  encoded transfer uses fresh receiving credits and removes superseded charges.
+  - The [acceptance report](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
+    retains six Rust gates, 3,221 workspace and 4,294 native tests, 67 standalone
+    provider tests, 100 direct methods, 4,827 public cases and all 43 complete
+    query results with 61.660146584 seconds total engine time. All 18 lifecycle
+    cells preserve exact serialized bytes and satisfy the frozen cost limits.
+    Independent inspection verifies 13,728 local evidence members.
+  - [PR #1562](https://github.com/depsilon/shardloom/pull/1562) merges at
+    `123f19e54ff9e0d9cdb4596f5ff9ff721f6b47f7` after all 44 checks pass on
+    `477bbf62b51f68edb64d76676727e2582a5c2d37`. Final PR, synthetic-test and
+    merged trees match, preserving all 2,307 accepted runtime source identities.
+    Automated review reports no findings on the preceding runtime/docs commit;
+    primary review covers the subsequent four-line CI-only selection correction.
+  - The [357-member hosted packet](../benchmarks/evidence/native-zstd-metadata-hosted-2026-10-16.json)
+    verifies complete logs for 2,929 native/provider tests with 26 manual
+    exclusions, all nine new native and six vendor metadata regressions, 1,079
+    native public tests and three installed-wheel lanes passing 100 methods
+    each with zero skips. Hosted core discovers 626, runs 526 and records 14
+    skips. All sixteen preview/production responses preserve source; desktop,
+    phone, search and navigation checks pass. Production version
+    `128130ad-e608-4382-8959-b4de3cbc7bbe` completes. Independent inspection
+    verifies every archive member and all nine JPEG signatures; primary
+    verification covers the source, raw logs, responses and browser states.
+  - Original local evidence and superseded CI captures remain intact. Observed
+    production pages carry their pre-closeout wording until a later docs
+    deployment. No extra query run or package publication was used for closure.
+    Raw caller-owned APIs, fixed headers, allocator overhead, other provider
+    trees and process RSS retain their separate boundaries. The six-area/eight-
+    investigation contract and CG-1 through CG-23 remain open under their owners.
+
 - [x] `NATIVE-STREAM-DYNAMIC-SUBQUERIES` — finite declared
   sources now admit existing dynamic predicate subqueries with per-parameter
   inner schemas under PERF-03/06/07/11/12 and CG-5/19/20/21. Restrictions precede

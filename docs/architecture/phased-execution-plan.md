@@ -249,41 +249,12 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-ZSTD-METADATA-RESOURCES` complete frame metadata ownership under PERF-03/06.
-  - Source: the [October 16 provider contract](native-zstd-metadata-resources-2026-10-16.md)
-    extends RFC 0044 after completed compression/decoder/selection resource work.
-  - Current state: the [local acceptance report](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
-    verifies shared frame tables, receiving ownership and removal of superseded
-    selection/transfer charges. Six Rust gates, 67 vendor tests, 100 direct
-    methods, 4,827 public cases, the 18-cell lifecycle screen and all 43 queries
-    pass. Independent inspection verifies 13,728 portable evidence members.
-    Documentation, license, local link and desktop/phone browser checks pass;
-    hosted integration remains before completion.
-  - V1 scope classification: `required_for_v1` resource hardening within the admitted local
-    provider. The user surface is reliable resource denial and native lifetime
-    behavior; no new CLI/Python option or encoding is introduced.
-  - Scope: admit compression/deserialization frame vectors before allocation;
-    share immutable metadata for clones, slices and nullability casts; use the
-    receiving allocator for encoded transfer; replace already-charged sparse
-    selection vectors without duplicate accounting. Preserve raw API compatibility.
-  - Boundaries: native Vortex execution and serialization remain unchanged;
-    no independently supplied Zstd IPC admission, other-codec/global allocation,
-    state-spill, recovery, external execution or release expansion.
-  - Verification: negative ownership/parse/transfer tests, exact values and
-    encoded bytes, frozen complete lifecycle cost screen, default/native gates,
-    complete direct/public workflows, one Full43 pass and hosted integration.
-  - Technique review: shared metadata avoids copying before allocator work;
-    the existing execution context supplies dynamic memory admission. This
-    provider-local change does not alter PulseWeave or capillary scheduling.
-  - Next outcome: one coherent provider/runtime/test/evidence PR, with aligned
-    provenance, support boundaries, site content and completed-ledger evidence.
-    - [x] Implement shared provider storage and receiving ownership.
-    - [x] Complete correctness, denial, lifetime and full workflow gates.
-    - [x] Apply the frozen cost decision and one complete Full43 acceptance.
-    - [x] Verify portable evidence, documentation and local browser behavior.
-    - [ ] Complete hosted checks, review, integration and deployment verification.
-  - Gates: finite resource evidence for PERF-03/06 and CG-5/6/19/20/21;
-    all broader PERF and CG-1 through CG-23 obligations stay open as recorded.
+`NATIVE-ZSTD-METADATA-RESOURCES` completes in PR #1562 after all 44 checks
+pass, with unchanged accepted runtime sources, three installed-wheel lanes and
+verified preview/production responses and browser behavior. Its
+[completed ledger entry](phased-execution-completed-ledger.md) retains the
+finite ownership, lifecycle cost, local and hosted evidence. Remaining
+allocation/state/recovery work stays under the existing PERF owners below.
 
 `NATIVE-STREAM-DYNAMIC-SUBQUERIES` completes in PR #1561 after all 44 checks
 pass, with three installed-wheel lanes and verified preview/production source
@@ -3164,9 +3135,10 @@ all 44 hosted checks and verified preview/production source and navigation.
 Static-inner subqueries are integrated in PR #1560 with all 44 checks and
 verified preview/production source and navigation. Declared parameter-dependent
 predicate inners are integrated in PR #1561, with all 44 checks, three
-installed-wheel lanes and preview/production verification. Continue the
-remaining allocation/operational work under PERF-03/06, beginning with
-`NATIVE-ZSTD-METADATA-RESOURCES`, before the conditional
+installed-wheel lanes and preview/production verification. Zstd frame metadata
+ownership is integrated in PR #1562 with all 44 checks, three installed-wheel
+lanes and verified production deployment. Continue the remaining
+allocation/operational work under PERF-03/06 before the conditional
 investigations and encoded transport. Dynamic scalar output-schema inference
 and opaque source discovery retain their explicit boundaries.
 

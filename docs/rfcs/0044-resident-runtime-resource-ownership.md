@@ -196,7 +196,9 @@ RSS remain outside this extension. The contract's complete correctness and cost
 gates must pass before retention; this design alone is not support evidence.
 The [October 16 local acceptance](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
 passes those gates with exact serialized identity and independently inspected
-portable evidence. Hosted integration remains pending.
+portable evidence. PR #1562 completes hosted integration after all 44 checks,
+three installed-wheel lanes and preview/production verification pass; the
+report links the separate hosted evidence.
 
 ## Verification
 

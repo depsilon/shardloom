@@ -109,7 +109,10 @@ admits the two frame vectors before construction, shares ownership through
 clones/slices/nullability casts and creates fresh receiving metadata for native
 transfer. Six Rust gates, 67 provider tests, 100 direct methods, 4,827 public cases,
 all 18 lifecycle cells and one Full43 pass succeed. All 13,728 portable members
-pass independent inspection. Hosted integration remains pending. Raw caller-owned
+pass independent inspection. PR #1562 completes hosted integration after all 44
+checks, three installed-wheel lanes and preview/production verification pass.
+The [hosted packet](../benchmarks/evidence/native-zstd-metadata-hosted-2026-10-16.json)
+preserves those separate observations. Raw caller-owned
 APIs, fixed allocator/Arc overhead, other codecs and process RSS remain outside
 this requested-capacity claim. Published 0.6.0 packages are unchanged.
 

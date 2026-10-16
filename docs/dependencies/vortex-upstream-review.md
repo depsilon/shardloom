@@ -16,8 +16,9 @@ archive, member and license identities remain unchanged.
 The [complete local acceptance](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
 passes six Rust gates, 67 standalone Zstd provider tests, 100 direct methods,
 4,827 public cases, all 18 lifecycle cells and one complete Full43 pass.
-All 13,728 portable evidence members pass independent inspection; hosted
-integration remains pending. The claim covers requested frame-vector capacity,
+All 13,728 portable evidence members pass independent inspection. PR #1562
+completes hosted integration after all 44 checks, three installed-wheel lanes
+and preview/production verification pass. The claim covers requested frame-vector capacity,
 with raw caller-owned construction/export, fixed allocator/Arc overhead and
 process RSS explicitly outside it. Independently supplied IPC still does not
 admit Zstd. This extends the finite compression contract below without closing
