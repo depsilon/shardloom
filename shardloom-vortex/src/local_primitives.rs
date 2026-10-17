@@ -27047,14 +27047,28 @@ struct TransformedDictionaryDenseGeneralPlan {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[derive(Clone, Default)]
-struct TransformedDictionaryDenseGeneralState {
+#[derive(Clone)]
+struct TransformedDictionaryDenseGeneralState<Value = std::sync::Arc<str>> {
     row_count: u64,
     length_sum: f64,
     min_length: Option<u64>,
     max_length: Option<u64>,
-    min_utf8: Option<std::sync::Arc<str>>,
-    max_utf8: Option<std::sync::Arc<str>>,
+    min_utf8: Option<Value>,
+    max_utf8: Option<Value>,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl<Value> Default for TransformedDictionaryDenseGeneralState<Value> {
+    fn default() -> Self {
+        Self {
+            row_count: 0,
+            length_sum: 0.0,
+            min_length: None,
+            max_length: None,
+            min_utf8: None,
+            max_utf8: None,
+        }
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -27285,14 +27299,20 @@ enum GroupedAggregateOrderValue {
 #[cfg(feature = "vortex-local-primitives")]
 #[derive(Default)]
 struct AggregateStringInterner {
-    ids: rustc_hash::FxHashMap<std::sync::Arc<str>, u64>,
+    ids: hashbrown::HashMap<std::sync::Arc<str>, u64, rustc_hash::FxBuildHasher>,
     values: Vec<std::sync::Arc<str>>,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
 impl AggregateStringInterner {
     fn reserve(&mut self, additional: usize, label: &str) -> Result<()> {
-        reserve_hash_map_capacity(&mut self.ids, additional, label)?;
+        if additional != 0 {
+            self.ids.try_reserve(additional).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local Vortex {label} state reservation failed: {error}; no fallback execution was attempted"
+                ))
+            })?;
+        }
         self.values.try_reserve(additional).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "local Vortex {label} value reservation failed: {error}; no fallback execution was attempted"
@@ -27312,14 +27332,16 @@ impl AggregateStringInterner {
     }
 
     fn intern_dictionary(&mut self, value: &Utf8DictionaryValue) -> Result<u64> {
-        if let Some(id) = self.ids.get(value.as_ref()) {
-            return Ok(*id);
+        match self.ids.entry_ref(value.as_ref()) {
+            hashbrown::hash_map::EntryRef::Occupied(entry) => Ok(*entry.get()),
+            hashbrown::hash_map::EntryRef::Vacant(entry) => {
+                let id = usize_to_u64(self.values.len())?;
+                let owned = value.to_owned_arc();
+                self.values.push(std::sync::Arc::clone(&owned));
+                entry.insert_with_key(owned, id);
+                Ok(id)
+            }
         }
-        let id = usize_to_u64(self.values.len())?;
-        let value = value.to_owned_arc();
-        self.values.push(std::sync::Arc::clone(&value));
-        self.ids.insert(value, id);
-        Ok(id)
     }
 
     fn id(&self, value: &str) -> Option<u64> {
@@ -28992,13 +29014,14 @@ impl TransformedDictionaryDenseGeneralPlan {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-impl TransformedDictionaryDenseGeneralState {
+impl<Value: AsRef<str>> TransformedDictionaryDenseGeneralState<Value> {
     #[allow(clippy::cast_precision_loss)]
-    fn update_weighted_utf8_dictionary_value(
+    fn update_weighted_utf8_dictionary_value_with<'value>(
         &mut self,
         plan: TransformedDictionaryDenseGeneralPlan,
-        value: &Utf8DictionaryValue,
+        value: &'value Utf8DictionaryValue,
         weight: u64,
+        retain: impl Fn(&'value Utf8DictionaryValue) -> Value,
     ) -> Result<()> {
         if weight == 0 {
             return Ok(());
@@ -29036,22 +29059,39 @@ impl TransformedDictionaryDenseGeneralState {
         if plan.needs_utf8_min {
             match self.min_utf8.as_ref() {
                 Some(current) if current.as_ref() <= value.as_ref() => {}
-                Some(_) | None => self.min_utf8 = Some(value.to_owned_arc()),
+                Some(_) | None => self.min_utf8 = Some(retain(value)),
             }
         }
         if plan.needs_utf8_max {
             match self.max_utf8.as_ref() {
                 Some(current) if current.as_ref() >= value.as_ref() => {}
-                Some(_) | None => self.max_utf8 = Some(value.to_owned_arc()),
+                Some(_) | None => self.max_utf8 = Some(retain(value)),
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl TransformedDictionaryDenseGeneralState {
+    fn update_weighted_utf8_dictionary_value(
+        &mut self,
+        plan: TransformedDictionaryDenseGeneralPlan,
+        value: &Utf8DictionaryValue,
+        weight: u64,
+    ) -> Result<()> {
+        self.update_weighted_utf8_dictionary_value_with(
+            plan,
+            value,
+            weight,
+            Utf8DictionaryValue::to_owned_arc,
+        )
     }
 
     fn merge_chunk_partial(
         &mut self,
         plan: TransformedDictionaryDenseGeneralPlan,
-        partial: &Self,
+        partial: &TransformedDictionaryDenseGeneralState<&Utf8DictionaryValue>,
     ) -> Result<()> {
         if partial.row_count == 0 {
             return Ok(());
@@ -29092,7 +29132,7 @@ impl TransformedDictionaryDenseGeneralState {
         {
             match self.min_utf8.as_ref() {
                 Some(current) if current.as_ref() <= value.as_ref() => {}
-                Some(_) | None => self.min_utf8 = Some(std::sync::Arc::clone(value)),
+                Some(_) | None => self.min_utf8 = Some(value.to_owned_arc()),
             }
         }
         if plan.needs_utf8_max
@@ -29100,7 +29140,7 @@ impl TransformedDictionaryDenseGeneralState {
         {
             match self.max_utf8.as_ref() {
                 Some(current) if current.as_ref() >= value.as_ref() => {}
-                Some(_) | None => self.max_utf8 = Some(std::sync::Arc::clone(value)),
+                Some(_) | None => self.max_utf8 = Some(value.to_owned_arc()),
             }
         }
         Ok(())
@@ -33811,8 +33851,13 @@ impl<'a> GroupedAggregateStates<'a> {
         counts: &[u64],
     ) -> Result<()> {
         let active_values = counts.iter().filter(|count| **count > 0).count();
-        let mut partials =
-            rustc_hash::FxHashMap::<&str, TransformedDictionaryDenseGeneralState>::default();
+        // The dictionary outlives this synchronous reduction. Temporary extrema
+        // can borrow it; only winners adopted by global state need an independent
+        // payload, so neither discarded copies nor provider owners escape.
+        let mut partials = rustc_hash::FxHashMap::<
+            &str,
+            TransformedDictionaryDenseGeneralState<&Utf8DictionaryValue>,
+        >::default();
         reserve_hash_map_capacity(
             &mut partials,
             active_values.min(group_values.len()),
@@ -33825,7 +33870,7 @@ impl<'a> GroupedAggregateStates<'a> {
             partials
                 .entry(aggregate_url_domain_str(value))
                 .or_default()
-                .update_weighted_utf8_dictionary_value(plan, value, count)?;
+                .update_weighted_utf8_dictionary_value_with(plan, value, count, |value| value)?;
         }
         if let Some(groups) = self.transformed_dictionary_dense_general_groups.as_mut() {
             reserve_hash_map_capacity(

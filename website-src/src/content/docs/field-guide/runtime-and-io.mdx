@@ -9,7 +9,7 @@ Python, SQL, DataFrame-style calls, and the CLI lower admitted work into the sam
 ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
 writers around that middle; they do not select a different query engine.
 
-Current capabilities, reviewed October 16, 2026.
+Current capabilities, reviewed October 17, 2026.
 
 ## Native Execution
 
@@ -21,6 +21,14 @@ Admitted text grouping retains input-backed dictionary strings, uses compact exa
 and shares partial construction between serial and bounded workers. Transformed text grouping
 can overlap bounded dictionary preparation with native input progress and ordered consumption.
 See the [implementation and measured tradeoffs](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md).
+
+The source-only [shared text aggregation batch](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-aggregation-2026-10-17.md)
+defers independent extrema ownership until adoption, accelerates domain delimiter search,
+reuses native dictionary lookups, narrows exact partial counts when their domains fit,
+and routes admitted typed compound keys with one complete-key buffer. Larger counts
+and other native key shapes keep their existing representations. Five focused comparisons,
+all 4,827 public cases, fresh ingestion, all 43 queries and 18 format/workflow
+cohorts pass local acceptance. No new user settings are required.
 
 Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
 provider-backed join workflows execute today. The 0.6.0 packages compose eight admitted
@@ -284,7 +292,8 @@ optional metadata and discarded in-memory tail caches are skipped. Retained sche
 and buffer clones keep their credits until their final owner drops. Complete
 local acceptance includes fresh ingestion, all 18 format/workflow cohorts and
 all 43 query results. All twenty focused ownership tests and a clean 2,924-test
-native run pass; final-head installed-wheel and hosted integration remain PR gates.
+native run pass. PR #1565 is merged after all 44 checks, three installed-wheel
+lanes and preview/production verification pass.
 Structural metadata collections, writer scratch and process RSS retain their
 separate boundaries. Published 0.6.0 packages are unchanged.
 

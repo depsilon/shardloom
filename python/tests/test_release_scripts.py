@@ -5604,7 +5604,7 @@ class ReleaseScriptTests(unittest.TestCase):
 
         (root / "README.md").write_text(
             "docs/release/public-status-matrix.md\n"
-            "performance superiority are not claimed.\n",
+            "https://shardloom.io/field-guide/limitations/\n",
             encoding="utf-8",
         )
         (root / "docs" / "release").mkdir(parents=True, exist_ok=True)
@@ -7050,7 +7050,7 @@ jobs:
             repo_root = Path(tempdir)
             self._write_public_status_docs_fixture(module, repo_root)
             (repo_root / "README.md").write_text(
-                "docs/release/public-status-matrix.md\nCurrent Support Posture\n",
+                "docs/release/public-status-matrix.md\n",
                 encoding="utf-8",
             )
             report = module.build_report(repo_root)

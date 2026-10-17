@@ -252,7 +252,7 @@ fn nullable_admission_pressure_and_cancellation_fail_without_retained_state() {
     let mut lease = memory.reserve(0).unwrap();
     assert!(
         run_count(
-            strings(&["a", "b", "c", "d"]),
+            strings(&["a", "b", "c", "d", "e"]),
             vortex::array::legacy_session().create_execution_ctx(),
             &worker,
             &mut lease
@@ -603,5 +603,228 @@ fn queued_string_tables_are_reserved_before_worker_execution_and_stay_with_outpu
     .unwrap()
     .to_string();
     assert!(error.contains("pre-reserve"));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn bounded_native_counts_reserve_compact_slots_and_keep_exact_ownership() {
+    use vortex::array::arrays::ConstantArray;
+
+    let fixtures = [
+        (strings(&["東京", "", "東京", "long outlined key"]), 8),
+        (
+            DictArray::try_new(
+                PrimitiveArray::new(vec![0_u8, 1, 0, 2], Validity::NonNullable).into_array(),
+                strings(&["東京", "", "long outlined key", "unused"]),
+            )
+            .unwrap()
+            .into_array(),
+            4,
+        ),
+        (ConstantArray::new("東京", 1_000_000_000).into_array(), 1),
+        (strings(&[]), 1),
+        (ConstantArray::new("東京", 0).into_array(), 0),
+    ];
+    for (array, slots) in fixtures {
+        // This bound rejects the old 24-byte records independently of the
+        // implementation's capacity formula.
+        let admitted = slots * 16;
+        assert_eq!(partial_bytes(&array).unwrap(), admitted);
+        let memory = LiveMemoryPool::new(admitted.max(1)).unwrap();
+        let mut lease = memory.reserve(admitted).unwrap();
+        let partial = count_string_chunk(
+            &array,
+            vortex::array::legacy_session().create_execution_ctx(),
+            &ChunkWorkerContext::Inline(CancellationToken::default()),
+            &mut lease,
+        )
+        .unwrap();
+        assert!(matches!(&partial.counts, CountSlots::Compact(_)));
+        assert_eq!(partial.work.partial_capacity_bytes, admitted);
+        assert_eq!(counts(&partial).values().sum::<u64>(), array.len() as u64);
+        drop((array, lease));
+        assert_eq!(memory.snapshot().reserved_bytes, admitted);
+        drop(partial);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn compact_and_wide_count_kernels_preserve_partitions_and_first_key_order() {
+    use vortex::array::arrays::ConstantArray;
+
+    let fixtures = [
+        strings(&["z", "東京", "", "z", "long outlined key", "東京"]),
+        DictArray::try_new(
+            PrimitiveArray::new(vec![2_i64, 0, 2, 1, 0], Validity::NonNullable).into_array(),
+            strings(&["東京", "", "z", "unused"]),
+        )
+        .unwrap()
+        .into_array(),
+        ConstantArray::new("東京", 17).into_array(),
+        strings(&[]),
+        ConstantArray::new("東京", 0).into_array(),
+    ];
+    let worker = ChunkWorkerContext::Inline(CancellationToken::default());
+    for array in fixtures {
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let compact_bytes = partial_bytes(&array).unwrap();
+        let mut compact_lease = memory.reserve(compact_bytes).unwrap();
+        let mut wide_lease = memory.reserve(compact_bytes / 16 * 24).unwrap();
+        let mut compact = count_string_chunk(
+            &array,
+            vortex::array::legacy_session().create_execution_ctx(),
+            &worker,
+            &mut compact_lease,
+        )
+        .unwrap();
+        // Exercise the same generic wide kernel with small native inputs. Huge
+        // constants below separately prove public selection of the wide path.
+        let mut wide = count_with_word::<u64>(
+            &array,
+            vortex::array::legacy_session().create_execution_ctx(),
+            &worker,
+            &mut wide_lease,
+            &mut super::super::vortex_error,
+        )
+        .unwrap();
+        assert_eq!(counts(&compact), counts(&wide));
+        assert_eq!(compact.work.rows, wide.work.rows);
+        assert_eq!(compact.work.partial_entries, wide.work.partial_entries);
+        let compact_ends = compact.arrange_partitions::<8>(&worker).unwrap();
+        let wide_ends = wide.arrange_partitions::<8>(&worker).unwrap();
+        assert_eq!(compact_ends, wide_ends);
+        let entries = usize::try_from(compact.work.partial_entries).unwrap();
+        for index in 0..entries {
+            assert_eq!(compact.entry(index).unwrap(), wide.entry(index).unwrap());
+        }
+        assert!(compact.entry(entries).is_err());
+        assert!(wide.entry(entries).is_err());
+        compact.preserve_existing_key_order();
+        wide.preserve_existing_key_order();
+        for index in 0..entries {
+            assert_eq!(compact.entry(index).unwrap(), wide.entry(index).unwrap());
+        }
+        if compact.work.partial_entries > 0 {
+            let remaining = compact.work.rows - compact.entry(0).unwrap().2;
+            compact.retain_unconsumed(1, remaining);
+            wide.retain_unconsumed(1, remaining);
+            assert_eq!(counts(&compact), counts(&wide));
+            assert_eq!(counts(&compact).values().sum::<u64>(), remaining);
+        }
+        drop((compact, wide, compact_lease, wide_lease));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[cfg(target_pointer_width = "64")]
+#[test]
+fn large_native_constant_counts_cross_u32_boundary_without_row_expansion() {
+    use vortex::array::arrays::ConstantArray;
+
+    for rows in [
+        u32::MAX as usize,
+        u32::MAX as usize + 1,
+        u32::MAX as usize + 2,
+    ] {
+        let array = ConstantArray::new("東京", rows).into_array();
+        let compact = u32::try_from(rows).is_ok();
+        let expected_bytes = if compact { 16 } else { 24 };
+        assert_eq!(partial_bytes(&array).unwrap(), expected_bytes);
+        let memory = LiveMemoryPool::new(expected_bytes).unwrap();
+        let mut lease = memory.reserve(expected_bytes).unwrap();
+        let mut partial = count_string_chunk(
+            &array,
+            vortex::array::legacy_session().create_execution_ctx(),
+            &ChunkWorkerContext::Inline(CancellationToken::default()),
+            &mut lease,
+        )
+        .unwrap();
+        assert_eq!(matches!(&partial.counts, CountSlots::Compact(_)), compact);
+        assert_eq!(partial.work.rows, rows as u64);
+        assert_eq!(partial.values.len(), 1);
+        assert_eq!(
+            counts(&partial),
+            BTreeMap::from([("東京".into(), rows as u64)])
+        );
+        partial
+            .arrange_partitions::<8>(&ChunkWorkerContext::Inline(CancellationToken::default()))
+            .unwrap();
+        assert_eq!(partial.entry(0).unwrap().2, rows as u64);
+        drop((partial, lease, array));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[cfg(all(feature = "vortex-write", unix, target_pointer_width = "64"))]
+#[test]
+fn resolved_dictionary_width_growth_is_denied_before_value_expansion() {
+    use vortex::array::{
+        arrays::{ConstantArray, StructArray},
+        scalar_fn::fns::get_item::GetItem,
+    };
+
+    let large_domain = u32::MAX as usize + 1;
+    assert!(compact_domains(1, u32::MAX as usize));
+    assert!(!compact_domains(1, large_domain));
+    assert!(!compact_domains(large_domain, 1));
+    let dictionary = DictArray::try_new(
+        PrimitiveArray::new(vec![0_u8], Validity::NonNullable).into_array(),
+        ConstantArray::new("東京", large_domain).into_array(),
+    )
+    .unwrap()
+    .into_array();
+    assert_eq!(
+        partial_bytes(&dictionary).unwrap(),
+        large_domain as u64 * 24
+    );
+    let parent = StructArray::try_new(
+        ["renamed_key"].into(),
+        vec![dictionary],
+        1,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let projected = GetItem::try_new(parent, "renamed_key")
+        .unwrap()
+        .into_array();
+    assert!(!projected.is::<Dict>());
+    let initial = partial_bytes(&projected).unwrap();
+    assert_eq!(initial, 32);
+    let memory = LiveMemoryPool::new(1024).unwrap();
+    let mut lease = memory.reserve(initial + 64).unwrap();
+    let outcome = count_admitted(
+        &projected,
+        vortex::array::legacy_session().create_execution_ctx(),
+        &ChunkWorkerContext::Inline(CancellationToken::default()),
+        &mut lease,
+    )
+    .unwrap();
+    assert!(matches!(outcome, CountOutcome::OwnedAllocationDenied(_)));
+    assert_eq!(lease.bytes(), initial + 64);
+    drop((lease, projected));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn weighted_partial_keeps_full_u64_counts_and_checks_overflow() {
+    let memory = LiveMemoryPool::new(128).unwrap();
+    let mut partial =
+        StringCountPartial::benchmark_weighted(&[("東京", 7, u64::MAX)], &memory).unwrap();
+    assert!(matches!(&partial.counts, CountSlots::Wide(_)));
+    assert_eq!(partial.entry(0).unwrap(), ("東京".as_bytes(), 7, u64::MAX));
+    partial
+        .arrange_partitions::<8>(&ChunkWorkerContext::Inline(CancellationToken::default()))
+        .unwrap();
+    assert_eq!(
+        counts(&partial),
+        BTreeMap::from([("東京".into(), u64::MAX)])
+    );
+    drop(partial);
+    assert!(
+        StringCountPartial::benchmark_weighted(&[("a", 0, u64::MAX), ("b", 1, 1)], &memory)
+            .is_err()
+    );
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

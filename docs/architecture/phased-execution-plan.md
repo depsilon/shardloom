@@ -3174,6 +3174,19 @@ behind this focus. All six remaining areas, eight conditional investigations,
 PERF owners and CG-1 through CG-23 remain open with their existing obligations.
 This changes execution order, not completion status or benchmark methodology.
 
+The file-metadata correction is now integrated in PR #1565 at `6b76ff8d` after
+all 44 checks, completed final-head review, three installed-wheel lanes and
+preview/production verification. Its
+[135-member hosted packet](../benchmarks/evidence/native-file-metadata-hosted-2026-10-17.json)
+preserves the complete logs and immutable source comparison. The shared-text
+optimization campaign below now has five retained mechanisms and complete local
+batch acceptance. Its [report](../benchmarks/native-text-aggregation-2026-10-17.md)
+records 364 focused calls, both rejected variants, 4,827 public cases, all 18
+format/workflow cohorts, fresh ingestion and 67.405259296 seconds of engine
+execution for one complete Full43 pass. The 28,286-member packet preserves all
+source and result evidence. Hosted integration remains the next boundary;
+the five focused gains are not additive or a combined causal speedup claim.
+
 The maintainer's follow-up prioritizes shared text/compound-key and aggregate
 state work used by Q29, Q19, Q23, Q34 and Q35 under PERF-01/04/05/10, followed by
 removed ingest duplication and complete physical-layout economics under
@@ -3184,6 +3197,15 @@ them. Preserve existing complete-operation ship/drop gates and controls. Reopen
 a historical drop only for a changed mechanism or newly measured opportunity;
 do not create a new search or testing framework. Prepared reuse and spill
 efficiency retain their existing owners; PERF-13 remains conditional on evidence.
+
+The October 17 batching clarification targets at least five retained improvements
+in one cohesive optimization PR. Evaluate each candidate with focused correctness
+and an isolated ship/drop comparison; run complete acceptance and the PR cycle
+at the batch boundary. Five attempts do not constitute five retained improvements.
+The [shared text aggregation campaign](native-text-aggregation-screen-2026-10-17.md)
+records the current-source attribution, candidate contracts and completed local
+acceptance for five retained mechanisms. Each original comparison and the
+preceding PR's acceptance remain immutable.
 
 Keep three production-breadth priorities alongside this campaign: the default
 structural-layout nullable-root correctness follow-up under PERF-07; native

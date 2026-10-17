@@ -1,0 +1,53 @@
+{
+  "schema_version": "shardloom.native_file_metadata_hosted_packet.v1",
+  "status": "passed",
+  "head": "0c4a78e38e486f25ca0f1306ddc33db7bd1db0f4",
+  "merge": "6b76ff8d29b785668e2d3c73852547e17b51032a",
+  "member_count": 135,
+  "raw_bytes": 10259222,
+  "all_members_reopened": true,
+  "archive": {
+    "path": "native-file-metadata-hosted-2026-10-17.tar.xz",
+    "bytes": 1691904,
+    "sha256": "1cf26bc04684368b4e0dc1f8991c69888e5f62394685d1d3aad35636f2a98499"
+  },
+  "manifest": {
+    "path": "native-file-metadata-hosted-2026-10-17.manifest.json.xz",
+    "bytes": 6976,
+    "sha256": "4ce945e8f266619847d9288cabbbdd8ff93dba69e4b77e3b5949ba1327314ed7"
+  },
+  "acceptance": {
+    "schema_version": "shardloom.native_file_metadata_hosted_acceptance.v1",
+    "status": "passed",
+    "pull_request": 1565,
+    "head": "0c4a78e38e486f25ca0f1306ddc33db7bd1db0f4",
+    "merge": "6b76ff8d29b785668e2d3c73852547e17b51032a",
+    "checks_passed": 44,
+    "review_threads_resolved": 11,
+    "unresolved_review_threads": 0,
+    "open_pr_code_scanning_alerts": 0,
+    "compiled_source_files_verified": 2410,
+    "native_tests_passed": 6744,
+    "native_manual_exclusions": 27,
+    "native_file_metadata_regressions": 20,
+    "public_tests_passed": 1079,
+    "installed_wheel_lanes": 3,
+    "installed_wheel_methods_each": 100,
+    "python_core": {
+      "discovered": 626,
+      "console_tests_run": 526,
+      "skipped": 14
+    },
+    "preview_http_responses": 8,
+    "production_http_responses": 8,
+    "preview_byte_identical": 8,
+    "production_byte_identical": 2,
+    "production_source_preserved_with_declared_cloudflare_insertion": true,
+    "browser_search_navigation_responsive_console": "passed",
+    "local_acceptance_index": "docs/benchmarks/evidence/native-file-metadata-review-2026-10-17.json",
+    "runtime_optimization_source_excluded_from_PR_source_verification": true,
+    "publication_attempted": false,
+    "performance_claim": false
+  },
+  "hosted_integration_complete": true
+}

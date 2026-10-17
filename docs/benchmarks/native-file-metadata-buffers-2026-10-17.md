@@ -8,8 +8,9 @@ session allocator. Retained schemas, layouts and buffer clones keep their
 credits until their final owner drops. The [contract](../architecture/native-file-metadata-buffers-2026-10-16.md)
 defines the finite ownership boundary and preserved raw compatibility API.
 The reader also skips unrequested optional metadata and avoids constructing a
-discarded cache for in-memory opens. Corrected local acceptance is complete;
-final-head installed-wheel and hosted integration remain PR gates.
+discarded cache for in-memory opens. Corrected local and hosted acceptance are
+complete. [PR #1565](https://github.com/depsilon/shardloom/pull/1565) merged at
+`6b76ff8d29b785668e2d3c73852547e17b51032a` after all 44 checks passed.
 
 ## Accepted source and correctness
 
@@ -57,6 +58,25 @@ the full Cartesian product of inputs and outputs. Pandas supplies an independent
 testing oracle only; all ShardLoom execution remains native with no fallback.
 Full43 compares complete values with the retained native reference packet and
 checks exact schemas, native certificates and resource declarations.
+
+## Hosted integration
+
+The [135-member hosted packet](evidence/native-file-metadata-hosted-2026-10-17.json)
+binds final PR head `0c4a78e3`, its CI merge and the merged commit to all 2,410
+source identities of the accepted frozen CLI and binding. Complete raw logs
+confirm 6,744 native/provider tests, including all twenty file-metadata ownership
+regressions, and 1,079 public-route tests. The 27 declared native manual exclusions
+remain explicit. All three installed-wheel lanes pass 100 methods each without
+failures or skips. All eleven review threads are resolved; the final-head review
+reports no findings and no PR code-scanning alerts remain open.
+
+Preview and production each preserve reviewed source across eight HTTP responses;
+the production check admits only its recorded Cloudflare script insertion.
+Desktop/mobile rendering, search for the current 68.767-second evidence,
+section navigation, the mobile menu and browser-console checks pass. Every
+hosted packet member is reopened and hashed. The local packets retain their
+historical premerge status; this separate packet completes their hosted proof.
+No benchmark was rerun for integration and no package was published.
 
 ## Engine timing observations
 
