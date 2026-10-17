@@ -109,6 +109,19 @@ phase note. They are not active queue state and do not override `phased-executio
 - Prohibited: DataFusion, DuckDB, Spark, Polars, Velox, `vortex-datafusion`, or similar engines
   executing unsupported ShardLoom residual work as fallback.
 
+## October 16 file metadata buffer provider check
+
+The [file metadata contract](native-file-metadata-buffers-2026-10-16.md) uses the
+existing `VortexOpenOptions`, `FooterDeserializer`, `MemorySessionExt` and
+`HostAllocator` surfaces. The reviewed `vortex-file` 0.85.0 patch admits copied
+footer/schema/layout bytes, cached-segment realignment and optional metadata
+payloads before allocation. Native views and clones retain the buffer owner;
+already aligned cached slices remain shared. Its fallible `try_prefix_data`
+is used by file opens; the original raw `prefix_data` remains a compatibility
+surface. The original archive, Apache-2.0 license and local changes are recorded
+under `vendor/vortex-file`. Structural metadata collections and writer scratch
+remain separate obligations; acceptance is governed by the linked contract.
+
 ## October 11 bounded persisted statistics provider check
 
 The [persisted-output unit](native-persisted-reuse-2026-10-11.md) uses Vortex

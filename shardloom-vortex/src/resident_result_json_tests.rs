@@ -119,6 +119,9 @@ fn empty_retained_projection_keeps_schema_and_rejects_unknown_json_fields() {
     assert_eq!(json.value(), "[]");
     drop(json);
     drop(arrays);
+    // The retained schema still owns the serialized file DType.
+    assert!(memory.snapshot().reserved_bytes > 0);
+    drop(expected_dtype);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 

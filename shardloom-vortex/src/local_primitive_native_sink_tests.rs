@@ -857,6 +857,9 @@ fn empty_completed_result_writes_native_schema_after_source_owner_drops() {
     let (dtype, rows) = read_complete(&output);
     assert_eq!(dtype, expected_dtype);
     assert_eq!(rows, [] as [serde_json::Value; 0]);
+    // The retained schema still owns the serialized file DType.
+    assert!(memory.snapshot().reserved_bytes > 0);
+    drop(expected_dtype);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 

@@ -1118,6 +1118,17 @@ records the measured scope and preserved staged work. No PERF or competitive gat
   - Execution checklist:
     - [ ] Extend shared admission to remaining Vortex I/O/codec/operator work
       and prove I/O progress within the CPU ceiling.
+      The next finite reader allocation class is
+      [native file metadata buffers](native-file-metadata-buffers-2026-10-16.md):
+      footer growth, copied schema/layout bytes, cached-segment realignment and
+      explicitly requested user-metadata payloads. Source intake is complete;
+      three original-provider regressions reproduce the gap. All sixteen focused
+      ownership tests, 139 provider tests and its strict library lint pass.
+      Workspace, native public-route and preparation checks also pass; the
+      contract records two corrected schema-lifetime test assertions and their
+      focused reruns. Release-artifact and hosted acceptance remain pending.
+      Structural metadata collections and preparation I/O lifetimes retain
+      separate evidence requirements.
     - [ ] Verify actual provider scheduling across driver-free configurable
       sessions, including prepared sort/filter/projection paths. The October 11
       retained-file observation shows a material wall/CPU change in Q24; the
@@ -1243,6 +1254,12 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       materialization or serialized JSON reconstruction.
     - [ ] Carry executable arrays, selections, validity and retained ownership
       through the remaining physical result and compatibility sink families.
+      Verify nullable-root projection through the default upstream struct layout:
+      the [file metadata intake](native-file-metadata-buffers-2026-10-16.md#provider-test-integration-and-separate-nullable-root-finding)
+      preserves a failing whole-root scan caused by nonnullable root packing.
+      Keep this source/type correction separate from byte-buffer admission;
+      existing persisted flat-layout readback does not prove the default layout
+      or a dedicated nullable-root spill workflow.
     - [ ] Complete compatibility streaming destinations and fanout from one
       single-use execution, with owned retention or spooling where required;
       validate all input before publication and preserve partial-commit recovery.
