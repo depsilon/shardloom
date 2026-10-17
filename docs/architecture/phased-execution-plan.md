@@ -257,8 +257,10 @@ the ledger.
     PR #1563 review found missing content checks in safe constructors and view
     replacement. The correction passes focused regressions but repeats a cost
     breach in both comparison orders. Validated-view reuse and combined UTF-8
-    validation/view construction leave one repeated FSST cost breach. Optimizing
-    boundary checks and refreshing complete acceptance are in progress;
+    validation/view construction and prefix-based boundary checks leave one
+    repeated FSST cost breach. A separate profile captures repeated validation
+    during FSST owner attachment. Checked byte-identical buffer replacement and
+    refreshed complete acceptance are in progress;
     the initial packet does not accept this revised source. Hosted integration
     remains pending. The Zstd frame-table unit remains complete.
   - V1 scope classification: `required_for_v1` finite allocation coverage.

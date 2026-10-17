@@ -76,8 +76,48 @@ fn malformed_host_views(input: &VarBinViewArray) -> Vec<(&'static str, BinaryVie
     ]
 }
 
+fn assert_parts_validate_changed_value_type() {
+    for bytes in [
+        &[0xff][..],
+        b"outlined invalid UTF-8: \xff".as_slice(),
+        "valid UTF-8: λ猫🙂".as_bytes(),
+    ] {
+        for validity in [Validity::AllValid, Validity::AllInvalid] {
+            let memory = LiveMemoryPool::new(1 << 20).unwrap();
+            let session = session(&memory);
+            let raw = VarBinViewArray::from_iter_nullable_bin([Some(bytes)]);
+            let source = admit(&raw, &session)
+                .unwrap()
+                .with_views_and_validity(
+                    raw.views_handle().clone(),
+                    DType::Binary(Nullability::Nullable),
+                    validity,
+                )
+                .unwrap();
+            let table = memory.snapshot().reserved_bytes;
+            let changed = VarBinViewArray::try_from_parts(
+                ArrayParts::new(
+                    VarBinView,
+                    DType::Utf8(Nullability::Nullable),
+                    source.len(),
+                    source.data().clone(),
+                )
+                .with_slots(source.slots().iter().cloned().collect()),
+            );
+            assert_eq!(changed.is_ok(), std::str::from_utf8(bytes).is_ok());
+            if let Ok(changed) = changed {
+                assert_eq!(changed.bytes_at(0), source.bytes_at(0));
+            }
+            assert_eq!(memory.snapshot().reserved_bytes, table);
+            drop(source);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
 #[test]
 fn native_varbin_table_safe_constructors_reject_malformed_host_views_and_refund() {
+    assert_parts_validate_changed_value_type();
     let input = raw();
     let memory = LiveMemoryPool::new(1 << 20).unwrap();
     let session = session(&memory);
@@ -176,10 +216,10 @@ fn native_varbin_table_safe_constructors_reject_malformed_host_views_and_refund(
 fn native_varbin_table_safe_replacement_rejects_malformed_host_views_and_preserves_owner() {
     let input = raw();
     let memory = LiveMemoryPool::new(1 << 20).unwrap();
-    let output = admit(&input, &session(&memory)).unwrap();
+    let session = session(&memory);
+    let output = admit(&input, &session).unwrap();
     let table = memory.snapshot().reserved_bytes;
     let identity = Arc::as_ptr(output.data_buffers());
-    let mut accepted = Vec::new();
     for (case, view) in malformed_host_views(&input) {
         for validity in [Validity::NonNullable, Validity::AllInvalid] {
             let result = output.with_views_and_validity(
@@ -187,21 +227,90 @@ fn native_varbin_table_safe_replacement_rejects_malformed_host_views_and_preserv
                 DType::Utf8(validity.nullability()),
                 validity.clone(),
             );
-            if result.is_ok() {
-                accepted.push((case, validity));
-            }
+            assert!(result.is_err(), "view replacement accepted {case}");
             drop(result);
+            let source = output
+                .with_views_and_validity(
+                    output.views_handle().clone(),
+                    DType::Utf8(validity.nullability()),
+                    validity,
+                )
+                .unwrap();
+            let mut changed = source.views().to_vec();
+            changed[0] = view;
+            assert!(
+                VarBinView::with_buffer_handles_in(
+                    source.as_view(),
+                    BufferHandle::new_host(Buffer::copy_from(changed).into_byte_buffer()),
+                    source.data_buffers().iter().cloned(),
+                    &session.allocator(),
+                )
+                .is_err(),
+                "buffer replacement accepted {case}"
+            );
             assert_eq!(memory.snapshot().reserved_bytes, table);
             assert_eq!(Arc::as_ptr(output.data_buffers()), identity);
             assert_eq!(output.bytes_at(0), input.bytes_at(0));
         }
     }
+    // Identical views cannot certify changed payload bytes, including null slots.
+    for validity in [Validity::NonNullable, Validity::AllInvalid] {
+        let source = output
+            .with_views_and_validity(
+                output.views_handle().clone(),
+                DType::Utf8(validity.nullability()),
+                validity,
+            )
+            .unwrap();
+        for change in 0..3 {
+            let mut bytes = source.data_buffers()[0].as_host().as_slice().to_vec();
+            match change {
+                0 => bytes[5] = 0xff,
+                1 => bytes[0] = b'X',
+                _ => bytes.truncate(13),
+            }
+            assert!(
+                VarBinView::with_buffer_handles_in(
+                    source.as_view(),
+                    source.views_handle().clone(),
+                    std::iter::once(BufferHandle::new_host(ByteBuffer::from(bytes))),
+                    &session.allocator(),
+                )
+                .is_err()
+            );
+            assert_eq!(memory.snapshot().reserved_bytes, table);
+        }
+        assert!(
+            VarBinView::with_buffer_handles_in(
+                source.as_view(),
+                source.views_handle().clone(),
+                std::iter::empty(),
+                &session.allocator(),
+            )
+            .is_err()
+        );
+        // A valid change is accepted through ordinary validation, rather than
+        // making byte equality a new restriction on buffer replacement.
+        let mut bytes = source.data_buffers()[0].as_host().as_slice().to_vec();
+        bytes[5] = b'X';
+        let changed = VarBinViewArray::try_from_parts(
+            VarBinView::with_buffer_handles_in(
+                source.as_view(),
+                source.views_handle().clone(),
+                std::iter::once(BufferHandle::new_host(ByteBuffer::from(bytes))),
+                &session.allocator(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(changed.bytes_at(0)[5], b'X');
+        assert_eq!(source.bytes_at(0), input.bytes_at(0));
+        assert_eq!(memory.snapshot().reserved_bytes, 2 * table);
+        drop(changed);
+        assert_eq!(memory.snapshot().reserved_bytes, table);
+    }
     drop(output);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
-    assert!(
-        accepted.is_empty(),
-        "malformed replacement views accepted: {accepted:?}"
-    );
 }
 
 #[test]
@@ -353,6 +462,82 @@ fn native_varbin_table_replacement_uses_original_allocator_and_a_distinct_table(
     // Raw payload handles do not retain table credit.
     assert_eq!(memory.snapshot().reserved_bytes, 0);
     drop(buffers);
+
+    // Rebinding byte-identical handles uses the requested table allocator while
+    // individual exported payload/view buffers retain their independent owners.
+    // Exercise both shared byte storage and independently copied equal bytes.
+    for copied in [false, true] {
+        let source_memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let source_session = self::session(&source_memory);
+        let source = admit(&input, &source_session).unwrap();
+        let receiving_memory = LiveMemoryPool::new(2 * table).unwrap();
+        let receiving_session = self::session(&receiving_memory);
+        let buffer_memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let view_bytes = source.views_handle().len() as u64;
+        let payload_bytes = source.data_buffers()[0].len() as u64;
+        let views = if copied {
+            Buffer::copy_from(source.views()).into_byte_buffer()
+        } else {
+            source.views_handle().as_host().clone()
+        };
+        let payload = if copied {
+            ByteBuffer::copy_from(source.data_buffers()[0].as_host().as_slice())
+        } else {
+            source.data_buffers()[0].as_host().clone()
+        };
+        let views = crate::owned_buffers::retain_credit(
+            views,
+            crate::owned_buffers::reserve(&buffer_memory, view_bytes).unwrap(),
+        );
+        let payload = crate::owned_buffers::retain_credit(
+            payload,
+            crate::owned_buffers::reserve(&buffer_memory, payload_bytes).unwrap(),
+        );
+        let replacement = VarBinViewArray::try_from_parts(
+            VarBinView::with_buffer_handles_in(
+                source.as_view(),
+                BufferHandle::new_host(views),
+                std::iter::once(BufferHandle::new_host(payload)),
+                &receiving_session.allocator(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(!Arc::ptr_eq(
+            source.data_buffers(),
+            replacement.data_buffers()
+        ));
+        assert_eq!(source_memory.snapshot().reserved_bytes, table);
+        assert_eq!(receiving_memory.snapshot().reserved_bytes, table);
+        assert_eq!(receiving_memory.snapshot().peak_reserved_bytes, 2 * table);
+        for row in 0..source.len() {
+            assert_eq!(replacement.bytes_at(row), source.bytes_at(row));
+        }
+        let error = VarBinView::with_buffer_handles_in(
+            source.as_view(),
+            replacement.views_handle().clone(),
+            replacement.data_buffers().iter().cloned(),
+            &receiving_session.allocator(),
+        )
+        .err()
+        .unwrap();
+        assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
+        assert_eq!(receiving_memory.snapshot().reserved_bytes, table);
+        drop((source, source_session));
+        assert_eq!(source_memory.snapshot().reserved_bytes, 0);
+        let payload = replacement.data_buffers()[0].clone();
+        let views = replacement.views_handle().clone();
+        drop((replacement, receiving_session));
+        assert_eq!(receiving_memory.snapshot().reserved_bytes, 0);
+        assert_eq!(
+            buffer_memory.snapshot().reserved_bytes,
+            view_bytes + payload_bytes
+        );
+        drop(payload);
+        assert_eq!(buffer_memory.snapshot().reserved_bytes, view_bytes);
+        drop(views);
+        assert_eq!(buffer_memory.snapshot().reserved_bytes, 0);
+    }
 }
 
 #[test]

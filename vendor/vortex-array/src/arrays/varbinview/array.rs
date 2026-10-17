@@ -115,6 +115,9 @@ pub struct VarBinViewSlots {
 pub struct VarBinViewData {
     pub(super) buffers: Arc<[BufferHandle]>,
     pub(super) views: BufferHandle,
+    // The value type under which these immutable views were constructed.
+    // Opaque device contents still require validation on host replacement.
+    pub(super) utf8_values: bool,
     // Keep last: each managed table reference must drop before its shared credit.
     pub(super) table_owner: Option<Arc<MetadataReservation>>,
 }
@@ -309,7 +312,8 @@ impl VarBinViewData {
         Self::check_handle_shape(&views, &dtype, &validity)?;
         // SAFETY: the caller established contents; the remaining structural
         // requirements were checked above.
-        unsafe { Self::new_handle_unchecked(views, buffers, dtype, validity) }.with_table_owner(owner)
+        unsafe { Self::new_handle_unchecked(views, buffers, dtype, validity) }
+            .with_table_owner(owner)
     }
 
     fn with_table_owner(mut self, owner: Arc<MetadataReservation>) -> VortexResult<Self> {
@@ -348,7 +352,7 @@ impl VarBinViewData {
         Ok(unsafe { Self::new_handle_unchecked(views, buffers, dtype, validity) })
     }
 
-    fn validate_handle_contents(
+    pub(super) fn validate_handle_contents(
         views: &BufferHandle,
         buffers: &[BufferHandle],
         dtype: &DType,
@@ -392,7 +396,7 @@ impl VarBinViewData {
         Ok(())
     }
 
-    fn check_handle_shape(
+    pub(crate) fn check_handle_shape(
         views: &BufferHandle,
         dtype: &DType,
         validity: &Validity,
@@ -495,11 +499,12 @@ impl VarBinViewData {
         dtype: DType,
         _validity: Validity,
     ) -> Self {
-        let _ =
+        let (utf8_values, _) =
             Self::dtype_parts(&dtype).vortex_expect("VarBinViewArray dtype must be utf8 or binary");
         Self {
             buffers,
             views,
+            utf8_values,
             table_owner: None,
         }
     }
@@ -931,6 +936,7 @@ pub trait VarBinViewArrayExt: TypedArrayRef<VarBinView> {
         let data = VarBinViewData {
             buffers: Arc::clone(&self.buffers),
             views,
+            utf8_values: matches!(dtype, DType::Utf8(_)),
             table_owner: self.table_owner.clone(),
         };
         let mut parts = ArrayParts::new(VarBinView, dtype, len, data)

@@ -25,6 +25,7 @@ use crate::array::Array;
 use crate::array::ArrayId;
 use crate::array::ArrayView;
 use crate::array::VTable;
+use crate::array::child_to_validity;
 use crate::arrays::varbinview::BinaryView;
 use crate::arrays::varbinview::VarBinViewData;
 use crate::arrays::varbinview::array::VarBinViewSlots;
@@ -38,6 +39,7 @@ use crate::hash::ArrayEq;
 use crate::hash::ArrayHash;
 use crate::match_each_varbin_builder;
 use crate::memory::DefaultHostAllocator;
+use crate::memory::HostAllocatorRef;
 use crate::memory::MemorySessionExt;
 use crate::serde::ArrayChildren;
 use crate::validity::Validity;
@@ -53,6 +55,61 @@ pub(crate) fn initialize(session: &VortexSession) {
 
 #[derive(Clone, Debug)]
 pub struct VarBinView;
+
+impl VarBinView {
+    /// Replace native handles with a newly admitted table in `allocator`.
+    ///
+    /// The dtype and validity stay unchanged. Byte-identical host views and
+    /// ordered payload buffers can reuse the source's value validation, including
+    /// when only reservation owners change. Any differing or newly host-readable
+    /// contents pass ordinary validation. No device contents are read or copied.
+    /// Structural checks and table admission apply to both paths. The returned
+    /// parts do not retain the source table or its outer array owner.
+    pub fn with_buffer_handles_in(
+        array: ArrayView<'_, Self>,
+        views: BufferHandle,
+        buffers: impl ExactSizeIterator<Item = BufferHandle>,
+        allocator: &HostAllocatorRef,
+    ) -> VortexResult<ArrayParts<Self>> {
+        let dtype = array.dtype().clone();
+        let validity = array.validity()?;
+        VarBinViewData::check_handle_shape(&views, &dtype, &validity)?;
+        let (buffers, owner) = MetadataVec::from_iter(buffers, allocator)?.into_arc()?;
+        let same_host_bytes = views
+            .as_host_opt()
+            .zip(array.views_handle().as_host_opt())
+            .is_some_and(|(new, original)| new.as_slice() == original.as_slice())
+            && buffers.len() == array.data_buffers().len()
+            && buffers
+                .iter()
+                .zip(array.data_buffers().iter())
+                .all(|(new, original)| {
+                    new.as_host_opt()
+                        .zip(original.as_host_opt())
+                        .is_some_and(|(new, original)| new.as_slice() == original.as_slice())
+                });
+        let data = if same_host_bytes {
+            // SAFETY: every view and ordered payload buffer is host-readable and
+            // byte-identical to the validated source, including null slots. The
+            // dtype and validity are unchanged. The new table is admitted and
+            // the helper retains structural/validity checks. Owner replacement
+            // cannot change the immutable bytes or introduce device contents.
+            unsafe {
+                VarBinViewData::from_admitted_handles_unchecked(
+                    views,
+                    buffers,
+                    owner,
+                    dtype.clone(),
+                    validity,
+                )?
+            }
+        } else {
+            VarBinViewData::from_admitted_handles(views, buffers, owner, dtype.clone(), validity)?
+        };
+        Ok(ArrayParts::new(Self, dtype, array.len(), data)
+            .with_slots(array.slots().iter().cloned().collect()))
+    }
+}
 
 impl ArrayHash for VarBinViewData {
     fn array_hash<H: Hasher>(&self, state: &mut H, accuracy: EqMode) {
@@ -113,6 +170,16 @@ impl VTable for VarBinView {
             matches!(dtype, DType::Binary(_) | DType::Utf8(_)),
             "VarBinViewArray dtype must be binary or utf8, got {dtype}"
         );
+        // ArrayParts is public and may pair binary-validated data with a UTF-8
+        // dtype. That change must establish the stronger value invariant before
+        // any safe reconstruction can rely on this array's validation.
+        if matches!(dtype, DType::Utf8(_)) && !data.utf8_values {
+            let validity = child_to_validity(
+                slots[VarBinViewSlots::VALIDITY].as_ref(),
+                dtype.nullability(),
+            );
+            VarBinViewData::validate_handle_contents(&data.views, &data.buffers, dtype, &validity)?;
+        }
         Ok(())
     }
 
@@ -151,16 +218,11 @@ impl VTable for VarBinView {
             .as_ref()
             .map(|owner| Arc::clone(&owner.allocator))
             .unwrap_or_else(|| Arc::new(DefaultHostAllocator));
-        let data = VarBinViewData::try_new_handle_in(
+        Self::with_buffer_handles_in(
+            array,
             views.clone(),
             data_buffers.iter().cloned(),
-            array.dtype().clone(),
-            array.validity()?,
             &allocator,
-        )?;
-        Ok(
-            ArrayParts::new(self.clone(), array.dtype().clone(), array.len(), data)
-                .with_slots(array.slots().iter().cloned().collect()),
         )
     }
 

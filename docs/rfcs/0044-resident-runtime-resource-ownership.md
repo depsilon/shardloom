@@ -225,9 +225,19 @@ dtype, validity and ownership checks; each caller must establish the original
 view/value invariants in its safety comment. This permits no new raw-pointer
 operations, FFI, allocation implementation or workspace-crate unsafe code.
 Safe replacement may reuse the original validation when the entire host view
-buffer is byte-identical and the payload table is unchanged. Otherwise it must
-validate contents. Device contents remain opaque and host replacement validates
-newly readable values. The frozen complete-operation cost gates remain required.
+buffer is byte-identical and the payload table is unchanged. An admitted table
+replacement may also reuse it when the complete host view buffer and every
+ordered host payload buffer are byte-identical to the original, with the same
+buffer count, dtype and validity. This includes attaching new reservation owners
+without changing bytes. Table admission and structural checks remain mandatory;
+the new table uses the explicitly selected allocator. Any changed or newly
+host-readable content must pass ordinary validation. Device contents remain
+opaque. The frozen complete-operation cost gates remain required.
+The encoding data retains its construction value type. Public array-parts
+reconstruction that pairs binary data with a UTF-8 dtype must validate the newly
+required UTF-8 invariant, including null slots, before a source array can certify
+later view or buffer reuse. This marker carries no buffer ownership and changes
+neither serialized values nor metadata accounting.
 
 ## Verification
 

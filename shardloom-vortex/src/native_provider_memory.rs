@@ -206,13 +206,12 @@ fn decode_fsst(
             Arc::clone(&data_credit),
         ))
     });
-    let retained = VarBinViewArray::try_new_handle_in(
+    let retained = VarBinViewArray::try_from_parts(VarBinView::with_buffer_handles_in(
+        output,
         BufferHandle::new_host(views),
         buffers,
-        output.dtype().clone(),
-        output.validity()?,
         &ctx.allocator(),
-    )?;
+    )?)?;
     retained.statistics().inherit_from(array.statistics());
     Ok(retained.into_array())
 }

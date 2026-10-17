@@ -7,8 +7,10 @@ missing content checks in safe handle construction and arbitrary view replacemen
 The corrective implementation passes focused regressions but repeats cost-gate
 breaches in both complete comparison orders. Reusing validated native views and
 bounded whole-buffer UTF-8 validation remove most cost breaches. Fusing exact-heap
-UTF-8 validation with view construction leaves one repeated FSST cost breach.
-Boundary-check optimization and refreshed complete acceptance are in progress.
+UTF-8 validation with view construction and prefix-based boundary checks leave
+one repeated FSST cost breach. A separate profile confirms content validation
+runs again while attaching FSST buffer owners. Checked reuse of byte-identical
+replacement buffers and refreshed complete acceptance are in progress.
 Hosted integration remains pending.
 The [acceptance report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
 records the exact source, checks, cost decision and one-pass Full43 observation.
@@ -129,6 +131,25 @@ raw-pointer operations or workspace unsafe code. Safe replacement can reuse
 validation for a byte-identical host view buffer against the same payload table,
 including an owner-only buffer wrapper, while still checking shape and dtype.
 Opaque device contents are not read, and later host replacement validates them.
+
+The existing native buffer-replacement operation also admits an explicit allocator
+and iterator of payload handles, avoiding an extra caller-owned collection when
+attaching buffer credit. It may reuse source validation only when the complete
+host view bytes and every ordered host payload buffer equal the validated source,
+including their lengths and buffer count. Dtype and validity remain those of the
+source. Any changed content or device-to-host replacement uses ordinary content
+validation. Both paths admit the new table and check shape before exposing array
+parts; they retain no source table reservation. FSST uses this operation to attach
+its separate view/payload owners after checked native construction. Individual
+buffer clones still retain their own credit. There is no new unchecked workspace
+call, raw-pointer operation or execution provider.
+
+The source invariant also applies to public array-parts reconstruction. Native
+encoding data records whether it was constructed for UTF-8. Pairing binary data
+with a UTF-8 dtype requires ordinary host-value validation, including null slots,
+before that array can certify reuse. A regression covers invalid inline and
+outlined bytes, valid multibyte text, all-valid/all-null validity and table-credit
+refund. The marker is not serialized and carries no reservation.
 
 For dense single-buffer host input with at least 64 views and no more than 64
 payload bytes per view, safe handle validation may first validate the complete
