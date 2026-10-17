@@ -442,9 +442,18 @@ impl TripleWorkers {
         let ids = aggregate_direct_utf8_dictionary_interner_ids(text, &mut states.string_interner)?;
         self.binding += started.elapsed().as_nanos();
         let started = Instant::now();
+        let direct = match ids.as_deref() {
+            Some(ids) => DirectKeys::admit(
+                [numeric, minute, text],
+                ids,
+                self.roles.minute_column_prepared,
+            )?,
+            None => None,
+        };
+        let buffers = if direct.is_some() { 1 } else { 2 };
         let bytes = chunk
             .len()
-            .checked_mul(size_of::<Key>() * 2)
+            .checked_mul(size_of::<Key>() * buffers)
             .and_then(|bytes| {
                 bytes.checked_add(
                     size_of::<RoutedKeys>()
@@ -469,24 +478,15 @@ impl TripleWorkers {
         // again. Window permits plus this per-buffer check bound captured inputs.
         let lease = self.jobs.memory().reserve(bytes)?;
         self.buffer_peak = self.buffer_peak.max(bytes);
-        let mut keys = Vec::new();
-        keys.try_reserve_exact(chunk.len()).map_err(failed)?;
-        if keys.capacity() > chunk.len() {
-            return Err(failed("key buffer exceeds admitted capacity"));
-        }
-        let mut counts = [0usize; PARTITIONS];
-        let used_direct = if let Some(ids) = ids.as_deref() {
-            direct_keys(
-                [numeric, minute, text],
-                ids,
-                self.roles.minute_column_prepared,
-                &mut keys,
-                &mut counts,
-            )?
+        let routed = if let Some(direct) = direct {
+            direct.route(|| self.jobs.check_cancelled())?
         } else {
-            false
-        };
-        if !used_direct {
+            let mut keys = Vec::new();
+            keys.try_reserve_exact(chunk.len()).map_err(failed)?;
+            if keys.capacity() > chunk.len() {
+                return Err(failed("key buffer exceeds admitted capacity"));
+            }
+            let mut counts = [0usize; PARTITIONS];
             for row in 0..chunk.len() {
                 let key = if let Some(ids) = ids.as_deref() {
                     Key::from_parts(
@@ -511,39 +511,41 @@ impl TripleWorkers {
                 counts[partition(key)] += 1;
                 keys.push(key);
             }
-        }
-        let mut ends = [0usize; PARTITIONS];
-        let mut next = [0usize; PARTITIONS];
-        let mut total = 0;
-        for index in 0..PARTITIONS {
-            next[index] = total;
-            total += counts[index];
-            ends[index] = total;
-        }
-        let mut routed = Vec::new();
-        routed.try_reserve_exact(keys.len()).map_err(failed)?;
-        if routed.capacity() > keys.len() {
-            return Err(failed("routed key buffer exceeds admitted capacity"));
-        }
-        routed.resize(
-            keys.len(),
-            Key::from_parts(
-                AggregateIntegerKeyPart {
-                    bits: 0,
-                    signed: false,
-                },
-                0,
-                0,
-            ),
-        );
-        for key in &keys {
-            let index = partition(*key);
-            routed[next[index]] = *key;
-            next[index] += 1;
-        }
-        self.total_key_bytes += u64::try_from(keys.len() * size_of::<Key>()).map_err(failed)?;
-        drop(keys);
-        let input = Budgeted::new(RoutedKeys { keys: routed, ends }, lease);
+            let mut ends = [0usize; PARTITIONS];
+            let mut next = [0usize; PARTITIONS];
+            let mut total = 0;
+            for index in 0..PARTITIONS {
+                next[index] = total;
+                total += counts[index];
+                ends[index] = total;
+            }
+            let mut routed = Vec::new();
+            routed.try_reserve_exact(keys.len()).map_err(failed)?;
+            if routed.capacity() > keys.len() {
+                return Err(failed("routed key buffer exceeds admitted capacity"));
+            }
+            routed.resize(
+                keys.len(),
+                Key::from_parts(
+                    AggregateIntegerKeyPart {
+                        bits: 0,
+                        signed: false,
+                    },
+                    0,
+                    0,
+                ),
+            );
+            for key in &keys {
+                let index = partition(*key);
+                routed[next[index]] = *key;
+                next[index] += 1;
+            }
+            drop(keys);
+            RoutedKeys { keys: routed, ends }
+        };
+        self.total_key_bytes +=
+            u64::try_from(routed.keys.len() * size_of::<Key>()).map_err(failed)?;
+        let input = Budgeted::new(routed, lease);
         let partitions = self.partitions.clone();
         self.jobs.submit(0, move |worker, _| {
             update_partitions(&partitions, input.value(), worker)
@@ -689,66 +691,152 @@ impl TripleWorkers {
     }
 }
 
-fn direct_keys(
-    accessors: [&AggregateDirectColumnAccessor; 3],
-    ids: &[u64],
+#[derive(Clone, Copy)]
+struct DirectKeys<'a> {
+    numeric: AggregateDirectIntegerKeySlice<'a>,
+    minute: AggregateDirectIntegerKeySlice<'a>,
+    row_ids: &'a [u32],
+    ids: &'a [u64],
     prepared: bool,
-    keys: &mut Vec<Key>,
-    counts: &mut [usize; PARTITIONS],
-) -> Result<bool> {
-    let [numeric, minute, text] = accessors;
-    let AggregateDirectColumnAccessor::Utf8Dictionary {
-        row_ids,
-        values,
-        value_nulls,
-        row_nulls,
-        ..
-    } = text
-    else {
-        return Ok(false);
-    };
-    if !aggregate_utf8_dictionary_value_nulls_are_absent(
-        value_nulls.as_deref(),
-        row_nulls.as_deref(),
-    ) {
-        return Ok(false);
-    }
-    if ids.len() != values.len() {
-        return Err(failed("dictionary ID domain length mismatch"));
-    }
-    let (Some(numeric), Some(minute)) = (
-        aggregate_direct_integer_key_slice(numeric),
-        aggregate_direct_integer_key_slice(minute),
-    ) else {
-        return Ok(false);
-    };
-    match (minute.signed(), prepared) {
-        (false, true) => direct_key_slices(
+}
+
+impl<'a> DirectKeys<'a> {
+    fn admit(
+        accessors: [&'a AggregateDirectColumnAccessor; 3],
+        ids: &'a [u64],
+        prepared: bool,
+    ) -> Result<Option<Self>> {
+        let [numeric, minute, text] = accessors;
+        let AggregateDirectColumnAccessor::Utf8Dictionary {
+            row_ids,
+            values,
+            value_nulls,
+            row_nulls,
+            ..
+        } = text
+        else {
+            return Ok(None);
+        };
+        if !aggregate_utf8_dictionary_value_nulls_are_absent(
+            value_nulls.as_deref(),
+            row_nulls.as_deref(),
+        ) {
+            return Ok(None);
+        }
+        if ids.len() != values.len() {
+            return Err(failed("dictionary ID domain length mismatch"));
+        }
+        let (Some(numeric), Some(minute)) = (
+            aggregate_direct_integer_key_slice(numeric),
+            aggregate_direct_integer_key_slice(minute),
+        ) else {
+            return Ok(None);
+        };
+        if numeric.len() != minute.len() || numeric.len() != row_ids.len() {
+            return Err(failed("direct key columns have different lengths"));
+        }
+        Ok(Some(Self {
             numeric,
             minute,
             row_ids,
             ids,
-            keys,
-            counts,
-            aggregate_prepared_minute_u64_value,
-        )?,
-        (false, false) => direct_key_slices(
-            numeric,
-            minute,
-            row_ids,
-            ids,
-            keys,
-            counts,
-            aggregate_raw_minute_u64_value,
-        )?,
-        (true, true) => direct_key_slices(numeric, minute, row_ids, ids, keys, counts, |bits| {
-            aggregate_prepared_minute_i64_value(bits.cast_signed())
-        })?,
-        (true, false) => direct_key_slices(numeric, minute, row_ids, ids, keys, counts, |bits| {
-            aggregate_raw_minute_i64_value(bits.cast_signed())
-        })?,
+            prepared,
+        }))
     }
-    Ok(true)
+
+    fn visit(&self, visit: impl FnMut(usize, Key) -> Result<()>) -> Result<()> {
+        match (self.minute.signed(), self.prepared) {
+            (false, true) => direct_key_slices(
+                self.numeric,
+                self.minute,
+                self.row_ids,
+                self.ids,
+                aggregate_prepared_minute_u64_value,
+                visit,
+            ),
+            (false, false) => direct_key_slices(
+                self.numeric,
+                self.minute,
+                self.row_ids,
+                self.ids,
+                aggregate_raw_minute_u64_value,
+                visit,
+            ),
+            (true, true) => direct_key_slices(
+                self.numeric,
+                self.minute,
+                self.row_ids,
+                self.ids,
+                |bits| aggregate_prepared_minute_i64_value(bits.cast_signed()),
+                visit,
+            ),
+            (true, false) => direct_key_slices(
+                self.numeric,
+                self.minute,
+                self.row_ids,
+                self.ids,
+                |bits| aggregate_raw_minute_i64_value(bits.cast_signed()),
+                visit,
+            ),
+        }
+    }
+
+    /// Immutable native slices and prebound dictionary identities make both
+    /// passes pure. Only final partition slots receive a complete stored key.
+    fn route(&self, mut check_cancelled: impl FnMut() -> Result<()>) -> Result<RoutedKeys> {
+        check_cancelled()?;
+        let mut counts = [0_usize; PARTITIONS];
+        self.visit(|row, key| {
+            if row.is_multiple_of(1024) {
+                check_cancelled()?;
+            }
+            counts[partition(key)] += 1;
+            Ok(())
+        })?;
+        let mut ends = [0_usize; PARTITIONS];
+        let mut next = [0_usize; PARTITIONS];
+        let mut total = 0_usize;
+        for index in 0..PARTITIONS {
+            next[index] = total;
+            total = total
+                .checked_add(counts[index])
+                .ok_or_else(|| failed("routing histogram size overflow"))?;
+            ends[index] = total;
+        }
+        if total != self.numeric.len() {
+            return Err(failed("routing histogram differs from key count"));
+        }
+        check_cancelled()?;
+        let mut keys = Vec::new();
+        keys.try_reserve_exact(total).map_err(failed)?;
+        if keys.capacity() > total {
+            return Err(failed("routed key buffer exceeds admitted capacity"));
+        }
+        keys.resize(
+            total,
+            Key::from_parts(
+                AggregateIntegerKeyPart {
+                    bits: 0,
+                    signed: false,
+                },
+                0,
+                0,
+            ),
+        );
+        self.visit(|row, key| {
+            if row.is_multiple_of(1024) {
+                check_cancelled()?;
+            }
+            let index = partition(key);
+            debug_assert!(next[index] < ends[index]);
+            keys[next[index]] = key;
+            next[index] += 1;
+            Ok(())
+        })?;
+        check_cancelled()?;
+        debug_assert_eq!(next, ends);
+        Ok(RoutedKeys { keys, ends })
+    }
 }
 
 fn direct_key_slices(
@@ -756,9 +844,8 @@ fn direct_key_slices(
     minute: AggregateDirectIntegerKeySlice<'_>,
     row_ids: &[u32],
     ids: &[u64],
-    keys: &mut Vec<Key>,
-    counts: &mut [usize; PARTITIONS],
     mut minute_for_bits: impl FnMut(u64) -> Result<u8>,
+    mut visit: impl FnMut(usize, Key) -> Result<()>,
 ) -> Result<()> {
     numeric.for_each_pair(minute, None, |row, pair| {
         let key = Key::from_parts(
@@ -769,9 +856,7 @@ fn direct_key_slices(
             minute_for_bits(pair.second_bits)?,
             aggregate_direct_utf8_dictionary_bound_id_for_code(ids, row_ids[row], "triple count")?,
         );
-        counts[partition(key)] += 1;
-        keys.push(key);
-        Ok(())
+        visit(row, key)
     })
 }
 
@@ -809,4 +894,125 @@ fn update_partitions(
         begin = end;
     }
     Ok(work)
+}
+
+#[cfg(test)]
+mod direct_routing_tests {
+    use super::*;
+
+    #[test]
+    fn typed_scatter_preserves_complete_keys_and_source_order_in_each_partition() {
+        let ids = [u64::MAX - 9, 7, 0, 19, 3, 88, 1];
+        for rows in [0_usize, 1, 65, 4099] {
+            let signed = (0..rows)
+                .map(|row| i64::try_from(row % 103).unwrap() - 51)
+                .collect::<Vec<_>>();
+            let unsigned = (0..rows)
+                .map(|row| u64::MAX - u64::try_from(row % 103).unwrap())
+                .collect::<Vec<_>>();
+            let minutes = (0..rows)
+                .map(|row| u8::try_from(row % 60).unwrap())
+                .collect::<Vec<_>>();
+            let seconds = minutes
+                .iter()
+                .map(|&value| u64::from(value) * 60)
+                .collect::<Vec<_>>();
+            let row_ids = (0..rows)
+                .map(|row| u32::try_from(row % ids.len()).unwrap())
+                .collect::<Vec<_>>();
+            for is_signed in [false, true] {
+                for prepared in [false, true] {
+                    let direct = DirectKeys {
+                        numeric: if is_signed {
+                            AggregateDirectIntegerKeySlice::Int64(&signed)
+                        } else {
+                            AggregateDirectIntegerKeySlice::UInt64(&unsigned)
+                        },
+                        minute: if prepared {
+                            AggregateDirectIntegerKeySlice::UInt8(&minutes)
+                        } else {
+                            AggregateDirectIntegerKeySlice::UInt64(&seconds)
+                        },
+                        row_ids: &row_ids,
+                        ids: &ids,
+                        prepared,
+                    };
+                    let expected = (0..rows)
+                        .map(|row| {
+                            Key::from_parts(
+                                AggregateIntegerKeyPart {
+                                    bits: if is_signed {
+                                        signed[row].cast_unsigned()
+                                    } else {
+                                        unsigned[row]
+                                    },
+                                    signed: is_signed,
+                                },
+                                minutes[row],
+                                ids[row % ids.len()],
+                            )
+                        })
+                        .collect::<Vec<_>>();
+                    let routed = direct.route(|| Ok(())).unwrap();
+                    assert_eq!(routed.keys.len(), rows);
+                    assert_eq!(routed.keys.capacity(), rows);
+                    let mut start = 0;
+                    for (index, end) in routed.ends.into_iter().enumerate() {
+                        let expected = expected
+                            .iter()
+                            .copied()
+                            .filter(|key| partition(*key) == index)
+                            .collect::<Vec<_>>();
+                        assert_eq!(routed.keys[start..end], expected);
+                        start = end;
+                    }
+                    assert_eq!(start, rows);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn typed_scatter_checks_cancellation_in_both_passes() {
+        let numeric = vec![7_u64; 8193];
+        let minutes = vec![1_u8; numeric.len()];
+        let row_ids = vec![0_u32; numeric.len()];
+        let direct = DirectKeys {
+            numeric: AggregateDirectIntegerKeySlice::UInt64(&numeric),
+            minute: AggregateDirectIntegerKeySlice::UInt8(&minutes),
+            row_ids: &row_ids,
+            ids: &[9],
+            prepared: true,
+        };
+        for fail_at in [1, 3, 12] {
+            let mut calls = 0;
+            let error = direct
+                .route(|| {
+                    calls += 1;
+                    if calls == fail_at {
+                        Err(failed("fixture cancelled"))
+                    } else {
+                        Ok(())
+                    }
+                })
+                .err()
+                .unwrap();
+            assert!(error.to_string().contains("fixture cancelled"));
+            assert_eq!(calls, fail_at);
+        }
+    }
+
+    #[test]
+    fn typed_scatter_rejects_an_unbound_dictionary_code() {
+        let direct = DirectKeys {
+            numeric: AggregateDirectIntegerKeySlice::Int8(&[0, -1]),
+            minute: AggregateDirectIntegerKeySlice::UInt8(&[0, 59]),
+            row_ids: &[0, 1],
+            ids: &[7],
+            prepared: true,
+        };
+        let error = direct.route(|| Ok(())).err().unwrap().to_string();
+        assert!(error.contains("dictionary"), "{error}");
+        assert!(error.contains("no fallback execution was attempted"));
+    }
 }

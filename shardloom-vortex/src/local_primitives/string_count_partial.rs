@@ -20,10 +20,75 @@ use vortex::array::{
 };
 
 #[derive(Clone, Copy, Default)]
-struct CountSlot {
+struct CountSlot<W> {
     hash: u64,
-    value_index: usize,
-    count: u64,
+    value_index: W,
+    count: W,
+}
+
+// Width is chosen once per native chunk from its row and values domains. Larger
+// inputs retain exact u64 counts; compact storage is not an admission limit.
+enum CountSlots {
+    Compact(Vec<CountSlot<u32>>),
+    Wide(Vec<CountSlot<u64>>),
+}
+
+trait CountWord: Copy + Default + Ord + TryFrom<usize> + Into<u64> {
+    const ZERO: Self;
+    const ONE: Self;
+
+    fn increment(self) -> Option<Self>;
+    fn into_slots(slots: Vec<CountSlot<Self>>) -> CountSlots;
+
+    fn from_size(value: usize) -> Result<Self> {
+        Self::try_from(value).map_err(|_| failed("admitted partial word overflowed"))
+    }
+
+    fn index(self) -> usize {
+        let value: u64 = self.into();
+        usize::try_from(value).expect("stored value index came from usize")
+    }
+}
+
+impl CountWord for u32 {
+    const ZERO: Self = 0;
+    const ONE: Self = 1;
+
+    fn increment(self) -> Option<Self> {
+        self.checked_add(1)
+    }
+
+    fn into_slots(slots: Vec<CountSlot<Self>>) -> CountSlots {
+        CountSlots::Compact(slots)
+    }
+}
+
+impl CountWord for u64 {
+    const ZERO: Self = 0;
+    const ONE: Self = 1;
+
+    fn increment(self) -> Option<Self> {
+        self.checked_add(1)
+    }
+
+    fn into_slots(slots: Vec<CountSlot<Self>>) -> CountSlots {
+        CountSlots::Wide(slots)
+    }
+}
+
+impl<W: CountWord> CountSlot<W> {
+    fn fields(&self) -> (usize, u64, u64) {
+        (self.value_index.index(), self.hash, self.count.into())
+    }
+}
+
+impl CountSlots {
+    fn len(&self) -> usize {
+        match self {
+            Self::Compact(slots) => slots.len(),
+            Self::Wide(slots) => slots.len(),
+        }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -42,7 +107,7 @@ pub(super) struct StringCountPartialWork {
 
 pub(super) struct StringCountPartial {
     values: VarBinViewArray,
-    counts: Vec<CountSlot>,
+    counts: CountSlots,
     pub work: StringCountPartialWork,
     preserves_existing_key_order: bool,
     // Retained through coordinator merge, even if task metadata is dropped.
@@ -60,7 +125,7 @@ impl StringCountPartial {
     ) -> Result<Self> {
         let capacity_bytes = input
             .len()
-            .checked_mul(size_of::<CountSlot>())
+            .checked_mul(size_of::<CountSlot<u64>>())
             .and_then(|bytes| u64::try_from(bytes).ok())
             .ok_or_else(|| failed("benchmark partial capacity overflowed"))?;
         let lease = memory.reserve(capacity_bytes)?;
@@ -81,13 +146,13 @@ impl StringCountPartial {
                 .ok_or_else(|| failed("benchmark weight overflowed"))?;
             counts.push(CountSlot {
                 hash: *hash,
-                value_index,
+                value_index: u64_count(value_index)?,
                 count: *count,
             });
         }
         Ok(Self {
             values: VarBinViewArray::from_iter_str(input.iter().map(|entry| entry.0)),
-            counts,
+            counts: CountSlots::Wide(counts),
             work: StringCountPartialWork {
                 rows,
                 partial_entries: u64_count(input.len())?,
@@ -114,68 +179,36 @@ impl StringCountPartial {
         &mut self,
         worker: &ChunkWorkerContext,
     ) -> Result<[usize; N]> {
-        if !N.is_power_of_two() {
-            return Err(failed("partition count must be a power of two"));
-        }
-        let mut sizes = [0_usize; N];
-        for (index, entry) in self.counts.iter_mut().enumerate() {
-            if index % 4096 == 0 {
-                worker.check_cancelled()?;
+        let ends = match &mut self.counts {
+            CountSlots::Compact(counts) => {
+                arrange_count_partitions::<_, N>(counts, &self.values, &mut self.work, worker)?
             }
-            if self.work.native_dictionary || self.work.native_constant {
-                let bytes = borrowed_bytes(&self.values, entry.value_index);
-                let mut hasher = rustc_hash::FxHasher::default();
-                hasher.write(bytes);
-                entry.hash = hasher.finish();
-                self.work.utf8_bytes_hashed = self
-                    .work
-                    .utf8_bytes_hashed
-                    .checked_add(u64_count(bytes.len())?)
-                    .ok_or_else(|| failed("partition hash byte count overflowed"))?;
+            CountSlots::Wide(counts) => {
+                arrange_count_partitions::<_, N>(counts, &self.values, &mut self.work, worker)?
             }
-            sizes[partition_index::<N>(entry.hash)] += 1;
-        }
-        let mut starts = [0_usize; N];
-        let mut ends = [0_usize; N];
-        let mut end = 0;
-        for ((start, stop), size) in starts.iter_mut().zip(ends.iter_mut()).zip(sizes) {
-            *start = end;
-            end += size;
-            *stop = end;
-        }
-        let mut next = starts;
-        for (partition, end) in ends.iter().copied().enumerate() {
-            while next[partition] < end {
-                if next[partition] % 4096 == 0 {
-                    worker.check_cancelled()?;
-                }
-                let target = partition_index::<N>(self.counts[next[partition]].hash);
-                if target == partition {
-                    next[partition] += 1;
-                } else {
-                    self.counts.swap(next[partition], next[target]);
-                    next[target] += 1;
-                }
-            }
-        }
+        };
         self.preserves_existing_key_order = false;
         Ok(ends)
     }
 
     pub(super) fn entry(&self, index: usize) -> Result<(&[u8], u64, u64)> {
-        let entry = self
-            .counts
-            .get(index)
-            .ok_or_else(|| failed("partial index is absent"))?;
-        Ok((
-            borrowed_bytes(&self.values, entry.value_index),
-            entry.hash,
-            entry.count,
-        ))
+        let (value_index, hash, count) = match &self.counts {
+            CountSlots::Compact(counts) => counts.get(index).map(CountSlot::fields),
+            CountSlots::Wide(counts) => counts.get(index).map(CountSlot::fields),
+        }
+        .ok_or_else(|| failed("partial index is absent"))?;
+        Ok((borrowed_bytes(&self.values, value_index), hash, count))
     }
 
     pub(super) fn retain_unconsumed(&mut self, start: usize, rows: u64) {
-        self.counts.drain(..start);
+        match &mut self.counts {
+            CountSlots::Compact(counts) => {
+                counts.drain(..start);
+            }
+            CountSlots::Wide(counts) => {
+                counts.drain(..start);
+            }
+        }
         self.work.rows = rows;
         self.work.partial_entries = self.counts.len() as u64;
     }
@@ -184,7 +217,14 @@ impl StringCountPartial {
     pub(super) fn preserve_existing_key_order(&mut self) {
         if !self.preserves_existing_key_order {
             let started = Instant::now();
-            self.counts.sort_unstable_by_key(|entry| entry.value_index);
+            match &mut self.counts {
+                CountSlots::Compact(counts) => {
+                    counts.sort_unstable_by_key(|entry| entry.value_index);
+                }
+                CountSlots::Wide(counts) => {
+                    counts.sort_unstable_by_key(|entry| entry.value_index);
+                }
+            }
             self.work.count_nanos += started.elapsed().as_nanos();
             self.preserves_existing_key_order = true;
         }
@@ -194,14 +234,77 @@ impl StringCountPartial {
         &self,
         mut visit: impl FnMut(&str, u64) -> Result<()>,
     ) -> Result<()> {
-        for entry in &self.counts {
-            let bytes = borrowed_bytes(&self.values, entry.value_index);
-            let value = std::str::from_utf8(bytes)
-                .map_err(|error| failed(&format!("invalid UTF-8 during exact merge: {error}")))?;
-            visit(value, entry.count)?;
+        match &self.counts {
+            CountSlots::Compact(counts) => visit_counts(counts, &self.values, &mut visit),
+            CountSlots::Wide(counts) => visit_counts(counts, &self.values, &mut visit),
         }
-        Ok(())
     }
+}
+
+fn visit_counts<W: CountWord>(
+    counts: &[CountSlot<W>],
+    values: &VarBinViewArray,
+    visit: &mut impl FnMut(&str, u64) -> Result<()>,
+) -> Result<()> {
+    for entry in counts {
+        let bytes = borrowed_bytes(values, entry.value_index.index());
+        let value = std::str::from_utf8(bytes)
+            .map_err(|error| failed(&format!("invalid UTF-8 during exact merge: {error}")))?;
+        visit(value, entry.count.into())?;
+    }
+    Ok(())
+}
+
+fn arrange_count_partitions<W: CountWord, const N: usize>(
+    counts: &mut [CountSlot<W>],
+    values: &VarBinViewArray,
+    work: &mut StringCountPartialWork,
+    worker: &ChunkWorkerContext,
+) -> Result<[usize; N]> {
+    if !N.is_power_of_two() {
+        return Err(failed("partition count must be a power of two"));
+    }
+    let mut sizes = [0_usize; N];
+    for (index, entry) in counts.iter_mut().enumerate() {
+        if index % 4096 == 0 {
+            worker.check_cancelled()?;
+        }
+        if work.native_dictionary || work.native_constant {
+            let bytes = borrowed_bytes(values, entry.value_index.index());
+            let mut hasher = rustc_hash::FxHasher::default();
+            hasher.write(bytes);
+            entry.hash = hasher.finish();
+            work.utf8_bytes_hashed = work
+                .utf8_bytes_hashed
+                .checked_add(u64_count(bytes.len())?)
+                .ok_or_else(|| failed("partition hash byte count overflowed"))?;
+        }
+        sizes[partition_index::<N>(entry.hash)] += 1;
+    }
+    let mut starts = [0_usize; N];
+    let mut ends = [0_usize; N];
+    let mut end = 0;
+    for ((start, stop), size) in starts.iter_mut().zip(ends.iter_mut()).zip(sizes) {
+        *start = end;
+        end += size;
+        *stop = end;
+    }
+    let mut next = starts;
+    for (partition, end) in ends.iter().copied().enumerate() {
+        while next[partition] < end {
+            if next[partition] % 4096 == 0 {
+                worker.check_cancelled()?;
+            }
+            let target = partition_index::<N>(counts[next[partition]].hash);
+            if target == partition {
+                next[partition] += 1;
+            } else {
+                counts.swap(next[partition], next[target]);
+                next[target] += 1;
+            }
+        }
+    }
+    Ok(ends)
 }
 
 pub(super) fn partition_index<const N: usize>(hash: u64) -> usize {
@@ -591,7 +694,22 @@ pub(super) fn partial_bytes(array: &ArrayRef) -> Result<u64> {
     } else {
         hash_slot_count(array.len())?
     };
-    slot_bytes(slots)
+    if compact_storage(array) {
+        slot_bytes::<u32>(slots)
+    } else {
+        slot_bytes::<u64>(slots)
+    }
+}
+
+fn compact_domains(rows: usize, values: usize) -> bool {
+    u32::try_from(rows).is_ok() && u32::try_from(values).is_ok()
+}
+
+fn compact_storage(array: &ArrayRef) -> bool {
+    let values = array
+        .as_opt::<Dict>()
+        .map_or(array.len(), |dictionary| dictionary.values().len());
+    compact_domains(array.len(), values)
 }
 
 fn hash_slot_count(rows: usize) -> Result<usize> {
@@ -600,9 +718,9 @@ fn hash_slot_count(rows: usize) -> Result<usize> {
         .ok_or_else(|| failed("exact hash-table capacity overflowed"))
 }
 
-fn slot_bytes(slots: usize) -> Result<u64> {
+fn slot_bytes<W>(slots: usize) -> Result<u64> {
     slots
-        .checked_mul(std::mem::size_of::<CountSlot>())
+        .checked_mul(std::mem::size_of::<CountSlot<W>>())
         .and_then(|bytes| u64::try_from(bytes).ok())
         .ok_or_else(|| failed("partial allocation size overflowed"))
 }
@@ -681,7 +799,7 @@ pub(super) fn count_admitted(
 #[allow(clippy::too_many_lines)]
 fn count_with_provider_error(
     array: &ArrayRef,
-    mut ctx: ExecutionCtx,
+    ctx: ExecutionCtx,
     worker: &ChunkWorkerContext,
     lease: &mut MemoryLease,
     provider_error: &mut impl FnMut(vortex::error::VortexError) -> ShardLoomError,
@@ -695,6 +813,21 @@ fn count_with_provider_error(
             "task did not pre-reserve its exact partial capacity",
         ));
     }
+    if compact_storage(array) {
+        count_with_word::<u32>(array, ctx, worker, lease, provider_error)
+    } else {
+        count_with_word::<u64>(array, ctx, worker, lease, provider_error)
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+fn count_with_word<W: CountWord>(
+    array: &ArrayRef,
+    mut ctx: ExecutionCtx,
+    worker: &ChunkWorkerContext,
+    lease: &mut MemoryLease,
+    provider_error: &mut impl FnMut(vortex::error::VortexError) -> ShardLoomError,
+) -> Result<StringCountPartial> {
     let started = Instant::now();
     if array.as_opt::<Constant>().is_some() {
         let value_count = usize::from(!array.is_empty());
@@ -711,7 +844,7 @@ fn count_with_provider_error(
         }
         let canonicalization_nanos = started.elapsed().as_nanos();
         let started = Instant::now();
-        let (mut counts, counts_lease) = allocate_slots(value_count, lease)?;
+        let (mut counts, counts_lease) = allocate_slots::<W>(value_count, lease)?;
         let rows = u64_count(array.len())?;
         if value_count == 1 {
             let bytes = borrowed_bytes(&values, 0);
@@ -719,14 +852,14 @@ fn count_with_provider_error(
                 .map_err(|error| failed(&format!("constant key has invalid UTF-8: {error}")))?;
             counts[0] = CountSlot {
                 hash: 0,
-                value_index: 0,
-                count: rows,
+                value_index: W::ZERO,
+                count: W::from_size(array.len())?,
             };
         }
         worker.check_cancelled()?;
         return Ok(StringCountPartial {
             values,
-            counts,
+            counts: W::into_slots(counts),
             work: StringCountPartialWork {
                 rows,
                 partial_entries: u64_count(value_count)?,
@@ -766,7 +899,7 @@ fn count_with_provider_error(
         }
         let canonicalization_nanos = started.elapsed().as_nanos();
         let started = Instant::now();
-        let (mut counts, counts_lease) = allocate_slots(values.len(), lease)?;
+        let (mut counts, counts_lease) = allocate_slots::<W>(values.len(), lease)?;
         macro_rules! count_codes {
             ($ty:ty) => {{
                 for (row, code) in codes.as_slice::<$ty>().iter().copied().enumerate() {
@@ -779,10 +912,10 @@ fn count_with_provider_error(
                     let slot = counts.get_mut(index).ok_or_else(|| {
                         failed("native dictionary code exceeds its own values domain")
                     })?;
-                    slot.value_index = index;
+                    slot.value_index = W::from_size(index)?;
                     slot.count = slot
                         .count
-                        .checked_add(1)
+                        .increment()
                         .ok_or_else(|| failed("native dictionary group count overflowed u64"))?;
                 }
             }};
@@ -800,11 +933,11 @@ fn count_with_provider_error(
                 return Err(failed("native dictionary code dtype is not an integer"));
             }
         }
-        counts.retain(|slot| slot.count != 0);
+        counts.retain(|slot| slot.count != W::ZERO);
         // Check referenced strings only: unused dictionary entries never acquire
         // a global identity and do not contribute to native group counts.
         for entry in &counts {
-            let bytes = borrowed_bytes(&values, entry.value_index);
+            let bytes = borrowed_bytes(&values, entry.value_index.index());
             std::str::from_utf8(bytes).map_err(|error| {
                 failed(&format!(
                     "native dictionary value has invalid UTF-8: {error}"
@@ -824,7 +957,7 @@ fn count_with_provider_error(
         worker.check_cancelled()?;
         return Ok(StringCountPartial {
             values,
-            counts,
+            counts: W::into_slots(counts),
             work,
             preserves_existing_key_order: true,
             _counts_lease: counts_lease,
@@ -842,7 +975,7 @@ fn count_with_provider_error(
     let canonicalization_nanos = started.elapsed().as_nanos();
     let started = Instant::now();
     let slot_count = hash_slot_count(values.len())?;
-    let (mut counts, counts_lease) = allocate_slots(slot_count, lease)?;
+    let (mut counts, counts_lease) = allocate_slots::<W>(slot_count, lease)?;
     let mask = slot_count - 1;
     let hash_mask = u64_count(mask)?;
     let mut work = StringCountPartialWork {
@@ -867,7 +1000,7 @@ fn count_with_provider_error(
             usize::try_from(hash & hash_mask).map_err(|_| failed("hash bucket exceeds usize"))?;
         loop {
             let slot = &mut counts[bucket];
-            if slot.count == 0 {
+            if slot.count == W::ZERO {
                 // An occupied key was validated before insertion. Complete byte
                 // equality below lets duplicate rows reuse that proof; a hash
                 // or bucket collision alone never establishes valid UTF-8.
@@ -876,8 +1009,8 @@ fn count_with_provider_error(
                 })?;
                 *slot = CountSlot {
                     hash,
-                    value_index: row,
-                    count: 1,
+                    value_index: W::from_size(row)?,
+                    count: W::ONE,
                 };
                 break;
             }
@@ -886,11 +1019,11 @@ fn count_with_provider_error(
                     .equality_comparisons
                     .checked_add(1)
                     .ok_or_else(|| failed("equality counter overflowed"))?;
-                let previous = borrowed_bytes(&values, slot.value_index);
+                let previous = borrowed_bytes(&values, slot.value_index.index());
                 if previous == bytes {
                     slot.count = slot
                         .count
-                        .checked_add(1)
+                        .increment()
                         .ok_or_else(|| failed("exact group count overflowed u64"))?;
                     break;
                 }
@@ -898,13 +1031,13 @@ fn count_with_provider_error(
             bucket = (bucket + 1) & mask;
         }
     }
-    counts.retain(|slot| slot.count != 0);
+    counts.retain(|slot| slot.count != W::ZERO);
     work.partial_entries = u64_count(counts.len())?;
     work.count_nanos = started.elapsed().as_nanos();
     worker.check_cancelled()?;
     Ok(StringCountPartial {
         values,
-        counts,
+        counts: W::into_slots(counts),
         work,
         preserves_existing_key_order: false,
         _counts_lease: counts_lease,
@@ -922,11 +1055,11 @@ fn validate_values(values: &VarBinViewArray) -> Result<()> {
     Ok(())
 }
 
-fn allocate_slots(
+fn allocate_slots<W: CountWord>(
     count: usize,
     task_lease: &mut MemoryLease,
-) -> Result<(Vec<CountSlot>, MemoryLease)> {
-    let bytes = slot_bytes(count)?;
+) -> Result<(Vec<CountSlot<W>>, MemoryLease)> {
+    let bytes = slot_bytes::<W>(count)?;
     let lease = task_lease.split(bytes)?;
     let mut slots = Vec::new();
     slots

@@ -216,6 +216,17 @@ fn worker_values(
     limit: usize,
     parallelism: usize,
 ) -> serde_json::Value {
+    worker_values_with_routing_buffers(request, chunks, prepared, limit, parallelism, 2)
+}
+
+fn worker_values_with_routing_buffers(
+    request: &VortexSimpleAggregateRequest,
+    chunks: &[ArrayRef],
+    prepared: bool,
+    limit: usize,
+    parallelism: usize,
+    routing_buffers: usize,
+) -> serde_json::Value {
     let columns = columns(prepared);
     let mut states =
         GroupedAggregateStates::new(request, Some(limit), &columns, false, false).unwrap();
@@ -255,11 +266,108 @@ fn worker_values(
         summary["aggregate_workers_triple_rows"],
         chunks.iter().map(|chunk| chunk.len() as u64).sum::<u64>()
     );
+    let largest_chunk = chunks.iter().map(ArrayRef::len).max().unwrap();
+    let key_bytes =
+        largest_chunk * size_of::<super::AggregateNumericMinuteStringKey>() * routing_buffers;
+    assert!(
+        summary["aggregate_workers_triple_buffer_peak_bytes"]
+            .as_u64()
+            .unwrap()
+            <= u64::try_from(key_bytes + 4096).unwrap(),
+        "routing must retain at most {routing_buffers} complete-key buffers plus fixed partition metadata"
+    );
     assert!(memory.snapshot().peak_reserved_bytes > 0);
     assert!(memory.snapshot().peak_reserved_bytes <= memory.snapshot().limit_bytes);
     drop((workers, states, session));
     assert_eq!(memory.snapshot().reserved_bytes, 0);
     result
+}
+
+#[test]
+fn triple_workers_route_large_raw_and_prepared_chunks_with_one_key_buffer() {
+    for prepared in [false, true] {
+        let chunks = [4099_usize, 4094]
+            .into_iter()
+            .enumerate()
+            .map(|(ordinal, rows)| {
+                let offset = ordinal * 4099;
+                let indices = offset..offset + rows;
+                let numbers = indices
+                    .clone()
+                    .map(|index| i64::try_from(index % 127).unwrap() - 63)
+                    .collect::<Vec<_>>();
+                let codes = indices
+                    .clone()
+                    .map(|index| u8::try_from(index % 5).unwrap())
+                    .collect::<Vec<_>>();
+                let minutes = indices
+                    .map(|index| {
+                        let minute = i64::try_from(index % 60).unwrap();
+                        if prepared { minute } else { minute * 60 }
+                    })
+                    .collect::<Vec<_>>();
+                chunk(
+                    prepared,
+                    integers(&numbers),
+                    dictionary(&codes, &["", "東京", "same-prefix-a", "same-prefix-b", "λ"]),
+                    integers(&minutes),
+                )
+            })
+            .collect::<Vec<_>>();
+        let request = request(prepared);
+        let expected = serial_values(&request, &chunks, prepared, 8193);
+        for parallelism in [1, 4] {
+            assert_eq!(
+                worker_values_with_routing_buffers(
+                    &request,
+                    &chunks,
+                    prepared,
+                    8193,
+                    parallelism,
+                    1,
+                ),
+                expected
+            );
+        }
+    }
+}
+
+#[test]
+fn triple_workers_keep_exact_general_keys_without_typed_slices() {
+    use vortex::array::arrays::ConstantArray;
+
+    for prepared in [false, true] {
+        let minute = if prepared { 59_i64 } else { -1_i64 };
+        let chunks = [
+            chunk(
+                prepared,
+                ConstantArray::new(7_i64, 65).into_array(),
+                dictionary(&[0_u8; 65], &["東京"]),
+                integers(&[minute; 65]),
+            ),
+            chunk(
+                prepared,
+                integers(&[7_i64; 65]),
+                dictionary(&[0_u8; 65], &["東京"]),
+                ConstantArray::new(minute, 65).into_array(),
+            ),
+            chunk(
+                prepared,
+                integers(&[7_i64; 65]),
+                ConstantArray::new("東京", 65).into_array(),
+                integers(&[minute; 65]),
+            ),
+        ];
+        let request = request(prepared);
+        let expected = serial_values(&request, &chunks, prepared, 8);
+        assert_eq!(expected[0]["frequency"], 195);
+        for parallelism in [1, 4] {
+            assert_eq!(
+                worker_values(&request, &chunks, prepared, 8, parallelism),
+                expected
+            );
+        }
+    }
 }
 
 #[test]

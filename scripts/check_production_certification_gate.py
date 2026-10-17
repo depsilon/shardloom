@@ -133,7 +133,7 @@ LOCAL_TABLE_REQUIRED_SECURITY_EVIDENCE_REFS = {
 CLAIM_SURFACE_REFS = {
     "README.md": (
         "docs/release/public-status-matrix.md",
-        "performance superiority are not claimed.",
+        "https://shardloom.io/field-guide/limitations/",
     ),
     "docs/release/public-status-matrix.md": (
         "production_claim_allowed=false",

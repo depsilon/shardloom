@@ -1,7 +1,6 @@
 # ShardLoom
 
 [![CI](https://github.com/depsilon/shardloom/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/depsilon/shardloom/actions/workflows/ci.yml?query=branch%3Amain)
-[![Release](https://img.shields.io/github/v/release/depsilon/shardloom?include_prereleases&label=release)](https://github.com/depsilon/shardloom/releases)
 [![PyPI](https://img.shields.io/pypi/v/shardloom?label=PyPI)](https://pypi.org/project/shardloom/)
 [![Python client versions](https://img.shields.io/pypi/pyversions/shardloom?label=Python%20client)](https://shardloom.io/field-guide/start-local-proof/)
 [![Homebrew](https://img.shields.io/badge/Homebrew-depsilon%2Ftap%2Fshardloom-2f4f4f)](https://github.com/depsilon/homebrew-tap)
@@ -66,46 +65,9 @@ capabilities under active development.
 | [Benchmarks](https://shardloom.io/field-guide/benchmark-methodology/) | Workload evidence and timing boundaries |
 | [Support and limitations](https://shardloom.io/field-guide/limitations/) | Current coverage and remaining work |
 
-## Current Support Posture
-
-**Published local engine; operational hardening in progress.** Package availability,
-supported workflows, and newer source changes are tracked in the
-[public support matrix](docs/release/public-status-matrix.md). Production support, broad
-SQL/DataFrame parity, and performance superiority are not claimed.
-
-Current source UAT reports separate native query execution, result serialization,
-process overhead, CPU/memory, validation, and ingestion. Full43 produces all 43
-individual timings and a CSV; see the [measurement contract](docs/skills/benchmarking.md#local-end-to-end-observations).
-These clocks describe source builds newer than the published 0.6.0 artifacts.
-The [October 15 fresh UAT](docs/benchmarks/native-query-timing-uat-2026-10-15.md)
-records all 43 query timings, fresh ingestion, complete-result checks and the
-18-cohort format/workflow matrix, with each timing boundary stated separately.
-The subsequent [selected-text-view acceptance](docs/benchmarks/native-selected-text-views-2026-10-15.md)
-records fewer constructed views in sparse native filtering, its bounded paired
-comparison, complete local checks and all 43 query timings. PR #1556 is merged
-after CI and installed-wheel checks; the report preserves the slower controls,
-served-source evidence and the later verified production deployment completion.
-
-Current source builds extend finite streaming input through all eight existing
-local writers and multiple destinations from one execution. The
-[streaming destination contract](docs/architecture/native-stream-destinations-2026-10-15.md)
-defines source completion, native result replay, shared memory/spill admission
-and publication. The [local acceptance report](docs/benchmarks/native-stream-destinations-2026-10-15.md)
-records complete workflow, pressure and query evidence. PR #1557 is merged after
-all 44 hosted checks, three installed-wheel lanes and preview/production
-verification pass. These additions follow the immutable 0.6.0 packages.
-
-Current source also admits all four existing set operations and nine static
-unary families over finite streaming producers. The
-[set-operation report](docs/benchmarks/native-stream-sets-2026-10-15.md) records
-completed local and hosted integration in PR #1558. The
-[unary report](docs/benchmarks/native-stream-unary-2026-10-15.md) records passing
-local runtime checks, with review and hosted integration pending. Unary and set
-membership state remain resident under the grant; source/result replay spill
-does not spill that state.
-
 For repository work, see [contributing](CONTRIBUTING.md), [agent and development instructions](AGENTS.md),
-the [phase plan](docs/architecture/phased-execution-plan.md), and the
+the [phase plan](docs/architecture/phased-execution-plan.md),
+the [public support matrix](docs/release/public-status-matrix.md), and the
 [API index](docs/reference/shardloom-user-surface-index.md) ([machine-readable](docs/reference/shardloom-user-surface-index.json)).
 
 ## License

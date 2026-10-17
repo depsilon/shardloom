@@ -54,6 +54,14 @@ entire compiler cache merely to preserve old test executables. Keep failed-run
 diagnostics and reproduction inputs without retaining every generated payload.
 Recheck free space before and after large jobs and preserve the existing guards.
 
+After the [October 17 text aggregation acceptance](../benchmarks/native-text-aggregation-2026-10-17.md),
+the superseded `fresh-native-review-579-a1.vortex` payload is retired after full
+hash, stable-generation, residency and closed-handle checks. The newly accepted
+`fresh-text-aggregation-588-a1.vortex` is byte-identical and remains resident.
+The 15,713,610,513-byte duplicate retirement preserves source data, original
+comparison records, failed observations and every storage limit. Both complete
+identities and the cleanup receipt are retained in the batch evidence packet.
+
 After the [October 15 fresh timing UAT](../benchmarks/native-query-timing-uat-2026-10-15.md),
 the [scoped cleanup](local-artifact-cleanup-2026-10-15.md) retires two superseded
 Vortex outputs, two identical release-archive copies and six completed temporary

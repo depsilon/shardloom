@@ -2733,6 +2733,7 @@ dependencies = [
  "bytes",
  "flatbuffers",
  "futures",
+ "hashbrown 0.17.1",
  "lending-iterator",
  "memchr",
  "orc-rust",

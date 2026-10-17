@@ -82,7 +82,6 @@ CANONICAL_PUBLIC_STATUS_MARKERS = (
 PUBLIC_DOC_MARKERS = {
     "README.md": (
         PUBLIC_STATUS_REF.as_posix(),
-        "Current Support Posture",
         "https://shardloom.io/field-guide/",
         "https://shardloom.io/field-guide/limitations/",
     ),

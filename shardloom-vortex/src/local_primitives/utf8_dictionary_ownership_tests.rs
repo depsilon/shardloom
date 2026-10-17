@@ -150,6 +150,433 @@ fn dense_utf8_extrema_share_one_promotion_and_keep_independent_owners() {
     }
 }
 
+fn charged_utf8_source(values: &[String]) -> (VarBinViewArray, LiveMemoryPool) {
+    let template = VarBinViewArray::from_iter_str(values);
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let allocator = ReservedHostAllocator::new(memory.clone());
+    let copy = |bytes: &[u8], alignment| {
+        let mut owned = allocator.allocate(bytes.len(), alignment).unwrap();
+        owned.as_mut_slice().copy_from_slice(bytes);
+        owned.freeze()
+    };
+    let views = copy(
+        template.views_handle().as_host(),
+        Alignment::of::<BinaryView>(),
+    );
+    let buffers = template
+        .data_buffers()
+        .iter()
+        .map(|buffer| copy(buffer.as_host(), Alignment::of::<u8>()))
+        .collect::<Vec<_>>();
+    let source = VarBinViewArray::try_new(
+        Buffer::from_byte_buffer(views),
+        buffers.into(),
+        DType::Utf8(Nullability::NonNullable),
+        Validity::NonNullable,
+        &mut vortex::array::legacy_session().create_execution_ctx(),
+    )
+    .unwrap();
+    (source, memory)
+}
+
+#[test]
+fn string_interner_preserves_mixed_ownership_and_releases_source_credit() {
+    let expected = [
+        "",
+        "123456789012",
+        "common-prefix-東京-a",
+        "common-prefix-東京-b",
+    ]
+    .map(str::to_string);
+    let (source, memory) = charged_utf8_source(&expected);
+    let source_value = |row| {
+        Utf8DictionaryValue::source(
+            vortex::buffer::BufferString::try_from(source.bytes_at(row)).unwrap(),
+        )
+    };
+    let mut interner = AggregateStringInterner::default();
+    interner.reserve(expected.len(), "mixed interner").unwrap();
+    native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take);
+    for (index, text) in expected.iter().enumerate() {
+        let value = source_value(index);
+        let id = if index % 2 == 0 {
+            interner.intern(text).unwrap()
+        } else {
+            interner.intern_dictionary(&value).unwrap()
+        };
+        assert_eq!(id, u64::try_from(index).unwrap());
+        if !text.is_empty() {
+            assert_ne!(interner.value(id).unwrap().as_ptr(), value.as_ptr());
+        }
+    }
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        2
+    );
+    for (index, text) in expected.iter().enumerate().rev() {
+        // Fresh source values do not carry the first miss's lazy promotion cache.
+        let fresh = source_value(index);
+        let expected_id = u64::try_from(index).unwrap();
+        assert_eq!(interner.intern_dictionary(&fresh).unwrap(), expected_id);
+        assert_eq!(interner.intern(text).unwrap(), expected_id);
+        assert_eq!(interner.id(text), Some(expected_id));
+    }
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        0
+    );
+    let owned: std::sync::Arc<str> = std::sync::Arc::from("independent-owned-λ");
+    let owned_id = interner
+        .intern_dictionary(&Utf8DictionaryValue::from(std::sync::Arc::clone(&owned)))
+        .unwrap();
+    assert_eq!(owned_id, 4);
+    assert!(std::sync::Arc::ptr_eq(
+        &interner.value_arc(owned_id).unwrap(),
+        &owned
+    ));
+    assert!(memory.snapshot().reserved_bytes > 0);
+    drop(source);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    for (index, text) in expected.iter().enumerate() {
+        assert_eq!(interner.value(u64::try_from(index).unwrap()).unwrap(), text);
+    }
+    interner.forget_id(1, "mixed interner").unwrap();
+    assert_eq!(interner.id(&expected[1]), None);
+    assert_eq!(interner.value(1).unwrap(), expected[1]);
+    assert_eq!(interner.intern(&expected[1]).unwrap(), 5);
+    assert_eq!(interner.id(&expected[1]), Some(5));
+    assert_eq!(interner.len(), 6);
+    assert_eq!(interner.value(1).unwrap(), interner.value(5).unwrap());
+}
+
+#[test]
+fn string_interner_growth_reinsertion_and_failed_reservations_preserve_ids() {
+    let expected = (0..2048)
+        .map(|index| format!("shared-prefix-東京\0-{index:04}-suffix"))
+        .collect::<Vec<_>>();
+    let mut interner = AggregateStringInterner::default();
+    let mut ids = vec![0; expected.len()];
+    for sequence in 0..expected.len() {
+        let index = (sequence * 109) % expected.len();
+        if sequence % 17 == 0 {
+            interner.reserve(17, "growing interner").unwrap();
+        }
+        let id = if sequence % 2 == 0 {
+            interner.intern(&expected[index]).unwrap()
+        } else {
+            interner
+                .intern_dictionary(&Utf8DictionaryValue::from(std::sync::Arc::<str>::from(
+                    expected[index].as_str(),
+                )))
+                .unwrap()
+        };
+        assert_eq!(id, u64::try_from(sequence).unwrap());
+        ids[index] = id;
+    }
+    for (index, text) in expected.iter().enumerate().rev() {
+        assert_eq!(interner.intern(text).unwrap(), ids[index]);
+        assert_eq!(interner.value(ids[index]).unwrap(), text);
+    }
+    let mut next_id = u64::try_from(expected.len()).unwrap();
+    for index in (0..expected.len()).step_by(3) {
+        interner.forget_id(ids[index], "growing interner").unwrap();
+        assert_eq!(interner.id(&expected[index]), None);
+        assert_eq!(interner.value(ids[index]).unwrap(), expected[index]);
+        assert_eq!(interner.intern(&expected[index]).unwrap(), next_id);
+        ids[index] = next_id;
+        next_id += 1;
+    }
+    interner.reserve(0, "growing interner").unwrap();
+    let error = interner
+        .reserve(usize::MAX, "growing interner")
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("growing interner state reservation failed")
+    );
+    assert!(
+        error
+            .to_string()
+            .contains("no fallback execution was attempted")
+    );
+    for (index, text) in expected.iter().enumerate() {
+        assert_eq!(interner.id(text), Some(ids[index]));
+        assert_eq!(interner.value(ids[index]).unwrap(), text);
+    }
+    assert_eq!(interner.len(), usize::try_from(next_id).unwrap());
+    assert!(interner.value(next_id).is_err());
+    assert!(interner.forget_id(next_id, "growing interner").is_err());
+}
+
+#[allow(clippy::too_many_lines)] // Follow one complete chunk's state and source-owner lifetime.
+fn check_dense_chunk_extrema_promotions(seed_better_extrema: bool) {
+    for (needs_min, needs_max) in [(false, false), (true, false), (false, true), (true, true)] {
+        for descending in [false, true] {
+            let mut measures = vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "n".into()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(ColumnRef::new("renamed").unwrap()),
+                    "length".into(),
+                )
+                .with_value_transform("length"),
+            ];
+            for (enabled, function) in [(needs_min, "min"), (needs_max, "max")] {
+                if enabled {
+                    measures.push(crate::VortexSimpleAggregateMeasure::new(
+                        function,
+                        Some(ColumnRef::new("renamed").unwrap()),
+                        function.into(),
+                    ));
+                }
+            }
+            let request = VortexSimpleAggregateRequest::grouped(Vec::new(), measures)
+                .with_group_expressions(vec![crate::VortexAggregateExpression::new(
+                    "domain".into(),
+                    ColumnRef::new("renamed").unwrap(),
+                    "url_domain",
+                )])
+                .with_order_by(vec![crate::VortexAggregateOrderExpr::new("n", true)]);
+            let columns = ["renamed".into()];
+            let mut states =
+                GroupedAggregateStates::new(&request, Some(10), &columns, false, false).unwrap();
+            let seeds = ["https://example.test/000", "https://example.test/999"];
+            if seed_better_extrema {
+                let seed = AggregateDirectColumnAccessor::Utf8Dictionary {
+                    row_ids: vec![0, 1],
+                    values: seeds
+                        .iter()
+                        .map(|value| Utf8DictionaryValue::from(std::sync::Arc::<str>::from(*value)))
+                        .collect(),
+                    value_nulls: None,
+                    row_nulls: None,
+                    source: AggregateUtf8DictionarySource::HostUtf8ChunkDictionary,
+                };
+                assert!(
+                    states
+                        .update_dense_general_direct_from_transformed_dictionary(&[seed], None)
+                        .unwrap()
+                );
+            }
+            let mut expected = (1..=96)
+                .map(|index| format!("https://example.test/{index:03}-東京"))
+                .collect::<Vec<_>>();
+            if descending {
+                expected.reverse();
+            }
+            expected.extend_from_within(..32);
+            let (source, memory) = charged_utf8_source(&expected);
+            let input = source.clone().into_array();
+            let accessor = aggregate_direct_utf8_chunk_dictionary_accessor_profiled(
+                "renamed",
+                &input,
+                &mut native_numeric_accessor::Utf8AccessorWork::default(),
+                &mut vortex::array::legacy_session().create_execution_ctx(),
+            )
+            .unwrap()
+            .unwrap();
+            native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take);
+            assert!(
+                states
+                    .update_dense_general_direct_from_transformed_dictionary(
+                        std::slice::from_ref(&accessor),
+                        None,
+                    )
+                    .unwrap()
+            );
+            assert!(states.transformed_dictionary_dense_general_chunk_partials);
+            assert_eq!(
+                native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+                if seed_better_extrema {
+                    0
+                } else {
+                    usize::from(needs_min) + usize::from(needs_max)
+                },
+                "only globally adopted chunk extrema need independent strings"
+            );
+            drop(source);
+            drop(input);
+            assert!(memory.snapshot().reserved_bytes > 0);
+            drop(accessor);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            let id = states.string_interner.id("example.test").unwrap();
+            let state = &states
+                .transformed_dictionary_dense_general_groups
+                .as_ref()
+                .unwrap()[&id];
+            assert_eq!(state.row_count, 128 + 2 * u64::from(seed_better_extrema));
+            let length_sum = expected.iter().map(String::len).sum::<usize>()
+                + if seed_better_extrema {
+                    seeds.iter().map(|value| value.len()).sum()
+                } else {
+                    0
+                };
+            assert_eq!(
+                state.length_sum,
+                uint64_stat_to_float64(u64::try_from(length_sum).unwrap())
+            );
+            let min = if seed_better_extrema {
+                seeds[0]
+            } else {
+                expected.iter().min().unwrap().as_str()
+            };
+            let max = if seed_better_extrema {
+                seeds[1]
+            } else {
+                expected.iter().max().unwrap().as_str()
+            };
+            assert_eq!(state.min_utf8.as_deref(), needs_min.then_some(min));
+            assert_eq!(state.max_utf8.as_deref(), needs_max.then_some(max));
+        }
+    }
+}
+
+#[test]
+fn dense_chunk_extrema_promote_only_final_winners_and_release_source_credit() {
+    check_dense_chunk_extrema_promotions(false);
+}
+
+#[test]
+fn dense_chunk_extrema_rejected_globally_do_not_promote_source_values() {
+    check_dense_chunk_extrema_promotions(true);
+}
+
+#[test]
+fn dense_borrowed_chunk_statistics_preserve_weighted_order_and_shared_winners() {
+    let texts = ["https://example.test/東京", "https://example.test/z-end"];
+    let source = VarBinViewArray::from_iter_str(texts);
+    let values = (0..texts.len())
+        .map(|row| {
+            Utf8DictionaryValue::source(
+                vortex::buffer::BufferString::try_from(source.bytes_at(row)).unwrap(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let plan = TransformedDictionaryDenseGeneralPlan {
+        needs_length_additive: true,
+        needs_length_min: true,
+        needs_length_max: true,
+        needs_utf8_min: true,
+        needs_utf8_max: true,
+        fused_transform: true,
+    };
+    native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take);
+    let mut partial = TransformedDictionaryDenseGeneralState::<&Utf8DictionaryValue>::default();
+    partial
+        .update_weighted_utf8_dictionary_value_with(plan, &values[0], 0, |_| {
+            panic!("a zero-weight value must not be retained")
+        })
+        .unwrap();
+    let mut global = TransformedDictionaryDenseGeneralState::default();
+    global.merge_chunk_partial(plan, &partial).unwrap();
+    assert_eq!(global.row_count, 0);
+    assert_eq!(global.length_sum, 0.0);
+    assert!(global.min_utf8.is_none() && global.max_utf8.is_none());
+
+    let weights = [(1_u64 << 53) + 1, 7, 3];
+    let mut expected_sum = 0.0;
+    for (index, weight) in weights.into_iter().enumerate() {
+        let value = &values[index % values.len()];
+        partial
+            .update_weighted_utf8_dictionary_value_with(plan, value, weight, |value| value)
+            .unwrap();
+        expected_sum += uint64_stat_to_float64(u64::try_from(value.len()).unwrap())
+            * uint64_stat_to_float64(weight);
+    }
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        0
+    );
+    global.merge_chunk_partial(plan, &partial).unwrap();
+    assert_eq!(global.row_count, weights.into_iter().sum::<u64>());
+    assert_eq!(global.length_sum.to_bits(), expected_sum.to_bits());
+    assert_eq!(global.min_length, Some(26));
+    assert_eq!(global.max_length, Some(27));
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        2
+    );
+    global.merge_chunk_partial(plan, &partial).unwrap();
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        0
+    );
+
+    let fresh = Utf8DictionaryValue::source(
+        vortex::buffer::BufferString::try_from(source.bytes_at(0)).unwrap(),
+    );
+    let mut single = TransformedDictionaryDenseGeneralState::<&Utf8DictionaryValue>::default();
+    single
+        .update_weighted_utf8_dictionary_value_with(plan, &fresh, 1, |value| value)
+        .unwrap();
+    let mut same_winner = TransformedDictionaryDenseGeneralState::default();
+    same_winner.merge_chunk_partial(plan, &single).unwrap();
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        1
+    );
+    assert!(std::sync::Arc::ptr_eq(
+        same_winner.min_utf8.as_ref().unwrap(),
+        same_winner.max_utf8.as_ref().unwrap(),
+    ));
+}
+
+#[test]
+fn dense_borrowed_chunk_overflow_fails_before_independent_promotion() {
+    let source = VarBinViewArray::from_iter_str(["https://example.test/long"]);
+    let value = Utf8DictionaryValue::source(
+        vortex::buffer::BufferString::try_from(source.bytes_at(0)).unwrap(),
+    );
+    let plan = TransformedDictionaryDenseGeneralPlan {
+        needs_length_additive: true,
+        needs_utf8_min: true,
+        needs_utf8_max: true,
+        ..Default::default()
+    };
+    let mut partial = TransformedDictionaryDenseGeneralState::<&Utf8DictionaryValue>::default();
+    partial
+        .update_weighted_utf8_dictionary_value_with(plan, &value, 1, |value| value)
+        .unwrap();
+    native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take);
+    let mut overflow = TransformedDictionaryDenseGeneralState {
+        row_count: u64::MAX,
+        ..Default::default()
+    };
+    assert!(
+        overflow
+            .merge_chunk_partial(plan, &partial)
+            .unwrap_err()
+            .to_string()
+            .contains("count overflowed u64 during chunk-partial merge")
+    );
+    partial.row_count = u64::MAX;
+    assert!(
+        partial
+            .update_weighted_utf8_dictionary_value_with(plan, &value, 1, |_| {
+                panic!("overflow must fail before retaining an extremum")
+            })
+            .unwrap_err()
+            .to_string()
+            .contains("count overflowed u64")
+    );
+    partial.row_count = 1;
+    partial.length_sum = f64::MAX;
+    overflow.row_count = 1;
+    overflow.length_sum = f64::MAX;
+    assert!(
+        overflow
+            .merge_chunk_partial(plan, &partial)
+            .unwrap_err()
+            .to_string()
+            .contains("length sum became non-finite during chunk-partial merge")
+    );
+    assert_eq!(
+        native_utf8::SOURCE_PROMOTIONS.with(std::cell::Cell::take),
+        0
+    );
+}
+
 #[test]
 #[allow(clippy::too_many_lines)] // One cache lifetime: miss, hit, saturation, then source release.
 fn source_backed_transformed_cache_promotes_only_retained_misses() {
