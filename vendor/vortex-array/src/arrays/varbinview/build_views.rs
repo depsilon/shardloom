@@ -12,9 +12,12 @@ use vortex_error::VortexResult;
 use vortex_error::vortex_ensure;
 use vortex_error::vortex_err;
 
+use crate::ArrayParts;
 use crate::ExecutionCtx;
+use crate::arrays::VarBinView;
 use crate::arrays::VarBinViewArray;
 pub use crate::arrays::varbinview::BinaryView;
+use crate::arrays::varbinview::VarBinViewData;
 use crate::arrays::varbinview::metadata::MetadataVec;
 use crate::buffer::BufferHandle;
 use crate::dtype::DType;
@@ -202,6 +205,33 @@ fn build_views_with_lengths_in(
     let allocator = ctx.allocator();
     let mut buffers = MetadataVec::new(capacity, &allocator)?;
     let mut views = BufferMut::with_capacity(count);
+    if bytes.len() <= max_buffer_len && matches!(dtype, DType::Utf8(_)) {
+        let text = simdutf8::basic::from_utf8(bytes.as_slice())
+            .map_err(|_| vortex_err!("VarBinView byte heap failed utf-8 validation"))?;
+        extend_views_single_buffer(&mut views, 0, &bytes, count, len_at, Some(text))?;
+        if !bytes.is_empty() {
+            buffers.push(bytes.clone())?;
+        }
+        // SAFETY: the loop checked that lengths cover this exact UTF-8 heap
+        // without splitting characters, including null slots. It constructed
+        // every view's prefix and range from those bytes, with buffer index zero
+        // and offsets/lengths bounded by MAX_BUFFER_LEN. Inline views copy the
+        // same valid substrings. Empty heaps produce only empty inline views.
+        // The helper retains shape, dtype, validity and table-admission checks.
+        let data = unsafe {
+            VarBinViewData::try_new_handle_in_unchecked(
+                BufferHandle::new_host(views.freeze().into_byte_buffer()),
+                buffers.iter().cloned().map(BufferHandle::new_host),
+                dtype.clone(),
+                validity.clone(),
+                &allocator,
+            )?
+        };
+        let slots = VarBinViewData::make_slots(&validity, data.len());
+        return VarBinViewArray::try_from_parts(
+            ArrayParts::new(VarBinView, dtype, data.len(), data).with_slots(slots),
+        );
+    }
     extend_views_into(
         &mut views,
         0,
@@ -270,7 +300,7 @@ fn extend_views_into(
         // Common case: the whole decoded heap fits within a single buffer, so no rollover can
         // occur (`bytes.len()` is the total decoded size and therefore an upper bound on every
         // offset).
-        extend_views_single_buffer(views, start_buf_index, bytes, count, len_at)?;
+        extend_views_single_buffer(views, start_buf_index, bytes, count, len_at, None)?;
         if !bytes.is_empty() {
             push_buffer(bytes.clone())?;
         }
@@ -300,6 +330,7 @@ fn extend_views_single_buffer(
     bytes: &ByteBuffer,
     count: usize,
     len_at: impl Fn(usize) -> usize,
+    validated_utf8: Option<&str>,
 ) -> VortexResult<()> {
     views.reserve(count);
     let base = views.len();
@@ -320,6 +351,13 @@ fn extend_views_single_buffer(
         let value = data
             .get(offset..end)
             .ok_or_else(|| vortex_err!("VarBinView lengths exceed byte heap"))?;
+        // When the complete heap was validated, each contiguous substring is
+        // UTF-8 iff it ends at a character boundary. The first start is zero;
+        // every subsequent start is the preceding checked end, including empties.
+        vortex_ensure!(
+            validated_utf8.is_none_or(|text| text.is_char_boundary(end)),
+            "view at index {i}: bytes failed utf-8 boundary validation"
+        );
         let view = if len > BinaryView::MAX_INLINED_SIZE {
             let mut prefix = [0u8; 4];
             prefix.copy_from_slice(&value[..4]);

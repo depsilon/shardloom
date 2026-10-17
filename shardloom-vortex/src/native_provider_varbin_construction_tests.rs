@@ -37,6 +37,16 @@ fn native_varbin_safe_builders_validate_utf8_per_value_and_refund() {
         (vec![0xff], vec![1u32]),
         ([b'a'; 13].into_iter().chain([0xff]).collect(), vec![14]),
         ("λ猫".as_bytes().to_vec(), vec![1, 4]),
+        ("λ猫".as_bytes().to_vec(), vec![0, 1, 4]),
+        (
+            [
+                b"aaaaaaaaaaaaa".as_slice(),
+                "λ".as_bytes(),
+                b"bbbbbbbbbbbbb",
+            ]
+            .concat(),
+            vec![14, 14],
+        ),
     ];
     for (bytes, lengths) in cases {
         let memory = LiveMemoryPool::new(1 << 20).unwrap();
@@ -48,48 +58,42 @@ fn native_varbin_safe_builders_validate_utf8_per_value_and_refund() {
                 Some(*sum)
             }))
             .collect();
-        for binary in [false, true] {
-            for from_offsets in [false, true] {
-                let dtype = if binary {
-                    DType::Binary(Nullability::NonNullable)
-                } else {
-                    DType::Utf8(Nullability::NonNullable)
-                };
-                let bytes = ByteBuffer::copy_from(&bytes);
-                let result = if from_offsets {
-                    build_views_from_offsets_in(
-                        MAX_BUFFER_LEN,
-                        bytes.clone(),
-                        &offsets,
-                        dtype,
-                        Validity::NonNullable,
-                        &mut ctx,
-                    )
-                } else {
-                    build_views_in(
-                        MAX_BUFFER_LEN,
-                        bytes.clone(),
-                        &lengths,
-                        dtype,
-                        Validity::NonNullable,
-                        &mut ctx,
-                    )
-                };
-                if binary {
-                    let output = result.unwrap();
-                    for (row, range) in offsets.windows(2).enumerate() {
-                        assert_eq!(
-                            output.bytes_at(row).as_slice(),
-                            &bytes[range[0] as usize..range[1] as usize]
-                        );
-                    }
-                    drop(output);
-                } else {
-                    let error = result.unwrap_err();
-                    assert!(error.to_string().contains("utf-8"), "{error}");
+        let rolling_limit = usize::try_from(*lengths.iter().max().unwrap()).unwrap();
+        for (binary, from_offsets, max, validity) in [false, true].into_iter().flat_map(|binary| {
+            [false, true].into_iter().flat_map(move |from_offsets| {
+                [rolling_limit, MAX_BUFFER_LEN]
+                    .into_iter()
+                    .flat_map(move |max| {
+                        [Validity::NonNullable, Validity::AllInvalid]
+                            .map(|validity| (binary, from_offsets, max, validity))
+                    })
+            })
+        }) {
+            let dtype = if binary {
+                DType::Binary(validity.nullability())
+            } else {
+                DType::Utf8(validity.nullability())
+            };
+            let bytes = ByteBuffer::copy_from(&bytes);
+            let result = if from_offsets {
+                build_views_from_offsets_in(max, bytes.clone(), &offsets, dtype, validity, &mut ctx)
+            } else {
+                build_views_in(max, bytes.clone(), &lengths, dtype, validity, &mut ctx)
+            };
+            if binary {
+                let output = result.unwrap();
+                for (row, range) in offsets.windows(2).enumerate() {
+                    assert_eq!(
+                        output.bytes_at(row).as_slice(),
+                        &bytes[range[0] as usize..range[1] as usize]
+                    );
                 }
-                assert_eq!(memory.snapshot().reserved_bytes, 0);
+                drop(output);
+            } else {
+                let error = result.unwrap_err();
+                assert!(error.to_string().contains("utf-8"), "{error}");
             }
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
         }
     }
 }
@@ -337,24 +341,44 @@ fn native_varbin_view_construction_empty_null_binary_and_malformed_inputs() {
     let memory = LiveMemoryPool::new(1 << 20).unwrap();
     let session = session(&memory);
     let mut ctx = session.create_execution_ctx();
-    let dtype = DType::Binary(Nullability::Nullable);
-    for (lengths, validity) in [
-        (vec![], Validity::AllValid),
-        (vec![0u32; 3], Validity::AllInvalid),
+    for dtype in [
+        DType::Binary(Nullability::Nullable),
+        DType::Utf8(Nullability::Nullable),
     ] {
-        let output = build_views_in(
-            0,
-            ByteBuffer::empty(),
-            &lengths,
-            dtype.clone(),
+        for (lengths, validity) in [
+            (vec![], Validity::AllValid),
+            (vec![0u32; 3], Validity::AllInvalid),
+        ] {
+            let output = build_views_in(
+                0,
+                ByteBuffer::empty(),
+                &lengths,
+                dtype.clone(),
+                validity,
+                &mut ctx,
+            )
+            .unwrap();
+            assert_eq!(output.len(), lengths.len());
+            assert!(output.data_buffers().is_empty());
+            assert_eq!(output.metadata_capacity_bytes(), 0);
+        }
+    }
+    for validity in [
+        Validity::NonNullable,
+        Validity::Array(BoolArray::from_iter([true, false]).into_array()),
+    ] {
+        let invalid = build_views_in(
+            MAX_BUFFER_LEN,
+            ByteBuffer::copy_from("λ猫".as_bytes()),
+            &[5u32],
+            DType::Utf8(Nullability::Nullable),
             validity,
             &mut ctx,
-        )
-        .unwrap();
-        assert_eq!(output.len(), lengths.len());
-        assert!(output.data_buffers().is_empty());
-        assert_eq!(output.metadata_capacity_bytes(), 0);
+        );
+        assert!(invalid.is_err());
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
+    let dtype = DType::Binary(Nullability::Nullable);
     let bytes = ByteBuffer::copy_from([0xff, 0x80, 0]);
     let output = build_views_in(
         3,

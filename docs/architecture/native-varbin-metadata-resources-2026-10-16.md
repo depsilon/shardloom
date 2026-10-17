@@ -5,9 +5,10 @@
 Status: the initial implementation completed local acceptance. Review found
 missing content checks in safe handle construction and arbitrary view replacement.
 The corrective implementation passes focused regressions but repeats cost-gate
-breaches in both complete comparison orders. Reusing validated native views
-removes most breaches; two UTF-8 decode cases remain. Bounded whole-buffer UTF-8
-validation and refreshed acceptance are in progress.
+breaches in both complete comparison orders. Reusing validated native views and
+bounded whole-buffer UTF-8 validation remove all but one repeated FSST cost
+breach. Fusing exact-heap UTF-8 boundary checks into view construction and
+refreshing complete acceptance are in progress.
 Hosted integration remains pending.
 The [acceptance report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
 records the exact source, checks, cost decision and one-pass Full43 observation.
@@ -137,6 +138,14 @@ values. This scan borrows existing bytes and creates no metadata collection.
 Invalid unused payload bytes or codec record headers disable the optimization;
 the ordinary per-value validation decides acceptance. Payloads above this relative
 size bound, multiple buffers and opaque device handles retain the ordinary path.
+
+The existing single-buffer UTF-8 view builder can validate its exact byte heap
+once and check each character boundary in its construction loop. Lengths must
+cover that heap exactly, including null slots; range and prefix construction
+retain their existing checks. Only these newly constructed, validated views may
+use the private admitted constructor without a second content scan. Dtype,
+validity, table admission and checked array-parts construction still apply.
+Rolling buffers and binary builders keep their existing validation path.
 
 ## Acceptance protocol
 
