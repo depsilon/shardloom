@@ -1,16 +1,16 @@
 # Native file metadata buffer ownership
 
-Status: runtime and preparation gates passed, October 17, 2026. Three
-original-provider regressions reproduce the gap. All sixteen focused ownership
-tests, workspace checks, native public-route checks, preparation checks and
-139 provider library tests pass, with the native test-lifetime corrections
-described below. The frozen release artifacts pass 100 direct methods, 4,827
-public cases, two complete single-pass Full43 observations and fresh ingestion
-with all 18 modular cohorts. The [acceptance report](../benchmarks/native-file-metadata-buffers-2026-10-17.md)
-retains complete results, clocks, source identities and original failures.
-PR #1565 review subsequently reproduces two additional alignment/cache gaps;
-their correction and renewed acceptance are in progress as described below.
-Installed wheels and hosted integration remain pending. This is a finite allocation class under
+Status: corrected runtime and preparation acceptance passed, October 17, 2026.
+Three original-provider regressions and four PR-review regressions reproduce the
+ownership/cache defects. All twenty focused ownership tests, 139 provider tests,
+3,225 workspace tests and a clean complete native run of 2,924 tests pass, with
+27 unchanged manual exclusions. Native public-route and preparation checks pass.
+Corrected frozen release artifacts pass 100 direct methods, 4,827 public cases,
+fresh ingestion, a complete single-pass Full43 and all 18 modular cohorts.
+The [acceptance report](../benchmarks/native-file-metadata-buffers-2026-10-17.md)
+retains the two earlier observations, complete results, source identities and
+original failures. Final-head installed wheels and hosted integration remain PR
+gates. This is a finite allocation class under
 PERF-03/06/08/09 and the [remaining local scope](native-local-completion-scope-2026-10-07.md).
 It does not close those owners or CG-1 through CG-23.
 
@@ -124,8 +124,10 @@ never be consumed. Limit that cache to data segments unless metadata was
 requested. Build the tail cache only for reader-backed opens: `open_buffer`
 retains its own source and previously discarded the cache immediately. Preserve
 segment IDs, bounds checks, complete metadata bytes and typed allocator refusal.
-Original failures remain evidence; corrected focused and broader acceptance
-must pass before integration.
+All four corrected regressions and renewed broader acceptance now pass at
+`566643cd83a7b528bf225496ebd5b3b9a9fa4e5a`; the final commit only simplifies a
+test assertion. The [review packet](../benchmarks/evidence/native-file-metadata-review-2026-10-17.json)
+preserves original failures, exact source changes and current runtime proof.
 
 ## Provider test integration and separate nullable-root finding
 

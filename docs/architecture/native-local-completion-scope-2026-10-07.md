@@ -280,6 +280,17 @@ must all finish before optimization can resume. Correctness and resource fixes
 needed by the selected workloads remain in scope. The canonical phase plan owns
 the execution order and unchanged engine-time acceptance methodology.
 
+The October 17 follow-up selects shared text/compound-key/state work first and
+ingest duplication second, using the existing ship/drop process. Keep a short
+production-breadth backlog beside that campaign: nullable-root correctness for
+the default structural layout; native external-memory strategies for the
+remaining resident membership/population families; and safe generation-checked
+output replacement/publication with failure recovery. Replay spill does not
+make consuming state spillable, and one-file publication does not establish
+multi-destination atomicity. Address a correctness or ownership prerequisite
+when the selected workload encounters it. The six areas and eight investigations
+remain open; completed transfer and streaming foundations are not new work.
+
 | Investigation | Current disposition and next evidence |
 | --- | --- |
 | Selective rematerialization | Initial real-owner observation now exists: the [25-case packet](../benchmarks/evidence/native-rematerialization-owners-2026-10-07.json) finds reclaimable non-key derived payload and zero-reclaim alias/key/constant controls. This advances the original assessment's unmeasured status only for the owner screen. A complete-workflow retain/spill/regenerate comparison, pinned dependency cost, reconstruction headroom and bounded regeneration are still required before production policy. |

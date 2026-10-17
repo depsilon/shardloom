@@ -278,11 +278,13 @@ overhead and process RSS stay outside this claim. Published 0.6.0 packages are u
 
 The source-only
 [file metadata ownership correction](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-file-metadata-buffers-2026-10-17.md)
-admits copied footer, schema/layout, cached-segment realignment and requested
-metadata buffers through the native session allocator. Retained schemas, layouts
+admits copied footer, schema/layout, cached and in-memory segment realignment and
+requested metadata buffers through the native session allocator. Unrequested
+optional metadata and discarded in-memory tail caches are skipped. Retained schemas, layouts
 and buffer clones keep their credits until their final owner drops. Complete
 local acceptance includes fresh ingestion, all 18 format/workflow cohorts and
-all 43 query results; installed-wheel and hosted integration remain pending.
+all 43 query results. All twenty focused ownership tests and a clean 2,924-test
+native run pass; final-head installed-wheel and hosted integration remain PR gates.
 Structural metadata collections, writer scratch and process RSS retain their
 separate boundaries. Published 0.6.0 packages are unchanged.
 

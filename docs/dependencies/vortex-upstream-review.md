@@ -13,21 +13,25 @@ The crate-local lockfile is recorded but omitted, and `publish = false` prevents
 publication of this local patch.
 
 The reader uses the existing session allocator for footer growth, copied
-schema/layout buffers, cached-segment realignment and requested metadata
-payloads. The root lock graph changes only this provider's registry source to
+schema/layout buffers, cached and in-memory segment realignment and requested
+metadata payloads. Unrequested metadata cache entries and discarded in-memory
+tail caches are skipped. The root lock graph changes only this provider's registry source to
 a local path; package versions, features, native formats and execution policy
 stay unchanged. No external execution engine is introduced. Three regressions
-fail against the original provider; all sixteen focused ownership tests and
+fail against the original provider; four further regressions reproduce the PR
+review's alignment/cache gaps. All twenty focused ownership tests and
 139 standalone provider tests now pass, as does the strict provider library
 lint. The upstream expected-panic writer fixture now checks the existing
 nullable-root statistics contract and logical child readback. Its separate raw
 structural-root projection limitation is preserved for follow-through in the
 linked contract. Workspace, native public-route and preparation checks pass;
-the contract records the complete native run and two corrected test-lifetime
-assertions. Frozen release-artifact workflows, both single-pass Full43 observations
-and fresh ingest with all 18 modular cohorts pass; the
+the contract preserves the original two test-lifetime failures and their fixes.
+The corrected source passes a new complete native run of 2,924 tests, with 27
+unchanged manual exclusions. Frozen release-artifact workflows and fresh ingest,
+Full43 and all 18 modular cohorts pass; the
 [acceptance report](../benchmarks/native-file-metadata-buffers-2026-10-17.md)
-retains complete evidence. Installed-wheel and hosted acceptance remain pending. Structural
+retains the new review packet and both earlier observations. Final-head
+installed-wheel and hosted acceptance remain PR gates. Structural
 metadata collections, writer scratch and process RSS remain outside the finite
 byte-buffer claim.
 
