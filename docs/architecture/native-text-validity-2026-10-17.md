@@ -2,7 +2,9 @@
 
 # Native text validation handoff
 
-Status: implemented candidate, with no retained performance claim. This continues the shared
+Status: fully implemented with passed matched performance and local acceptance gates;
+hosted integration remains pending. The [measurement record](../benchmarks/native-text-reconstruction-2026-10-17.md)
+retains both the unsuccessful getter-only comparison and the combined result. This continues the shared
 engine investigation under PERF-01/04/05/10 after the five-mechanism text batch.
 All broader PERF obligations and CG-1 through CG-23 remain open.
 
@@ -11,7 +13,7 @@ buffer lifetimes, UTF-8 validity, hostile reconstruction and complete query cost
 The matched comparison of the previous batch found only a 0.46% reduction in the
 sum of per-query means across 43 queries, with two calls per query per build.
 It does not establish a material complete-workload improvement. The present
-candidate targets repeated validation across provider/consumer boundaries.
+change targets repeated validation across provider/consumer boundaries.
 
 ## Provider decision and invariant
 
@@ -130,3 +132,19 @@ truncated/overrunning prefixes, incorrect counts and ranges, allocation refusal,
 payload ownership and release. Retention still requires at least 5% lower
 whole-workload engine time, improvement in both paired totals, no predefined
 material per-query regression, complete results/schemas and broad validation.
+
+The combined implementation passes the same frozen comparison rule against
+the accepted runtime: the sum of per-query two-sample means decreases from
+67.4536999765 to 58.1389694790 engine seconds, a 13.81% reduction. Both paired
+totals improve by more than nine seconds. The five priority families improve
+16.81% and the other 38 queries improve 12.14%; no query crosses the predefined
+material-regression rule. All 172 complete results and schemas match, including
+the 1,524 output rows and every archived timing companion. This is a bounded
+matched observation, with all slower samples retained, not a single-pass Full43
+result or an external-engine superiority claim. Separate local acceptance passes
+4,374 workspace/reduced-writer test executions, 4,025 native test executions
+(27 unchanged manual exclusions), 100 direct binding checks, 4,827 public cases
+and 18 format/workflow cohorts containing 704 native and 704 independent oracle
+records. All 2,411 selected source files match the measured executable. The
+retained packet includes the initial modular fixture refusal caused by an
+omitted existing dependency path; that attempt ran zero workload records.

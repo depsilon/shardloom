@@ -3215,11 +3215,22 @@ resource policy and compiled-source identities. Two executions per query per
 build give a 0.46% reduction in the sum of per-query means, with no predefined
 material per-query regression. This is a matched comparison, not a fresh
 single-pass Full43 result or a material campaign speedup. The next
-[native text validity candidate](native-text-validity-2026-10-17.md) investigates
+[native text validation implementation](native-text-validity-2026-10-17.md) removes
 repeated validation across provider/consumer boundaries. Its fast access requires
 checked native construction; a dtype label alone is insufficient. Keep all 43
 queries as controls alongside the five priority families, with generic
-type/operator admission and no query-specific rules. Retention is unproven.
+type/operator admission and no query-specific rules. The getter-only comparison
+improves 2.23% and fails its 5% standalone gate. The combined native reconstruction
+and validation change passes the same gate at 13.81%, from 67.4536999765 to
+58.1389694790 engine seconds as sums of per-query two-sample means. Both paired
+totals improve by more than nine seconds; all 172 results and schemas match,
+with no predefined material per-query regression. The
+[complete measurement record](../benchmarks/native-text-reconstruction-2026-10-17.md)
+retains both comparisons and slower samples. Local acceptance also passes the
+workspace and native-feature gates, all 100 direct binding checks, 4,827 public
+cases and 18 format/workflow cohorts with 704 native and 704 independent oracle
+records. Complete source, result and failure evidence is retained; finish hosted
+CI, installed-wheel checks and review before integration.
 
 Keep three production-breadth priorities alongside this campaign: the default
 structural-layout nullable-root correctness follow-up under PERF-07; native
@@ -3249,8 +3260,8 @@ ownership is integrated in PR #1562 with all 44 checks, three installed-wheel
 lanes and verified production deployment. Variable-binary buffer-table ownership
 is integrated in PR #1563, and worker failure cleanup in PR #1564. Their completed
 ledger entries retain exact source, installed-wheel and deployment evidence.
-The file-metadata ownership correction has complete local acceptance; finish its
-hosted integration before the October 17 optimization focus above. Dynamic scalar output-schema inference
+The file-metadata ownership correction is integrated in PR #1565 with its
+completed hosted acceptance recorded above. Dynamic scalar output-schema inference
 and opaque source discovery retain their explicit boundaries.
 
 October 14 direction takes precedence over the earlier version hold. PR #1551
