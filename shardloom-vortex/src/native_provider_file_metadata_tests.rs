@@ -572,3 +572,244 @@ fn native_file_metadata_cached_realignment_preserves_sharing_and_exact_admission
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }
+
+fn aligned_metadata_fixture() -> (ArrayRef, Vec<u8>, Footer) {
+    let array = PrimitiveArray::from_iter([1_i64, 2, 3]).into_array();
+    let runtime = CurrentThreadRuntime::new();
+    let writer = VortexSession::default().with_handle(runtime.handle());
+    let metadata = ByteBuffer::copy_from_aligned(vec![0x5a; 4097], Alignment::new(4096));
+    let mut bytes = Vec::new();
+    let summary = runtime
+        .block_on(
+            writer
+                .write_options()
+                .with_metadata_segment("aligned-metadata", metadata)
+                .write(&mut bytes, array.to_array_stream()),
+        )
+        .unwrap();
+    (array, bytes, summary.footer().clone())
+}
+
+fn shifted_file_buffer(bytes: &[u8], shift: usize) -> ByteBuffer {
+    let mut prefixed = vec![0; shift];
+    prefixed.extend_from_slice(bytes);
+    ByteBuffer::copy_from_aligned(prefixed, Alignment::new(4096))
+        .aligned(Alignment::none())
+        .slice(shift..)
+}
+
+#[test]
+fn native_file_metadata_review_memory_segment_alignment_is_admitted_and_owned() {
+    let (_, bytes, footer) = aligned_metadata_fixture();
+    let segment = footer.metadata_segment("aligned-metadata").unwrap();
+    let id = vortex::layout::segments::SegmentId::from(
+        u32::try_from(footer.segment_map().len()).unwrap(),
+    );
+    let capacity = charge(segment.length as usize, segment.alignment);
+    let offset = usize::try_from(segment.offset).unwrap();
+    let misaligned = shifted_file_buffer(&bytes, 1);
+    assert!(!misaligned.slice(offset..).is_aligned(segment.alignment));
+    let runtime = CurrentThreadRuntime::new();
+    for budget in [capacity - 1, capacity] {
+        let memory = LiveMemoryPool::new(budget).unwrap();
+        let consumer = session(&memory).with_handle(runtime.handle());
+        let file = consumer
+            .open_options()
+            .with_footer(footer.clone())
+            .open_buffer(misaligned.clone())
+            .unwrap();
+        let result = runtime.block_on(file.segment_source().request(id));
+        if budget < capacity {
+            let error = result.err().expect("alignment copy must be admitted first");
+            assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            assert_eq!(memory.snapshot().peak_reserved_bytes, 0);
+            assert_eq!(memory.snapshot().denied_reservations, 1);
+            continue;
+        }
+        let buffer = runtime
+            .block_on(result.unwrap().try_into_host().unwrap())
+            .unwrap();
+        assert!(buffer.is_aligned(segment.alignment));
+        assert_eq!(buffer.as_slice(), &[0x5a; 4097]);
+        let clone = buffer.clone();
+        drop((file, consumer, buffer));
+        assert_eq!(memory.snapshot().reserved_bytes, capacity);
+        assert_eq!(memory.snapshot().peak_reserved_bytes, capacity);
+        drop(clone);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    let memory = LiveMemoryPool::new(1).unwrap();
+    let aligned = shifted_file_buffer(&bytes, 0);
+    let expected_pointer = aligned.slice(offset..).as_ptr();
+    let file = session(&memory)
+        .open_options()
+        .with_footer(footer)
+        .open_buffer(aligned)
+        .unwrap();
+    let handle = runtime.block_on(file.segment_source().request(id)).unwrap();
+    let buffer = runtime.block_on(handle.try_into_host().unwrap()).unwrap();
+    assert_eq!(buffer.as_ptr(), expected_pointer);
+    assert_eq!(buffer.as_slice(), &[0x5a; 4097]);
+    assert_eq!(memory.snapshot().peak_reserved_bytes, 0);
+    assert_eq!(memory.snapshot().denied_reservations, 0);
+}
+
+#[test]
+fn native_file_metadata_review_requested_payload_accounts_for_live_alignment_copy() {
+    let (_, bytes, footer) = aligned_metadata_fixture();
+    let segment = footer.metadata_segment("aligned-metadata").unwrap();
+    let capacity = charge(segment.length as usize, segment.alignment);
+    let misaligned = shifted_file_buffer(&bytes, 1);
+    assert!(
+        !misaligned
+            .slice(usize::try_from(segment.offset).unwrap()..)
+            .is_aligned(segment.alignment)
+    );
+    for budget in [2 * capacity - 1, 2 * capacity] {
+        let memory = LiveMemoryPool::new(budget).unwrap();
+        let consumer = session(&memory);
+        let result = consumer
+            .open_options()
+            .with_footer(footer.clone())
+            .include_metadata()
+            .open_buffer(misaligned.clone());
+        if budget < 2 * capacity {
+            let error = result
+                .err()
+                .expect("both live metadata buffers need credit");
+            assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
+            assert_eq!(memory.snapshot().peak_reserved_bytes, capacity);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            assert_eq!(memory.snapshot().denied_reservations, 1);
+            continue;
+        }
+        let file = result.unwrap();
+        let metadata = file.metadata_segment("aligned-metadata").unwrap().clone();
+        assert!(metadata.is_aligned(segment.alignment));
+        assert_eq!(metadata.as_slice(), &[0x5a; 4097]);
+        assert_eq!(memory.snapshot().peak_reserved_bytes, 2 * capacity);
+        drop((file, consumer));
+        assert_eq!(memory.snapshot().reserved_bytes, capacity);
+        drop(metadata);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn native_file_metadata_review_default_open_skips_optional_alignment_copy() {
+    let (expected, bytes, footer) = aligned_metadata_fixture();
+    let runtime = CurrentThreadRuntime::new();
+    let data_alignment = footer
+        .segment_map()
+        .iter()
+        .map(|segment| *segment.alignment)
+        .max()
+        .unwrap();
+    let metadata = footer.metadata_segment("aligned-metadata").unwrap();
+    assert!(data_alignment < *metadata.alignment);
+    let shifted = shifted_file_buffer(&bytes, data_alignment);
+    for segment in footer.segment_map().iter() {
+        assert!(
+            shifted
+                .slice(usize::try_from(segment.offset).unwrap()..)
+                .is_aligned(segment.alignment)
+        );
+    }
+    assert!(
+        !shifted
+            .slice(usize::try_from(metadata.offset).unwrap()..)
+            .is_aligned(metadata.alignment)
+    );
+
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let consumer = session(&memory).with_handle(runtime.handle());
+    let control = runtime
+        .block_on(
+            consumer
+                .open_options()
+                .with_initial_read_size(bytes.len())
+                .open_read(shifted_file_buffer(&bytes, 0)),
+        )
+        .unwrap();
+    let parser_bytes = memory.snapshot().reserved_bytes;
+    assert!(parser_bytes > 0);
+    assert_eq!(memory.snapshot().peak_reserved_bytes, parser_bytes);
+    drop((control, consumer));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let memory = LiveMemoryPool::new(parser_bytes).unwrap();
+    let consumer = session(&memory).with_handle(runtime.handle());
+    let file = runtime
+        .block_on(
+            consumer
+                .open_options()
+                .with_initial_read_size(bytes.len())
+                .open_read(shifted.clone()),
+        )
+        .expect("default open must not copy unused optional metadata");
+    assert_eq!(file.metadata_segments().count(), 0);
+    assert_eq!(file.dtype(), expected.dtype());
+    assert_eq!(file.footer().row_count(), expected.len() as u64);
+    assert_eq!(memory.snapshot().reserved_bytes, parser_bytes);
+    assert_eq!(memory.snapshot().peak_reserved_bytes, parser_bytes);
+    assert_eq!(memory.snapshot().denied_reservations, 0);
+    drop((file, consumer));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let consumer = session(&memory).with_handle(runtime.handle());
+    let file = runtime
+        .block_on(
+            consumer
+                .open_options()
+                .include_metadata()
+                .with_initial_read_size(bytes.len())
+                .open_read(shifted),
+        )
+        .unwrap();
+    assert_eq!(
+        file.metadata_segment("aligned-metadata")
+            .unwrap()
+            .as_slice(),
+        &[0x5a; 4097]
+    );
+    assert_values(&file, &expected, &runtime);
+    drop((file, consumer));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn native_file_metadata_review_buffer_open_does_not_build_an_unused_cache() {
+    let (bytes, footer) = fixture();
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let control = session(&memory)
+        .open_options()
+        .open_buffer(shifted_file_buffer(&bytes, 0))
+        .unwrap();
+    let parser_bytes = memory.snapshot().reserved_bytes;
+    assert!(parser_bytes > 0);
+    assert_eq!(memory.snapshot().peak_reserved_bytes, parser_bytes);
+    drop(control);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let shifted = shifted_file_buffer(&bytes, 1);
+    assert!(footer.segment_map().iter().any(|segment| {
+        !shifted
+            .slice(usize::try_from(segment.offset).unwrap()..)
+            .is_aligned(segment.alignment)
+    }));
+    let memory = LiveMemoryPool::new(parser_bytes).unwrap();
+    let file = session(&memory)
+        .open_options()
+        .open_buffer(shifted)
+        .expect("in-memory opens must not populate the unused tail cache");
+    assert_eq!(file.dtype(), footer.dtype());
+    assert_eq!(file.footer().row_count(), footer.row_count());
+    assert_eq!(memory.snapshot().reserved_bytes, parser_bytes);
+    assert_eq!(memory.snapshot().peak_reserved_bytes, parser_bytes);
+    assert_eq!(memory.snapshot().denied_reservations, 0);
+    drop(file);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}

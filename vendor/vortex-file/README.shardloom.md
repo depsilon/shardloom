@@ -6,11 +6,14 @@ original member hashes, license and dirty upstream revision. The workspace
 lockfile owns production dependency resolution; the archive's crate-local
 lockfile is recorded but omitted.
 
-The changes in `src/footer/deserializer.rs` and `src/open.rs` use the existing
+The changes in `src/footer/deserializer.rs`, `src/open.rs` and
+`src/segments/source.rs` use the existing
 session `HostAllocator` for footer growth, copied DType/layout FlatBuffers,
-cached-segment realignment and requested user-metadata payloads. Buffer owners
+cached and in-memory segment realignment, and requested user-metadata payloads. Buffer owners
 retain their allocator reservations through shared clones and lazy metadata
-views. Already aligned cached slices remain shared. Allocation errors propagate
+views. Already aligned slices remain shared. Default opens skip optional
+metadata cache entries, and in-memory opens do not build a discarded tail cache.
+Allocation errors propagate
 without substituting unbounded storage. The original infallible `prefix_data`
 operation remains a documented raw compatibility surface; file opens call the
 new fallible `try_prefix_data` operation.

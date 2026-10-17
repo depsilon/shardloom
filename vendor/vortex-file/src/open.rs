@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-16: admit footer growth, segment realignment
 // and optional metadata copies through the session allocator. See upstream-provenance.json.
+// Modified on 2026-10-17: preserve allocator admission for in-memory alignment
+// and avoid unused optional-metadata and in-memory tail caches.
 
 use std::sync::Arc;
 
@@ -45,7 +47,8 @@ const INITIAL_READ_SIZE: usize = MAX_POSTSCRIPT_SIZE as usize + EOF_SIZE;
 
 struct FooterRead {
     footer: Footer,
-    initial_segments: HashMap<SegmentId, ByteBuffer>,
+    initial_offset: u64,
+    initial_read: ByteBuffer,
 }
 
 /// Open options for a Vortex file reader.
@@ -265,6 +268,7 @@ impl VortexOpenOptions {
         let segment_source: Arc<dyn SegmentSource> = Arc::new(BufferSegmentSource::new(
             buffer,
             footer.segment_specs_with_metadata(),
+            opts.session.allocator(),
         ));
         let metadata = if include_metadata {
             block_on(resolve_metadata(
@@ -297,19 +301,27 @@ impl VortexOpenOptions {
             .clone()
             .unwrap_or_else(|| Arc::new(DefaultMetricsRegistry::default()));
 
-        let FooterRead {
-            footer,
-            initial_segments,
-        } = if let Some(footer) = self.footer {
+        let (footer, initial_segments) = if let Some(footer) = self.footer {
             if let Some(file_size) = self.file_size {
                 footer.validate_file_size(file_size)?;
             }
-            FooterRead {
-                footer,
-                initial_segments: HashMap::default(),
-            }
+            (footer, HashMap::default())
         } else {
-            self.read_footer(&reader).await?
+            let FooterRead {
+                footer,
+                initial_offset,
+                initial_read,
+            } = self.read_footer(&reader).await?;
+            // Only file-backed readers use this cache; open_buffer slices its
+            // retained source directly and must not build an unused cache.
+            let initial_segments = Self::collect_initial_segments(
+                initial_offset,
+                &initial_read,
+                &footer,
+                &self.session,
+                self.include_metadata,
+            )?;
+            (footer, initial_segments)
         };
 
         let segment_cache = Arc::new(InstrumentedSegmentCache::new(
@@ -396,19 +408,11 @@ impl VortexOpenOptions {
         // size of the actual data source (see issue #8819).
         footer.validate_file_size(file_size)?;
 
-        // If the initial read happened to cover any segments, then we can populate the
-        // segment cache
         let initial_offset = file_size - (deserializer.buffer().len() as u64);
-        let initial_segments = Self::collect_initial_segments(
-            initial_offset,
-            deserializer.buffer(),
-            &footer,
-            &self.session,
-        )?;
-
         Ok(FooterRead {
             footer,
-            initial_segments,
+            initial_offset,
+            initial_read: deserializer.buffer().clone(),
         })
     }
 
@@ -418,13 +422,19 @@ impl VortexOpenOptions {
         initial_read: &ByteBuffer,
         footer: &Footer,
         session: &VortexSession,
+        include_metadata: bool,
     ) -> VortexResult<HashMap<SegmentId, ByteBuffer>> {
         let mut initial_read_segments = HashMap::default();
 
-        // Iterate `segment_specs_with_metadata` (not just the segment map) so metadata segments
-        // covered by the initial read are cached too. Metadata segments are appended and not
-        // offset-sorted, so we skip per-segment rather than partition on offset.
-        for (idx, segment) in footer.segment_specs_with_metadata().iter().enumerate() {
+        // Metadata segments keep their appended IDs, but default opens must not
+        // allocate alignment copies for payloads they will never resolve.
+        let segments = footer.segment_map().iter().chain(
+            footer
+                .metadata_segments()
+                .filter(|_| include_metadata)
+                .map(|(_, segment)| segment),
+        );
+        for (idx, segment) in segments.enumerate() {
             if segment.offset < initial_offset {
                 continue;
             }
@@ -851,9 +861,13 @@ mod tests {
         );
 
         let initial_read = ByteBuffer::zeroed(16);
-        let Err(err) =
-            VortexOpenOptions::collect_initial_segments(0, &initial_read, &bad_footer, &session)
-        else {
+        let Err(err) = VortexOpenOptions::collect_initial_segments(
+            0,
+            &initial_read,
+            &bad_footer,
+            &session,
+            false,
+        ) else {
             vortex_bail!("collecting an out-of-bounds segment must return an error");
         };
         assert!(

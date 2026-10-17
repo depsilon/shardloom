@@ -8,6 +8,8 @@ described below. The frozen release artifacts pass 100 direct methods, 4,827
 public cases, two complete single-pass Full43 observations and fresh ingestion
 with all 18 modular cohorts. The [acceptance report](../benchmarks/native-file-metadata-buffers-2026-10-17.md)
 retains complete results, clocks, source identities and original failures.
+PR #1565 review subsequently reproduces two additional alignment/cache gaps;
+their correction and renewed acceptance are in progress as described below.
 Installed wheels and hosted integration remain pending. This is a finite allocation class under
 PERF-03/06/08/09 and the [remaining local scope](native-local-completion-scope-2026-10-07.md).
 It does not close those owners or CG-1 through CG-23.
@@ -55,7 +57,8 @@ and the final consumer must own the reservation until its bytes are released.
 | --- | --- |
 | Footer extension after `NeedMoreData` | Check combined length, admit the new complete buffer while both inputs remain owned, copy, then replace the old buffer. Failure preserves the existing deserializer buffer. |
 | Serialized DType and layout copies | Allocate the checked slice with FlatBuffer alignment through the session. Retained lazy children and clones keep the same buffer reservation. |
-| Cached segments covered by the tail read | Keep an already aligned slice without allocation. When realignment requires a copy, use the session allocator and preserve the segment's required alignment. |
+| Cached segments covered by the tail read | Keep an already aligned slice without allocation. When realignment requires a copy, use the session allocator and preserve the segment's required alignment. Only cache optional metadata when requested, and do not build a discarded tail cache for in-memory opens. |
+| In-memory segment realignment | Admit required alignment copies through the receiving session allocator, including the copy preceding optional metadata resolution. Aligned caller-owned slices remain shared without a new allocation. |
 | Explicit user metadata | Allocate copied metadata payloads through the same session; returned clones/slices keep their owner. Default opens continue to skip optional metadata resolution. |
 
 Keep the existing infallible upstream `prefix_data` API as a raw compatibility
@@ -107,6 +110,22 @@ already-transitive provider's source becomes a local patch.
 The separately observed preparation I/O-lifetime path requires a deterministic
 failure demonstration before changing its reader/session ownership. It is not
 silently included in this byte-buffer contract.
+
+## PR review alignment and cache correction
+
+Four focused regressions fail against PR head `c4de1bfbc0de345500a25d065a12a95f61f1979c`.
+In-memory segment requests previously realigned raw bytes before the admitted
+metadata copy. Both live copies must receive credits, and clones of an aligned
+copy must retain its owner. The existing native `BufferSegmentSource` now uses
+the session `HostAllocator`; aligned input continues to share its original bytes.
+
+Default file opens also populated optional metadata cache entries that could
+never be consumed. Limit that cache to data segments unless metadata was
+requested. Build the tail cache only for reader-backed opens: `open_buffer`
+retains its own source and previously discarded the cache immediately. Preserve
+segment IDs, bounds checks, complete metadata bytes and typed allocator refusal.
+Original failures remain evidence; corrected focused and broader acceptance
+must pass before integration.
 
 ## Provider test integration and separate nullable-root finding
 

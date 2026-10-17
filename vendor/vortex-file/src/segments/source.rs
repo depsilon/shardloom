@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-17: admit in-memory segment alignment copies
+// through the receiving session allocator. See upstream-provenance.json.
 
 use std::any::Any;
 use std::collections::VecDeque;
@@ -24,6 +26,7 @@ use futures::stream::Fuse;
 use futures::stream::SelectAll;
 use parking_lot::Mutex;
 use vortex_array::buffer::BufferHandle;
+use vortex_array::memory::HostAllocatorRef;
 use vortex_buffer::Alignment;
 use vortex_buffer::ByteBuffer;
 use vortex_error::VortexExpect;
@@ -524,12 +527,21 @@ impl RequestMetrics {
 pub(crate) struct BufferSegmentSource {
     buffer: ByteBuffer,
     segments: Arc<[SegmentSpec]>,
+    allocator: HostAllocatorRef,
 }
 
 impl BufferSegmentSource {
     /// Create a new `BufferSegmentSource` from a buffer and its segment map.
-    pub fn new(buffer: ByteBuffer, segments: Arc<[SegmentSpec]>) -> Self {
-        Self { buffer, segments }
+    pub fn new(
+        buffer: ByteBuffer,
+        segments: Arc<[SegmentSpec]>,
+        allocator: HostAllocatorRef,
+    ) -> Self {
+        Self {
+            buffer,
+            segments,
+            allocator,
+        }
     }
 }
 
@@ -555,8 +567,18 @@ impl SegmentSource for BufferSegmentSource {
             .boxed();
         }
 
-        let slice = self.buffer.slice(start..end).aligned(spec.alignment);
-        future::ready(Ok(BufferHandle::new_host(slice))).boxed()
+        let slice = self.buffer.slice(start..end);
+        let buffer = if slice.is_aligned(spec.alignment) {
+            Ok(slice.ensure_aligned(spec.alignment))
+        } else {
+            self.allocator
+                .allocate(slice.len(), spec.alignment)
+                .map(|mut copy| {
+                    copy.as_mut_slice().copy_from_slice(&slice);
+                    copy.freeze()
+                })
+        };
+        future::ready(buffer.map(BufferHandle::new_host)).boxed()
     }
 }
 
