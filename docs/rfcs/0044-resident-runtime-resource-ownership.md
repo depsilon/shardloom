@@ -241,6 +241,19 @@ neither serialized values nor metadata accounting.
 
 ## Verification
 
+### Native text validity handoff prototype
+
+The [text validation contract](../architecture/native-text-validity-2026-10-17.md)
+permits safe borrowed and retained UTF-8 access inside the excluded pinned array
+provider. A private receipt may reuse validation only when reviewed construction
+checked the exact immutable values. A dtype label or public unchecked constructor
+does not establish that receipt. Uncertified values retain ordinary UTF-8 checks;
+host residency, bounds and dtype checks remain mandatory. Receipt-preserving
+selection/replacement must retain the original value invariants. The two native
+unchecked string conversions are confined to this contract, with no raw pointer,
+FFI, workspace unsafe, new ownership or serialization boundary. Correctness,
+release-mode rejection and complete-operation cost gates precede retention.
+
 PERF-04/09 numeric consumer follow-up admits a per-source-array native Primitive
 execution after existing direct and dictionary accessors miss. The resulting
 typed slice feeds the existing exact aggregate kernels instead of a row-wise

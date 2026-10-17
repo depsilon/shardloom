@@ -49,6 +49,94 @@ fn admit(input: &VarBinViewArray, session: &VortexSession) -> VortexResult<VarBi
     )
 }
 
+#[test]
+fn native_utf8_access_borrows_and_retains_checked_values_without_table_credit() {
+    let expected = ["", "λ猫", "outlined UTF-8 value with λ and 猫", "\0"];
+    let input = VarBinViewArray::from_iter_str(expected);
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let session = session(&memory);
+    let output = admit(&input, &session).unwrap();
+    let table = output.metadata_capacity_bytes() as u64;
+    let mut retained = Vec::new();
+    for (row, expected) in expected.iter().enumerate() {
+        for source in [&input, &output] {
+            let bytes = source.bytes_at(row);
+            let borrowed = source.utf8_slice_at(row).unwrap();
+            let owned = source.utf8_buffer_at(row).unwrap();
+            assert_eq!(borrowed, *expected);
+            assert_eq!(owned.as_str(), *expected);
+            if !bytes.is_empty() {
+                assert_eq!(borrowed.as_ptr(), bytes.as_ptr());
+                assert_eq!(owned.as_str().as_ptr(), bytes.as_ptr());
+            }
+            retained.push(owned);
+        }
+    }
+    assert_eq!(memory.snapshot().reserved_bytes, table);
+    assert!(output.utf8_slice_at(output.len()).is_err());
+    assert!(output.utf8_buffer_at(usize::MAX).is_err());
+    drop((input, output, session));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    for (index, value) in retained.iter().enumerate() {
+        assert_eq!(value.as_str(), expected[index / 2]);
+    }
+}
+
+#[test]
+fn native_utf8_access_keeps_dtype_and_physical_null_boundaries() {
+    let binary = VarBinViewArray::from_iter_bin([&b"valid bytes"[..], &b"\xff"[..]]);
+    for row in 0..binary.len() {
+        assert!(
+            binary
+                .utf8_slice_at(row)
+                .unwrap_err()
+                .to_string()
+                .contains("dtype")
+        );
+        assert!(binary.utf8_buffer_at(row).is_err());
+    }
+    let raw = VarBinViewArray::from_iter_nullable_str([
+        Some("λ猫"),
+        None,
+        Some("long outlined text with λ"),
+        Some(""),
+    ]);
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let session = session(&memory);
+    let checked = admit(&raw, &session).unwrap();
+    let mut ctx = session.create_execution_ctx();
+    let validity = checked
+        .validity()
+        .unwrap()
+        .execute_mask(4, &mut ctx)
+        .unwrap();
+    for (row, text) in ["λ猫", "", "long outlined text with λ", ""]
+        .into_iter()
+        .enumerate()
+    {
+        assert_eq!(checked.utf8_slice_at(row).unwrap(), text);
+        assert_eq!(checked.utf8_buffer_at(row).unwrap().as_str(), text);
+        assert_eq!(validity.value(row), row != 1);
+    }
+}
+
+// Upstream's generic raw-byte builder currently checks its contents only in
+// debug mode. Release access must not infer validation merely from its dtype.
+#[cfg(not(debug_assertions))]
+#[test]
+fn native_utf8_access_rejects_unvalidated_builder_values_in_release() {
+    for bytes in [&b"\xff"[..], &b"\xc3"[..], &b"bad outlined value \xff"[..]] {
+        let raw = VarBinViewArray::from_iter([Some(bytes)], DType::Utf8(Nullability::NonNullable));
+        assert!(
+            raw.utf8_slice_at(0)
+                .unwrap_err()
+                .to_string()
+                .contains("invalid UTF-8")
+        );
+        assert!(raw.utf8_buffer_at(0).is_err());
+    }
+}
+
 fn malformed_host_views(input: &VarBinViewArray) -> Vec<(&'static str, BinaryView)> {
     let bytes = input.bytes_at(0);
     // The first value ends in a multibyte character. Its truncated prefix is
@@ -107,6 +195,11 @@ fn assert_parts_validate_changed_value_type() {
             assert_eq!(changed.is_ok(), std::str::from_utf8(bytes).is_ok());
             if let Ok(changed) = changed {
                 assert_eq!(changed.bytes_at(0), source.bytes_at(0));
+                assert_eq!(changed.utf8_slice_at(0).unwrap().as_bytes(), bytes);
+                assert_eq!(
+                    changed.utf8_buffer_at(0).unwrap().as_str().as_bytes(),
+                    bytes
+                );
             }
             assert_eq!(memory.snapshot().reserved_bytes, table);
             drop(source);
@@ -416,8 +509,17 @@ fn native_varbin_table_sharing_survives_native_transformations() {
             assert_eq!(valid.value(row), source.is_some());
             if let Some(source) = source {
                 assert_eq!(result.bytes_at(row), input.bytes_at(source));
+                assert_eq!(
+                    result.utf8_slice_at(row).unwrap(),
+                    input.utf8_slice_at(source).unwrap()
+                );
+                assert_eq!(
+                    result.utf8_buffer_at(row).unwrap().as_str(),
+                    input.utf8_slice_at(source).unwrap()
+                );
             } else {
                 assert!(result.bytes_at(row).is_empty());
+                assert_eq!(result.utf8_slice_at(row).unwrap(), "");
             }
         }
         copies.push(result);

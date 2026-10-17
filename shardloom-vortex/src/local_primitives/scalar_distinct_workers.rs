@@ -434,11 +434,10 @@ fn process(
                     worker.check_cancelled()?;
                 }
                 if used {
-                    let bytes = super::native_utf8::borrowed_bytes(&values, index);
-                    std::str::from_utf8(bytes).map_err(|error| {
+                    let text = values.utf8_slice_at(index).map_err(|error| {
                         failed(&format!("used dictionary value has invalid UTF8: {error}"))
                     })?;
-                    entries.push((hash(bytes), index));
+                    entries.push((hash(text.as_bytes()), index));
                 }
             }
             work.entries = entries.len() as u64;

@@ -201,10 +201,10 @@ impl CompoundPartial {
     }
     pub(super) fn visit(&self, mut visit: impl FnMut(Key, &str, u64) -> Result<()>) -> Result<()> {
         for slot in &self.slots {
-            let bytes = self.values.bytes_at(slot.value);
             visit(
                 slot.key,
-                std::str::from_utf8(bytes.as_slice())
+                self.values
+                    .utf8_slice_at(slot.value)
                     .map_err(|error| failed(&error.to_string()))?,
                 slot.count,
             )?;
@@ -400,7 +400,9 @@ fn count_with_provider_error(
         let text_hash = if let Some(hash) = hashes.get(value).copied().flatten() {
             hash
         } else {
-            std::str::from_utf8(bytes.as_slice()).map_err(|error| failed(&error.to_string()))?;
+            values
+                .utf8_slice_at(value)
+                .map_err(|error| failed(&error.to_string()))?;
             work.bytes_hashed = work
                 .bytes_hashed
                 .checked_add(bytes.len() as u64)

@@ -3207,6 +3207,17 @@ records the current-source attribution, candidate contracts and completed local
 acceptance for five retained mechanisms. Each original comparison and the
 preceding PR's acceptance remain immutable.
 
+The subsequent whole-engine check compares all 43 queries on the same input,
+resource policy and compiled-source identities. Two executions per query per
+build give a 0.46% reduction in the sum of per-query means, with no predefined
+material per-query regression. This is a matched comparison, not a fresh
+single-pass Full43 result or a material campaign speedup. The next
+[native text validity prototype](native-text-validity-2026-10-17.md) investigates
+repeated validation across provider/consumer boundaries. Its fast access requires
+checked native construction; a dtype label alone is insufficient. Keep all 43
+queries as controls alongside the five priority families, with generic
+type/operator admission and no query-specific rules. Retention is unproven.
+
 Keep three production-breadth priorities alongside this campaign: the default
 structural-layout nullable-root correctness follow-up under PERF-07; native
 external-memory strategies for remaining resident membership/population state

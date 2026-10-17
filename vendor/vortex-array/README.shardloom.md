@@ -1,5 +1,19 @@
 # Vortex timestamp, statistics and ownership patches
 
+## Native text validation handoff prototype
+
+Safe `VarBinViewArrayExt::utf8_slice_at` and `utf8_buffer_at` reuse a private
+receipt from reviewed checked construction, deserialization or length-to-view
+validation. They check logical dtype, selected bounds and host residency. A
+generic builder or public unchecked constructor does not establish the receipt;
+its selected bytes still pass UTF-8 validation. Selection and byte-identical
+replacement preserve an existing receipt only for unchanged UTF-8 values.
+The two string conversions reuse immutable native ownership inside this pinned
+provider; no workspace unsafe code, new dependency or serialized field is added.
+The [prototype contract](../../docs/architecture/native-text-validity-2026-10-17.md)
+requires release-mode malformed-input checks and complete query comparisons.
+Retention and a performance gain remain unproven.
+
 This is the Apache-2.0 `vortex-array` 0.85.0 published source with a focused
 correction for timezone-free microsecond timestamp scalars. Vortex's timestamp
 extension uses Int64 storage, but the original scalar validator constructs a

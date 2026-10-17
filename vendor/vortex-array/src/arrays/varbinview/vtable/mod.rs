@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-16: admit new buffer tables through their allocator.
+// Modified by ShardLoom on 2026-10-17: retain checked UTF-8 validation on identical replacement.
 
 use std::hash::Hasher;
 use std::mem::size_of;
@@ -94,7 +95,7 @@ impl VarBinView {
             // dtype and validity are unchanged. The new table is admitted and
             // the helper retains structural/validity checks. Owner replacement
             // cannot change the immutable bytes or introduce device contents.
-            unsafe {
+            let mut data = unsafe {
                 VarBinViewData::from_admitted_handles_unchecked(
                     views,
                     buffers,
@@ -102,7 +103,9 @@ impl VarBinView {
                     dtype.clone(),
                     validity,
                 )?
-            }
+            };
+            data.utf8_validated = array.utf8_validated && matches!(dtype, DType::Utf8(_));
+            data
         } else {
             VarBinViewData::from_admitted_handles(views, buffers, owner, dtype.clone(), validity)?
         };

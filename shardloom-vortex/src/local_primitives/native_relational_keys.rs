@@ -618,7 +618,7 @@ impl VariableColumn {
             hashes.push(if valid.value(index) {
                 let value = values.bytes_at(index);
                 if !binary {
-                    std::str::from_utf8(value.as_slice()).map_err(vortex_error)?;
+                    values.utf8_slice_at(index).map_err(vortex_error)?;
                 }
                 compound_count_partial::string_hash(value.as_slice())
             } else {

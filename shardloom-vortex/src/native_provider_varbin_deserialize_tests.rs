@@ -7,7 +7,10 @@ use vortex::{
     VortexSessionDefault as _,
     array::{
         VortexSessionExecute as _,
-        arrays::{BoolArray, varbinview::BinaryView},
+        arrays::{
+            BoolArray,
+            varbinview::{BinaryView, VarBinViewArrayExt as _},
+        },
         buffer::DeviceBuffer,
         dtype::Nullability,
         memory::MemorySessionExt as _,
@@ -171,6 +174,14 @@ fn native_varbin_deserialize_device_handles_are_admitted_without_device_access()
     .unwrap();
     assert!(output.views_handle().is_on_device());
     assert!(output.data_buffers()[0].is_on_device());
+    assert!(
+        output
+            .utf8_slice_at(0)
+            .unwrap_err()
+            .to_string()
+            .contains("host views")
+    );
+    assert!(output.utf8_buffer_at(0).is_err());
     assert!(Arc::ptr_eq(
         output.data_buffers()[0].as_device(),
         buffers[0].as_device()
@@ -230,6 +241,14 @@ fn native_varbin_device_host_replacement_validates_newly_accessible_values() {
             .unwrap(),
     )
     .unwrap();
+    assert!(
+        partial
+            .utf8_slice_at(0)
+            .unwrap_err()
+            .to_string()
+            .contains("host payload")
+    );
+    assert!(partial.utf8_buffer_at(0).is_err());
     let mut bytes = vec![b'a'; 28];
     bytes[13] = 0xff;
     let error = VarBinView

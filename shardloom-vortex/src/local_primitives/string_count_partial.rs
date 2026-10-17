@@ -247,8 +247,8 @@ fn visit_counts<W: CountWord>(
     visit: &mut impl FnMut(&str, u64) -> Result<()>,
 ) -> Result<()> {
     for entry in counts {
-        let bytes = borrowed_bytes(values, entry.value_index.index());
-        let value = std::str::from_utf8(bytes)
+        let value = values
+            .utf8_slice_at(entry.value_index.index())
             .map_err(|error| failed(&format!("invalid UTF-8 during exact merge: {error}")))?;
         visit(value, entry.count.into())?;
     }
@@ -847,8 +847,8 @@ fn count_with_word<W: CountWord>(
         let (mut counts, counts_lease) = allocate_slots::<W>(value_count, lease)?;
         let rows = u64_count(array.len())?;
         if value_count == 1 {
-            let bytes = borrowed_bytes(&values, 0);
-            std::str::from_utf8(bytes)
+            values
+                .utf8_slice_at(0)
                 .map_err(|error| failed(&format!("constant key has invalid UTF-8: {error}")))?;
             counts[0] = CountSlot {
                 hash: 0,
@@ -934,15 +934,17 @@ fn count_with_word<W: CountWord>(
             }
         }
         counts.retain(|slot| slot.count != W::ZERO);
-        // Check referenced strings only: unused dictionary entries never acquire
-        // a global identity and do not contribute to native group counts.
+        // Referenced values reuse checked native construction when available;
+        // generic builder output still passes checked access. Unused entries
+        // never acquire a global identity or contribute to group counts.
         for entry in &counts {
-            let bytes = borrowed_bytes(&values, entry.value_index.index());
-            std::str::from_utf8(bytes).map_err(|error| {
-                failed(&format!(
-                    "native dictionary value has invalid UTF-8: {error}"
-                ))
-            })?;
+            values
+                .utf8_slice_at(entry.value_index.index())
+                .map_err(|error| {
+                    failed(&format!(
+                        "native dictionary value has invalid UTF-8: {error}"
+                    ))
+                })?;
         }
         let work = StringCountPartialWork {
             rows: u64_count(array.len())?,
@@ -1001,10 +1003,10 @@ fn count_with_word<W: CountWord>(
         loop {
             let slot = &mut counts[bucket];
             if slot.count == W::ZERO {
-                // An occupied key was validated before insertion. Complete byte
-                // equality below lets duplicate rows reuse that proof; a hash
-                // or bucket collision alone never establishes valid UTF-8.
-                std::str::from_utf8(bytes).map_err(|error| {
+                // Reuse the provider's checked value proof, or validate generic
+                // construction here. Duplicate keys still require complete byte
+                // equality; a hash collision never proves text identity.
+                values.utf8_slice_at(row).map_err(|error| {
                     failed(&format!("canonical key has invalid UTF-8: {error}"))
                 })?;
                 *slot = CountSlot {
