@@ -10,7 +10,10 @@ The [reviewed acceptance report](../benchmarks/native-varbin-metadata-review-202
 records the exact source, all checks, the unchanged retention rule, six rejected
 comparisons and one-pass Full43 observation. The
 [initial report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
-remains historical evidence. Hosted integration remains pending.
+remains historical evidence. PR #1563 completes hosted integration after all 44
+checks, three installed-wheel lanes and preview/production verification pass;
+the [hosted packet](../benchmarks/evidence/native-varbin-metadata-hosted-2026-10-16.json)
+preserves those subsequent observations.
 `NATIVE-VARBIN-METADATA-RESOURCES` extends PERF-03/06/08/09 under
 [RFC 0044](../rfcs/0044-resident-runtime-resource-ownership.md). It follows the
 completed Zstd frame-metadata unit and leaves the broader
@@ -236,6 +239,9 @@ repeated cost breach. Its measured revision `c08e044e` differs only in three
 later `cfg(test)` fixture corrections; independent source checks prove production
 and lifecycle sources unchanged while the complete native suite runs freshly.
 Full43 passes all 43 queries once, with complete values and schemas checked.
-Independent inspection verifies all 19,538 portable members. These are local
-source-package observations; installed wheels and hosted integration remain
-separate gates. The predeclared acceptance protocol above is unchanged.
+Independent inspection verifies all 19,538 portable members. These remain local
+source-package observations. The separate hosted packet verifies all 2,371
+accepted source identities after merge, 6,578 native/provider tests, 1,079 native
+public tests and three installed-wheel lanes with 100 methods each and zero
+skips. All sixteen preview/production responses preserve source; browser search
+and navigation pass. The predeclared acceptance protocol above is unchanged.

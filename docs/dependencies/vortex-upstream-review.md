@@ -26,7 +26,10 @@ contents; checked native reuse preserves the same provider and ownership
 boundaries. The portable audit verifies all 841 selected provider source files
 and separately preserves earlier failed fixture/lint attempts and all six
 rejected cost comparisons.
-Hosted integration remains pending. This finite table-capacity contract leaves
+PR #1563 completes hosted integration after all 44 checks and three installed-wheel
+lanes pass. The [hosted packet](../benchmarks/evidence/native-varbin-metadata-hosted-2026-10-16.json)
+verifies unchanged accepted sources, complete provider logs and preview/production
+source and navigation. This finite table-capacity contract leaves
 raw APIs, general builder scratch, other allocation trees and process RSS open.
 
 ## October 16, 2026 frame metadata ownership
