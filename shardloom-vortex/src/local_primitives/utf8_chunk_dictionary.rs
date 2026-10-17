@@ -11,7 +11,9 @@ use super::native_utf8::{Utf8DictionaryValue, borrowed_bytes};
 
 use rustc_hash::FxHasher;
 use shardloom_core::{Result, ShardLoomError};
-use vortex::{array::arrays::VarBinViewArray, buffer::BufferString};
+use vortex::array::arrays::{VarBinViewArray, varbinview::VarBinViewArrayExt as _};
+#[cfg(test)]
+use vortex::buffer::BufferString;
 
 #[derive(Clone, Copy, Default)]
 struct Slot {
@@ -68,7 +70,8 @@ impl Utf8ChunkDictionary {
         let mut hasher = FxHasher::default();
         hasher.write(bytes);
         self.intern_hashed_with(bytes, hasher.finish(), || {
-            BufferString::try_from(source.bytes_at(row))
+            source
+                .utf8_buffer_at(row)
                 .map(Utf8DictionaryValue::source)
                 .map_err(|error| invalid_utf8(column, error))
         })

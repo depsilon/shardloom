@@ -89,7 +89,20 @@ reuses native dictionary lookups, narrows exact partial counts when their domain
 and routes admitted typed compound keys with one complete-key buffer. Larger counts
 and other native key shapes keep their existing representations. Five focused comparisons,
 all 4,827 public cases, fresh ingestion, all 43 queries and 18 format/workflow
-cohorts pass local acceptance. No new user settings are required.</p>
+cohorts pass local acceptance. PR #1566 also passes all 44 hosted checks,
+installed-wheel checks and served-page verification. Its matched whole-workload
+follow-up measures a 0.46% improvement, so the five focused gains do not establish
+a material combined speedup. No new user settings are required.</p>
+<p>The subsequent source-only <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-reconstruction-2026-10-17.md">native text reconstruction and validation change</a>
+shares checked UTF-8 validity between native decoding and its consumers. Its matched
+43-query comparison decreases the sum of per-query two-run means from 67.454 to
+58.139 seconds of engine execution (13.81%), with all 172 results and schemas
+matching. Both paired totals improve and no query crosses the predefined material
+regression threshold. This is a bounded comparison, not a single-pass Full43 result;
+the complete report retains slower observations and the earlier getter-only
+attempt that missed its retention gate. All 100 direct binding checks, 4,827 public
+cases and 18 format/workflow cohorts pass local acceptance, including 704 native
+and 704 independent oracle records. Published 0.6.0 packages remain unchanged.</p>
 <p>Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
 provider-backed join workflows execute today. The 0.6.0 packages compose eight admitted
 flat-scalar unary families—DISTINCT, duplicate removal and masks, tail, sampling, scalar

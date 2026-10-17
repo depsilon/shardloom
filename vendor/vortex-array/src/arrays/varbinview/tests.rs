@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-17: validate native UTF-8 receipt propagation.
 
 use std::sync::Arc;
 
@@ -18,8 +19,10 @@ use crate::array_session;
 use crate::arrays::VarBinView;
 use crate::arrays::VarBinViewArray;
 use crate::arrays::varbinview::BinaryView;
+use crate::arrays::varbinview::VarBinViewArrayExt;
 use crate::arrays::varbinview::VarBinViewData;
 use crate::assert_arrays_eq;
+use crate::buffer::BufferHandle;
 use crate::dtype::DType;
 use crate::dtype::Nullability;
 use crate::serde::SerializeOptions;
@@ -36,6 +39,38 @@ pub fn varbin_view() {
         VarBinViewArray::from_iter_str(["hello world", "hello world this is a long string"]),
         &mut ctx
     );
+}
+
+#[test]
+fn utf8_validation_receipt_requires_checked_construction_and_survives_selection() {
+    let raw = VarBinViewArray::from_iter_str(["λ", "outlined native text with 猫"]);
+    assert!(!raw.utf8_validated);
+    let checked = VarBinViewArray::new_handle(
+        raw.views_handle().clone(),
+        Arc::clone(raw.data_buffers()),
+        raw.dtype().clone(),
+        Validity::NonNullable,
+    );
+    assert!(checked.utf8_validated);
+    let mut ctx = array_session().create_execution_ctx();
+    let slice = checked
+        .slice(1..2)
+        .unwrap()
+        .execute::<VarBinViewArray>(&mut ctx)
+        .unwrap();
+    assert!(slice.utf8_validated);
+    assert_eq!(
+        slice.utf8_slice_at(0).unwrap(),
+        "outlined native text with 猫"
+    );
+    let binary = VarBinViewArray::new_handle(
+        BufferHandle::new_host(Buffer::copy_from([BinaryView::empty_view()]).into_byte_buffer()),
+        Arc::from([]),
+        DType::Binary(Nullability::NonNullable),
+        Validity::NonNullable,
+    );
+    assert!(!binary.utf8_validated);
+    assert!(binary.utf8_slice_at(0).is_err());
 }
 
 #[test]

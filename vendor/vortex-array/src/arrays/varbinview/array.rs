@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-16: retain admitted buffer-table ownership.
+// Modified by ShardLoom on 2026-10-17: carry checked native UTF-8 value validation.
 
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -10,6 +11,7 @@ use std::sync::Arc;
 use smallvec::smallvec;
 use vortex_buffer::Alignment;
 use vortex_buffer::Buffer;
+use vortex_buffer::BufferString;
 use vortex_buffer::ByteBuffer;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
@@ -118,6 +120,10 @@ pub struct VarBinViewData {
     // The value type under which these immutable views were constructed.
     // Opaque device contents still require validation on host replacement.
     pub(super) utf8_values: bool,
+    // Unlike the construction dtype, this receipt is established only by the
+    // reviewed checked paths below. Public unchecked constructors and generic
+    // builders do not establish it. Device bytes remain opaque until replaced.
+    pub(super) utf8_validated: bool,
     // Keep last: each managed table reference must drop before its shared credit.
     pub(super) table_owner: Option<Arc<MetadataReservation>>,
 }
@@ -283,7 +289,54 @@ impl VarBinViewData {
         let (buffers, owner) = MetadataVec::from_iter(buffers, allocator)?.into_arc()?;
         // SAFETY: the caller established value invariants; table conversion
         // preserves the handles and their order, with all storage admitted.
-        unsafe { Self::from_admitted_handles_unchecked(views, buffers, owner, dtype, validity) }
+        let utf8_validated = matches!(dtype, DType::Utf8(_));
+        let mut data = unsafe {
+            Self::from_admitted_handles_unchecked(views, buffers, owner, dtype, validity)?
+        };
+        // This crate-private helper's callers establish value validity with
+        // validate_and_fix or the checked UTF-8 heap/character-boundary builder.
+        data.utf8_validated = utf8_validated;
+        Ok(data)
+    }
+
+    /// Check a dense UTF-8 heap once, then validate views against those exact immutable bytes.
+    /// Inline values remain independently checked: an allocator's freeze operation cannot be
+    /// used as evidence that previously written view or payload bytes stayed unchanged.
+    pub(crate) fn try_new_utf8_buffer_in(
+        views: Buffer<BinaryView>,
+        buffer: ByteBuffer,
+        validity: Validity,
+        allocator: &HostAllocatorRef,
+    ) -> VortexResult<Self> {
+        let dtype = DType::Utf8(validity.nullability());
+        let view_handle = BufferHandle::new_host(views.clone().into_byte_buffer());
+        Self::check_handle_shape(&view_handle, &dtype, &validity)?;
+        let text = simdutf8::basic::from_utf8(buffer.as_slice())
+            .map_err(|_| vortex_err!("VarBinView text heap failed utf-8 validation"))?;
+        let buffer_count = usize::from(!buffer.is_empty());
+        for (index, view) in views.iter().enumerate() {
+            Self::validate_view_with(
+                index,
+                view,
+                buffer_count,
+                |_| (buffer.len(), Some(buffer.as_slice())),
+                true,
+                Some(text),
+            )?;
+        }
+        let buffer = (!buffer.is_empty()).then(|| BufferHandle::new_host(buffer));
+        // SAFETY: shape, dtype, validity and every immutable view were checked above. Outlined
+        // values reference this exact validated heap at character boundaries with matching
+        // prefixes; inline values, including null slots, passed independent UTF-8 validation.
+        unsafe {
+            Self::try_new_handle_in_unchecked(
+                view_handle,
+                buffer.into_iter(),
+                dtype,
+                validity,
+                allocator,
+            )
+        }
     }
 
     pub(crate) fn from_admitted_handles(
@@ -349,7 +402,10 @@ impl VarBinViewData {
         // SAFETY: host values and structure have been validated. Device contents
         // cannot be accessed on the host; replacing them with host buffers checks
         // the contents again through this constructor.
-        Ok(unsafe { Self::new_handle_unchecked(views, buffers, dtype, validity) })
+        let utf8_validated = matches!(dtype, DType::Utf8(_));
+        let mut data = unsafe { Self::new_handle_unchecked(views, buffers, dtype, validity) };
+        data.utf8_validated = utf8_validated;
+        Ok(data)
     }
 
     pub(super) fn validate_handle_contents(
@@ -505,6 +561,7 @@ impl VarBinViewData {
             buffers,
             views,
             utf8_values,
+            utf8_validated: false,
             table_owner: None,
         }
     }
@@ -764,6 +821,31 @@ impl VarBinViewData {
         }
     }
 
+    #[inline]
+    fn checked_host_bytes_at(&self, index: usize) -> VortexResult<&[u8]> {
+        vortex_ensure!(
+            self.views.as_host_opt().is_some(),
+            InvalidArgument: "VarBinView text access requires host views"
+        );
+        let view = self.views().get(index).ok_or_else(
+            || vortex_err!(InvalidArgument: "VarBinView text index {index} is out of bounds"),
+        )?;
+        if view.is_inlined() {
+            return Ok(view.as_inlined().value());
+        }
+        let reference = view.as_view();
+        let buffer = self
+            .buffers
+            .get(reference.buffer_index as usize)
+            .and_then(BufferHandle::as_host_opt)
+            .ok_or_else(|| {
+                vortex_err!(InvalidArgument: "VarBinView text access requires a host payload buffer")
+            })?;
+        buffer
+            .get(reference.as_range())
+            .ok_or_else(|| vortex_err!(InvalidArgument: "VarBinView text range is out of bounds"))
+    }
+
     /// Access one of the backing data buffers.
     ///
     /// # Panics
@@ -884,6 +966,45 @@ impl VarBinViewData {
 }
 
 pub trait VarBinViewArrayExt: TypedArrayRef<VarBinView> {
+    /// Borrow a physical UTF-8 value without cloning its payload owner.
+    ///
+    /// Checked native construction can reuse its immutable value validation.
+    /// Other construction paths validate the selected bytes here. Dtype, bounds
+    /// and host residency remain checked. This does not consult null validity;
+    /// callers must handle nulls before treating the physical value as present.
+    #[inline]
+    fn utf8_slice_at(&self, index: usize) -> VortexResult<&str> {
+        vortex_ensure!(
+            matches!(self.as_ref().dtype(), DType::Utf8(_)),
+            InvalidArgument: "VarBinView text access requires a UTF-8 dtype"
+        );
+        let bytes = self.checked_host_bytes_at(index)?;
+        if self.utf8_validated {
+            // SAFETY: reviewed construction validated every host-readable value,
+            // including null slots, against these immutable views and payloads.
+            // Selection and byte-identical replacement retain that receipt only
+            // for unchanged values. The selected view/payload are on the host,
+            // in bounds, and the outer logical dtype was checked above.
+            Ok(unsafe { std::str::from_utf8_unchecked(bytes) })
+        } else {
+            simdutf8::basic::from_utf8(bytes)
+                .map_err(|error| vortex_err!(InvalidArgument: "invalid UTF-8 value: {error}"))
+        }
+    }
+
+    /// Retain a physical UTF-8 value with the same payload owner as `bytes_at`.
+    ///
+    /// This copies no value bytes and retains no unrelated buffer-table or
+    /// outer-array owner. Null validity is the caller's responsibility, as for
+    /// [`Self::utf8_slice_at`]. Dtype, host residency and bounds errors are returned.
+    #[inline]
+    fn utf8_buffer_at(&self, index: usize) -> VortexResult<BufferString> {
+        self.utf8_slice_at(index)?;
+        // SAFETY: utf8_slice_at established UTF-8 for this exact immutable value.
+        // bytes_at retains precisely those bytes, including inline view storage.
+        Ok(unsafe { BufferString::new_unchecked(self.bytes_at(index)) })
+    }
+
     /// Replace views, dtype nullability and validity while sharing the original
     /// table and its owner. Host views are validated against the original buffers,
     /// including null slots, so changing validity cannot expose malformed values.
@@ -937,6 +1058,7 @@ pub trait VarBinViewArrayExt: TypedArrayRef<VarBinView> {
             buffers: Arc::clone(&self.buffers),
             views,
             utf8_values: matches!(dtype, DType::Utf8(_)),
+            utf8_validated: self.utf8_validated && matches!(dtype, DType::Utf8(_)),
             table_owner: self.table_owner.clone(),
         };
         let mut parts = ArrayParts::new(VarBinView, dtype, len, data)

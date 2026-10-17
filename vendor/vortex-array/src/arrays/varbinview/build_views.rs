@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-16: admit temporary and final buffer tables.
+// Modified by ShardLoom on 2026-10-17: expose checked length-prefixed text construction.
 
 use itertools::Itertools;
 use num_traits::AsPrimitive;
@@ -23,6 +24,10 @@ use crate::buffer::BufferHandle;
 use crate::dtype::DType;
 use crate::dtype::NativePType;
 use crate::validity::Validity;
+
+#[path = "length_prefixed.rs"]
+mod length_prefixed;
+pub use length_prefixed::build_views_from_length_prefixed_in;
 
 /// Convert an offsets buffer to a buffer of element lengths.
 #[inline]

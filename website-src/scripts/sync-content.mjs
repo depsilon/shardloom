@@ -747,7 +747,21 @@ reuses native dictionary lookups, narrows exact partial counts when their domain
 and routes admitted typed compound keys with one complete-key buffer. Larger counts
 and other native key shapes keep their existing representations. Five focused comparisons,
 all 4,827 public cases, fresh ingestion, all 43 queries and 18 format/workflow
-cohorts pass local acceptance. No new user settings are required.
+cohorts pass local acceptance. PR #1566 also passes all 44 hosted checks,
+installed-wheel checks and served-page verification. Its matched whole-workload
+follow-up measures a 0.46% improvement, so the five focused gains do not establish
+a material combined speedup. No new user settings are required.
+
+The subsequent source-only [native text reconstruction and validation change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-reconstruction-2026-10-17.md)
+shares checked UTF-8 validity between native decoding and its consumers. Its matched
+43-query comparison decreases the sum of per-query two-run means from 67.454 to
+58.139 seconds of engine execution (13.81%), with all 172 results and schemas
+matching. Both paired totals improve and no query crosses the predefined material
+regression threshold. This is a bounded comparison, not a single-pass Full43 result;
+the complete report retains slower observations and the earlier getter-only
+attempt that missed its retention gate. All 100 direct binding checks, 4,827 public
+cases and 18 format/workflow cohorts pass local acceptance, including 704 native
+and 704 independent oracle records. Published 0.6.0 packages remain unchanged.
 
 Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
 provider-backed join workflows execute today. The 0.6.0 packages compose eight admitted
@@ -1175,7 +1189,8 @@ engineering evidence and measurement boundaries; it does not present a public ra
 Reviewed October 17, 2026. Recent local work validates complete query results and measures
 individual changes against a frozen ShardLoom control:
 
-- [October 17 shared text aggregation](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-aggregation-2026-10-17.md) — five shared mechanisms pass focused comparisons and complete local acceptance. The 28,286-member packet retains all 364 comparison calls, two dropped variants and slower controls. Fresh ingestion validates all 99,997,497 rows; all 4,827 public cases and 18 format/workflow cohorts pass. One execution of each query records 67.405 s engine time with complete values and schemas. Individual gains are not additive, and the single Full43 pass does not establish a combined causal speedup.
+- [October 17 native text reconstruction and validation](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-reconstruction-2026-10-17.md) — the shared provider/consumer change lowers the matched 43-query sum of per-query two-run means from 67.454 to 58.139 s engine time (13.81%). Both paired totals improve by more than nine seconds, all 172 results and schemas match, and no query crosses the predefined material-regression rule. The report preserves every sample, slower queries and the getter-only attempt that missed the same 5% gate. This comparison is separate from a standard single-pass Full43 result.
+- [October 17 shared text aggregation](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-aggregation-2026-10-17.md) — five shared mechanisms pass focused comparisons and complete local and hosted acceptance in PR #1566. The 28,286-member local packet and 183-member hosted packet retain all 364 focused calls, two dropped variants, the later matched 43-query comparison and slower controls. Fresh ingestion validates all 99,997,497 rows; all 4,827 public cases and 18 format/workflow cohorts pass. One execution of each query records 67.405 s engine time with complete values and schemas. The matched follow-up measures only 0.46% improvement; individual gains are not additive.
 - [October 17 fresh UAT and file metadata ownership](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-file-metadata-buffers-2026-10-17.md) — corrected-source fresh ingestion validates all 99,997,497 rows; all 18 format/workflow cohorts pass. One execution of each of the 43 queries passes complete results and records 68.767 s engine time. The report retains the earlier 69.557 s and 64.909 s observations and their 28,207-member packet; a new 25,641-member review packet binds the corrected source and renewed acceptance. These are single observations without a matched speedup claim. The native output is byte-identical to the prior accepted artifact. PR #1565 is merged after all 44 checks, three installed-wheel lanes and preview/production verification pass.
 - [October 15 fresh UAT and all 43 query timings](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-timing-uat-2026-10-15.md) — historical local baseline after 0.6.0: one execution per query records 62.560 s engine time; fresh ingestion and all 18 format/workflow cohorts pass. The report preserves the full diagnostic evidence.
 - [Selected text view acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md) — the 70-call comparison retains the sparse-filter change: Q23's engine median improves 2.55%, while all four other parallel control medians are slower within their declared limits. A separate single pass verifies all 43 complete results and records 58.445 s engine time; it does not replace the paired decision. PR #1556 merged with complete hosted, installed-wheel and production verification. The report corrects the earlier stale deployment notification.

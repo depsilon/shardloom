@@ -1,5 +1,27 @@
 # Vortex Upstream Dependency Review
 
+## October 17, 2026 native text reconstruction and validation candidate
+
+The [text validation handoff](../architecture/native-text-validity-2026-10-17.md)
+extends the existing Apache-2.0 `vortex-array` 0.85.0 patch. A private receipt from
+reviewed checked construction enables safe borrowed/retained string access to
+reuse UTF-8 validation. Generic or public unchecked construction does not obtain
+the receipt and retains ordinary checked access. Dtype, host residency, bounds,
+null handling and payload lifetimes retain their explicit contracts. The two
+unchecked string conversions are confined to the excluded provider under RFC
+0044; no workspace unsafe code, dependency version or native format changes.
+Original registry/member/license identities remain unchanged. The provider
+provenance and Python license bundle record the same candidate scope. The first
+handoff implementation passed complete-result/schema checks but missed its
+predefined 5% standalone gain gate. The extended candidate reconstructs
+length-prefixed text within the existing admitted decompression allocation,
+normalizes consumed record headers, and validates the selected immutable heap
+once. Final view bounds, prefixes, character boundaries and inline values remain
+checked after freezing. The existing `vortex-zstd` patch routes canonical UTF-8
+materialization to this safe provider builder; binary, primitive and sparse
+selection paths retain their prior behavior. Complete-workload cost and broad
+validation gates remain open for the combined implementation.
+
 ## October 16, 2026 file metadata buffer intake
 
 The [file metadata contract](../architecture/native-file-metadata-buffers-2026-10-16.md)

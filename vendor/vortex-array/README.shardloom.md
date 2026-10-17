@@ -1,5 +1,28 @@
 # Vortex timestamp, statistics and ownership patches
 
+## Native text validation handoff candidate
+
+Safe `VarBinViewArrayExt::utf8_slice_at` and `utf8_buffer_at` reuse a private
+receipt from reviewed checked construction, deserialization or length-to-view
+validation. They check logical dtype, selected bounds and host residency. A
+generic builder or public unchecked constructor does not establish the receipt;
+its selected bytes still pass UTF-8 validation. Selection and byte-identical
+replacement preserve an existing receipt only for unchanged UTF-8 values.
+The two string conversions reuse immutable native ownership inside this pinned
+provider; no workspace unsafe code, new dependency or serialized field is added.
+The [implementation contract](../../docs/architecture/native-text-validity-2026-10-17.md)
+requires release-mode malformed-input checks and complete query comparisons.
+Retention and a performance gain remain unproven.
+
+The combined candidate adds a safe length-prefixed text builder. It constructs
+only a requested contiguous range's views, normalizes consumed length headers
+inside the exclusive decompression allocation, then freezes both allocations.
+The checked constructor validates the selected immutable heap once, checks each
+view's bounds, prefix and character boundaries, and checks inline values
+independently. Original payload ownership and full allocator credit are retained;
+malformed framing and selected text fail explicitly. Canonical Vortex Zstd text
+uses this builder without changing compressed source bytes or serialization.
+
 This is the Apache-2.0 `vortex-array` 0.85.0 published source with a focused
 correction for timezone-free microsecond timestamp scalars. Vortex's timestamp
 extension uses Int64 storage, but the original scalar validator constructs a

@@ -16616,8 +16616,7 @@ fn selected_direct_non_nullable_utf8_stat_values(
     row_indices
         .iter()
         .map(|&row_index| {
-            let bytes = utf8.bytes_at(row_index);
-            std::str::from_utf8(bytes.as_slice())
+            utf8.utf8_slice_at(row_index)
                 .ok()
                 .map(|value| StatValue::Utf8(value.to_string()))
         })
@@ -16671,8 +16670,7 @@ fn utf8_stat_values_from_vortex_array(
             values.push(StatValue::Null);
             continue;
         }
-        let bytes = utf8.bytes_at(index);
-        let text = std::str::from_utf8(bytes.as_slice()).map_err(vortex_error)?;
+        let text = utf8.utf8_slice_at(index).map_err(vortex_error)?;
         values.push(StatValue::Utf8(text.to_string()));
     }
     Ok(values)
@@ -16700,8 +16698,7 @@ fn direct_non_nullable_utf8_stat_values_from_vortex_array(
     }
     let mut values = Vec::with_capacity(utf8.len());
     for index in 0..utf8.len() {
-        let bytes = utf8.bytes_at(index);
-        let text = std::str::from_utf8(bytes.as_slice()).map_err(vortex_error)?;
+        let text = utf8.utf8_slice_at(index).map_err(vortex_error)?;
         values.push(StatValue::Utf8(text.to_string()));
     }
     Ok(Some(values))
@@ -43862,10 +43859,7 @@ fn aggregate_direct_utf8_dictionary_accessor_in_context(
         let value = if is_null {
             std::sync::Arc::<str>::from("")
         } else {
-            let bytes = dictionary.bytes_at(index);
-            std::sync::Arc::<str>::from(
-                std::str::from_utf8(bytes.as_slice()).map_err(vortex_error)?,
-            )
+            std::sync::Arc::<str>::from(dictionary.utf8_slice_at(index).map_err(vortex_error)?)
         };
         // Native DictArray values retain their existing independent ownership.
         values.push(value.into());

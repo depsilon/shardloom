@@ -104,7 +104,7 @@ impl Column {
         // later rejected by Top-K. A cutoff must not hide malformed UTF8.
         for row in 0..utf8.len() {
             if valid.value(row) {
-                std::str::from_utf8(borrowed_bytes(&utf8, row))
+                utf8.utf8_slice_at(row)
                     .map_err(|_| failed("invalid UTF8 in a valid sort value"))?;
             }
         }
@@ -143,7 +143,8 @@ impl Column {
             Self::Integer(owner) => owner.stat_value(row),
             Self::Utf8(_, valid) if !valid.value(row) => Ok(StatValue::Null),
             Self::Utf8(values, _) => Ok(StatValue::Utf8(
-                std::str::from_utf8(borrowed_bytes(values, row))
+                values
+                    .utf8_slice_at(row)
                     .map_err(|_| failed("invalid UTF8 in a valid sort value"))?
                     .to_owned(),
             )),

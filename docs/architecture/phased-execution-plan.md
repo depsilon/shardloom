@@ -3179,13 +3179,16 @@ all 44 checks, completed final-head review, three installed-wheel lanes and
 preview/production verification. Its
 [135-member hosted packet](../benchmarks/evidence/native-file-metadata-hosted-2026-10-17.json)
 preserves the complete logs and immutable source comparison. The shared-text
-optimization campaign below now has five retained mechanisms and complete local
-batch acceptance. Its [report](../benchmarks/native-text-aggregation-2026-10-17.md)
+optimization campaign below now has five retained mechanisms integrated in
+PR #1566 at `4ea5851e`. Its [report](../benchmarks/native-text-aggregation-2026-10-17.md)
 records 364 focused calls, both rejected variants, 4,827 public cases, all 18
 format/workflow cohorts, fresh ingestion and 67.405259296 seconds of engine
 execution for one complete Full43 pass. The 28,286-member packet preserves all
-source and result evidence. Hosted integration remains the next boundary;
-the five focused gains are not additive or a combined causal speedup claim.
+source and result evidence. The separate
+[183-member hosted packet](../benchmarks/evidence/native-text-aggregation-hosted-2026-10-17.json)
+records all 44 checks, completed review, installed wheels, served/browser checks
+and the matched whole-workload follow-up below. The five focused gains are not
+additive or a combined causal speedup claim.
 
 The maintainer's follow-up prioritizes shared text/compound-key and aggregate
 state work used by Q29, Q19, Q23, Q34 and Q35 under PERF-01/04/05/10, followed by
@@ -3206,6 +3209,28 @@ The [shared text aggregation campaign](native-text-aggregation-screen-2026-10-17
 records the current-source attribution, candidate contracts and completed local
 acceptance for five retained mechanisms. Each original comparison and the
 preceding PR's acceptance remain immutable.
+
+The subsequent whole-engine check compares all 43 queries on the same input,
+resource policy and compiled-source identities. Two executions per query per
+build give a 0.46% reduction in the sum of per-query means, with no predefined
+material per-query regression. This is a matched comparison, not a fresh
+single-pass Full43 result or a material campaign speedup. The next
+[native text validation implementation](native-text-validity-2026-10-17.md) removes
+repeated validation across provider/consumer boundaries. Its fast access requires
+checked native construction; a dtype label alone is insufficient. Keep all 43
+queries as controls alongside the five priority families, with generic
+type/operator admission and no query-specific rules. The getter-only comparison
+improves 2.23% and fails its 5% standalone gate. The combined native reconstruction
+and validation change passes the same gate at 13.81%, from 67.4536999765 to
+58.1389694790 engine seconds as sums of per-query two-sample means. Both paired
+totals improve by more than nine seconds; all 172 results and schemas match,
+with no predefined material per-query regression. The
+[complete measurement record](../benchmarks/native-text-reconstruction-2026-10-17.md)
+retains both comparisons and slower samples. Local acceptance also passes the
+workspace and native-feature gates, all 100 direct binding checks, 4,827 public
+cases and 18 format/workflow cohorts with 704 native and 704 independent oracle
+records. Complete source, result and failure evidence is retained; finish hosted
+CI, installed-wheel checks and review before integration.
 
 Keep three production-breadth priorities alongside this campaign: the default
 structural-layout nullable-root correctness follow-up under PERF-07; native
@@ -3235,8 +3260,8 @@ ownership is integrated in PR #1562 with all 44 checks, three installed-wheel
 lanes and verified production deployment. Variable-binary buffer-table ownership
 is integrated in PR #1563, and worker failure cleanup in PR #1564. Their completed
 ledger entries retain exact source, installed-wheel and deployment evidence.
-The file-metadata ownership correction has complete local acceptance; finish its
-hosted integration before the October 17 optimization focus above. Dynamic scalar output-schema inference
+The file-metadata ownership correction is integrated in PR #1565 with its
+completed hosted acceptance recorded above. Dynamic scalar output-schema inference
 and opaque source discovery retain their explicit boundaries.
 
 October 14 direction takes precedence over the earlier version hold. PR #1551

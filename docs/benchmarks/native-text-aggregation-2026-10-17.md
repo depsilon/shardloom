@@ -9,6 +9,9 @@ The
 [design and decision record](../architecture/native-text-aggregation-screen-2026-10-17.md)
 preserves each predeclared mechanism, original variant, result and control.
 These changes serve the existing SQL, Python and CLI paths without new settings.
+[PR #1566](https://github.com/depsilon/shardloom/pull/1566) is integrated at
+`4ea5851e` after local and hosted acceptance. The matched whole-workload follow-up
+below finds only a small overall improvement.
 
 ## Retained mechanisms
 
@@ -188,6 +191,38 @@ and executables are excluded from the portable archives with their complete
 identities preserved. Reproduction requires the named resident inputs and a build
 matching the archived source and feature set. Hosted integration is recorded
 separately after this immutable local packet.
+
+## Hosted integration and matched comparison
+
+All 44 checks and completed final-head review passed. The tested PR head,
+synthetic merge and merged tree agree, including all 2,410 selected source files.
+Hosted logs record 6,763 native test executions with 27 unchanged manual
+exclusions, 1,079 public cases, and all 100 direct methods in each of three
+installed-wheel lanes. Sixteen preview/production responses preserve expected
+source artifacts; desktop/mobile navigation and search checks pass.
+
+The [183-member hosted packet](evidence/native-text-aggregation-hosted-2026-10-17.json)
+and [archive](evidence/native-text-aggregation-hosted-2026-10-17.tar.xz) retain the
+complete logs, source comparison, served/browser evidence and the following
+matched cohort. Every member is reopened and hash-checked. Archive SHA-256:
+`4190ff494d7127cb01303176fe849a15132a50337b38efe451f8e9e4fb0a694c`.
+
+The follow-up compares both builds on the same native input and resource policy,
+with two calls per query per build and counterbalanced ordering. All 172 complete
+results match, and no query crosses the predeclared material-regression rule.
+These are sums of per-query two-sample means, separate from the single-pass
+Full43 result above:
+
+| Scope | Control engine seconds | Candidate engine seconds | Change |
+| --- | ---: | ---: | ---: |
+| All 43 queries | 65.6668180395 | 65.3663956280 | −0.46% |
+| Five priority families | 23.3461796045 | 22.8896376670 | −1.96% |
+| Other 38 queries | 42.3206384350 | 42.4767579610 | +0.37% |
+
+This bounded matched cohort does not establish a material overall speedup or
+eliminate environmental variation. All samples, including slower calls, remain
+in the packet. It motivates the subsequent shared text reconstruction and
+validation work rather than a stronger combined performance claim.
 
 This work does not close whole
 PERF or CG gates, change the immutable 0.6.0 packages, or establish competitive

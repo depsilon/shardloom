@@ -2,7 +2,7 @@
 
 # Shared text aggregation optimization
 
-Status: five mechanisms retained with complete local batch acceptance; hosted integration pending. This batch follows the
+Status: five mechanisms integrated in PR #1566 at `4ea5851e`, with local and hosted acceptance. This batch follows the
 native file-metadata correction in PR #1565 and remains under PERF-01/04/05/10.
 The maintainer requests at least five retained improvements in one cohesive PR,
 with focused ship/drop checks per candidate and full acceptance at the boundary.
@@ -402,4 +402,21 @@ identities, raw comparison samples, rejected variants and failure/correction
 history. The five gains are incremental and not additive. This single Full43
 observation does not establish a causal combined improvement. Earlier pending
 statements above describe each candidate's original acceptance boundary; the
-linked final report supersedes them for the completed local batch only.
+linked final report supersedes them for the completed local batch.
+
+## Hosted integration and complete-workload follow-up
+
+[PR #1566](https://github.com/depsilon/shardloom/pull/1566) merged at `4ea5851e`
+after all 44 checks and final-head review passed. The PR head, tested merge and
+merged revision have the same tree and all 2,410 selected source identities.
+The [183-member hosted packet](../benchmarks/evidence/native-text-aggregation-hosted-2026-10-17.json)
+retains complete validation logs, three installed-wheel lanes, preview/production
+responses and desktop/mobile navigation/search evidence.
+
+A matched follow-up executes every query twice per build with counterbalanced
+ordering, retaining 172 complete outputs. The sum of per-query means changes
+from 65.6668180395 to 65.3663956280 engine seconds, a 0.46% reduction. The other
+38 queries increase by 0.1561195260 seconds in total, with no predefined material
+per-query regression. This does not establish a material overall speedup.
+The [text reconstruction/validation candidate](native-text-validity-2026-10-17.md)
+continues the shared-engine investigation under a stricter complete-workload gate.
