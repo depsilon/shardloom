@@ -2,6 +2,11 @@
 
 # Native variable-binary buffer-table resource acceptance
 
+Historical initial acceptance: this report and its artifacts retain the original
+`3d11b432` observation. The [reviewed acceptance report](native-varbin-metadata-review-2026-10-16.md)
+supersedes it for safe-constructor/replacement corrections and their accepted
+source. The measurements and decisions below are unchanged historical evidence.
+
 Native text/binary arrays now retain shared buffer-table credit through the
 reviewed selection paths. Newly constructed tables receive admission before
 allocation; the admitted Chunked builder accounts for growth and finalization,

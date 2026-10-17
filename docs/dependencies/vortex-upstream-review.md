@@ -18,11 +18,14 @@ their exact Git-blob and SHA-256 identities. Existing array/Zstd original
 provenance is preserved, and the Python license bundle contains all four exact
 provider provenance records.
 
-The [local acceptance report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
-records all eight standalone provider test/Clippy commands, 3,587 passing tests,
+The [reviewed local acceptance report](../benchmarks/native-varbin-metadata-review-2026-10-16.md)
+records all eight fresh standalone provider test/Clippy commands, 3,587 passing tests,
 complete workspace/native/public validation and independent inspection of
-18,023 evidence members. The portable audit verifies all 841 selected provider
-source files and separately preserves earlier failed fixture/lint attempts.
+19,538 evidence members. Safe construction/replacement validates host-readable
+contents; checked native reuse preserves the same provider and ownership
+boundaries. The portable audit verifies all 841 selected provider source files
+and separately preserves earlier failed fixture/lint attempts and all six
+rejected cost comparisons.
 Hosted integration remains pending. This finite table-capacity contract leaves
 raw APIs, general builder scratch, other allocation trees and process RSS open.
 

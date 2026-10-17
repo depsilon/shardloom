@@ -162,11 +162,13 @@ verifies three installed-wheel lanes and preview/production source and navigatio
 Raw caller-owned APIs, fixed allocator/Arc overhead, other
 codecs, unreviewed provider trees and process RSS remain outside this claim.
 The source-only
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-varbin-metadata-resources-2026-10-16.md">variable-binary buffer-table extension</a>
+<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-varbin-metadata-review-2026-10-16.md">variable-binary buffer-table extension</a>
 has complete local acceptance for shared table credit, admitted construction
-and fresh receiving ownership. Six Rust gates, 3,587 standalone provider tests,
-100 direct methods, 4,827 public cases, all 32 lifecycle cells and one Full43 pass
-succeed; independent inspection verifies 18,023 members. Hosted integration remains pending.
+and fresh receiving ownership. Safe construction/replacement validates host
+contents before checked native reuse. Six fresh Rust gates, 3,587 standalone
+provider tests, 100 direct methods, 4,827 public cases and one Full43 pass succeed.
+All 32 lifecycle cells pass the unchanged rule across both comparison orders;
+independent inspection verifies 19,538 members. Hosted integration remains pending.
 Raw caller-owned exports, general builder/compaction scratch, fixed allocator/Arc
 overhead and process RSS retain their separate boundaries. Published 0.6.0 packages are unchanged.
 The later source-only

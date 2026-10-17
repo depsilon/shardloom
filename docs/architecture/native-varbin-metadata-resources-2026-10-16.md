@@ -2,18 +2,15 @@
 
 # Native variable-binary buffer table ownership — October 16, 2026
 
-Status: the initial implementation completed local acceptance. Review found
-missing content checks in safe handle construction and arbitrary view replacement.
-The corrective implementation passes focused regressions but repeats cost-gate
-breaches in both complete comparison orders. Reusing validated native views and
-bounded whole-buffer UTF-8 validation remove most cost breaches. Fusing exact-heap
-UTF-8 validation with view construction and prefix-based boundary checks leave
-one repeated FSST cost breach. A separate profile confirms content validation
-runs again while attaching FSST buffer owners. Checked reuse of byte-identical
-replacement buffers and refreshed complete acceptance are in progress.
-Hosted integration remains pending.
-The [acceptance report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
-records the exact source, checks, cost decision and one-pass Full43 observation.
+Status: the reviewed implementation completes fresh local acceptance and
+independent portable inspection. Safe construction and replacement validate
+host-readable contents; checked reuse of identical native bytes preserves the
+ownership contract without a repeated cost breach in the two comparison orders.
+The [reviewed acceptance report](../benchmarks/native-varbin-metadata-review-2026-10-16.md)
+records the exact source, all checks, the unchanged retention rule, six rejected
+comparisons and one-pass Full43 observation. The
+[initial report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
+remains historical evidence. Hosted integration remains pending.
 `NATIVE-VARBIN-METADATA-RESOURCES` extends PERF-03/06/08/09 under
 [RFC 0044](../rfcs/0044-resident-runtime-resource-ownership.md). It follows the
 completed Zstd frame-metadata unit and leaves the broader
@@ -228,17 +225,17 @@ remain required throughout.
 
 ## Local acceptance
 
-The following records the initial pre-review implementation. It does not accept
-the constructor correction or its subsequent optimization; refreshed evidence is
-required for the final source revision.
-
-All six Rust gates pass: 3,221 workspace tests and 4,315 native tests, including
-all 21 added regressions. Four standalone provider suites pass 3,587 tests;
-their eight test/Clippy commands are bound to the exact accepted sources.
+Accepted revision `2d5d82a1` passes all six fresh Rust gates: 3,221 workspace
+tests and 4,319 native tests, including all 25 added regressions. Four standalone
+provider suites pass 3,587 tests; their eight fresh test/Clippy commands are bound
+to the exact accepted sources.
 All 164 release-script tests, 100 direct binding methods and 4,827 public cases
-across 36 families pass. The 32-cell lifecycle screen verifies 4,864 complete
-operations and identical native serialized outputs without a declared breach.
+across 36 families pass. The 32-cell lifecycle screen verifies 9,728 complete
+operations across both orders, identical native serialized outputs and no
+repeated cost breach. Its measured revision `c08e044e` differs only in three
+later `cfg(test)` fixture corrections; independent source checks prove production
+and lifecycle sources unchanged while the complete native suite runs freshly.
 Full43 passes all 43 queries once, with complete values and schemas checked.
-Independent inspection verifies all 18,023 portable members. These are local
+Independent inspection verifies all 19,538 portable members. These are local
 source-package observations; installed wheels and hosted integration remain
 separate gates. The predeclared acceptance protocol above is unchanged.

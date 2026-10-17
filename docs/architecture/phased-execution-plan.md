@@ -252,17 +252,16 @@ the ledger.
 - [ ] `NATIVE-VARBIN-METADATA-RESOURCES` admit shared text/binary buffer tables.
   - Source: [ownership and acceptance contract](native-varbin-metadata-resources-2026-10-16.md),
     RFC 0044 and the remaining allocation row under PERF-03/06/08/09.
-  - Current state: the initial implementation has
-    [complete local acceptance](../benchmarks/native-varbin-metadata-resources-2026-10-16.md).
-    PR #1563 review found missing content checks in safe constructors and view
-    replacement. The correction passes focused regressions but repeats a cost
-    breach in both comparison orders. Validated-view reuse and combined UTF-8
-    validation/view construction and prefix-based boundary checks leave one
-    repeated FSST cost breach. A separate profile captures repeated validation
-    during FSST owner attachment. Checked byte-identical buffer replacement and
-    refreshed complete acceptance are in progress;
-    the initial packet does not accept this revised source. Hosted integration
-    remains pending. The Zstd frame-table unit remains complete.
+  - Current state: the reviewed implementation has
+    [complete fresh local acceptance](../benchmarks/native-varbin-metadata-review-2026-10-16.md).
+    Safe construction/replacement validates host-readable values; checked native
+    reuse passes the unchanged cost rule across both comparison orders. All six
+    Rust gates, 3,587 provider tests, 100 direct methods, 4,827 public cases and
+    Full43 pass. Independent inspection verifies 19,538 members, six rejected
+    comparisons and the explicit test-only source transition. All 20
+    documentation/site checks and desktop/phone browser verification pass.
+    Hosted integration remains pending. The initial packet stays historical;
+    the Zstd frame-table unit remains complete.
   - V1 scope classification: `required_for_v1` finite allocation coverage.
   - Shared family: Vortex VarBinView construction/selection, FSST/RunEnd/Zstd
     providers and the existing native Chunked builder below all user surfaces.
@@ -275,7 +274,7 @@ the ledger.
     - [x] Implement table admission, shared lifetime and all scoped clone/selection paths.
     - [x] Integrate codec construction, managed builder growth/finalization and receiving ownership.
     - [x] Verify pinned FSST/RunEnd provenance and synchronize dependency/license records.
-    - [ ] Pass ownership/error/value tests, frozen cost screen and complete local acceptance on the reviewed source.
+    - [x] Pass ownership/error/value tests, frozen cost screen and complete local acceptance on the reviewed source.
     - [ ] Package and inspect evidence; complete docs/site, hosted checks and deployment.
     - [ ] Move the accepted finite unit to the completed ledger after integration.
   - Acceptance/verification: exact requested-capacity ownership, unchanged native
