@@ -166,6 +166,79 @@ fn native_zstd_string_views_and_scalar_keep_their_native_owners() {
 }
 
 #[test]
+fn native_zstd_text_reconstruction_preserves_nullable_slices_and_payload_credit() {
+    use vortex::array::arrays::varbinview::VarBinViewArrayExt;
+
+    let long = "native Unicode λ ".repeat(16);
+    let expected = [
+        Some("outside"),
+        None,
+        Some(long.as_str()),
+        Some("λ猫"),
+        None,
+        Some(""),
+        Some("twelve-bytes!"),
+        Some("tail outside selection"),
+    ];
+    let encoded = strings(&VarBinViewArray::from_iter_nullable_str(expected));
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let session = session(&memory);
+    let mut ctx = session.create_execution_ctx();
+    let output = encoded
+        .slice(1..7)
+        .unwrap()
+        .execute::<VarBinViewArray>(&mut ctx)
+        .unwrap();
+    let mask = output
+        .validity()
+        .unwrap()
+        .execute_mask(6, &mut ctx)
+        .unwrap();
+    for (row, expected) in expected[1..7].iter().enumerate() {
+        assert_eq!(mask.value(row), expected.is_some());
+        assert_eq!(output.utf8_slice_at(row).unwrap(), expected.unwrap_or(""));
+    }
+    let held = output.utf8_buffer_at(1).unwrap();
+    let peak = memory.snapshot().peak_reserved_bytes;
+    let retained = memory.snapshot().reserved_bytes;
+    assert!(retained >= long.len() as u64 + 6 * 16);
+    drop(mask);
+    drop(output);
+    drop(ctx);
+    drop(session);
+    assert_eq!(held.as_str(), long);
+    // The selected range intersects both frames. Its sliced buffer must retain the full
+    // decompressed allocation, including the unselected first and last values.
+    let full_payload = expected
+        .iter()
+        .flatten()
+        .map(|value| value.len() + 4)
+        .sum::<usize>();
+    assert_eq!(memory.snapshot().reserved_bytes, full_payload as u64 + 256);
+    drop(held);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let denied = LiveMemoryPool::new(peak - 1).unwrap();
+    let error = encoded
+        .slice(1..7)
+        .unwrap()
+        .execute::<VarBinViewArray>(&mut self::session(&denied).create_execution_ctx())
+        .unwrap_err();
+    assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
+    assert_eq!(denied.snapshot().reserved_bytes, 0);
+
+    // Reuse the same compressed input: normalization affected only the fresh output allocation.
+    let fresh = LiveMemoryPool::new(1 << 20).unwrap();
+    let mut ctx = self::session(&fresh).create_execution_ctx();
+    let whole = encoded.execute::<VarBinViewArray>(&mut ctx).unwrap();
+    for (row, expected) in expected.iter().enumerate() {
+        assert_eq!(whole.utf8_slice_at(row).unwrap(), expected.unwrap_or(""));
+    }
+    drop(whole);
+    assert_eq!(fresh.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn native_zstd_all_null_output_has_accounted_canonical_storage() {
     for dtype in [
         DType::Primitive(PType::I64, Nullability::Nullable),

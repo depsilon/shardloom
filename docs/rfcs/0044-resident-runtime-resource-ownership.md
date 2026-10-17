@@ -241,7 +241,7 @@ neither serialized values nor metadata accounting.
 
 ## Verification
 
-### Native text validity handoff prototype
+### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)
 permits safe borrowed and retained UTF-8 access inside the excluded pinned array
@@ -253,6 +253,19 @@ selection/replacement must retain the original value invariants. The two native
 unchecked string conversions are confined to this contract, with no raw pointer,
 FFI, workspace unsafe, new ownership or serialization boundary. Correctness,
 release-mode rejection and complete-operation cost gates precede retention.
+
+The same contract admits fused reconstruction of native length-prefixed text
+records inside the pinned array provider. Exclusive decompression storage may
+replace consumed length headers with zeros before freezing, preserving every
+value byte. After freezing both allocations, the checked native constructor
+validates the selected heap once and checks each view's bounds, prefix and
+character boundaries, with independent inline-value validation. The allocator's
+freeze operation is not a content-validity proof. Zeroed headers separate
+character sequences across values. The existing private unchecked constructor
+is permitted only after those immutable-content checks, retaining shape,
+validity and allocator-owned table checks. No caller-supplied trust flag or
+workspace unsafe code is admitted. Slices retain their full payload owner;
+unused malformed text is not validated, and invalid framing remains an error.
 
 PERF-04/09 numeric consumer follow-up admits a per-source-array native Primitive
 execution after existing direct and dictionary accessors miss. The resulting

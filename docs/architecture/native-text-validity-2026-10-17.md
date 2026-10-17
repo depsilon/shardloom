@@ -2,7 +2,7 @@
 
 # Native text validation handoff
 
-Status: prototype, with no retained performance claim. This continues the shared
+Status: implemented candidate, with no retained performance claim. This continues the shared
 engine investigation under PERF-01/04/05/10 after the five-mechanism text batch.
 All broader PERF obligations and CG-1 through CG-23 remain open.
 
@@ -15,7 +15,7 @@ candidate targets repeated validation across provider/consumer boundaries.
 
 ## Provider decision and invariant
 
-Vortex-first classification: `wrap_vortex_concept`. The pinned Apache-2.0 Vortex
+Vortex-first classification: `use_vortex_native_provider`. The pinned Apache-2.0 Vortex
 0.85 `VarBinViewArray`, immutable buffer handles and `BufferString` already own
 the values. Extend that provider's safe borrowed/retained text access instead of
 introducing a ShardLoom trust wrapper or workspace unsafe code. Existing native
@@ -57,7 +57,8 @@ hash collision handling, row/dictionary order, integer widths, counts, floating
 point evaluation, cancellation and resource admission. Escaping global keys
 still acquire independent storage. Raw untrusted bytes still require validation.
 Admission depends on types and operator contracts, never query IDs, column names
-or benchmark constants. There is no file-format, codec, SQL or capability change.
+or benchmark constants. There is no persisted format, compression policy, SQL
+or capability change.
 
 ## Acceptance
 
@@ -76,3 +77,56 @@ families remain anchors; all 43 queries are regression controls. Use existing
 runners, exact full-result checks and all samples. Include any construction cost
 in ordinary query measurements. Retention requires a reproducible useful gain;
 the receipt itself is not performance evidence.
+
+## Complete text reconstruction and validation
+
+The first implemented handoff passed all 172 complete results and schemas in
+the frozen whole-workload comparison. The sum of per-query means decreased
+from 65.5297315465 to 64.0689343415 engine seconds (2.23%), below its predefined
+5% standalone retention gate. It is not accepted as a standalone optimization.
+Fresh diagnostic samples from that exact binary still attribute substantial
+text work to Zstd view reconstruction and the provider's per-value validation.
+Sampled timings receive no benchmark credit.
+
+Extend the same provider/consumer work unit with a safe native builder for
+length-prefixed text records. This is `use_vortex_native_provider`: the pinned
+Vortex Zstd decoder, writable host allocation, binary views, validity masks and
+allocator-owned tables remain the implementation boundaries. No codec format,
+runtime route, dependency or compressed source artifact changes.
+
+For canonical UTF-8 materialization that fits one native view buffer, retain
+exclusive access to the already admitted decompression allocation until views
+are built. Walk every stored record with checked lengths and exact count
+validation, constructing only views within the requested contiguous value
+range. Null rows receive empty views. After consuming a record's length,
+replace its four length bytes with zeros in this new allocation. Values and
+their order remain byte-identical. The compressed input is never modified.
+
+Validate only the selected immutable byte span in one SIMD UTF-8 pass. The
+zeroed record headers prevent an invalid partial character at one value's end
+from borrowing continuation bytes from the next value. Outlined strings no
+longer need independent per-value UTF-8 scans. Invalid bytes
+outside the requested values remain unobserved, while malformed record extents
+or counts anywhere in the decompressed frames still fail. Every output view is
+constructed from checked bytes. After both payload and views are frozen, the
+checked native constructor checks every view's buffer index, bounds, prefix and
+character boundaries. Inline values receive independent UTF-8 checks. A custom
+allocator's freeze method is not itself a content-validity proof. Only these
+checks may establish the existing private validation receipt.
+
+The immutable output retains the original allocator owner and full allocation
+charge even when its visible buffer is sliced. Output views and buffer tables
+use the same allocator; no unaccounted lengths vector or second payload copy is
+introduced. Admission failures release all owners. Primitive, binary,
+noncontiguous sparse selection and raw builder-append paths keep their existing
+prefix representation. Oversized text heaps use the existing checked native
+reconstruction path. This changes the mechanism of the previously rejected
+count-only reconstruction trial by fusing value reconstruction and validation.
+
+Before measurement, test mixed inline/outlined Unicode, zero and boundary
+lengths, empty/all-null/mixed-null arrays, slices and framing boundaries,
+invalid selected versus unused text, invalid sequences split across records,
+truncated/overrunning prefixes, incorrect counts and ranges, allocation refusal,
+payload ownership and release. Retention still requires at least 5% lower
+whole-workload engine time, improvement in both paired totals, no predefined
+material per-query regression, complete results/schemas and broad validation.

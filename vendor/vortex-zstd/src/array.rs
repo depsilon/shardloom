@@ -14,6 +14,8 @@
 // clones/slices and construct transferred tables under the receiving allocator.
 // Modified by ShardLoom on 2026-10-16: admit temporary and retained binary-view
 // data-buffer tables while preserving the existing native reconstruction loops.
+// Modified by ShardLoom on 2026-10-17: fuse canonical text reconstruction and
+// validation while retaining the original admitted decompression allocation.
 
 use std::fmt;
 use std::fmt::Debug;
@@ -44,6 +46,7 @@ use vortex_array::arrays::VarBinViewArray;
 use vortex_array::arrays::varbinview::VarBinViewBufferBuilder;
 use vortex_array::arrays::varbinview::build_views::BinaryView;
 use vortex_array::arrays::varbinview::build_views::MAX_BUFFER_LEN;
+use vortex_array::arrays::varbinview::build_views::build_views_from_length_prefixed_in;
 use vortex_array::buffer::BufferHandle;
 use vortex_array::builders::ArrayBuilder;
 use vortex_array::builders::VarBinBuilder;
@@ -55,6 +58,7 @@ use vortex_array::memory::DefaultHostAllocator;
 use vortex_array::memory::HostAllocatorExt;
 use vortex_array::memory::HostAllocatorRef;
 use vortex_array::memory::MemorySessionExt;
+use vortex_array::memory::WritableHostBuffer;
 use vortex_array::scalar::Scalar;
 use vortex_array::serde::ArrayChildren;
 use vortex_array::smallvec::smallvec;
@@ -326,7 +330,8 @@ where
 {
     let slice = array
         .data()
-        .decompress_slice(array.dtype(), &unsliced_validity(array), ctx)?;
+        .decompress_slice(array.dtype(), &unsliced_validity(array), ctx)?
+        .freeze();
     let mask = slice.validity.execute_mask(slice.n_rows, ctx)?;
     append_slice_to_varbin(&slice, &mask, builder)
 }
@@ -360,7 +365,8 @@ fn append_to_varbinview(
 ) -> VortexResult<()> {
     let slice = array
         .data()
-        .decompress_slice(array.dtype(), &unsliced_validity(array), ctx)?;
+        .decompress_slice(array.dtype(), &unsliced_validity(array), ctx)?
+        .freeze();
     let mask = slice.validity.execute_mask(slice.n_rows, ctx)?;
 
     // No values were stored, so there is nothing to reference and the frames can be dropped.
@@ -900,8 +906,8 @@ fn slice_views(
     Ok(views.slice(range))
 }
 
-struct DecompressedSlice {
-    bytes: ByteBuffer,
+struct DecompressedSlice<B = ByteBuffer> {
+    bytes: B,
     validity: Validity,
     byte_width: usize,
     n_rows: usize,
@@ -913,7 +919,22 @@ struct DecompressedSlice {
     n_buffered_values: usize,
 }
 
-impl DecompressedSlice {
+impl DecompressedSlice<WritableHostBuffer> {
+    fn freeze(self) -> DecompressedSlice {
+        DecompressedSlice {
+            bytes: self.bytes.freeze(),
+            validity: self.validity,
+            byte_width: self.byte_width,
+            n_rows: self.n_rows,
+            value_idx_start: self.value_idx_start,
+            value_idx_stop: self.value_idx_stop,
+            n_skipped_values: self.n_skipped_values,
+            n_buffered_values: self.n_buffered_values,
+        }
+    }
+}
+
+impl<B> DecompressedSlice<B> {
     /// The range of stored values this slice requests, as an index into `bytes`.
     ///
     /// The frame metadata that drives `n_skipped_values` is untrusted, so a frame claiming to hold
@@ -947,7 +968,9 @@ impl DecompressedSlice {
         );
         Ok(start..end)
     }
+}
 
+impl DecompressedSlice {
     /// The bounds within `bytes` of the length-prefixed region that should hold exactly this
     /// slice's values.
     ///
@@ -1562,7 +1585,7 @@ impl ZstdData {
         dtype: &DType,
         unsliced_validity: &Validity,
         ctx: &mut ExecutionCtx,
-    ) -> VortexResult<DecompressedSlice> {
+    ) -> VortexResult<DecompressedSlice<WritableHostBuffer>> {
         // To start, we figure out which frames we need to decompress, and with
         // what row offset into the first such frame.
         let byte_width = Self::byte_width(dtype);
@@ -1666,7 +1689,6 @@ impl ZstdData {
                 uncompressed_start
             );
         }
-        let decompressed = decompressed.freeze();
         // Last, we slice the exact values requested out of the decompressed data.
         let mut slice_validity = unsliced_validity.slice(self.slice_start..self.slice_stop)?;
 
@@ -1710,6 +1732,19 @@ impl ZstdData {
         ctx: &mut ExecutionCtx,
     ) -> VortexResult<ArrayRef> {
         let slice = self.decompress_slice(dtype, unsliced_validity, ctx)?;
+        if matches!(dtype, DType::Utf8(_)) && slice.bytes.len() <= MAX_BUFFER_LEN {
+            let range = slice.value_range()?;
+            return build_views_from_length_prefixed_in(
+                slice.bytes,
+                slice.n_buffered_values,
+                range,
+                slice.n_rows,
+                slice.validity,
+                ctx,
+            )
+            .map(IntoArray::into_array);
+        }
+        let slice = slice.freeze();
         match dtype {
             DType::Primitive(..) => {
                 let Range { start, end } = slice.value_range()?;

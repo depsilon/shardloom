@@ -31,7 +31,8 @@ pub(super) fn decompress(
     } else {
         let slice = array
             .data()
-            .decompress_slice(array.dtype(), &validity, ctx)?;
+            .decompress_slice(array.dtype(), &validity, ctx)?
+            .freeze();
         let range = slice.value_range()?;
         vortex_ensure!(
             range.len() == array.len() && range.end <= slice.n_buffered_values,

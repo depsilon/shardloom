@@ -299,6 +299,46 @@ impl VarBinViewData {
         Ok(data)
     }
 
+    /// Check a dense UTF-8 heap once, then validate views against those exact immutable bytes.
+    /// Inline values remain independently checked: an allocator's freeze operation cannot be
+    /// used as evidence that previously written view or payload bytes stayed unchanged.
+    pub(crate) fn try_new_utf8_buffer_in(
+        views: Buffer<BinaryView>,
+        buffer: ByteBuffer,
+        validity: Validity,
+        allocator: &HostAllocatorRef,
+    ) -> VortexResult<Self> {
+        let dtype = DType::Utf8(validity.nullability());
+        let view_handle = BufferHandle::new_host(views.clone().into_byte_buffer());
+        Self::check_handle_shape(&view_handle, &dtype, &validity)?;
+        let text = simdutf8::basic::from_utf8(buffer.as_slice())
+            .map_err(|_| vortex_err!("VarBinView text heap failed utf-8 validation"))?;
+        let buffer_count = usize::from(!buffer.is_empty());
+        for (index, view) in views.iter().enumerate() {
+            Self::validate_view_with(
+                index,
+                view,
+                buffer_count,
+                |_| (buffer.len(), Some(buffer.as_slice())),
+                true,
+                Some(text),
+            )?;
+        }
+        let buffer = (!buffer.is_empty()).then(|| BufferHandle::new_host(buffer));
+        // SAFETY: shape, dtype, validity and every immutable view were checked above. Outlined
+        // values reference this exact validated heap at character boundaries with matching
+        // prefixes; inline values, including null slots, passed independent UTF-8 validation.
+        unsafe {
+            Self::try_new_handle_in_unchecked(
+                view_handle,
+                buffer.into_iter(),
+                dtype,
+                validity,
+                allocator,
+            )
+        }
+    }
+
     pub(crate) fn from_admitted_handles(
         views: BufferHandle,
         buffers: Arc<[BufferHandle]>,

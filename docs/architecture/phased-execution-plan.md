@@ -3179,13 +3179,16 @@ all 44 checks, completed final-head review, three installed-wheel lanes and
 preview/production verification. Its
 [135-member hosted packet](../benchmarks/evidence/native-file-metadata-hosted-2026-10-17.json)
 preserves the complete logs and immutable source comparison. The shared-text
-optimization campaign below now has five retained mechanisms and complete local
-batch acceptance. Its [report](../benchmarks/native-text-aggregation-2026-10-17.md)
+optimization campaign below now has five retained mechanisms integrated in
+PR #1566 at `4ea5851e`. Its [report](../benchmarks/native-text-aggregation-2026-10-17.md)
 records 364 focused calls, both rejected variants, 4,827 public cases, all 18
 format/workflow cohorts, fresh ingestion and 67.405259296 seconds of engine
 execution for one complete Full43 pass. The 28,286-member packet preserves all
-source and result evidence. Hosted integration remains the next boundary;
-the five focused gains are not additive or a combined causal speedup claim.
+source and result evidence. The separate
+[183-member hosted packet](../benchmarks/evidence/native-text-aggregation-hosted-2026-10-17.json)
+records all 44 checks, completed review, installed wheels, served/browser checks
+and the matched whole-workload follow-up below. The five focused gains are not
+additive or a combined causal speedup claim.
 
 The maintainer's follow-up prioritizes shared text/compound-key and aggregate
 state work used by Q29, Q19, Q23, Q34 and Q35 under PERF-01/04/05/10, followed by
@@ -3212,7 +3215,7 @@ resource policy and compiled-source identities. Two executions per query per
 build give a 0.46% reduction in the sum of per-query means, with no predefined
 material per-query regression. This is a matched comparison, not a fresh
 single-pass Full43 result or a material campaign speedup. The next
-[native text validity prototype](native-text-validity-2026-10-17.md) investigates
+[native text validity candidate](native-text-validity-2026-10-17.md) investigates
 repeated validation across provider/consumer boundaries. Its fast access requires
 checked native construction; a dtype label alone is insufficient. Keep all 43
 queries as controls alongside the five priority families, with generic
