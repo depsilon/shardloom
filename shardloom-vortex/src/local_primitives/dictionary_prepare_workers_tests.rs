@@ -35,6 +35,7 @@ use vortex::{
 };
 
 const COLS: [&str; 4] = ["k", "c", "l", "m"];
+const NUMERIC_COLS: [&str; 7] = ["k", "c", "l", "m", "x", "s", "n"];
 const MEMORY: u64 = 64 << 20;
 
 fn request() -> VortexSimpleAggregateRequest {
@@ -81,6 +82,26 @@ fn query(path: &Path) -> VortexQueryPrimitiveRequest {
         op: ComparisonOp::NotEq,
         value: StatValue::Utf8(String::new()),
     });
+    query
+}
+fn numeric_request() -> VortexSimpleAggregateRequest {
+    let mut request = request();
+    request.measures[2].value_transform = Some("length".into());
+    for (function, alias) in [("max", "x"), ("sum", "s"), ("count", "n")] {
+        request.measures.push(
+            VortexSimpleAggregateMeasure::new(
+                function,
+                Some(ColumnRef::new("Referer").unwrap()),
+                alias.into(),
+            )
+            .with_value_transform("length"),
+        );
+    }
+    request
+}
+fn numeric_query(path: &Path) -> VortexQueryPrimitiveRequest {
+    let mut query = query(path);
+    query.simple_aggregate = Some(numeric_request());
     query
 }
 fn policy(parallelism: usize) -> VortexLocalPrimitiveExecutionPolicy {
@@ -236,13 +257,15 @@ fn dictionary_preparation_active_worker_cancel_refunds_immediately_without_nativ
 }
 
 fn assert_workers(work: &serde_json::Value, parallelism: usize) {
+    let partials = parallelism.min(std::thread::available_parallelism().unwrap().get()) >= 4;
+    let workers = if partials { 2 } else { 1 };
     let jobs = &work["aggregate_dictionary_preparation_workers"];
     assert!(jobs["submitted_chunks"].as_u64().unwrap() > 0);
     assert_eq!(jobs["submitted_chunks"], jobs["completed_chunks"]);
-    assert!(jobs["peak_outstanding_chunks"].as_u64().unwrap() <= 2);
+    assert!(jobs["peak_outstanding_chunks"].as_u64().unwrap() <= workers + 1);
     assert_eq!(
         jobs["cpu_ceiling"],
-        2 + usize::from(provider_lane(parallelism))
+        1 + workers + u64::from(provider_lane(parallelism))
     );
     assert_eq!(
         jobs["provider_background_worker_grant"],
@@ -254,10 +277,94 @@ fn assert_workers(work: &serde_json::Value, parallelism: usize) {
             work["aggregate_provider_cpu_scope"]
                 .as_str()
                 .unwrap()
-                .contains("shared_three_lane_CPU_grant")
+                .contains(if partials {
+                    "shared_four_lane_CPU_grant"
+                } else {
+                    "shared_three_lane_CPU_grant"
+                })
         );
     }
     assert_eq!(jobs["retired_to_same_serial_consumer"], false);
+    assert_eq!(jobs["dictionary_partial_recipe_admitted"], partials);
+    assert_eq!(jobs["dictionary_background_workers"], workers);
+    assert_eq!(
+        jobs["worker_dense_partial_chunks"].as_u64().unwrap() > 0,
+        partials
+    );
+}
+
+#[test]
+fn dictionary_preparation_dense_out_of_order_completion_keeps_ordered_merge() {
+    if std::thread::available_parallelism().unwrap().get() < 4 {
+        return;
+    }
+    let _clear = ClearHooks;
+    let mut request = request();
+    request.measures.push(VortexSimpleAggregateMeasure::new(
+        "max",
+        Some(ColumnRef::new("Referer").unwrap()),
+        "mx".into(),
+    ));
+    let columns = vec!["Referer".to_owned()];
+    let memory = LiveMemoryPool::new(MEMORY).unwrap();
+    let inputs = (0..3)
+        .map(|batch| {
+            chunk(
+                &(0..128)
+                    .map(|row| format!("https://{}.test/{row}/{}", row % 2, "x".repeat(batch)))
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut state = GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+    let mut serial =
+        GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+    let mut workers = DictionaryPrepareWorkers::admit(
+        &state,
+        inputs[0].dtype(),
+        &columns,
+        policy(4),
+        &memory,
+        None,
+    )
+    .unwrap()
+    .unwrap();
+    let (send, receive) = std::sync::mpsc::channel();
+    // With two workers, the second finishes and starts the third while the
+    // first is held. The third releases the first; caller merge stays ordered.
+    WORKER_START_TEST_HOOK.with(|hook| {
+        *hook.borrow_mut() = Some(Box::new(move |_| {
+            receive
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .unwrap();
+        }));
+    });
+    for (index, input) in inputs.iter().enumerate() {
+        if index == 2 {
+            let send = send.clone();
+            WORKER_START_TEST_HOOK
+                .with(|hook| *hook.borrow_mut() = Some(Box::new(move |_| send.send(()).unwrap())));
+        }
+        workers.before_next(&mut state).unwrap();
+        assert!(workers.submit(input, &mut state).unwrap());
+        assert!(
+            serial
+                .update_compact_direct_from_chunk(input, &columns, None)
+                .unwrap()
+        );
+    }
+    workers.finish(&mut state).unwrap();
+    assert_eq!(state_values(&mut state), state_values(&mut serial));
+    let mut summary = "{}".to_owned();
+    workers.annotate_summary(&mut summary).unwrap();
+    let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
+    let jobs = &summary["aggregate_dictionary_preparation_workers"];
+    assert_eq!(jobs["worker_dense_partial_chunks"], 3);
+    assert_eq!(jobs["worker_dense_partial_groups"], 6);
+    assert_eq!(jobs["cpu_ceiling"], 4);
+    assert_eq!(jobs["peak_outstanding_chunks"], 3);
+    drop(workers);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]
@@ -441,6 +548,14 @@ impl Fixture {
     fn new() -> Self {
         Self::with_statistics(Vec::new())
     }
+    fn numeric_expected(&self) -> serde_json::Value {
+        self.expected.as_array().unwrap().iter().map(|row| {
+            let length = row["m"].as_str().unwrap().len();
+            // This fixture uses fixed-width paths, so every string for a domain
+            // has this same byte length. Count and sum came from the row oracle.
+            serde_json::json!({"k":row["k"],"c":row["c"],"l":row["l"],"m":length,"x":length,"s":row["l"].as_f64().unwrap() * f64::from(u32::try_from(row["c"].as_u64().unwrap()).unwrap()),"n":row["c"]})
+        }).collect::<Vec<_>>().into()
+    }
 
     fn with_statistics(statistics: Vec<Stat>) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -520,7 +635,7 @@ impl Drop for ClearHooks {
 fn dictionary_preparation_native_ordinary_prepared_owned_values_and_owner_lifetime() {
     let fixture = Fixture::new();
     let query = query(&fixture.path);
-    for parallelism in [1, 2, 3] {
+    for parallelism in [1, 2, 3, 4, 12] {
         let report =
             execute_vortex_local_primitive_with_policy(&query, policy(parallelism)).unwrap();
         let work = payload(&report);
@@ -529,7 +644,16 @@ fn dictionary_preparation_native_ordinary_prepared_owned_values_and_owner_lifeti
             assert_workers(&work, parallelism);
         }
     }
-    for (external, parallelism) in [(false, 2), (true, 2), (false, 3), (true, 3)] {
+    for (external, parallelism) in [
+        (false, 2),
+        (true, 2),
+        (false, 3),
+        (true, 3),
+        (false, 4),
+        (true, 4),
+        (false, 12),
+        (true, 12),
+    ] {
         let session = if external {
             ResidentVortexSession::for_external_cpu_pool(MEMORY, parallelism)
         } else {
@@ -579,6 +703,98 @@ fn dictionary_preparation_native_ordinary_prepared_owned_values_and_owner_lifeti
         drop(owned);
         drop(json);
         drop(executed);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn dictionary_preparation_numeric_native_ordinary_prepared_owned_and_pressure() {
+    let _clear = ClearHooks;
+    let fixture = Fixture::new();
+    let query = numeric_query(&fixture.path);
+    let expected = fixture.numeric_expected();
+    let host = std::thread::available_parallelism().unwrap().get();
+    let serial_session = ResidentVortexSession::new(MEMORY, 1).unwrap();
+    let serial_prepared = prepare_aggregate_in_session(&query, policy(1), &serial_session).unwrap();
+    let serial_owned = serial_prepared.execute_owned().unwrap();
+    let expected_dtype = serial_owned.result.dtype().clone();
+    let expected_schema = serial_owned.result.schema_json().unwrap().value().clone();
+    drop((serial_owned, serial_prepared, serial_session));
+    for parallelism in [1, 2, 3, 4, 12] {
+        let report =
+            execute_vortex_local_primitive_with_policy(&query, policy(parallelism)).unwrap();
+        let work = payload(&report);
+        assert_eq!(work["values"], expected);
+        if parallelism.min(host) >= 4 {
+            let jobs = &work["aggregate_dictionary_preparation_workers"];
+            assert_eq!(jobs["dictionary_partial_recipe_admitted"], true);
+            assert_eq!(jobs["dictionary_background_workers"], 2);
+            assert_eq!(jobs["cpu_ceiling"], 4);
+            assert_eq!(jobs["window_limit_chunks"], 3);
+            assert!(jobs["worker_dense_partial_chunks"].as_u64().unwrap() > 0);
+            assert_eq!(jobs["submitted_chunks"], jobs["completed_chunks"]);
+            assert!(
+                work["aggregate_provider_cpu_scope"]
+                    .as_str()
+                    .unwrap()
+                    .contains("shared_four_lane_CPU_grant")
+            );
+        }
+    }
+    for external in [false, true] {
+        let session = if external {
+            ResidentVortexSession::for_external_cpu_pool(MEMORY, 4)
+        } else {
+            ResidentVortexSession::new(MEMORY, 4)
+        }
+        .unwrap();
+        let memory = session.memory().clone();
+        let prepared = prepare_aggregate_in_session(&query, policy(4), &session).unwrap();
+        let executed = prepared.execute().unwrap();
+        assert!(executed.native_io_certificate.is_certified());
+        assert_eq!(payload(&executed.report)["values"], expected);
+        let owned = prepared.execute_owned().unwrap();
+        assert_eq!(owned.result.dtype(), &expected_dtype);
+        assert_eq!(
+            owned.result.schema_json().unwrap().value(),
+            &expected_schema
+        );
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(
+                owned
+                    .result
+                    .to_bounded_json(&NUMERIC_COLS.map(str::to_owned), 16 * 1024)
+                    .unwrap()
+                    .value()
+            )
+            .unwrap(),
+            expected
+        );
+        if external {
+            dictionary_prepare_workers::SUBMIT_TEST_PRESSURE.with(|flag| flag.set(true));
+            let retired = prepared.execute().unwrap();
+            let work = payload(&retired.report);
+            assert_eq!(work["values"], expected);
+            assert_eq!(
+                work["aggregate_dictionary_preparation_workers"]["retired_to_same_serial_consumer"],
+                true
+            );
+            assert!(work["aggregate_workers_partition_source_replays"].is_null());
+        }
+        assert_eq!(prepared.snapshot().prepared_source_opens, 1);
+        drop((prepared, session, executed));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(
+                owned
+                    .result
+                    .to_bounded_json(&NUMERIC_COLS.map(str::to_owned), 16 * 1024)
+                    .unwrap()
+                    .value()
+            )
+            .unwrap(),
+            expected
+        );
+        drop(owned);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }
@@ -681,18 +897,34 @@ fn native_pressure(parallelism: usize) {
 
 #[test]
 fn dictionary_preparation_native_active_worker_observes_operation_cancel_and_recovers() {
-    for parallelism in [2, 3] {
-        native_cancel(parallelism);
+    for (parallelism, numeric) in [
+        (2, false),
+        (3, false),
+        (4, false),
+        (12, false),
+        (4, true),
+        (12, true),
+    ] {
+        native_cancel(parallelism, numeric);
     }
 }
 
-fn native_cancel(parallelism: usize) {
+fn native_cancel(parallelism: usize, numeric: bool) {
     let _clear = ClearHooks;
     let fixture = Fixture::new();
     let session = ResidentVortexSession::for_external_cpu_pool(MEMORY, parallelism).unwrap();
     let memory = session.memory().clone();
-    let prepared =
-        prepare_aggregate_in_session(&query(&fixture.path), policy(parallelism), &session).unwrap();
+    let query = if numeric {
+        numeric_query(&fixture.path)
+    } else {
+        query(&fixture.path)
+    };
+    let expected = if numeric {
+        fixture.numeric_expected()
+    } else {
+        fixture.expected.clone()
+    };
+    let prepared = prepare_aggregate_in_session(&query, policy(parallelism), &session).unwrap();
     let baseline = memory.snapshot().reserved_bytes;
     let cancellation = CancellationToken::default();
     let operation = cancellation.clone();
@@ -714,7 +946,7 @@ fn native_cancel(parallelism: usize) {
     assert_native_io_credits_return(&memory, baseline);
     let fresh = CancellationToken::default();
     let result = prepared.execute_cancellable(&fresh).unwrap();
-    assert_eq!(payload(&result.report)["values"], fixture.expected);
+    assert_eq!(payload(&result.report)["values"], expected);
     assert!(!fresh.is_cancelled());
     drop(result);
     drop(prepared);
@@ -727,17 +959,41 @@ fn dictionary_preparation_native_committed_source_failures_do_not_replay() {
     use aggregate_count_workers::{SOURCE_SCAN_TEST_FAULT, SourceScanTestFault};
     let _clear = ClearHooks;
     let fixture = Fixture::new();
-    for (parallelism, fault) in [
-        (2, SourceScanTestFault::OwnedDenial),
-        (2, SourceScanTestFault::CorruptionWithConcurrentDenial),
-        (3, SourceScanTestFault::OwnedDenial),
-        (3, SourceScanTestFault::CorruptionWithConcurrentDenial),
+    for (parallelism, numeric, fault) in [
+        (2, false, SourceScanTestFault::OwnedDenial),
+        (
+            2,
+            false,
+            SourceScanTestFault::CorruptionWithConcurrentDenial,
+        ),
+        (3, false, SourceScanTestFault::OwnedDenial),
+        (
+            3,
+            false,
+            SourceScanTestFault::CorruptionWithConcurrentDenial,
+        ),
+        (4, true, SourceScanTestFault::OwnedDenial),
+        (4, true, SourceScanTestFault::CorruptionWithConcurrentDenial),
+        (4, false, SourceScanTestFault::OwnedDenial),
+        (
+            4,
+            false,
+            SourceScanTestFault::CorruptionWithConcurrentDenial,
+        ),
     ] {
         let session = ResidentVortexSession::for_external_cpu_pool(MEMORY, parallelism).unwrap();
         let memory = session.memory().clone();
-        let prepared =
-            prepare_aggregate_in_session(&query(&fixture.path), policy(parallelism), &session)
-                .unwrap();
+        let query = if numeric {
+            numeric_query(&fixture.path)
+        } else {
+            query(&fixture.path)
+        };
+        let expected = if numeric {
+            fixture.numeric_expected()
+        } else {
+            fixture.expected.clone()
+        };
+        let prepared = prepare_aggregate_in_session(&query, policy(parallelism), &session).unwrap();
         let baseline = memory.snapshot().reserved_bytes;
         SOURCE_SCAN_TEST_FAULT.with(|value| value.set(Some(fault)));
         let error = prepared
@@ -752,12 +1008,153 @@ fn dictionary_preparation_native_committed_source_failures_do_not_replay() {
         assert!(SOURCE_SCAN_TEST_FAULT.with(std::cell::Cell::get).is_none());
         assert_eq!(session.snapshot().completed_executions, 0);
         assert_native_io_credits_return(&memory, baseline);
+        assert_eq!(prepared.snapshot().prepared_source_opens, 1);
         assert_eq!(
             payload(&prepared.execute().unwrap().report)["values"],
-            fixture.expected
+            expected
         );
         drop(prepared);
         drop(session);
         assert_native_io_credits_return(&memory, 0);
     }
+}
+
+#[test]
+fn dictionary_preparation_numeric_native_dict_interleave_and_capacity_retirement() {
+    use vortex::array::arrays::{DictArray, PrimitiveArray};
+    if std::thread::available_parallelism().unwrap().get() < 4 {
+        return;
+    }
+    let texts = (0..256)
+        .map(|row| format!("https://{}.test/{row}/{}", row % 2, "x".repeat(row % 9)))
+        .collect::<Vec<_>>();
+    let first = chunk(&texts);
+    let dict = DictArray::try_new(
+        PrimitiveArray::new(vec![2_u32, 1, 0, 1], Validity::NonNullable).into_array(),
+        VarBinViewArray::from_iter_str(texts.iter()).into_array(),
+    )
+    .unwrap()
+    .into_array();
+    let middle =
+        StructArray::new(["Referer"].into(), vec![dict], 4, Validity::NonNullable).into_array();
+    let inputs = [first.clone(), middle, first];
+    let request = numeric_request();
+    let columns = vec!["Referer".to_owned()];
+    for pressure_after in [None, Some(0), Some(2)] {
+        let memory = LiveMemoryPool::new(MEMORY).unwrap();
+        let mut state =
+            GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+        let mut serial =
+            GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+        let operation = CancellationToken::default();
+        let mut workers = DictionaryPrepareWorkers::admit(
+            &state,
+            inputs[0].dtype(),
+            &columns,
+            policy(4),
+            &memory,
+            Some(&operation),
+        )
+        .unwrap()
+        .unwrap();
+        let mut pressure = None;
+        for (index, input) in inputs.iter().enumerate() {
+            if pressure_after == Some(index) {
+                let snapshot = memory.snapshot();
+                pressure = Some(
+                    memory
+                        .reserve(snapshot.limit_bytes - snapshot.reserved_bytes - 1)
+                        .unwrap(),
+                );
+            }
+            workers.before_next(&mut state).unwrap();
+            let consumed = workers.submit(input, &mut state).unwrap();
+            if index == 1 {
+                assert!(
+                    !consumed,
+                    "native dictionaries retain their existing consumer"
+                );
+            }
+            if !consumed {
+                assert!(
+                    state
+                        .update_compact_direct_from_chunk(input, &columns, None)
+                        .unwrap()
+                );
+            }
+            assert!(
+                serial
+                    .update_compact_direct_from_chunk(input, &columns, None)
+                    .unwrap()
+            );
+        }
+        workers.finish(&mut state).unwrap();
+        assert_eq!(state_values(&mut state), state_values(&mut serial));
+        assert_eq!(workers.retired(), pressure_after.is_some());
+        drop((workers, pressure));
+        assert!(!operation.is_cancelled());
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn dictionary_preparation_numeric_ties_and_offset_use_complete_keys() {
+    if std::thread::available_parallelism().unwrap().get() < 4 {
+        return;
+    }
+    let mut request = numeric_request();
+    request.order_by = vec![VortexAggregateOrderExpr::new("c", true)];
+    request.offset = 1;
+    let columns = vec!["Referer".to_owned()];
+    let mut oracle = BTreeMap::<String, (u32, u32, usize, usize)>::new();
+    let inputs = (0..3)
+        .map(|batch| {
+            chunk(
+                &(0..128)
+                    .map(|row| {
+                        let domain = ["z.test", "a.test", "c.test", "b.test"][(row + batch) % 4];
+                        let text =
+                            format!("https://{domain}/{row}/{}", "x".repeat(batch + row % 7));
+                        let entry = oracle.entry(domain.into()).or_insert((0, 0, usize::MAX, 0));
+                        entry.0 += 1;
+                        entry.1 += u32::try_from(text.len()).unwrap();
+                        entry.2 = entry.2.min(text.len());
+                        entry.3 = entry.3.max(text.len());
+                        text
+                    })
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let expected: serde_json::Value = oracle.into_iter().skip(1).take(2).map(|(key, (count, sum, min, max))| {
+        serde_json::json!({"k":key,"c":count,"l":f64::from(sum)/f64::from(count),"m":min,"x":max,"s":f64::from(sum),"n":count})
+    }).collect::<Vec<_>>().into();
+    let memory = LiveMemoryPool::new(MEMORY).unwrap();
+    let mut state = GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+    let mut serial =
+        GroupedAggregateStates::new(&request, Some(2), &columns, false, false).unwrap();
+    let mut workers = DictionaryPrepareWorkers::admit(
+        &state,
+        inputs[0].dtype(),
+        &columns,
+        policy(4),
+        &memory,
+        None,
+    )
+    .unwrap()
+    .unwrap();
+    for input in inputs {
+        workers.before_next(&mut state).unwrap();
+        assert!(workers.submit(&input, &mut state).unwrap());
+        assert!(
+            serial
+                .update_compact_direct_from_chunk(&input, &columns, None)
+                .unwrap()
+        );
+    }
+    workers.finish(&mut state).unwrap();
+    assert_eq!(state_values(&mut state), expected);
+    assert_eq!(state_values(&mut serial), expected);
+    drop(workers);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

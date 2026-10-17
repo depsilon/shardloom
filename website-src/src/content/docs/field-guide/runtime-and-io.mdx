@@ -44,6 +44,15 @@ attempt that missed its retention gate. All 100 direct binding checks, 4,827 pub
 cases and 18 format/workflow cohorts pass local acceptance, including 704 native
 and 704 independent oracle records. Published 0.6.0 packages remain unchanged.
 
+The next source-only [shared numeric and dictionary changes](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-shared-execution-2026-10-17.md)
+bind native integer access once, compact complete numeric-pair records, and reduce
+admitted dictionary measures in bounded workers. Their matched 43-query sum of
+per-query two-run means decreases from 57.310 to 54.899 engine seconds (4.21%),
+with both paired totals improved and all complete results and schemas matching.
+The original 5% gate remains recorded as failed; the maintainer subsequently
+accepted improvements greater than 3%. Failed resource-efficiency experiments
+are excluded, and published 0.6.0 packages remain unchanged.
+
 Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
 provider-backed join workflows execute today. The 0.6.0 packages compose eight admitted
 flat-scalar unary families—DISTINCT, duplicate removal and masks, tail, sampling, scalar

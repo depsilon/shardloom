@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "measured_source": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-sharedexecution624.json",
+    "bytes": 315265,
+    "sha256": "683adfd18552999eab56726e8f0e97de50e46c51fe365c37905c411da524db7e"
+  },
+  "portable_manifest": {
+    "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-shared-execution-2026-10-17.manifest.json.xz",
+    "bytes": 1117128,
+    "sha256": "b7198a1c11b97b18fb63888139fafbd5e038c64c3f74171472b211132d9989e5"
+  },
+  "original_member": {
+    "archive_file": "native-shared-execution-2026-10-17.part-5.tar.xz",
+    "archive_path": "runtime-source/shardloom-vortex/src/local_primitives.rs"
+  },
+  "selected_source_count": 2412,
+  "unchanged_selected_sources": 2411,
+  "change": {
+    "path": "shardloom-vortex/src/local_primitives.rs",
+    "before_sha256": "aadafee283502700da7538e4956a70d9f8af44964242f10f8dfdf2615ca03a26",
+    "after_sha256": "d61f5cce88f8a6ec4f888ce511d431192d0779f7471d414efd1c8236d8ba6528",
+    "original": "            // The dictionary family explicitly grants one provider lane in a\n            // total budget of three (caller + dictionary + native progress).",
+    "replacement": "            // The dictionary family partitions its admitted grant between the caller,\n            // one or two preparation workers, and one native provider-progress lane."
+  },
+  "proof": "Exact byte replacement of two adjacent line comments; every other byte and line count is unchanged.",
+  "runtime_tokens_unchanged": true,
+  "source_line_numbers_unchanged": true,
+  "behavior_changed": false,
+  "implementation": "Retained measured build 618; provider-ownership comment corrected after local acceptance."
+}

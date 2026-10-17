@@ -2,8 +2,8 @@
 
 # Native text validation handoff
 
-Status: fully implemented with passed matched performance and local acceptance gates;
-hosted integration remains pending. The [measurement record](../benchmarks/native-text-reconstruction-2026-10-17.md)
+Status: fully implemented and merged in PR #1567 at `5bcee25a`, with passed matched
+performance, local and hosted acceptance. The [measurement record](../benchmarks/native-text-reconstruction-2026-10-17.md)
 retains both the unsuccessful getter-only comparison and the combined result. This continues the shared
 engine investigation under PERF-01/04/05/10 after the five-mechanism text batch.
 All broader PERF obligations and CG-1 through CG-23 remain open.

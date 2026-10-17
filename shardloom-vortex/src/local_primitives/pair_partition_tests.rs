@@ -214,6 +214,48 @@ fn pair_partitions_preserve_signed_and_unsigned_extrema_in_complete_keys() {
 }
 
 #[test]
+fn pair_partitions_preserve_key_kinds_when_integer_types_change_between_chunks() {
+    let unsigned =
+        |count| PrimitiveArray::new(vec![u64::MAX; count], Validity::NonNullable).into_array();
+    // All rows have identical value bits. Their two independent signedness
+    // flags still identify four distinct groups across these native chunks.
+    let chunks = [
+        chunk(
+            PrimitiveArray::new(vec![-1_i8; 2], Validity::NonNullable).into_array(),
+            PrimitiveArray::new(vec![-1_i16; 2], Validity::NonNullable).into_array(),
+            signed(&[1, 2]),
+            signed(&[10, 20]),
+        ),
+        chunk(unsigned(1), signed(&[-1]), signed(&[3]), signed(&[30])),
+        chunk(
+            PrimitiveArray::new(vec![-1_i32], Validity::NonNullable).into_array(),
+            unsigned(1),
+            signed(&[4]),
+            signed(&[40]),
+        ),
+        chunk(unsigned(2), unsigned(2), signed(&[5, 6]), signed(&[50, 60])),
+    ];
+    let request = request();
+    let expected = serial_values(&request, &chunks, 8);
+    assert_eq!(expected.as_array().unwrap().len(), 4);
+    assert_eq!(
+        expected
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| row["frequency"].as_u64().unwrap())
+            .sum::<u64>(),
+        6
+    );
+    for parallelism in [1, 3] {
+        assert_eq!(
+            worker_values(&request, &chunks, 8, parallelism, true),
+            expected
+        );
+    }
+}
+
+#[test]
 fn pair_partitions_apply_full_pair_ties_before_offset_and_limit() {
     let chunks = [pairs(&[5, -2, -2, 0], &[0, 9, -9, -1])];
     let request = request().with_offset(1);

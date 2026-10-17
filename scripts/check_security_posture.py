@@ -113,7 +113,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         scorecard,
         [
             "workflow_dispatch:",
-            "ossf/scorecard-action@v2.4.4",
+            "ossf/scorecard-action@v2.5.0",
             "publish_results: false",
             "github/codeql-action/upload-sarif@v4",
             "security-events: write",

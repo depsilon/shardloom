@@ -166,7 +166,7 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
         // The source/progress/merge caller occupies one CPU lane. The runtime
         // integrating this helper must not retain a second full-budget pool.
         // Dictionary preparation may explicitly partition a larger CPU grant
-        // between this caller/worker pair and one native provider driver.
+        // between this caller, bounded preparation workers and one native provider driver.
         let pool = (max_parallelism > 1)
             .then(|| {
                 ComputePool::new(

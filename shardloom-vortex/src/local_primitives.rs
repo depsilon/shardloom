@@ -63,6 +63,9 @@ mod compound_count_tests;
 #[path = "local_primitives/compound_count_workers.rs"]
 mod compound_count_workers;
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/dictionary_group_partials.rs"]
+mod dictionary_group_partials;
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/dictionary_handoff.rs"]
 mod dictionary_handoff;
 #[cfg(feature = "vortex-local-primitives")]
@@ -21317,8 +21320,8 @@ fn read_lowered_vortex_simple_aggregate_scan(
             .as_ref()
             .and_then(aggregate_count_workers::CountWorkers::provider_overlap_parallelism)
         {
-            // The dictionary family explicitly grants one provider lane in a
-            // total budget of three (caller + dictionary + native progress).
+            // The dictionary family partitions its admitted grant between the caller,
+            // one or two preparation workers, and one native provider-progress lane.
             let (drivers, count) = runtime.provider_drivers(provider_parallelism)?;
             (Some(drivers), count)
         } else if worker_memory.is_some()
@@ -22261,11 +22264,7 @@ fn read_lowered_vortex_simple_aggregate_scan(
         }
         summary["aggregate_provider_cpu_scope"] = if let Some(aggregate_count_workers::CountWorkers::DictionaryPrepare(workers)) = count_workers.as_ref()
             && workers.provider_parallelism().is_some() {
-            if workers.retired() {
-                "same_prepared_source;dictionary_worker_joined_before_serial_consumer;existing_provider_driver_retained;shared_three_lane_CPU_grant;no_source_reopen_or_replay"
-            } else {
-                "same_prepared_source;one_caller_one_dictionary_worker_one_provider_driver;shared_three_lane_CPU_grant;no_source_reopen_or_replay"
-            }
+            workers.provider_cpu_scope()
         } else if provider_resume_after_pair_retirement
             && matches!(count_workers, Some(aggregate_count_workers::CountWorkers::MixedDistinct(_))) {
             "same_prepared_source;mixed_distinct_workers_retired_before_provider_resume;temporary_provider_drivers;no_concurrent_aggregate_worker_pool;no_source_reopen_or_replay"
@@ -30086,17 +30085,22 @@ impl<'a> GroupedAggregateStates<'a> {
             self.numeric_utf8_topk_chunk_compacted_updates = true;
             return Ok(());
         }
-        for_each_aggregate_integer_key(numeric_accessor, "numeric-UTF8", |row_index, numeric| {
-            let utf8_id = aggregate_direct_utf8_dictionary_bound_id(
-                utf8_accessor,
-                dictionary_string_ids,
-                row_index,
-            )?;
-            self.update_numeric_utf8_topk_weighted_key(
-                AggregateNumericUtf8InternedKey::new(numeric, utf8_id),
-                1,
-            )
-        })
+        for_each_aggregate_integer_key(
+            numeric_accessor,
+            None,
+            "numeric-UTF8",
+            |row_index, numeric| {
+                let utf8_id = aggregate_direct_utf8_dictionary_bound_id(
+                    utf8_accessor,
+                    dictionary_string_ids,
+                    row_index,
+                )?;
+                self.update_numeric_utf8_topk_weighted_key(
+                    AggregateNumericUtf8InternedKey::new(numeric, utf8_id),
+                    1,
+                )
+            },
+        )
     }
 
     fn update_numeric_utf8_topk_weighted_key(
@@ -30759,8 +30763,11 @@ impl<'a> GroupedAggregateStates<'a> {
             row_indices.map_or(accessor.len(), <[usize]>::len),
             "single-numeric grouped aggregate",
         )?;
-        let mut update_row = |row_index| -> Result<()> {
-            let key = AggregateSingleNumericKey::from_accessor(accessor, row_index)?;
+        for_each_aggregate_integer_key(accessor, row_indices, "single", |_, part| {
+            let key = AggregateSingleNumericKey {
+                bits: part.bits,
+                signed: part.signed,
+            };
             let count = groups.entry(key).or_insert(0);
             *count = count.checked_add(1).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
@@ -30769,16 +30776,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 )
             })?;
             Ok(())
-        };
-        if let Some(row_indices) = row_indices {
-            for &row_index in row_indices {
-                update_row(row_index)?;
-            }
-        } else {
-            for row_index in 0..accessor.len() {
-                update_row(row_index)?;
-            }
-        }
+        })?;
         self.count_star_direct_updates = true;
         self.single_numeric_count_direct_updates = true;
         Ok(true)
@@ -33257,6 +33255,23 @@ impl<'a> GroupedAggregateStates<'a> {
         row_indices: Option<&[usize]>,
         chunk_rows: usize,
     ) -> Result<bool> {
+        self.update_compact_direct_from_accessors_with_partials(
+            accessors,
+            declared_columns,
+            row_indices,
+            chunk_rows,
+            None,
+        )
+    }
+
+    fn update_compact_direct_from_accessors_with_partials(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        declared_columns: &[String],
+        row_indices: Option<&[usize]>,
+        chunk_rows: usize,
+        partials: Option<&dictionary_group_partials::PreparedDictionaryPartials>,
+    ) -> Result<bool> {
         self.observe_aggregate_accessors(declared_columns, accessors);
         if self
             .update_numeric_pair_late_measure_count_direct_from_accessors(accessors, row_indices)?
@@ -33282,7 +33297,16 @@ impl<'a> GroupedAggregateStates<'a> {
                 return Ok(true);
             }
         }
-        if self.update_dense_general_direct_from_transformed_dictionary(accessors, row_indices)? {
+        let dense_updated = if partials.is_some() {
+            self.update_dense_general_direct_from_transformed_dictionary_with_partials(
+                accessors,
+                row_indices,
+                partials,
+            )?
+        } else {
+            self.update_dense_general_direct_from_transformed_dictionary(accessors, row_indices)?
+        };
+        if dense_updated {
             return Ok(true);
         }
         if self.update_general_direct_from_transformed_dictionary(accessors, row_indices)? {
@@ -33695,11 +33719,24 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok(true)
     }
 
-    #[allow(clippy::too_many_lines)]
     fn update_dense_general_direct_from_transformed_dictionary(
         &mut self,
         accessors: &[AggregateDirectColumnAccessor],
         row_indices: Option<&[usize]>,
+    ) -> Result<bool> {
+        self.update_dense_general_direct_from_transformed_dictionary_with_partials(
+            accessors,
+            row_indices,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn update_dense_general_direct_from_transformed_dictionary_with_partials(
+        &mut self,
+        accessors: &[AggregateDirectColumnAccessor],
+        row_indices: Option<&[usize]>,
+        partials: Option<&dictionary_group_partials::PreparedDictionaryPartials>,
     ) -> Result<bool> {
         if self.group_key_indices.len() != 1 || self.group_columns.len() != 1 {
             return Ok(false);
@@ -33772,13 +33809,28 @@ impl<'a> GroupedAggregateStates<'a> {
         } else {
             self.transformed_dictionary_dense_general_plan = Some(plan);
         }
-        let counts =
-            dictionary_value_counts_for_rows(group_row_ids, group_values.len(), row_indices)?;
+        // Preserve ordinary malformed-ID failure order; prepared jobs already
+        // validated counts before the ordered consumer receives them.
+        let counts = if partials.is_some() {
+            Vec::new()
+        } else {
+            dictionary_value_counts_for_rows(group_row_ids, group_values.len(), row_indices)?
+        };
         if self.transformed_dictionary_dense_general_groups.is_none() {
             self.transformed_dictionary_dense_general_groups =
                 Some(rustc_hash::FxHashMap::default());
         }
-        if transformed_dictionary_dense_general_should_use_chunk_partials(group_values, &counts) {
+        if let Some(partials) = partials {
+            if row_indices.is_some() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "prepared dictionary partial cannot apply a second row selection; no fallback execution was attempted".into(),
+                ));
+            }
+            partials.merge(self, plan, group_values, group_row_ids.len())?;
+        } else if transformed_dictionary_dense_general_should_use_chunk_partials(
+            group_values,
+            &counts,
+        ) {
             self.update_dense_general_direct_from_transformed_dictionary_chunk_partials(
                 plan,
                 group_values,
@@ -39935,14 +39987,6 @@ struct AggregateSingleNumericKey {
 
 #[cfg(feature = "vortex-local-primitives")]
 impl AggregateSingleNumericKey {
-    fn from_accessor(accessor: &AggregateDirectColumnAccessor, row_index: usize) -> Result<Self> {
-        let part = aggregate_direct_integer_key_part(accessor, row_index, "single")?;
-        Ok(Self {
-            bits: part.bits,
-            signed: part.signed,
-        })
-    }
-
     fn distinct_value(self) -> AggregateDistinctValue {
         integer_key_distinct_value(self.bits, self.signed)
     }
@@ -40915,21 +40959,27 @@ fn numeric_utf8_topk_chunk_counts(
         rows.min(65_536),
         "numeric-UTF8 top-K chunk-compacted key counts",
     )?;
-    for_each_aggregate_integer_key(numeric_accessor, "numeric-UTF8", |row_index, numeric| {
-        let utf8_id = aggregate_direct_utf8_dictionary_bound_id(
-            utf8_accessor,
-            dictionary_string_ids,
-            row_index,
-        )?;
-        let key = AggregateNumericUtf8InternedKey::new(numeric, utf8_id);
-        let count = counts.entry(key).or_insert(0);
-        *count = count.checked_add(1).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(
-                "local Vortex numeric-UTF8 top-K chunk-compacted count overflowed u64".to_string(),
-            )
-        })?;
-        Ok(())
-    })?;
+    for_each_aggregate_integer_key(
+        numeric_accessor,
+        None,
+        "numeric-UTF8",
+        |row_index, numeric| {
+            let utf8_id = aggregate_direct_utf8_dictionary_bound_id(
+                utf8_accessor,
+                dictionary_string_ids,
+                row_index,
+            )?;
+            let key = AggregateNumericUtf8InternedKey::new(numeric, utf8_id);
+            let count = counts.entry(key).or_insert(0);
+            *count = count.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex numeric-UTF8 top-K chunk-compacted count overflowed u64"
+                        .to_string(),
+                )
+            })?;
+            Ok(())
+        },
+    )?;
     Ok(counts)
 }
 
@@ -41921,17 +41971,27 @@ fn aggregate_direct_integer_key_part(
 #[cfg(feature = "vortex-local-primitives")]
 fn for_each_aggregate_integer_key(
     accessor: &AggregateDirectColumnAccessor,
+    row_indices: Option<&[usize]>,
     label: &str,
     mut update: impl FnMut(usize, AggregateIntegerKeyPart) -> Result<()>,
 ) -> Result<()> {
     if let Some(keys) = aggregate_direct_integer_key_slice(accessor) {
-        return keys.for_each(None, update);
+        return keys.for_each(row_indices, update);
     }
-    for row in 0..accessor.len() {
+    let mut update_row = |row| {
         update(
             row,
             aggregate_direct_integer_key_part(accessor, row, label)?,
-        )?;
+        )
+    };
+    if let Some(rows) = row_indices {
+        for &row in rows {
+            update_row(row)?;
+        }
+    } else {
+        for row in 0..accessor.len() {
+            update_row(row)?;
+        }
     }
     Ok(())
 }

@@ -633,6 +633,156 @@ fn native_integer_fixture(array: ArrayRef) -> AggregateDirectColumnAccessor {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Each original width shares an independent count oracle and failure-order checks.
+fn bound_single_numeric_counts_preserve_widths_selections_and_partial_failure() {
+    use crate::local_primitives::{AggregateSingleNumericKey, GroupedAggregateStates};
+    use crate::{
+        VortexAggregateOrderExpr, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
+    };
+    use shardloom_core::ColumnRef;
+    let request = VortexSimpleAggregateRequest::grouped(
+        vec![ColumnRef::new("bound_key").unwrap()],
+        vec![VortexSimpleAggregateMeasure::new("count", None, "n".into())],
+    )
+    .with_order_by(vec![VortexAggregateOrderExpr::new("n", true)]);
+    let columns = vec!["bound_key".into()];
+    let state = || GroupedAggregateStates::new(&request, Some(8), &columns, false, false).unwrap();
+    let mut fixtures = Vec::new();
+    macro_rules! fixture {
+        ($ty:ty, $wide:ty, $signed:expr) => {{
+            let values = [<$ty>::MIN, <$ty>::MAX, 0, 1, <$ty>::MIN, 0];
+            let expected = values.map(|value| AggregateSingleNumericKey {
+                bits: u64::from_ne_bytes(<$wide>::from(value).to_ne_bytes()),
+                signed: $signed,
+            });
+            fixtures.push((
+                native_integer_fixture(
+                    PrimitiveArray::new(values.to_vec(), Validity::NonNullable).into_array(),
+                ),
+                expected,
+            ));
+        }};
+    }
+    fixture!(u8, u64, false);
+    fixture!(u16, u64, false);
+    fixture!(u32, u64, false);
+    fixture!(u64, u64, false);
+    fixture!(i8, i64, true);
+    fixture!(i16, i64, true);
+    fixture!(i32, i64, true);
+    fixture!(i64, i64, true);
+    for (accessor, expected) in fixtures {
+        for selection in [
+            None,
+            Some([4_usize, 1, 4, 0].as_slice()),
+            Some([].as_slice()),
+        ] {
+            let mut states = state();
+            assert!(
+                states
+                    .update_single_numeric_count_direct_from_accessors(
+                        std::slice::from_ref(&accessor),
+                        selection,
+                    )
+                    .unwrap()
+            );
+            let mut oracle = rustc_hash::FxHashMap::default();
+            for &row in selection.unwrap_or(&[0, 1, 2, 3, 4, 5]) {
+                *oracle.entry(expected[row]).or_insert(0_u64) += 1;
+            }
+            assert_eq!(
+                states.single_numeric_count_groups.as_ref().unwrap(),
+                &oracle
+            );
+            assert!(states.single_numeric_count_direct_updates);
+        }
+        let mut states = state();
+        let error = states
+            .update_single_numeric_count_direct_from_accessors(
+                std::slice::from_ref(&accessor),
+                Some(&[3, usize::MAX, 1]),
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("out of bounds"));
+        let groups = states.single_numeric_count_groups.as_ref().unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[&expected[3]], 1);
+        assert!(!states.single_numeric_count_direct_updates);
+        let mut states = state();
+        states.single_numeric_count_groups = Some(rustc_hash::FxHashMap::from_iter([(
+            expected[2],
+            u64::MAX - 1,
+        )]));
+        let error = states
+            .update_single_numeric_count_direct_from_accessors(
+                std::slice::from_ref(&accessor),
+                Some(&[2, 3, 2, 1]),
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("compact count overflowed u64"));
+        let groups = states.single_numeric_count_groups.as_ref().unwrap();
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[&expected[2]], u64::MAX);
+        assert_eq!(groups[&expected[3]], 1);
+        assert!(!states.single_numeric_count_direct_updates);
+    }
+    let empty = native_integer_fixture(
+        PrimitiveArray::new(Vec::<i16>::new(), Validity::NonNullable).into_array(),
+    );
+    let mut states = state();
+    assert!(
+        states
+            .update_single_numeric_count_direct_from_accessors(&[empty], None)
+            .unwrap()
+    );
+    assert!(
+        states
+            .single_numeric_count_groups
+            .as_ref()
+            .unwrap()
+            .is_empty()
+    );
+    let nullable =
+        native_integer_fixture(PrimitiveArray::from_option_iter([Some(1_i16), None]).into_array());
+    let mut states = state();
+    assert!(
+        !states
+            .update_single_numeric_count_direct_from_accessors(&[nullable], None)
+            .unwrap()
+    );
+    assert!(states.single_numeric_count_groups.is_none());
+    let materialized = AggregateDirectColumnAccessor::materialized(
+        vec![
+            StatValue::Int64(-1),
+            StatValue::UInt64(u64::MAX),
+            StatValue::Null,
+        ],
+        "selection boundary",
+    );
+    let mut states = state();
+    assert!(
+        states
+            .update_single_numeric_count_direct_from_accessors(&[materialized], Some(&[1, 0, 1]))
+            .unwrap()
+    );
+    let groups = states.single_numeric_count_groups.unwrap();
+    assert_eq!(
+        groups[&AggregateSingleNumericKey {
+            bits: u64::MAX,
+            signed: true
+        }],
+        1
+    );
+    assert_eq!(
+        groups[&AggregateSingleNumericKey {
+            bits: u64::MAX,
+            signed: false
+        }],
+        2
+    );
+}
+
+#[test]
 #[allow(clippy::too_many_lines)] // Raw signed/unsigned and prepared-minute representations share one independent oracle.
 fn native_numeric_narrow_minute_dictionary_strategy_matches_renamed_reference() {
     use crate::local_primitives::{AggregateUtf8DictionarySource, GroupedAggregateStates};
