@@ -620,7 +620,7 @@ fn native_file_metadata_review_memory_segment_alignment_is_admitted_and_owned() 
             .unwrap();
         let result = runtime.block_on(file.segment_source().request(id));
         if budget < capacity {
-            let error = result.err().expect("alignment copy must be admitted first");
+            let error = result.expect_err("alignment copy must be admitted first");
             assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
             assert_eq!(memory.snapshot().reserved_bytes, 0);
             assert_eq!(memory.snapshot().peak_reserved_bytes, 0);
