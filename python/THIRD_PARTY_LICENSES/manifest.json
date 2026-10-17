@@ -6971,22 +6971,6 @@
       ]
     },
     {
-      "name": "vortex-fsst",
-      "version": "0.85.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/spiraldb/vortex",
-      "crate_checksum_sha256": "aa353148fd0181d6caaecd7823c46c917140f264c3a67d8f5fb3b2574ce394fc",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE"
-        }
-      ]
-    },
-    {
       "name": "vortex-io",
       "version": "0.85.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -7089,22 +7073,6 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/spiraldb/vortex",
       "crate_checksum_sha256": "6210263f0d59f388bdc0e80f5718893459d531099aa242f8fd7f2a98a00c1f88",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE"
-        }
-      ]
-    },
-    {
-      "name": "vortex-runend",
-      "version": "0.85.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/spiraldb/vortex",
-      "crate_checksum_sha256": "ce88ac5b091d96177e51c7bb84dcf8f11e0573edeaff804f15d81f3052cd51bb",
       "files": [
         {
           "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
@@ -8998,6 +8966,24 @@
         "source_of_truth": "Published 0.85.0 registry archive. Its dirty VCS marker means the recorded revision is not an identical source substitute. Original Cargo.lock is recorded but omitted; workspace Cargo.lock controls resolution.",
         "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
         "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "supplemental_test_files": {
+          "clippy.toml": {
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/clippy.toml",
+            "git_blob_sha1": "73f74ca35f52118bdc36400267d4e2b1cfbae865",
+            "sha256": "1a22d904a566a00fa869ec57e2b465fdc0d2e0dc02398b7d5019ce2988ba389e",
+            "bytes": 3472,
+            "reason": "Restore the pinned upstream lint configuration for standalone provider validation, including its absolute-path and disallowed-method rules."
+          },
+          "goldenfiles/dict.metadata": {
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/vortex-array/goldenfiles/dict.metadata",
+            "git_blob_sha1": "f5f444ac9685169f3590dacec84b69c5a4d91566",
+            "sha256": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
+            "bytes": 8,
+            "reason": "The registry archive omits the golden fixture required by its unchanged library test. The pinned Git revision's src/arrays/dict/array.rs is byte-identical to the published source. This fixture is supplemental test evidence, not a replacement production source."
+          }
+        },
+        "standalone_lint_compatibility": "The local retained-owner helper takes Option<&Arc<...>> with unchanged ownership/conflict semantics. The upstream primitive is-constant loop uses as_chunks::<WIDTH>() for the same fixed-width blocks and trailing elements, satisfying current Clippy without suppressing warnings. Tests and ownership rules remain unchanged.",
+        "varbin_metadata_changes": "VarBinViewData retains a shared allocator reservation for its immutable buffer-handle table. Context-aware construction, deserialization and replacement admit temporary and final table capacity, including conversion overlap. Native validity, cast, mask, slice, filter and take transformations share the original table owner. Ordinary empty canonical reductions discard the table; explicit empty views retaining it retain its credit. Existing view-building loops support admitted length/offset construction. A restricted non-compacting VarBinViewBuilder wrapper admits table growth and finalization; its all-kept append path avoids per-leaf intermediate tables. Raw table exports, legacy builders, compaction/dedup scratch, payload ownership and allocator overhead remain separate boundaries. No encoding, wire-format, dependency-version or unsafe boundary is introduced. See docs/architecture/native-varbin-metadata-resources-2026-10-16.md.",
         "local_changes": "Timestamp::unpack_native admits every Int64 storage value for timezone-free microseconds. TimestampValue::fmt uses checked direct calendar conversion for that case and exact epoch-microsecond display outside the calendar. Other units and timezone policy are unchanged. StatsSet count/size merging uses checked u64 addition, invalidating overflow without host-pointer-width dependence. src/array adds an optional opaque metadata owner retained after encoding data through construction parts, clones and structural rewrites; attachment requires a unique previously unowned array. Buffer reconstruction preserves a provider-supplied owner and rejects conflicts. Owned slices and filters retain a native parent view until execution while ownerless arrays keep existing optimization. src/arrays/slice/vtable.rs reduces that view at explicit execution to prevent repeated slice reconstruction over an already canonical child. src/arrays/filter/vtable.rs applies deferred filter reductions at execution while retaining the original array through canonical execution. No unsafe code or serialized field is added. src/array/owner_tests.rs is original ShardLoom lifetime, execution and common-allocation-footprint verification. A blank doc line in src/arrays/patched/mod.rs loses trailing whitespace; the snapshot in src/scalar_fn/fns/zip/mod.rs uses an ordinary string with an explicit space escape to preserve its original expected bytes without trailing whitespace. Every modified source file has a change notice. Cargo.toml is marked publish=false; license, provenance and README.shardloom.md are added. External heap admission is available through HostAllocator::reserve_external(len), which returns an opaque lifetime owner; covered provider allocations must be freed before the owner is dropped. Custom allocators refuse reservations by default, while DefaultHostAllocator explicitly remains unbounded."
       },
       "files": [
@@ -9056,6 +9042,72 @@
         "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
         "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
         "local_changes": "CompareKernel::compare reapplies the days-child validity to handled encoded comparison results using the existing native mask operation. Cargo.toml is marked publish=false; license, provenance and README.shardloom.md are added. Array identities, file format and compression remain unchanged."
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "vortex-fsst",
+      "version": "0.85.0",
+      "path": "vendor/vortex-fsst",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-fsst",
+        "version": "0.85.0",
+        "license": "Apache-2.0",
+        "registry_archive_sha256": "aa353148fd0181d6caaecd7823c46c917140f264c3a67d8f5fb3b2574ce394fc",
+        "upstream_git_sha": "afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3",
+        "upstream_vcs_dirty": true,
+        "source_of_truth": "published registry archive, not an assumed clean Git tree",
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "e079f09fbd7dd51829bfefa4796a048f5955d07f53df90d993771cc0f17cb55b",
+          "Cargo.lock": "a256c78ac3e9420cd847bccf0e95d0c4b28f544dcdf3a3dd6e3d92c0862370b9",
+          "Cargo.toml": "5cdd02aa5007b8d4d60e9a96becba42b1d271834738b74ae9ef917ae2d190908",
+          "Cargo.toml.orig": "90f5813f92acd331190b01fe26a353f2553de1c212b34b0948c8820329b83a4f",
+          "README.md": "ecde4db2ad754c2d3d12b8d98f002dc4d447aeb7ac55986ac858da5242a4e753",
+          "src/array.rs": "26e521d904e9b33172b99f778a2222cccad237b69167ea1c663ace0d403ab82b",
+          "src/canonical.rs": "f67a5a0820b68cc64c3747feb42842f3b6099f444789e184c31a753e1e429929",
+          "src/compress.rs": "ede5d764625bd6378ee7be85cc79f0fe8b52b0ee05c51fb9cb7c5fbad8db4636",
+          "src/compute/byte_length.rs": "e5d61c09603d063742d35d4ca38b583b312c9938e235a92f0a2dded31cc42f3d",
+          "src/compute/cast.rs": "73c88a49a05541055b192f56e72646152622f504f7dc84716299e5cc5e9407e6",
+          "src/compute/compare.rs": "de96b58bb54ca1e5e8b139386148ac7f63ac00e8b9f89b84d24d8f7b99c8ae86",
+          "src/compute/filter.rs": "c384bb3b770a368a6cc6a90340704423c980b20a7bedb336d3c1cc6021c67912",
+          "src/compute/like.rs": "c93ffbf9aee77a1f4a9240de8a140a4b434d0d64577bc6a4f43e6f96c7dcb800",
+          "src/compute/mod.rs": "44942d0e082d90baee7c3e0472680f504c239672914751978863f69e33dde576",
+          "src/dfa/flat_contains.rs": "00dc0580cf05b5f63def355b54b24535fc81317b37dba0ea50ac8b1b22a809ef",
+          "src/dfa/mod.rs": "8a2daf475d24625ddd7c1f7f4ec7e0da6b81d9e6170f9ec6c4f63b1962db350d",
+          "src/dfa/prefix.rs": "f600d85b05ef84cd7c2e46117f0f74bece686d825af09586050670a43fcd08df",
+          "src/dfa/tests.rs": "9cdd44efd5facc28bd36ebcc57a49a847bf19a343ec79ff671d5940a368c112f",
+          "src/kernel.rs": "a1ba7d9efd555d8c956e4c887d81170b0566e7e99541f3b9d9e22b664156d3a5",
+          "src/lib.rs": "2471427d2f3d026c89db523e7b836fb5b1c7071b42bb0e7f6825df4a66cb1c7e",
+          "src/ops.rs": "e32fe3c66979f36db101758f8e9615ed8ce86e6aec18994cdc921024c91995cc",
+          "src/rules.rs": "9a6c28ebd29885a06c44f22b45a59097d6949767330070a178a9950441f3157a",
+          "src/slice.rs": "cbb5156ab0ff2cc1617959e03a68c16413de860c37cd3271ade20ac555d6f391",
+          "src/test_utils.rs": "b0cda76f497afc492df6a881063f00a4759fed46c747f12956458dec10c5a689",
+          "src/tests.rs": "d532c94f21f8b15196d3610c336d1bb2e74254776ef5f037c7bb8cac31fa7708"
+        },
+        "omitted_original_files": {
+          "Cargo.lock": "workspace Cargo.lock controls dependency resolution"
+        },
+        "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "supplemental_test_files": {
+          "goldenfiles/fsst.metadata": {
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/encodings/fsst/goldenfiles/fsst.metadata",
+            "git_blob_sha1": "d28c2e831b7f62f8c0e830585655c50e0f5ce7a4",
+            "sha256": "484c1d036b954355f2cf8bd83bf393af07f5c9feb9f94b8f26f8cbe8027a7e40",
+            "bytes": 4,
+            "reason": "The registry archive omits the golden fixture required by its unchanged library test. The pinned Git revision's src/array.rs is byte-identical to the published source."
+          }
+        },
+        "local_changes": "Canonical string/binary decoding calls vortex-array's shared admitted view-construction helper. Existing FSST decompression and native view-building loops remain authoritative; temporary buffer elements and final handle-table conversion overlap use the context allocator. No new codec, execution engine, wire format, dependency version or unsafe boundary is introduced. The normalized manifest adds publish=false; README.shardloom.md and reviewed license/provenance records are included."
       },
       "files": [
         {
@@ -9192,6 +9244,72 @@
       ]
     },
     {
+      "name": "vortex-runend",
+      "version": "0.85.0",
+      "path": "vendor/vortex-runend",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-runend",
+        "version": "0.85.0",
+        "license": "Apache-2.0",
+        "registry_archive_sha256": "ce88ac5b091d96177e51c7bb84dcf8f11e0573edeaff804f15d81f3052cd51bb",
+        "upstream_git_sha": "afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3",
+        "upstream_vcs_dirty": true,
+        "source_of_truth": "published registry archive, not an assumed clean Git tree",
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "5a6ac712c5cd465f18b4f9a0510e06218464ec06f5f91358c227815ea2bcee9b",
+          "Cargo.lock": "89c73938c4a676d505a4024aa1a111199a98623db4b0020ed261040c80d2e152",
+          "Cargo.toml": "8f9fc8b78e4f4482e5d404c35dde8ceeec59c715de809b68ef2bed33161db381",
+          "Cargo.toml.orig": "ac1f414c8315fe76feb2c67f71af70df53ae8be9ea3f956974e6b40db7fa5e9e",
+          "README.md": "c2f9ab30dd59ac68d30b19b8402f5c8a3dfdc4dd8dba6921722a77ebf4ac54c0",
+          "src/arbitrary.rs": "c5524c0bf2b9f7623d889fbc3361198afbc79e7e14f689b18194db2905a812a0",
+          "src/array.rs": "3d8ad9751e0b9ce81186b0da32801be45dde7b3935fc964eedc1f7fc7d63adb6",
+          "src/compress.rs": "490ffb58d1cc4c43bd558084999eeee11e283625549a7eae5b99b7b67f8ffe63",
+          "src/compute/cast.rs": "2ed0ae259e57df74e7d6c62ed9c9b38a6eabcf089d78cad3c29a090863e2e552",
+          "src/compute/compare.rs": "a239115a1f106e9bbc5e212a12ce0b3f687a9433e66586d96e7f05e23b548c85",
+          "src/compute/fill_null.rs": "07a42d771c16b51afe008a8a6d61d60183e4c4e8b634a4b2172a2a4a88c65a16",
+          "src/compute/filter.rs": "b549bfb8b5a2438c314e9fd269f5e6a0a3f7d9c8fd5d7b9df27627be5c111be1",
+          "src/compute/is_constant.rs": "4a376d0d52f90b87dcda47abc7afaf4c1352a59afe5e8b5702cb7c429e8cd398",
+          "src/compute/is_sorted.rs": "ae6b6beaad73e4924f5b13a1cf8a0ddb542544cc60d103f0c729faa4f5498ed2",
+          "src/compute/min_max.rs": "45a7e649b7b5ea9c4a9422b627fd9ab9616a1adf78af084a6f213e7e279d5f55",
+          "src/compute/mod.rs": "e56ab5247a2139d52a7a7e63b29a293efa584df65ef7bd425db8811d40ee7fec",
+          "src/compute/take.rs": "bc5be9d9e5d44893a6fc159f19f84105ddb76726fa5373d96c1b9dc60fabcb65",
+          "src/compute/take_from.rs": "47719bb31906ab7d1bdc6b5863aedfd24906b1426814460f4acb2c28825a8502",
+          "src/decompress_bool.rs": "5519f1d25bd7ad841e5283ec4099c87e516705102ceaa97b1110c98606580d3a",
+          "src/iter.rs": "5261009721ae79d7a0fc8adca4a89e5897141672f8f70eee76fd2f8becb904d2",
+          "src/kernel.rs": "8f096f53927ee42d25e785fc087c946076de50c8bd7846c2fa85963f632ed7ab",
+          "src/lib.rs": "239c3dda01bed0dd911ddb515c856c411eaf5b493e557052e9629cf8b172361e",
+          "src/ops.rs": "be72d72e25a66818783ee400f49de1176b0c620cb28fe156abd5ee3ed677c83b",
+          "src/rules.rs": "f5b0874e0a4b8810c4b07b697f3f9e6af15afddefb5a0ee22c4dde1aeff43947",
+          "src/trace_tests.rs": "b4a5266f9b27c4898a4a6417bc9edf65b6228ecfdc5de0d44353ce0f17756b39"
+        },
+        "omitted_original_files": {
+          "Cargo.lock": "workspace Cargo.lock controls dependency resolution"
+        },
+        "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "supplemental_test_files": {
+          "goldenfiles/runend.metadata": {
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/encodings/runend/goldenfiles/runend.metadata",
+            "git_blob_sha1": "17785041a8123a014d1987344b87fad6a256bd04",
+            "sha256": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
+            "bytes": 24,
+            "reason": "The registry archive omits the golden fixture required by its unchanged library test. The pinned Git revision's src/lib.rs is byte-identical to the published source."
+          }
+        },
+        "local_changes": "String/binary RunEnd expansion reconstructs views and validity through the original VarBinView array's owner-preserving helper, sharing its data-buffer table and reservation. Existing RunEnd decoding and value semantics remain authoritative. No new encoding, wire format, dependency version or unsafe boundary is introduced. The normalized manifest adds publish=false; README.shardloom.md and reviewed license/provenance records are included."
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE"
+        }
+      ]
+    },
+    {
       "name": "vortex-zstd",
       "version": "0.85.0",
       "path": "vendor/vortex-zstd",
@@ -9220,6 +9338,7 @@
         },
         "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
         "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "varbin_metadata_changes": "Full and selected string reconstruction use vortex-array's bounded buffer builder and managed VarBinView table constructors. Temporary byte-buffer elements and final handle-table conversion overlap are admitted by the existing session allocator. Legacy builder append borrows the managed temporary collection until its own append completes. Existing frame decoding, selection, layout and native serialization are preserved; the decoder's independent payload and frame-metadata reservations remain in force.",
         "local_changes": "Route decode payload, static decoder and by-reference prepared-dictionary workspaces through the existing fallible Vortex HostAllocator. Primitive builder append uses that same native decoder before native primitive append. The private workspace wrapper uses the locked zstd-sys 2.0.16 / Zstandard 1.5.7 static APIs under RFC 0044; legacy members are explicitly unsupported. Ordinary slices borrow contiguous frame ranges and count validity bits directly, avoiding temporary frame-reference and rank vectors. Allocator-aware string reconstruction pre-counts decoded buffer-handle capacity. Sparse UTF-8/binary frame selection now runs in ShardLoom's admitted execution-parent kernel; the context-free local FilterReduce rule is removed. Source buffers, dictionaries, original VTable, native slices and native file encoding are preserved. No C implementation is copied and no other query engine is invoked. Compression now uses allocator-backed input, offset, and sample buffers, dictionary output, reusable frame scratch, and retained frame payloads. The pinned synchronous compressor heap and default FASTCOVER training heap are reserved before provider calls. Checked frame and training extents reject invalid domains and arithmetic; primitive frame metadata tracks aligned extents for over-aligned input. The selected.rs extension reuses the admitted frame decoder, walks checked length prefixes, and creates views only for strictly ordered selected all-valid UTF-8/binary rows. The safe native constructor validates selected output; unfiltered and dense view reconstruction are unchanged. Frame handles and protobuf descriptions now share one immutable allocator-admitted table across clones, slices and nullability casts. A bounded two-pass Prost parser reserves exact requested vector capacity before metadata construction. Selected-frame and receiving-context copies admit a fresh table; raw construction/export remains an explicit caller-owned boundary. Serialization borrows metadata without cloning it. This safe-Rust metadata extension adds no dependency, wire-format change or unsafe code."
       },
       "files": [

@@ -124,6 +124,10 @@ struct RejectingAllocator {
 }
 
 impl HostAllocator for RejectingAllocator {
+    fn reserve_external(&self, len: usize) -> VortexResult<HostMemoryReservation> {
+        self.inner.reserve_external(len)
+    }
+
     fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
         if self.calls.fetch_add(1, Ordering::SeqCst) == self.target {
             // Every test grants 1 MiB: this exercises the real typed denial

@@ -158,11 +158,11 @@ fn retained_owner_cannot_modify_aliases_or_replace_an_owner() {
 fn rebuilt_parts_preserve_provider_owners_and_reject_conflicts() {
     let (array, weak, _) = owned_constant();
     let mut parts = array.downcast::<Constant>().try_into_parts().unwrap();
-    parts.inherit_owner(&None).unwrap();
+    parts.inherit_owner(None).unwrap();
     let original = parts.retained_owner.clone();
-    parts.inherit_owner(&original).unwrap();
+    parts.inherit_owner(original.as_ref()).unwrap();
     let different: Arc<dyn Any + Send + Sync> = Arc::new(());
-    assert!(parts.inherit_owner(&Some(different)).is_err());
+    assert!(parts.inherit_owner(Some(&different)).is_err());
     assert!(Arc::ptr_eq(
         parts.retained_owner.as_ref().unwrap(),
         original.as_ref().unwrap()

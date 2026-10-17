@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-16: preserve shared VarBinView table ownership.
 
 //! Encodings that enable zero-copy sharing of data with Arrow.
 
@@ -54,7 +55,7 @@ use crate::arrays::map::MapArraySlotsExt;
 use crate::arrays::primitive::PrimitiveDataParts;
 use crate::arrays::struct_::StructDataParts;
 use crate::arrays::union::UnionDataParts;
-use crate::arrays::varbinview::VarBinViewDataParts;
+use crate::arrays::varbinview::VarBinViewArrayExt;
 use crate::arrays::variant::VariantArraySlotsExt;
 use crate::dtype::DType;
 use crate::dtype::NativePType;
@@ -678,20 +679,14 @@ impl Executable for CanonicalValidity {
                 })))
             }
             Canonical::VarBinView(vbv) => {
-                let VarBinViewDataParts {
-                    dtype,
-                    buffers,
-                    views,
-                    validity,
-                } = vbv.into_data_parts();
-                Ok(CanonicalValidity(Canonical::VarBinView(unsafe {
-                    VarBinViewArray::new_handle_unchecked(
-                        views,
-                        buffers,
-                        dtype,
-                        validity.execute(ctx)?,
-                    )
-                })))
+                let validity = vbv.varbinview_validity().execute(ctx)?;
+                Ok(CanonicalValidity(Canonical::VarBinView(
+                    vbv.with_views_and_validity(
+                        vbv.views_handle().clone(),
+                        vbv.dtype().clone(),
+                        validity,
+                    )?,
+                )))
             }
             Canonical::List(l) => {
                 let zctl = l.is_zero_copy_to_list();
@@ -855,20 +850,14 @@ impl Executable for RecursiveCanonical {
                 })))
             }
             Canonical::VarBinView(vbv) => {
-                let VarBinViewDataParts {
-                    dtype,
-                    buffers,
-                    views,
-                    validity,
-                } = vbv.into_data_parts();
-                Ok(RecursiveCanonical(Canonical::VarBinView(unsafe {
-                    VarBinViewArray::new_handle_unchecked(
-                        views,
-                        buffers,
-                        dtype,
-                        validity.execute(ctx)?,
-                    )
-                })))
+                let validity = vbv.varbinview_validity().execute(ctx)?;
+                Ok(RecursiveCanonical(Canonical::VarBinView(
+                    vbv.with_views_and_validity(
+                        vbv.views_handle().clone(),
+                        vbv.dtype().clone(),
+                        validity,
+                    )?,
+                )))
             }
             Canonical::List(l) => {
                 let zctl = l.is_zero_copy_to_list();

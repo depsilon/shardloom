@@ -30,9 +30,20 @@ transfer uses fresh receiving credits without double charging the vectors.
 Its [complete local acceptance](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
 passes six Rust gates, 67 provider tests, 100 direct methods, 4,827 public cases,
 all 18 lifecycle cells and one Full43 pass. Independent portable inspection
-passes; hosted integration remains pending. Raw caller-owned construction/export,
+passes. PR #1562 completes hosted integration with all 44 checks, three
+installed-wheel lanes and verified production deployment. Raw caller-owned construction/export,
 fixed headers, allocator bookkeeping, other provider trees and process RSS
 retain their separate boundaries. Published 0.6.0 packages are unchanged.
+
+The [variable-binary buffer-table unit](native-varbin-metadata-resources-2026-10-16.md)
+adds shared table credit to native text/binary selections and admitted new tables
+to the reviewed constructors, codecs, Chunked builder and receiving-session path.
+Its [complete local acceptance](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
+passes six Rust gates, 3,587 standalone provider tests, 100 direct methods,
+4,827 public cases, all 32 lifecycle cells and one Full43 pass. Independent
+inspection verifies 18,023 portable members. Hosted integration remains pending.
+Raw table exports, legacy general builders, deduplication/compaction scratch,
+fixed allocator/Arc overhead and process RSS retain separate boundaries.
 
 Public SQL, Python/DataFrame and CLI workflows carry the same declared memory and parallelism
 through native execution and local output. Admitted native batches retain their ownership and
@@ -254,8 +265,8 @@ The following need separate implementation or acceptance before broader support 
 - reader/codec/upstream scratch accounting beyond the finite accepted provider
   buffers, Zstd decoder/prepared-dictionary workspaces and Chunked value/validity/
   finalization buffers, reviewed fixed-width child-decoder trees and the named
-  compressor/trainer allocations above. The Zstd frame-vector extension has
-  complete local acceptance as recorded above; other structural metadata,
+  compressor/trainer allocations above. The Zstd frame-vector and variable-binary
+  buffer-table extensions have complete local acceptance as recorded above; other structural metadata,
   decoder trees/codecs and unreviewed reader/provider/builder allocations remain open.
 - larger-than-resident-state guarantees beyond the admitted spill families.
 - workload-wide pressure, interruption and recovery acceptance for a declared production envelope.

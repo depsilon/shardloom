@@ -109,9 +109,24 @@ admits the two frame vectors before construction, shares ownership through
 clones/slices/nullability casts and creates fresh receiving metadata for native
 transfer. Six Rust gates, 67 provider tests, 100 direct methods, 4,827 public cases,
 all 18 lifecycle cells and one Full43 pass succeed. All 13,728 portable members
-pass independent inspection. Hosted integration remains pending. Raw caller-owned
+pass independent inspection. PR #1562 completes hosted integration after all 44
+checks, three installed-wheel lanes and preview/production verification pass.
+The [hosted packet](../benchmarks/evidence/native-zstd-metadata-hosted-2026-10-16.json)
+preserves those separate observations. Raw caller-owned
 APIs, fixed allocator/Arc overhead, other codecs and process RSS remain outside
 this requested-capacity claim. Published 0.6.0 packages are unchanged.
+
+The source-only [variable-binary buffer-table extension](../benchmarks/native-varbin-metadata-review-2026-10-16.md)
+shares table ownership through native text/binary selections and admits new
+tables in the reviewed constructors, codecs, Chunked builder and receiving
+session. Safe construction/replacement checks host-readable contents; checked
+reuse preserves validated native values. Six fresh Rust gates, 3,587 standalone
+provider tests, 100 direct methods, 4,827 public cases and one Full43 pass succeed.
+All 32 lifecycle cells pass the unchanged rule across both comparison orders;
+independent inspection verifies all 19,538 portable members. Hosted integration
+remains pending. Raw table exports, general builder/deduplication/compaction
+scratch, fixed allocator/Arc overhead and process RSS remain outside this finite
+claim. Published 0.6.0 packages and the public support label are unchanged.
 
 The source-only [selected text views](../benchmarks/native-selected-text-views-2026-10-15.md)
 construct views only for selected rows inside the admitted sparse Zstd filter.

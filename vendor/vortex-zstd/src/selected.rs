@@ -25,7 +25,7 @@ pub(super) fn decompress(
     let allocator = ctx.allocator();
     let (buffers, views) = if indices.is_empty() {
         (
-            Vec::new(),
+            VarBinViewBufferBuilder::try_with_capacity(0, &allocator)?,
             allocator.allocate_typed::<BinaryView>(0)?.freeze_typed()?,
         )
     } else {
@@ -48,9 +48,9 @@ pub(super) fn decompress(
     };
     // Only selected values are validated. The checked prefix walk below proves
     // every frame record's extent and count without constructing unused views.
-    VarBinViewArray::try_new(
+    VarBinViewArray::try_new_from_buffers(
         views,
-        Arc::from(buffers),
+        &buffers,
         array.dtype().clone(),
         Validity::from(array.dtype().nullability()),
         ctx,
@@ -64,18 +64,21 @@ fn reconstruct(
     indices: &[usize],
     max_buffer_len: usize,
     allocator: &HostAllocatorRef,
-) -> VortexResult<(Vec<ByteBuffer>, Buffer<BinaryView>)> {
+) -> VortexResult<(VarBinViewBufferBuilder, Buffer<BinaryView>)> {
     vortex_ensure!(
         max_buffer_len > 0,
         "Zstd view buffer extent must be positive"
     );
     // Adjacent complete-value segments exceed this extent. The same conservative
-    // bound is admitted by the caller before decoding or allocating collections.
+    // bound is admitted here before allocating the collection.
     let capacity = (buffer.len() / max_buffer_len)
         .checked_mul(2)
         .and_then(|count| count.checked_add(1))
         .ok_or_else(|| vortex_err!("Selected Zstd buffer count overflow"))?;
-    let mut buffers = Vec::with_capacity(capacity);
+    let mut buffers = VarBinViewBufferBuilder::try_with_capacity(
+        if buffer.is_empty() { 0 } else { capacity },
+        allocator,
+    )?;
     let mut storage = allocator.allocate_typed::<BinaryView>(indices.len())?;
     let views = storage.as_mut_slice_typed::<BinaryView>()?;
     let (mut offset, mut segment_start, mut row, mut selected) = (0usize, 0usize, 0usize, 0usize);
@@ -109,7 +112,7 @@ fn reconstruct(
                 buffers.len() < capacity,
                 "Selected Zstd buffer bound exceeded"
             );
-            buffers.push(buffer.slice(segment_start..offset));
+            buffers.try_push(buffer.slice(segment_start..offset))?;
             segment_start = offset;
             buffer_index = buffer_index
                 .checked_add(1)
@@ -135,7 +138,7 @@ fn reconstruct(
             buffers.len() < capacity,
             "Selected Zstd buffer bound exceeded"
         );
-        buffers.push(buffer.slice(segment_start..buffer.len()));
+        buffers.try_push(buffer.slice(segment_start..buffer.len()))?;
     }
     Ok((buffers, storage.freeze_typed::<BinaryView>()?))
 }
@@ -190,9 +193,9 @@ mod tests {
                             reconstruct(&bytes, values.len(), first, &selected, limit, &allocator)?;
                         assert_eq!(views.len(), selected.len());
                         assert!(buffers.len() <= 2 * (bytes.len() / limit) + 1);
-                        let array = VarBinViewArray::try_new(
+                        let array = VarBinViewArray::try_new_from_buffers(
                             views,
-                            Arc::from(buffers),
+                            &buffers,
                             DType::Binary(Nullability::NonNullable),
                             Validity::NonNullable,
                             &mut ctx,
@@ -251,6 +254,13 @@ mod tests {
                 self.0.fetch_add(1, Ordering::Relaxed);
             }
             DefaultHostAllocator.allocate(len, alignment)
+        }
+
+        fn reserve_external(
+            &self,
+            len: usize,
+        ) -> VortexResult<vortex_array::memory::HostMemoryReservation> {
+            DefaultHostAllocator.reserve_external(len)
         }
     }
 

@@ -7,8 +7,8 @@
 
 use super::*;
 use vortex::array::{
-    arrays::{BoolArray, chunked::ChunkedArrayExt as _, varbinview::VarBinViewSlots},
-    builders::VarBinViewBuilder,
+    arrays::{BoolArray, chunked::ChunkedArrayExt as _, varbinview::VarBinViewArrayExt as _},
+    builders::{AdmittedVarBinViewBuilder, VarBinViewBuilder},
 };
 use vortex::encodings::zstd::Zstd;
 
@@ -99,40 +99,37 @@ fn decode(
     let finish_credit = views_credit
         .split(finish_bytes)
         .map_err(|error| vortex_err!("{error}"))?;
-    let mut builder = VarBinViewBuilder::with_capacity(array.dtype().clone(), array.len());
+    let mut builder = VarBinViewBuilder::with_admitted_buffers(
+        array.dtype().clone(),
+        array.len(),
+        &ctx.allocator(),
+    )?;
     append_leaves(array, &mut builder, ctx, memory)?;
-    let output = builder.finish_into_varbinview();
-    drop(builder);
+    let output = builder.finish()?;
     drop(finish_credit);
-    let bitmap = match output.validity()? {
+    let validity = match output.validity()? {
         Validity::Array(bitmap) => {
             let native = bitmap.as_::<Bool>();
             let buffer =
                 crate::owned_buffers::retain_credit(bitmap.buffers()[0].clone(), validity_credit);
-            Some(
+            Validity::Array(
                 BoolArray::try_from_parts(
                     Bool.with_buffers(native, &[BufferHandle::new_host(buffer)])?,
                 )?
                 .into_array(),
             )
         }
-        Validity::NonNullable | Validity::AllValid | Validity::AllInvalid => {
+        validity @ (Validity::NonNullable | Validity::AllValid | Validity::AllInvalid) => {
             drop(validity_credit);
-            output.as_ref().slots()[0].clone()
+            validity
         }
     };
-    let mut buffers = output.as_ref().buffers();
-    let views_index = buffers
-        .len()
-        .checked_sub(1)
-        .ok_or_else(|| vortex_err!("native string builder omitted its views"))?;
-    buffers[views_index] =
-        crate::owned_buffers::retain_credit(buffers[views_index].clone(), views_credit);
-    let handles: Vec<_> = buffers.into_iter().map(BufferHandle::new_host).collect();
-    let retained = VarBinViewArray::try_from_parts(
-        VarBinView
-            .with_buffers(output.as_view(), &handles)?
-            .with_slots(VarBinViewSlots { validity: bitmap }.into_slots()),
+    let views =
+        crate::owned_buffers::retain_credit(output.views_handle().as_host().clone(), views_credit);
+    let retained = output.with_views_and_validity(
+        BufferHandle::new_host(views),
+        output.dtype().clone(),
+        validity,
     )?;
     retained.statistics().inherit_from(array.statistics());
     Ok(retained.into_array())
@@ -140,7 +137,7 @@ fn decode(
 
 fn append_leaves(
     array: &ArrayRef,
-    builder: &mut VarBinViewBuilder,
+    builder: &mut AdmittedVarBinViewBuilder,
     ctx: &mut ExecutionCtx,
     memory: &LiveMemoryPool,
 ) -> VortexResult<()> {
@@ -151,21 +148,18 @@ fn append_leaves(
         return Ok(());
     }
     if let Some(fsst) = array.as_opt::<FSST>() {
-        return decode_fsst(&fsst.into_owned(), ctx, memory)?.append_to_builder(builder, ctx);
+        let decoded = decode_fsst(&fsst.into_owned(), ctx, memory)?;
+        return builder.append_array(&decoded.as_::<VarBinView>().into_owned(), ctx);
     }
     if array.is::<Zstd>() {
         // Decode through the pinned allocator-aware provider before appending.
         // Its payload credit escapes into this builder; its temporary views
         // are released after the reserved output views have been populated.
-        return array
-            .clone()
-            .execute::<VarBinViewArray>(ctx)?
-            .into_array()
-            .append_to_builder(builder, ctx);
+        return builder.append_array(&array.clone().execute::<VarBinViewArray>(ctx)?, ctx);
     }
     vortex_ensure!(
         array.is::<VarBinView>(),
         "native string builder received an unadmitted leaf"
     );
-    array.append_to_builder(builder, ctx)
+    builder.append_array(&array.as_::<VarBinView>().into_owned(), ctx)
 }

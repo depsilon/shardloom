@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
-
-use std::sync::Arc;
+// Modified by ShardLoom on 2026-10-16: use admitted native view construction.
 
 use vortex_error::VortexResult;
 
@@ -11,7 +10,7 @@ use crate::arrays::PrimitiveArray;
 use crate::arrays::VarBin;
 use crate::arrays::VarBinViewArray;
 use crate::arrays::varbinview::build_views::MAX_BUFFER_LEN;
-use crate::arrays::varbinview::build_views::build_views_from_offsets;
+use crate::arrays::varbinview::build_views::build_views_from_offsets_in;
 use crate::match_each_integer_ptype;
 
 /// Converts a VarBinArray to its canonical form (VarBinViewArray).
@@ -26,18 +25,15 @@ pub(crate) fn varbin_to_canonical(
 ) -> VortexResult<VarBinViewArray> {
     let parts = array.into_owned().into_data_parts();
     let offsets = parts.offsets.execute::<PrimitiveArray>(ctx)?;
-    let (buffers, views) = match_each_integer_ptype!(offsets.ptype(), |P| {
-        build_views_from_offsets(
-            0,
+    match_each_integer_ptype!(offsets.ptype(), |P| {
+        build_views_from_offsets_in(
             MAX_BUFFER_LEN,
             parts.bytes.unwrap_host(),
             offsets.as_slice::<P>(),
+            parts.dtype,
+            parts.validity,
+            ctx,
         )
-    });
-
-    // SAFETY: views are correctly computed from valid offsets
-    Ok(unsafe {
-        VarBinViewArray::new_unchecked(views, Arc::from(buffers), parts.dtype, parts.validity)
     })
 }
 

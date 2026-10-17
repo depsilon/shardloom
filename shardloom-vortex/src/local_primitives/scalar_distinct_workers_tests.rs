@@ -260,63 +260,43 @@ fn scalar_distinct_workers_admission_cancellation_and_capacity_failure_publish_n
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
-fn malformed() -> ArrayRef {
+#[test]
+fn scalar_distinct_workers_reject_malformed_text_before_admission_and_ignore_unused_values() {
     let binary = VarBinViewArray::from_iter_bin([
         b"valid".as_slice(),
         b"external invalid UTF8\xff".as_slice(),
     ]);
-    VarBinViewArray::new_handle(
+    let error = VarBinViewArray::try_new_handle_in(
         binary.views_handle().clone(),
-        binary.data_buffers().to_vec().into(),
+        binary.data_buffers().iter().cloned(),
         DType::Utf8(Nullability::NonNullable),
         Validity::NonNullable,
+        &vortex::array::legacy_session()
+            .create_execution_ctx()
+            .allocator(),
     )
-    .into_array()
-}
-
-#[test]
-fn scalar_distinct_workers_invalid_used_utf8_fails_but_unused_dictionary_value_is_ignored() {
+    .unwrap_err();
+    assert!(error.to_string().contains("utf-8 validation"));
     let memory = LiveMemoryPool::new(MEMORY).unwrap();
-    let mut states = state();
-    let input = wrap(malformed());
-    let mut workers = admit(&input, &states, &memory, 2, None);
-    workers.submit(&input).unwrap();
-    assert!(workers.finish(&mut states).is_err());
-    assert!(!states.partition_distinct_completed);
-    drop(workers);
-    assert_eq!(memory.snapshot().reserved_bytes, 0);
-    let used_invalid = DictArray::try_new(
-        PrimitiveArray::new(vec![1_u32, 0], Validity::NonNullable).into_array(),
-        malformed(),
-    )
-    .unwrap()
-    .into_array();
-    let input = wrap(used_invalid);
-    let mut workers = admit(&input, &states, &memory, 2, None);
-    workers.submit(&input).unwrap();
-    assert!(
-        workers
-            .finish(&mut states)
-            .unwrap_err()
-            .to_string()
-            .contains("invalid UTF8")
-    );
-    assert!(!states.partition_distinct_completed);
-    drop(workers);
-    assert_eq!(memory.snapshot().reserved_bytes, 0);
-    let dict = DictArray::try_new(
-        PrimitiveArray::new(vec![0_u32, 0], Validity::NonNullable).into_array(),
-        malformed(),
-    )
-    .unwrap()
-    .into_array();
-    let input = wrap(dict);
-    let mut workers = admit(&input, &states, &memory, 2, None);
-    workers.submit(&input).unwrap();
-    workers.finish(&mut states).unwrap();
-    assert_eq!(n(&states), 1);
-    drop(workers);
-    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    // Every dictionary value must be valid text at construction; only referenced
+    // values contribute to the exact distinct count.
+    for (codes, expected) in [(vec![0_u32, 0], 1), (vec![1_u32, 0], 2)] {
+        let dict = DictArray::try_new(
+            PrimitiveArray::new(codes, Validity::NonNullable).into_array(),
+            VarBinViewArray::from_iter_str(["valid", "outlined dictionary value 東京"])
+                .into_array(),
+        )
+        .unwrap()
+        .into_array();
+        let mut states = state();
+        let input = wrap(dict);
+        let mut workers = admit(&input, &states, &memory, 2, None);
+        workers.submit(&input).unwrap();
+        workers.finish(&mut states).unwrap();
+        assert_eq!(n(&states), expected);
+        drop(workers);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 }
 
 #[test]

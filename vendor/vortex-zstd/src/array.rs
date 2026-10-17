@@ -12,6 +12,8 @@
 // the admitted sparse-filter path, preserving the existing frame decoder.
 // Modified by ShardLoom on 2026-10-16: share admitted frame metadata across
 // clones/slices and construct transferred tables under the receiving allocator.
+// Modified by ShardLoom on 2026-10-16: admit temporary and retained binary-view
+// data-buffer tables while preserving the existing native reconstruction loops.
 
 use std::fmt;
 use std::fmt::Debug;
@@ -39,6 +41,7 @@ use vortex_array::IntoArray;
 use vortex_array::array_slots;
 use vortex_array::arrays::PrimitiveArray;
 use vortex_array::arrays::VarBinViewArray;
+use vortex_array::arrays::varbinview::VarBinViewBufferBuilder;
 use vortex_array::arrays::varbinview::build_views::BinaryView;
 use vortex_array::arrays::varbinview::build_views::MAX_BUFFER_LEN;
 use vortex_array::buffer::BufferHandle;
@@ -374,7 +377,7 @@ fn append_to_varbinview(
     // The values only reveal themselves while walking the length-prefixed frames, so the views
     // are built inside the builder's numbering callback rather than from a lengths slice.
     let allocator = ctx.allocator();
-    builder.append_views_built_at(&mask, |next_buffer_index| {
+    builder.append_views_built_with_owner(&mask, |next_buffer_index| {
         let (buffers, valid_views) =
             try_reconstruct_views_in(&value_bytes, next_buffer_index, MAX_BUFFER_LEN, &allocator)?;
         vortex_ensure!(
@@ -753,7 +756,7 @@ fn try_reconstruct_views_in(
     start_buf_index: u32,
     max_buffer_len: usize,
     allocator: &HostAllocatorRef,
-) -> VortexResult<(Vec<ByteBuffer>, Buffer<BinaryView>)> {
+) -> VortexResult<(VarBinViewBufferBuilder, Buffer<BinaryView>)> {
     let mut count = 0usize;
     let mut offset = 0usize;
     let mut segments = usize::from(!buffer.is_empty());
@@ -776,18 +779,19 @@ fn try_reconstruct_views_in(
             .checked_add(1)
             .ok_or_else(|| vortex_err!("Zstd view count overflow"))?;
     }
+    let mut buffers = VarBinViewBufferBuilder::try_with_capacity(segments, allocator)?;
     let mut storage = allocator.allocate_typed::<BinaryView>(count)?;
     let views = storage.as_mut_slice_typed::<BinaryView>()?;
     let mut index = 0;
-    let (buffers, error) = walk_views_into(
+    let error = walk_views_into_buffers(
         buffer,
         start_buf_index,
         max_buffer_len,
-        Some(segments),
         |view| {
             views[index] = view;
             index += 1;
         },
+        |buffer| buffers.try_push(buffer),
     );
     if let Some(error) = error {
         return Err(error);
@@ -805,9 +809,23 @@ fn walk_views_into(
     start_buf_index: u32,
     max_buffer_len: usize,
     expected_buffers: Option<usize>,
-    mut emit: impl FnMut(BinaryView),
+    emit: impl FnMut(BinaryView),
 ) -> (Vec<ByteBuffer>, Option<VortexError>) {
     let mut buffers = Vec::with_capacity(expected_buffers.unwrap_or(0));
+    let error = walk_views_into_buffers(buffer, start_buf_index, max_buffer_len, emit, |buffer| {
+        buffers.push(buffer);
+        Ok(())
+    });
+    (buffers, error)
+}
+
+fn walk_views_into_buffers(
+    buffer: &ByteBuffer,
+    start_buf_index: u32,
+    max_buffer_len: usize,
+    mut emit: impl FnMut(BinaryView),
+    mut push_buffer: impl FnMut(ByteBuffer) -> VortexResult<()>,
+) -> Option<VortexError> {
     let mut segment_start: usize = 0;
     let mut offset = 0;
     // Only a new segment changes the buffer index, so it is tracked instead of recomputed per view.
@@ -827,7 +845,9 @@ fn walk_views_into(
         let local_offset = value_data_offset - segment_start;
 
         if local_offset + str_len > max_buffer_len && offset > segment_start {
-            buffers.push(buffer.slice(segment_start..offset));
+            if let Err(err) = push_buffer(buffer.slice(segment_start..offset)) {
+                return Some(err);
+            }
             segment_start = offset;
             let Some(next_index) = buf_index.checked_add(1) else {
                 error = Some(vortex_err!("Zstd values need more than u32::MAX buffers"));
@@ -855,11 +875,13 @@ fn walk_views_into(
         offset = value_data_offset + str_len;
     }
 
-    if segment_start < buffer.len() {
-        buffers.push(buffer.slice(segment_start..buffer.len()));
+    if segment_start < buffer.len()
+        && let Err(err) = push_buffer(buffer.slice(segment_start..buffer.len()))
+    {
+        return Some(err);
     }
 
-    (buffers, error)
+    error
 }
 
 /// Narrows the views decoded from the frames down to the values a slice requests.
@@ -1749,15 +1771,13 @@ impl ZstdData {
                             try_reconstruct_views_in(&slice.bytes, 0, MAX_BUFFER_LEN, &allocator)?;
                         let valid_views = slice_views(&all_views, slice.value_range()?)?;
 
-                        // SAFETY: we properly construct the views inside `reconstruct_views`
-                        Ok(unsafe {
-                            VarBinViewArray::new_unchecked(
-                                valid_views,
-                                Arc::from(buffers),
-                                dtype.clone(),
-                                slice.validity,
-                            )
-                        }
+                        Ok(VarBinViewArray::try_new_handle_in(
+                            BufferHandle::new_host(valid_views.into_byte_buffer()),
+                            buffers.iter().cloned().map(BufferHandle::new_host),
+                            dtype.clone(),
+                            slice.validity,
+                            &allocator,
+                        )?
                         .into_array())
                     }
                     AllOr::None => {
@@ -1791,15 +1811,13 @@ impl ZstdData {
                             stored += 1;
                         });
 
-                        // SAFETY: we properly construct the views inside `reconstruct_views`
-                        Ok(unsafe {
-                            VarBinViewArray::new_unchecked(
-                                storage.freeze_typed::<BinaryView>()?,
-                                Arc::from(buffers),
-                                dtype.clone(),
-                                slice.validity,
-                            )
-                        }
+                        Ok(VarBinViewArray::try_new_handle_in(
+                            BufferHandle::new_host(storage.freeze()),
+                            buffers.iter().cloned().map(BufferHandle::new_host),
+                            dtype.clone(),
+                            slice.validity,
+                            &allocator,
+                        )?
                         .into_array())
                     }
                 }
@@ -2003,13 +2021,17 @@ mod tests {
                         try_reconstruct_views_in(&buffer, start, limit, &allocator)?;
                     let (expected_buffers, expected_views) =
                         reconstruct_views(&buffer, start, limit);
-                    assert_eq!(buffers, expected_buffers, "limit={limit}, start={start}");
+                    assert_eq!(
+                        buffers.as_ref(),
+                        expected_buffers.as_slice(),
+                        "limit={limit}, start={start}"
+                    );
                     assert_eq!(views, expected_views, "limit={limit}, start={start}");
                     assert_eq!(buffers.len(), buffers.capacity());
                     if start == 0 {
-                        let array = VarBinViewArray::try_new(
+                        let array = VarBinViewArray::try_new_from_buffers(
                             views,
-                            Arc::from(buffers),
+                            &buffers,
                             DType::Binary(NonNullable),
                             Validity::NonNullable,
                             &mut ctx,

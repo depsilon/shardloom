@@ -75,18 +75,53 @@ cargo test -p shardloom-cli --all-targets --no-default-features --features vorte
 cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features release-user-surfaces -- -D warnings
 ```
 
-The native Vortex test lane also runs the bounded file-statistics provider's
-private regressions. Its excluded test crate starts from the workspace lockfile
-and uses the reviewed array patch; additional upstream development dependencies
-belong only to that standalone test target. Native writer and ownership tests
-remain in the ordinary workspace lane.
+The native Vortex test lane also runs the full library tests and strict library lints for the reviewed
+array, FSST, RunEnd and Zstd patches, plus the bounded file-statistics provider's
+private regressions. Each excluded test crate starts from the workspace lockfile;
+the encoding/layout crates use the reviewed array patch. Additional upstream
+development dependencies belong only to those standalone test targets. Native
+writer, buffer-table admission and ownership tests remain in the ordinary
+workspace lane.
+The lints use the pinned upstream configuration retained with the array patch.
+Golden metadata fixtures omitted from the registry archives are also retained
+with their upstream Git object identities and matching test-source evidence.
 
 ```text
+cp Cargo.lock vendor/vortex-array/Cargo.lock
+cargo test --manifest-path vendor/vortex-array/Cargo.toml \
+  --features _test-harness,table-display \
+  --lib -- --test-threads=2
+CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-array/Cargo.toml \
+  --features _test-harness,table-display --lib -- -D warnings
+cp Cargo.lock vendor/vortex-fsst/Cargo.lock
+cargo test --manifest-path vendor/vortex-fsst/Cargo.toml \
+  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+  --features vortex-array/table-display \
+  --lib -- --test-threads=2
+CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-fsst/Cargo.toml \
+  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+  --features vortex-array/table-display --lib -- -D warnings
+cp Cargo.lock vendor/vortex-runend/Cargo.lock
+cargo test --manifest-path vendor/vortex-runend/Cargo.toml \
+  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+  --features vortex-array/table-display \
+  --lib -- --test-threads=2
+CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-runend/Cargo.toml \
+  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+  --features vortex-array/table-display --lib -- -D warnings
 cp Cargo.lock vendor/vortex-layout/Cargo.lock
 cargo test --manifest-path vendor/vortex-layout/Cargo.toml \
   --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
   --features tokio,vortex-io/tokio,vortex-array/_test-harness \
   --lib layouts::file_stats::tests::
+cp Cargo.lock vendor/vortex-zstd/Cargo.lock
+cargo test --manifest-path vendor/vortex-zstd/Cargo.toml \
+  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+  --features vortex-array/table-display \
+  --lib -- --test-threads=2
+CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-zstd/Cargo.toml \
+  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+  --features vortex-array/table-display --lib -- -D warnings
 ```
 
 The release evidence path is intentionally split. Producer jobs run independent checks in

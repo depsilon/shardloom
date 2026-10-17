@@ -226,6 +226,14 @@ impl Plan {
             .map_err(|_| memory_error("Zstd metadata capacity exceeds transfer accounting"))?;
             self.provider_metadata_bytes = add(self.provider_metadata_bytes, provider_bytes)?;
             Ok((0, 0))
+        } else if array.is::<vortex::array::arrays::VarBinView>() {
+            let count = array
+                .as_::<vortex::array::arrays::VarBinView>()
+                .data_buffers()
+                .len();
+            let provider_bytes = mul(count as u64, std::mem::size_of::<BufferHandle>() as u64)?;
+            self.provider_metadata_bytes = add(self.provider_metadata_bytes, provider_bytes)?;
+            Ok((0, 0))
         } else {
             Ok((add(1024, mul(buffers, 64)?)?, mul(buffers, 256)?))
         }

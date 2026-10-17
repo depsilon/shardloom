@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-10-16: finite admitted native concatenation.
 
 use std::any::Any;
+use std::mem::size_of;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -16,25 +18,33 @@ use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_ensure;
+use vortex_error::vortex_err;
 use vortex_mask::AllOr;
 use vortex_mask::Mask;
 use vortex_utils::aliases::hash_map::Entry;
 use vortex_utils::aliases::hash_map::HashMap;
 
+use crate::ArrayParts;
 use crate::ArrayRef;
 use crate::ExecutionCtx;
 use crate::IntoArray;
+use crate::array::validity_to_child;
+use crate::arrays::VarBinView;
 use crate::arrays::VarBinViewArray;
 use crate::arrays::varbinview::VarBinViewArrayExt;
 use crate::arrays::varbinview::build_views::BinaryView;
 use crate::arrays::varbinview::build_views::MAX_BUFFER_LEN;
 use crate::arrays::varbinview::build_views::extend_views;
 use crate::arrays::varbinview::compact::BufferUtilization;
+use crate::arrays::varbinview::metadata::{MetadataReservation, MetadataVec};
+use crate::arrays::varbinview::{VarBinViewData, VarBinViewSlots};
+use crate::buffer::BufferHandle;
 use crate::builders::ArrayBuilder;
 use crate::builders::LazyBitBufferBuilder;
 use crate::canonical::Canonical;
 use crate::dtype::DType;
 use crate::dtype::NativePType;
+use crate::memory::HostAllocatorRef;
 use crate::scalar::Scalar;
 
 /// The builder for building a [`VarBinViewArray`].
@@ -48,7 +58,126 @@ pub struct VarBinViewBuilder {
     compaction_threshold: f64,
 }
 
+/// A finite append/finalize boundary around the ordinary native view builder.
+/// Only existing host VarBinView arrays can be appended: no scalar staging,
+/// compaction or deduplication allocation can bypass table admission. Callers
+/// separately admit the fixed view/validity payload capacities.
+pub struct AdmittedVarBinViewBuilder {
+    inner: VarBinViewBuilder,
+    rows: usize,
+    // Keep last: the completed buffer vector drops before its credit.
+    metadata: MetadataReservation,
+}
+
+impl AdmittedVarBinViewBuilder {
+    /// Append within the declared row extent, admitting any table growth first.
+    /// Admission failure leaves the current contents usable for another append.
+    pub fn append_array(
+        &mut self,
+        array: &VarBinViewArray,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<()> {
+        let rows = self
+            .inner
+            .len()
+            .checked_add(array.len())
+            .ok_or_else(|| vortex_err!("VarBinView builder row count overflow"))?;
+        vortex_ensure!(
+            rows <= self.rows && array.dtype() == &self.inner.dtype,
+            "VarBinView append exceeds its admitted rows or changes dtype"
+        );
+        vortex_ensure!(
+            array.views_handle().is_on_host()
+                && array.data_buffers().iter().all(BufferHandle::is_on_host),
+            "Admitted VarBinView append requires host buffers"
+        );
+        let CompletedBuffers::Default(buffers) = &mut self.inner.completed else {
+            unreachable!("admitted builder always uses the ordinary buffer vector")
+        };
+        let required = buffers
+            .len()
+            .checked_add(array.data_buffers().len())
+            .filter(|count| *count <= u32::MAX as usize)
+            .ok_or_else(|| vortex_err!("VarBinView builder buffer count overflow"))?;
+        if required > buffers.capacity() {
+            let capacity =
+                required.max(buffers.capacity().saturating_mul(2).min(u32::MAX as usize));
+            self.metadata.grow_vec(buffers, capacity)?;
+        }
+        self.inner.append_varbinview_array(array, ctx)
+    }
+
+    /// Admit the final handle vector and Arc before consuming builder contents.
+    /// Finalization is terminal; all storage and credit are released on error.
+    pub fn finish(mut self) -> VortexResult<VarBinViewArray> {
+        let CompletedBuffers::Default(buffers) = &self.inner.completed else {
+            unreachable!("admitted builder always uses the ordinary buffer vector")
+        };
+        let (buffers, owner) = MetadataVec::from_iter(
+            buffers.iter().cloned().map(BufferHandle::new_host),
+            &self.metadata.allocator,
+        )?
+        .into_arc()?;
+        vortex_ensure!(
+            self.inner.views_builder.len() == self.inner.nulls.len(),
+            "VarBinView builder view and validity lengths differ"
+        );
+        let len = self.inner.views_builder.len();
+        let validity = self
+            .inner
+            .nulls
+            .finish_with_nullability(self.inner.dtype.nullability());
+        let views = std::mem::take(&mut self.inner.views_builder).freeze();
+        // SAFETY: this restricted builder only appends valid host VarBinView
+        // arrays of the same dtype. The non-compacting append copies complete
+        // views, including valid null-slot views, and rebases their indices into
+        // the identical appended buffers. Table growth was checked before append.
+        let data = unsafe {
+            VarBinViewData::from_admitted_handles_unchecked(
+                BufferHandle::new_host(views.into_byte_buffer()),
+                buffers,
+                owner,
+                self.inner.dtype.clone(),
+                validity.clone(),
+            )?
+        };
+        VarBinViewArray::try_from_parts(
+            ArrayParts::new(VarBinView, self.inner.dtype.clone(), len, data).with_slots(
+                VarBinViewSlots {
+                    validity: validity_to_child(&validity, len),
+                }
+                .into_slots(),
+            ),
+        )
+    }
+}
+
 impl VarBinViewBuilder {
+    /// Restrict this builder to admitted non-compacting native-array appends.
+    /// View/validity payload allocation remains the caller's separate boundary.
+    pub fn with_admitted_buffers(
+        dtype: DType,
+        rows: usize,
+        allocator: &HostAllocatorRef,
+    ) -> VortexResult<AdmittedVarBinViewBuilder> {
+        vortex_ensure!(
+            matches!(dtype, DType::Utf8(_) | DType::Binary(_)),
+            "Admitted VarBinView builder dtype must be binary or utf8"
+        );
+        vortex_ensure!(
+            rows.checked_mul(size_of::<BinaryView>())
+                .and_then(|bytes| bytes.checked_add(*Alignment::DEFAULT_ALIGNMENT))
+                .is_some_and(|bytes| bytes <= isize::MAX as usize),
+            "Admitted VarBinView builder view capacity overflow"
+        );
+        let metadata = MetadataReservation::new::<ByteBuffer>(allocator, 0)?;
+        Ok(AdmittedVarBinViewBuilder {
+            inner: Self::with_capacity(dtype, rows),
+            rows,
+            metadata,
+        })
+    }
+
     pub fn with_capacity(dtype: DType, capacity: usize) -> Self {
         Self::new(dtype, capacity, Default::default(), Default::default(), 0.0)
     }
@@ -225,6 +354,17 @@ impl VarBinViewBuilder {
         validity: &Mask,
         build: impl FnOnce(u32) -> VortexResult<(Vec<ByteBuffer>, Buffer<BinaryView>)>,
     ) -> VortexResult<()> {
+        self.append_views_built_with_owner(validity, build)
+    }
+
+    /// The same append contract as [`Self::append_views_built_at`], retaining a
+    /// provider-owned buffer collection until its handles and views are copied.
+    /// This does not admit the ordinary builder's own allocation capacity.
+    pub fn append_views_built_with_owner<B: AsRef<[ByteBuffer]>>(
+        &mut self,
+        validity: &Mask,
+        build: impl FnOnce(u32) -> VortexResult<(B, Buffer<BinaryView>)>,
+    ) -> VortexResult<()> {
         self.flush_in_progress();
 
         let start_index = self.completed.len();
@@ -235,8 +375,9 @@ impl VarBinViewBuilder {
             "Must build one view per validity entry"
         );
 
-        let expected_completed_len = start_index as usize + buffers.len();
-        self.completed.extend_from_slice_unchecked(&buffers);
+        let data_buffers = buffers.as_ref();
+        let expected_completed_len = start_index as usize + data_buffers.len();
+        self.completed.extend_from_slice_unchecked(data_buffers);
         assert_eq!(
             self.completed.len() as usize,
             expected_completed_len,
@@ -689,13 +830,34 @@ impl VarBinViewBuilder {
 
         self.nulls.append_validity_mask(&mask);
 
-        let view_adjustment =
+        let view_adjustment = if !self.compacts_buffers()
+            && let CompletedBuffers::Default(buffers) = &mut self.completed
+        {
+            // The all-kept strategy needs neither a per-leaf Vec/Arc nor offsets.
+            let start =
+                u32::try_from(buffers.len()).map_err(|_| vortex_err!("too many data buffers"))?;
+            vortex_ensure!(
+                buffers
+                    .len()
+                    .checked_add(array.data_buffers().len())
+                    .is_some_and(|count| count <= u32::MAX as usize),
+                "too many data buffers"
+            );
+            buffers.extend(
+                array
+                    .data_buffers()
+                    .iter()
+                    .map(|buffer| buffer.as_host().clone()),
+            );
+            ViewAdjustment::shift(start, None)
+        } else {
             self.completed
                 .extend_from_compaction(BuffersWithOffsets::from_array(
                     array,
                     self.compaction_threshold,
                     ctx,
-                ));
+                ))
+        };
 
         match view_adjustment {
             ViewAdjustment::Precomputed(adjustment) => self.views_builder.extend_trusted(

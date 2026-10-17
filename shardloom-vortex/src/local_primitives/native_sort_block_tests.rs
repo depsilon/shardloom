@@ -402,33 +402,46 @@ fn native_sort_block_does_not_reinterpret_float_nan_all_ties_or_invalid_indices(
 }
 
 #[test]
-fn native_sort_block_rejects_malformed_losing_utf8_but_ignores_null_payload_bytes() {
+fn native_sort_block_rejects_malformed_utf8_before_sort_and_normalizes_null_payloads() {
     use vortex::array::dtype::Nullability;
     for malformed in [&[0xff_u8][..], &b"long external malformed value\xff"[..]] {
-        let make = |validity| {
-            // Build valid binary buffers, then inject malformed UTF8 through the
-            // native buffer-handle boundary. The UTF8 builder validates eagerly in
-            // debug builds, before this fixture can reach the sort consumer.
-            let binary = VarBinViewArray::from_iter_bin([malformed, &b"valid"[..]]);
-            let invalid = VarBinViewArray::new_handle(
-                binary.views_handle().clone(),
-                binary.data_buffers().to_vec().into(),
-                DType::Utf8(Nullability::NonNullable),
-                Validity::NonNullable,
-            )
-            .into_array();
-            StructArray::try_new(
-                ["metric", "text"].into(),
-                vec![
-                    PrimitiveArray::new(vec![100_i64, 200], Validity::NonNullable).into_array(),
-                    invalid,
-                ],
-                2,
-                validity,
-            )
-            .unwrap()
-            .into_array()
-        };
+        let binary = VarBinViewArray::from_iter_bin([malformed, &b"valid"[..]]);
+        let mut ctx = vortex::array::legacy_session().create_execution_ctx();
+        // Safe construction rejects malformed text before any sort consumer,
+        // even when that row would lose to an existing top-k candidate.
+        let error = VarBinViewArray::try_new_handle_in(
+            binary.views_handle().clone(),
+            binary.data_buffers().iter().cloned(),
+            DType::Utf8(Nullability::NonNullable),
+            Validity::NonNullable,
+            &ctx.allocator(),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("utf-8 validation"));
+        let normalized = VarBinViewArray::try_new_from_buffers(
+            binary.views().iter().copied().collect(),
+            &binary
+                .data_buffers()
+                .iter()
+                .map(|buffer| buffer.as_host().clone())
+                .collect::<Vec<_>>(),
+            DType::Utf8(Nullability::Nullable),
+            Validity::from_iter([false, true]),
+            &mut ctx,
+        )
+        .unwrap();
+        assert!(normalized.bytes_at(0).is_empty());
+        let masked = StructArray::try_new(
+            ["metric", "text"].into(),
+            vec![
+                PrimitiveArray::new(vec![100_i64, 200], Validity::NonNullable).into_array(),
+                normalized.into_array(),
+            ],
+            2,
+            Validity::from_iter([false, true]),
+        )
+        .unwrap()
+        .into_array();
         let names = ["metric".to_owned(), "text".to_owned()];
         let order = [crate::VortexAggregateOrderExpr::new("metric", false)];
         let mut candidates = vec![SortRowCandidate {
@@ -437,32 +450,11 @@ fn native_sort_block_rejects_malformed_losing_utf8_but_ignores_null_payload_byte
             source_ordinal: 0,
             values: vec![StatValue::Int64(0), StatValue::Utf8("cutoff".into())],
         }];
-        let error = append(
-            &make(Validity::NonNullable),
-            &names,
-            &[0, 1],
-            &[0],
-            &order,
-            VortexSortTiePolicy::First,
-            1,
-            1,
-            0,
-            0,
-            None,
-            &mut candidates,
-            &mut vortex::array::legacy_session().create_execution_ctx(),
-        )
-        .err()
-        .expect("losing-row malformed UTF8 must fail");
-        assert!(error.to_string().contains("invalid UTF8"));
-        assert_eq!(candidates.len(), 1);
-        let masked = make(Validity::from_iter([false, true]));
-        let mut ctx = vortex::array::legacy_session().create_execution_ctx();
         let prepared = prepare(&masked, &names, VortexSortTiePolicy::First, 1, &mut ctx)
             .unwrap()
             .unwrap();
-        // Hidden malformed payloads do not add copied-string scratch, including
-        // when validity is inherited from the nullable parent struct.
+        // Null payloads are normalized before sorting and add no copied-string
+        // scratch, including validity inherited from the nullable parent struct.
         let bytes = 64 * 1024 + 2 * 2 * 256 + 4 * 5;
         assert_eq!(prepared.scratch_bytes().unwrap(), bytes);
         assert_eq!(

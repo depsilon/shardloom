@@ -191,7 +191,7 @@ fn duplicate_unicode_keys_with_same_bucket_keep_complete_byte_equality() {
 }
 
 #[test]
-fn invalid_canonical_utf8_is_rejected_before_publishing_first_or_later_key() {
+fn malformed_utf8_is_rejected_before_counting_and_binary_is_not_reinterpreted() {
     for rows in [
         vec![&[0xff_u8][..]],
         vec![&b"valid"[..], &b"valid"[..], &[0xff_u8][..]],
@@ -200,28 +200,32 @@ fn invalid_canonical_utf8_is_rejected_before_publishing_first_or_later_key() {
             &b"long outlined valid key\xff"[..],
         ],
     ] {
-        // Buffer handles permit testing the consumer's defensive boundary
-        // without the UTF-8 builder rejecting the fixture first in debug mode.
+        // Safe construction rejects malformed first or later keys before the
+        // count kernel can receive an invalid UTF-8 array.
         let binary = VarBinViewArray::from_iter_bin(rows);
-        let array = VarBinViewArray::new_handle(
+        let error = VarBinViewArray::try_new_handle_in(
             binary.views_handle().clone(),
-            binary.data_buffers().to_vec().into(),
+            binary.data_buffers().iter().cloned(),
             DType::Utf8(Nullability::NonNullable),
             Validity::NonNullable,
+            &vortex::array::legacy_session()
+                .create_execution_ctx()
+                .allocator(),
         )
-        .into_array();
+        .unwrap_err();
+        assert!(error.to_string().contains("utf-8 validation"));
         let memory = LiveMemoryPool::new(1 << 20).unwrap();
         let mut lease = memory.reserve(0).unwrap();
         let error = run_count(
-            array,
+            binary.into_array(),
             vortex::array::legacy_session().create_execution_ctx(),
             &ChunkWorkerContext::Inline(CancellationToken::default()),
             &mut lease,
         )
         .err()
-        .expect("malformed UTF-8 must not acquire a key")
+        .expect("binary payload must not acquire a text key")
         .to_string();
-        assert!(error.contains("canonical key has invalid UTF-8"), "{error}");
+        assert!(error.contains("nonnullable UTF-8 key contract"), "{error}");
         assert!(error.contains("no fallback execution was attempted"));
         drop(lease);
         assert_eq!(memory.snapshot().reserved_bytes, 0);

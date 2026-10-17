@@ -196,7 +196,48 @@ RSS remain outside this extension. The contract's complete correctness and cost
 gates must pass before retention; this design alone is not support evidence.
 The [October 16 local acceptance](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
 passes those gates with exact serialized identity and independently inspected
-portable evidence. Hosted integration remains pending.
+portable evidence. PR #1562 completes hosted integration after all 44 checks,
+three installed-wheel lanes and preview/production verification pass; the
+report links the separate hosted evidence.
+
+### Pinned variable-binary buffer table admission
+
+`NATIVE-VARBIN-METADATA-RESOURCES` extends the finite allocation contract to
+the named text/binary buffer tables in its
+[ownership design](../architecture/native-varbin-metadata-resources-2026-10-16.md).
+Keep table reservations with shared array data across transformations. Admit
+temporary construction/growth capacity and final storage before allocation;
+use fresh receiving ownership and remove superseded outer table charges.
+Reuse pinned VarBinView construction/builder and FSST/RunEnd/Zstd behavior.
+Preserve raw caller-owned APIs, native bytes/serialization and typed errors.
+Small version-preserving FSST/RunEnd patches require complete provenance and
+license records. No new FFI, pointer operations or workspace unsafe code is
+authorized. The design's complete ownership, cost and workflow gates precede
+retention. Other provider/builder allocations and process RSS remain outside
+this finite extension.
+
+Safe host constructors and arbitrary view replacement must validate every
+host-readable view, including null slots, before exposing native value access.
+Within the excluded pinned providers, already validated construction and
+semantics-preserving view selection may reuse the existing unchecked constructor
+contract through explicitly unsafe helpers. Those helpers must retain structural,
+dtype, validity and ownership checks; each caller must establish the original
+view/value invariants in its safety comment. This permits no new raw-pointer
+operations, FFI, allocation implementation or workspace-crate unsafe code.
+Safe replacement may reuse the original validation when the entire host view
+buffer is byte-identical and the payload table is unchanged. An admitted table
+replacement may also reuse it when the complete host view buffer and every
+ordered host payload buffer are byte-identical to the original, with the same
+buffer count, dtype and validity. This includes attaching new reservation owners
+without changing bytes. Table admission and structural checks remain mandatory;
+the new table uses the explicitly selected allocator. Any changed or newly
+host-readable content must pass ordinary validation. Device contents remain
+opaque. The frozen complete-operation cost gates remain required.
+The encoding data retains its construction value type. Public array-parts
+reconstruction that pairs binary data with a UTF-8 dtype must validate the newly
+required UTF-8 invariant, including null slots, before a source array can certify
+later view or buffer reuse. This marker carries no buffer ownership and changes
+neither serialized values nor metadata accounting.
 
 ## Verification
 

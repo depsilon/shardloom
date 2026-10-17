@@ -249,41 +249,47 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-ZSTD-METADATA-RESOURCES` complete frame metadata ownership under PERF-03/06.
-  - Source: the [October 16 provider contract](native-zstd-metadata-resources-2026-10-16.md)
-    extends RFC 0044 after completed compression/decoder/selection resource work.
-  - Current state: the [local acceptance report](../benchmarks/native-zstd-metadata-resources-2026-10-16.md)
-    verifies shared frame tables, receiving ownership and removal of superseded
-    selection/transfer charges. Six Rust gates, 67 vendor tests, 100 direct
-    methods, 4,827 public cases, the 18-cell lifecycle screen and all 43 queries
-    pass. Independent inspection verifies 13,728 portable evidence members.
-    Documentation, license, local link and desktop/phone browser checks pass;
-    hosted integration remains before completion.
-  - V1 scope classification: `required_for_v1` resource hardening within the admitted local
-    provider. The user surface is reliable resource denial and native lifetime
-    behavior; no new CLI/Python option or encoding is introduced.
-  - Scope: admit compression/deserialization frame vectors before allocation;
-    share immutable metadata for clones, slices and nullability casts; use the
-    receiving allocator for encoded transfer; replace already-charged sparse
-    selection vectors without duplicate accounting. Preserve raw API compatibility.
-  - Boundaries: native Vortex execution and serialization remain unchanged;
-    no independently supplied Zstd IPC admission, other-codec/global allocation,
-    state-spill, recovery, external execution or release expansion.
-  - Verification: negative ownership/parse/transfer tests, exact values and
-    encoded bytes, frozen complete lifecycle cost screen, default/native gates,
-    complete direct/public workflows, one Full43 pass and hosted integration.
-  - Technique review: shared metadata avoids copying before allocator work;
-    the existing execution context supplies dynamic memory admission. This
-    provider-local change does not alter PulseWeave or capillary scheduling.
-  - Next outcome: one coherent provider/runtime/test/evidence PR, with aligned
-    provenance, support boundaries, site content and completed-ledger evidence.
-    - [x] Implement shared provider storage and receiving ownership.
-    - [x] Complete correctness, denial, lifetime and full workflow gates.
-    - [x] Apply the frozen cost decision and one complete Full43 acceptance.
-    - [x] Verify portable evidence, documentation and local browser behavior.
-    - [ ] Complete hosted checks, review, integration and deployment verification.
-  - Gates: finite resource evidence for PERF-03/06 and CG-5/6/19/20/21;
-    all broader PERF and CG-1 through CG-23 obligations stay open as recorded.
+- [ ] `NATIVE-VARBIN-METADATA-RESOURCES` admit shared text/binary buffer tables.
+  - Source: [ownership and acceptance contract](native-varbin-metadata-resources-2026-10-16.md),
+    RFC 0044 and the remaining allocation row under PERF-03/06/08/09.
+  - Current state: the reviewed implementation has
+    [complete fresh local acceptance](../benchmarks/native-varbin-metadata-review-2026-10-16.md).
+    Safe construction/replacement validates host-readable values; checked native
+    reuse passes the unchanged cost rule across both comparison orders. All six
+    Rust gates, 3,587 provider tests, 100 direct methods, 4,827 public cases and
+    Full43 pass. Independent inspection verifies 19,538 members, six rejected
+    comparisons and the explicit test-only source transition. All 20
+    documentation/site checks and desktop/phone browser verification pass.
+    Hosted integration remains pending. The initial packet stays historical;
+    the Zstd frame-table unit remains complete.
+  - V1 scope classification: `required_for_v1` finite allocation coverage.
+  - Shared family: Vortex VarBinView construction/selection, FSST/RunEnd/Zstd
+    providers and the existing native Chunked builder below all user surfaces.
+  - ShardLoom technique review: reuse the shared PulseWeave memory grant and
+    dynamic admission; preserve metadata-first/encoded work avoidance, capillary
+    source units, selected-only decode and late materialization. No scheduling
+    or timing-surface redesign; evidence tiers and engine-clock rules remain.
+  - Execution checklist:
+    - [x] Freeze the unchanged-production baseline and complete lifecycle harness.
+    - [x] Implement table admission, shared lifetime and all scoped clone/selection paths.
+    - [x] Integrate codec construction, managed builder growth/finalization and receiving ownership.
+    - [x] Verify pinned FSST/RunEnd provenance and synchronize dependency/license records.
+    - [x] Pass ownership/error/value tests, frozen cost screen and complete local acceptance on the reviewed source.
+    - [ ] Package and inspect evidence; complete docs/site, hosted checks and deployment.
+    - [ ] Move the accepted finite unit to the completed ledger after integration.
+  - Acceptance/verification: exact requested-capacity ownership, unchanged native
+    values/serialization, typed denial and cleanup; the contract fixes the
+    32-cell cost gate, broad checks and one Full43 pass before implementation.
+  - Claim boundary: named table allocations only; raw APIs, general builder
+    scratch and whole-process RSS retain separate boundaries. Preserve
+    `fallback_attempted=false`, `external_engine_invoked=false` and CG-1 through CG-23.
+
+`NATIVE-ZSTD-METADATA-RESOURCES` completes in PR #1562 after all 44 checks
+pass, with unchanged accepted runtime sources, three installed-wheel lanes and
+verified preview/production responses and browser behavior. Its
+[completed ledger entry](phased-execution-completed-ledger.md) retains the
+finite ownership, lifecycle cost, local and hosted evidence. Remaining
+allocation/state/recovery work stays under the existing PERF owners below.
 
 `NATIVE-STREAM-DYNAMIC-SUBQUERIES` completes in PR #1561 after all 44 checks
 pass, with three installed-wheel lanes and verified preview/production source
@@ -3164,9 +3170,11 @@ all 44 hosted checks and verified preview/production source and navigation.
 Static-inner subqueries are integrated in PR #1560 with all 44 checks and
 verified preview/production source and navigation. Declared parameter-dependent
 predicate inners are integrated in PR #1561, with all 44 checks, three
-installed-wheel lanes and preview/production verification. Continue the
-remaining allocation/operational work under PERF-03/06, beginning with
-`NATIVE-ZSTD-METADATA-RESOURCES`, before the conditional
+installed-wheel lanes and preview/production verification. Zstd frame metadata
+ownership is integrated in PR #1562 with all 44 checks, three installed-wheel
+lanes and verified production deployment. Complete the promoted variable-binary
+buffer-table ownership unit, then remaining allocation/operational work under
+PERF-03/06 before the conditional
 investigations and encoded transport. Dynamic scalar output-schema inference
 and opaque source discovery retain their explicit boundaries.
 

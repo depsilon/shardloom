@@ -8,7 +8,8 @@ owner; native transfer constructs fresh metadata under the receiving grant.
 Local acceptance passes six Rust gates, 67 standalone Zstd provider tests,
 100 direct binding methods, 4,827 public cases and one complete 43-query pass.
 All 18 compression lifecycle cells satisfy their frozen retention limits and
-preserve identical serialized bytes. Hosted integration remains pending.
+preserve identical serialized bytes. PR #1562 completes hosted integration after
+all 44 checks, three installed-wheel lanes and production verification pass.
 
 The [portable index](evidence/native-zstd-metadata-resources-2026-10-16.json),
 [archive](evidence/native-zstd-metadata-resources-2026-10-16.tar.xz),
@@ -91,8 +92,8 @@ This is regression coverage for the existing public matrix; it does not invent
 new public metadata options or expand its operator/type contracts.
 
 Direct tests use the source Python package with explicitly frozen native
-artifacts. They are not installed-wheel evidence. Hosted checks, installed
-wheels and deployment verification remain separate pending gates.
+artifacts. They are not installed-wheel evidence. The separate hosted evidence
+below verifies installed wheels, the merged source and deployment.
 
 The [final local review](evidence/native-zstd-metadata-final-review-2026-10-16.json.xz)
 preserves source review, all required documentation/site/license checks, 408
@@ -101,6 +102,58 @@ observations. The first documentation attempt caught a missing canonical phase
 classification label and inclusion-matrix row. Correcting those documents
 passes the unchanged validators; the prior successful site build and type
 checks retain their evidence. No runtime change or query rerun was needed.
+
+## Hosted integration and deployment
+
+[PR #1562](https://github.com/depsilon/shardloom/pull/1562) merges at
+`123f19e54ff9e0d9cdb4596f5ff9ff721f6b47f7` after all 44 checks pass on
+`477bbf62b51f68edb64d76676727e2582a5c2d37`. The final PR, synthetic-test and
+merged trees are identical. All 2,307 accepted runtime source identities and
+the local executable identities remain unchanged.
+
+The [hosted index](evidence/native-zstd-metadata-hosted-2026-10-16.json) and
+[archive](evidence/native-zstd-metadata-hosted-2026-10-16.tar.xz) retain complete
+logs for six runtime/package jobs. The native/provider lane passes 2,929 tests
+with 26 predeclared manual exclusions, including all nine new native regressions
+and six standalone metadata regressions. The native public lane passes 1,079
+tests. Each of the three installed-wheel lanes passes all 100 methods with zero
+skips, isolated installation and successful uninstall. Hosted core discovers
+626 tests across 57 modules, runs 526 after excluding the separate 100-method
+native set, and records 14 skips.
+
+Automated review reports no findings on
+`e1c1bca8e0713d7b73d57404deea4deeccd2f413`. Inspection then found that CI's
+existing standalone filter omitted the six new metadata tests. The final
+four-line CI-only correction selects that module; primary review covers this
+delta, and the final logs prove all six tests ran. No runtime source changed.
+The record does not represent that earlier automated review as final-head
+approval. Superseded check captures and the correction remain in the archive.
+
+All sixteen checked preview/production responses preserve their corresponding
+Git source. Raw assets match byte for byte; HTML differences consist only of
+the recorded bounded Cloudflare insertion. Production deployment completes as
+version `128130ad-e608-4382-8959-b4de3cbc7bbe`. Actual desktop and phone checks
+verify both resource guides, five search results for “frame metadata”, mobile
+navigation, no body overflow and no browser console errors. This covers the
+in-app browser, not a cross-browser matrix. The observed deployed pages retain
+their pre-closeout wording; this documentation update has separate local checks
+and awaits its own integration.
+
+The hosted archive contains 357 verified regular files, is 1,168,316 bytes and
+has SHA-256
+`66ddbb8728ac2ab7d88ba465532a079730d9d896205c8ba431ce4882d20ec9f4`.
+Independent inspection verifies every member's name, size and hash plus the
+nine JPEG signatures. Primary verification covers the source bindings, complete
+job logs, served responses and recorded browser states. The original local
+`passed_local` index retains its historical hosted-pending fields; the hosted
+index provides the subsequent proof. No query rerun or package publication was
+used for integration acceptance.
+
+The [documentation closeout](evidence/native-zstd-metadata-closeout-2026-10-16.json.xz)
+retains ten passing checks, 574 checked local links and the updated guides'
+desktop/phone, search and navigation observations. All accepted runtime sources
+remain unchanged. These are local closeout checks, separate from deployment of
+the merged implementation above.
 
 ## Complete lifecycle cost decision
 

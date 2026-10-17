@@ -1,0 +1,51 @@
+{
+  "provider": "vortex-runend",
+  "version": "0.85.0",
+  "license": "Apache-2.0",
+  "registry_archive_sha256": "ce88ac5b091d96177e51c7bb84dcf8f11e0573edeaff804f15d81f3052cd51bb",
+  "upstream_git_sha": "afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3",
+  "upstream_vcs_dirty": true,
+  "source_of_truth": "published registry archive, not an assumed clean Git tree",
+  "original_files_sha256": {
+    ".cargo_vcs_info.json": "5a6ac712c5cd465f18b4f9a0510e06218464ec06f5f91358c227815ea2bcee9b",
+    "Cargo.lock": "89c73938c4a676d505a4024aa1a111199a98623db4b0020ed261040c80d2e152",
+    "Cargo.toml": "8f9fc8b78e4f4482e5d404c35dde8ceeec59c715de809b68ef2bed33161db381",
+    "Cargo.toml.orig": "ac1f414c8315fe76feb2c67f71af70df53ae8be9ea3f956974e6b40db7fa5e9e",
+    "README.md": "c2f9ab30dd59ac68d30b19b8402f5c8a3dfdc4dd8dba6921722a77ebf4ac54c0",
+    "src/arbitrary.rs": "c5524c0bf2b9f7623d889fbc3361198afbc79e7e14f689b18194db2905a812a0",
+    "src/array.rs": "3d8ad9751e0b9ce81186b0da32801be45dde7b3935fc964eedc1f7fc7d63adb6",
+    "src/compress.rs": "490ffb58d1cc4c43bd558084999eeee11e283625549a7eae5b99b7b67f8ffe63",
+    "src/compute/cast.rs": "2ed0ae259e57df74e7d6c62ed9c9b38a6eabcf089d78cad3c29a090863e2e552",
+    "src/compute/compare.rs": "a239115a1f106e9bbc5e212a12ce0b3f687a9433e66586d96e7f05e23b548c85",
+    "src/compute/fill_null.rs": "07a42d771c16b51afe008a8a6d61d60183e4c4e8b634a4b2172a2a4a88c65a16",
+    "src/compute/filter.rs": "b549bfb8b5a2438c314e9fd269f5e6a0a3f7d9c8fd5d7b9df27627be5c111be1",
+    "src/compute/is_constant.rs": "4a376d0d52f90b87dcda47abc7afaf4c1352a59afe5e8b5702cb7c429e8cd398",
+    "src/compute/is_sorted.rs": "ae6b6beaad73e4924f5b13a1cf8a0ddb542544cc60d103f0c729faa4f5498ed2",
+    "src/compute/min_max.rs": "45a7e649b7b5ea9c4a9422b627fd9ab9616a1adf78af084a6f213e7e279d5f55",
+    "src/compute/mod.rs": "e56ab5247a2139d52a7a7e63b29a293efa584df65ef7bd425db8811d40ee7fec",
+    "src/compute/take.rs": "bc5be9d9e5d44893a6fc159f19f84105ddb76726fa5373d96c1b9dc60fabcb65",
+    "src/compute/take_from.rs": "47719bb31906ab7d1bdc6b5863aedfd24906b1426814460f4acb2c28825a8502",
+    "src/decompress_bool.rs": "5519f1d25bd7ad841e5283ec4099c87e516705102ceaa97b1110c98606580d3a",
+    "src/iter.rs": "5261009721ae79d7a0fc8adca4a89e5897141672f8f70eee76fd2f8becb904d2",
+    "src/kernel.rs": "8f096f53927ee42d25e785fc087c946076de50c8bd7846c2fa85963f632ed7ab",
+    "src/lib.rs": "239c3dda01bed0dd911ddb515c856c411eaf5b493e557052e9629cf8b172361e",
+    "src/ops.rs": "be72d72e25a66818783ee400f49de1176b0c620cb28fe156abd5ee3ed677c83b",
+    "src/rules.rs": "f5b0874e0a4b8810c4b07b697f3f9e6af15afddefb5a0ee22c4dde1aeff43947",
+    "src/trace_tests.rs": "b4a5266f9b27c4898a4a6417bc9edf65b6228ecfdc5de0d44353ce0f17756b39"
+  },
+  "omitted_original_files": {
+    "Cargo.lock": "workspace Cargo.lock controls dependency resolution"
+  },
+  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "supplemental_test_files": {
+    "goldenfiles/runend.metadata": {
+      "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/encodings/runend/goldenfiles/runend.metadata",
+      "git_blob_sha1": "17785041a8123a014d1987344b87fad6a256bd04",
+      "sha256": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
+      "bytes": 24,
+      "reason": "The registry archive omits the golden fixture required by its unchanged library test. The pinned Git revision's src/lib.rs is byte-identical to the published source."
+    }
+  },
+  "local_changes": "String/binary RunEnd expansion reconstructs views and validity through the original VarBinView array's owner-preserving helper, sharing its data-buffer table and reservation. Existing RunEnd decoding and value semantics remain authoritative. No new encoding, wire format, dependency version or unsafe boundary is introduced. The normalized manifest adds publish=false; README.shardloom.md and reviewed license/provenance records are included."
+}
