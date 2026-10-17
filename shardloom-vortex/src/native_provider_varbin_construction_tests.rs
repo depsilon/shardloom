@@ -265,7 +265,7 @@ fn native_varbin_builder_many_nullable_utf8_and_binary_leaves() {
 #[test]
 fn native_varbin_view_construction_reuses_loops_for_rollover_and_offsets() {
     let values: [&[u8]; 5] = [
-        b"",
+        "λ猫🙂".as_bytes(),
         b"tiny",
         "outlined λ 猫 value".as_bytes(),
         b"",

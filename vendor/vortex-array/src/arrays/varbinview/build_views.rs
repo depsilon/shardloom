@@ -353,16 +353,6 @@ fn extend_views_single_buffer<const UTF8_BOUNDARIES: bool>(
         let value = data
             .get(offset..end)
             .ok_or_else(|| vortex_err!("VarBinView lengths exceed byte heap"))?;
-        if UTF8_BOUNDARIES {
-            // In a validated heap, only continuation bytes cannot begin a
-            // character. Reuse this value's checked slice instead of consulting
-            // a separate string bound for every view. All views remain private
-            // until every start and the final heap coverage have been checked.
-            vortex_ensure!(
-                value.first().is_none_or(|byte| *byte & 0xc0 != 0x80),
-                "view at index {i}: bytes failed utf-8 boundary validation"
-            );
-        }
         let view = if len > BinaryView::MAX_INLINED_SIZE {
             let mut prefix = [0u8; 4];
             prefix.copy_from_slice(&value[..4]);
@@ -370,6 +360,17 @@ fn extend_views_single_buffer<const UTF8_BOUNDARIES: bool>(
         } else {
             BinaryView::make_view(value, buf_index, offset.as_())
         };
+        if UTF8_BOUNDARIES {
+            // Both layouts place the copied first byte immediately after the
+            // four-byte length. Empty inline views have a zero-filled prefix.
+            // Reuse that byte without another payload load or empty-value
+            // branch. In a validated heap, a continuation byte cannot start a
+            // character. No view escapes before all starts and coverage pass.
+            vortex_ensure!(
+                view.as_u128() & (0xc0_u128 << 32) != (0x80_u128 << 32),
+                "view at index {i}: bytes failed utf-8 boundary validation"
+            );
+        }
         slot.write(view);
         offset += len;
     }

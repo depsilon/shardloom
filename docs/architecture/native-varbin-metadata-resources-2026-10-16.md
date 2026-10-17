@@ -140,12 +140,13 @@ the ordinary per-value validation decides acceptance. Payloads above this relati
 size bound, multiple buffers and opaque device handles retain the ordinary path.
 
 The existing single-buffer UTF-8 view builder can validate its exact byte heap
-once and check each nonempty value's first byte in its construction loop. In a
-validated heap, a continuation byte cannot start a character. Contiguous values
-must cover the heap exactly, so each end is the following nonempty start or the
-validated heap end; empty values do not advance the offset. No view is exposed
-before all boundaries and exact coverage pass, including null slots. Range and
-prefix construction retain their existing checks. Only these validated views may
+once and check the first byte already copied into each view's prefix. Both view
+layouts place that byte after the four-byte length; empty views have a zero
+prefix. In a validated heap, a continuation byte cannot start a character.
+Contiguous values must cover the heap exactly, so each end is the following
+nonempty start or the validated heap end; empty values do not advance the offset.
+No view is exposed before all boundaries and exact coverage pass, including null
+slots. Range and prefix construction retain their existing checks. Only these validated views may
 use the private admitted constructor without a second content scan. Dtype,
 validity, table admission and checked array-parts construction still apply.
 Rolling buffers and binary builders keep their existing validation path.
