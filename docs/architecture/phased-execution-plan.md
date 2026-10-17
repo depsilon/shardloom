@@ -256,9 +256,9 @@ the ledger.
     [complete local acceptance](../benchmarks/native-varbin-metadata-resources-2026-10-16.md).
     PR #1563 review found missing content checks in safe constructors and view
     replacement. The correction passes focused regressions but repeats a cost
-    breach in both comparison orders. Validated-view reuse and bounded UTF-8
-    validation leave one repeated FSST cost breach. Combined UTF-8 validation and
-    view construction, plus refreshed complete acceptance, are in progress;
+    breach in both comparison orders. Validated-view reuse and combined UTF-8
+    validation/view construction leave one repeated FSST cost breach. Optimizing
+    boundary checks and refreshing complete acceptance are in progress;
     the initial packet does not accept this revised source. Hosted integration
     remains pending. The Zstd frame-table unit remains complete.
   - V1 scope classification: `required_for_v1` finite allocation coverage.

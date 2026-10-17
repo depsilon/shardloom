@@ -206,9 +206,9 @@ fn build_views_with_lengths_in(
     let mut buffers = MetadataVec::new(capacity, &allocator)?;
     let mut views = BufferMut::with_capacity(count);
     if bytes.len() <= max_buffer_len && matches!(dtype, DType::Utf8(_)) {
-        let text = simdutf8::basic::from_utf8(bytes.as_slice())
+        simdutf8::basic::from_utf8(bytes.as_slice())
             .map_err(|_| vortex_err!("VarBinView byte heap failed utf-8 validation"))?;
-        extend_views_single_buffer(&mut views, 0, &bytes, count, len_at, Some(text))?;
+        extend_views_single_buffer::<true>(&mut views, 0, &bytes, count, len_at)?;
         if !bytes.is_empty() {
             buffers.push(bytes.clone())?;
         }
@@ -300,7 +300,7 @@ fn extend_views_into(
         // Common case: the whole decoded heap fits within a single buffer, so no rollover can
         // occur (`bytes.len()` is the total decoded size and therefore an upper bound on every
         // offset).
-        extend_views_single_buffer(views, start_buf_index, bytes, count, len_at, None)?;
+        extend_views_single_buffer::<false>(views, start_buf_index, bytes, count, len_at)?;
         if !bytes.is_empty() {
             push_buffer(bytes.clone())?;
         }
@@ -324,13 +324,15 @@ fn extend_views_into(
 /// reference views inline, avoiding the out-of-line `BinaryView::make_view` call for the common
 /// long-string case. Every offset is bounded by `bytes.len()`, which the caller has guaranteed is
 /// at most [`MAX_BUFFER_LEN`], so the `usize -> u32` conversions cannot truncate.
-fn extend_views_single_buffer(
+/// With `UTF8_BOUNDARIES`, the caller has validated the whole heap as UTF-8. Each nonempty
+/// value must start on a character boundary; its end is the next nonempty start or the exact
+/// heap end checked below. Empty values are valid at every offset and do not advance it.
+fn extend_views_single_buffer<const UTF8_BOUNDARIES: bool>(
     views: &mut BufferMut<BinaryView>,
     buf_index: u32,
     bytes: &ByteBuffer,
     count: usize,
     len_at: impl Fn(usize) -> usize,
-    validated_utf8: Option<&str>,
 ) -> VortexResult<()> {
     views.reserve(count);
     let base = views.len();
@@ -351,13 +353,16 @@ fn extend_views_single_buffer(
         let value = data
             .get(offset..end)
             .ok_or_else(|| vortex_err!("VarBinView lengths exceed byte heap"))?;
-        // When the complete heap was validated, each contiguous substring is
-        // UTF-8 iff it ends at a character boundary. The first start is zero;
-        // every subsequent start is the preceding checked end, including empties.
-        vortex_ensure!(
-            validated_utf8.is_none_or(|text| text.is_char_boundary(end)),
-            "view at index {i}: bytes failed utf-8 boundary validation"
-        );
+        if UTF8_BOUNDARIES {
+            // In a validated heap, only continuation bytes cannot begin a
+            // character. Reuse this value's checked slice instead of consulting
+            // a separate string bound for every view. All views remain private
+            // until every start and the final heap coverage have been checked.
+            vortex_ensure!(
+                value.first().is_none_or(|byte| *byte & 0xc0 != 0x80),
+                "view at index {i}: bytes failed utf-8 boundary validation"
+            );
+        }
         let view = if len > BinaryView::MAX_INLINED_SIZE {
             let mut prefix = [0u8; 4];
             prefix.copy_from_slice(&value[..4]);

@@ -6,9 +6,9 @@ Status: the initial implementation completed local acceptance. Review found
 missing content checks in safe handle construction and arbitrary view replacement.
 The corrective implementation passes focused regressions but repeats cost-gate
 breaches in both complete comparison orders. Reusing validated native views and
-bounded whole-buffer UTF-8 validation remove all but one repeated FSST cost
-breach. Fusing exact-heap UTF-8 boundary checks into view construction and
-refreshing complete acceptance are in progress.
+bounded whole-buffer UTF-8 validation remove most cost breaches. Fusing exact-heap
+UTF-8 validation with view construction leaves one repeated FSST cost breach.
+Boundary-check optimization and refreshed complete acceptance are in progress.
 Hosted integration remains pending.
 The [acceptance report](../benchmarks/native-varbin-metadata-resources-2026-10-16.md)
 records the exact source, checks, cost decision and one-pass Full43 observation.
@@ -140,9 +140,12 @@ the ordinary per-value validation decides acceptance. Payloads above this relati
 size bound, multiple buffers and opaque device handles retain the ordinary path.
 
 The existing single-buffer UTF-8 view builder can validate its exact byte heap
-once and check each character boundary in its construction loop. Lengths must
-cover that heap exactly, including null slots; range and prefix construction
-retain their existing checks. Only these newly constructed, validated views may
+once and check each nonempty value's first byte in its construction loop. In a
+validated heap, a continuation byte cannot start a character. Contiguous values
+must cover the heap exactly, so each end is the following nonempty start or the
+validated heap end; empty values do not advance the offset. No view is exposed
+before all boundaries and exact coverage pass, including null slots. Range and
+prefix construction retain their existing checks. Only these validated views may
 use the private admitted constructor without a second content scan. Dtype,
 validity, table admission and checked array-parts construction still apply.
 Rolling buffers and binary builders keep their existing validation path.

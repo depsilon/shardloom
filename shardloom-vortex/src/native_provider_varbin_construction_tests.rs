@@ -38,6 +38,9 @@ fn native_varbin_safe_builders_validate_utf8_per_value_and_refund() {
         ([b'a'; 13].into_iter().chain([0xff]).collect(), vec![14]),
         ("λ猫".as_bytes().to_vec(), vec![1, 4]),
         ("λ猫".as_bytes().to_vec(), vec![0, 1, 4]),
+        ("λ猫".as_bytes().to_vec(), vec![1, 0, 4]),
+        ("λ".as_bytes().to_vec(), vec![1, 1, 0]),
+        ("🙂".as_bytes().to_vec(), vec![3, 0, 1]),
         (
             [
                 b"aaaaaaaaaaaaa".as_slice(),
@@ -266,7 +269,7 @@ fn native_varbin_view_construction_reuses_loops_for_rollover_and_offsets() {
         b"tiny",
         "outlined λ 猫 value".as_bytes(),
         b"",
-        b"second outlined value",
+        "second outlined 🙂".as_bytes(),
     ];
     let lengths: Vec<u32> = values
         .iter()
