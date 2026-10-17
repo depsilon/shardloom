@@ -17,6 +17,42 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-VARBIN-METADATA-RESOURCES` — reviewed native text/binary buffer
+  tables receive requested-capacity admission and shared lifetime under
+  PERF-03/06/08/09 and RFC 0044. Codec construction, the managed Chunked builder
+  and receiving sessions use the same provider boundary. Safe construction and
+  replacement validate host contents; checked native reuse preserves those values.
+  - The [acceptance report](../benchmarks/native-varbin-metadata-review-2026-10-16.md)
+    retains six Rust gates, 3,221 workspace and 4,319 native/provider/CLI tests,
+    3,587 standalone provider tests, 100 direct methods, 4,827 public cases and
+    one complete Full43 pass with 69.144125536 seconds total engine time.
+    All 32 lifecycle cells satisfy the unchanged two-order rule across 9,728
+    complete operations. Independent inspection verifies 19,538 members, six
+    rejected comparisons and the later test-only source transition.
+  - [PR #1563](https://github.com/depsilon/shardloom/pull/1563) merges at
+    `de408cb794640ac1756d3dfe25a2064e9cb95c64` after all 44 checks pass on
+    `38867f16a1d05f30461aad47ce96f4f7a6e3d46a`. The final PR, synthetic-test
+    and merged trees match; all 2,371 accepted source identities are unchanged.
+    Automated review covers the final head without findings; all twenty review
+    threads are resolved with their dispositions retained.
+  - The [176-member hosted packet](../benchmarks/evidence/native-varbin-metadata-hosted-2026-10-16.json)
+    verifies 6,578 native/provider tests with 27 declared manual exclusions,
+    all 25 new native regressions, 1,079 native public tests and three installed-
+    wheel lanes passing 100 methods each with zero skips. Core discovers 626,
+    runs 526 and records 14 skips. Exact-name inspection reconciles feature,
+    architecture and CI-environment selection without another test run.
+    All sixteen preview/production responses preserve source. Desktop, phone,
+    search and navigation pass; production version
+    `b5371632-9f22-405d-9845-ded0b54a7b93` completes. Independent inspection
+    verifies every archive member and all ten screenshots; primary verification
+    covers source, raw logs, responses and observed browser states.
+  - Original local-only evidence and failed evidence-check attempts remain
+    preserved. The observed deployed pages keep their pre-closeout wording until
+    a later documentation deployment. No extra query run or package publication
+    was used for closure. Raw table exports, general builder/compaction scratch,
+    fixed allocator/Arc overhead and process RSS retain separate boundaries.
+    The six-area/eight-investigation scope and CG-1 through CG-23 remain open.
+
 - [x] `NATIVE-ZSTD-METADATA-RESOURCES` — pinned native Zstd frame-handle and
   protobuf-description vectors receive admission before construction under
   PERF-03/06 and RFC 0044. Clones, slices and nullability casts share one owner;

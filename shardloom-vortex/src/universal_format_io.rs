@@ -610,44 +610,85 @@ impl ParquetRowGroupParallelRecordBatchReader {
             + Sync
             + 'static,
     {
+        Self::with_task_runner_and_spawner(
+            schema,
+            tasks,
+            applied_parallelism,
+            run,
+            |index, worker| {
+                thread::Builder::new()
+                    .name(format!("shardloom-parquet-source-{index}"))
+                    .spawn(worker)
+            },
+        )
+    }
+
+    fn with_task_runner_and_spawner<F>(
+        schema: SchemaRef,
+        tasks: Vec<ParquetRowGroupReadTask>,
+        applied_parallelism: usize,
+        run: F,
+        mut spawn: impl FnMut(usize, Box<dyn FnOnce() + Send>) -> std::io::Result<JoinHandle<()>>,
+    ) -> std::result::Result<Self, ArrowError>
+    where
+        F: Fn(
+                ParquetRowGroupReadTask,
+                &SyncSender<ParquetRowGroupReadResult>,
+            ) -> std::result::Result<(), ArrowError>
+            + Send
+            + Sync
+            + 'static,
+    {
         let worker_count = applied_parallelism.max(1).min(tasks.len());
         let (task_sender, task_receiver) =
             mpsc::sync_channel::<ParquetRowGroupReadJob>(worker_count.max(1));
         let task_receiver = Arc::new(Mutex::new(task_receiver));
         let run = Arc::new(run);
-        let mut workers = Vec::with_capacity(worker_count);
-        for _ in 0..worker_count {
-            let worker_tasks = Arc::clone(&task_receiver);
-            let run = Arc::clone(&run);
-            workers.push(thread::spawn(move || {
-                loop {
-                    let job = {
-                        let Ok(receiver) = worker_tasks.lock() else {
-                            break;
-                        };
-                        receiver.recv()
-                    };
-                    let Ok(job) = job else {
-                        break;
-                    };
-                    let completion = match run(job.task, &job.sender) {
-                        Ok(()) => ParquetRowGroupReadResult::TaskComplete,
-                        Err(error) => ParquetRowGroupReadResult::TaskError(error),
-                    };
-                    if job.sender.send(completion).is_err() {
-                        break;
-                    }
-                }
-            }));
-        }
+        // Own the dispatcher and every handle before starting workers. Failed
+        // startup (including unwinding) then closes the queue and joins all
+        // already started workers through the same Drop path as a live reader.
         let mut reader = Self {
             schema,
             task_sender: Some(task_sender),
             tasks: tasks.into(),
             receivers: VecDeque::with_capacity(worker_count),
-            workers,
+            workers: Vec::with_capacity(worker_count),
             task_window: worker_count,
         };
+        for index in 0..worker_count {
+            let worker_tasks = Arc::clone(&task_receiver);
+            let run = Arc::clone(&run);
+            reader.workers.push(
+                spawn(
+                    index,
+                    Box::new(move || {
+                        loop {
+                            let job = {
+                                let Ok(receiver) = worker_tasks.lock() else {
+                                    break;
+                                };
+                                receiver.recv()
+                            };
+                            let Ok(job) = job else {
+                                break;
+                            };
+                            let completion = match run(job.task, &job.sender) {
+                                Ok(()) => ParquetRowGroupReadResult::TaskComplete,
+                                Err(error) => ParquetRowGroupReadResult::TaskError(error),
+                            };
+                            if job.sender.send(completion).is_err() {
+                                break;
+                            }
+                        }
+                    }),
+                )
+                .map_err(|error| {
+                    ArrowError::ComputeError(format!(
+                        "Parquet row-group worker {index} could not start: {error}"
+                    ))
+                })?,
+            );
+        }
         reader.fill_task_window()?;
         Ok(reader)
     }
@@ -749,6 +790,10 @@ impl Drop for ParquetRowGroupParallelRecordBatchReader {
 #[cfg(test)]
 #[path = "universal_format_io_parquet_queue_tests.rs"]
 mod parquet_queue_tests;
+
+#[cfg(test)]
+#[path = "universal_format_io_parquet_startup_tests.rs"]
+mod parquet_startup_tests;
 
 fn parquet_row_group_read_tasks(
     row_group_count: usize,

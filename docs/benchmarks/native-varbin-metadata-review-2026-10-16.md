@@ -9,7 +9,9 @@ avoids validating unchanged native values again while preserving table admission
 shared ownership and fresh receiving-session credit. Six Rust gates, 3,587
 standalone provider tests, 100 direct binding methods, 4,827 public cases and one
 complete Full43 pass succeed. The frozen lifecycle screen has no repeated cost
-breach across its two comparison orders. Hosted integration remains pending.
+breach across its two comparison orders. PR #1563 completes hosted integration
+after all 44 checks, three installed-wheel lanes and preview/production
+verification pass.
 
 This report supersedes the [initial acceptance report](native-varbin-metadata-resources-2026-10-16.md)
 for the revised source. It implements the same finite
@@ -62,7 +64,7 @@ remain outside this finite contract.
 | Vortex read-feature and release-user-surface Clippy | Pass |
 | Native/provider/CLI tests | 4,319 pass; 30 predeclared manual exclusions |
 | Added native regressions | All 25 pass |
-| Standalone array, FSST, RunEnd and Zstd providers | 3,587 pass; two manual exclusions; all eight test/strict-library-Clippy commands pass |
+| Standalone array, FSST, RunEnd and Zstd providers | 3,587 pass; two CI-environment exclusions; all eight test/strict-library-Clippy commands pass |
 | Release-script tests | 164 pass |
 | Direct source-package binding | 100 methods pass; zero skips |
 | Complete public matrix | 4,827 cases across 36 families pass |
@@ -100,6 +102,57 @@ three-page search results and mobile navigation pass. No browser warning/error
 is recorded. The original theme is restored, the temporary viewport override is
 cleared, and the owned tab/server are closed. This is in-app browser evidence,
 not a cross-browser or hosted test. Accepted runtime sources remain unchanged.
+
+## Hosted integration
+
+[PR #1563](https://github.com/depsilon/shardloom/pull/1563) merges at
+`de408cb794640ac1756d3dfe25a2064e9cb95c64` after all 44 checks pass on final head
+`38867f16a1d05f30461aad47ce96f4f7a6e3d46a`. The PR head, synthetic CI merge
+`727e119b45cf8c256a1e92e06fd665055b7289ca` and actual merge have the same tree.
+All 2,371 accepted runtime source identities are unchanged. Automated review
+covers the final head and reports no findings. Both correctness threads and
+eighteen previously dismissed false-positive alert threads are resolved; the
+packet preserves their original comments and disposition.
+
+The separate [hosted index](evidence/native-varbin-metadata-hosted-2026-10-16.json)
+and [archive](evidence/native-varbin-metadata-hosted-2026-10-16.tar.xz) retain
+176 members. Complete job logs verify 6,578 native/provider tests: 2,897 native
+library tests with 27 declared manual exclusions, 3,674 standalone array, FSST,
+RunEnd and Zstd tests, and seven file-statistics tests. All 25 new native
+regressions pass. The native public lane passes 1,079 tests. Core Python
+discovers 626 tests across 57 modules, runs 526 and records 14 skips; the 100
+binding methods run separately in each installed-wheel lane. Linux Python 3.10,
+Linux Python 3.13 and macOS Python 3.13 each pass all 100 methods with zero
+skips, isolated installed-module loading and uninstall checks.
+
+The local and hosted counts describe different test selections. Exact-name
+reconciliation verifies seven existing encoded-read tests enabled by the CI
+feature set, 85 x86-specific array tests, two offset-overflow tests admitted by
+the CI environment, and a separate seven-test layout command. No local test is
+missing from the corresponding hosted suite. The x86 test names do not prove
+that AVX2 instructions executed: individual tests can return early when runtime
+feature detection fails. No tests were rerun to reconcile these counts.
+
+All sixteen preview/production responses preserve the reviewed source. The
+production HTML responses include the separately identified Cloudflare script
+insertion; removing that bounded insertion recovers the exact committed bytes.
+Production deployment check `117305390537` succeeds for version
+`b5371632-9f22-405d-9845-ded0b54a7b93`. Desktop and phone inspection verifies
+dark/light text, three-page search results and mobile navigation, with no browser
+warning/error. Independent structural inspection verifies every archive member
+and all ten screenshots. One exact hash-bound historical helper inventory is
+retained in its original malformed JSON form and excluded from acceptance;
+the failed audit and explicit exception remain preserved. All other JSON members
+parse. Primary verification checks source identities, complete
+raw logs, review/merge state and observed browser behavior. Archive SHA-256 is
+`93261a895262e43a9799bf33b36107bbab7b4c41a588a3eb295e0eb5c9a74d6a`.
+
+Original local evidence retains its local-only status. The observed deployment
+also retains its pre-closeout wording; this documentation update records the
+later completion. Failed evidence-parser/preflight attempts remain archived
+alongside their corrections. Full43 below is the unchanged premerge regression
+observation, not a postmerge run. These CI wheels do not change published 0.6.0
+artifacts or establish a new performance claim.
 
 ## Complete lifecycle cost decision
 
@@ -260,7 +313,7 @@ runtime execution or another platform's behavior.
 
 Documentation/site checks and local browser inspection pass separately from
 runtime acceptance. Hosted checks, installed wheels, PR integration and
-production verification remain separate follow-through gates.
+production verification are complete in the separate hosted packet above.
 Remaining allocation trees, general builder scratch, broader operational work,
 conditional optimizations and encoded transport retain their owners under the
 [completion scope](../architecture/native-local-completion-scope-2026-10-07.md).

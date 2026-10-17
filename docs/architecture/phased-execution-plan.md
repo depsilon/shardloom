@@ -249,40 +249,14 @@ the ledger.
 
 ## Planned
 
-- [ ] `NATIVE-VARBIN-METADATA-RESOURCES` admit shared text/binary buffer tables.
-  - Source: [ownership and acceptance contract](native-varbin-metadata-resources-2026-10-16.md),
-    RFC 0044 and the remaining allocation row under PERF-03/06/08/09.
-  - Current state: the reviewed implementation has
-    [complete fresh local acceptance](../benchmarks/native-varbin-metadata-review-2026-10-16.md).
-    Safe construction/replacement validates host-readable values; checked native
-    reuse passes the unchanged cost rule across both comparison orders. All six
-    Rust gates, 3,587 provider tests, 100 direct methods, 4,827 public cases and
-    Full43 pass. Independent inspection verifies 19,538 members, six rejected
-    comparisons and the explicit test-only source transition. All 20
-    documentation/site checks and desktop/phone browser verification pass.
-    Hosted integration remains pending. The initial packet stays historical;
-    the Zstd frame-table unit remains complete.
-  - V1 scope classification: `required_for_v1` finite allocation coverage.
-  - Shared family: Vortex VarBinView construction/selection, FSST/RunEnd/Zstd
-    providers and the existing native Chunked builder below all user surfaces.
-  - ShardLoom technique review: reuse the shared PulseWeave memory grant and
-    dynamic admission; preserve metadata-first/encoded work avoidance, capillary
-    source units, selected-only decode and late materialization. No scheduling
-    or timing-surface redesign; evidence tiers and engine-clock rules remain.
-  - Execution checklist:
-    - [x] Freeze the unchanged-production baseline and complete lifecycle harness.
-    - [x] Implement table admission, shared lifetime and all scoped clone/selection paths.
-    - [x] Integrate codec construction, managed builder growth/finalization and receiving ownership.
-    - [x] Verify pinned FSST/RunEnd provenance and synchronize dependency/license records.
-    - [x] Pass ownership/error/value tests, frozen cost screen and complete local acceptance on the reviewed source.
-    - [ ] Package and inspect evidence; complete docs/site, hosted checks and deployment.
-    - [ ] Move the accepted finite unit to the completed ledger after integration.
-  - Acceptance/verification: exact requested-capacity ownership, unchanged native
-    values/serialization, typed denial and cleanup; the contract fixes the
-    32-cell cost gate, broad checks and one Full43 pass before implementation.
-  - Claim boundary: named table allocations only; raw APIs, general builder
-    scratch and whole-process RSS retain separate boundaries. Preserve
-    `fallback_attempted=false`, `external_engine_invoked=false` and CG-1 through CG-23.
+`NATIVE-VARBIN-METADATA-RESOURCES` completes in PR #1563 after all 44 checks
+pass, with unchanged accepted runtime sources, three installed-wheel lanes and
+verified preview/production responses and browser behavior. Its
+[completed ledger entry](phased-execution-completed-ledger.md) retains the
+reviewed ownership contract, both lifecycle comparison orders, six rejected
+comparisons and separate local/hosted evidence. Remaining allocation and
+worker-lifetime work stays under PERF-03/06/08/09 and the existing production
+morsel-scheduler row below. No broader PERF or CG gate is closed by this unit.
 
 `NATIVE-ZSTD-METADATA-RESOURCES` completes in PR #1562 after all 44 checks
 pass, with unchanged accepted runtime sources, three installed-wheel lanes and
@@ -1954,6 +1928,16 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
     some aggregate partial-state routes, and Vortex writer worker-pool evidence. It does not have a
     common scheduler that makes every segment/morsel operator pull bounded work, keep thread-local
     state, report utilization, and merge deterministically.
+    The [finite worker-lifetime correction](../benchmarks/native-worker-drain-2026-10-16.md)
+    passes complete local checks under this row and PERF-03/06. The exported
+    morsel helper joins every worker before returning an observer error or panic,
+    preserving the first failure by worker index. The direct-thread Parquet
+    reader owns started workers before construction can fail. Seven new tests
+    verify resource release at return/unwind, deterministic failure selection
+    and no source work on failed startup. Workspace, compatibility-I/O and native
+    suites pass; hosted integration remains pending. This does not add shared
+    scheduling, callback interruption, whole-process memory coverage or a query
+    performance claim. Native product ingest retains its existing shared executor.
   - Intake review:
     - Accepted from the five technique review: morsel-style scheduling with thread-local state and
       deterministic merge.

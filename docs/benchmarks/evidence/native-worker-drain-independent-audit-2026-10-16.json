@@ -1,0 +1,1079 @@
+{
+  "schema_version": "shardloom.native_worker_drain_independent_audit.v1",
+  "status": "passed",
+  "packet_index": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-worker-drain-packet-566/native-worker-drain-2026-10-16.json",
+  "packet_index_sha256": "b62d2fbabda0287bd35c504238cb9713a7854649c45efe0722159a978a1b3303",
+  "archive": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-worker-drain-packet-566/native-worker-drain-2026-10-16.json.xz",
+    "bytes": 413004,
+    "sha256": "8dfa745a3b26e484a42601612ba1c4a8d3d27364fa4457091aec06061d25b1d9",
+    "decompressed_report_bytes": 4878092,
+    "member_count": 74
+  },
+  "accepted_sources": [
+    {
+      "member": "accepted-source/shardloom-vortex/src/scheduler_bridge.rs",
+      "sha256": "61b600b8c577a71de2b3186de981d7dbaac69b9c716b2e41a279371ababdb91e"
+    },
+    {
+      "member": "accepted-source/shardloom-vortex/src/scheduler_bridge_lifetime_tests.rs",
+      "sha256": "58a4240ad9faebe86103f62bd8d78e8e9fdb7344ead1d7563f2a8b4eb661b489"
+    },
+    {
+      "member": "accepted-source/shardloom-vortex/src/universal_format_io.rs",
+      "sha256": "c0d5db49889321f2f3ab689cd9c0816154dd6cc911b97bb6a12abe1848b26227"
+    },
+    {
+      "member": "accepted-source/shardloom-vortex/src/universal_format_io_parquet_startup_tests.rs",
+      "sha256": "c004344dc507594626fc711906070430af8ac20aae86079665014191a35d79e2"
+    }
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "receipt_member": "runs/native-worker-drain-fmt-566b.json",
+      "receipt_sha256": "e3f6226b353795f938560e0453b2f0e11c6a6dfce6249f7fbcf089a5f10baae6",
+      "log_member": "runs/native-worker-drain-fmt-566b.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result_groups": [],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false
+    },
+    {
+      "name": "clippy",
+      "receipt_member": "runs/native-worker-drain-clippy-566b.json",
+      "receipt_sha256": "c6878d4f811516d4d444cc325e7356bc4ad1180960881c66721394ab8a3389d3",
+      "log_member": "runs/native-worker-drain-clippy-566b.log",
+      "log_sha256": "2634d6bec047c4b96747f1a3f5477692a2fcb9c070b23938b5095ce219b2e697",
+      "result_groups": [],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false
+    },
+    {
+      "name": "tests",
+      "receipt_member": "runs/native-worker-drain-tests-566b.json",
+      "receipt_sha256": "dbd4421706d32cb5438f1b5bf2be450ebbbe83e37fbb8282d7413072044bbf46",
+      "log_member": "runs/native-worker-drain-tests-566b.log",
+      "log_sha256": "3a5c59e8d5f2104335719b9838548f511bd097878e9d0f828b13a6a2b8dca290",
+      "result_groups": [
+        [
+          795,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          26,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          21,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          11,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          9,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          19,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          10,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          11,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          10,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          29,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          8,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          7,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          13,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          14,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          15,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          10,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0
+        ],
+        [
+          15,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          18,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ],
+        [
+          13,
+          0,
+          0
+        ],
+        [
+          58,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          714,
+          0,
+          0
+        ],
+        [
+          317,
+          0,
+          0
+        ],
+        [
+          120,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          756,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ]
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false
+    },
+    {
+      "name": "parquet-clippy",
+      "receipt_member": "runs/native-worker-drain-parquet-clippy-566b.json",
+      "receipt_sha256": "13236d9425e390a9a4b74653cf26b27aa59bb0bbac0a914c464091c67fe71964",
+      "log_member": "runs/native-worker-drain-parquet-clippy-566b.log",
+      "log_sha256": "af597c3d32b6403889d078cf869c9c25737c125176e79793a196376e98a2e544",
+      "result_groups": [],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false
+    },
+    {
+      "name": "parquet-tests",
+      "receipt_member": "runs/native-worker-drain-parquet-tests-566b.json",
+      "receipt_sha256": "df47c3c2b637450d9dd54211ff099ce55226055b6bc5657044a8434facfbe419",
+      "log_member": "runs/native-worker-drain-parquet-tests-566b.log",
+      "log_sha256": "1c53123da8fe80cb83e32a1edc8816e927a47944fb42efb93fde4e435bf98dd8",
+      "result_groups": [
+        [
+          824,
+          0,
+          0
+        ]
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false
+    },
+    {
+      "name": "native-clippy",
+      "receipt_member": "runs/native-worker-drain-native-clippy-566b.json",
+      "receipt_sha256": "a0723dcc95d231be6f296da4dd62855d67efe7dbb737e52271bb0fc3b6222c35",
+      "log_member": "runs/native-worker-drain-native-clippy-566b.log",
+      "log_sha256": "3138e47ad85fcc5210c325defb38fab76b44715436c87b902b4ca08ccbeaadf9",
+      "result_groups": [],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false
+    },
+    {
+      "name": "native-tests",
+      "receipt_member": "runs/native-worker-drain-native-tests-566b.json",
+      "receipt_sha256": "ca4d6d0125e7e8808402892886903dfce529fe1bed85d13d13a0ace2d2f39b76",
+      "log_member": "runs/native-worker-drain-native-tests-566b.log",
+      "log_sha256": "49c866fe232e64a4a922ffd91cb7c51fbaddfa760b09833f57d8350ac8b9c8cb",
+      "result_groups": [
+        [
+          2904,
+          0,
+          27
+        ]
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false
+    }
+  ],
+  "baseline_failures": [
+    {
+      "label": "native-morsel-drain-regression-baseline-565",
+      "receipt_member": "runs/native-morsel-drain-regression-baseline-565.json",
+      "log_member": "runs/native-morsel-drain-regression-baseline-565.log",
+      "receipt_sha256": "57ded8428df774d1136ac9914dee896d40ec942568d048f95e89119764cd7a28",
+      "log_sha256": "3161836db218ddb2612e41b0ee3dfd9f59033152ba919e3e59d7a2658145e349",
+      "status": "failed",
+      "returncode": 101,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false,
+      "failing_test_names": [
+        "scheduler_bridge::lifetime_tests::earlier_panic_survives_later_error_after_all_workers_are_drained",
+        "scheduler_bridge::lifetime_tests::earlier_error_survives_later_panic_after_all_workers_are_drained",
+        "scheduler_bridge::lifetime_tests::observer_error_drains_later_worker_and_releases_its_reservation_before_return",
+        "scheduler_bridge::lifetime_tests::worker_panic_drains_later_worker_and_releases_its_reservation_before_return"
+      ]
+    },
+    {
+      "label": "native-parquet-startup-baseline-566",
+      "receipt_member": "runs/native-parquet-startup-baseline-566.json",
+      "log_member": "runs/native-parquet-startup-baseline-566.log",
+      "receipt_sha256": "873ae626b07374b33cfa8d907cd4604a8c12aa9425a6508c762cfd5b11dd09cd",
+      "log_sha256": "8fde38fe19c22e4f15e4e3e7f56eee0ad27a069e0d1e3d48146181e8bed7bb28",
+      "status": "failed",
+      "returncode": 101,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "timed_out": false,
+      "failing_test_names": [
+        "universal_format_io::parquet_startup_tests::partial_worker_startup_error_joins_started_workers_before_return",
+        "universal_format_io::parquet_startup_tests::partial_worker_startup_unwind_joins_started_workers_before_unwind_escapes"
+      ]
+    }
+  ],
+  "member_facts": [
+    {
+      "name": "accepted-source/shardloom-vortex/src/scheduler_bridge.rs",
+      "bytes": 68256,
+      "sha256": "61b600b8c577a71de2b3186de981d7dbaac69b9c716b2e41a279371ababdb91e"
+    },
+    {
+      "name": "accepted-source/shardloom-vortex/src/scheduler_bridge_lifetime_tests.rs",
+      "bytes": 6985,
+      "sha256": "58a4240ad9faebe86103f62bd8d78e8e9fdb7344ead1d7563f2a8b4eb661b489"
+    },
+    {
+      "name": "accepted-source/shardloom-vortex/src/universal_format_io.rs",
+      "bytes": 359139,
+      "sha256": "c0d5db49889321f2f3ab689cd9c0816154dd6cc911b97bb6a12abe1848b26227"
+    },
+    {
+      "name": "accepted-source/shardloom-vortex/src/universal_format_io_parquet_startup_tests.rs",
+      "bytes": 6059,
+      "sha256": "c004344dc507594626fc711906070430af8ac20aae86079665014191a35d79e2"
+    },
+    {
+      "name": "history/native-morsel-drain-regression-baseline-source-565/Cargo.lock",
+      "bytes": 100591,
+      "sha256": "414732b89cf65818ebefaccf2eae95ec7b9643af37c009feab26557bd2be16b6"
+    },
+    {
+      "name": "history/native-morsel-drain-regression-baseline-source-565/run_guarded_worker_drain_565.py",
+      "bytes": 4295,
+      "sha256": "31daaeed239f2eddebaca8aede8f329204a1ce8093d90bb41902608b3a763ddd"
+    },
+    {
+      "name": "history/native-morsel-drain-regression-baseline-source-565/scheduler_bridge.rs",
+      "bytes": 67170,
+      "sha256": "c9f9fa22e6a57c3f4ac73e0cb93d7a4f7c8341384f0e0cfa8abb54e3f92f4c8f"
+    },
+    {
+      "name": "history/native-morsel-drain-regression-baseline-source-565/scheduler_bridge_lifetime_tests.rs",
+      "bytes": 6985,
+      "sha256": "58a4240ad9faebe86103f62bd8d78e8e9fdb7344ead1d7563f2a8b4eb661b489"
+    },
+    {
+      "name": "history/native-morsel-drain-regression-baseline-source-565/source.json",
+      "bytes": 2056,
+      "sha256": "28cded304b2f704082bba6881853492d1ed9c9bde8699f7469513f242664db04"
+    },
+    {
+      "name": "history/native-parquet-startup-baseline-source-566/Cargo.lock",
+      "bytes": 100591,
+      "sha256": "414732b89cf65818ebefaccf2eae95ec7b9643af37c009feab26557bd2be16b6"
+    },
+    {
+      "name": "history/native-parquet-startup-baseline-source-566/sources.json",
+      "bytes": 785,
+      "sha256": "152279e8824c7aa27bcee2594415bf8c8ecb62172b57368e23ac43bc10cdf5b1"
+    },
+    {
+      "name": "history/native-parquet-startup-baseline-source-566/universal_format_io.rs",
+      "bytes": 358922,
+      "sha256": "52393df8362537361685f02496b5e992b2882ae148a6ae054fa468ca7598411b"
+    },
+    {
+      "name": "history/native-parquet-startup-baseline-source-566/universal_format_io_parquet_startup_tests.rs",
+      "bytes": 6099,
+      "sha256": "4217b2dd667cc7301d1e8f88e7623eadbf5042d6eb0dde5cefabe22cd6c5ea28"
+    },
+    {
+      "name": "history/native-worker-drain-lint-correction-source-566/scheduler_bridge.rs",
+      "bytes": 68256,
+      "sha256": "61b600b8c577a71de2b3186de981d7dbaac69b9c716b2e41a279371ababdb91e"
+    },
+    {
+      "name": "history/native-worker-drain-lint-correction-source-566/scheduler_bridge_lifetime_tests.rs",
+      "bytes": 6985,
+      "sha256": "58a4240ad9faebe86103f62bd8d78e8e9fdb7344ead1d7563f2a8b4eb661b489"
+    },
+    {
+      "name": "history/native-worker-drain-lint-correction-source-566/sources.json",
+      "bytes": 550,
+      "sha256": "d20382130edcc1b28a3317765cc7174d1a524eb35ac4d465b7761da1c0a215b2"
+    },
+    {
+      "name": "history/native-worker-drain-lint-correction-source-566/universal_format_io.rs",
+      "bytes": 359139,
+      "sha256": "c0d5db49889321f2f3ab689cd9c0816154dd6cc911b97bb6a12abe1848b26227"
+    },
+    {
+      "name": "history/native-worker-drain-lint-correction-source-566/universal_format_io_parquet_startup_tests.rs",
+      "bytes": 6099,
+      "sha256": "4217b2dd667cc7301d1e8f88e7623eadbf5042d6eb0dde5cefabe22cd6c5ea28"
+    },
+    {
+      "name": "probe/Cargo.lock",
+      "bytes": 9579,
+      "sha256": "e679850cedd1795d67c4054899a2124dff97622c059561190a112a16d1cf648e"
+    },
+    {
+      "name": "probe/Cargo.toml",
+      "bytes": 1195,
+      "sha256": "1781370362bbce0fbfaeef58aa13a53974f7644bee1203cac062ac352534892e"
+    },
+    {
+      "name": "probe/src/main.rs",
+      "bytes": 3984,
+      "sha256": "ae03aefb0b84b693f2f7ed5c69749c17efb86530c19993a9c0839557a6f7cff3"
+    },
+    {
+      "name": "runs/native-morsel-drain-baseline-565.json",
+      "bytes": 1635,
+      "sha256": "01e0bf244345c4115f52421e34ec6bc1617dfbea5682f192782d0320cd5f6873"
+    },
+    {
+      "name": "runs/native-morsel-drain-baseline-565.log",
+      "bytes": 3541,
+      "sha256": "5387268e25288d1f49fe66e149baf5c95e9babdaa1d56d9649b7481db7823ee0"
+    },
+    {
+      "name": "runs/native-morsel-drain-focused-565.json",
+      "bytes": 1731,
+      "sha256": "d99b50bd85e68783de72f4ef31199ae939be813efbabcc468c8e3cf1ed7cce3b"
+    },
+    {
+      "name": "runs/native-morsel-drain-focused-565.log",
+      "bytes": 2864,
+      "sha256": "d12ef44de0a409a99830638fe46a6a311afc5dffc300a846d737e9402f29c4f3"
+    },
+    {
+      "name": "runs/native-morsel-drain-regression-baseline-565.json",
+      "bytes": 1749,
+      "sha256": "57ded8428df774d1136ac9914dee896d40ec942568d048f95e89119764cd7a28"
+    },
+    {
+      "name": "runs/native-morsel-drain-regression-baseline-565.log",
+      "bytes": 3997,
+      "sha256": "3161836db218ddb2612e41b0ee3dfd9f59033152ba919e3e59d7a2658145e349"
+    },
+    {
+      "name": "runs/native-parquet-startup-baseline-566.json",
+      "bytes": 1900,
+      "sha256": "873ae626b07374b33cfa8d907cd4604a8c12aa9425a6508c762cfd5b11dd09cd"
+    },
+    {
+      "name": "runs/native-parquet-startup-baseline-566.log",
+      "bytes": 2248,
+      "sha256": "8fde38fe19c22e4f15e4e3e7f56eee0ad27a069e0d1e3d48146181e8bed7bb28"
+    },
+    {
+      "name": "runs/native-parquet-worker-drain-focused-566.json",
+      "bytes": 1904,
+      "sha256": "dea41486d15649c9d34307cb1e7e12bacabde98e343a1b89f5f248d86f044a51"
+    },
+    {
+      "name": "runs/native-parquet-worker-drain-focused-566.log",
+      "bytes": 2009,
+      "sha256": "379be78ac96ac87d30d4a23e35f6d8d1dd7cced49173d371170a96dcf0682976"
+    },
+    {
+      "name": "runs/native-worker-drain-clippy-566.json",
+      "bytes": 1819,
+      "sha256": "51b82da6e6713aa86cd1fd6c3a30682c2ebb1e7d3c5886f52332e3f255926c97"
+    },
+    {
+      "name": "runs/native-worker-drain-clippy-566.log",
+      "bytes": 60,
+      "sha256": "7577aa7e72bd95d44e50fb707f07dc512d91a639aa3e0b6d5893dc2b5958ae45"
+    },
+    {
+      "name": "runs/native-worker-drain-clippy-566b.json",
+      "bytes": 1819,
+      "sha256": "c6878d4f811516d4d444cc325e7356bc4ad1180960881c66721394ab8a3389d3"
+    },
+    {
+      "name": "runs/native-worker-drain-clippy-566b.log",
+      "bytes": 60,
+      "sha256": "2634d6bec047c4b96747f1a3f5477692a2fcb9c070b23938b5095ce219b2e697"
+    },
+    {
+      "name": "runs/native-worker-drain-fmt-566.json",
+      "bytes": 1744,
+      "sha256": "a75280c9d8faff682e95121cd28c87780227fd56e90baaaa222419860e38e388"
+    },
+    {
+      "name": "runs/native-worker-drain-fmt-566.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "runs/native-worker-drain-fmt-566b.json",
+      "bytes": 1744,
+      "sha256": "e3f6226b353795f938560e0453b2f0e11c6a6dfce6249f7fbcf089a5f10baae6"
+    },
+    {
+      "name": "runs/native-worker-drain-fmt-566b.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "runs/native-worker-drain-native-clippy-566b.json",
+      "bytes": 1883,
+      "sha256": "a0723dcc95d231be6f296da4dd62855d67efe7dbb737e52271bb0fc3b6222c35"
+    },
+    {
+      "name": "runs/native-worker-drain-native-clippy-566b.log",
+      "bytes": 2013,
+      "sha256": "3138e47ad85fcc5210c325defb38fab76b44715436c87b902b4ca08ccbeaadf9"
+    },
+    {
+      "name": "runs/native-worker-drain-native-tests-566b.json",
+      "bytes": 1872,
+      "sha256": "ca4d6d0125e7e8808402892886903dfce529fe1bed85d13d13a0ace2d2f39b76"
+    },
+    {
+      "name": "runs/native-worker-drain-native-tests-566b.log",
+      "bytes": 352450,
+      "sha256": "49c866fe232e64a4a922ffd91cb7c51fbaddfa760b09833f57d8350ac8b9c8cb"
+    },
+    {
+      "name": "runs/native-worker-drain-parquet-clippy-566.json",
+      "bytes": 1883,
+      "sha256": "2e018a998d30837363e1406fe12f04a5db6ee03857d9b2ee2bd004052346cfef"
+    },
+    {
+      "name": "runs/native-worker-drain-parquet-clippy-566.log",
+      "bytes": 1677,
+      "sha256": "3e34360aa8ff5d4d6d80edaf333ff7fb7abb8268320094b1d35b1cfcb30f0ce8"
+    },
+    {
+      "name": "runs/native-worker-drain-parquet-clippy-566b.json",
+      "bytes": 1880,
+      "sha256": "13236d9425e390a9a4b74653cf26b27aa59bb0bbac0a914c464091c67fe71964"
+    },
+    {
+      "name": "runs/native-worker-drain-parquet-clippy-566b.log",
+      "bytes": 195,
+      "sha256": "af597c3d32b6403889d078cf869c9c25737c125176e79793a196376e98a2e544"
+    },
+    {
+      "name": "runs/native-worker-drain-parquet-tests-566b.json",
+      "bytes": 1870,
+      "sha256": "df47c3c2b637450d9dd54211ff099ce55226055b6bc5657044a8434facfbe419"
+    },
+    {
+      "name": "runs/native-worker-drain-parquet-tests-566b.log",
+      "bytes": 68985,
+      "sha256": "1c53123da8fe80cb83e32a1edc8816e927a47944fb42efb93fde4e435bf98dd8"
+    },
+    {
+      "name": "runs/native-worker-drain-tests-566.json",
+      "bytes": 1819,
+      "sha256": "ff215d7d0347ff63032767af13d340e665970e383256c1efc092964170c73e6d"
+    },
+    {
+      "name": "runs/native-worker-drain-tests-566.log",
+      "bytes": 479439,
+      "sha256": "fa37d392288c4f284d3c32a265718148d16bfcc818d3b606cd0c14e005f6edac"
+    },
+    {
+      "name": "runs/native-worker-drain-tests-566b.json",
+      "bytes": 1819,
+      "sha256": "dbd4421706d32cb5438f1b5bf2be450ebbbe83e37fbb8282d7413072044bbf46"
+    },
+    {
+      "name": "runs/native-worker-drain-tests-566b.log",
+      "bytes": 479439,
+      "sha256": "3a5c59e8d5f2104335719b9838548f511bd097878e9d0f828b13a6a2b8dca290"
+    },
+    {
+      "name": "runs/native-worker-drain-workspace-clippy-565.json",
+      "bytes": 1703,
+      "sha256": "77db54608fe0572e63a4d792da4f5e7ded3b84f8dcf765918716cb2aeb05c333"
+    },
+    {
+      "name": "runs/native-worker-drain-workspace-clippy-565.log",
+      "bytes": 1004,
+      "sha256": "2eb7656de166cb318783a1f17f7e465a86e1674623487c8f8032a0b58e77bee5"
+    },
+    {
+      "name": "runs/native-worker-drain-workspace-fmt-565.json",
+      "bytes": 1626,
+      "sha256": "cfba99aa0127b071e05c0341baea7f97497db384f496f3b68f3437040b4648ed"
+    },
+    {
+      "name": "runs/native-worker-drain-workspace-fmt-565.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "runs/native-worker-drain-workspace-tests-565.json",
+      "bytes": 1701,
+      "sha256": "682854909fbfacb7d719f5ac7c9291c64b448f4250cfc3e3559eee62d7c2a4b7"
+    },
+    {
+      "name": "runs/native-worker-drain-workspace-tests-565.log",
+      "bytes": 480383,
+      "sha256": "3a6616f1d25c9e553bcb6f825a8b62eb9dc0237fce4663494d80ec3599446b51"
+    },
+    {
+      "name": "support/bounded_build_process_resume_20260912.py",
+      "bytes": 8431,
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+    },
+    {
+      "name": "support/local_uat_storage.py",
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d"
+    },
+    {
+      "name": "support/native-morsel-drain-baseline-analysis-565.json",
+      "bytes": 2638,
+      "sha256": "efbe1632713a7871e647dbf1540d132c8392e14924392e795e54e640e770ceed"
+    },
+    {
+      "name": "support/native-morsel-drain-decision-565.json",
+      "bytes": 3673,
+      "sha256": "88c8bef8df9cd1c8703a9bd18e73e99c505f0a03417ec5b2faee4e646f191b68"
+    },
+    {
+      "name": "support/native-morsel-drain-test-inventory-564.json",
+      "bytes": 12153,
+      "sha256": "5dbea7ca94e7c7cdb83b83f44bf00c2522790ccc844aae081b9108ee0f5e8442"
+    },
+    {
+      "name": "support/native-thread-lifetime-inventory-565.json",
+      "bytes": 35195,
+      "sha256": "ef0ec3ca05c62da45c46ace50934274964f394081d15364b94d85ed2c976897f"
+    },
+    {
+      "name": "support/native-worker-drain-acceptance-566b.json",
+      "bytes": 14457,
+      "sha256": "93c8f8248afd0458976c3a859363b07ce083b89f0bfe384626b302753af59e16"
+    },
+    {
+      "name": "support/native-worker-drain-check-inventory-566.json",
+      "bytes": 43679,
+      "sha256": "dd3a6aa553c0041e15fef5a7ccc7a7b47499e7de12a9f66a7da72046867ab704"
+    },
+    {
+      "name": "support/native-worker-drain-workspace-summary-565.json",
+      "bytes": 1156,
+      "sha256": "e8dd8ffe1239f9c40ab87707ed877330fc3562220dd2faa20ab7d1c17b4bbd48"
+    },
+    {
+      "name": "support/package_native_worker_drain_566.py",
+      "bytes": 12744,
+      "sha256": "b3c5394b35afc62d7d600ecb347cbf2be6ef24e38e728433524d95df3d3d27ff"
+    },
+    {
+      "name": "support/release_validation_guard.py",
+      "bytes": 1675,
+      "sha256": "5e8298a7b8bec17f7f2ebf9e48d1b14bed23660989feb92c5794ea047a2e2f48"
+    },
+    {
+      "name": "support/run_guarded_worker_drain_565.py",
+      "bytes": 4295,
+      "sha256": "31daaeed239f2eddebaca8aede8f329204a1ce8093d90bb41902608b3a763ddd"
+    },
+    {
+      "name": "support/verify_worker_drain_acceptance_566.py",
+      "bytes": 4933,
+      "sha256": "8475d37d9222552d92b46326346c02938f7124cdeb596024b34b4569fef2e94c"
+    },
+    {
+      "name": "support/verify_worker_drain_acceptance_566b.py",
+      "bytes": 4942,
+      "sha256": "e394013c11f849dff988cb42da047475275059c0b0a759a5962afbb64a7e01bd"
+    },
+    {
+      "name": "support/verify_worker_drain_workspace_565.py",
+      "bytes": 2126,
+      "sha256": "715b0fa9bac72436e803ce9c0aae33db1969e648247fa2efcec830f4fb4b94a6"
+    }
+  ],
+  "limitations": [
+    "This audit checks packet integrity and recorded validation evidence only; it does not infer semantic sufficiency, global safety, or a performance result.",
+    "No builds, tests, or network operations are performed by this auditor."
+  ]
+}
