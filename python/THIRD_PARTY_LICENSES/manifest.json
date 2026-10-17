@@ -6939,22 +6939,6 @@
       ]
     },
     {
-      "name": "vortex-file",
-      "version": "0.85.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/spiraldb/vortex",
-      "crate_checksum_sha256": "0e98e36429607845b0d573be88c6ef43638095828b0977c8b9c32e022bd6e9fc",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE"
-        }
-      ]
-    },
-    {
       "name": "vortex-flatbuffers",
       "version": "0.85.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -9042,6 +9026,75 @@
         "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
         "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
         "local_changes": "CompareKernel::compare reapplies the days-child validity to handled encoded comparison results using the existing native mask operation. Cargo.toml is marked publish=false; license, provenance and README.shardloom.md are added. Array identities, file format and compression remain unchanged."
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "vortex-file",
+      "version": "0.85.0",
+      "path": "vendor/vortex-file",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-file",
+        "version": "0.85.0",
+        "license": "Apache-2.0",
+        "registry_archive_sha256": "0e98e36429607845b0d573be88c6ef43638095828b0977c8b9c32e022bd6e9fc",
+        "registry_archive_file_count": 33,
+        "registry_archive_uncompressed_bytes": 499083,
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "06d73707b48d386e7e2a11dac25008a7f5dce3a673ef9e15c8e04c76fb6741c2",
+          "Cargo.lock": "7b92ea52763e706e88ab18fd2275ec03a5aa218741ff69dc4b4a2989cac64ac5",
+          "Cargo.toml": "2b3904bd60b5fe365b4d66f09160efa38125b01910bb9c29d6850fcba53c00d3",
+          "Cargo.toml.orig": "99c12edd6ffd62073c3aa6af0d0e2914b4dcd99c4b6a069f99145d84933d256d",
+          "README.md": "a5db81fbf5c3cc38af0fbf7cce8abb40df5980fe6b1320dc651bfc3a005a31cf",
+          "src/counting.rs": "6103365dd05f3b1e04dba4e1b66d547e9933ec0c45bc82d62971d614434e843d",
+          "src/file.rs": "ec23d039dd38616658c5510c405a109409c5de8fa48b459d4d1d62bfcf9780e3",
+          "src/footer/deserializer.rs": "159f46b1b9d9d30114b022d26adaaeb0395bc367ae9bab307c73e01154ae5c60",
+          "src/footer/field_sizes.rs": "63a6d4bba1a71aeb1e7f67c4247b314b0e032e46919992d633ea73abe14479f1",
+          "src/footer/file_layout.rs": "43f6c55367341eef4321752ff580c53e6739c3a90b82d5e87d368858430bc8bd",
+          "src/footer/file_statistics.rs": "c62027725e1949fc4dfb77398b8c45565fcccdb3106faf33f0dbe7fdd254beb6",
+          "src/footer/mod.rs": "50cb2ae93246d94e74abf54022ac631d518d83590f4d51d2468297147c5627b1",
+          "src/footer/postscript.rs": "a9f53777e0ac2553dc7ac824914dba87f98336910fa0d192b091d58515820cb9",
+          "src/footer/segment.rs": "b4a8daabb9ecd3e319795001cd80315906557e2959d37f696f3936eaece51a4f",
+          "src/footer/serializer.rs": "c6c3b60cfd5d0cc50717db582cc03c38cfc289e049dee367e4a66f8cb015a73c",
+          "src/lib.rs": "4dc321aee334f578c65f3470718b7ee7e2b7f94e91b37a5823c2182ed155cfb6",
+          "src/multi/mod.rs": "9e19aefaf042183c5e0b5d1269ff1951b29b2244375b9aa9bf96ae2682794e49",
+          "src/multi/session.rs": "578ae550484b2b553c9c7cb4b597115058937a0f457a013ec67f9ca472efa4f0",
+          "src/multi/uri.rs": "cc3ba11dcfe886ec7d6fc0cedfaf4b9155b0f9f7c9df3a46d506254b31873b80",
+          "src/open.rs": "4bb875b370142cf28bc5b0524728c9ae02e8e6d90512b87b0f1378a06b8b53c2",
+          "src/pruning.rs": "7efcf1ced5b1b0aad97f311e96dfd5f6c11b9f9d3e9446d72d016f99ac02b927",
+          "src/read/driver.rs": "18640db82bd303ab9599ec817e039e81dec73a6d826cc308167941fe52352e0f",
+          "src/read/mod.rs": "3cc3f6dfa203c71e7d4402ca167bf6fea498fd16e7a86010b6508746f7781704",
+          "src/read/request.rs": "08ca13ad3d0ce76144e30e603ddf6d629c29d539df36c5e2aba25093e53faa91",
+          "src/segments/cache.rs": "0aa0330792c49c4a9f3c092e1d3a666d2c2f38888f7a89e3c808018b6f12c005",
+          "src/segments/mod.rs": "0900f6ff43f045d87ab300240f250fc72608a29fa57f1a4fbf97ef618b57e29f",
+          "src/segments/source.rs": "41202fbc53117709824336dda814f52fee03dba001ed8a739c62b24111d9d499",
+          "src/segments/writer.rs": "384407dab8980c3510526be309bf9e7d0161bb4229ea1ac41d98fdfc0f1bc994",
+          "src/strategy.rs": "b38e455561e615f4edfc463ef26489166d51262277fd555f8dfa90fb216cf4aa",
+          "src/tests.rs": "d9971bfa8161fe169f53b23e2af31a419156a0233790e246c581423dd11bd8bc",
+          "src/v2/file_stats_reader.rs": "882f8ba7b5983cc82480c911d7783d3a359883148594f96b956771c98bdf7610",
+          "src/v2/mod.rs": "9ab23cd1d7e042e62090864722a15665cec7f966d77d88f2c9c5de91a5628603",
+          "src/writer.rs": "873daead9640a704399fc2dcdbb5fb6fb8c80df6e51ab92c2f494ec1a133cdda"
+        },
+        "vcs_info": {
+          "git": {
+            "sha1": "afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3",
+            "dirty": true
+          },
+          "path_in_vcs": "vortex-file"
+        },
+        "source_of_truth": "Published 0.85.0 registry archive. Its dirty VCS marker means the recorded revision is not an identical source substitute. Original Cargo.lock is recorded but omitted; workspace Cargo.lock controls resolution.",
+        "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/afb005379dd9a1b7dc7ae2cb49f4f465d91cc2b3/LICENSE",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "local_changes": "src/footer/deserializer.rs adds fallible session-allocator footer growth and allocator-owned DType/layout FlatBuffer copies. src/open.rs routes native opens through fallible growth, preserves already aligned cached slices, and allocates required segment realignment and requested user-metadata copies through the session allocator. It caches optional metadata only when requested and constructs tail caches only for reader-backed opens. src/segments/source.rs admits in-memory segment alignment copies through the receiving session allocator while preserving aligned sharing and typed refusal. The existing raw prefix_data compatibility API remains explicitly unbounded. A private upstream bounds test supplies the session and optional-metadata policy to the changed private helper. src/tests.rs replaces the nullable-root expected-panic fixture with reopened metadata, complete logical-child values and omitted unmasked-child-statistics assertions for the already admitted layout provider contract; raw nullable-root projection remains a separate provider limitation. Cargo.toml is marked publish=false; license, provenance, README.shardloom.md and a crate-local Cargo.lock ignore rule are added. File, array, layout, dependency-version and serialization identities remain unchanged. Structural metadata, writer scratch and process RSS are outside this finite byte-buffer contract."
       },
       "files": [
         {

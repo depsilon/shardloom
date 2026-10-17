@@ -8,13 +8,14 @@ members = [
   "shardloom-python",
   "shardloom-contract-tests",
 ]
-exclude = ["vendor/arrow-pyarrow", "vendor/vortex-array", "vendor/vortex-datetime-parts", "vendor/vortex-fsst", "vendor/vortex-layout", "vendor/vortex-runend", "vendor/vortex-zstd"]
+exclude = ["vendor/arrow-pyarrow", "vendor/vortex-array", "vendor/vortex-datetime-parts", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-layout", "vendor/vortex-runend", "vendor/vortex-zstd"]
 resolver = "2"
 
 [patch.crates-io]
 arrow-pyarrow = { path = "vendor/arrow-pyarrow" }
 vortex-array = { path = "vendor/vortex-array" }
 vortex-datetime-parts = { path = "vendor/vortex-datetime-parts" }
+vortex-file = { path = "vendor/vortex-file" }
 vortex-fsst = { path = "vendor/vortex-fsst" }
 vortex-layout = { path = "vendor/vortex-layout" }
 vortex-runend = { path = "vendor/vortex-runend" }

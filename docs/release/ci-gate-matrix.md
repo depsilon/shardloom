@@ -76,9 +76,10 @@ cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features relea
 ```
 
 The native Vortex test lane also runs the full library tests and strict library lints for the reviewed
-array, FSST, RunEnd and Zstd patches, plus the bounded file-statistics provider's
+array, file, FSST, RunEnd and Zstd patches, plus the bounded file-statistics provider's
 private regressions. Each excluded test crate starts from the workspace lockfile;
-the encoding/layout crates use the reviewed array patch. Additional upstream
+the encoding/layout crates use the reviewed array patch, and the file crate uses
+the reviewed array and layout patches. Additional upstream
 development dependencies belong only to those standalone test targets. Native
 writer, buffer-table admission and ownership tests remain in the ordinary
 workspace lane.
@@ -114,6 +115,16 @@ cargo test --manifest-path vendor/vortex-layout/Cargo.toml \
   --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
   --features tokio,vortex-io/tokio,vortex-array/_test-harness \
   --lib layouts::file_stats::tests::
+cp Cargo.lock vendor/vortex-file/Cargo.lock
+cargo test --manifest-path vendor/vortex-file/Cargo.toml \
+  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+  --config 'patch.crates-io.vortex-layout.path="vendor/vortex-layout"' \
+  --features tokio,vortex-array/table-display \
+  --lib -- --test-threads=2
+CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-file/Cargo.toml \
+  --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
+  --config 'patch.crates-io.vortex-layout.path="vendor/vortex-layout"' \
+  --features tokio,vortex-array/table-display --lib -- -D warnings
 cp Cargo.lock vendor/vortex-zstd/Cargo.lock
 cargo test --manifest-path vendor/vortex-zstd/Cargo.toml \
   --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \

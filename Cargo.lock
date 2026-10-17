@@ -3415,8 +3415,6 @@ dependencies = [
 [[package]]
 name = "vortex-file"
 version = "0.85.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e98e36429607845b0d573be88c6ef43638095828b0977c8b9c32e022bd6e9fc"
 dependencies = [
  "async-stream",
  "async-trait",

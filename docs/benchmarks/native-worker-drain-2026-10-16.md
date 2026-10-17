@@ -6,7 +6,8 @@ Two existing thread owners now finish cleanup before a failed operation escapes.
 The exported morsel helper joins every worker after an observer error or panic.
 The direct-thread Parquet reader owns each started worker immediately, so failed
 startup closes its queue and joins earlier workers. Seven regression tests and
-all seven selected local checks pass. Hosted integration remains pending.
+all seven selected local checks pass. PR #1564 completes hosted integration after
+all 44 checks pass, with exact source, installed-wheel and production verification.
 
 This is a finite correction under PERF-03/06, the existing production-morsel
 scheduling row and [RFC 0017](../rfcs/0017-fault-tolerance-cancellation-recovery.md).
@@ -79,7 +80,24 @@ and its documentation closeout. Only the four accepted implementation/test
 files differ from that runtime baseline. All sixteen changed site paths match
 the separately verified documentation commit exactly. Four focused integration
 checks and 389 local documentation links pass; unchanged native checks and query
-workloads were not repeated. Hosted integration remains pending.
+workloads were not repeated.
+
+The [119-member hosted packet](evidence/native-worker-drain-hosted-2026-10-16.json)
+binds PR #1564 at `36f620a0e38cd13730cd769e8a7a45cad694c73c` and merge
+`88c836bd64e1ff93ebc4978ae35e187ed10cb026` to identical accepted sources.
+All 44 PR checks pass. Complete logs verify 6,585 native/provider tests with
+27 manual exclusions, 1,079 native public tests and three installed-wheel lanes
+passing 100 methods each without skips. Core discovers 626 tests, runs 526 and
+records 14 skips. Automated review covers the final head without findings.
+
+All sixteen preview/production responses preserve the reviewed source; desktop,
+mobile, search and navigation pass. Production deployment check `117321584305`
+completes for version `0dca37cb-a897-452a-ac2f-10f399ccb84b`. It supersedes the
+earlier pending notification for the same build. Every archived member and all
+ten screenshots pass independent readback. The deployed guide text describes
+the preceding buffer-table integration; worker correctness is established by
+this source-bound report. No additional query timing or package publication is
+claimed for worker cleanup.
 
 ## Scope and limits
 

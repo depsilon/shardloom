@@ -1,0 +1,132 @@
+{
+  "schema_version": "shardloom.native_file_metadata_review_evidence.v1",
+  "status": "passed_local_evidence_packaged",
+  "base_commit": "88c836bd64e1ff93ebc4978ae35e187ed10cb026",
+  "accepted_commit": "566643cd83a7b528bf225496ebd5b3b9a9fa4e5a",
+  "source_files": 2410,
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-filemetadatareview578b.json",
+    "bytes": 314987,
+    "sha256": "4a0c45462fc138140814c7f938f0b16212efd89c1e969a8914f15c4d098f4caa"
+  },
+  "artifact_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-filemetadatareview578b.json",
+    "bytes": 316394,
+    "sha256": "4796b0fc393bb68bebcfb134c1871ee0322d93fff46bc7311386dcaf6505b3bd"
+  },
+  "parent_packet": {
+    "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-file-metadata-buffers-2026-10-17.json",
+    "bytes": 4478,
+    "sha256": "8adfbcbaa08f152c23376b22d77dd6fbd2a53011cda434b5e71a480c7febdbb2"
+  },
+  "parent_manifest": {
+    "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-file-metadata-buffers-2026-10-17.manifest.json.xz",
+    "bytes": 1078544,
+    "sha256": "bbb3dbdaab10f9f741a85d983be0dc6cd85c95e4d310cb588ef12b60f5927d6b"
+  },
+  "parent_archives": {
+    "native-file-metadata-buffers-2026-10-17.part-2.tar.xz": {
+      "file": "native-file-metadata-buffers-2026-10-17.part-2.tar.xz",
+      "bytes": 25704756,
+      "sha256": "65907ac206bc06a1bf7d1bbb0efb8006cd6211403e68de324e5fd500c23d0d78",
+      "raw_bytes": 201323574,
+      "member_count": 15792
+    },
+    "native-file-metadata-buffers-2026-10-17.part-3.tar.xz": {
+      "file": "native-file-metadata-buffers-2026-10-17.part-3.tar.xz",
+      "bytes": 545728,
+      "sha256": "6157ae3dcac1294daf6c2770d7f385e5ce7b9acf4ccec4e2715714331b146fc6",
+      "raw_bytes": 3816984,
+      "member_count": 384
+    },
+    "native-file-metadata-buffers-2026-10-17.tar.xz": {
+      "file": "native-file-metadata-buffers-2026-10-17.tar.xz",
+      "bytes": 2668260,
+      "sha256": "1fb8215132d2980da59f29de2391f8424d4d2140882c346a5eeb0f50f649335d",
+      "raw_bytes": 167895911,
+      "member_count": 12031
+    }
+  },
+  "parent_unchanged_source_files": 2404,
+  "source_overlay_files": [
+    "python/THIRD_PARTY_LICENSES/manifest.json",
+    "shardloom-vortex/src/native_provider_file_metadata_tests.rs",
+    "vendor/vortex-file/README.shardloom.md",
+    "vendor/vortex-file/src/open.rs",
+    "vendor/vortex-file/src/segments/source.rs",
+    "vendor/vortex-file/upstream-provenance.json"
+  ],
+  "member_count": 25641,
+  "raw_bytes": 331334472,
+  "archives": {
+    "native-file-metadata-review-2026-10-17.tar.xz": {
+      "file": "native-file-metadata-review-2026-10-17.tar.xz",
+      "bytes": 2888316,
+      "sha256": "7fea7cf10534e01ffee3a207654b4007cc8a0e1740d12c6130216553d9435d95",
+      "raw_bytes": 170280123,
+      "member_count": 12089
+    },
+    "native-file-metadata-review-2026-10-17.part-2.tar.xz": {
+      "file": "native-file-metadata-review-2026-10-17.part-2.tar.xz",
+      "bytes": 22001764,
+      "sha256": "38bb7e3a16e18c12ac343650cdc4a4cb6d23125470608f917231e9946fbcd4a7",
+      "raw_bytes": 161054349,
+      "member_count": 13552
+    }
+  },
+  "archive_aliases": {
+    "receipts/native-release-artifacts-filemetadatareview578b.json": "manifests/native-release-artifacts-filemetadatareview578b.json",
+    "receipts/native-release-source-filemetadatareview578b.json": "manifests/native-release-source-filemetadatareview578b.json",
+    "prior-identities/summary.json": "baseline/summary.json"
+  },
+  "all_members_reopened": true,
+  "max_raw_bytes_per_archive": 201326592,
+  "acceptance": {
+    "workspace_tests": 3225,
+    "native_tests_passed": 2924,
+    "native_manual_exclusions": 27,
+    "focused_ownership_tests": 20,
+    "additional_review_regressions": 4,
+    "standalone_provider_tests": 139,
+    "native_public_tests": 1079,
+    "preparation_tests": 1149,
+    "direct_methods": 100,
+    "direct_skips": 0,
+    "public_cases": 4827,
+    "public_families": 36,
+    "fresh_ingest_rows": 99997497,
+    "fresh_full43_queries": 43,
+    "fresh_full43_rows": 381,
+    "fresh_modular_cohorts": 18,
+    "fresh_native_workflows": 704,
+    "fresh_independent_oracle_records": 704
+  },
+  "fresh_uat": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/fresh-uat579-acceptance.json",
+    "bytes": 45096,
+    "sha256": "f57d8e2d253a77f1526d1e9cee7217df431d3d5ff997c8d1bd03272be6de0a92"
+  },
+  "full43_primary_review": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/fresh-uat579-full43-review.json",
+    "bytes": 37364,
+    "sha256": "a52b0ffb1b9553215d7aab938e58691b1921f7704d86facab20d02db420583f0"
+  },
+  "fresh_full43_engine_seconds": "68.767127459",
+  "source_identity_preserved": true,
+  "limitations": [
+    "Finite metadata byte-buffer ownership excludes structural collections, writer scratch, allocator overhead and process RSS.",
+    "The parent retains the original three reproducing regressions and two corrected test-lifetime failures; this packet adds four review reproductions, the failed lint and renewed clean 2924-test native acceptance.",
+    "Full43 uses retained native complete references; pandas is a separate modular-suite correctness oracle only.",
+    "The fresh Full43 total is a single observation with uncontrolled OS cache state; no causal performance comparison is claimed.",
+    "Final documentation-head CI, installed-wheel readback and hosted integration are recorded separately after this local packet."
+  ],
+  "publication_attempted": false,
+  "performance_claim": false,
+  "manifest": {
+    "file": "native-file-metadata-review-2026-10-17.manifest.json.xz",
+    "bytes": 952528,
+    "sha256": "f6d33c66628e5a4138199f69624663657b232b48367ae8cdde78acd602c090f6",
+    "raw_sha256": "4c7b6048378faec447df59836533e2ed4a687f42312b6d34033b3917332c871a"
+  },
+  "hosted_integration_complete": false
+}

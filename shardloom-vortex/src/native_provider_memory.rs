@@ -72,6 +72,10 @@ mod varbin_construction_tests;
 #[path = "native_provider_varbin_deserialize_tests.rs"]
 mod varbin_deserialize_tests;
 
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_provider_file_metadata_tests.rs"]
+mod file_metadata_tests;
+
 #[derive(Clone, Debug)]
 pub(crate) struct ProviderMemory {
     memory: LiveMemoryPool,

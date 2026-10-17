@@ -1118,6 +1118,20 @@ records the measured scope and preserved staged work. No PERF or competitive gat
   - Execution checklist:
     - [ ] Extend shared admission to remaining Vortex I/O/codec/operator work
       and prove I/O progress within the CPU ceiling.
+      The current finite reader allocation class is
+      [native file metadata buffers](native-file-metadata-buffers-2026-10-16.md):
+      footer growth, copied schema/layout bytes, cached and in-memory segment
+      realignment and explicitly requested user-metadata payloads. Three original
+      provider regressions and four review regressions reproduce the defects.
+      All twenty focused tests, 139 provider tests, 3,225 workspace tests and a
+      new complete 2,924-test native run pass, with 27 unchanged manual exclusions.
+      Native public-route and preparation checks pass. Corrected release artifacts
+      pass 100 direct methods, 4,827 public cases, fresh ingestion, Full43 and all
+      18 modular cohorts. The [acceptance report](../benchmarks/native-file-metadata-buffers-2026-10-17.md)
+      retains original failures, both earlier observations and the new review
+      packet. Final-head installed-wheel and hosted acceptance remain PR gates.
+      Structural metadata collections and preparation I/O lifetimes retain
+      separate evidence requirements.
     - [ ] Verify actual provider scheduling across driver-free configurable
       sessions, including prepared sort/filter/projection paths. The October 11
       retained-file observation shows a material wall/CPU change in Q24; the
@@ -1243,6 +1257,12 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       materialization or serialized JSON reconstruction.
     - [ ] Carry executable arrays, selections, validity and retained ownership
       through the remaining physical result and compatibility sink families.
+      Verify nullable-root projection through the default upstream struct layout:
+      the [file metadata intake](native-file-metadata-buffers-2026-10-16.md#provider-test-integration-and-separate-nullable-root-finding)
+      preserves a failing whole-root scan caused by nonnullable root packing.
+      Keep this source/type correction separate from byte-buffer admission;
+      existing persisted flat-layout readback does not prove the default layout
+      or a dedicated nullable-root spill workflow.
     - [ ] Complete compatibility streaming destinations and fanout from one
       single-use execution, with owned retention or spooling where required;
       validate all input before publication and preserve partial-commit recovery.
@@ -3141,6 +3161,40 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
+October 17 maintainer direction: finish the current native file-metadata
+ownership correction, its fresh ingest/query/workflow UAT and normal PR
+integration, then pause further capability expansion and prioritize optimization
+of supported workloads. The [fresh acceptance](../benchmarks/native-file-metadata-buffers-2026-10-17.md)
+records 68.767127459 seconds of engine execution across one call to each of the
+43 queries. Use measured costs in shared runtime components to select cohesive
+optimization batches; retain correctness, resource ownership and unaffected-query
+controls. Fix safety or correctness gaps when they affect the workloads being
+optimized. Broader operator/type/adapter additions and encoded transport wait
+behind this focus. All six remaining areas, eight conditional investigations,
+PERF owners and CG-1 through CG-23 remain open with their existing obligations.
+This changes execution order, not completion status or benchmark methodology.
+
+The maintainer's follow-up prioritizes shared text/compound-key and aggregate
+state work used by Q29, Q19, Q23, Q34 and Q35 under PERF-01/04/05/10, followed by
+removed ingest duplication and complete physical-layout economics under
+PERF-08/09. Attribute repeated representation construction, validation,
+comparison, reconciliation and materialization before choosing a mechanism;
+measure shared kernels, fusion or scheduling when that attribution supports
+them. Preserve existing complete-operation ship/drop gates and controls. Reopen
+a historical drop only for a changed mechanism or newly measured opportunity;
+do not create a new search or testing framework. Prepared reuse and spill
+efficiency retain their existing owners; PERF-13 remains conditional on evidence.
+
+Keep three production-breadth priorities alongside this campaign: the default
+structural-layout nullable-root correctness follow-up under PERF-07; native
+external-memory strategies for remaining resident membership/population state
+under PERF-03/06/10; and generation-conditional output replacement/publication
+with recovery under the existing destination owners. Input/replay spill alone
+does not close consuming state. Single-file replacement and multi-destination
+atomicity need separate proof. These priorities do not require interrupting
+unrelated read-only optimization. Completed transfer, streaming composition,
+writers/fanout, sets, unary and scoped subqueries retain their recorded scope.
+
 October 15 transport direction queues `NATIVE-ENCODED-EXCHANGE` after the current
 optimization and breadth work. Preserve that dependency while completing the
 measured hotspot/breadth queue. Compression/timing integration is complete in
@@ -3156,10 +3210,11 @@ verified preview/production source and navigation. Declared parameter-dependent
 predicate inners are integrated in PR #1561, with all 44 checks, three
 installed-wheel lanes and preview/production verification. Zstd frame metadata
 ownership is integrated in PR #1562 with all 44 checks, three installed-wheel
-lanes and verified production deployment. Complete the promoted variable-binary
-buffer-table ownership unit, then remaining allocation/operational work under
-PERF-03/06 before the conditional
-investigations and encoded transport. Dynamic scalar output-schema inference
+lanes and verified production deployment. Variable-binary buffer-table ownership
+is integrated in PR #1563, and worker failure cleanup in PR #1564. Their completed
+ledger entries retain exact source, installed-wheel and deployment evidence.
+The file-metadata ownership correction has complete local acceptance; finish its
+hosted integration before the October 17 optimization focus above. Dynamic scalar output-schema inference
 and opaque source discovery retain their explicit boundaries.
 
 October 14 direction takes precedence over the earlier version hold. PR #1551

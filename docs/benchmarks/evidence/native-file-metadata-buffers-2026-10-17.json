@@ -1,0 +1,102 @@
+{
+  "schema_version": "shardloom.native_file_metadata_evidence.v1",
+  "status": "passed_local_evidence_packaged",
+  "base_commit": "88c836bd64e1ff93ebc4978ae35e187ed10cb026",
+  "accepted_commit": "277699af4204d71c1c8377dd11dadfb15d122d26",
+  "source_files": 2410,
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-filemetadata573.json",
+    "bytes": 314987,
+    "sha256": "7991509cc9962a157afaae1b65934cdd8fca29e076db8a91f7f2a05b5a81e697"
+  },
+  "artifact_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-filemetadata573.json",
+    "bytes": 316351,
+    "sha256": "ee7b2097a08c9b2f0c4562e6bc97e3e990ac20e5b0e2932398af656bb4b75e33"
+  },
+  "member_count": 28207,
+  "raw_bytes": 373036469,
+  "archives": {
+    "native-file-metadata-buffers-2026-10-17.part-2.tar.xz": {
+      "file": "native-file-metadata-buffers-2026-10-17.part-2.tar.xz",
+      "bytes": 25704756,
+      "sha256": "65907ac206bc06a1bf7d1bbb0efb8006cd6211403e68de324e5fd500c23d0d78",
+      "raw_bytes": 201323574,
+      "member_count": 15792
+    },
+    "native-file-metadata-buffers-2026-10-17.part-3.tar.xz": {
+      "file": "native-file-metadata-buffers-2026-10-17.part-3.tar.xz",
+      "bytes": 545728,
+      "sha256": "6157ae3dcac1294daf6c2770d7f385e5ce7b9acf4ccec4e2715714331b146fc6",
+      "raw_bytes": 3816984,
+      "member_count": 384
+    },
+    "native-file-metadata-buffers-2026-10-17.tar.xz": {
+      "file": "native-file-metadata-buffers-2026-10-17.tar.xz",
+      "bytes": 2668260,
+      "sha256": "1fb8215132d2980da59f29de2391f8424d4d2140882c346a5eeb0f50f649335d",
+      "raw_bytes": 167895911,
+      "member_count": 12031
+    }
+  },
+  "archive_aliases": {
+    "baseline/summary.json": "prior-identities/summary.json"
+  },
+  "all_members_reopened": true,
+  "max_raw_bytes_per_archive": 201326592,
+  "acceptance": {
+    "workspace_tests": 3225,
+    "workspace_ignored": 0,
+    "native_unique_tests_passed": 2920,
+    "native_initial_passed": 2918,
+    "native_initial_failed": 2,
+    "native_corrected_focused": 2,
+    "native_manual_exclusions": 27,
+    "focused_ownership_tests": 16,
+    "standalone_provider_tests": 139,
+    "native_public_tests": 1079,
+    "preparation_tests": 1149,
+    "release_script_tests": 164,
+    "direct_methods": 100,
+    "direct_skips": 0,
+    "public_cases": 4827,
+    "public_families": 36,
+    "retained_full43_queries": 43,
+    "retained_full43_rows": 381,
+    "fresh_ingest_rows": 99997497,
+    "fresh_full43_queries": 43,
+    "fresh_full43_rows": 381,
+    "fresh_modular_cohorts": 18,
+    "fresh_native_workflows": 704,
+    "fresh_independent_oracle_records": 704
+  },
+  "fresh_uat": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/fresh-uat575-acceptance.json",
+    "bytes": 44155,
+    "sha256": "a34eb42cf4c319e2d632c6f1c314e935e90148c92ad53422cf79faa812e17392"
+  },
+  "retained_full43": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/file-metadata-full43-review-573.json",
+    "bytes": 33808,
+    "sha256": "6e2d45eec2e15577439be8c085be7cf69619cea7ef7a8dfc03d138c2bd774c5c"
+  },
+  "retained_full43_engine_seconds": "69.556562366",
+  "fresh_full43_engine_seconds": "64.908912375",
+  "source_identity_preserved": true,
+  "limitations": [
+    "Finite ownership covers copied file-metadata buffers; structural collections, writer scratch, allocator overhead and process RSS remain outside it.",
+    "The full native run passed 2918 tests and failed two outdated test-only lifetime assertions; both corrected focused reruns pass. Original failures and exact corrections are retained.",
+    "Full43 uses retained native references; the modular suite uses pandas only as an independent correctness oracle.",
+    "Both Full43 totals are single observations with uncontrolled OS cache state; no causal speedup or regression attribution is claimed.",
+    "Installed-wheel and hosted integration for this file-metadata change remain pending; existing 0.6.0 packages are immutable."
+  ],
+  "publication_attempted": false,
+  "performance_claim": false,
+  "manifest": {
+    "file": "native-file-metadata-buffers-2026-10-17.manifest.json.xz",
+    "bytes": 1078544,
+    "sha256": "bbb3dbdaab10f9f741a85d983be0dc6cd85c95e4d310cb588ef12b60f5927d6b",
+    "raw_sha256": "c50b8a2e10479bebd5e5ea71844febb264af645ec24bfb0c59bcca2fbbd15033"
+  },
+  "hosted_integration_complete": false
+}

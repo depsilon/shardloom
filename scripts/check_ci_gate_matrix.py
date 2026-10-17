@@ -93,6 +93,9 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             'CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-runend/Cargo.toml',
             "cp Cargo.lock vendor/vortex-layout/Cargo.lock",
             "cargo test --manifest-path vendor/vortex-layout/Cargo.toml",
+            "cp Cargo.lock vendor/vortex-file/Cargo.lock",
+            "cargo test --manifest-path vendor/vortex-file/Cargo.toml",
+            'CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-file/Cargo.toml',
             "cp Cargo.lock vendor/vortex-zstd/Cargo.lock",
             "cargo test --manifest-path vendor/vortex-zstd/Cargo.toml",
             'CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-zstd/Cargo.toml',
@@ -110,6 +113,8 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "--config 'patch.crates-io.vortex-array.path=\"vendor/vortex-array\"'",
             "--features tokio,vortex-io/tokio,vortex-array/_test-harness",
             "--lib layouts::file_stats::tests::",
+            "--config 'patch.crates-io.vortex-layout.path=\"vendor/vortex-layout\"'",
+            "--features tokio,vortex-array/table-display",
         ),
     ),
     CiLane(
