@@ -4,8 +4,11 @@ Status: runtime and preparation gates passed, October 17, 2026. Three
 original-provider regressions reproduce the gap. All sixteen focused ownership
 tests, workspace checks, native public-route checks, preparation checks and
 139 provider library tests pass, with the native test-lifetime corrections
-described below. Release-artifact workflows, installed wheels and hosted
-integration remain pending. This is a finite allocation class under
+described below. The frozen release artifacts pass 100 direct methods, 4,827
+public cases, two complete single-pass Full43 observations and fresh ingestion
+with all 18 modular cohorts. The [acceptance report](../benchmarks/native-file-metadata-buffers-2026-10-17.md)
+retains complete results, clocks, source identities and original failures.
+Installed wheels and hosted integration remain pending. This is a finite allocation class under
 PERF-03/06/08/09 and the [remaining local scope](native-local-completion-scope-2026-10-07.md).
 It does not close those owners or CG-1 through CG-23.
 

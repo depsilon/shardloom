@@ -1126,7 +1126,11 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       ownership tests, 139 provider tests and its strict library lint pass.
       Workspace, native public-route and preparation checks also pass; the
       contract records two corrected schema-lifetime test assertions and their
-      focused reruns. Release-artifact and hosted acceptance remain pending.
+      focused reruns. Frozen release artifacts pass 100 direct methods, 4,827
+      public cases, both complete Full43 observations and the requested fresh
+      ingestion with all 18 modular cohorts. The [acceptance report](../benchmarks/native-file-metadata-buffers-2026-10-17.md)
+      retains all source/result evidence; installed-wheel and hosted acceptance
+      remain pending.
       Structural metadata collections and preparation I/O lifetimes retain
       separate evidence requirements.
     - [ ] Verify actual provider scheduling across driver-free configurable
@@ -3158,6 +3162,19 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
 
 Current autonomous execution order:
 
+October 17 maintainer direction: finish the current native file-metadata
+ownership correction, its fresh ingest/query/workflow UAT and normal PR
+integration, then pause further capability expansion and prioritize optimization
+of supported workloads. The [fresh acceptance](../benchmarks/native-file-metadata-buffers-2026-10-17.md)
+records 64.908912375 seconds of engine execution across one call to each of the
+43 queries. Use measured costs in shared runtime components to select cohesive
+optimization batches; retain correctness, resource ownership and unaffected-query
+controls. Fix safety or correctness gaps when they affect the workloads being
+optimized. Broader operator/type/adapter additions and encoded transport wait
+behind this focus. All six remaining areas, eight conditional investigations,
+PERF owners and CG-1 through CG-23 remain open with their existing obligations.
+This changes execution order, not completion status or benchmark methodology.
+
 October 15 transport direction queues `NATIVE-ENCODED-EXCHANGE` after the current
 optimization and breadth work. Preserve that dependency while completing the
 measured hotspot/breadth queue. Compression/timing integration is complete in
@@ -3173,10 +3190,11 @@ verified preview/production source and navigation. Declared parameter-dependent
 predicate inners are integrated in PR #1561, with all 44 checks, three
 installed-wheel lanes and preview/production verification. Zstd frame metadata
 ownership is integrated in PR #1562 with all 44 checks, three installed-wheel
-lanes and verified production deployment. Complete the promoted variable-binary
-buffer-table ownership unit, then remaining allocation/operational work under
-PERF-03/06 before the conditional
-investigations and encoded transport. Dynamic scalar output-schema inference
+lanes and verified production deployment. Variable-binary buffer-table ownership
+is integrated in PR #1563, and worker failure cleanup in PR #1564. Their completed
+ledger entries retain exact source, installed-wheel and deployment evidence.
+The file-metadata ownership correction has complete local acceptance; finish its
+hosted integration before the October 17 optimization focus above. Dynamic scalar output-schema inference
 and opaque source discovery retain their explicit boundaries.
 
 October 14 direction takes precedence over the earlier version hold. PR #1551

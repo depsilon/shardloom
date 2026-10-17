@@ -24,7 +24,10 @@ nullable-root statistics contract and logical child readback. Its separate raw
 structural-root projection limitation is preserved for follow-through in the
 linked contract. Workspace, native public-route and preparation checks pass;
 the contract records the complete native run and two corrected test-lifetime
-assertions. Release-artifact and hosted acceptance remain pending. Structural
+assertions. Frozen release-artifact workflows, both single-pass Full43 observations
+and fresh ingest with all 18 modular cohorts pass; the
+[acceptance report](../benchmarks/native-file-metadata-buffers-2026-10-17.md)
+retains complete evidence. Installed-wheel and hosted acceptance remain pending. Structural
 metadata collections, writer scratch and process RSS remain outside the finite
 byte-buffer claim.
 

@@ -272,6 +272,14 @@ gate or authorizes fallback execution.
 
 ## Eight investigations, with current evidence prerequisites
 
+October 17 sequencing update: after the current file-metadata correction and
+fresh UAT finish integration, pause new capability expansion and prioritize
+measured optimization of supported workloads. The six areas above and eight
+investigations below retain their obligations; they are not prerequisites that
+must all finish before optimization can resume. Correctness and resource fixes
+needed by the selected workloads remain in scope. The canonical phase plan owns
+the execution order and unchanged engine-time acceptance methodology.
+
 | Investigation | Current disposition and next evidence |
 | --- | --- |
 | Selective rematerialization | Initial real-owner observation now exists: the [25-case packet](../benchmarks/evidence/native-rematerialization-owners-2026-10-07.json) finds reclaimable non-key derived payload and zero-reclaim alias/key/constant controls. This advances the original assessment's unmeasured status only for the owner screen. A complete-workflow retain/spill/regenerate comparison, pinned dependency cost, reconstruction headroom and bounded regeneration are still required before production policy. |

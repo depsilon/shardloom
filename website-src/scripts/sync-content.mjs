@@ -995,6 +995,16 @@ responses and navigation.
 Raw caller-owned exports, general builder/compaction scratch, fixed allocator/Arc
 overhead and process RSS stay outside this claim. Published 0.6.0 packages are unchanged.
 
+The source-only
+[file metadata ownership correction](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-file-metadata-buffers-2026-10-17.md)
+admits copied footer, schema/layout, cached-segment realignment and requested
+metadata buffers through the native session allocator. Retained schemas, layouts
+and buffer clones keep their credits until their final owner drops. Complete
+local acceptance includes fresh ingestion, all 18 format/workflow cohorts and
+all 43 query results; installed-wheel and hosted integration remain pending.
+Structural metadata collections, writer scratch and process RSS retain their
+separate boundaries. Published 0.6.0 packages are unchanged.
+
 The subsequent source-only
 [selected text view change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
 constructs views only for selected rows inside sparse native Zstd filtering.
@@ -1151,10 +1161,11 @@ engineering evidence and measurement boundaries; it does not present a public ra
 
 ## Current engineering evidence
 
-Reviewed October 16, 2026. Recent local work validates complete query results and measures
+Reviewed October 17, 2026. Recent local work validates complete query results and measures
 individual changes against a frozen ShardLoom control:
 
-- [Fresh UAT and all 43 query timings](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-timing-uat-2026-10-15.md) — one execution per query: 62.560 s engine time; fresh ingestion and all 18 format/workflow cohorts pass. This is a local baseline on source after 0.6.0. The report preserves the full diagnostic evidence.
+- [October 17 fresh UAT and file metadata ownership](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-file-metadata-buffers-2026-10-17.md) — fresh ingestion validates all 99,997,497 rows; all 18 format/workflow cohorts pass. One execution of each of the 43 queries passes complete results and records 64.909 s engine time. The report also retains the earlier 69.557 s observation and all 28,207 evidence members; these are single observations without a matched speedup claim. The native output is byte-identical to the prior accepted artifact. Local acceptance is complete; installed-wheel and hosted integration remain pending.
+- [October 15 fresh UAT and all 43 query timings](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-timing-uat-2026-10-15.md) — historical local baseline after 0.6.0: one execution per query records 62.560 s engine time; fresh ingestion and all 18 format/workflow cohorts pass. The report preserves the full diagnostic evidence.
 - [Selected text view acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md) — the 70-call comparison retains the sparse-filter change: Q23's engine median improves 2.55%, while all four other parallel control medians are slower within their declared limits. A separate single pass verifies all 43 complete results and records 58.445 s engine time; it does not replace the paired decision. PR #1556 merged with complete hosted, installed-wheel and production verification. The report corrects the earlier stale deployment notification.
 - [Streaming destination acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md) — all eight existing local writers and one-execution fanout pass 777 public cases and complete direct/native regression checks. A single pass verifies all 43 query results and records 60.985 s engine time. PR #1557 merged after all 44 checks passed, with three installed-wheel lanes each passing 84 tests and verified preview/production source and navigation. The timing is descriptive regression evidence without a matched speedup claim.
 - [Streaming set-operation acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-sets-2026-10-15.md) — all four existing set operations pass 1,121 public cases, 87 direct binding tests and the complete native/workspace gates. The 5,460-member packet retains exact results and original fixture failures. One pass verifies all 43 query results and records 93.122 s engine time; this is a single regression observation without a matched speedup claim. Set membership remains resident under credits. PR #1558 merged after all 44 checks, three installed-wheel lanes passing 87 tests each and verified preview/production deployment and navigation.
@@ -1292,6 +1303,14 @@ all 44 checks passed; the [hosted packet](https://github.com/depsilon/shardloom/
 verifies three installed-wheel lanes and preview/production source and navigation.
 Raw caller-owned exports, general builder/compaction scratch, fixed allocator/Arc
 overhead and process RSS retain their separate boundaries. Published 0.6.0 packages are unchanged.
+The source-only
+[file metadata ownership correction](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-file-metadata-buffers-2026-10-17.md)
+adds session admission for copied footer, schema/layout, cached-segment
+realignment and requested metadata buffers, with credit retained by their final
+native owner. Complete local acceptance includes fresh ingestion, all 18
+format/workflow cohorts and all 43 query results; installed-wheel and hosted
+integration remain pending. Structural metadata collections, writer scratch and
+whole-process RSS remain separate work, and the 0.6.0 packages are unchanged.
 The later source-only
 [selected text views](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
 reduce view construction inside sparse native filtering, with complete local

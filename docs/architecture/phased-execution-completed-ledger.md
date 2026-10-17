@@ -17,6 +17,22 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-WORKER-DRAIN` — complete joins preserve worker and queue ownership
+  through observer failure, panic and partial reader startup under PERF-03/06
+  and RFC 0017. Seven regressions reproduce or protect the finite contract.
+  [PR #1564](https://github.com/depsilon/shardloom/pull/1564) merges at
+  `88c836bd64e1ff93ebc4978ae35e187ed10cb026` after all 44 checks pass on
+  `36f620a0e38cd13730cd769e8a7a45cad694c73c`; all 2,373 selected source identities
+  match the accepted implementation. The [acceptance report](../benchmarks/native-worker-drain-2026-10-16.md)
+  and [119-member hosted packet](../benchmarks/evidence/native-worker-drain-hosted-2026-10-16.json)
+  retain complete native/provider logs, 1,079 native public tests, three installed
+  wheel lanes passing 100 methods each, exact review coverage and sixteen
+  preview/production responses. Desktop/mobile search and navigation pass;
+  production version `0dca37cb-a897-452a-ac2f-10f399ccb84b` completes. No new
+  Full43 timing, speedup, package publication or broader resource completion is
+  claimed for this correction. Blocked synchronous callbacks and aborts remain
+  outside the unwind-and-join contract.
+
 - [x] `NATIVE-VARBIN-METADATA-RESOURCES` — reviewed native text/binary buffer
   tables receive requested-capacity admission and shared lifetime under
   PERF-03/06/08/09 and RFC 0044. Codec construction, the managed Chunked builder
