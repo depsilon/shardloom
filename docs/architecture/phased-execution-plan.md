@@ -1928,6 +1928,16 @@ where they ride on the same exactness, metadata, or scheduler contract and are r
     some aggregate partial-state routes, and Vortex writer worker-pool evidence. It does not have a
     common scheduler that makes every segment/morsel operator pull bounded work, keep thread-local
     state, report utilization, and merge deterministically.
+    The [finite worker-lifetime correction](../benchmarks/native-worker-drain-2026-10-16.md)
+    passes complete local checks under this row and PERF-03/06. The exported
+    morsel helper joins every worker before returning an observer error or panic,
+    preserving the first failure by worker index. The direct-thread Parquet
+    reader owns started workers before construction can fail. Seven new tests
+    verify resource release at return/unwind, deterministic failure selection
+    and no source work on failed startup. Workspace, compatibility-I/O and native
+    suites pass; hosted integration remains pending. This does not add shared
+    scheduling, callback interruption, whole-process memory coverage or a query
+    performance claim. Native product ingest retains its existing shared executor.
   - Intake review:
     - Accepted from the five technique review: morsel-style scheduling with thread-local state and
       deterministic merge.

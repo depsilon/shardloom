@@ -73,6 +73,14 @@ failing test summaries. Primary review owns the lifetime and scope conclusions.
 The patch is based on `38867f16a1d05f30461aad47ce96f4f7a6e3d46a`; archive SHA-256 is
 `8dfa745a3b26e484a42601612ba1c4a8d3d27364fa4457091aec06061d25b1d9`.
 
+The [integration snapshot](evidence/native-worker-drain-integration-2026-10-16.json.xz)
+binds all 2,373 selected source identities after incorporating merged PR #1563
+and its documentation closeout. Only the four accepted implementation/test
+files differ from that runtime baseline. All sixteen changed site paths match
+the separately verified documentation commit exactly. Four focused integration
+checks and 389 local documentation links pass; unchanged native checks and query
+workloads were not repeated. Hosted integration remains pending.
+
 ## Scope and limits
 
 The exported morsel helper has no direct query caller in the inspected tree.
