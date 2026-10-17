@@ -1,0 +1,41 @@
+{
+  "schema_version": "shardloom.native_worker_drain_packet.v1",
+  "status": "passed_local",
+  "base": "38867f16a1d05f30461aad47ce96f4f7a6e3d46a",
+  "source_sha256": {
+    "shardloom-vortex/src/scheduler_bridge.rs": "61b600b8c577a71de2b3186de981d7dbaac69b9c716b2e41a279371ababdb91e",
+    "shardloom-vortex/src/scheduler_bridge_lifetime_tests.rs": "58a4240ad9faebe86103f62bd8d78e8e9fdb7344ead1d7563f2a8b4eb661b489",
+    "shardloom-vortex/src/universal_format_io.rs": "c0d5db49889321f2f3ab689cd9c0816154dd6cc911b97bb6a12abe1848b26227",
+    "shardloom-vortex/src/universal_format_io_parquet_startup_tests.rs": "c004344dc507594626fc711906070430af8ac20aae86079665014191a35d79e2"
+  },
+  "checks_passed": 7,
+  "tests": {
+    "workspace": 3225,
+    "compatibility_io": 824,
+    "native": 2904,
+    "native_manual_exclusions": 27,
+    "new_regressions": 7
+  },
+  "expected_baseline_failures": {
+    "morsel": 4,
+    "parquet": 2
+  },
+  "member_count": 74,
+  "archive": {
+    "file": "native-worker-drain-2026-10-16.json.xz",
+    "bytes": 413004,
+    "sha256": "8dfa745a3b26e484a42601612ba1c4a8d3d27364fa4457091aec06061d25b1d9"
+  },
+  "observation_limits": [
+    "The exported morsel helper has no direct query caller in the inspected repository; its correction is not a measured query improvement.",
+    "The direct-thread Parquet reader is production code only with universal-format-io and without vortex-write; release-user-surfaces exercises it as test code. Shared native ingest retains its existing executor.",
+    "Tests attach real memory leases to worker-owned test guards to observe lifetime. Production allocation coverage and queue limits are unchanged.",
+    "Partial Parquet startup failures and panics are injected at the spawner boundary. Real operating-system thread exhaustion and morsel spawn failure were not induced.",
+    "The morsel scope provides a worker-body lifetime guarantee during caller-side startup unwind; automatic scope cleanup does not certify completion of arbitrary thread-local destructors or threads created inside user callbacks.",
+    "Joining waits for synchronous callbacks or reads to finish or unwind. It does not interrupt blocked callbacks or recover aborts, add global CPU/I/O coordination, or close PERF-03/06 or any competitive gate.",
+    "No Full43, public workflow, installed-wheel or hosted check is claimed for this local worker correction. The separately accepted buffer-table evidence keeps its original source and clock."
+  ],
+  "hosted_integration_complete": false,
+  "query_workloads_rerun": false,
+  "performance_claim": false
+}

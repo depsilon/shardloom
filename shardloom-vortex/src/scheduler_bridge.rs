@@ -1198,6 +1198,9 @@ where
 /// The observer runs once per runnable morsel against the worker's
 /// thread-local state. Worker states are merged deterministically by worker
 /// index after all runnable morsels complete.
+/// Every started worker is joined before returning, including after another
+/// worker fails. Failures are selected in worker-index order. Joining waits for
+/// an in-progress observer to return or unwind; it cannot interrupt that code.
 ///
 /// # Errors
 /// Returns an error when worker observer logic, join, or deterministic merge fails.
@@ -1237,67 +1240,81 @@ where
 
     let observer = Arc::new(observer);
     let execution_start = Instant::now();
-    let handles = assignments
-        .into_iter()
-        .enumerate()
-        .map(|(worker_index, work_units)| {
-            let observer = Arc::clone(&observer);
-            std::thread::spawn(move || -> Result<(usize, S, VortexMorselWorkerUtilization)> {
-                let stage_start = Instant::now();
-                let assigned_morsels = work_units.len();
-                let mut rows_processed = 0_u64;
-                let mut estimated_bytes_processed = 0_u64;
-                let mut state = S::new(worker_index);
-                for work in &work_units {
-                    observer(&mut state, work)?;
-                    rows_processed = rows_processed.checked_add(work.row_count).ok_or_else(|| {
-                        ShardLoomError::InvalidOperation(
-                            "morsel worker row count overflowed; fallback execution was not attempted"
-                                .to_string(),
-                        )
-                    })?;
-                    estimated_bytes_processed = estimated_bytes_processed
-                        .checked_add(work.estimated_bytes)
-                        .ok_or_else(|| {
+    let (mut worker_states, mut worker_utilization) = std::thread::scope(|scope| {
+        let handles = assignments
+            .into_iter()
+            .enumerate()
+            .map(|(worker_index, work_units)| {
+                let observer = Arc::clone(&observer);
+                scope.spawn(move || -> Result<(usize, S, VortexMorselWorkerUtilization)> {
+                    let stage_start = Instant::now();
+                    let assigned_morsels = work_units.len();
+                    let mut rows_processed = 0_u64;
+                    let mut estimated_bytes_processed = 0_u64;
+                    let mut state = S::new(worker_index);
+                    for work in &work_units {
+                        observer(&mut state, work)?;
+                        rows_processed = rows_processed.checked_add(work.row_count).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
-                                "morsel worker estimated bytes overflowed; fallback execution was not attempted"
+                                "morsel worker row count overflowed; fallback execution was not attempted"
                                     .to_string(),
                             )
                         })?;
-                }
-                Ok((
-                    worker_index,
-                    state,
-                    VortexMorselWorkerUtilization {
+                        estimated_bytes_processed = estimated_bytes_processed
+                            .checked_add(work.estimated_bytes)
+                            .ok_or_else(|| {
+                                ShardLoomError::InvalidOperation(
+                                    "morsel worker estimated bytes overflowed; fallback execution was not attempted"
+                                        .to_string(),
+                                )
+                            })?;
+                    }
+                    Ok((
                         worker_index,
-                        assigned_morsels,
-                        completed_morsels: assigned_morsels,
-                        rows_processed,
-                        estimated_bytes_processed,
-                        stage_micros: stage_start.elapsed().as_micros(),
-                    },
-                ))
+                        state,
+                        VortexMorselWorkerUtilization {
+                            worker_index,
+                            assigned_morsels,
+                            completed_morsels: assigned_morsels,
+                            rows_processed,
+                            estimated_bytes_processed,
+                            stage_micros: stage_start.elapsed().as_micros(),
+                        },
+                    ))
+                })
             })
-        })
-        .collect::<Vec<_>>();
+            .collect::<Vec<_>>();
 
-    let mut worker_states = Vec::new();
-    let mut worker_utilization = Vec::new();
-    for handle in handles {
-        match handle.join() {
-            Ok(Ok((worker_index, state, utilization))) => {
-                worker_states.push((worker_index, state));
-                worker_utilization.push(utilization);
-            }
-            Ok(Err(error)) => return Err(error),
-            Err(_) => {
-                return Err(ShardLoomError::InvalidOperation(
+        let mut worker_states = Vec::new();
+        let mut worker_utilization = Vec::new();
+        let mut first_failure = None;
+        // Join every handle explicitly: an unjoined panic at scope teardown must
+        // not replace an earlier worker's error. The scope also owns workers if
+        // starting a later thread unwinds before this loop is reached.
+        for handle in handles {
+            let result = handle.join().unwrap_or_else(|_| {
+                Err(ShardLoomError::InvalidOperation(
                     "morsel scheduler worker panicked; fallback execution was not attempted"
                         .to_string(),
-                ));
+                ))
+            });
+            match result {
+                Ok((worker_index, state, utilization)) => {
+                    worker_states.push((worker_index, state));
+                    worker_utilization.push(utilization);
+                }
+                Err(error) => {
+                    if first_failure.is_none() {
+                        first_failure = Some(error);
+                    }
+                }
             }
         }
-    }
+        if let Some(error) = first_failure {
+            return Err(error);
+        }
+        Ok((worker_states, worker_utilization))
+    })?;
 
     worker_states.sort_by_key(|(worker_index, _)| *worker_index);
     worker_utilization.sort_by_key(|utilization| utilization.worker_index);
@@ -1458,6 +1475,10 @@ fn blocked_morsel_scheduler_report(
         )],
     }
 }
+
+#[cfg(test)]
+#[path = "scheduler_bridge_lifetime_tests.rs"]
+mod lifetime_tests;
 
 #[cfg(test)]
 mod tests {
