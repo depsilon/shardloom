@@ -6,6 +6,38 @@ This document records CI action-version dependency posture for ShardLoom release
 does not authorize package publication, benchmark publication, secrets usage, or fallback
 execution.
 
+## 2026-10-17 Action Pin Intake
+
+- Dependabot PR <https://github.com/depsilon/shardloom/pull/1553> is absorbed into this batch.
+  The four security-posture tests and current-workflow report pass locally;
+  full batch validation, merge and PR closure remain pending.
+- Updated pins, with upstream version and commit evidence:
+  - `actions/download-artifact@v8.0.2`:
+    [`v8.0.2 release`](https://github.com/actions/download-artifact/releases/tag/v8.0.2) ·
+    [`pinned source`](https://github.com/actions/download-artifact/tree/9000827ccba6bdab643e8b6fd33ac0654aef8333)
+  - `actions/upload-artifact@v7.0.2`:
+    [`v7.0.2 release`](https://github.com/actions/upload-artifact/releases/tag/v7.0.2) ·
+    [`pinned source`](https://github.com/actions/upload-artifact/tree/cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+  - `actions/setup-node@v7.1.0`:
+    [`v7.1.0 release`](https://github.com/actions/setup-node/releases/tag/v7.1.0) ·
+    [`pinned source`](https://github.com/actions/setup-node/tree/949feb2413d6458794dcd2491c4babbbce0c15c1)
+  - `github/codeql-action@v4.38.3`:
+    [`v4.38.3 release`](https://github.com/github/codeql-action/releases/tag/v4.38.3) ·
+    [`pinned source`](https://github.com/github/codeql-action/tree/24c54180a607b1449ed407dd24f251e4e9147c8d)
+  - `ossf/scorecard-action@v2.5.0`:
+    [`v2.5.0 release`](https://github.com/ossf/scorecard-action/releases/tag/v2.5.0) ·
+    [`pinned source`](https://github.com/ossf/scorecard-action/tree/fa7117db83c52d787ae5a89f350999701505d78e)
+- The inspected action source licenses are MIT for artifact upload/download, setup-node and
+  CodeQL, and Apache-2.0 for Scorecard. These are compatible with the repository's
+  dependency policy.
+- The workflow diff changes only action commit pins and the corresponding Scorecard version
+  comments. Inputs, permissions, and triggering events are unchanged.
+- The existing Scorecard security-posture validator still expected `v2.4.4`; that stale marker
+  caused the `dependency-security` and `release_scripts` checks to fail on PR 1553. The marker is
+  updated alongside the `v2.5.0` pin.
+- Relevant CI evidence: [dependency-security job](https://github.com/depsilon/shardloom/actions/runs/38665898987/job/116197675804)
+  and [release_scripts job](https://github.com/depsilon/shardloom/actions/runs/38665898987/job/116197675541).
+
 ## Artifact Download Action 8
 
 - Source: Dependabot PR <https://github.com/depsilon/shardloom/pull/1149>.

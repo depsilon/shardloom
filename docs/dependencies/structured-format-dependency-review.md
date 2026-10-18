@@ -7,6 +7,32 @@ feature-gated local structured-format bridge and parsing helpers. It is a depend
 only; it does not authorize broad adapter support, external execution fallback, package
 publication, performance claims, or production readiness.
 
+## 2026-10-17 Arrow 60 / Parquet 59.3.1 Review Deferral
+
+- Dependabot PR <https://github.com/depsilon/shardloom/pull/1513> remains open and is explicitly
+  deferred pending this batch's disposition. No dependency or Cargo manifest changes are included
+  here.
+- Its proposed direct Arrow 60, Parquet 59.3.1, and ORC 0.9.0 updates would split the current
+  Arrow graph across versions 58, 59 and 60. The saved PR compile logs show
+  `arrow_schema::DataType` mismatches between Vortex's 58.4 and the direct 60.0
+  types, plus ORC's Arrow 59.3.1 `ArrowReader<File>` not implementing the direct
+  Arrow 60 `RecordBatchReader` trait. Release user-surface compilation reports
+  45 errors; the MSRV library-test compilation reports 96 errors.
+- Current constraints remain `arrow-array = 58.3.0`, `arrow-schema = 58.3.0`, and
+  `parquet = 58.3.0`, with `arrow-pyarrow` pinned exactly to `58.3.0`,
+  in the workspace, `vortex = 0.85`, and `orc-rust = 0.8.0` in
+  `shardloom-vortex`. Upstream Vortex 0.85's Arrow 58 provider boundary and ORC 0.8's Arrow 58
+  types do not support independently advancing the direct bridge crates.
+- Evidence: [PR 1513](https://github.com/depsilon/shardloom/pull/1513),
+  [Rust MSRV job](https://github.com/depsilon/shardloom/actions/runs/39038511974/job/117413083621),
+  and [release user-surfaces compile job](https://github.com/depsilon/shardloom/actions/runs/39038511974/job/117413083766).
+- Upstream version references: [Arrow Rust releases](https://github.com/apache/arrow-rs/releases),
+  [Vortex 0.85.0](https://github.com/vortex-data/vortex/releases/tag/v0.85.0), and
+  [orc-rust releases](https://github.com/datafusion-contrib/orc-rust/releases).
+- Reconsider after a provider-alignment change removes the multiple Arrow type graph and the
+  feature matrix compiles. This is a compatibility deferral, not a finding that the proposed
+  versions are unsuitable in general.
+
 ## Current support snapshot
 
 - The local structured-format bridge remains feature-gated behind `universal-format-io` and

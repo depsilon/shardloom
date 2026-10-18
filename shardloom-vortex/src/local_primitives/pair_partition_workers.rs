@@ -20,6 +20,30 @@ use vortex::array::{
 
 const PARTITIONS: usize = 64;
 
+/// Complete key identity in the existing tuple sort order, without alignment
+/// padding. Kinds remain per row because integer types can vary between chunks.
+/// Routing and candidate selection use the existing shared aggregate key.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct PackedKey([u8; 17]);
+
+impl PackedKey {
+    fn new(key: Key) -> Self {
+        let mut bytes = [0; 17];
+        bytes[0] = key.key_kinds;
+        bytes[1..9].copy_from_slice(&key.first_bits.to_be_bytes());
+        bytes[9..17].copy_from_slice(&key.second_bits.to_be_bytes());
+        Self(bytes)
+    }
+
+    fn key(self) -> Key {
+        Key {
+            key_kinds: self.0[0],
+            first_bits: u64::from_be_bytes(self.0[1..9].try_into().expect("eight-byte field")),
+            second_bits: u64::from_be_bytes(self.0[9..17].try_into().expect("eight-byte field")),
+        }
+    }
+}
+
 fn failed(message: impl std::fmt::Display) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native numeric-pair partition reduction: {message}; no fallback execution was attempted"
@@ -178,7 +202,7 @@ fn partition(key: Key) -> usize {
 }
 
 struct Partition {
-    keys: Vec<Key>,
+    keys: Vec<PackedKey>,
     // The payload drops before its capacity credit.
     lease: MemoryLease,
     growths: u64,
@@ -207,7 +231,7 @@ impl Partition {
             .checked_add(self.keys.capacity() / 4)
             .ok_or_else(|| failed("key growth overflow"))?;
         let capacity = need.max(growth).max(64);
-        let next = bytes::<Key>(capacity)?;
+        let next = bytes::<PackedKey>(capacity)?;
         let overlap = self
             .lease
             .bytes()
@@ -221,7 +245,8 @@ impl Partition {
         if self.keys.capacity() > capacity {
             return Err(failed("vector exceeds admitted capacity"));
         }
-        self.lease.resize(bytes::<Key>(self.keys.capacity())?)?;
+        self.lease
+            .resize(bytes::<PackedKey>(self.keys.capacity())?)?;
         self.growths += 1;
         Ok(())
     }
@@ -399,7 +424,7 @@ impl PairWorkers {
             self.decision = Some(true);
         }
         let started = Instant::now();
-        let reserved = bytes::<Key>(chunk.len())?
+        let reserved = bytes::<PackedKey>(chunk.len())?
             .checked_add((PARTITIONS * size_of::<usize>()) as u64)
             .ok_or_else(|| failed("staging overflow"))?;
         let buffer_lease = self.jobs.memory().reserve(reserved)?;
@@ -415,14 +440,14 @@ impl PairWorkers {
                 self.jobs.check_cancelled()?;
             }
             counts[partition(key)] += 1;
-            keys.push(key);
+            keys.push(PackedKey::new(key));
             Ok(())
         })?;
         for (partition, count) in self.partitions.iter_mut().zip(counts) {
             partition.reserve(count)?;
         }
         for key in &keys {
-            self.partitions[partition(*key)].keys.push(*key);
+            self.partitions[partition(key.key())].keys.push(*key);
         }
         self.rows = self
             .rows
@@ -585,9 +610,7 @@ impl PairWorkers {
 fn reduce(mut partition: Partition, cap: usize, worker: &ChunkWorkerContext) -> Result<Partial> {
     worker.check_cancelled()?;
     let started = Instant::now();
-    partition
-        .keys
-        .sort_unstable_by_key(|key| (key.key_kinds, key.first_bits, key.second_bits));
+    partition.keys.sort_unstable();
     let sort_nanos = started.elapsed().as_nanos();
     worker.check_cancelled()?;
     let started = Instant::now();
@@ -614,7 +637,10 @@ fn reduce(mut partition: Partition, cap: usize, worker: &ChunkWorkerContext) -> 
         NumericPairNearUniqueCountDirectory::consider_retained_candidate(
             &mut retained,
             &mut worst,
-            Candidate { key, count },
+            Candidate {
+                key: key.key(),
+                count,
+            },
             cap,
         )?;
         groups += 1;
@@ -628,4 +654,87 @@ fn reduce(mut partition: Partition, cap: usize, worker: &ChunkWorkerContext) -> 
         sort_nanos,
         reduce_nanos: started.elapsed().as_nanos(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn packed_pair_records_preserve_every_bit_and_existing_tuple_order() {
+        assert_eq!(size_of::<PackedKey>(), 17);
+        let edges = [
+            0,
+            1,
+            127,
+            128,
+            255,
+            256,
+            u64::from(u32::MAX),
+            1 << 63,
+            u64::MAX,
+        ];
+        let mut keys = Vec::new();
+        for key_kinds in 0..4 {
+            for &first_bits in &edges {
+                for &second_bits in &edges {
+                    keys.push(Key {
+                        first_bits,
+                        second_bits,
+                        key_kinds,
+                    });
+                }
+            }
+        }
+        let mut bits = 0x4d59_5df4_d0f3_3173_u64;
+        for index in 0..4096 {
+            bits ^= bits << 13;
+            bits ^= bits >> 7;
+            bits ^= bits << 17;
+            keys.push(Key {
+                first_bits: bits,
+                second_bits: bits.rotate_left(31).wrapping_add(index),
+                key_kinds: u8::try_from(index % 4).unwrap(),
+            });
+        }
+        keys.extend_from_within(..32);
+        let mut packed = keys
+            .iter()
+            .rev()
+            .copied()
+            .map(PackedKey::new)
+            .collect::<Vec<_>>();
+        for key in &keys {
+            assert_eq!(PackedKey::new(*key).key(), *key);
+        }
+        keys.sort_unstable_by_key(|key| (key.key_kinds, key.first_bits, key.second_bits));
+        packed.sort_unstable();
+        assert_eq!(
+            packed.into_iter().map(PackedKey::key).collect::<Vec<_>>(),
+            keys
+        );
+    }
+
+    #[test]
+    fn packed_pair_capacity_denial_preserves_keys_and_releases_exact_charge() {
+        let memory = LiveMemoryPool::new(64 * 17).unwrap();
+        let mut partition = Partition {
+            keys: Vec::new(),
+            lease: memory.reserve(0).unwrap(),
+            growths: 0,
+            overlap_peak: 0,
+            deny_next_growth: false,
+        };
+        partition.reserve(64).unwrap();
+        let key = PackedKey::new(Key::from_bits(u64::MAX, true, u64::MAX, false));
+        partition.keys.resize(64, key);
+        assert_eq!(partition.keys.capacity(), 64);
+        assert_eq!(partition.lease.bytes(), 64 * 17);
+        assert_eq!(memory.snapshot().reserved_bytes, 64 * 17);
+        assert!(partition.reserve(1).is_err());
+        assert_eq!(partition.keys, vec![key; 64]);
+        assert_eq!(memory.snapshot().reserved_bytes, 64 * 17);
+        drop(partition);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 }

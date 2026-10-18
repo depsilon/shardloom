@@ -1,0 +1,965 @@
+{
+  "schema_version": "shardloom.native_text_reconstruction_hosted_packet.v1",
+  "status": "passed",
+  "recorded_at": "2026-10-17T16:57:39.126868+00:00",
+  "pr": 1567,
+  "head": "2adcfc95876a432007f4051ef3a316fe9cd1d9ee",
+  "merge": "5bcee25ac3e41d7c509ca19cc59c51e0c2e58d96",
+  "synthetic": "1cad6f2d1cd74077c1ff70663ade4828f99ed76b",
+  "checks_passed": 44,
+  "source_files_verified": 2411,
+  "native_total": 6772,
+  "native_library_tests": 2946,
+  "native_ignored_tests": 27,
+  "new_native_tests": 9,
+  "native_public_total": 1079,
+  "wheel_lanes": 3,
+  "wheel_tests_per_lane": 100,
+  "served_responses_verified": 16,
+  "closeouts": {
+    "premerge": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/premerge-597/report.json",
+      "bytes": 2884,
+      "sha256": "5413ce003cb1f995cefa1b549daffbcaf56fc247ff5d1f86f5ea1f702f06a907"
+    },
+    "postmerge": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/postmerge-597/report.json",
+      "bytes": 2929,
+      "sha256": "1fe6952bff2dc5065faa7fae976c418eb09fffd1042b5cef1d3719f0e8a8bef9"
+    }
+  },
+  "primary_jobs": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/primary-jobs-capture-20261017T165123Z.json",
+    "bytes": 70109,
+    "sha256": "00d0ed8d4ee5d709d9547f78e208a46d59df72657bac0615736c5ea869bb4f92"
+  },
+  "served": {
+    "preview": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/report.json",
+      "bytes": 7804,
+      "sha256": "1eebd13526aabad1fe2d28c1ebd2b7837656bcaad70028c38763a91b2d7ce5e8"
+    },
+    "production": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/report.json",
+      "bytes": 7710,
+      "sha256": "bad6935b4f84fadb4d5d3d3ee41baf45ae0fcb3d75f315ee75a682a395fb4784"
+    }
+  },
+  "preview_browser": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/preview-report.json",
+    "bytes": 783,
+    "sha256": "8ea2e5c9bf9153eba3d0330137f04d848e29163d53904cff76f9117f24a8770e"
+  },
+  "production_browser": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/production-report.json",
+    "bytes": 783,
+    "sha256": "2381eb58161adfb4c73804745ce35500de1b064b42d4cd9fe7bca158ac34e7d6"
+  },
+  "local_evidence_index": {
+    "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-text-reconstruction-2026-10-17.json",
+    "bytes": 20431,
+    "sha256": "1aaa277a877a224d39c795fea154e8439d7841baf17c15c2c399188ce3556fcd"
+  },
+  "local_evidence_archives": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-text-reconstruction-2026-10-17.tar.xz",
+      "bytes": 1320016,
+      "sha256": "9faeee752c885f2510841dbb69e9d4fac0ff5987025c7e0cb829b72eef2348ea"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-text-reconstruction-2026-10-17.part-2.tar.xz",
+      "bytes": 4753124,
+      "sha256": "164cfe3740e1f863beea5ecd02d8e65c7d12c609365818646cf64e2bfcc040dd"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-text-reconstruction-2026-10-17.part-3.tar.xz",
+      "bytes": 22653384,
+      "sha256": "946b50f9a6002f18c8eafc66699fb7b4c173d875daa8f0fc241d2e0fe6dd3b13"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-text-reconstruction-2026-10-17.part-4.tar.xz",
+      "bytes": 1046700,
+      "sha256": "bd3e21034088528038e8515cfcf566f6b79512608431aea237ee5b30b7f2d969"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-text-reconstruction-2026-10-17.manifest.json.xz",
+      "bytes": 1073524,
+      "sha256": "445adb839f397cd6e6713c7ec0cf7e9e3a98103a135cbd3a1803802920b6eb59"
+    }
+  ],
+  "local_acceptance": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-local-acceptance-596.json",
+    "bytes": 3292,
+    "sha256": "fb67584e5a66a77d1648c017b7c967ad0b8053d843029d0aa8bc71d96676bdd0"
+  },
+  "matched_comparison": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-comparison-review-594.json",
+    "bytes": 159657,
+    "sha256": "43b2f62e14dfac9611e5c8dbca8ed77c9e1e9f9fa46399897adeef78cceb337e"
+  },
+  "matched_comparison_totals": {
+    "all": {
+      "control_engine_seconds": "67.4536999765",
+      "candidate_engine_seconds": "58.1389694790",
+      "delta_engine_seconds": "-9.3147304975",
+      "delta_percent": "-13.80907274285195933591516914"
+    },
+    "priority": {
+      "control_engine_seconds": "24.1317589360",
+      "candidate_engine_seconds": "20.0758572290",
+      "delta_engine_seconds": "-4.0559017070",
+      "delta_percent": "-16.80731900959513214988134340"
+    },
+    "other": {
+      "control_engine_seconds": "43.3219410405",
+      "candidate_engine_seconds": "38.0631122500",
+      "delta_engine_seconds": "-5.2588287905",
+      "delta_percent": "-12.13895006593477707588497774"
+    }
+  },
+  "material_regression_queries": [],
+  "performance_conclusion": "The matched comparison meets its predeclared material gate; local acceptance, exact-head hosted checks, installed wheels, review, merge and deployment verification now all pass.",
+  "archive": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-packet-597/native-text-reconstruction-hosted-2026-10-17.tar.xz",
+    "bytes": 656120,
+    "sha256": "801dbe1c72870d7e48a38f93470ac14d52113a6894e46b3299457df7a64e5dd5"
+  },
+  "members_verified": 138,
+  "members": [
+    {
+      "name": "helpers/accept_stream_dynamic_subquery_hosted_jobs_corrected_528.py",
+      "bytes": 14095,
+      "sha256": "8482ba5f8e6d324782cf7d0043a28e97705d030e09842cb38dbfa625ac610c26",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/accept_stream_dynamic_subquery_hosted_jobs_corrected_528.py"
+    },
+    {
+      "name": "helpers/capture_hosted_job_logs_569.py",
+      "bytes": 14420,
+      "sha256": "3fee1fa84053fa626f7b51413fff0acfcbd01f239aa4e71ae54c95991b5381da",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-worker-drain-hosted-569/job-logs/capture_hosted_job_logs_569.py"
+    },
+    {
+      "name": "helpers/capture_worker_drain_closeout_570.py",
+      "bytes": 5367,
+      "sha256": "86711cdc8c72d06dc27490af90eb64eebd37eb42a9234b5ca9eb9efd07a5010f",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/capture_worker_drain_closeout_570.py"
+    },
+    {
+      "name": "helpers/capture_worker_drain_served_569.py",
+      "bytes": 6032,
+      "sha256": "4e583e20bf6e9a49515d88a867a4b3e3040b2b8b19d5f85b383ed2513f6c5836",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/capture_worker_drain_served_569.py"
+    },
+    {
+      "name": "helpers/local_uat_storage.py",
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d",
+      "original_path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/local_uat_storage.py"
+    },
+    {
+      "name": "helpers/verify_worker_drain_integrated_sources_569.py",
+      "bytes": 5033,
+      "sha256": "34492bbe6f3cb5d22411e4f78ea1da0ca58725085f2915b9a565052278c1220d",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/verify_worker_drain_integrated_sources_569.py"
+    },
+    {
+      "name": "hosted/browser/preview-desktop.ax.txt",
+      "bytes": 337,
+      "sha256": "8378e1d961792ba3ae139b63d106eeab8b083aeb8cf8bd1473afc0c45dc7eeb8",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/preview-desktop.ax.txt"
+    },
+    {
+      "name": "hosted/browser/preview-desktop.png",
+      "bytes": 90909,
+      "sha256": "39b1ebd1b443ffd1dde9779b04b9a1d2317be18a02af39e44552795c912ea74e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/preview-desktop.png"
+    },
+    {
+      "name": "hosted/browser/preview-mobile-navigation.ax.txt",
+      "bytes": 38497,
+      "sha256": "079dcd93977bd00e019a58aacbbbf98ff06e40835b67290bc8e81d334edbb412",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/preview-mobile-navigation.ax.txt"
+    },
+    {
+      "name": "hosted/browser/preview-mobile.png",
+      "bytes": 48514,
+      "sha256": "a151a7d6e2610aa855ede2a423d8bc9b648945f0321a96f5128617b32af17526",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/preview-mobile.png"
+    },
+    {
+      "name": "hosted/browser/preview-report.json",
+      "bytes": 783,
+      "sha256": "8ea2e5c9bf9153eba3d0330137f04d848e29163d53904cff76f9117f24a8770e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/preview-report.json"
+    },
+    {
+      "name": "hosted/browser/preview-search.ax.txt",
+      "bytes": 2246,
+      "sha256": "d8a28c0c8b2852037cfedce9b39eeb58b1937684d4ec3ff32f1b547e60bede33",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/preview-search.ax.txt"
+    },
+    {
+      "name": "hosted/browser/production-desktop.ax.txt",
+      "bytes": 17249,
+      "sha256": "6ebd9441ba9cc0a0d1882b2f5b546821a214eb627da59b76b4de00991b041909",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/production-desktop.ax.txt"
+    },
+    {
+      "name": "hosted/browser/production-desktop.png",
+      "bytes": 90909,
+      "sha256": "39b1ebd1b443ffd1dde9779b04b9a1d2317be18a02af39e44552795c912ea74e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/production-desktop.png"
+    },
+    {
+      "name": "hosted/browser/production-mobile-navigation.ax.txt",
+      "bytes": 15119,
+      "sha256": "69094d0fd0ffcaa99db34155f097975f36343c6eaf4babf096f170046621ef3e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/production-mobile-navigation.ax.txt"
+    },
+    {
+      "name": "hosted/browser/production-mobile.ax.txt",
+      "bytes": 15209,
+      "sha256": "2dde2345dc269a48efe5b70c7267490f9a826316a6dbcf2e8e76bbff48b5d2a4",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/production-mobile.ax.txt"
+    },
+    {
+      "name": "hosted/browser/production-mobile.png",
+      "bytes": 48514,
+      "sha256": "a151a7d6e2610aa855ede2a423d8bc9b648945f0321a96f5128617b32af17526",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/production-mobile.png"
+    },
+    {
+      "name": "hosted/browser/production-report.json",
+      "bytes": 783,
+      "sha256": "2381eb58161adfb4c73804745ce35500de1b064b42d4cd9fe7bca158ac34e7d6",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/production-report.json"
+    },
+    {
+      "name": "hosted/browser/production-search.ax.txt",
+      "bytes": 1985,
+      "sha256": "8604fe64fdc424207dab1ed9a0b667fc5099e5e03e9deed3b95cc1c7ef708ae4",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/browser/production-search.ax.txt"
+    },
+    {
+      "name": "hosted/capture-parameters.json",
+      "bytes": 1277,
+      "sha256": "de332f9147e70a6a020dd94bcc713ecbcd424666fc0d51282364c8b189e22d86",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/capture-parameters.json"
+    },
+    {
+      "name": "hosted/closeout-launch.json",
+      "bytes": 6238,
+      "sha256": "b6e0a568871e97411a4b40484d9f1ef04ad25d35ed60afca1d563bf75862bffc",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/closeout-launch.json"
+    },
+    {
+      "name": "hosted/final-pr-acceptance.json",
+      "bytes": 19603,
+      "sha256": "ccc8c76261144f50aa47cbf75e7104b06c1492c77ef8a8d20efc5ce76b976a66",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/final-pr-acceptance.json"
+    },
+    {
+      "name": "hosted/hosted-packet-launch-597.json",
+      "bytes": 13714,
+      "sha256": "8377279c1820ca76b12af8d328cc03b2a8d8f8ab0d439a13464adf13acd02867",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/hosted-packet-launch-597.json"
+    },
+    {
+      "name": "hosted/hosted-packet-launch-597b.json",
+      "bytes": 13884,
+      "sha256": "e100165b2768b5abbb9ef417c758a1e3240485c34d75c03cab183bc03abb843d",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/hosted-packet-launch-597b.json"
+    },
+    {
+      "name": "hosted/hosted-validation-launch.json",
+      "bytes": 14295,
+      "sha256": "70ec0b48fe302d94771c54c229e10e9732978e64c04b431863704194410a01f4",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/hosted-validation-launch.json"
+    },
+    {
+      "name": "hosted/initial-checks-596.json",
+      "bytes": 15545,
+      "sha256": "c36ac1aa509f21cb98fbca7117ffa9c9f326378265d7129f17c962c1f0670cfd",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/initial-checks-596.json"
+    },
+    {
+      "name": "hosted/initial-comments-596.json",
+      "bytes": 11655,
+      "sha256": "282948b7c9fa134b0c36fe13a29fd679ce80b08dcc43b419a88be1d86b809aca",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/initial-comments-596.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378189.json",
+      "bytes": 2419,
+      "sha256": "828a9e10adaba3dd5880873a72093fa3e2582c55d2460e73ed9d2d9a6dde3b2a",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378189.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378189.log",
+      "bytes": 26377,
+      "sha256": "156d21e0556ef9eb10871a99f3fbb196aacd111888ce2f1cb188125318a76883",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378189.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378234.json",
+      "bytes": 2408,
+      "sha256": "b579d83b9d59d37952c6f7e3a3582efcf9dc9cd21981f9cb88ab2bb1888cdd4b",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378234.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378234.log",
+      "bytes": 30793,
+      "sha256": "c858e9c380a4becad15df450dbf03fc5fe099dad33bf42a2a07a9a8b099dd4d6",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378234.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378264.json",
+      "bytes": 4513,
+      "sha256": "c7c20061fb1121c9f968b715403d1f59ccb5c19264c4b4fc4cd898b2ada2f65f",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378264.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378264.log",
+      "bytes": 92259,
+      "sha256": "f253d1e689ed413e0e563a68fc4282db29b4ccc9707fcf79f5e7d5c5b23101d2",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378264.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378274.json",
+      "bytes": 2139,
+      "sha256": "1225fe6a018159bb73790bc30926926cbe204d7c0f20e588e4c15673a759933e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378274.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378325.json",
+      "bytes": 4512,
+      "sha256": "eb6771ed88844717c9528eac3b65e93c54511d5fcaed4ea56461a369aec927fa",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378325.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378325.log",
+      "bytes": 89290,
+      "sha256": "68ce3392918756af306ffd8c1c5f94c81c4a02992da80cbf31d77f4036c95cc0",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378325.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378351.json",
+      "bytes": 4513,
+      "sha256": "8035b927c45bf3ebbfa69a8e5d3134d63285894ecf03da72c2efe9dd4a0a12f5",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378351.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378351.log",
+      "bytes": 91286,
+      "sha256": "d4005d454ed77b79e1437c0d869a6720f64f194b376db31696736dade58cd3d1",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378351.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378356.json",
+      "bytes": 2429,
+      "sha256": "6019e663f39fa58784be0ac772b73c2561e328506210598170a349a264fc1743",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378356.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378356.log",
+      "bytes": 674903,
+      "sha256": "07dee320de29683b7181b14f1fe23b8207e75ad158754e07298f708cc26f6047",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378356.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378423.json",
+      "bytes": 3962,
+      "sha256": "2db127022a3e9e2da41e15edf37b9792ff0e4301d230a01870e5bbc8040e057e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378423.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/job-117440378423.log",
+      "bytes": 44198,
+      "sha256": "59344c9eaaa2b9161f68326c7704df9752ace160f18acba8dd81597fc8ed5da6",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/job-117440378423.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/run-39047950917.json",
+      "bytes": 12582,
+      "sha256": "fa5cc6e9208acb7058b953d562c22a788475d26b06482b675eb4444eca4d7049",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/run-39047950917.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/summary.json",
+      "bytes": 97249,
+      "sha256": "3ebc1a1b389589adb3f8900b2e687c81a8e4f539a70aa28ffa8bd4c6eee6e4a5",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/summary.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/wheel-proof-117440378264.json",
+      "bytes": 11040,
+      "sha256": "519575a0c7554fa2f1bfd99c5c0a173ae55fb64127bd0ed2fc97c3dfd5c95353",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/wheel-proof-117440378264.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/wheel-proof-117440378325.json",
+      "bytes": 9046,
+      "sha256": "1dea7dcd0c6a374a7533696db442e4118479f577c3f321d43bc01411195b319f",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/wheel-proof-117440378325.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T163842Z/wheel-proof-117440378351.json",
+      "bytes": 11038,
+      "sha256": "388fb48ea46e0119db722f9c88d4b284adccf99b466463afe15423fab7ab9409",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T163842Z/wheel-proof-117440378351.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378189.json",
+      "bytes": 2419,
+      "sha256": "828a9e10adaba3dd5880873a72093fa3e2582c55d2460e73ed9d2d9a6dde3b2a",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378189.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378189.log",
+      "bytes": 26377,
+      "sha256": "156d21e0556ef9eb10871a99f3fbb196aacd111888ce2f1cb188125318a76883",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378189.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378234.json",
+      "bytes": 2408,
+      "sha256": "b579d83b9d59d37952c6f7e3a3582efcf9dc9cd21981f9cb88ab2bb1888cdd4b",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378234.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378234.log",
+      "bytes": 30793,
+      "sha256": "c858e9c380a4becad15df450dbf03fc5fe099dad33bf42a2a07a9a8b099dd4d6",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378234.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378264.json",
+      "bytes": 4513,
+      "sha256": "c7c20061fb1121c9f968b715403d1f59ccb5c19264c4b4fc4cd898b2ada2f65f",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378264.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378264.log",
+      "bytes": 92259,
+      "sha256": "f253d1e689ed413e0e563a68fc4282db29b4ccc9707fcf79f5e7d5c5b23101d2",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378264.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378274.json",
+      "bytes": 2421,
+      "sha256": "ec3e645ba1d7acfe9a305f97f0dcca2a98826998d1c5f4ecfb6ea2a5f9da0b29",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378274.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378274.log",
+      "bytes": 1114265,
+      "sha256": "74866009b6d65ced5f8f96f1db63d1dd7ace8c8882f88b31cacaf699195c9fa6",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378274.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378325.json",
+      "bytes": 4512,
+      "sha256": "eb6771ed88844717c9528eac3b65e93c54511d5fcaed4ea56461a369aec927fa",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378325.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378325.log",
+      "bytes": 89290,
+      "sha256": "68ce3392918756af306ffd8c1c5f94c81c4a02992da80cbf31d77f4036c95cc0",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378325.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378351.json",
+      "bytes": 4513,
+      "sha256": "8035b927c45bf3ebbfa69a8e5d3134d63285894ecf03da72c2efe9dd4a0a12f5",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378351.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378351.log",
+      "bytes": 91286,
+      "sha256": "d4005d454ed77b79e1437c0d869a6720f64f194b376db31696736dade58cd3d1",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378351.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378356.json",
+      "bytes": 2429,
+      "sha256": "6019e663f39fa58784be0ac772b73c2561e328506210598170a349a264fc1743",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378356.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378356.log",
+      "bytes": 674903,
+      "sha256": "07dee320de29683b7181b14f1fe23b8207e75ad158754e07298f708cc26f6047",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378356.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378423.json",
+      "bytes": 3962,
+      "sha256": "2db127022a3e9e2da41e15edf37b9792ff0e4301d230a01870e5bbc8040e057e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378423.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/job-117440378423.log",
+      "bytes": 44198,
+      "sha256": "59344c9eaaa2b9161f68326c7704df9752ace160f18acba8dd81597fc8ed5da6",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/job-117440378423.log"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/run-39047950917.json",
+      "bytes": 12585,
+      "sha256": "a2ba5443deeaf315db4debda007e032eb7e1178ea3bf119b1f00d34a7e58881c",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/run-39047950917.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/summary.json",
+      "bytes": 98743,
+      "sha256": "47787607abc65b03785b3dd20f8454bbe15cc9122b5eff99e73ff30794998688",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/summary.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/wheel-proof-117440378264.json",
+      "bytes": 11040,
+      "sha256": "519575a0c7554fa2f1bfd99c5c0a173ae55fb64127bd0ed2fc97c3dfd5c95353",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/wheel-proof-117440378264.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/wheel-proof-117440378325.json",
+      "bytes": 9046,
+      "sha256": "1dea7dcd0c6a374a7533696db442e4118479f577c3f321d43bc01411195b319f",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/wheel-proof-117440378325.json"
+    },
+    {
+      "name": "hosted/job-logs/capture-20261017T165123Z/wheel-proof-117440378351.json",
+      "bytes": 11038,
+      "sha256": "388fb48ea46e0119db722f9c88d4b284adccf99b466463afe15423fab7ab9409",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/job-logs/capture-20261017T165123Z/wheel-proof-117440378351.json"
+    },
+    {
+      "name": "hosted/merge-result.json",
+      "bytes": 266,
+      "sha256": "5e40c37442743605ed00301937aa33528adb249fbd8280860e57e157f509bd39",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/merge-result.json"
+    },
+    {
+      "name": "hosted/merged-sources-597.json",
+      "bytes": 643016,
+      "sha256": "34c5aecd7d6540320954c78c27eaf1f3330656d082b35e6c8a318932c463b299",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/merged-sources-597.json"
+    },
+    {
+      "name": "hosted/postmerge-597/checks.json",
+      "bytes": 135423,
+      "sha256": "d2bf5a5e53b1c09d936268bfcf1d80eb6c888cefc787e147e8cc3fe58acaed23",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/postmerge-597/checks.json"
+    },
+    {
+      "name": "hosted/postmerge-597/issue-comments.json",
+      "bytes": 10049,
+      "sha256": "813e48d7b3ccd77f31eb658c01f27047dcef20d4ceb5b782abc1fb30f1f94be6",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/postmerge-597/issue-comments.json"
+    },
+    {
+      "name": "hosted/postmerge-597/open-pr-code-scanning-alerts.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/postmerge-597/open-pr-code-scanning-alerts.json"
+    },
+    {
+      "name": "hosted/postmerge-597/pull-request.json",
+      "bytes": 21912,
+      "sha256": "8391102e79776416160bd574e1c72218a3b498f5f04f659ee30067c2edaf3a54",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/postmerge-597/pull-request.json"
+    },
+    {
+      "name": "hosted/postmerge-597/report.json",
+      "bytes": 2929,
+      "sha256": "1fe6952bff2dc5065faa7fae976c418eb09fffd1042b5cef1d3719f0e8a8bef9",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/postmerge-597/report.json"
+    },
+    {
+      "name": "hosted/postmerge-597/review-state.json",
+      "bytes": 308,
+      "sha256": "961328e15e5dd0f1a3e9e5acd75b5d7e2060e572a574158d639056d33810cc62",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/postmerge-597/review-state.json"
+    },
+    {
+      "name": "hosted/postmerge-597/statuses.json",
+      "bytes": 4507,
+      "sha256": "fa2aed32a1454a67e4ad81421d0dac0868ba81182cf56b4d83068ce6eea6f858",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/postmerge-597/statuses.json"
+    },
+    {
+      "name": "hosted/pr-sources.json",
+      "bytes": 961618,
+      "sha256": "5f8c26d54aa9582aeb0005da44a2b3e23f23d4d49b6366e34ef2e9b2e691f2a8",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/pr-sources.json"
+    },
+    {
+      "name": "hosted/premerge-597/checks.json",
+      "bytes": 155751,
+      "sha256": "303ff3543f261c7740fa5c0e0770856dd37ffd625651ef5def9e9d449f427419",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/premerge-597/checks.json"
+    },
+    {
+      "name": "hosted/premerge-597/issue-comments.json",
+      "bytes": 10049,
+      "sha256": "813e48d7b3ccd77f31eb658c01f27047dcef20d4ceb5b782abc1fb30f1f94be6",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/premerge-597/issue-comments.json"
+    },
+    {
+      "name": "hosted/premerge-597/open-pr-code-scanning-alerts.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/premerge-597/open-pr-code-scanning-alerts.json"
+    },
+    {
+      "name": "hosted/premerge-597/pull-request.json",
+      "bytes": 20950,
+      "sha256": "ebcf19fb4bb344383cfdb67c1220d565c2d3d0040fc5f7d7dfe9c06c1ca66b4d",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/premerge-597/pull-request.json"
+    },
+    {
+      "name": "hosted/premerge-597/report.json",
+      "bytes": 2884,
+      "sha256": "5413ce003cb1f995cefa1b549daffbcaf56fc247ff5d1f86f5ea1f702f06a907",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/premerge-597/report.json"
+    },
+    {
+      "name": "hosted/premerge-597/review-state.json",
+      "bytes": 263,
+      "sha256": "4e3a1902eb7b890d5b7f818b156c2836a3674cfff65da257e6d8e9760c9862c5",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/premerge-597/review-state.json"
+    },
+    {
+      "name": "hosted/premerge-597/statuses.json",
+      "bytes": 4507,
+      "sha256": "fa2aed32a1454a67e4ad81421d0dac0868ba81182cf56b4d83068ce6eea6f858",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/premerge-597/statuses.json"
+    },
+    {
+      "name": "hosted/preview-served-569/assets_parallax-home.js",
+      "bytes": 38473,
+      "sha256": "db79d2ec0c26a53908f22933406c0451e57096f26dd83ec2de4af097ade8e6fe",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/assets_parallax-home.js"
+    },
+    {
+      "name": "hosted/preview-served-569/assets_parallax-home.js.attempts.json",
+      "bytes": 73,
+      "sha256": "b53242343a6ae9be713d300667a4991effa14342a42a32267c10439ff20add3e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/assets_parallax-home.js.attempts.json"
+    },
+    {
+      "name": "hosted/preview-served-569/benchmarks.html",
+      "bytes": 41144,
+      "sha256": "c783db74f23098e1be0c589f5e4a95840629bcd30f4ef34340daa7cbf9cd4678",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/benchmarks.html"
+    },
+    {
+      "name": "hosted/preview-served-569/benchmarks.html.attempts.json",
+      "bytes": 73,
+      "sha256": "4cd614a312b32b4c9e0d53524d7dee885a3cb5d5468ca3399a84a36812ba8f87",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/benchmarks.html.attempts.json"
+    },
+    {
+      "name": "hosted/preview-served-569/benchmarks_index.html",
+      "bytes": 41144,
+      "sha256": "c783db74f23098e1be0c589f5e4a95840629bcd30f4ef34340daa7cbf9cd4678",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/benchmarks_index.html"
+    },
+    {
+      "name": "hosted/preview-served-569/benchmarks_index.html.attempts.json",
+      "bytes": 73,
+      "sha256": "4cd614a312b32b4c9e0d53524d7dee885a3cb5d5468ca3399a84a36812ba8f87",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/benchmarks_index.html.attempts.json"
+    },
+    {
+      "name": "hosted/preview-served-569/deployment-checks.json",
+      "bytes": 145286,
+      "sha256": "3f60a474fea6263c5fe9d757d02b72b7953688446bcfef7b93ea11222c095f78",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/deployment-checks.json"
+    },
+    {
+      "name": "hosted/preview-served-569/field-guide_benchmark-methodology_index.html",
+      "bytes": 41144,
+      "sha256": "c783db74f23098e1be0c589f5e4a95840629bcd30f4ef34340daa7cbf9cd4678",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/field-guide_benchmark-methodology_index.html"
+    },
+    {
+      "name": "hosted/preview-served-569/field-guide_benchmark-methodology_index.html.attempts.json",
+      "bytes": 73,
+      "sha256": "4cd614a312b32b4c9e0d53524d7dee885a3cb5d5468ca3399a84a36812ba8f87",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/field-guide_benchmark-methodology_index.html.attempts.json"
+    },
+    {
+      "name": "hosted/preview-served-569/field-guide_limitations_index.html",
+      "bytes": 54598,
+      "sha256": "4b3045408e19d5e46df2c0b68ba89f525eb0124eeab90088377b722500a823bc",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/field-guide_limitations_index.html"
+    },
+    {
+      "name": "hosted/preview-served-569/field-guide_limitations_index.html.attempts.json",
+      "bytes": 73,
+      "sha256": "0bc92ef64715af5d91c008bdf83c004ae6a63866e7785f84679b7282eaded008",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/field-guide_limitations_index.html.attempts.json"
+    },
+    {
+      "name": "hosted/preview-served-569/field-guide_python-surface_index.html",
+      "bytes": 68896,
+      "sha256": "667b83dc6c7dc5d31215ba7ee946976de2b556f1efed7c0afcea60124a9fa469",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/field-guide_python-surface_index.html"
+    },
+    {
+      "name": "hosted/preview-served-569/field-guide_python-surface_index.html.attempts.json",
+      "bytes": 73,
+      "sha256": "0ea86f10a3fd934f1f2a344d5ba7e9f0eef33dda02651f66c3b897e6bc46a49a",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/field-guide_python-surface_index.html.attempts.json"
+    },
+    {
+      "name": "hosted/preview-served-569/field-guide_runtime-and-io_index.html",
+      "bytes": 68915,
+      "sha256": "12c9bad5f216fc428d074afbaded1f3d015b9ad700963635d828363331c9412c",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/field-guide_runtime-and-io_index.html"
+    },
+    {
+      "name": "hosted/preview-served-569/field-guide_runtime-and-io_index.html.attempts.json",
+      "bytes": 73,
+      "sha256": "0ccb3cf5dcda3c6efc45f74b368414a2cffdc361b5e4e349df8e2f3b92df3137",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/field-guide_runtime-and-io_index.html.attempts.json"
+    },
+    {
+      "name": "hosted/preview-served-569/pagefind_pagefind-entry.json",
+      "bytes": 171,
+      "sha256": "82d61b098bd8a50d459b369b1d3606f82e86f60bc0ecad8431077bf171f08360",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/pagefind_pagefind-entry.json"
+    },
+    {
+      "name": "hosted/preview-served-569/pagefind_pagefind-entry.json.attempts.json",
+      "bytes": 71,
+      "sha256": "c4a6bf81729898d5c4b22d96b559f2306015a7c68497ccf5fa99f8077cfada4f",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/pagefind_pagefind-entry.json.attempts.json"
+    },
+    {
+      "name": "hosted/preview-served-569/pull-request.json",
+      "bytes": 20953,
+      "sha256": "8fee6aec8f0441b82be55b954fda5b41852852470087cb9585223f73db3959a7",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/pull-request.json"
+    },
+    {
+      "name": "hosted/preview-served-569/report.json",
+      "bytes": 7804,
+      "sha256": "1eebd13526aabad1fe2d28c1ebd2b7837656bcaad70028c38763a91b2d7ce5e8",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/preview-served-569/report.json"
+    },
+    {
+      "name": "hosted/primary-jobs-capture-20261017T163842Z.json",
+      "bytes": 58520,
+      "sha256": "746f9fbd6b15886bffbcf8356ae554410540457bdbee0e959d0db0f562ceb10d",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/primary-jobs-capture-20261017T163842Z.json"
+    },
+    {
+      "name": "hosted/primary-jobs-capture-20261017T165123Z.json",
+      "bytes": 70109,
+      "sha256": "00d0ed8d4ee5d709d9547f78e208a46d59df72657bac0615736c5ea869bb4f92",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/primary-jobs-capture-20261017T165123Z.json"
+    },
+    {
+      "name": "hosted/production-served-569/assets_parallax-home.js",
+      "bytes": 38473,
+      "sha256": "db79d2ec0c26a53908f22933406c0451e57096f26dd83ec2de4af097ade8e6fe",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/assets_parallax-home.js"
+    },
+    {
+      "name": "hosted/production-served-569/assets_parallax-home.js.attempts.json",
+      "bytes": 73,
+      "sha256": "b53242343a6ae9be713d300667a4991effa14342a42a32267c10439ff20add3e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/assets_parallax-home.js.attempts.json"
+    },
+    {
+      "name": "hosted/production-served-569/benchmarks.html",
+      "bytes": 42449,
+      "sha256": "2b3d1c9e4ea359e2b336d9f5110048ab8d3fd272a280f82f638547ac099f7d36",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/benchmarks.html"
+    },
+    {
+      "name": "hosted/production-served-569/benchmarks.html.attempts.json",
+      "bytes": 73,
+      "sha256": "bc45d67d38c697de4b170e6f009b828a52105247354b00b45ba87439d064745e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/benchmarks.html.attempts.json"
+    },
+    {
+      "name": "hosted/production-served-569/benchmarks_index.html",
+      "bytes": 42449,
+      "sha256": "99b352ea93c084a06b675f0f9e088788f548c157ec7eda40e6da05097940112b",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/benchmarks_index.html"
+    },
+    {
+      "name": "hosted/production-served-569/benchmarks_index.html.attempts.json",
+      "bytes": 73,
+      "sha256": "bc45d67d38c697de4b170e6f009b828a52105247354b00b45ba87439d064745e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/benchmarks_index.html.attempts.json"
+    },
+    {
+      "name": "hosted/production-served-569/deployment-checks.json",
+      "bytes": 117262,
+      "sha256": "31a82fc8388ba553880770d1b2794e7cf2c981fb6dfde2800e51b6376ebf22fa",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/deployment-checks.json"
+    },
+    {
+      "name": "hosted/production-served-569/field-guide_benchmark-methodology_index.html",
+      "bytes": 42449,
+      "sha256": "b554a3ea660859d6d3ae301f435f3220fb291a4b3d3a63d09fb6afc78ade644e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/field-guide_benchmark-methodology_index.html"
+    },
+    {
+      "name": "hosted/production-served-569/field-guide_benchmark-methodology_index.html.attempts.json",
+      "bytes": 73,
+      "sha256": "bc45d67d38c697de4b170e6f009b828a52105247354b00b45ba87439d064745e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/field-guide_benchmark-methodology_index.html.attempts.json"
+    },
+    {
+      "name": "hosted/production-served-569/field-guide_limitations_index.html",
+      "bytes": 55903,
+      "sha256": "5220f887c59c20711c6d026a01c8dd14f7a3c71249bab0198ee7e4fb94d34cf6",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/field-guide_limitations_index.html"
+    },
+    {
+      "name": "hosted/production-served-569/field-guide_limitations_index.html.attempts.json",
+      "bytes": 73,
+      "sha256": "bcf18e3c912bfa2fd22cab38bd1acbf4bca6f7a64b6425883bd9c1c20bac759a",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/field-guide_limitations_index.html.attempts.json"
+    },
+    {
+      "name": "hosted/production-served-569/field-guide_python-surface_index.html",
+      "bytes": 70201,
+      "sha256": "c582fc9fd4881253a2c8e67d647a620a0e139abf085827a03ac3209ec1d0a07a",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/field-guide_python-surface_index.html"
+    },
+    {
+      "name": "hosted/production-served-569/field-guide_python-surface_index.html.attempts.json",
+      "bytes": 73,
+      "sha256": "d0de2f7124de0f4096775881cfdb1b14e3ef3b4209e4e43ecf92d108978c2c25",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/field-guide_python-surface_index.html.attempts.json"
+    },
+    {
+      "name": "hosted/production-served-569/field-guide_runtime-and-io_index.html",
+      "bytes": 70220,
+      "sha256": "85fc1d7460c06e2c76c1f99fcfd9228308d151005cd30c13725a50761ca9da6b",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/field-guide_runtime-and-io_index.html"
+    },
+    {
+      "name": "hosted/production-served-569/field-guide_runtime-and-io_index.html.attempts.json",
+      "bytes": 73,
+      "sha256": "b2c7774605d5b06254e3fdb9b47cfc11ef84f4ffd36c1cfd7859f5a4c865261b",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/field-guide_runtime-and-io_index.html.attempts.json"
+    },
+    {
+      "name": "hosted/production-served-569/pagefind_pagefind-entry.json",
+      "bytes": 171,
+      "sha256": "82d61b098bd8a50d459b369b1d3606f82e86f60bc0ecad8431077bf171f08360",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/pagefind_pagefind-entry.json"
+    },
+    {
+      "name": "hosted/production-served-569/pagefind_pagefind-entry.json.attempts.json",
+      "bytes": 71,
+      "sha256": "c4a6bf81729898d5c4b22d96b559f2306015a7c68497ccf5fa99f8077cfada4f",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/pagefind_pagefind-entry.json.attempts.json"
+    },
+    {
+      "name": "hosted/production-served-569/pull-request.json",
+      "bytes": 21912,
+      "sha256": "8391102e79776416160bd574e1c72218a3b498f5f04f659ee30067c2edaf3a54",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/pull-request.json"
+    },
+    {
+      "name": "hosted/production-served-569/report.json",
+      "bytes": 7710,
+      "sha256": "bad6935b4f84fadb4d5d3d3ee41baf45ae0fcb3d75f315ee75a682a395fb4784",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/production-served-569/report.json"
+    },
+    {
+      "name": "hosted/pull-request-opened.json",
+      "bytes": 23613,
+      "sha256": "16c1ed5746d2731e3187c2a3f601e9fbcbb4d26cfd63239c5dcac5df7a1076b0",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/pull-request-opened.json"
+    },
+    {
+      "name": "hosted/served-parameters.json",
+      "bytes": 656,
+      "sha256": "254f68a14c45da670a7054b49d7fb389ef4d04c35cfced6a332ca7cc73541d5d",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/served-parameters.json"
+    },
+    {
+      "name": "hosted/synthetic-merge.json",
+      "bytes": 2812,
+      "sha256": "11e0313e6cb17bb3942127928f538fd1c9eeeed3816bfab705691b46843c0085",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/synthetic-merge.json"
+    },
+    {
+      "name": "hosted/test-inventory.json",
+      "bytes": 3544,
+      "sha256": "1e5e25885f0111e6cbc9df9f4717721aa9a7a9f0f50c0b18560087be75be7fa6",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-hosted-596/test-inventory.json"
+    },
+    {
+      "name": "source/native-text-reconstruction-2026-10-17.md",
+      "bytes": 11736,
+      "sha256": "b52d21730f73edb9dfa44e40fda146544a3242adca179312bc41d364636d9322",
+      "original_path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/native-text-reconstruction-2026-10-17.md"
+    },
+    {
+      "name": "support/freeze_native_release_298.py",
+      "bytes": 5254,
+      "sha256": "117f0ef25969f45673a8f71ffb39a57c60ca9e3cab03ad1629d1f89731d0c199",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/freeze_native_release_298.py"
+    },
+    {
+      "name": "support/native-text-reconstruction-2026-10-17.json",
+      "bytes": 20431,
+      "sha256": "1aaa277a877a224d39c795fea154e8439d7841baf17c15c2c399188ce3556fcd",
+      "original_path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/evidence/native-text-reconstruction-2026-10-17.json"
+    },
+    {
+      "name": "support/native-text-reconstruction-comparison-review-594.json",
+      "bytes": 159657,
+      "sha256": "43b2f62e14dfac9611e5c8dbca8ed77c9e1e9f9fa46399897adeef78cceb337e",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-comparison-review-594.json"
+    },
+    {
+      "name": "support/native-text-reconstruction-final-doc-results-596.json",
+      "bytes": 3425,
+      "sha256": "2f521e0014877d8ab58ad7440e7e804cd47070638633bc59778de3b010fe4ef3",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-final-doc-results-596.json"
+    },
+    {
+      "name": "support/native-text-reconstruction-final-review-596.json",
+      "bytes": 4132,
+      "sha256": "4e0f50a17c233f862a8ee684d076ead524470420b221a9e2733db2845d9809de",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-final-review-596.json"
+    },
+    {
+      "name": "support/native-text-reconstruction-final-source-bridge-596.json",
+      "bytes": 644454,
+      "sha256": "969865125729898707a112157da5264b0fa8ec0d1ea26ad8c03639ccaf412998",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-final-source-bridge-596.json"
+    },
+    {
+      "name": "support/native-text-reconstruction-local-acceptance-596.json",
+      "bytes": 3292,
+      "sha256": "fb67584e5a66a77d1648c017b7c967ad0b8053d843029d0aa8bc71d96676bdd0",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-reconstruction-local-acceptance-596.json"
+    },
+    {
+      "name": "support/verify_stream_destination_integrated_sources_482.py",
+      "bytes": 10010,
+      "sha256": "2048a3f4a5b7b38172bde226a4febc00ee4271252b9b72ab3283cef26afed31a",
+      "original_path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/verify_stream_destination_integrated_sources_482.py"
+    }
+  ],
+  "limits": [
+    "The matched total is the sum of two-sample per-query means, not one standard Full43 pass.",
+    "Browser checks cover the in-app browser, desktop and mobile navigation/search; no cross-browser claim.",
+    "Installed-wheel lanes are CI builds; published 0.6.0 artifacts remain unchanged.",
+    "No external-engine fallback or public performance-superiority claim is authorized."
+  ],
+  "new_program_file": false
+}

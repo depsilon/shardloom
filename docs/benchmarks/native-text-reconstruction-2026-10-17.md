@@ -9,8 +9,9 @@ totals improve by more than nine seconds. All 172 complete results and schemas
 match, with no predefined material per-query regression.
 
 This is a matched comparison with two calls per query per build, not one
-standard single-pass Full43 result. The change is fully implemented in the source
-build, with complete local acceptance. Hosted integration remains pending. The
+standard single-pass Full43 result. The change is fully implemented and merged in
+[PR #1567](https://github.com/depsilon/shardloom/pull/1567) at `5bcee25a`, with
+complete local and hosted acceptance. The
 [design and provider contract](../architecture/native-text-validity-2026-10-17.md)
 records the checked construction, ownership and malformed-input boundaries.
 
@@ -120,10 +121,34 @@ launch omitted the existing Arrow test dependency path and stopped during
 fixture generation with zero workload records. Its failure and the corrected
 launch are retained; no engine or harness code changed.
 
-Hosted CI, installed-wheel lanes and final-head review remain separate gates.
 This read-side change does not require another full-size ingestion; the
 accepted native payload is unchanged and has been fully hashed before and
 after the comparison.
+
+## Hosted closeout
+
+All 44 PR checks passed at final head `2adcfc95`. The eight primary jobs were
+verified from complete logs: 6,772 native test executions across the engine and
+provider suites, 1,079 native public checks, and three installed-wheel lanes
+(Ubuntu Python 3.10/3.13 and macOS Python 3.13), each passing all 100 direct tests.
+The 27 established native manual exclusions are unchanged. Final-head review
+reported no findings; no review threads or open PR code-scanning alerts remained.
+
+The final PR head, CI merge tree and actual merge have identical Git trees.
+All 2,411 selected measured source files match the merged runtime; the measured
+build's complete tree differs in later documentation and evidence. Preview and
+production served-source verification covers eight responses each. Production
+HTML contains the explicitly verified Cloudflare script insertion; it is not
+claimed byte-identical. Both browser checks pass desktop/mobile navigation and
+search, without claiming other browsers. The production deployment completed
+for `5bcee25a`. Published 0.6.0 packages remain unchanged.
+
+The [hosted evidence index](evidence/native-text-reconstruction-hosted-2026-10-17.json)
+and [138-member archive](evidence/native-text-reconstruction-hosted-2026-10-17.tar.xz)
+retain the exact logs, source maps, review/deployment metadata and browser checks.
+The 656,120-byte archive has SHA-256
+`801dbe1c72870d7e48a38f93470ac14d52113a6894e46b3299457df7a64e5dd5`.
+This subsequent closeout leaves the original local measurements unchanged.
 
 ## Source and reproduction
 

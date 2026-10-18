@@ -249,6 +249,106 @@ the ledger.
 
 ## Planned
 
+- [ ] `NATIVE-SHARED-EXECUTION-OPTIMIZATION`: material shared-runtime follow-up to
+  PR #1567 under PERF-01/04/05/10.
+  - Source: October 17 maintainer request for the next autonomous optimization
+    batch through validation and merge; [implementation contract](native-shared-execution-2026-10-17.md).
+  - Current state: accepted native reconstruction is merged at `5bcee25a`;
+    current-source profiles identify repeated native type access in text and
+    numeric grouping. The shared dictionary directory screen is dropped after
+    all 48 results pass but its frozen target engine gate fails. The next
+    typed numeric binding passes its focused gate; text binding is dropped after
+    its complete 70-call screen. Compact complete numeric-pair records pass their
+    46-call screen with 5.21% lower Q33 engine time. Group binding is dropped:
+    Q28 improves but unchanged-path Q10 fails the frozen control limit. Next
+    dense canonical string partials also fail their target and Q10 control gates.
+    Q10 inspection finds matching recorded runtime decisions and build settings
+    but does not establish causality. The next separate integer count-map plus
+    group-binding candidate improves targets but fails Q10 consistency and both
+    Q34/Q35 controls; its complete code is dropped and evidence preserved.
+    Preserving state layout with one-write integer hashing and static group
+    preparation also fails its Q34 control in the complete 82-call screen;
+    that candidate is dropped. Direct occupied string-count table entries also
+    fail their 66-call target improvement/consistency gate. Both string-table
+    candidates are removed. The retained numeric binding and compact complete
+    pair records improve the complete 172-call comparison by 1.92%, with both
+    paired totals improved and no material query regression, but fail the
+    unchanged 5% whole-workload gate. The compact shared string directory passes
+    all 90 complete comparisons but improves its target mean total by only 0.45%
+    and fails consistency; its code is removed. Moving native text preparation
+    into the bounded worker grant passes all 98 complete comparisons and reduces
+    Q29 engine time by 39.89%, but fails the frozen CPU-efficiency limit. That
+    candidate is also removed; its measurements and source remain archived.
+    A numeric-only dictionary reduction passes 38 focused tests but excludes the
+    target's UTF8 MIN measure; its screen is stopped and receives no performance
+    credit. Source-index UTF8 extrema pass 39 focused tests, actual canonical
+    SQL admission and all 98 screen calls, reducing the target mean by 12.40%.
+    Its independent Full43 batch improves by 4.21%, with both pairs improved
+    and no material query regression, but fails the original 5% gate. Co-locating
+    native preparation and reduction passes 40 focused tests and all 98 complete
+    results, but fails its resource-efficiency gate and is removed. The maintainer
+    then requests a PR before ingestion work and explicitly accepts improvements
+    greater than 3%. The measured 618 runtime is restored and passes workspace,
+    native, binding, public and format/oracle acceptance. Portable readback
+    preserves all 1,242 complete comparisons, the original failed 5% decision
+    and every rejected experiment. Final-head hosted acceptance remains pending.
+    Ingestion follows this PR, aiming for material native-file size reduction
+    without a fixed percentage target, while checking ingestion cost and query
+    engine time together.
+  - ShardLoom technique review: reuse current PulseWeave/capillary grants and
+    dynamic admission; keep metadata/pruning before canonical text, late
+    materialization, engine timing and evidence-tier controls unchanged.
+  - Execution checklist:
+    - [x] Attribute remaining costs on the merged runtime with complete-result
+      and source checks; preserve the nine diagnostic samples.
+    - [x] Screen the shared dictionary lookup candidate; retain its complete
+      correctness proof and failed performance decision, and drop its code.
+    - [x] Validate and measure native text/numeric binding across shared consumers;
+      preserve every ship/drop decision.
+    - [x] Validate compact complete numeric-pair records and recheck retained
+      numeric binding in the same candidate.
+    - [x] Validate and independently measure bound group identities in the
+      existing typed aggregate block; drop the complete candidate on its failed
+      unchanged-path control gate and preserve all evidence.
+    - [x] Validate and independently measure dense canonical string-count partials;
+      drop the candidate on its failed target/control gates and preserve all evidence.
+    - [x] Investigate the repeated Q10 control difference; preserve its unresolved
+      cause and both rejected candidates without excluding measurements.
+    - [x] Validate and measure separate signed/unsigned count maps with typed
+      group binding; apply the strengthened Q10 target check and unchanged
+      whole-workload acceptance contract.
+    - [x] Validate and screen one-write numeric hashing and statically selected
+      group preparation while preserving the aggregate state representation
+      and final material-gain gate; drop it after the Q34 control fails.
+    - [x] Validate and screen directly occupied string-count table entries;
+      drop them after the target gain and consistency gates fail.
+    - [x] Measure the retained two-mechanism batch across all 43 queries; preserve
+      its complete 172 calls and failed material-gain decision.
+    - [x] Validate and independently screen compact shared string-directory
+      slots; drop the candidate after its improvement/consistency gates fail.
+    - [x] Screen expanded native preparation workers; retain their complete
+      evidence and remove the candidate after its CPU-efficiency gate fails.
+    - [x] Validate and screen dictionary-local reduction with source-index UTF8
+      extrema; retain the component and record the failed Full43 material gate.
+    - [x] Validate and screen co-located native preparation and reduction in
+      the same two workers; remove it after its resource-efficiency gate fails.
+    - [x] Fold compatible Dependabot action pins into this batch; record the
+      structured-format graph deferral and completed merged-branch cleanup.
+    - [x] Complete the frozen all-43-query comparison and regression checks;
+      preserve the failed 5% gate and the maintainer's later explicit acceptance
+      of its 4.21% result under a greater-than-3% bar.
+    - [x] Complete workspace/native, binding/public and format/oracle acceptance.
+    - [ ] Align docs/site, complete hosted review/wheels/deployment, and move the
+      final result to the completed ledger after merge.
+  - Acceptance: greater than 3% lower sum of two-sample per-query engine means
+    under the maintainer's revised decision, improvement in both paired totals,
+    complete values/schemas and no predefined material per-query regression.
+    The original frozen 5% gate remains failed in the historical evidence.
+    Generic type/operator admission only; component resource checks remain.
+  - Boundaries: preserve Vortex-native I/O, false fallback/external-engine fields,
+    existing release versions and all broader PERF/CG obligations. No new
+    benchmark framework or query-specific execution path.
+
 `NATIVE-VARBIN-METADATA-RESOURCES` completes in PR #1563 after all 44 checks
 pass, with unchanged accepted runtime sources, three installed-wheel lanes and
 verified preview/production responses and browser behavior. Its
@@ -3214,7 +3314,7 @@ The subsequent whole-engine check compares all 43 queries on the same input,
 resource policy and compiled-source identities. Two executions per query per
 build give a 0.46% reduction in the sum of per-query means, with no predefined
 material per-query regression. This is a matched comparison, not a fresh
-single-pass Full43 result or a material campaign speedup. The next
+single-pass Full43 result or a material campaign speedup. The subsequent
 [native text validation implementation](native-text-validity-2026-10-17.md) removes
 repeated validation across provider/consumer boundaries. Its fast access requires
 checked native construction; a dtype label alone is insufficient. Keep all 43
@@ -3229,8 +3329,12 @@ with no predefined material per-query regression. The
 retains both comparisons and slower samples. Local acceptance also passes the
 workspace and native-feature gates, all 100 direct binding checks, 4,827 public
 cases and 18 format/workflow cohorts with 704 native and 704 independent oracle
-records. Complete source, result and failure evidence is retained; finish hosted
-CI, installed-wheel checks and review before integration.
+records. PR #1567 is merged at `5bcee25a` after all 44 hosted checks, three
+installed-wheel lanes, final-head review and preview/production verification.
+The [hosted closeout](../benchmarks/native-text-reconstruction-2026-10-17.md#hosted-closeout)
+retains complete source, result, failure and deployment evidence. The next
+shared-runtime optimization is tracked separately above; broader PERF/CG
+obligations remain open.
 
 Keep three production-breadth priorities alongside this campaign: the default
 structural-layout nullable-root correctness follow-up under PERF-07; native

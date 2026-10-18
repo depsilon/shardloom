@@ -79,7 +79,7 @@ impl GroupedAggregateStates<'_> {
                 "local Vortex retained-key selection reservation failed: {error}; no fallback execution was attempted"
             ))
         })?;
-        for_each_aggregate_integer_key(&numeric, "retained source-order key", |_, key| {
+        for_each_aggregate_integer_key(&numeric, None, "retained source-order key", |_, key| {
             selected.push(retained.contains(&(key.bits, key.signed)));
             Ok(())
         })?;
