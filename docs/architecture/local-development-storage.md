@@ -59,11 +59,14 @@ debug cache and, after fresh ingestion and complete acceptance, the superseded
 `fresh-text-aggregation-588-a1.vortex`. The original Parquet, current frozen runtime
 and latest accepted `fresh-roadmap-663-a1.vortex` remain. Compact source/result/failure
 evidence and exact retirement receipts are preserved; storage limits are unchanged.
+This October 18 inventory supersedes earlier payload-residency statements below;
+their source identities and measurements remain historical evidence.
 
 After the [October 17 text aggregation acceptance](../benchmarks/native-text-aggregation-2026-10-17.md),
 the superseded `fresh-native-review-579-a1.vortex` payload is retired after full
 hash, stable-generation, residency and closed-handle checks. The newly accepted
-`fresh-text-aggregation-588-a1.vortex` is byte-identical and remains resident.
+`fresh-text-aggregation-588-a1.vortex` was byte-identical and was retained until
+its October 18 retirement in favor of `fresh-roadmap-663-a1.vortex`.
 The 15,713,610,513-byte duplicate retirement preserves source data, original
 comparison records, failed observations and every storage limit. Both complete
 identities and the cleanup receipt are retained in the batch evidence packet.

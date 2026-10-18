@@ -1477,5 +1477,29 @@
     "queries": 43,
     "engine_execution_seconds": 54.358416752,
     "reason": "Staged whitespace checking caught CRLF in the new readable CSV; earlier unstaged checks omitted this untracked file. Only line endings are normalized; the original runner CSV remains in the fresh-UAT archive. The report adds this disclosure; original archived source snapshots remain immutable."
+  },
+  "storage_inventory_review_correction": {
+    "status": "passed",
+    "review_comment": "https://github.com/depsilon/shardloom/pull/1575#discussion_r4307152814",
+    "source_file": "docs/architecture/local-development-storage.md",
+    "source_sha256": "a764c277652a33921ec1ffb03741559634508f980696e6c8cef1fba7357b3b90",
+    "retired_payload_absent": true,
+    "retained_generations": [
+      {
+        "role": "retained",
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+        "generation_unchanged": true,
+        "bytes": 15713610513
+      },
+      {
+        "role": "original_source",
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "generation_unchanged": true,
+        "bytes": 14779976446
+      }
+    ],
+    "retirement_receipt_sha256": "5bfeedff50f87a5db7a4ff2c927994a62c12027437899a8a322049fd3e87cda9",
+    "verification": "Compared current filesystem generations and retired-path absence with the accepted retirement receipt; no new payload hashing, native execution or benchmark rerun.",
+    "correction": "Earlier residency statements are explicitly historical; the October 17 payload is recorded as retained only until its October 18 retirement."
   }
 }
