@@ -1,0 +1,715 @@
+{
+  "schema_version": "shardloom.native_ingest_text_size_packet.v1",
+  "status": "passed",
+  "base": "77d5b5da9561b04b4c5cb81e94cce07529528cd8",
+  "inventory_artifact": {
+    "bytes": 15713610513,
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-text-aggregation-588-a1.vortex",
+    "sha256": "sha256:06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22",
+    "source_consistency_scope": "caller_frozen_artifact_required;pre_post_path_metadata_guard_not_immutable_snapshot"
+  },
+  "unique_flat_segment_bytes": 15658321452,
+  "remaining_file_bytes": 55289061,
+  "source_zstd_columns": 28,
+  "source_zstd_bytes": 7602132264,
+  "measured_sources": 3265,
+  "immutable_base_sources": 3261,
+  "source_exceptions": 4,
+  "source_identity_preserved": true,
+  "all_members_reopened": true,
+  "profiles": 6,
+  "native_files": 360,
+  "complete_reads": 1080,
+  "predicate_count_checks": 2160,
+  "decision": "all_five_alternatives_rejected_under_frozen_screen",
+  "production_writer_changed": false,
+  "best_sample_physical_bytes": 27657172,
+  "retained_sample_physical_bytes": 44413684,
+  "full_ingest_proven": false,
+  "public_query_dispatch_proven": false,
+  "benchmark_decision": {
+    "schema_version": "shardloom.native_zstd_size_decision.v1",
+    "status": "passed_integrity",
+    "screen": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-ingest-text-screen-629/screen.json",
+      "bytes": 699358,
+      "sha256": "66290455b9309877b4ec97dc0ca2c2618bfa2704a3d83c0d5c3adaeb8c5fedf8"
+    },
+    "preflight": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-ingest-text-screen-629/preflight.json",
+      "bytes": 1045169,
+      "sha256": "26133d800dfae27075ff4b43266cc1e0a2cff11eedb6e618fde6b5d83e724ee4"
+    },
+    "frozen_plan": {
+      "path": "/Users/dylan/.codex/worktrees/native-ingest-text-size/shardloom-local-repo/docs/benchmarks/native-ingest-text-size-2026-10-18.md",
+      "bytes": 5292,
+      "sha256": "aed8cfd5473b11ab3a0de05a23fc90b9880bb97be57d048aef44c0f822a2c2ea"
+    },
+    "baseline": "level_-3_frame_8192_dict_false",
+    "decisions": [
+      {
+        "profile": "level_-3_frame_8192_dict_false",
+        "decision": "retained_control",
+        "values": {
+          "physical_column_bytes": 44413684,
+          "complete_file_bytes": 44514732,
+          "native_write_micros": 336730,
+          "native_read_median_sum_micros": 161188,
+          "positive_filter_median_sum_micros": 126557,
+          "negative_filter_median_sum_micros": 124754
+        },
+        "ratios_to_retained": {
+          "physical_column_bytes": "1",
+          "complete_file_bytes": "1",
+          "native_write_micros": "1",
+          "native_read_median_sum_micros": "1",
+          "positive_filter_median_sum_micros": "1",
+          "negative_filter_median_sum_micros": "1"
+        },
+        "regions": [
+          {
+            "row_group": 0,
+            "baseline_bytes": 7071808,
+            "candidate_bytes": 7071808,
+            "no_growth": true
+          },
+          {
+            "row_group": 113,
+            "baseline_bytes": 23034412,
+            "candidate_bytes": 23034412,
+            "no_growth": true
+          },
+          {
+            "row_group": 225,
+            "baseline_bytes": 14307464,
+            "candidate_bytes": 14307464,
+            "no_growth": true
+          }
+        ],
+        "gates": {
+          "exact_checks_passed": true,
+          "physical_byte_reduction_at_least_30_percent": false,
+          "no_region_grows": true,
+          "aggregate_write_at_most_1_25": true,
+          "repeated_read_at_most_1_05": true,
+          "positive_filter_at_most_1_05": true,
+          "negative_filter_at_most_1_05": true
+        }
+      },
+      {
+        "profile": "level_-3_frame_4096_dict_false",
+        "decision": "drop_failed_frozen_screen",
+        "values": {
+          "physical_column_bytes": 45140064,
+          "complete_file_bytes": 45241112,
+          "native_write_micros": 336797,
+          "native_read_median_sum_micros": 158455,
+          "positive_filter_median_sum_micros": 125878,
+          "negative_filter_median_sum_micros": 126851
+        },
+        "ratios_to_retained": {
+          "physical_column_bytes": "1.016354869368638728550417029",
+          "complete_file_bytes": "1.016317743977432010598199266",
+          "native_write_micros": "1.000198972470525346716954236",
+          "native_read_median_sum_micros": "0.9830446435218502618060897834",
+          "positive_filter_median_sum_micros": "0.9946348285752664807161990249",
+          "negative_filter_median_sum_micros": "1.016809080269971303525337865"
+        },
+        "regions": [
+          {
+            "row_group": 0,
+            "baseline_bytes": 7071808,
+            "candidate_bytes": 7301344,
+            "no_growth": false
+          },
+          {
+            "row_group": 113,
+            "baseline_bytes": 23034412,
+            "candidate_bytes": 23361360,
+            "no_growth": false
+          },
+          {
+            "row_group": 225,
+            "baseline_bytes": 14307464,
+            "candidate_bytes": 14477360,
+            "no_growth": false
+          }
+        ],
+        "gates": {
+          "exact_checks_passed": true,
+          "physical_byte_reduction_at_least_30_percent": false,
+          "no_region_grows": false,
+          "aggregate_write_at_most_1_25": true,
+          "repeated_read_at_most_1_05": true,
+          "positive_filter_at_most_1_05": true,
+          "negative_filter_at_most_1_05": true
+        }
+      },
+      {
+        "profile": "level_-3_frame_4096_dict_true",
+        "decision": "drop_failed_frozen_screen",
+        "values": {
+          "physical_column_bytes": 50814072,
+          "complete_file_bytes": 50915120,
+          "native_write_micros": 3777572,
+          "native_read_median_sum_micros": 178869,
+          "positive_filter_median_sum_micros": 141905,
+          "negative_filter_median_sum_micros": 138636
+        },
+        "ratios_to_retained": {
+          "physical_column_bytes": "1.144108468912418974296300212",
+          "complete_file_bytes": "1.143781344117718152273723674",
+          "native_write_micros": "11.21840049891604549639176789",
+          "native_read_median_sum_micros": "1.109691788470605752289252302",
+          "positive_filter_median_sum_micros": "1.121273418301634836476844426",
+          "negative_filter_median_sum_micros": "1.111274989178703688859675842"
+        },
+        "regions": [
+          {
+            "row_group": 0,
+            "baseline_bytes": 7071808,
+            "candidate_bytes": 7843888,
+            "no_growth": false
+          },
+          {
+            "row_group": 113,
+            "baseline_bytes": 23034412,
+            "candidate_bytes": 27189376,
+            "no_growth": false
+          },
+          {
+            "row_group": 225,
+            "baseline_bytes": 14307464,
+            "candidate_bytes": 15780808,
+            "no_growth": false
+          }
+        ],
+        "gates": {
+          "exact_checks_passed": true,
+          "physical_byte_reduction_at_least_30_percent": false,
+          "no_region_grows": false,
+          "aggregate_write_at_most_1_25": false,
+          "repeated_read_at_most_1_05": false,
+          "positive_filter_at_most_1_05": false,
+          "negative_filter_at_most_1_05": false
+        }
+      },
+      {
+        "profile": "level_3_frame_8192_dict_false",
+        "decision": "drop_failed_frozen_screen",
+        "values": {
+          "physical_column_bytes": 27657172,
+          "complete_file_bytes": 27758220,
+          "native_write_micros": 414018,
+          "native_read_median_sum_micros": 176408,
+          "positive_filter_median_sum_micros": 141389,
+          "negative_filter_median_sum_micros": 140628
+        },
+        "ratios_to_retained": {
+          "physical_column_bytes": "0.6227173589112760832900058459",
+          "complete_file_bytes": "0.6235737867634472111390000057",
+          "native_write_micros": "1.229525138835268612835209218",
+          "native_read_median_sum_micros": "1.094423902523761074025361689",
+          "positive_filter_median_sum_micros": "1.117196204081955166446739414",
+          "negative_filter_median_sum_micros": "1.127242413068919633839395931"
+        },
+        "regions": [
+          {
+            "row_group": 0,
+            "baseline_bytes": 7071808,
+            "candidate_bytes": 4965280,
+            "no_growth": true
+          },
+          {
+            "row_group": 113,
+            "baseline_bytes": 23034412,
+            "candidate_bytes": 12874196,
+            "no_growth": true
+          },
+          {
+            "row_group": 225,
+            "baseline_bytes": 14307464,
+            "candidate_bytes": 9817696,
+            "no_growth": true
+          }
+        ],
+        "gates": {
+          "exact_checks_passed": true,
+          "physical_byte_reduction_at_least_30_percent": true,
+          "no_region_grows": true,
+          "aggregate_write_at_most_1_25": true,
+          "repeated_read_at_most_1_05": false,
+          "positive_filter_at_most_1_05": false,
+          "negative_filter_at_most_1_05": false
+        }
+      },
+      {
+        "profile": "level_3_frame_4096_dict_false",
+        "decision": "drop_failed_frozen_screen",
+        "values": {
+          "physical_column_bytes": 29568640,
+          "complete_file_bytes": 29669688,
+          "native_write_micros": 411960,
+          "native_read_median_sum_micros": 175046,
+          "positive_filter_median_sum_micros": 144201,
+          "negative_filter_median_sum_micros": 143075
+        },
+        "ratios_to_retained": {
+          "physical_column_bytes": "0.6657551758147331349500302654",
+          "complete_file_bytes": "0.6665139082495206306083118730",
+          "native_write_micros": "1.223413417277937813678614914",
+          "native_read_median_sum_micros": "1.085974141995682060699307641",
+          "positive_filter_median_sum_micros": "1.139415441263620344982893084",
+          "negative_filter_median_sum_micros": "1.146857014604742132516793049"
+        },
+        "regions": [
+          {
+            "row_group": 0,
+            "baseline_bytes": 7071808,
+            "candidate_bytes": 5322368,
+            "no_growth": true
+          },
+          {
+            "row_group": 113,
+            "baseline_bytes": 23034412,
+            "candidate_bytes": 14007592,
+            "no_growth": true
+          },
+          {
+            "row_group": 225,
+            "baseline_bytes": 14307464,
+            "candidate_bytes": 10238680,
+            "no_growth": true
+          }
+        ],
+        "gates": {
+          "exact_checks_passed": true,
+          "physical_byte_reduction_at_least_30_percent": true,
+          "no_region_grows": true,
+          "aggregate_write_at_most_1_25": true,
+          "repeated_read_at_most_1_05": false,
+          "positive_filter_at_most_1_05": false,
+          "negative_filter_at_most_1_05": false
+        }
+      },
+      {
+        "profile": "level_3_frame_4096_dict_true",
+        "decision": "drop_failed_frozen_screen",
+        "values": {
+          "physical_column_bytes": 29867088,
+          "complete_file_bytes": 29968136,
+          "native_write_micros": 3867204,
+          "native_read_median_sum_micros": 192277,
+          "positive_filter_median_sum_micros": 157628,
+          "negative_filter_median_sum_micros": 154336
+        },
+        "ratios_to_retained": {
+          "physical_column_bytes": "0.6724749066076121944759187281",
+          "complete_file_bytes": "0.6732183853201677143647635574",
+          "native_write_micros": "11.48458408814183470436254566",
+          "native_read_median_sum_micros": "1.192874159366702235898453979",
+          "positive_filter_median_sum_micros": "1.245509928332688037801148889",
+          "negative_filter_median_sum_micros": "1.237122657389743014252048031"
+        },
+        "regions": [
+          {
+            "row_group": 0,
+            "baseline_bytes": 7071808,
+            "candidate_bytes": 5325632,
+            "no_growth": true
+          },
+          {
+            "row_group": 113,
+            "baseline_bytes": 23034412,
+            "candidate_bytes": 13948064,
+            "no_growth": true
+          },
+          {
+            "row_group": 225,
+            "baseline_bytes": 14307464,
+            "candidate_bytes": 10593392,
+            "no_growth": true
+          }
+        ],
+        "gates": {
+          "exact_checks_passed": true,
+          "physical_byte_reduction_at_least_30_percent": true,
+          "no_region_grows": true,
+          "aggregate_write_at_most_1_25": false,
+          "repeated_read_at_most_1_05": false,
+          "positive_filter_at_most_1_05": false,
+          "negative_filter_at_most_1_05": false
+        }
+      }
+    ],
+    "accepted_production_policy": false,
+    "full_ingest_proven": false,
+    "public_query_dispatch_proven": false,
+    "timing_contract": "Sum one complete native write per sample; independently sum each sample median of three complete reads, positive counts and negative counts. Provider-screen observations are not engine Full43 timings.",
+    "extrapolation": "Text samples do not establish complete-file size reduction; no field name is a runtime policy."
+  },
+  "archive": {
+    "file": "native-ingest-text-size-2026-10-18.tar.xz",
+    "bytes": 491752,
+    "sha256": "9949fb81891a72720644ead6b185972ea2788b0ca867ece1ffab812e32c6b1a6"
+  },
+  "members": [
+    {
+      "name": "formatted-source/scripts/local_uat_storage.py",
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d"
+    },
+    {
+      "name": "formatted-source/scripts/run_local_readonly_proof.py",
+      "bytes": 5379,
+      "sha256": "fe6e2b57ecf9f8b6d6c2f1b648bf9c00e796fb7ae1723b8c2f8612ef104588ca"
+    },
+    {
+      "name": "formatted-source/shardloom-vortex/src/vortex_ingest_zstd_size_bench.rs",
+      "bytes": 16366,
+      "sha256": "cd2b11c69c59bac6c9aa78710a4373ad0df8ffad40ab9b93e22d41c660c1828c"
+    },
+    {
+      "name": "observations/native-ingest-inventory-627/correction.json",
+      "bytes": 891,
+      "sha256": "4ebd9c7174244b17ff44250b118681d9baa88e44de7b361e1dff26dda570a97a"
+    },
+    {
+      "name": "observations/native-ingest-inventory-627/preflight.json",
+      "bytes": 6601,
+      "sha256": "194e92d6b0d79ae5f5880d4548a19a0250a5bd52d3d6ef202264059c2ef39f72"
+    },
+    {
+      "name": "observations/native-ingest-inventory-627/runner.stdout.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "observations/native-ingest-inventory-627b/footer-count-evidence.json",
+      "bytes": 1618,
+      "sha256": "0a072114020b3df9125cb5fc3677fc3b6d19b759320ad78f8ef43342b4cb8542"
+    },
+    {
+      "name": "observations/native-ingest-inventory-627b/preflight.json",
+      "bytes": 7109,
+      "sha256": "c9193c99369d298225ff7072bfd98867a9f0f9c71e1f68600426e0a72712d273"
+    },
+    {
+      "name": "observations/native-ingest-inventory-627b/runner.stdout.json",
+      "bytes": 9193,
+      "sha256": "5b984c22d3e7ad718bc0881e50428affac22d7f6e6b836c557a5541b2c308e32"
+    },
+    {
+      "name": "observations/native-ingest-inventory-627c/attribution.json",
+      "bytes": 1141,
+      "sha256": "4bf7b14258b9e19ba224bf5260ccdc37d35ba306a4fa1f5588d0e77ec625cb01"
+    },
+    {
+      "name": "observations/native-ingest-inventory-627c/preflight.json",
+      "bytes": 7379,
+      "sha256": "7fb4d3fbde780893a3410c83a6f6f00b2024b7a2a404873567833c7a44e9dc42"
+    },
+    {
+      "name": "observations/native-ingest-inventory-627c/report.json",
+      "bytes": 71680,
+      "sha256": "a78777b38a601305f0b1fb080f5317f493cd5f71c0ab9208c9e7c31a53ccca67"
+    },
+    {
+      "name": "observations/native-ingest-inventory-627c/runner.stdout.json",
+      "bytes": 9163,
+      "sha256": "9362a1d87b8f4e72b621907ce5d6dbc69d11f5835f1d85cc3e5909b9272c0675"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/acceptance.json",
+      "bytes": 1263,
+      "sha256": "1dd5b29427246fa95322ae1e5ff3a7002a6661e3972ea3c86d7623b3063a01fd"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/decision.json",
+      "bytes": 11424,
+      "sha256": "b3dd2287e50a0aba38862ac7aa3c93dd57e723b20371a0f6b81c2ed4f0107c12"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/decision.stdout.json",
+      "bytes": 7714,
+      "sha256": "b02de34c5cc1eb6cc4acbda77248e729696473e8b7c0f9fae3a7698d4592ae6a"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/measured-source/docs/architecture/phased-execution-plan.md",
+      "bytes": 282606,
+      "sha256": "2095827e05ca766348f3054857b5ad500e78446b17303a7eda6f3ccbebd7ab91"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/measured-source/docs/benchmarks/native-ingest-text-size-2026-10-18.md",
+      "bytes": 5292,
+      "sha256": "aed8cfd5473b11ab3a0de05a23fc90b9880bb97be57d048aef44c0f822a2c2ea"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/measured-source/index.json",
+      "bytes": 1877,
+      "sha256": "9474a4b7b748d509ea90af82780552692b82500130831f0f672a3b03fcd45d30"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/measured-source/shardloom-vortex/src/vortex_ingest_source_dictionary_bench.rs",
+      "bytes": 30813,
+      "sha256": "3667d2cd0c45b0f1066708ce9318acd6d36da8729dbbde26acd10e8d573e57ec"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/measured-source/shardloom-vortex/src/vortex_ingest_zstd_size_bench.rs",
+      "bytes": 14023,
+      "sha256": "2acb0020b51bf725cc625c9e1d2a13e58510b2857778a40fa72b2e4c9ec94d24"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/measured-source/tracked.patch",
+      "bytes": 1876,
+      "sha256": "31ce7e5bf528dce9d97bdbcb6fe187b1d8fbd21f719053a0874bd55f689a5798"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/preflight.json",
+      "bytes": 1045169,
+      "sha256": "26133d800dfae27075ff4b43266cc1e0a2cff11eedb6e618fde6b5d83e724ee4"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/runner.stdout.json",
+      "bytes": 5977,
+      "sha256": "2b21fea9ee09df4782895086bcb78d2edb65d8c797fc51abfa6b6562bcd639c1"
+    },
+    {
+      "name": "observations/native-ingest-text-screen-629/screen.json",
+      "bytes": 699358,
+      "sha256": "66290455b9309877b4ec97dc0ca2c2618bfa2704a3d83c0d5c3adaeb8c5fedf8"
+    },
+    {
+      "name": "raw/ingest_cli_uat_gated_20261017T121805Z/stdout.json",
+      "bytes": 191516,
+      "sha256": "01b0949b3e4c11b86c40d5ca3adcf0d766d04e59f914c7fdcddcc001edb9556b"
+    },
+    {
+      "name": "raw/readonly-proof-native-ingest-layout-627c/proof.stdout.json",
+      "bytes": 71742,
+      "sha256": "71ad4a984de500ae70fce769716ffb908561964943f8db9cbbace381bed990d0"
+    },
+    {
+      "name": "raw/readonly-proof-native-ingest-layout-627c/receipt.json",
+      "bytes": 10205,
+      "sha256": "7db8b4c5f6a85ed80c2897acec638d2d53876fe2237ab53b1c8b8ce6de92782b"
+    },
+    {
+      "name": "raw/readonly-proof-native-zstd-size-629/proof.stdout.json",
+      "bytes": 394909,
+      "sha256": "fdaec4bdd1d08648c3bb10c1ebb792f803b9ce30847748181bc481e1bc2edc7b"
+    },
+    {
+      "name": "raw/readonly-proof-native-zstd-size-629/receipt.json",
+      "bytes": 6608,
+      "sha256": "ebd939029de5f79c105cbb18426cade9ce5017404a6cf70ef9e6233e3efad35e"
+    },
+    {
+      "name": "source-reconstruction.json",
+      "bytes": 701147,
+      "sha256": "a062eb0030505b2f65ec0b74a04aa26dd10f544c38863b4c3f85a834730827d4"
+    },
+    {
+      "name": "supervision/native-ingest-inventory-627.json",
+      "bytes": 1672,
+      "sha256": "c900d1b9fef3611b6115232ba14255c8cd9aabce7e0c1d1423fb9fcc80df4992"
+    },
+    {
+      "name": "supervision/native-ingest-inventory-627.log",
+      "bytes": 1361,
+      "sha256": "76e1a07212614bae814fd180bed8d9f86d1214e60192e704eb16daac385d093a"
+    },
+    {
+      "name": "supervision/native-ingest-inventory-627b.json",
+      "bytes": 1669,
+      "sha256": "9277e25b06c277403e393daca34486e947243cb1ceab9b6220c1508601a1a93b"
+    },
+    {
+      "name": "supervision/native-ingest-inventory-627b.log",
+      "bytes": 281,
+      "sha256": "c16c2a91a635b1ebf45ec61378934b4082aedd329286ed61799aa896f8006780"
+    },
+    {
+      "name": "supervision/native-ingest-inventory-627c.json",
+      "bytes": 1671,
+      "sha256": "cf6a010403466b788994b0b0dbb5aa146bc732b60f629d25a0e17cbb2c8bbb74"
+    },
+    {
+      "name": "supervision/native-ingest-inventory-627c.log",
+      "bytes": 3343,
+      "sha256": "9406ae53db08d35c2e8c762da3b2abe0ef3117f14fdbac387aa8ed6837248973"
+    },
+    {
+      "name": "supervision/native-ingest-inventory-build-627.json",
+      "bytes": 1724,
+      "sha256": "93f21c4d9ded9a5dec0b75478a0719fcd6059dd4030ad59c89b9e2285e029100"
+    },
+    {
+      "name": "supervision/native-ingest-inventory-build-627.log",
+      "bytes": 2374,
+      "sha256": "31e92dc4967eb31dbeffb66271dee45b295d1a8b64a60592d615d3a5d660b64a"
+    },
+    {
+      "name": "supervision/native-ingest-text-rust-630.json",
+      "bytes": 1896,
+      "sha256": "6169c16aa573ff1e293805f95b7a917837b30e12a412ada8caae9168cc7a86e1"
+    },
+    {
+      "name": "supervision/native-ingest-text-rust-630.log",
+      "bytes": 486085,
+      "sha256": "638a14c5d834d71b1f5fa4d22656dc362572d9e2d2b81f73ac5d5b418e20fd65"
+    },
+    {
+      "name": "supervision/native-ingest-text-rust-630b.json",
+      "bytes": 1894,
+      "sha256": "a8e7ea15dccd51552aca40b5b96d167c3f671386fddf45f215c0dfb7a9933e83"
+    },
+    {
+      "name": "supervision/native-ingest-text-rust-630b.log",
+      "bytes": 192,
+      "sha256": "1b819353985d38eb1452b3ab3e9a3472e9ae9929b749e22ca6fd88b6a18d1fc0"
+    },
+    {
+      "name": "supervision/native-ingest-text-screen-629.json",
+      "bytes": 1893,
+      "sha256": "b56c380f35bc5c7263ef734752403b16117c92a72e9b5ba1ae62360518b85cb1"
+    },
+    {
+      "name": "supervision/native-ingest-text-screen-629.log",
+      "bytes": 341,
+      "sha256": "d777e77af402d777cf2c725e52d59b521132a25e69e171bcf18dfab2a97a97fe"
+    },
+    {
+      "name": "supervision/native-ingest-text-screen-629b.json",
+      "bytes": 1892,
+      "sha256": "6ad9dd9b06dbb21aca17ecfa333cb9aa255000c8ad6fcc0ebee0072759b91304"
+    },
+    {
+      "name": "supervision/native-ingest-text-screen-629b.log",
+      "bytes": 1171,
+      "sha256": "7f137653901e1528e0db11e353d952b86454b259e4f490a716f4b724e272fdfe"
+    },
+    {
+      "name": "supervision/native-ingest-text-screen-check-628.json",
+      "bytes": 1992,
+      "sha256": "ac116428c3f8682de2c0a09df3ffc738d1426ce24f15f34108ca174f0c61fd70"
+    },
+    {
+      "name": "supervision/native-ingest-text-screen-check-628.log",
+      "bytes": 2197,
+      "sha256": "9ef142b6b885dd459fc92ac6bf857b4515abcf6603b28554a807693c5ff96f81"
+    },
+    {
+      "name": "supervision/native-ingest-text-screen-units-628.json",
+      "bytes": 1847,
+      "sha256": "5baed64f8422563ffb7a0f8216d90fd6ff42ea26d536e665ad9dd2230b9c87a4"
+    },
+    {
+      "name": "supervision/native-ingest-text-screen-units-628.log",
+      "bytes": 624,
+      "sha256": "a6155f420c1a8b36d9875045d9993f83d85f67d93f5f551b52c6e37c31b68d39"
+    },
+    {
+      "name": "support/evaluate_ingest_text_screen_629.py",
+      "bytes": 4753,
+      "sha256": "a0abefa729cb7b58f993fe05c55fc679c1a594b519384791bff14d895dba058b"
+    },
+    {
+      "name": "support/inspect_current_ingest_layout_627.py",
+      "bytes": 7133,
+      "sha256": "8b1df540c601e831fba423b2e68eb1c46ed2eb2425ddbeca7242941a9900abdf"
+    },
+    {
+      "name": "support/inspect_current_ingest_layout_627_first.py",
+      "bytes": 6136,
+      "sha256": "6692231976dbc3dca728215cec9b3f2d3ef85731fba64e740e09c0a5f9baedf0"
+    },
+    {
+      "name": "support/inspect_current_ingest_layout_627_second.py",
+      "bytes": 6686,
+      "sha256": "35807b435b0139b5a761466504f1b2c6abdcf438b9a02dddfc7e4b0fa36bbf31"
+    },
+    {
+      "name": "support/native-ingest-text-package-correction-631.json",
+      "bytes": 635,
+      "sha256": "4886bd254fd03ee9408d2538719d727f824005eb9591aaedd398619f1951e624"
+    },
+    {
+      "name": "support/native-ingest-text-rust-results-630.json",
+      "bytes": 1694,
+      "sha256": "3aec2ee8711ef7fbf00f0eb4385fd78e9ce5368931eef6b4fb623eddf16f1443"
+    },
+    {
+      "name": "support/native-ingest-text-rust-results-630b.json",
+      "bytes": 2668,
+      "sha256": "fa4f0aff3b0f4f9cf9e1482b048eec0d82192ea1468d2b9aad3224097d487d0c"
+    },
+    {
+      "name": "support/native-ingest-text-screen-format-bridge-630.json",
+      "bytes": 1093,
+      "sha256": "b0e5fe85df3642664315cf061a18b72cfe54947c71c6ba59319f654bbf2bb77f"
+    },
+    {
+      "name": "support/native-ingest-text-screen-lint-bridge-630b.json",
+      "bytes": 1272,
+      "sha256": "3fc0fe22db2ca42473faba78d304500df18817316c3ec6af90e83761bceb15f4"
+    },
+    {
+      "name": "support/native-ingest-text-screen-measured-sources-628.json",
+      "bytes": 1042254,
+      "sha256": "d89c203ecb5af606f26ea69bc2435d7565fe538edcc93b089589652a5c0f1b16"
+    },
+    {
+      "name": "support/native-ingest-text-screen-preflight-correction-629.json",
+      "bytes": 893,
+      "sha256": "d767ac5371f0db556f943d77daebf45012a3d3bfc3fa3e48805df30fd92063fc"
+    },
+    {
+      "name": "support/package_ingest_text_screen_631.py",
+      "bytes": 15472,
+      "sha256": "d4ba2892fab4d8f58a6bb6cacec2054ec74497f891a9dedc2516ea33c38fc161"
+    },
+    {
+      "name": "support/package_ingest_text_screen_631_first.py",
+      "bytes": 15218,
+      "sha256": "25cb96d4950b979898e83476b615535b250ce436c03c973b3787e6ed750e0f5a"
+    },
+    {
+      "name": "support/run_ingest_text_screen_629.py",
+      "bytes": 7176,
+      "sha256": "df9737f6d56b1dba089c5efb287a4213419ee0d075a71e6ee7d8f80457ed334c"
+    },
+    {
+      "name": "support/run_ingest_text_screen_629_first.py",
+      "bytes": 6900,
+      "sha256": "4d7ffc31f9f2cd245d92d6496e67a1e68b6f43b6edabaa38a34c181dd76840c7"
+    },
+    {
+      "name": "support/verify_ingest_text_format_bridge_630.py",
+      "bytes": 2082,
+      "sha256": "16b92bb40b5aa49af504fb122905df002edd6da7994e818b6b2415e81ace5fb5"
+    },
+    {
+      "name": "support/verify_ingest_text_lint_bridge_630b.py",
+      "bytes": 2725,
+      "sha256": "b9819d6cf0f56fea4b9dcd086b1467569d79d7f4560426a2b5e37876f5fc46c7"
+    },
+    {
+      "name": "support/verify_ingest_text_rust_630.py",
+      "bytes": 1898,
+      "sha256": "9f588d77a66d0313051f7d0c7af2136745f11c85d3827cb2a96f1b56d62249d8"
+    },
+    {
+      "name": "support/verify_ingest_text_rust_630b.py",
+      "bytes": 2046,
+      "sha256": "1c00134203d40f499cd06c92fb7bc3c8b956b1c099f0283d161a24d99b71bdc0"
+    }
+  ],
+  "limits": [
+    "Structured text samples are not whole-artifact reductions.",
+    "Native provider costs are not Full43 engine times or public query dispatch.",
+    "Footer statistics match the retained writer, without an independent source-statistics oracle.",
+    "The admitted native pool is not a process RSS bound.",
+    "Large inputs and binaries stay local; the packet retains identities and source reconstruction."
+  ]
+}

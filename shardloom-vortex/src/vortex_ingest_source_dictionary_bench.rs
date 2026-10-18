@@ -750,6 +750,9 @@ fn write_and_verify_column(
 #[path = "vortex_ingest_source_fsst_bench.rs"]
 mod fsst_screen;
 
+#[path = "vortex_ingest_zstd_size_bench.rs"]
+mod zstd_size_screen;
+
 fn hex_digest(bytes: &[u8]) -> String {
     use std::fmt::Write as _;
     let mut result = String::with_capacity(bytes.len() * 2);

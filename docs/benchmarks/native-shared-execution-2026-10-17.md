@@ -14,8 +14,10 @@ gate, measurements and later acceptance decision are separate records. No
 measurements were repeated or substituted to meet the revised bar.
 
 This is a two-sample matched comparison, not a standard single-pass Full43
-result. Local acceptance and portable evidence readback pass; final-head hosted
-checks remain merge gates. The
+result. Local acceptance, portable evidence readback and hosted acceptance pass.
+[PR #1571](https://github.com/depsilon/shardloom/pull/1571) is merged at
+`d2e6867d466e1871e45aa72a7e5eadc5525ea133`; the [hosted closeout](#hosted-closeout)
+records the completed checks and production verification. The
 [implementation contract](../architecture/native-shared-execution-2026-10-17.md)
 records each experiment, admission decision and rejection. Published 0.6.0
 packages and the broader PERF and CG-1 through CG-23 obligations are unchanged.
@@ -128,7 +130,7 @@ cohorts: 704 native workflow records and 704 pandas reference records. It checks
 all eight inputs with collected output and CSV input with all eight outputs,
 in both raw and prepared form, across all 22 workflows; it does not claim every
 input/output combination. Installed-wheel, final-head CI/review and hosted
-deployment proof remain separate merge gates.
+deployment gates also pass, with their separate proof recorded below.
 
 The control is the accepted native text reconstruction implementation merged
 in PR #1567 at `5bcee25a`; its measured build is `9ffac6b7` with unchanged
@@ -234,3 +236,34 @@ raw integer clock remains in the paired evidence.
 | Q41 | 0.4100912925 | 0.2923731465 |
 | Q42 | 0.1847365205 | 0.1918259585 |
 | Q43 | 0.195854042 | 0.1995048115 |
+
+## Hosted closeout
+
+PR #1571 merges at `d2e6867d466e1871e45aa72a7e5eadc5525ea133` after all 44
+checks pass on reviewed head `77d5b5da9561b04b4c5cb81e94cce07529528cd8`.
+The reviewed, synthetic-test and merged trees match, preserving all 2,412
+selected source identities. Automated review covers the final head with no
+findings; no unresolved review threads or open PR-scoped code-scanning alerts
+remain. The premerge and postmerge records retain the exact checks and review
+coverage rather than infer them from the merge button.
+
+The [194-member hosted packet](evidence/native-shared-execution-hosted-2026-10-17.json)
+retains complete primary-job logs and verifies 6,784 native/provider test
+executions, including all twelve new native tests, with 27 declared manual
+exclusions. Native public-surface tests pass 1,079 executions. Three installed
+wheel lanes each pass 100 methods with zero skips and complete uninstall checks.
+These are execution counts across configurations, not unique-test counts.
+
+All sixteen preview/production response checks preserve reviewed source;
+production responses with Cloudflare instrumentation retain the insertion
+separately. Current desktop-app-panel and 375-pixel mobile checks pass for the
+updated text, search and navigation, with no console warnings/errors or mobile
+horizontal overflow. This is in-app-browser verification, not cross-browser
+coverage. Production deployment completes for the actual merge revision.
+
+Every hosted archive member is reopened and checked. The original local
+archives, rejected experiments, failed 5% decision and later greater-than-3%
+acceptance remain unchanged. No query was rerun for closure and no package was
+published. All 38 action-pin updates from Dependabot #1553 are verified in the
+merge; that superseded PR is closed. The structured-format dependency graph
+change in #1513 remains deferred under its existing compatibility boundary.
