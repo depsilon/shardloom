@@ -74,6 +74,10 @@ const DEFAULT_CONCURRENCY: usize = 8;
 #[async_trait]
 pub trait LayoutReaderFactory: 'static + Send + Sync {
     /// Opens the layout reader, or returns `None` if it should be skipped.
+    #[allow(
+        clippy::double_must_use,
+        reason = "async_trait adds must_use to an already must-use boxed future"
+    )]
     async fn open(&self) -> VortexResult<Option<LayoutReaderRef>>;
 }
 

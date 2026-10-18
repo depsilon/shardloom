@@ -1,4 +1,4 @@
-# ShardLoom file-statistics patch
+# ShardLoom native layout patches
 
 This directory contains the reviewed Apache-2.0 `vortex-layout` 0.85.0 registry
 source. `upstream-provenance.json` records the authoritative archive, original
@@ -24,11 +24,24 @@ must reserve retained state and footer workspace, prove owner release and
 budget refusal, verify complete write/reopen values, and pass the frozen
 lifecycle cost gate before claiming acceptance.
 
-The `native_vortex_tests` CI lane also runs the seven private accumulator
-regressions through this excluded crate's standalone test target. It seeds the
+The nullable structural-reader correction in `src/layouts/struct_/reader.rs`
+uses native mask expressions and a private validity partition. It preserves
+whole-record DTypes, masks field access before null-sensitive expressions, and
+keeps nullable predicate pruning conservative. The non-nullable partition path
+is retained. Its contract and acceptance are tracked in
+`docs/architecture/native-nullable-layout-2026-10-18.md`.
+
+The `native_vortex_tests` CI lane runs this excluded crate's complete library
+test target, including the accumulator and nullable structural-reader
+regressions, plus strict library Clippy. It seeds the
 ignored crate-local lockfile from the workspace lockfile, applies the reviewed
 `vortex-array` patch and enables the provider's test harness and local runtime.
 Cargo resolves additional upstream test-only dependencies for that target;
 production resolution remains the root workspace's locked graph. The ordinary
 ShardLoom tests separately exercise the linked provider through real native
 writers, readers and resource ownership.
+
+Five existing async trait declarations have method-local lint annotations for
+`async_trait` 0.1.89's generated, redundant `must_use` attributes on boxed
+futures. This permits the standalone strict Clippy target without suppressing
+other warnings or changing their behavior.

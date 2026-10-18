@@ -1,0 +1,122 @@
+{
+  "schema_version": "shardloom.native_nullable_layout_evidence.v1",
+  "status": "passed_local_evidence_packaged",
+  "base_commit": "d885d49f568b83df7e64cfa68cb7e8e56a127605",
+  "source_files": 2416,
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-nullable650a1.json",
+    "bytes": 315804,
+    "sha256": "b60ed54c3e7b08982477c7fea8b671314da902afd8ed80207b911b694f9c14cc"
+  },
+  "artifact_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-nullable650a1.json",
+    "bytes": 317162,
+    "sha256": "43df62b88bf0b8748a91de6776ce711f7732bdbf4bf177ed54a4da1643df0d86"
+  },
+  "frozen_contract_copy": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-acceptance-contract-650.md",
+    "bytes": 5258,
+    "sha256": "c7748b4d95c3b14a6ee42c1bd74420ea728372e79fe6e33ad15a9870441e1443"
+  },
+  "member_count": 27939,
+  "raw_bytes": 371712744,
+  "archives": {
+    "native-nullable-layout-2026-10-18.tar.xz": {
+      "file": "native-nullable-layout-2026-10-18.tar.xz",
+      "bytes": 1624116,
+      "sha256": "e850c9ec60cc7e397e3718121a953c0204a4fd2639e167fef45a61704ffdfeeb",
+      "raw_bytes": 83761411,
+      "member_count": 9093
+    },
+    "native-nullable-layout-2026-10-18.part-2.tar.xz": {
+      "file": "native-nullable-layout-2026-10-18.part-2.tar.xz",
+      "bytes": 1079684,
+      "sha256": "2fb0a253f177f19af6033e91943299d76fda66ff04f4f79587f4ee54ef644694",
+      "raw_bytes": 83847856,
+      "member_count": 2921
+    },
+    "native-nullable-layout-2026-10-18.part-3.tar.xz": {
+      "file": "native-nullable-layout-2026-10-18.part-3.tar.xz",
+      "bytes": 595048,
+      "sha256": "757cc9bd9dde1053793088e27f495f66f774f2fbf117d24c017c90f581f16d28",
+      "raw_bytes": 83713943,
+      "member_count": 261
+    },
+    "native-nullable-layout-2026-10-18.part-4.tar.xz": {
+      "file": "native-nullable-layout-2026-10-18.part-4.tar.xz",
+      "bytes": 20516400,
+      "sha256": "dc75cf9fd45c525ffb0935aab7ca046c222163b09c1da0429ab1d1154bc13a05",
+      "raw_bytes": 83885155,
+      "member_count": 13769
+    },
+    "native-nullable-layout-2026-10-18.part-5.tar.xz": {
+      "file": "native-nullable-layout-2026-10-18.part-5.tar.xz",
+      "bytes": 3956396,
+      "sha256": "626f3fc6b40da4e84886168ab8c48567db128ed9be5c3fea8d82f66bcd88a6bc",
+      "raw_bytes": 36504379,
+      "member_count": 1895
+    }
+  },
+  "all_members_reopened": true,
+  "test_inventory": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-test-inventory-652.json",
+    "bytes": 123234,
+    "sha256": "70ff54ac6150005701e2d8792a862b91b34a07fc12216377a1c56afd855f7e5d"
+  },
+  "acceptance": {
+    "rust_test_executions": 8810,
+    "rust_ignored": 28,
+    "direct_tests": 100,
+    "public_cases": 4827,
+    "public_families": 36,
+    "full43_calls": 43,
+    "modular_cohorts": 18,
+    "native_workflows": 704,
+    "independent_oracle_records": 704
+  },
+  "public_reopened": {
+    "cases": 4827,
+    "families": 36,
+    "compressed_json_files": 13004,
+    "value_files": 4495,
+    "compressed_stored_bytes": 45901478,
+    "decoded_raw_bytes": 422411736,
+    "expected_rows": 39979,
+    "envelopes": 6330,
+    "pressure_files": 45,
+    "pressure_rows": 1578741,
+    "predeclared_value_entries": 39,
+    "subquery_predeclared_kind_shapes": 108,
+    "dynamic_predeclared_kind_shapes": 72,
+    "baseline_controls": 32
+  },
+  "full43_review": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-full43-review-650.json",
+    "bytes": 33803,
+    "sha256": "3adf0548ff30ea6eec4e576f419a328c9602ef81b2d4429d2a3b6addc312afe6"
+  },
+  "full43_engine_seconds": 52.266268995,
+  "modular_review": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-modular-review-651.json",
+    "bytes": 11072,
+    "sha256": "a0cc20f763b9c88579942b7601329920b0c43f0e410d59118b76a35de62715d7"
+  },
+  "limitations": [
+    "Scoped nullable structural-layout correctness and private native-run readback; broader PERF and CG gates remain open.",
+    "Full43 is one retained-native regression pass with uncontrolled OS cache state, not a comparative performance claim.",
+    "Format/workflow coverage is a finite eight-input/eight-output star, not the full input-output Cartesian product.",
+    "Memory admission is not a whole-process RSS ceiling; private run-store fixtures admit no new public spill family.",
+    "Bulk inputs, binaries and public output files are excluded with exact identities; complete result evidence is retained.",
+    "Hosted integration, installed-wheel lanes and final-head checks are recorded separately."
+  ],
+  "source_identity_preserved": true,
+  "publication_attempted": false,
+  "performance_claim": false,
+  "hosted_integration_complete": false,
+  "manifest": {
+    "file": "native-nullable-layout-2026-10-18.manifest.json.xz",
+    "bytes": 1073408,
+    "sha256": "687ddbfb123fb28a8bb096b5d43e7dd4bf7a34e89a9a296f2c2a645f8ff1b2cb",
+    "raw_sha256": "566a8d70818164d3e96ac78f136ef0328ba8dfd0491b469e988c70425f0f0198"
+  }
+}

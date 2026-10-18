@@ -14,8 +14,12 @@ decision are preserved. Each pass below sums one execution of each of the
 43 queries; the mean combines the two matched passes.
 
 Workspace/native gates, the direct Python binding, all public workflows and
-the complete format/oracle matrix pass. Final-head hosted checks, installed-wheel
-acceptance and deployment proofs are recorded separately. The
+the complete format/oracle matrix pass.
+[PR #1573](https://github.com/depsilon/shardloom/pull/1573) is merged at
+`9dd72db9` after all 44 final-PR-head checks, review and three installed-wheel
+lanes pass; preview/production verification also passes. The separate
+[hosted packet](evidence/native-text-scan-hosted-2026-10-18.json) records this
+closure. The
 [implementation contract](../architecture/native-shared-speed-2026-10-18.md)
 retains both this mechanism and the rejected mixed-key experiment. Broader
 PERF and CG-1 through CG-23 obligations remain open.
@@ -176,3 +180,37 @@ Both release executables use `release-user-surfaces` and Vortex 0.85.
 
 No dependency, external execution engine, compatibility fallback, input rewrite,
 package publication or release is introduced by this change.
+
+## Hosted integration and merge
+
+The final reviewed head is `f9f7a245cc1ba3f80284588a4cd05062435d83f5`;
+the merge is `9dd72db9ea932c72de70c5790512082e0cd821ff`. All 44 checks pass
+on that final PR head. Automated review completes on the same commit with no
+findings, review threads or open PR code-scanning alerts. Reviewed, synthetic-test
+and merged Git trees are identical. All 2,415 selected source files also match
+the measured build and complete local acceptance byte-for-byte.
+
+Eight complete hosted job logs are independently checked. They include 6,793
+native/provider test executions with 28 explicitly ignored manual cases, all
+seven new text-scan tests, and 1,079 public CLI tests. Each of the macOS Python
+3.13, Ubuntu Python 3.13 and Ubuntu Python 3.10 wheels passes all 100 native
+binding methods without skips after isolated installation; library/CLI identity,
+load and uninstall checks also pass. These are CI-built wheels, not a new public
+package release.
+
+All eight preview and eight production responses preserve their committed
+source, permitting only the recorded bounded Cloudflare insertion. Their
+deployment checks pass on the reviewed and merged revisions respectively.
+Desktop and verified 375-by-844 mobile layouts, navigation and search pass with
+no console warnings or errors; temporary viewport overrides are restored.
+The unapplied first production viewport attempt is retained and receives no
+mobile acceptance credit. Browser coverage is limited to the current in-app
+browser, not cross-browser certification.
+
+The [hosted index](evidence/native-text-scan-hosted-2026-10-18.json) and
+[archive](evidence/native-text-scan-hosted-2026-10-18.tar.xz) retain 186 reopened
+members with exact hashes, including raw logs, review state, source identities,
+served responses and browser observations. The archive SHA-256 is
+`509543153dd3d43b0b658f52d5a739eaf934d570739191416f519acf4c1fc500`.
+This post-merge record adds no timing samples and changes no original comparison
+or acceptance rule. Broader PERF and CG obligations remain open.
