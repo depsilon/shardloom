@@ -267,7 +267,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
 - ShardLoom technique review: evaluate PulseWeave, capillary work units, dynamic admission/work shaping, metadata-first work avoidance, late materialization, timing-surface separation and evidence tiers for each concrete family. Record actual activation; descriptor fields alone are not execution proof.
 - Evidence and acceptance: exact complete values, logical types, NULL/bag/order semantics, source identity, resource credits, cancellation/failure/cleanup and actual work/copy/decode counters. Preserve `fallback_attempted=false` and `external_engine_invoked=false`; Vortex stays the native persistence target and compatibility formats remain explicit translation boundaries.
 - Performance: freeze current workload, mechanism, samples, controls and retain/drop threshold before timing. The latest prospective speed target is at least 2% of complete-workload engine time, subject to correctness, repeatability and resource/control gates. Do not relax historical gates, combine unrelated gains or infer a whole-engine gain from a focused cohort. Routine Full43 timing is the sum of `engine_execution_seconds` for one call to each query.
-- Verification: choose exact Rust library/binary/integration targets and Python test selectors from changed symbols; run `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` for nontrivial implementation, plus applicable native/provider/public matrices. Complete Full43/format acceptance at coherent batch boundaries under local storage/process guards.
+- Verification: run the [owner-specific commands and named evidence outputs](native-roadmap-verification-contracts-2026-10-18.md), add exact regression selectors for new behavior, and reject zero-test results. Run `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` for nontrivial implementation, plus applicable native/provider/public matrices. Complete Full43/format acceptance at coherent batch boundaries under local storage/process guards.
 - User-visible surfaces: shared CLI/Python/SQL/DataFrame behavior, native/compatibility outputs, diagnostics/certificates, documented support and workload evidence. Align affected docs/site/capabilities and hosted installed-wheel checks before claiming integration.
 - Non-goals and claims: no fallback engines, unapproved effects/dependencies, package publication, global-RSS promises, or unsupported superiority/production claims. `claim_gate_status=not_claim_grade` until the corresponding workload and release gates pass.
 - Ledger rule: close a finite substep only with implementation/diagnostics, tests and linked acceptance. Move completed narrative to the completed ledger; leave broader owners open. A conditional item is pending evidence, not a dropped or completed obligation.
@@ -285,7 +285,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-01.attribution` Attribute exclusive engine/operator spans and overlapping worker work for measured hotspots; retain raw cost and negative-control evidence without treating summed work as elapsed time.
     - [ ] `PERF-01.numeric_bridge` Resolve the legacy reader-generated BitPackedUnsigned contract: distinguish unpacked test/descriptive values from executable packed-provider buffers, preserve callable behavior and report actual decode/ownership bytes. The old expansion helpers are currently test-only; do not claim a production hot-path defect without a caller.
   - Next outcome: A named current-source cost signal and a truthful boundary for each selected candidate.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-01 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-01); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-03` complete shared resource ownership and bounded scheduling.
   - V1 scope classification: `required_for_v1`.
@@ -299,7 +299,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-03.regions` **Conditional.** For a newly justified topology candidate, discover generation-bound natural regions independently of worker count and run them through bounded Capillary admission. Prove complete coverage, original batch boundaries, skew progress, ordered handoff, cancellation and drain before measuring reductions or ordered candidates.
     - [ ] `PERF-03.mixed_load` Exercise queue bytes, state growth denial, worker reuse and cancellation under mixed jobs and retained-result pressure; distinguish native credits from caller/Python/library retention and whole-process memory.
   - Next outcome: A bounded owner or deterministic denial for each newly admitted provider allocation, with actual scheduling and drain proof.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-03 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-03); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-06` finish native pressure transitions and recovery.
   - V1 scope classification: `required_for_v1`.
@@ -315,7 +315,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-06.rematerialization` **Conditional.** Conditional investigation: compare retain/spill/regenerate for the already observed reclaimable derived owners. First pin whole-dependency reconstruction cost, lifetime/revocation, headroom and bounded regeneration; preserve zero-reclaim alias/key/constant controls.
     - [ ] `PERF-06.merge_cost` **Conditional.** Conditional investigation: capture actual spill-run sizes and stable lineage, then compare adjacent cost-aware merge schedules within reader, memory and disk-overlap grants. Preserve stable adjacency and all complete outputs; an ordering-spill connection is not this experiment.
   - Next outcome: Complete exact supported workloads under the caller’s memory/storage policy, beginning with remaining membership/population families.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-06 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-06); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-07` complete owned result and publication contracts.
   - V1 scope classification: `required_for_v1`.
@@ -330,7 +330,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-07.transfer_lifetime` Preserve the completed reuse of accepted native transfers/prepared sources across later operations. Admit immutable cross-owner sharing only after explicit receiving charges, generation identity, lifetime/revocation and isolation proof; retain the accepted isolated-copy route.
     - [ ] `PERF-07.output_windows` **Conditional.** Conditional investigation: compare byte-credited producer/consumer overlap with the current native/transport acknowledgement path. Establish a current complete-workflow queue bottleneck first; include slow/failing consumers, bounded queues, cancellation and provisional completion.
   - Next outcome: Generation-checked output replacement and recoverable publication, with explicit single-file versus multi-destination guarantees.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-07 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-07); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-10` extend shared physical planning and avoided work.
   - V1 scope classification: `required_for_v1`.
@@ -351,7 +351,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-10.multiway_joins` **Conditional.** Conditional investigation: compare a native compatible-domain multiway strategy with existing binary joins, including first-use preparation and exact multiplicity/NULL/order semantics. Use an independently specified workload and ordinary-join controls before production selection.
     - [ ] `PERF-10.learned_indexes` **Conditional.** Conditional investigation: identify a large ordered structure with repeated search cost, then certify bounded-error prediction plus exact correction against ordinary search. Include construction, memory, distribution shifts and nonbenefiting controls.
   - Next outcome: Concrete missing operator/type contracts and exact work avoidance through existing native providers.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-10 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-10); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-02` finish prepared execution and measured reuse.
   - V1 scope classification: `required_for_v1`.
@@ -366,7 +366,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-02.physical_cache` **Conditional.** Conditional investigation: show repeated reconstruction of physical state rather than repeated references to a live owner. Compare admission/reuse/eviction with exact generation identity, retained bytes and reconstruction cost.
     - [ ] `PERF-02.changed_source` **Conditional.** Conditional investigation: identify verifiably reusable regions across changed generations with exact layout/encoding identity and source validation, then compare complete preparation/use. Preserve hard generation rejection until the changed-region proof exists.
   - Next outcome: Remaining admitted families use the same typed prepared boundary; a builder change requires material complete-workflow overhead.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-02 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-02); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-11` certify bounded ingest-to-result composition.
   - V1 scope classification: `required_for_v1`.
@@ -379,7 +379,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-11.envelope` Validate declared input/output/memory/queue envelopes under pressure, cancellation, late input failure and slow consumers, including remaining operator/type compositions. Keep original caller owners, finite-completion semantics and unobserved providers explicit.
     - [ ] `PERF-11.latency` Extend separately measured p50/p95/p99 to newly admitted families and the remaining bulk-load envelope, including validation/intake/queue/result stages and native, worker, Python and fresh-process surfaces. Preserve actual execution/invalidation and report engine time for routine query comparisons.
   - Next outcome: An explicit supported composition envelope with complete results and resource/failure evidence.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-11 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-11); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-04` complete shared aggregate workers and deterministic reduction.
   - V1 scope classification: `required_for_v1`.
@@ -394,7 +394,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-04.semantics` Prove every admitted state’s stable merge order, complete keys, source identity, NULL/tie/offset/limit, integer overflow and floating evaluation policy under skew at 1/2/4/8/12 workers; generic row-count scheduling is insufficient.
     - [ ] `PERF-04.utilization` Measure actual kernel/merge work and worker idle/starved/backpressure time through the shared observer; remove superseded scheduling only after the retained candidate passes its complete-operation and control gates.
   - Next outcome: Actual shared-worker execution for a coherent remaining state family with complete semantic controls.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-04 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-04); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-05` complete exact key ownership and pressure behavior.
   - V1 scope classification: `required_for_v1`.
@@ -409,7 +409,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-05.validation` Prove nulls, all-unique and duplicate-heavy keys, skew, composites and non-URL workloads against decoded references, including already retained Q17/Q29/Q33/Q35-style kernels and unsupported layouts.
     - [ ] `PERF-05.nested_identity` **Conditional.** Conditional investigation: measure repeated recursive nested-key work, then compare shared identities after charging canonicalization, collision resolution, representatives and row mapping. Preserve exact nested equality and nonrepeating controls.
   - Next outcome: Domain-safe exact keys across all admitted transitions with delayed string materialization and bounded retained state.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-05 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-05); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-08` remove measured ingestion representation duplication.
   - V1 scope classification: `required_for_v1`.
@@ -422,7 +422,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-08.duplication` Inventory repeated representations and traversal/conversion work, then remove only measured duplication. For dictionary-lifted derived columns, require a real dictionary/native metadata seam and prove unique transforms/code replay plus NULL/Unicode/temporal parity; preserve source preflight and retained layout.
     - [ ] `PERF-08.stages` Attribute real normalization, derived build, metadata, codec, writer-feed, write and commit CPU/wait spans; report actual queue/backpressure, stage throughput, bytes/segments/compression and no-fallback evidence without double-counting overlapping work.
   - Next outcome: A measured same-generation duplicate representation or transform removed without weakening validation.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-08 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-08); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-09` cost physical layout and bounded ordered writing.
   - V1 scope classification: `required_for_v1`.
@@ -437,7 +437,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-09.design` **Conditional.** After region evidence, cost preparation jointly for storage, ingest, schedulable topology, pruning, encoded work and merge. Cover small, wide-text, large-numeric, dictionary-heavy, unknown-row-count and constrained-memory planner inputs.
     - [ ] `PERF-09.lifecycle` Validate same-source durable ingestion, single-file integrity/atomicity and first/repeated downstream use for every retained writer change. Apply the existing size/ingest/query gate and preserve source validation, statistics and no-fallback evidence.
   - Next outcome: A justified layout or pipeline change with complete durable-ingest and downstream-query economics, or an evidenced drop.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-09 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-09); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-12` complete workload, platform and comparative acceptance.
   - V1 scope classification: `required_for_v1`.
@@ -453,7 +453,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-12.support` Prove ordinary and benchmark resource envelopes, late failure, slow consumers, cancellation, cleanup/recovery and actual supported OS/architecture runtimes. Record observed resources/RSS and scoped support, known issues, compatibility, upgrade/rollback and install evidence; builds alone are not platform-runtime acceptance.
     - [ ] `PERF-12.comparisons` Record complete outputs, paired uncertainty and non-ClickBench benefit for retained performance changes; separate engine clocks from transport/ingest/storage and preserve all failures and samples. CG-5/6 and claim gates remain mandatory.
   - Next outcome: Complete the remaining source/type/operator workflows and declared platform/resource envelopes; preserve independent correctness and matched comparative evidence for every new claim.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-12 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-12); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `PERF-13` evaluate profile-guided compilation only when justified.
   - V1 scope classification: `v1_candidate_pending_feasibility`.
@@ -465,7 +465,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
   - Execution checklist:
     - [ ] `PERF-13.pgo` **Conditional.** Establish material remaining instruction/dispatch cost, then freeze representative/held-out training, compilation/transfer break-even and portable-package correctness gates. Retain PGO only on measured complete-workflow benefit; otherwise record the drop.
   - Next outcome: A reproducible retained benefit or a recorded reasoned drop with unchanged runtime semantics.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [PERF-13 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-13); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 - [ ] `NATIVE-ENCODED-EXCHANGE` extend native execution across process and transport boundaries.
   - V1 scope classification: `v1_candidate_pending_feasibility`.
@@ -480,7 +480,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `NATIVE-ENCODED-EXCHANGE.experiment` **Conditional.** Implement a bounded producer → transport → receiver → real downstream native operation with equivalent semantics/security/resources and complete error/cleanup behavior. Freeze and measure wire bytes, sender/receiver CPU, copies/materialization, memory and complete downstream cost against optimized Arrow/Flight and ordinary Vortex IPC.
     - [ ] `NATIVE-ENCODED-EXCHANGE.clients` Prove ordinary Flight SQL client interoperability and explicit native client selection, then align README, field guide, capabilities, execution evidence and hosted checks before closing only the accepted scope.
   - Next outcome: A reviewed protocol and one bounded producer-to-real-native-consumer experiment with matched Arrow/Flight and ordinary Vortex IPC controls.
-  - Acceptance/verification: the common contract above plus the exact family/protocol controls named in the checklist; preserve original experiment gates and links in the reconciliation.
+  - Acceptance/verification: the common contract and [NATIVE-ENCODED-EXCHANGE commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#native-encoded-exchange); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 ### Breadth and later roadmap coverage
 

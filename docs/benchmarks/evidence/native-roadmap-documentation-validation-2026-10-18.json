@@ -1,4 +1,9 @@
 {
+  "source_identity_scope": "The original checks and final_source_identities describe initial PR head a456b42ff6e9eb7a972d51c0c126bc5b41de7330. The owner-verification follow-up below records the subsequent review correction without rewriting that evidence.",
+  "verification_contract_followup": {
+    "file": "native-roadmap-verification-contracts-2026-10-18.json",
+    "sha256": "d6f4714d688b7e413f67a434082b2506c9dbb52db46e12d8d9d198108e29c8de"
+  },
   "schema_version": "shardloom.native_roadmap_documentation_validation.v1",
   "status": "passed",
   "checks": [
