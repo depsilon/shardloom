@@ -77,7 +77,9 @@ cargo clippy -p shardloom-cli -p shardloom-vortex --all-targets --features relea
 
 The native Vortex test lane also runs the full library tests and strict library lints for the reviewed
 array, file, FSST, RunEnd and Zstd patches, plus the bounded file-statistics provider's
-private regressions. Each excluded test crate starts from the workspace lockfile;
+private regressions. The layout and file providers also lint their test targets,
+so fixture diagnostics and ownership patterns receive the same strict lint gate.
+Each excluded test crate starts from the workspace lockfile;
 the encoding/layout crates use the reviewed array patch, and the file crate uses
 the reviewed array and layout patches. Additional upstream
 development dependencies belong only to those standalone test targets. Native

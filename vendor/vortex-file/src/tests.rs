@@ -15,7 +15,9 @@ use futures::pin_mut;
 use rstest::rstest;
 use vortex_array::ArrayRef;
 use vortex_array::IntoArray;
+use vortex_array::RecursiveCanonical;
 use vortex_array::VortexSessionExecute;
+use vortex_array::aggregate_fn::fns::all_non_distinct::all_non_distinct;
 use vortex_array::array_session;
 use vortex_array::arrays::BoolArray;
 use vortex_array::arrays::ChunkedArray;
@@ -122,6 +124,31 @@ fn bind_scan_expr(file: &VortexFile, expr: Expression) -> BoundExpression {
     expr.optimize_recursive(file.dtype())
         .and_then(|expr| expr.bind(file.dtype()))
         .vortex_expect("scan expression should bind")
+}
+
+// Preserve the upstream assertion's native and canonical comparisons without
+// printing synthetic fixture payloads in failure diagnostics.
+fn assert_nullable_arrays_eq(left: &ArrayRef, right: &ArrayRef) -> VortexResult<()> {
+    assert!(
+        left.dtype() == right.dtype(),
+        "nullable array dtypes differ"
+    );
+    assert!(left.len() == right.len(), "nullable array lengths differ");
+    let mut context = SESSION.create_execution_ctx();
+    let canonical = left
+        .clone()
+        .execute::<RecursiveCanonical>(&mut context)?
+        .0
+        .into_array();
+    assert!(
+        all_non_distinct(left, right, &mut context)?,
+        "nullable native array values differ"
+    );
+    assert!(
+        all_non_distinct(&canonical, right, &mut context)?,
+        "nullable canonical array values differ"
+    );
+    Ok(())
 }
 
 #[tokio::test]
@@ -1336,7 +1363,7 @@ async fn write_nullable_top_level_struct() -> VortexResult<()> {
         assert!(statistics.stats_sets()[0].is_empty());
         // A whole-row scan must preserve the root validity and the original child DTypes.
         let whole = file.scan()?.into_array_stream()?.read_all().await?;
-        assert_arrays_eq!(whole, array, &mut SESSION.create_execution_ctx());
+        assert_nullable_arrays_eq(&whole, &array)?;
 
         // Field projection exposes logical fields with the root mask applied.
         let result = file
@@ -1345,11 +1372,10 @@ async fn write_nullable_top_level_struct() -> VortexResult<()> {
             .into_array_stream()?
             .read_all()
             .await?;
-        assert_arrays_eq!(
-            result,
-            PrimitiveArray::from_option_iter(expected_ages).into_array(),
-            &mut SESSION.create_execution_ctx()
-        );
+        assert_nullable_arrays_eq(
+            &result,
+            &PrimitiveArray::from_option_iter(expected_ages).into_array(),
+        )?;
 
         // Null-sensitive predicates see logical fields before filtering, including hidden
         // non-null child values beneath an invalid root. Default pruning must keep those rows.
@@ -1360,7 +1386,7 @@ async fn write_nullable_top_level_struct() -> VortexResult<()> {
             .read_all()
             .await?;
         let expected = array.filter(Mask::from_iter(expected_ages.iter().map(Option::is_none)))?;
-        assert_arrays_eq!(filtered, expected, &mut SESSION.create_execution_ctx());
+        assert_nullable_arrays_eq(&filtered, &expected)?;
     }
     Ok(())
 }
@@ -1375,7 +1401,7 @@ async fn write_empty_nullable_top_level_struct() -> VortexResult<()> {
     )?
     .into_array();
     let actual = round_trip(&array, Ok).await?;
-    assert_arrays_eq!(actual, array, &mut SESSION.create_execution_ctx());
+    assert_nullable_arrays_eq(&actual, &array)?;
     Ok(())
 }
 

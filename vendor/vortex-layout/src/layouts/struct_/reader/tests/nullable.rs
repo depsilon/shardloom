@@ -5,17 +5,45 @@ use std::ops::BitAnd;
 
 use parking_lot::Mutex;
 use vortex_array::ArrayRef;
+use vortex_array::RecursiveCanonical;
+use vortex_array::aggregate_fn::fns::all_non_distinct::all_non_distinct;
 use vortex_array::arrays::DictArray;
 use vortex_array::expr::fill_null;
 use vortex_array::expr::is_not_null;
 use vortex_array::expr::is_null;
 use vortex_array::expr::merge;
 use vortex_array::expr::select_exclude;
+use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 
 use super::*;
 use crate::segments::SegmentFuture;
 use crate::segments::SegmentId;
+
+// Keep both native and canonical comparison coverage without printing array
+// contents if a regression fails. These fixtures contain only synthetic values.
+fn assert_nullable_arrays_eq(left: &ArrayRef, right: &ArrayRef) -> VortexResult<()> {
+    assert!(
+        left.dtype() == right.dtype(),
+        "nullable array dtypes differ"
+    );
+    assert!(left.len() == right.len(), "nullable array lengths differ");
+    let mut context = SESSION.create_execution_ctx();
+    let canonical = left
+        .clone()
+        .execute::<RecursiveCanonical>(&mut context)?
+        .0
+        .into_array();
+    assert!(
+        all_non_distinct(left, right, &mut context)?,
+        "nullable native array values differ"
+    );
+    assert!(
+        all_non_distinct(&canonical, right, &mut context)?,
+        "nullable canonical array values differ"
+    );
+    Ok(())
+}
 
 struct ObservedSegments {
     inner: Arc<TestSegments>,
@@ -136,7 +164,8 @@ fn nullable_projections_match_native_expressions_for_all_masks() -> VortexResult
         for expression in projection_expressions() {
             let bound = expression.bind(array.dtype())?;
             for range in [0..5, 1..4, 0..0] {
-                let length = usize::try_from(range.end - range.start).unwrap();
+                let length = usize::try_from(range.end - range.start)
+                    .vortex_expect("fixture range length fits usize");
                 for selection in [
                     Mask::new_true(length),
                     Mask::new_false(length),
@@ -144,8 +173,10 @@ fn nullable_projections_match_native_expressions_for_all_masks() -> VortexResult
                 ] {
                     let expected = array
                         .slice(
-                            usize::try_from(range.start).unwrap()
-                                ..usize::try_from(range.end).unwrap(),
+                            usize::try_from(range.start)
+                                .vortex_expect("fixture range start fits usize")
+                                ..usize::try_from(range.end)
+                                    .vortex_expect("fixture range end fits usize"),
                         )?
                         .filter(selection.clone())?
                         .apply_bound(&bound)?;
@@ -155,7 +186,7 @@ fn nullable_projections_match_native_expressions_for_all_masks() -> VortexResult
                             .unwrap()
                     })?;
                     assert_eq!(actual.dtype(), bound.dtype(), "{expression}, {range:?}");
-                    assert_arrays_eq!(actual, expected, &mut SESSION.create_execution_ctx());
+                    assert_nullable_arrays_eq(&actual, &expected)?;
                 }
             }
         }
@@ -186,7 +217,8 @@ fn nullable_filters_and_pruning_preserve_parent_null_semantics() -> VortexResult
         ] {
             let bound = expression.bind(array.dtype())?;
             for range in [0..5, 1..4, 0..0] {
-                let length = usize::try_from(range.end - range.start).unwrap();
+                let length = usize::try_from(range.end - range.start)
+                    .vortex_expect("fixture range length fits usize");
                 for selection in [
                     Mask::new_true(length),
                     Mask::new_false(length),
@@ -195,8 +227,10 @@ fn nullable_filters_and_pruning_preserve_parent_null_semantics() -> VortexResult
                     let mut ctx = SESSION.create_execution_ctx();
                     let expected = array
                         .slice(
-                            usize::try_from(range.start).unwrap()
-                                ..usize::try_from(range.end).unwrap(),
+                            usize::try_from(range.start)
+                                .vortex_expect("fixture range start fits usize")
+                                ..usize::try_from(range.end)
+                                    .vortex_expect("fixture range end fits usize"),
                         )?
                         .apply_bound(&bound)?
                         .null_as_false()
@@ -240,7 +274,7 @@ fn nullable_projection_reads_only_its_field_and_validity() -> VortexResult<()> {
         lit(42i32),
     ] {
         let (segments, layout) = write_nullable_layout(&array);
-        let source: Arc<dyn SegmentSource> = segments.clone();
+        let source: Arc<dyn SegmentSource> = Arc::clone(&segments) as Arc<dyn SegmentSource>;
         let reader = layout.new_reader("".into(), source, &SESSION, &Default::default())?;
         let bound = expression.bind(array.dtype())?;
         let actual = block_on(|_| {
@@ -248,11 +282,7 @@ fn nullable_projection_reads_only_its_field_and_validity() -> VortexResult<()> {
                 .projection_evaluation(&(0..5), &bound, MaskFuture::new_true(5))
                 .unwrap()
         })?;
-        assert_arrays_eq!(
-            actual,
-            array.clone().apply_bound(&bound)?,
-            &mut SESSION.create_execution_ctx()
-        );
+        assert_nullable_arrays_eq(&actual, &array.clone().apply_bound(&bound)?)?;
         let requested = segments.requested.lock();
         if expression == lit(42i32) {
             assert!(
@@ -300,7 +330,7 @@ fn empty_nullable_record_schema_and_root_validity_survive() -> VortexResult<()> 
                 )
                 .unwrap()
         })?;
-        assert_arrays_eq!(actual, array, &mut SESSION.create_execution_ctx());
+        assert_nullable_arrays_eq(&actual, &array)?;
     }
     Ok(())
 }

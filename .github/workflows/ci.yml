@@ -138,7 +138,7 @@ jobs:
               cargo test --manifest-path vendor/vortex-layout/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib -- --test-threads=2
               CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-layout/Cargo.toml \
                 --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-                --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib -- -D warnings
+                --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib --tests -- -D warnings
               cp Cargo.lock vendor/vortex-file/Cargo.lock
               cargo test --manifest-path vendor/vortex-file/Cargo.toml \
                 --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
@@ -148,7 +148,7 @@ jobs:
               CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-file/Cargo.toml \
                 --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
                 --config 'patch.crates-io.vortex-layout.path="vendor/vortex-layout"' \
-                --features tokio,vortex-array/table-display --lib -- -D warnings
+                --features tokio,vortex-array/table-display --lib --tests -- -D warnings
               cp Cargo.lock vendor/vortex-zstd/Cargo.lock
               cargo test --manifest-path vendor/vortex-zstd/Cargo.toml \
                 --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \

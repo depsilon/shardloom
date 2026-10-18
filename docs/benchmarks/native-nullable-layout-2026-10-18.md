@@ -91,6 +91,18 @@ provider commands and rejects the earlier narrow command. It reruns CI contract,
 release metadata and license checks. The CLI and direct binding are then built
 from the 650-a1 source and frozen for all acceptance runs.
 
+The [test-diagnostic bridge](evidence/native-nullable-layout-test-diagnostics-2026-10-18.json)
+records the subsequent CI correction. Four CodeQL instances refer to assertion
+failure messages in synthetic test fixtures; static triage finds no sensitive
+input path. The fixtures now compare DTypes, lengths and both native and
+recursively canonical values without printing array payloads. Test-target linting
+also corrects fixture conversions, an explicit `Arc` clone and one redundant
+import inside a test module. No non-test execution code changes. All 3,225
+workspace tests and 389 provider tests pass again, along with formatting, strict
+workspace/provider test-target Clippy and the CI contract. The bridge retains
+the original alerts, failed validation attempts and exact three-file source
+delta. Hosted CodeQL must validate the updated PR head; no alert is dismissed.
+
 The main reproduction helpers are `run_nullable_layout_validation_649.py`,
 `validate_nullable_ci_bridge_650.py`, `nullable_layout_acceptance_650.py`,
 `run_nullable_layout_full43_650.py`, `run_nullable_modular_651.py` and

@@ -249,6 +249,17 @@ the ledger.
 
 ## Planned
 
+The latest October 18 maintainer direction holds the next version bump while
+additional work completes. Finish the current nullable-layout PR, clean up
+completed local build/UAT artifacts, and review the eight conditional
+investigations for runnable ship/drop work. Complete admitted deciding tests
+before the bump and run fresh ingest, Full43 and format/workflow acceptance after
+any retained runtime changes. This changes sequence, not the original experiment
+gates or completion status. The recorded backlog has five breadth/operational
+areas plus eight conditional investigations; its 19 parent checklists overlap
+and are not 19 independent PRs. The remaining membership/population, conditional
+output publication/recovery and encoded-exchange batches retain their owners.
+
 The October 18 maintainer request completes a finite
 [dropped-optimization review](native-drop-review-2026-10-18.md)
 and resumes the remaining queue. Future speed candidates may target at least 2%

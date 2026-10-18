@@ -1,0 +1,336 @@
+{
+  "schema_version": "shardloom.nullable_layout_test_diagnostic_bridge.v1",
+  "status": "passed",
+  "original_head": "807c10ac423e0e7978158242e0e515629dfae80c",
+  "source_files": 2416,
+  "accepted_runtime_unchanged": true,
+  "changed_files": {
+    "vendor/vortex-layout/src/layouts/struct_/reader/tests/nullable.rs": {
+      "before": "5b76d4cb807a29e39bbfef4d346d1bbf34d7709b8fbf6c31d925aeaf9ee2b9e4",
+      "after": "14dab335eb3019927f154f0c3abcfd4a3eeb470c3139b8150b8d2a69331d2887"
+    },
+    "vendor/vortex-file/src/lib.rs": {
+      "before": "4dc321aee334f578c65f3470718b7ee7e2b7f94e91b37a5823c2182ed155cfb6",
+      "after": "2c77c34b4f66d6bcd9e590320512ba03f74983aa9afd706ea9583289d2268db5"
+    },
+    "vendor/vortex-file/src/tests.rs": {
+      "before": "1a88456b7e837e9e3d03b5156fea05e7a124f7bed82560f673eaedfc2d4bf85c",
+      "after": "535873960c50a4da0ed73bc6f464339e5fac728589d826b8a981875e748e049c"
+    }
+  },
+  "bridge": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-bridge-657-a4.json",
+    "bytes": 5083,
+    "sha256": "269349028d1d4474a788dc6cd3c6271cb3976736ea0bb7ac4f460e307b01d172"
+  },
+  "source": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-nullable657a4.json",
+    "bytes": 315804,
+    "sha256": "4bf13647f411e357376afd3bd7b3d48ae65f07b3c9aa397c50dd80a61b3a7c61"
+  },
+  "validation_receipt": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657-a4.json",
+    "bytes": 1880,
+    "sha256": "c5b332a8ac743473ca0e3009af70c45cc7a4cf920208bab1055c22b8cc43023c"
+  },
+  "workspace_tests": 3225,
+  "layout_tests": 249,
+  "file_tests": 140,
+  "ignored_tests": 0,
+  "gates": 9,
+  "original_codeql_instances": 4,
+  "static_triage": "not_actionable",
+  "hosted_reanalysis_pending": true,
+  "runtime_scope": "Only two cfg(test) fixture files and one redundant import inside a cfg(test) module differ. The library-file change is matched byte-for-byte to that single import removal. Non-test runtime code and accepted executable identities remain unchanged; native and recursively canonical equality checks are preserved.",
+  "archive": {
+    "file": "native-nullable-layout-test-diagnostics-2026-10-18.tar.xz",
+    "bytes": 240812,
+    "sha256": "e104e9762a5970aabc9020d3809e29579de0e077418a0976a416142a46cc8fac"
+  },
+  "all_members_reopened": true,
+  "members": [
+    {
+      "name": "attempts/native-release-source-nullable657.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-nullable657.json",
+      "bytes": 315804,
+      "sha256": "93be07b4daa24654c52430509f9e7d4165c11245528d0226ff4f3bedf27524a4"
+    },
+    {
+      "name": "attempts/native-release-source-nullable657a2.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-nullable657a2.json",
+      "bytes": 315804,
+      "sha256": "db31aeeba34bedd492273607a2a23fbceca985ccd45695fba97c32e61f526f46"
+    },
+    {
+      "name": "attempts/native-release-source-nullable657a3.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-nullable657a3.json",
+      "bytes": 315804,
+      "sha256": "ce775e54d41aa2d69493d42b8e8f06cc810ac7475e6637ec617982c7a6105f3a"
+    },
+    {
+      "name": "attempts/native-release-source-nullable657a4.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-nullable657a4.json",
+      "bytes": 315804,
+      "sha256": "4bf13647f411e357376afd3bd7b3d48ae65f07b3c9aa397c50dd80a61b3a7c61"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-bridge-657-a2.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-bridge-657-a2.json",
+      "bytes": 3069,
+      "sha256": "301f4562e40eb46c512ec2de67f1c7ef5369b862ce8da4f643239612a7336c27"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-bridge-657-a3.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-bridge-657-a3.json",
+      "bytes": 4748,
+      "sha256": "3f51426cc3765d935da06aa38cb2eaa6400b99ba630611435237887b08dd9b95"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-bridge-657-a4.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-bridge-657-a4.json",
+      "bytes": 5083,
+      "sha256": "269349028d1d4474a788dc6cd3c6271cb3976736ea0bb7ac4f460e307b01d172"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-bridge-657.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-bridge-657.json",
+      "bytes": 4153,
+      "sha256": "451c9440e78bb4299edb036686fb47c4a64cdcd432b5d98ca42760dfd9f26dcf"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-gates-657-a1.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657-a1.json",
+      "bytes": 1784,
+      "sha256": "908f73c779611cb52ea5956eb6768a0485413d3c42df80e90f4a26dfa865a3d7"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-gates-657-a1.log",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657-a1.log",
+      "bytes": 517628,
+      "sha256": "18f65f7150929f2761aa70622894452805a214c9d05feaa8293e13a1d4f2b0b9"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-gates-657-a2.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657-a2.json",
+      "bytes": 1784,
+      "sha256": "3281c27e2fa1bb4a7944fbb6affb264412db2deb57d3ff26a1a03a10c82ea63d"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-gates-657-a2.log",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657-a2.log",
+      "bytes": 486562,
+      "sha256": "a32137bde5d7c8237cd797bea06273f64735b9d5ef2ef9b28d57312f367bb96f"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-gates-657-a3.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657-a3.json",
+      "bytes": 1783,
+      "sha256": "173bff5b7a4f2950aac46b7601f05e5faf9a6d7c59593e2aa2c2f69fbc711077"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-gates-657-a3.log",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657-a3.log",
+      "bytes": 514130,
+      "sha256": "f6c0a80f53630368e4181faaf70de727eb01bad1f65dbe32a506c053633f6e15"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-gates-657-a4.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657-a4.json",
+      "bytes": 1880,
+      "sha256": "c5b332a8ac743473ca0e3009af70c45cc7a4cf920208bab1055c22b8cc43023c"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-gates-657-a4.log",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657-a4.log",
+      "bytes": 511163,
+      "sha256": "82a9f51c7e18667a4c4f94c3dcc96c9fad4615108af8f9da87f89c86c8f98120"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-gates-657.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657.json",
+      "bytes": 1780,
+      "sha256": "99b88329b99150ac6996b57d69cb82dafbb55efea13862985189b1435a754624"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-gates-657.log",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-gates-657.log",
+      "bytes": 564,
+      "sha256": "f260daab1315ce43b2eb2b25ce2d83ad2a8d733bf896eeb054b11ff1a6481ca0"
+    },
+    {
+      "name": "attempts/nullable-layout-diagnostic-package-657.log",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-package-657.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "attempts/nullable-layout-original-checks-657.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-original-checks-657.json",
+      "bytes": 152406,
+      "sha256": "fec5be2473f7772f6cc42dd4544392b81af4bdfc1e1ec5d412fdd31b0ef895b8"
+    },
+    {
+      "name": "attempts/nullable-layout-original-codeql-alerts-657.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-original-codeql-alerts-657.json",
+      "bytes": 12830,
+      "sha256": "0cd745531654ed9a7a2679edac26f392ad4eed3a234cfe3b1f9dec224abe7b31"
+    },
+    {
+      "name": "attempts/nullable-layout-original-jobs-657.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-original-jobs-657.json",
+      "bytes": 119767,
+      "sha256": "7d072eda6d16f1f83a0fcda63686aef5c3b1ff8a9254e8d766f4dd989f4a1e1c"
+    },
+    {
+      "name": "attempts/run_nullable_diagnostic_gates_657.py",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_nullable_diagnostic_gates_657.py",
+      "bytes": 4403,
+      "sha256": "09ac960aabcf73ef7398ce29a97cadb4886483414d75011029990b7ac94a0daa"
+    },
+    {
+      "name": "attempts/run_nullable_diagnostic_gates_657_before_launcher_fix.py",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_nullable_diagnostic_gates_657_before_launcher_fix.py",
+      "bytes": 3753,
+      "sha256": "8c045b5f437f8ef0a9ad5bbba0b9b331c320dc7ebacc91984bd8c3724c660972"
+    },
+    {
+      "name": "attempts/run_nullable_diagnostic_gates_657_before_test_lint_fix.py",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_nullable_diagnostic_gates_657_before_test_lint_fix.py",
+      "bytes": 3753,
+      "sha256": "b29dff90247f84798ef01fac72aaad1fa1c9045dd7687b62aed9dc3ca30048c4"
+    },
+    {
+      "name": "attempts/run_nullable_diagnostic_gates_657_before_trait_import_fix.py",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_nullable_diagnostic_gates_657_before_trait_import_fix.py",
+      "bytes": 3758,
+      "sha256": "e94e37b3b274300bc3389ce7f99f7789469c7c70aa9c487fb020b2fb0beff2cd"
+    },
+    {
+      "name": "attempts/run_nullable_diagnostic_gates_657_before_unused_test_import_fix.py",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_nullable_diagnostic_gates_657_before_unused_test_import_fix.py",
+      "bytes": 3758,
+      "sha256": "06649a88b4b51d7ffd14b52cb17b70bce1fcc280e2b13fc126bc7867d5f1f18d"
+    },
+    {
+      "name": "original-triage/code-scanning-alerts.json",
+      "path": "/Users/dylan/.codex/state/plugins/codex-security/scans/shardloom-local-repo/artifacts-59a3b570d9b03fb322db2de2719f926fc9ec85ff7a709d372b445bb840fd6b4f/artifacts/nullable-layout-codeql-656/code-scanning-alerts.json",
+      "bytes": 12830,
+      "sha256": "0cd745531654ed9a7a2679edac26f392ad4eed3a234cfe3b1f9dec224abe7b31"
+    },
+    {
+      "name": "original-triage/security_guidance.md",
+      "path": "/Users/dylan/.codex/state/plugins/codex-security/scans/shardloom-local-repo/artifacts-59a3b570d9b03fb322db2de2719f926fc9ec85ff7a709d372b445bb840fd6b4f/artifacts/nullable-layout-codeql-656/security_guidance.md",
+      "bytes": 4790,
+      "sha256": "7c552fc44ef92dfe2fe1f0dbd136346d8f3f2294e88dc17521cb325c44d32fbb"
+    },
+    {
+      "name": "original-triage/triage.json",
+      "path": "/Users/dylan/.codex/state/plugins/codex-security/scans/shardloom-local-repo/artifacts-59a3b570d9b03fb322db2de2719f926fc9ec85ff7a709d372b445bb840fd6b4f/artifacts/nullable-layout-codeql-656/triage.json",
+      "bytes": 15765,
+      "sha256": "7c05158759686356992f6ca494d1fb5371d85bdcd1fe830b2b884bf19e0dd4db"
+    },
+    {
+      "name": "original-triage/triage.md",
+      "path": "/Users/dylan/.codex/state/plugins/codex-security/scans/shardloom-local-repo/artifacts-59a3b570d9b03fb322db2de2719f926fc9ec85ff7a709d372b445bb840fd6b4f/artifacts/nullable-layout-codeql-656/triage.md",
+      "bytes": 807,
+      "sha256": "095d4232e9eb9f569e6bbc74697dae78b02c3103410d3c748b86c177eefbef1f"
+    },
+    {
+      "name": "source/.github/workflows/ci.yml",
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/.github/workflows/ci.yml",
+      "bytes": 44776,
+      "sha256": "b1254157dd6f4f075d27c3bfea149f22d17aa4b040f1cfaea03d5460a784828b"
+    },
+    {
+      "name": "source/diagnostic.patch",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-diagnostic-source-657.patch",
+      "bytes": 12284,
+      "sha256": "d896867f98c27db56222853acee0ddf537f0f5d7eee8008b88761a5081f2fa31"
+    },
+    {
+      "name": "source/docs/release/ci-gate-matrix.md",
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/release/ci-gate-matrix.md",
+      "bytes": 32368,
+      "sha256": "693977be76e3932643ff69365e5bcb0c9f1992ec0afa4193034500b050aab473"
+    },
+    {
+      "name": "source/scripts/check_ci_gate_matrix.py",
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/check_ci_gate_matrix.py",
+      "bytes": 29631,
+      "sha256": "161672d887c66dce867132a75a3ddfe2a982248ea588a0f38e9ccd7a7445417c"
+    },
+    {
+      "name": "source/scripts/local_uat_storage.py",
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/local_uat_storage.py",
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d"
+    },
+    {
+      "name": "source/vendor/vortex-file/src/lib.rs",
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/vendor/vortex-file/src/lib.rs",
+      "bytes": 13305,
+      "sha256": "2c77c34b4f66d6bcd9e590320512ba03f74983aa9afd706ea9583289d2268db5"
+    },
+    {
+      "name": "source/vendor/vortex-file/src/tests.rs",
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/vendor/vortex-file/src/tests.rs",
+      "bytes": 93671,
+      "sha256": "535873960c50a4da0ed73bc6f464339e5fac728589d826b8a981875e748e049c"
+    },
+    {
+      "name": "source/vendor/vortex-layout/src/layouts/struct_/reader.rs",
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/vendor/vortex-layout/src/layouts/struct_/reader.rs",
+      "bytes": 42342,
+      "sha256": "8eec958803d897948bf60317637c610309e53d1dc377607aecd4c48e0dfb6ac2"
+    },
+    {
+      "name": "source/vendor/vortex-layout/src/layouts/struct_/reader/tests/nullable.rs",
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/vendor/vortex-layout/src/layouts/struct_/reader/tests/nullable.rs",
+      "bytes": 12153,
+      "sha256": "14dab335eb3019927f154f0c3abcfd4a3eeb470c3139b8150b8d2a69331d2887"
+    },
+    {
+      "name": "support/freeze_native_release_298.py",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/freeze_native_release_298.py",
+      "bytes": 5254,
+      "sha256": "117f0ef25969f45673a8f71ffb39a57c60ca9e3cab03ad1629d1f89731d0c199"
+    },
+    {
+      "name": "support/native-release-artifacts-nullable650a1.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-nullable650a1.json",
+      "bytes": 317162,
+      "sha256": "43df62b88bf0b8748a91de6776ce711f7732bdbf4bf177ed54a4da1643df0d86"
+    },
+    {
+      "name": "support/native-release-source-nullable650a1.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-nullable650a1.json",
+      "bytes": 315804,
+      "sha256": "b60ed54c3e7b08982477c7fea8b671314da902afd8ed80207b911b694f9c14cc"
+    },
+    {
+      "name": "support/nullable-layout-hosted-test-inventory-657.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-hosted-test-inventory-657.json",
+      "bytes": 46810,
+      "sha256": "d626808e72491cbece8f3bc7fc0a2c1dd394902955f28316a9a3692b80e932b2"
+    },
+    {
+      "name": "support/nullable-layout-test-lint-ci-657.json",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/nullable-layout-test-lint-ci-657.json",
+      "bytes": 26148,
+      "sha256": "40cc4c0663e70e3f83faca4196931b5b765de0b0c6cec12ac179d578715508e8"
+    },
+    {
+      "name": "support/package_nullable_diagnostic_657.py",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/package_nullable_diagnostic_657.py",
+      "bytes": 6911,
+      "sha256": "08c2747ccf09acb9a32e9994ef70040d254a24400957ed21cc34875b0074832e"
+    },
+    {
+      "name": "support/run_guarded.py",
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_guarded.py",
+      "bytes": 4275,
+      "sha256": "231129c081911ad362888b328e1ab1c7c9e4bf5b0b9abf372feb80671c00be8e"
+    }
+  ],
+  "member_count": 47
+}
