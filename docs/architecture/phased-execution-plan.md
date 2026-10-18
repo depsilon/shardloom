@@ -249,8 +249,11 @@ the ledger.
 
 ## Planned
 
-`NATIVE-SHARED-SPEED-FOLLOWUP` completes implementation and local acceptance
-under PERF-01/04/05/10. Shared native text filter/projection decoding passes the
+`NATIVE-SHARED-SPEED-FOLLOWUP` completes in
+[PR #1573](https://github.com/depsilon/shardloom/pull/1573) at `9dd72db9` after
+local acceptance, all 44 final-PR-head checks, review, three installed-wheel
+lanes and preview/production verification pass under PERF-01/04/05/10.
+Shared native text filter/projection decoding passes the
 prospective greater-than-3% gate: matched all-43 engine means decrease from
 57.3990281195 to 55.3462438375 seconds (3.576340%), with all 172 complete results
 and schemas matching, both paired totals improved and no material query regression.
@@ -258,8 +261,8 @@ The [contract](native-shared-speed-2026-10-18.md),
 [acceptance report](../benchmarks/native-text-scan-reuse-2026-10-18.md) and
 [completed ledger](phased-execution-completed-ledger.md) preserve the rejected
 78-call mixed-key screen, 74-call text screen and complete local acceptance.
-Final-head review, CI, installed wheels and deployed revision proofs remain
-separate integration requirements. Broader PERF obligations and CG-1 through
+The [186-member hosted packet](../benchmarks/evidence/native-text-scan-hosted-2026-10-18.json)
+binds the reviewed, tested, measured and merged source. Broader PERF obligations and CG-1 through
 CG-23 remain open. No input rewrite, fallback execution, new dependency or
 package publication belongs to this unit.
 

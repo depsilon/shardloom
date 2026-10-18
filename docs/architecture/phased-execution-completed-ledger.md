@@ -18,7 +18,8 @@ phase plan first.
 ### Recent Completed Session Ledger
 
 - [x] `NATIVE-SHARED-SPEED-FOLLOWUP` — shared native text filter/projection
-  decoding completes implementation and local acceptance under PERF-01/04/05/10.
+  decoding completes in [PR #1573](https://github.com/depsilon/shardloom/pull/1573)
+  at `9dd72db9` under PERF-01/04/05/10.
   A query-owned scan-range entry shares the filtered native owner, keeps other
   columns behind the final mask and retires ownership on completion, failure or
   cancellation. No query-specific admission, input rewrite or dependency is added.
@@ -35,10 +36,17 @@ phase plan first.
     [acceptance report](../benchmarks/native-text-scan-reuse-2026-10-18.md) and
     [portable evidence](../benchmarks/evidence/native-text-scan-reuse-2026-10-18.json)
     retain immutable protocols, source identities, complete observations and
-    failure history. Final-head hosted review, CI, three installed-wheel lanes
-    and deployed revision proofs are separate integration gates. Broader PERF
-    obligations and CG-1 through CG-23 remain open; published packages retain
-    their release-time scope.
+    failure history. The separate
+    [186-member hosted packet](../benchmarks/evidence/native-text-scan-hosted-2026-10-18.json)
+    reopens every member and records all 44 passing final-PR-head checks,
+    completed review without findings or threads, and exact identity across
+    all 2,415 measured, accepted, reviewed, synthetic-test and merged sources.
+  - Complete hosted logs verify 6,793 native/provider test executions with 28
+    manual exclusions, all seven new native tests, 1,079 native public tests,
+    and three installed-wheel lanes passing 100 methods each without skips.
+    Sixteen preview/production response checks and desktop/mobile navigation
+    and search checks pass. Broader PERF obligations and CG-1 through CG-23
+    remain open; published packages retain their release-time scope.
 
 - [x] `NATIVE-SHARED-EXECUTION-OPTIMIZATION` — shared integer binding, compact
   complete numeric-pair records and bounded dictionary-measure reduction close

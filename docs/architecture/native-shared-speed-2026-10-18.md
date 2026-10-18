@@ -2,7 +2,12 @@
 
 # Shared native text filter/projection decoding
 
-Status: text filter/projection reuse passes local acceptance under PERF-01/04/05/10.
+Status: text filter/projection reuse is merged in
+[PR #1573](https://github.com/depsilon/shardloom/pull/1573) at `9dd72db9`, with
+local acceptance, final-head hosted checks, installed wheels and deployed
+preview/production verification complete under PERF-01/04/05/10. The
+[186-member hosted packet](../benchmarks/evidence/native-text-scan-hosted-2026-10-18.json)
+records the closure separately from the original local comparison.
 The matched all-43 engine comparison passes the prospective greater-than-3% gate;
 the earlier mixed-key experiment remains rejected. After the native text-size
 screen rejected all five alternatives, the maintainer redirected immediate work
