@@ -298,12 +298,14 @@ impl DictionaryPrepareWorkers {
             .and_then(|bytes| bytes.checked_add(size_of::<Completed>() as u64))
             .ok_or_else(|| failed("task byte size overflow"))?;
         #[cfg(test)]
-        let _test_pressure = SUBMIT_TEST_PRESSURE.with(std::cell::Cell::take).then(|| {
-            self.jobs
-                .memory()
-                .reserve(self.available_bytes().saturating_sub(1024))
-                .unwrap()
-        });
+        let bytes = if SUBMIT_TEST_PRESSURE.with(std::cell::Cell::take) {
+            // Exercise worker admission retirement without exhausting the shared
+            // grant: an active provider may still need to reserve read buffers.
+            // Real allocation denial and retry are covered separately.
+            u64::MAX
+        } else {
+            bytes
+        };
         while self.jobs.outstanding() != 0 && self.available_bytes() < bytes {
             self.consume_next(states)?;
         }

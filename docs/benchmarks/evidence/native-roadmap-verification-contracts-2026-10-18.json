@@ -1,0 +1,271 @@
+{
+  "schema_version": "shardloom.roadmap_owner_verification_contract_evidence.v1",
+  "status": "passed",
+  "review_comment": "https://github.com/depsilon/shardloom/pull/1575#discussion_r4307076145",
+  "initial_head": "a456b42ff6e9eb7a972d51c0c126bc5b41de7330",
+  "initial_validation": {
+    "file": "docs/benchmarks/evidence/native-roadmap-documentation-validation-2026-10-18.json",
+    "commit": "a456b42ff6e9eb7a972d51c0c126bc5b41de7330",
+    "sha256": "b8f883f40b115f89931e959136f9e2e2562156f8764e2bb59f7855b3e601025e"
+  },
+  "archive": {
+    "file": "native-roadmap-verification-contracts-2026-10-18.tar.xz",
+    "bytes": 48616,
+    "sha256": "a92bf3dfdc147b4c58facf29086f6b2a162260d07de73052bb6d0e27a6ea1ad5"
+  },
+  "members": [
+    {
+      "file": "local/package_roadmap_owner_contracts_680.py",
+      "bytes": 4783,
+      "sha256": "a1150bb2b26095c582b56071c2e265c747de95de3fa131d1825c9b643c5f8ace",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/package_roadmap_owner_contracts_680.py"
+    },
+    {
+      "file": "local/verify_roadmap_owner_contracts_679.py",
+      "bytes": 7234,
+      "sha256": "7a012c06e5a29f2c787e68e4e280d04c9e85c637864ce8070998117107235116",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/verify_roadmap_owner_contracts_679.py"
+    },
+    {
+      "file": "local/verify_roadmap_owner_contracts_original_679.py",
+      "bytes": 7105,
+      "sha256": "cdb561654eaa780ba10ee4b901e5212be6d70c655f047257bb56a02287f8c53f",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/verify_roadmap_owner_contracts_original_679.py"
+    },
+    {
+      "file": "local/verify_roadmap_mechanical_679.py",
+      "bytes": 8794,
+      "sha256": "07f3a0d865946077b20bf5eb508a5155c770ff1e44f9e256d77a0e475e414c99",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/verify_roadmap_mechanical_679.py"
+    },
+    {
+      "file": "local/verify_roadmap_mechanical_672.py",
+      "bytes": 8707,
+      "sha256": "097c2bc258ead45cb818142b1ec524f5fb594347d0e06e59e3152e1cd3f9809c",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/verify_roadmap_mechanical_672.py"
+    },
+    {
+      "file": "local/roadmap-primary-mechanical-review-679.json",
+      "bytes": 114279,
+      "sha256": "32e8b4a611e9da4515a8d49dbfb0a69c16ad62a6f1dbab1e41ebd6613b6e6fa6",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-primary-mechanical-review-679.json"
+    },
+    {
+      "file": "local/roadmap-owner-verification-inventory-678.md",
+      "bytes": 14598,
+      "sha256": "9653b86c0fbe5f6e69d59c55df809e36f29223edf9ba7b81703ba9e42caaa3d2",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-inventory-678.md"
+    },
+    {
+      "file": "local/roadmap-owner-contracts-679.json",
+      "bytes": 1783,
+      "sha256": "00cff7d85d8242bc3b7c18426b8e14e705751ebf1132d92939f5723c47add3b9",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-contracts-679.json"
+    },
+    {
+      "file": "local/roadmap-owner-contracts-679.log",
+      "bytes": 328,
+      "sha256": "8ddaf9a2dee255caf62528591291c1db8d8612078bb145c2a40fd37b142e41d3",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-contracts-679.log"
+    },
+    {
+      "file": "local/roadmap-owner-contracts-679a2.json",
+      "bytes": 1782,
+      "sha256": "8a76ab5631bef0f7045970279da906df4775e4f4f5004a5db05f4280965cb2ca",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-contracts-679a2.json"
+    },
+    {
+      "file": "local/roadmap-owner-contracts-679a2.log",
+      "bytes": 766,
+      "sha256": "80cc316e6dc575fd7d5e16a93d01203ae8e2c8d4a0dc4e73ab12d9169817225f",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-contracts-679a2.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/00-test_clickbench_query_timing.log",
+      "bytes": 100,
+      "sha256": "a6707d4eff38012da33ddc34bc6dc076a3b17151cfc9aef223c8790cbe64c3da",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/00-test_clickbench_query_timing.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/01-test_clickbench_query_uat.log",
+      "bytes": 100,
+      "sha256": "99dcf24e3a6b485dc9a7e1c00533d30846e8b99d29e595a71cd60ed49d9ef7e4",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/01-test_clickbench_query_uat.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/02-check_v1_inclusion_scope.log",
+      "bytes": 119,
+      "sha256": "3ccb5b0acbfdc78cf628caa8dc0d8029a974440872ac6ab7351a23a8187555e8",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/02-check_v1_inclusion_scope.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/03-check_runtime_gap_family_burn_down.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/03-check_runtime_gap_family_burn_down.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/04-check_compute_engine_completion_gate.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/04-check_compute_engine_completion_gate.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/05-check_release_architecture_tracker.log",
+      "bytes": 129,
+      "sha256": "c06ba2fc1a1acab25c2cf981bdc829432f8690ea5b9fa25f67a2983617d1c8c8",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/05-check_release_architecture_tracker.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/06-test_build_shardloom_pgo.log",
+      "bytes": 100,
+      "sha256": "455a234a903f02c7d36882c9b036acc1ee7cca1176404082cfe9897ae40211f7",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/06-test_build_shardloom_pgo.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/07-check_v1_inclusion_scope.log",
+      "bytes": 132,
+      "sha256": "03bd18b5cf1ac21475c5654e438b84f69e30703b3b51faa2e6eb96a42bf034a2",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/07-check_v1_inclusion_scope.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/full-reconciliation-mechanical.log",
+      "bytes": 124,
+      "sha256": "59fb01c4aca1f39466483b74cff2b8beb4b84f882e136b80f30acb253f4d995e",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/full-reconciliation-mechanical.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/native-encoded-exchange-scope.json",
+      "bytes": 1293,
+      "sha256": "dad1a94abbaf57440884209a636589ff8156264900d275e1e30d355b41cac916",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/native-encoded-exchange-scope.json"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/perf-12-completion-inspection.json",
+      "bytes": 27236,
+      "sha256": "7ff388f308bb4c52a58703ab4a2e0fe3ee60bc855071294ef3b1f1f53f217ad9",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/perf-12-completion-inspection.json"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/perf-12-release-inspection.json",
+      "bytes": 30276,
+      "sha256": "4d55d4cc5ce7af734f64314edef25c9d506a03485f97ae45c415d38daf7b5c6c",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/perf-12-release-inspection.json"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/perf-12-runtime-gaps.json",
+      "bytes": 69183,
+      "sha256": "0778324686452fca2eb9541b5acf340e33d184a88e7c14b321f7c99caa2c84fa",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/perf-12-runtime-gaps.json"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/perf-12-v1-scope.json",
+      "bytes": 1293,
+      "sha256": "dad1a94abbaf57440884209a636589ff8156264900d275e1e30d355b41cac916",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/perf-12-v1-scope.json"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/roadmap-contract-regressions.log",
+      "bytes": 115,
+      "sha256": "9aa93753b9ab48c248183981fdc8678fdf23ce8f63f829d54b7ac22420a0f8ff",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/roadmap-contract-regressions.log"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/validation.json",
+      "bytes": 27614,
+      "sha256": "b2d309bfe148e1ee6de1f6d5a4403c64f6fc5890500e3653691ec297d52e5a69",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/validation.json"
+    },
+    {
+      "file": "local/roadmap-owner-verification-679a2/whitespace.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-owner-verification-679a2/whitespace.log"
+    },
+    {
+      "file": "repository/docs/architecture/phased-execution-plan.md",
+      "bytes": 63448,
+      "sha256": "4a48d6d010ba3a19da94c39dadce7960c38f41a71df9f01d431307ecff4c5927",
+      "source": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/architecture/phased-execution-plan.md"
+    },
+    {
+      "file": "repository/docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "bytes": 17332,
+      "sha256": "4ccbf758425367c32123be5e89f7f070d697983d33ed6ae2b9091afe547458fb",
+      "source": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/architecture/native-roadmap-verification-contracts-2026-10-18.md"
+    }
+  ],
+  "all_members_reopened": true,
+  "owners": [
+    "PERF-01",
+    "PERF-03",
+    "PERF-06",
+    "PERF-07",
+    "PERF-10",
+    "PERF-02",
+    "PERF-11",
+    "PERF-04",
+    "PERF-05",
+    "PERF-08",
+    "PERF-09",
+    "PERF-12",
+    "PERF-13",
+    "NATIVE-ENCODED-EXCHANGE"
+  ],
+  "rust_selectors_source_verified": 22,
+  "executed_documentation_checks": 11,
+  "runtime_source_files": 2416,
+  "runtime_source_unchanged": false,
+  "source_identities": [
+    {
+      "file": "docs/architecture/phased-execution-plan.md",
+      "bytes": 63448,
+      "sha256": "4a48d6d010ba3a19da94c39dadce7960c38f41a71df9f01d431307ecff4c5927"
+    },
+    {
+      "file": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "bytes": 17332,
+      "sha256": "4ccbf758425367c32123be5e89f7f070d697983d33ed6ae2b9091afe547458fb"
+    }
+  ],
+  "completion_and_release_remain_blocked": true,
+  "primary_mechanical_summary": {
+    "original_rows": 149,
+    "parents": 14,
+    "steps": 54,
+    "step_kinds": {
+      "required": 37,
+      "conditional": 17
+    },
+    "local_links_verified": 328,
+    "anchors_verified": 33
+  },
+  "native_execution_note": "The original archived documentation correction ran no Rust tests/builds and had identical native sources to the fresh UAT. The subsequent test-only pressure correction changes one selected source file. Its linked packet records the exact source delta, production-code equivalence after cfg(test) elision, 14 passing focused tests and passing workspace format, Clippy and test gates. No benchmark rerun occurred; final-head CI is a separate merge requirement.",
+  "correction": "The first static audit rejected an incorrect unittest class from the worker inventory before executing checks. The class and writer feature flags are verified against source; original audit/helper and both guard receipts are preserved.",
+  "helper_imports": "Common guard and freeze helper import closure is preserved in the initial documentation-validation archive at the pinned initial head.",
+  "historical_runtime_source_unchanged": {
+    "value": true,
+    "scope": "The original archived owner-verification correction at 9aabef1a444f766223b0a2b62af8453256477c3e; it predates the test-only pressure correction."
+  },
+  "test_pressure_followup": {
+    "file": "native-roadmap-test-pressure-2026-10-18.json",
+    "sha256": "4b4b10e555c7d6209c669ca4944175f6758cefcd874e27f907992db3ce758053",
+    "tested_source_commit": "3122328a9ed85a9aacc24337a2e4ef1486d89954",
+    "source_files": 2416,
+    "changes": {
+      "shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs": {
+        "before": "e378f53db68eda95e55165d4a88885a59fb66dd93cfb3c46e05b4e88c0d44fea",
+        "after": "c98f2bbee01c641494d23ba5147337647d1e2096445da1a4ba0892dd14b02c4f"
+      }
+    },
+    "production_code_unchanged_by_exact_cfg_test_elision": true,
+    "focused_tests": 14,
+    "required_workspace_checks": [
+      "format",
+      "clippy",
+      "test"
+    ],
+    "review_comment": "https://github.com/depsilon/shardloom/pull/1575#discussion_r4307343828",
+    "scope": "Passing local validation of the sole test-gated source delta; fresh final-head CI is required separately before merge."
+  }
+}

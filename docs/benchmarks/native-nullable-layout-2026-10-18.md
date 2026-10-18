@@ -6,8 +6,9 @@ Nullable native records now retain their root validity and logical DType through
 default structural-layout scans. Field access applies parent validity before
 null-sensitive expressions and filters. Whole-record null tests read only the
 validity child; literal projections read no input columns. Local provider,
-workspace, native, Python and format/workflow acceptance passes. Hosted checks
-and merge remain pending.
+workspace, native, Python and format/workflow acceptance passes. PR #1574 merged
+at `6780e7df` after all 44 hosted checks passed; installed-wheel and deployed-site
+verification are complete.
 
 The [implementation contract](../architecture/native-nullable-layout-2026-10-18.md)
 records the design and accepted scope. This corrects the default reader inside
@@ -101,7 +102,8 @@ import inside a test module. No non-test execution code changes. All 3,225
 workspace tests and 389 provider tests pass again, along with formatting, strict
 workspace/provider test-target Clippy and the CI contract. The bridge retains
 the original alerts, failed validation attempts and exact three-file source
-delta. Hosted CodeQL must validate the updated PR head; no alert is dismissed.
+delta. Hosted CodeQL passes on the updated PR head. All four historical review
+threads are resolved and no open alert remains; no alert was dismissed.
 
 The main reproduction helpers are `run_nullable_layout_validation_649.py`,
 `validate_nullable_ci_bridge_650.py`, `nullable_layout_acceptance_650.py`,
@@ -114,5 +116,15 @@ without relabeling them as the final runtime.
 
 This acceptance does not add a public spill operator, external-memory membership
 strategy, object-store execution or new output publication contract. Those queued
-contracts remain separate. Installed-wheel and hosted integration evidence will
-be recorded separately after the final PR head passes.
+contracts remain separate. The [hosted packet](evidence/native-nullable-layout-hosted-2026-10-18.json)
+reopens all 144 members and binds the reviewed head, synthetic CI merge and actual
+merge to all 2,416 final source files. Complete hosted logs verify 7,037 native/provider
+test executions and three installed-wheel lanes passing 100 methods each. Sixteen
+preview/production responses and desktop/mobile navigation and search pass. The
+packet retains the three-file test-only bridge, original alerts, parser correction
+and closeout-validator correction; the earlier measured build is not relabeled.
+
+The subsequent [fresh-source UAT](native-roadmap-fresh-uat-2026-10-18.md) rebuilds
+the merged source, performs fresh ingestion and reruns all 43 queries and 18
+format/workflow cohorts. The historical observation above retains its original
+build, input and timing identity.

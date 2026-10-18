@@ -1,0 +1,1530 @@
+{
+  "source_identity_scope": "The original checks and final_source_identities describe initial PR head a456b42ff6e9eb7a972d51c0c126bc5b41de7330. The owner-verification and test-pressure follow-ups record subsequent review corrections; original archived evidence is preserved.",
+  "verification_contract_followup": {
+    "file": "native-roadmap-verification-contracts-2026-10-18.json",
+    "sha256": "13c0ca135dbe0b759de11338908d7adc730214032c441aa30d3484bb69981ce6"
+  },
+  "schema_version": "shardloom.native_roadmap_documentation_validation.v1",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "git-whitespace",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "rust-format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "roadmap-tests",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "unittest",
+        "python.tests.test_runtime_gap_family_burn_down",
+        "python.tests.test_compute_engine_completion_gate",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_architecture_tracker_missing_inputs_fail_even_when_blocked_allowed",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_architecture_tracker_accepts_mapped_global_review_burn_down",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_architecture_tracker_rejects_stale_global_review_burn_down",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_v1_inclusion_scope_accepts_required_and_candidate_rows",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_v1_inclusion_scope_blocks_missing_phase_classification",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_v1_inclusion_scope_blocks_required_report_only_posture",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_v1_inclusion_scope_blocks_deferred_without_diagnostics",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_v1_inclusion_scope_blocks_missing_production_diagnostic_row"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "v1-scope",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/check_v1_inclusion_scope.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-v1-scope-670a2.json"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "runtime-gap",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/check_runtime_gap_family_burn_down.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-runtime-gap-670a2.json"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "completion-boundary",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/check_compute_engine_completion_gate.py",
+        "--allow-incomplete",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-completion-boundary-670a2.json"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "release-boundary",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/check_release_architecture_tracker.py",
+        "--allow-blocked",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-release-boundary-670a2.json"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "security-posture",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/check_security_posture.py",
+        "--json-output",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-security-posture-670a2.json"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "search-policy",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "scripts/pagefind-policy.test.mjs"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src",
+      "returncode": 0
+    },
+    {
+      "name": "website-prepare",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "scripts/prebuild-static.mjs",
+        "--reset-output"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src",
+      "returncode": 0
+    },
+    {
+      "name": "website-content",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "scripts/sync-content.mjs"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src",
+      "returncode": 0
+    },
+    {
+      "name": "website-types",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "node_modules/.bin/astro",
+        "check"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src",
+      "returncode": 0
+    },
+    {
+      "name": "website-build",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "node_modules/.bin/astro",
+        "build"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src",
+      "returncode": 0
+    },
+    {
+      "name": "website-static",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "scripts/postbuild-static.mjs"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src",
+      "returncode": 0
+    },
+    {
+      "name": "website-assets",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "scripts/validate_static_assets.cjs"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "website-links",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_website_links.py"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "website-readiness",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/check_website_readiness.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-website-readiness-670a2.json"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "public-status",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/check_public_status_docs.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-public-status-670a2.json"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "contribution",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/check_contribution_governance.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-contribution-670a2.json"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo",
+      "returncode": 0
+    },
+    {
+      "name": "production-claim-surfaces",
+      "function": "check_production_certification_gate.validate_claim_surfaces",
+      "returncode": 0,
+      "blockers": []
+    },
+    {
+      "name": "production-documentation",
+      "function": "check_production_usability_gate.validate_docs",
+      "returncode": 0,
+      "blockers": []
+    },
+    {
+      "name": "generated-whitespace",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0
+    }
+  ],
+  "source_commit": "6780e7df564c55f3e256822be1d0383cfabff0c9",
+  "runtime_source_files": 2416,
+  "runtime_source_unchanged": false,
+  "reports": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-completion-boundary-670a2.json",
+      "bytes": 27236,
+      "sha256": "7ff388f308bb4c52a58703ab4a2e0fe3ee60bc855071294ef3b1f1f53f217ad9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-contribution-670a2.json",
+      "bytes": 2433,
+      "sha256": "47f90ce218398eb7212c59786c49e2495e8850db548424e60c47d0c1f5c9a2ae"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-production-claim-surfaces-670a2.json",
+      "bytes": 1362,
+      "sha256": "e6bb13e75e98961020bad1d0f586c1b5d82e15c3a8ba0879cefd1f5deb836ce7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-production-documentation-670a2.json",
+      "bytes": 519,
+      "sha256": "a1554feff73c70c6bb9cc518c87463d0c334b0ec63707420138bbca6a4755bc0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-public-status-670a2.json",
+      "bytes": 91271,
+      "sha256": "8ebab07940b2970195c851a79170695e3b732b77332cbfd3aed347b606ed3e72"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-release-boundary-670a2.json",
+      "bytes": 30276,
+      "sha256": "4d55d4cc5ce7af734f64314edef25c9d506a03485f97ae45c415d38daf7b5c6c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-runtime-gap-670a2.json",
+      "bytes": 69183,
+      "sha256": "0778324686452fca2eb9541b5acf340e33d184a88e7c14b321f7c99caa2c84fa"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-security-posture-670a2.json",
+      "bytes": 1149,
+      "sha256": "31e6c2e91f8a1091ddd40bf9687a729171d61027b99b509217c91a072ef422fc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-v1-scope-670a2.json",
+      "bytes": 1293,
+      "sha256": "dad1a94abbaf57440884209a636589ff8156264900d275e1e30d355b41cac916"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-website-readiness-670a2.json",
+      "bytes": 12754,
+      "sha256": "a190f1c102ca16782cfb50fadd7fdfc6f3d5162cf62b09a48dd80a64bcc3eef2"
+    }
+  ],
+  "version_changed": false,
+  "broad_rust_gate_note": "The original documentation batch preserved the accepted runtime/test/config sources and reused PR #1574 validation plus fresh merged-source UAT. The subsequent pressure-test correction changes one cfg(test) statement; its linked packet records 14 focused Rust tests and the required workspace format, Clippy and test gates. Production code is identical after excluding that statement; final-head hosted CI remains separately required.",
+  "completion_claim_allowed": false,
+  "release_claim_allowed": false,
+  "boundary_note": "Compute completion and release tracker run in their existing inspection modes. Open development remains a blocker; exit zero does not mark either claim ready.",
+  "helper": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_roadmap_documentation_670.py",
+    "bytes": 5364,
+    "sha256": "0bc8d4520e6612300097d6f7787f03046bf796883e3d832ab64c6c2ace307553"
+  },
+  "archive": {
+    "file": "native-roadmap-documentation-validation-2026-10-18.tar.xz",
+    "bytes": 971556,
+    "sha256": "7ddc524ca382f4a194079ee22508e347d75bae8693b369572bd54187f838697a"
+  },
+  "member_count": 98,
+  "raw_bytes": 11274678,
+  "all_members_reopened": true,
+  "members": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+      "archive_path": "external/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+      "bytes": 8431,
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/release_validation_guard.py",
+      "archive_path": "external/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/release_validation_guard.py",
+      "bytes": 1675,
+      "sha256": "5e8298a7b8bec17f7f2ebf9e48d1b14bed23660989feb92c5794ea047a2e2f48",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-columnar-current-proof-661.md",
+      "archive_path": "local/backlog-columnar-current-proof-661.md",
+      "bytes": 8299,
+      "sha256": "53a6a420c0ac4c9b4eba64427429eca30a759679c7eacadb807870b66ffeff12",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-final-mechanical-671.json",
+      "archive_path": "local/backlog-final-mechanical-671.json",
+      "bytes": 1732,
+      "sha256": "d70aaba41d4752f48e5c586c5841d38cfa87b25aa238c47beb69bc5d3b792b5b",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-final-mechanical-671.md",
+      "archive_path": "local/backlog-final-mechanical-671.md",
+      "bytes": 1522,
+      "sha256": "a318dd4658bedb838b57b59090a12b0410fdd1619ce1b05a225d2188b7092489",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-final-mechanical-671.py",
+      "archive_path": "local/backlog-final-mechanical-671.py",
+      "bytes": 4222,
+      "sha256": "7dc0f91637e577b1de33a5e021da1768ab88a38c683287ea508ad3eaf589d56a",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts",
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-mechanical-review-661.md",
+      "archive_path": "local/backlog-mechanical-review-661.md",
+      "bytes": 3379,
+      "sha256": "c485ba1f5e4c431d4d4e46103dc7fd8af63815289492a82820d1c677896b5c9e",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-original-660.json",
+      "archive_path": "local/backlog-original-660.json",
+      "bytes": 78301,
+      "sha256": "df2a8049b9dd03c15bdf7bf18f31ad308179f1140c16e5b5b5ad4c869587b502",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-original-plan-660.md",
+      "archive_path": "local/backlog-original-plan-660.md",
+      "bytes": 279998,
+      "sha256": "1977f9ea3ad30986ae6bbca46e89fa8ed1896decd84d32dbf24437d8627b91d5",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-perf01-07-evidence-660.md",
+      "archive_path": "local/backlog-perf01-07-evidence-660.md",
+      "bytes": 31498,
+      "sha256": "cad8edfbba95661dfd7553f950d86c6991bb9311305f9cd1f7a70d31e695d810",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-perf08-13-evidence-660.md",
+      "archive_path": "local/backlog-perf08-13-evidence-660.md",
+      "bytes": 31787,
+      "sha256": "8236b1958dc3fab1fc0f17314baa226aa793159ed9bc0d2cd00ef1ea6d00cc29",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-production-evidence-660.md",
+      "archive_path": "local/backlog-production-evidence-660.md",
+      "bytes": 14172,
+      "sha256": "46ab15651e8e386cf24aaa881d70fad45d0c142fd7732e0979995d0272db14ce",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-reconciliation-draft-661.json",
+      "archive_path": "local/backlog-reconciliation-draft-661.json",
+      "bytes": 159742,
+      "sha256": "eb5cb53b631e4a58b07c906d8e38e191bc0e47e48a249f8125bf3c19834d6bbb",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-reconciliation-final-668.json",
+      "archive_path": "local/backlog-reconciliation-final-668.json",
+      "bytes": 160383,
+      "sha256": "5ab0ea3e49dd2c86344d205bd7da4dd32b4289b7488edb418dce61bc38d12c54",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/backlog-validator-contracts-660.md",
+      "archive_path": "local/backlog-validator-contracts-660.md",
+      "bytes": 9931,
+      "sha256": "77bfd4b98c170ad8c1225c4c19cfd0f0a857c04a63b1bf9a635e4b273ac76c82",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/finalize_backlog_reconciliation_668.py",
+      "archive_path": "local/finalize_backlog_reconciliation_668.py",
+      "bytes": 9048,
+      "sha256": "8d9d0dca8f1f2c586772ee0ce5b6173e0b3c1a1b4428e800b3aa7e5eab21e18f",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts",
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/freeze_native_release_298.py",
+      "archive_path": "local/freeze_native_release_298.py",
+      "bytes": 5254,
+      "sha256": "117f0ef25969f45673a8f71ffb39a57c60ca9e3cab03ad1629d1f89731d0c199",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-roadmap663.json",
+      "archive_path": "local/native-release-source-roadmap663.json",
+      "bytes": 315804,
+      "sha256": "494a80064534f94efc7983b1ca107d1b129d22a63e7f7ad8f9e1a6faea749ca2",
+      "roles": [
+        "unchanged runtime source identity"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-roadmap-reconciliation-draft-661.md",
+      "archive_path": "local/native-roadmap-reconciliation-draft-661.md",
+      "bytes": 54942,
+      "sha256": "4ce478a2591bc60581dee787c3ab8192f2ddb36cc752bf316532975a2c385cf2",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-roadmap-reconciliation-final-668.md",
+      "archive_path": "local/native-roadmap-reconciliation-final-668.md",
+      "bytes": 55570,
+      "sha256": "89d57a1cdd3c371305081fb547441d48f3d1720f7bb722bd0fb1a5b8c86d3db5",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/package_roadmap_documentation_675.py",
+      "archive_path": "local/package_roadmap_documentation_675.py",
+      "bytes": 8053,
+      "sha256": "7ec7bbdab6580bc9c3b50e88d6e30ce087fdcb599d831af6e709895326b3812b",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/package_selection_acceptance_409.py",
+      "archive_path": "local/package_selection_acceptance_409.py",
+      "bytes": 54837,
+      "sha256": "292d5f09fa3ead09adef637eed0fb3fae6595c84d5bf32181ce9d9c953ec1f47",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/phased-execution-plan-draft-661.md",
+      "archive_path": "local/phased-execution-plan-draft-661.md",
+      "bytes": 61791,
+      "sha256": "a96da822d8266163aa46159c64d92bb8d26f5653c24ba4c13e9c6800eb0596ee",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/phased-execution-plan-final-668.md",
+      "archive_path": "local/phased-execution-plan-final-668.md",
+      "bytes": 62105,
+      "sha256": "95598fb74c9f3e7e7fbeced1b1a0b68e41f9b74eea1c961fd3a596ae334a8ba0",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/prepare_backlog_reconciliation_661.py",
+      "archive_path": "local/prepare_backlog_reconciliation_661.py",
+      "bytes": 66470,
+      "sha256": "423d4c51d3762186653d9ead3c3e48eaf15545f3c09734500d983cb440b25066",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts",
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/prepare_roadmap_docs_669.py",
+      "archive_path": "local/prepare_roadmap_docs_669.py",
+      "bytes": 20916,
+      "sha256": "9dd94d7959f31bd6159d381d418dc1e99661d4c0c159dd8ffc71a331f075238b",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts",
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-completion-boundary-670a2.json",
+      "archive_path": "local/roadmap-docs-completion-boundary-670a2.json",
+      "bytes": 27236,
+      "sha256": "7ff388f308bb4c52a58703ab4a2e0fe3ee60bc855071294ef3b1f1f53f217ad9",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-contribution-670a2.json",
+      "archive_path": "local/roadmap-docs-contribution-670a2.json",
+      "bytes": 2433,
+      "sha256": "47f90ce218398eb7212c59786c49e2495e8850db548424e60c47d0c1f5c9a2ae",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-production-claim-surfaces-670a2.json",
+      "archive_path": "local/roadmap-docs-production-claim-surfaces-670a2.json",
+      "bytes": 1362,
+      "sha256": "e6bb13e75e98961020bad1d0f586c1b5d82e15c3a8ba0879cefd1f5deb836ce7",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-production-documentation-670a2.json",
+      "archive_path": "local/roadmap-docs-production-documentation-670a2.json",
+      "bytes": 519,
+      "sha256": "a1554feff73c70c6bb9cc518c87463d0c334b0ec63707420138bbca6a4755bc0",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-public-status-670a2.json",
+      "archive_path": "local/roadmap-docs-public-status-670a2.json",
+      "bytes": 91271,
+      "sha256": "8ebab07940b2970195c851a79170695e3b732b77332cbfd3aed347b606ed3e72",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-release-boundary-670a2.json",
+      "archive_path": "local/roadmap-docs-release-boundary-670a2.json",
+      "bytes": 30276,
+      "sha256": "4d55d4cc5ce7af734f64314edef25c9d506a03485f97ae45c415d38daf7b5c6c",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-runtime-gap-670a2.json",
+      "archive_path": "local/roadmap-docs-runtime-gap-670a2.json",
+      "bytes": 69183,
+      "sha256": "0778324686452fca2eb9541b5acf340e33d184a88e7c14b321f7c99caa2c84fa",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-security-posture-670a2.json",
+      "archive_path": "local/roadmap-docs-security-posture-670a2.json",
+      "bytes": 1149,
+      "sha256": "31e6c2e91f8a1091ddd40bf9687a729171d61027b99b509217c91a072ef422fc",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-v1-scope-670.json",
+      "archive_path": "local/roadmap-docs-v1-scope-670.json",
+      "bytes": 1359,
+      "sha256": "ce222de0d029e94307c9a53f9d230120d4734fc9d9e7eadd5494cd6d65274a35",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-v1-scope-670a2.json",
+      "archive_path": "local/roadmap-docs-v1-scope-670a2.json",
+      "bytes": 1293,
+      "sha256": "dad1a94abbaf57440884209a636589ff8156264900d275e1e30d355b41cac916",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-website-readiness-670a2.json",
+      "archive_path": "local/roadmap-docs-website-readiness-670a2.json",
+      "bytes": 12754,
+      "sha256": "a190f1c102ca16782cfb50fadd7fdfc6f3d5162cf62b09a48dd80a64bcc3eef2",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-670.json",
+      "archive_path": "local/roadmap-documentation-670.json",
+      "bytes": 3027,
+      "sha256": "285a8d443ffa5f966290c992f2da834248ffe17d34c7eaf43f1aaa776c594100",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-670.log",
+      "archive_path": "local/roadmap-documentation-670.log",
+      "bytes": 2102,
+      "sha256": "d3b7a0097380f8210ecd1ad6759eeabcc920e1d4106efddc5e8e1ac8b22657ff",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-670a2.json",
+      "archive_path": "local/roadmap-documentation-670a2.json",
+      "bytes": 3026,
+      "sha256": "e78d1ba214f34b579382c628e1de41eaa8295e633401b913604aa60f6f42e5f3",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-670a2.log",
+      "archive_path": "local/roadmap-documentation-670a2.log",
+      "bytes": 9186,
+      "sha256": "bb3df3c20801b6960c6d3ac09a1914c1af42e256deeb60a8d8d84893ac61f04e",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-correction-670.json",
+      "archive_path": "local/roadmap-documentation-correction-670.json",
+      "bytes": 520,
+      "sha256": "57c6b79b925065a6b7a64349b74429f328b2097afec3ae853e7b0cb99aaf3d19",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/architecture/local-artifact-cleanup-2026-10-18.md",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/architecture/local-artifact-cleanup-2026-10-18.md",
+      "bytes": 1697,
+      "sha256": "c05f63319de0f7f401995a85f7f2192018a4ac2003550bde2c1fb67985d2d58c",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/architecture/local-development-storage.md",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/architecture/local-development-storage.md",
+      "bytes": 36323,
+      "sha256": "3d8d03dfdfa8e1bea6db5f5a4f78c0a1b5b83bcbe64e1be2d1b26820ca4ee848",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/architecture/native-local-completion-scope-2026-10-07.md",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/architecture/native-local-completion-scope-2026-10-07.md",
+      "bytes": 31621,
+      "sha256": "a958ae9cfdb0b15a0ba90f6fdbbf4a3a04022340cd85c9ec90394627810b589f",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/architecture/native-roadmap-reconciliation-2026-10-18.json",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/architecture/native-roadmap-reconciliation-2026-10-18.json",
+      "bytes": 160383,
+      "sha256": "5ab0ea3e49dd2c86344d205bd7da4dd32b4289b7488edb418dce61bc38d12c54",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/architecture/native-roadmap-reconciliation-2026-10-18.md",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/architecture/native-roadmap-reconciliation-2026-10-18.md",
+      "bytes": 55570,
+      "sha256": "89d57a1cdd3c371305081fb547441d48f3d1720f7bb722bd0fb1a5b8c86d3db5",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/architecture/phased-execution-completed-ledger.md",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/architecture/phased-execution-completed-ledger.md",
+      "bytes": 3957270,
+      "sha256": "6756aa492a71b2c5b41ab151cb6766eda1aa2e74d175ae9cd66ee59d710aef14",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/architecture/phased-execution-plan.md",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/architecture/phased-execution-plan.md",
+      "bytes": 62105,
+      "sha256": "95598fb74c9f3e7e7fbeced1b1a0b68e41f9b74eea1c961fd3a596ae334a8ba0",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/benchmarks/evidence/native-roadmap-documentation-validation-2026-10-18.json",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/benchmarks/evidence/native-roadmap-documentation-validation-2026-10-18.json",
+      "bytes": 184,
+      "sha256": "637cc4920216ce19fb504850ddf4af00dc490b1d14453bb9c5fcc668aeb93631",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/benchmarks/native-nullable-layout-2026-10-18.md",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/benchmarks/native-nullable-layout-2026-10-18.md",
+      "bytes": 8183,
+      "sha256": "4ac4681c2768baef33af03f38f374a3f799652ba513d79d81e1be61b360f9019",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/benchmarks/native-roadmap-fresh-uat-2026-10-18.md",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/benchmarks/native-roadmap-fresh-uat-2026-10-18.md",
+      "bytes": 6442,
+      "sha256": "1b28f4be65f30a53298b3c5a4b5404448c600fa5d5a8e01daf36ad593be2d018",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/docs/release/v1-inclusion-scope-matrix.md",
+      "archive_path": "local/roadmap-documentation-prepared-669/docs/release/v1-inclusion-scope-matrix.md",
+      "bytes": 92204,
+      "sha256": "55559da703321a21fe4e95dad1a8966ed4d95ef74e7c2ffe5ee8798123463f4a",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/manifest.json",
+      "archive_path": "local/roadmap-documentation-prepared-669/manifest.json",
+      "bytes": 2957,
+      "sha256": "407483917aa396ede3fc31fa72e76b8f2bda29e452496858c9165689862c6112",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-prepared-669/website-src/src/content/docs/field-guide/benchmark-methodology.mdx",
+      "archive_path": "local/roadmap-documentation-prepared-669/website-src/src/content/docs/field-guide/benchmark-methodology.mdx",
+      "bytes": 13558,
+      "sha256": "c243b97614dad72cbde4c6fe0335e000501c6af3adaf4b5acfaa2909bea6cc02",
+      "roles": [
+        "original prepared documentation including later-corrected draft"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-validation-670.json",
+      "archive_path": "local/roadmap-documentation-validation-670.json",
+      "bytes": 12606,
+      "sha256": "f237662ae3f7e0cecc33b6b299ad7720d709371918826ba07ebc9ce58e4627a0",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-documentation-validator-original-670.py",
+      "archive_path": "local/roadmap-documentation-validator-original-670.py",
+      "bytes": 5360,
+      "sha256": "2b673c83fa085963bd541e10d5c89df9bd8017318d66a2514465112d6d36e5ad",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts",
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-evidence-copy-669.json",
+      "archive_path": "local/roadmap-evidence-copy-669.json",
+      "bytes": 3466,
+      "sha256": "4dd014c4498c73f54b2d79a4fb8c3b7b52c09acfca233d5ef1dcb3d19848094b",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-primary-mechanical-review-672.json",
+      "archive_path": "local/roadmap-primary-mechanical-review-672.json",
+      "bytes": 107472,
+      "sha256": "4cc8a8eeeadba9c54ac9e292b9d5eb8089ff5bab4ba4ce0242d994939b7ab5c6",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-site-correction-674.json",
+      "archive_path": "local/roadmap-site-correction-674.json",
+      "bytes": 3001,
+      "sha256": "743acc76425fc2f632c45d02bdca1f359aca66024d4e25bf84fd6443e59e8f6b",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-site-correction-674.log",
+      "archive_path": "local/roadmap-site-correction-674.log",
+      "bytes": 4251,
+      "sha256": "2120869b5674c810cdbb05a696036fc1e5d5e455b18cca0a8f1694d61717777d",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-site-readiness-674.json",
+      "archive_path": "local/roadmap-site-readiness-674.json",
+      "bytes": 12866,
+      "sha256": "72b0e8db61ccf540c6040944f0a554d88f5201311d84934b555f3baf188b5c21",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap_prepared_patch_669.py",
+      "archive_path": "local/roadmap_prepared_patch_669.py",
+      "bytes": 1270,
+      "sha256": "91151217318dc42cdad13912f4ad8edba8ea9ac3e02c3986497d3c72bf8c289c",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts",
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_guarded.py",
+      "archive_path": "local/run_guarded.py",
+      "bytes": 4275,
+      "sha256": "231129c081911ad362888b328e1ab1c7c9e4bf5b0b9abf372feb80671c00be8e",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/run_roadmap_documentation_670.py",
+      "archive_path": "local/run_roadmap_documentation_670.py",
+      "bytes": 5364,
+      "sha256": "0bc8d4520e6612300097d6f7787f03046bf796883e3d832ab64c6c2ace307553",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts",
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/verify_roadmap_mechanical_672.py",
+      "archive_path": "local/verify_roadmap_mechanical_672.py",
+      "bytes": 8707,
+      "sha256": "097c2bc258ead45cb818142b1ec524f5fb594347d0e06e59e3152e1cd3f9809c",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts",
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/verify_roadmap_site_correction_674.py",
+      "archive_path": "local/verify_roadmap_site_correction_674.py",
+      "bytes": 2801,
+      "sha256": "f81c90bcf817acd68e56bdf5cfd0d3ed5d38d96a72abef67eb6bea61a834e68d",
+      "roles": [
+        "reconciliation, raw checks and preserved earlier attempts",
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/architecture/local-artifact-cleanup-2026-10-18.md",
+      "archive_path": "repository/docs/architecture/local-artifact-cleanup-2026-10-18.md",
+      "bytes": 1697,
+      "sha256": "c05f63319de0f7f401995a85f7f2192018a4ac2003550bde2c1fb67985d2d58c",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/architecture/local-development-storage.md",
+      "archive_path": "repository/docs/architecture/local-development-storage.md",
+      "bytes": 36323,
+      "sha256": "3d8d03dfdfa8e1bea6db5f5a4f78c0a1b5b83bcbe64e1be2d1b26820ca4ee848",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/architecture/native-local-completion-scope-2026-10-07.md",
+      "archive_path": "repository/docs/architecture/native-local-completion-scope-2026-10-07.md",
+      "bytes": 31621,
+      "sha256": "a958ae9cfdb0b15a0ba90f6fdbbf4a3a04022340cd85c9ec90394627810b589f",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/architecture/native-roadmap-reconciliation-2026-10-18.json",
+      "archive_path": "repository/docs/architecture/native-roadmap-reconciliation-2026-10-18.json",
+      "bytes": 160383,
+      "sha256": "5ab0ea3e49dd2c86344d205bd7da4dd32b4289b7488edb418dce61bc38d12c54",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/architecture/native-roadmap-reconciliation-2026-10-18.md",
+      "archive_path": "repository/docs/architecture/native-roadmap-reconciliation-2026-10-18.md",
+      "bytes": 55570,
+      "sha256": "89d57a1cdd3c371305081fb547441d48f3d1720f7bb722bd0fb1a5b8c86d3db5",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/architecture/phased-execution-completed-ledger.md",
+      "archive_path": "repository/docs/architecture/phased-execution-completed-ledger.md",
+      "bytes": 3957269,
+      "sha256": "5b86686fe01f57eb324c894e5793e4296de25704c6a4d191d204089e90cacddb",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/architecture/phased-execution-plan.md",
+      "archive_path": "repository/docs/architecture/phased-execution-plan.md",
+      "bytes": 62105,
+      "sha256": "95598fb74c9f3e7e7fbeced1b1a0b68e41f9b74eea1c961fd3a596ae334a8ba0",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/native-nullable-layout-2026-10-18.md",
+      "archive_path": "repository/docs/benchmarks/native-nullable-layout-2026-10-18.md",
+      "bytes": 8183,
+      "sha256": "4ac4681c2768baef33af03f38f374a3f799652ba513d79d81e1be61b360f9019",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/benchmarks/native-roadmap-fresh-uat-2026-10-18.md",
+      "archive_path": "repository/docs/benchmarks/native-roadmap-fresh-uat-2026-10-18.md",
+      "bytes": 6442,
+      "sha256": "1b28f4be65f30a53298b3c5a4b5404448c600fa5d5a8e01daf36ad593be2d018",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/docs/release/v1-inclusion-scope-matrix.md",
+      "archive_path": "repository/docs/release/v1-inclusion-scope-matrix.md",
+      "bytes": 92237,
+      "sha256": "ecc056c2cc08864d44d8cc4a3b34ba7d98c8ba4795502c564c71218d48db7de4",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/check_benchmark_artifact_completeness.py",
+      "archive_path": "repository/scripts/check_benchmark_artifact_completeness.py",
+      "bytes": 28662,
+      "sha256": "6aeecae7890154a924a18e6053815e33518c383ed0384103712205576948e0cd",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/check_production_certification_gate.py",
+      "archive_path": "repository/scripts/check_production_certification_gate.py",
+      "bytes": 36163,
+      "sha256": "f9af3bee87267aec826f28d1ffa685a76f8b4bdafcadb065ed8d6520a792f35a",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/check_production_usability_gate.py",
+      "archive_path": "repository/scripts/check_production_usability_gate.py",
+      "bytes": 37466,
+      "sha256": "dfd375a58c538011979208ad176377d2d3a81916a50181b2a4b129e033ad7c8a",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/check_v1_inclusion_scope.py",
+      "archive_path": "repository/scripts/check_v1_inclusion_scope.py",
+      "bytes": 10387,
+      "sha256": "40e388d6ffe8b73eb881378bec5905728e8161672b8d1066cbcbc535187b6a5f",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/clickbench_reference_packet.py",
+      "archive_path": "repository/scripts/clickbench_reference_packet.py",
+      "bytes": 4863,
+      "sha256": "8d20759e0b2d41dcdba4b9d4033abfa7961f888d62cdf3e3e2545d8482ba5102",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/local_uat_storage.py",
+      "archive_path": "repository/scripts/local_uat_storage.py",
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/native_workflow_protocol.py",
+      "archive_path": "repository/scripts/native_workflow_protocol.py",
+      "bytes": 7464,
+      "sha256": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/query_timing_report.py",
+      "archive_path": "repository/scripts/query_timing_report.py",
+      "bytes": 4235,
+      "sha256": "1b0fd51d1ef359ee6603f8ffddad9223df3b10e2ee5195f17acaf4a3ad86d5d1",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/release_channel_contract.py",
+      "archive_path": "repository/scripts/release_channel_contract.py",
+      "bytes": 16256,
+      "sha256": "d28f6bae54aacfcffdfc9b8ea48ba83c4fae9e5af1378a94260d77444a7f81b0",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/release_report_utils.py",
+      "archive_path": "repository/scripts/release_report_utils.py",
+      "bytes": 10205,
+      "sha256": "3235ff631931c64081c782d3677776e3b333e5880ebd8dd11058c7478fa831af",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/scripts/run_clickbench_query_uat.py",
+      "archive_path": "repository/scripts/run_clickbench_query_uat.py",
+      "bytes": 27294,
+      "sha256": "7d22f4ae6022c6b3f931eeae9f2acb47271fc1b6755f66838b76669e01d64da3",
+      "roles": [
+        "helper and local import closure"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src/scripts/sync-content.mjs",
+      "archive_path": "repository/website-src/scripts/sync-content.mjs",
+      "bytes": 116975,
+      "sha256": "ce440e452cb466c2717ef3ffd1d60e5f10a75f219f24c3617b1c0a2c421de930",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src/src/content/docs/field-guide/benchmark-methodology.mdx",
+      "archive_path": "repository/website-src/src/content/docs/field-guide/benchmark-methodology.mdx",
+      "bytes": 13558,
+      "sha256": "c243b97614dad72cbde4c6fe0335e000501c6af3adaf4b5acfaa2909bea6cc02",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website/benchmarks.html",
+      "archive_path": "repository/website/benchmarks.html",
+      "bytes": 43189,
+      "sha256": "4db6f8b1ad43386a5b78eac617e0b60d3ab442ace05b1d1d26031f9a856dd653",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website/benchmarks/index.html",
+      "archive_path": "repository/website/benchmarks/index.html",
+      "bytes": 43189,
+      "sha256": "4db6f8b1ad43386a5b78eac617e0b60d3ab442ace05b1d1d26031f9a856dd653",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website/field-guide/benchmark-methodology/index.html",
+      "archive_path": "repository/website/field-guide/benchmark-methodology/index.html",
+      "bytes": 43189,
+      "sha256": "4db6f8b1ad43386a5b78eac617e0b60d3ab442ace05b1d1d26031f9a856dd653",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website/pagefind/fragment/en_6b56dff.pf_fragment",
+      "archive_path": "repository/website/pagefind/fragment/en_6b56dff.pf_fragment",
+      "bytes": 4167,
+      "sha256": "392cc34661a3bf937cebb3919757725853bde7662ec608da814aa207cb6bc63f",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website/pagefind/index/en_1a7777a.pf_index",
+      "archive_path": "repository/website/pagefind/index/en_1a7777a.pf_index",
+      "bytes": 4401,
+      "sha256": "13e8cc7f09f2f19bc198f24ea3cb0529a68f57e999af62399f6053fd2f9465ac",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website/pagefind/index/en_375d232.pf_index",
+      "archive_path": "repository/website/pagefind/index/en_375d232.pf_index",
+      "bytes": 35892,
+      "sha256": "1b18301856abbd7c46d957a7ca92e8575226815ea70a5da02473568867b594d1",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website/pagefind/pagefind-entry.json",
+      "archive_path": "repository/website/pagefind/pagefind-entry.json",
+      "bytes": 171,
+      "sha256": "02142e23fe572c56c30c6f7d5dd8891cf96ddb3399a4e7c8f5edb23f4f5d3267",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website/pagefind/pagefind.en_f9d43f0c62.pf_meta",
+      "archive_path": "repository/website/pagefind/pagefind.en_f9d43f0c62.pf_meta",
+      "bytes": 177,
+      "sha256": "1942334e182102bede6a728652b59b5170d9dc4c6cdd48943ac36bd81ef1c6e1",
+      "roles": [
+        "final proposed documentation or generated website"
+      ]
+    }
+  ],
+  "final_source_identities": [
+    {
+      "file": "docs/architecture/local-development-storage.md",
+      "bytes": 36323,
+      "sha256": "3d8d03dfdfa8e1bea6db5f5a4f78c0a1b5b83bcbe64e1be2d1b26820ca4ee848"
+    },
+    {
+      "file": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+      "bytes": 31621,
+      "sha256": "a958ae9cfdb0b15a0ba90f6fdbbf4a3a04022340cd85c9ec90394627810b589f"
+    },
+    {
+      "file": "docs/architecture/phased-execution-completed-ledger.md",
+      "bytes": 3957269,
+      "sha256": "5b86686fe01f57eb324c894e5793e4296de25704c6a4d191d204089e90cacddb"
+    },
+    {
+      "file": "docs/architecture/phased-execution-plan.md",
+      "bytes": 62105,
+      "sha256": "95598fb74c9f3e7e7fbeced1b1a0b68e41f9b74eea1c961fd3a596ae334a8ba0"
+    },
+    {
+      "file": "docs/benchmarks/native-nullable-layout-2026-10-18.md",
+      "bytes": 8183,
+      "sha256": "4ac4681c2768baef33af03f38f374a3f799652ba513d79d81e1be61b360f9019"
+    },
+    {
+      "file": "docs/release/v1-inclusion-scope-matrix.md",
+      "bytes": 92237,
+      "sha256": "ecc056c2cc08864d44d8cc4a3b34ba7d98c8ba4795502c564c71218d48db7de4"
+    },
+    {
+      "file": "website-src/scripts/sync-content.mjs",
+      "bytes": 116975,
+      "sha256": "ce440e452cb466c2717ef3ffd1d60e5f10a75f219f24c3617b1c0a2c421de930"
+    },
+    {
+      "file": "website-src/src/content/docs/field-guide/benchmark-methodology.mdx",
+      "bytes": 13558,
+      "sha256": "c243b97614dad72cbde4c6fe0335e000501c6af3adaf4b5acfaa2909bea6cc02"
+    },
+    {
+      "file": "website/benchmarks.html",
+      "bytes": 43189,
+      "sha256": "4db6f8b1ad43386a5b78eac617e0b60d3ab442ace05b1d1d26031f9a856dd653"
+    },
+    {
+      "file": "website/benchmarks/index.html",
+      "bytes": 43189,
+      "sha256": "4db6f8b1ad43386a5b78eac617e0b60d3ab442ace05b1d1d26031f9a856dd653"
+    },
+    {
+      "file": "website/field-guide/benchmark-methodology/index.html",
+      "bytes": 43189,
+      "sha256": "4db6f8b1ad43386a5b78eac617e0b60d3ab442ace05b1d1d26031f9a856dd653"
+    },
+    {
+      "file": "website/pagefind/pagefind-entry.json",
+      "bytes": 171,
+      "sha256": "02142e23fe572c56c30c6f7d5dd8891cf96ddb3399a4e7c8f5edb23f4f5d3267"
+    },
+    {
+      "file": "docs/architecture/local-artifact-cleanup-2026-10-18.md",
+      "bytes": 1697,
+      "sha256": "c05f63319de0f7f401995a85f7f2192018a4ac2003550bde2c1fb67985d2d58c"
+    },
+    {
+      "file": "docs/architecture/native-roadmap-reconciliation-2026-10-18.json",
+      "bytes": 160383,
+      "sha256": "5ab0ea3e49dd2c86344d205bd7da4dd32b4289b7488edb418dce61bc38d12c54"
+    },
+    {
+      "file": "docs/architecture/native-roadmap-reconciliation-2026-10-18.md",
+      "bytes": 55570,
+      "sha256": "89d57a1cdd3c371305081fb547441d48f3d1720f7bb722bd0fb1a5b8c86d3db5"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-nullable-layout-hosted-2026-10-18.json",
+      "bytes": 57242,
+      "sha256": "00c1ee54318714ce42ecc461c72838a696d8f6a26ac2bd52bbee1e709f285a8b"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-nullable-layout-hosted-2026-10-18.tar.xz",
+      "bytes": 1683472,
+      "sha256": "388a4868bfbb562e116d5ed5677429edc363f2c7a65792fa5480c419d8e53850"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18-query-timings.csv",
+      "bytes": 16567,
+      "sha256": "99c52d027fd8a1481ea394fe8261b6c519334e336ae303ced28ec1d95a5a01ea"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.json",
+      "bytes": 4863,
+      "sha256": "e13e92b6935de083dc88fe0d1a0983c96f57f8ddf561a47980e1a614c5d1ab14"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.manifest.json.xz",
+      "bytes": 544128,
+      "sha256": "5ec92b0a1d246f42578a0397a235f321be26414d49df8458f56c925bf527cf05"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.part01.tar.xz",
+      "bytes": 1972868,
+      "sha256": "53f2928c8637309874ce23d28396e3f451eb9f3d7c4c342e25c409ab98f4cd3e"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.part02.tar.xz",
+      "bytes": 2465088,
+      "sha256": "ee1c753335a49d188ae485a0298cbfc933ef151cc38c848ce3d5550d0bd6241d"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.part03.tar.xz",
+      "bytes": 7627728,
+      "sha256": "37d0bb417465c32d1d4df247130565292bd917a1aff91c44d763809b9dfad4bb"
+    },
+    {
+      "file": "docs/benchmarks/native-roadmap-fresh-uat-2026-10-18.md",
+      "bytes": 6576,
+      "sha256": "0258a0f794dd47d5ac4c01aa78cf1e6b1a5730173a916dc59d1923f66465682f"
+    },
+    {
+      "file": "website/pagefind/fragment/en_6b56dff.pf_fragment",
+      "bytes": 4167,
+      "sha256": "392cc34661a3bf937cebb3919757725853bde7662ec608da814aa207cb6bc63f"
+    },
+    {
+      "file": "website/pagefind/index/en_1a7777a.pf_index",
+      "bytes": 4401,
+      "sha256": "13e8cc7f09f2f19bc198f24ea3cb0529a68f57e999af62399f6053fd2f9465ac"
+    },
+    {
+      "file": "website/pagefind/index/en_375d232.pf_index",
+      "bytes": 35892,
+      "sha256": "1b18301856abbd7c46d957a7ca92e8575226815ea70a5da02473568867b594d1"
+    },
+    {
+      "file": "website/pagefind/pagefind.en_f9d43f0c62.pf_meta",
+      "bytes": 177,
+      "sha256": "1942334e182102bede6a728652b59b5170d9dc4c6cdd48943ac36bd81ef1c6e1"
+    }
+  ],
+  "deleted_generated_paths": [
+    "website/pagefind/fragment/en_ec9b50a.pf_fragment",
+    "website/pagefind/index/en_2418acd.pf_index",
+    "website/pagefind/index/en_f56b836.pf_index",
+    "website/pagefind/pagefind.en_e794fd5c61.pf_meta"
+  ],
+  "existing_evidence": [
+    {
+      "file": "docs/benchmarks/evidence/native-nullable-layout-hosted-2026-10-18.json",
+      "bytes": 57242,
+      "sha256": "00c1ee54318714ce42ecc461c72838a696d8f6a26ac2bd52bbee1e709f285a8b"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-nullable-layout-hosted-2026-10-18.tar.xz",
+      "bytes": 1683472,
+      "sha256": "388a4868bfbb562e116d5ed5677429edc363f2c7a65792fa5480c419d8e53850"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18-query-timings.csv",
+      "bytes": 16567,
+      "sha256": "99c52d027fd8a1481ea394fe8261b6c519334e336ae303ced28ec1d95a5a01ea"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.json",
+      "bytes": 4863,
+      "sha256": "e13e92b6935de083dc88fe0d1a0983c96f57f8ddf561a47980e1a614c5d1ab14"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.manifest.json.xz",
+      "bytes": 544128,
+      "sha256": "5ec92b0a1d246f42578a0397a235f321be26414d49df8458f56c925bf527cf05"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.part01.tar.xz",
+      "bytes": 1972868,
+      "sha256": "53f2928c8637309874ce23d28396e3f451eb9f3d7c4c342e25c409ab98f4cd3e"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.part02.tar.xz",
+      "bytes": 2465088,
+      "sha256": "ee1c753335a49d188ae485a0298cbfc933ef151cc38c848ce3d5550d0bd6241d"
+    },
+    {
+      "file": "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.part03.tar.xz",
+      "bytes": 7627728,
+      "sha256": "37d0bb417465c32d1d4df247130565292bd917a1aff91c44d763809b9dfad4bb"
+    }
+  ],
+  "primary_mechanical_review": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-primary-mechanical-review-672.json",
+    "bytes": 107472,
+    "sha256": "4cc8a8eeeadba9c54ac9e292b9d5eb8089ff5bab4ba4ce0242d994939b7ab5c6"
+  },
+  "primary_review_summary": {
+    "original_rows": 149,
+    "fields_verified_per_row": 6,
+    "dispositions": {
+      "completed_preexisting": 28,
+      "remaining": 111,
+      "completed_reconciled": 10
+    },
+    "parents": 14,
+    "steps": 54,
+    "step_kinds": {
+      "required": 37,
+      "conditional": 17
+    },
+    "target_references": 119,
+    "distinct_legacy_destinations": 46,
+    "prose_investigations": 8,
+    "local_links_verified": 309,
+    "anchors_verified": 19,
+    "completion_open_rows": 68,
+    "prior_worker_check_accepted": false
+  },
+  "site_correction": {
+    "status": "passed",
+    "checks": 9,
+    "receipt": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-site-correction-674.json",
+      "bytes": 3001,
+      "sha256": "743acc76425fc2f632c45d02bdca1f359aca66024d4e25bf84fd6443e59e8f6b"
+    },
+    "log": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-site-correction-674.log",
+      "bytes": 4251,
+      "sha256": "2120869b5674c810cdbb05a696036fc1e5d5e455b18cca0a8f1694d61717777d"
+    },
+    "source_identities": [
+      {
+        "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src/scripts/sync-content.mjs",
+        "bytes": 116975,
+        "sha256": "ce440e452cb466c2717ef3ffd1d60e5f10a75f219f24c3617b1c0a2c421de930"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website-src/src/content/docs/field-guide/benchmark-methodology.mdx",
+        "bytes": 13558,
+        "sha256": "c243b97614dad72cbde4c6fe0335e000501c6af3adaf4b5acfaa2909bea6cc02"
+      },
+      {
+        "path": "/Users/dylan/.codex/worktrees/native-result-composition/shardloom-local-repo/website/field-guide/benchmark-methodology/index.html",
+        "bytes": 43189,
+        "sha256": "4db6f8b1ad43386a5b78eac617e0b60d3ab442ace05b1d1d26031f9a856dd653"
+      }
+    ],
+    "reason": "Final review found the new entry was only in the generated page and regeneration removed it. Updated the producer, rebuilt and checked the entry in source, generated page and built output. The child report and supervisor used one filename; the preserved supervisor receipt and complete log retain the successful commands and final content assertion."
+  },
+  "verification_note": "The original 22 checks and mechanical audit remain immutable. Nine focused website checks cover the generator correction. The later test-only source delta and its validation are recorded in test_pressure_followup; no version change or benchmark rerun.",
+  "packager": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/package_roadmap_documentation_675.py",
+    "bytes": 8053,
+    "sha256": "7ec7bbdab6580bc9c3b50e88d6e30ce087fdcb599d831af6e709895326b3812b"
+  },
+  "presentation_csv_normalization": {
+    "original_runner_csv": {
+      "bytes": 16611,
+      "sha256": "d319853ca165a4335a276d255203b1ada3161b7a9bb8e1b2e5d97ad9e59a6c0f"
+    },
+    "readable_csv": {
+      "bytes": 16567,
+      "sha256": "99c52d027fd8a1481ea394fe8261b6c519334e336ae303ced28ec1d95a5a01ea"
+    },
+    "parsed_records_identical": true,
+    "queries": 43,
+    "engine_execution_seconds": 54.358416752,
+    "reason": "Staged whitespace checking caught CRLF in the new readable CSV; earlier unstaged checks omitted this untracked file. Only line endings are normalized; the original runner CSV remains in the fresh-UAT archive. The report adds this disclosure; original archived source snapshots remain immutable."
+  },
+  "storage_inventory_review_correction": {
+    "status": "passed",
+    "review_comment": "https://github.com/depsilon/shardloom/pull/1575#discussion_r4307152814",
+    "source_file": "docs/architecture/local-development-storage.md",
+    "source_sha256": "a764c277652a33921ec1ffb03741559634508f980696e6c8cef1fba7357b3b90",
+    "retired_payload_absent": true,
+    "retained_generations": [
+      {
+        "role": "retained",
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+        "generation_unchanged": true,
+        "bytes": 15713610513
+      },
+      {
+        "role": "original_source",
+        "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+        "generation_unchanged": true,
+        "bytes": 14779976446
+      }
+    ],
+    "retirement_receipt_sha256": "5bfeedff50f87a5db7a4ff2c927994a62c12027437899a8a322049fd3e87cda9",
+    "verification": "Compared current filesystem generations and retired-path absence with the accepted retirement receipt; no new payload hashing, native execution or benchmark rerun.",
+    "correction": "Earlier residency statements are explicitly historical; the October 17 payload is recorded as retained only until its October 18 retirement."
+  },
+  "historical_runtime_source_unchanged": {
+    "value": true,
+    "scope": "The original archived documentation and site correction at a456b42ff6e9eb7a972d51c0c126bc5b41de7330; it predates the test-only pressure correction."
+  },
+  "test_pressure_followup": {
+    "file": "native-roadmap-test-pressure-2026-10-18.json",
+    "sha256": "4b4b10e555c7d6209c669ca4944175f6758cefcd874e27f907992db3ce758053",
+    "tested_source_commit": "3122328a9ed85a9aacc24337a2e4ef1486d89954",
+    "source_files": 2416,
+    "changes": {
+      "shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs": {
+        "before": "e378f53db68eda95e55165d4a88885a59fb66dd93cfb3c46e05b4e88c0d44fea",
+        "after": "c98f2bbee01c641494d23ba5147337647d1e2096445da1a4ba0892dd14b02c4f"
+      }
+    },
+    "production_code_unchanged_by_exact_cfg_test_elision": true,
+    "focused_tests": 14,
+    "required_workspace_checks": [
+      "format",
+      "clippy",
+      "test"
+    ],
+    "review_comment": "https://github.com/depsilon/shardloom/pull/1575#discussion_r4307343828",
+    "scope": "Passing local validation of the sole test-gated source delta; fresh final-head CI is required separately before merge."
+  }
+}

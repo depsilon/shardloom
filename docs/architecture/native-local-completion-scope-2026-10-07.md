@@ -5,6 +5,8 @@ for the existing remaining optimization/breadth task. The
 [phase plan](phased-execution-plan.md) owns implementation order and checklists;
 this document is not a second queue or a new set of competitive gates.
 
+The [October 18 reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps completed portions and remaining obligations into 14 canonical parents and 54 active substeps. It records five remaining breadth areas and eight conditional investigations; these overlap the checklist, rather than adding separate tasks. The historical assessments and original experiment contracts below remain intact.
+
 The maintainer's October 7 remaining-work assessment groups the work into
 stateful execution beyond resident memory, broader streaming and adapter
 coverage, and operational acceptance of a defined local product. Finishing one
