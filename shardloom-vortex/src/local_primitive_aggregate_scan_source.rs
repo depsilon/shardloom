@@ -53,6 +53,33 @@ impl AggregateScanSource<'_> {
             .map_err(vortex_error)
     }
 
+    pub(super) fn scan_reusing_text(
+        self,
+        session: &VortexSession,
+        lowering: &super::aggregate_lowering::AggregateLowering,
+        memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+        cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
+    ) -> VortexResult<(
+        ScanBuilder<ArrayRef>,
+        Option<std::sync::Arc<super::text_scan_reuse::Stats>>,
+    )> {
+        let reused = match self {
+            Self::File(file) => super::text_scan_reuse::admit(
+                file,
+                &lowering.plan,
+                lowering.pushdown.as_ref(),
+                memory,
+                cancellation,
+            )?,
+            #[cfg(all(feature = "vortex-write", unix))]
+            Self::Owned(_) => None,
+        };
+        if let Some((scan, stats)) = reused {
+            return Ok((scan, Some(stats)));
+        }
+        Ok((self.scan(session)?, None))
+    }
+
     pub(super) fn can_prune(self, expr: &Expression) -> VortexResult<Option<bool>> {
         match self {
             Self::File(file) => file.can_prune(expr).map(Some),

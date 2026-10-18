@@ -77,9 +77,12 @@ This guide explains ShardLoom’s
 engineering evidence and measurement boundaries; it does not present a public ranking.</p>
 <p><strong><a href="https://benchmark.clickhouse.com/">Open ClickBench ↗</a></strong></p>
 <div class="sl-heading-wrapper level-h2"><h2 id="current-engineering-evidence">Current engineering evidence</h2><a class="sl-anchor-link" href="#current-engineering-evidence"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Current engineering evidence”</span></a></div>
-<p>Reviewed October 17, 2026. Recent local work validates complete query results and measures
+<p>Reviewed October 18, 2026. Recent local work validates complete query results and measures
 individual changes against a frozen ShardLoom control:</p>
 <ul>
+<li>
+<p><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-scan-reuse-2026-10-18.md">October 18 shared native text filter/projection decoding</a> — query-owned reuse lowers the matched all-43 sum of per-query two-run means from 57.399 to 55.346 s engine time (3.58%), passing the prospective greater-than-3% gate. All 172 complete results and schemas match; both paired totals improve and no predefined material query regression occurs. All 4,827 public cases and 18 format/workflow cohorts pass. The report retains the rejected mixed-key experiment and all observations. This comparison is separate from a standard single-pass Full43 result.</p>
+</li>
 <li>
 <p><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-shared-execution-2026-10-17.md">October 17 shared numeric and dictionary execution</a> — three shared mechanisms lower the matched 43-query sum of per-query two-run means from 57.310 to 54.899 s engine time (4.21%). All 172 results and schemas match; both paired totals improve and no predefined material query regression occurs. The report preserves the original failed 5% gate, the maintainer’s later acceptance above 3%, and every rejected experiment. This comparison is separate from a standard single-pass Full43 result.</p>
 </li>

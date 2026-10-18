@@ -17,6 +17,29 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-SHARED-SPEED-FOLLOWUP` — shared native text filter/projection
+  decoding completes implementation and local acceptance under PERF-01/04/05/10.
+  A query-owned scan-range entry shares the filtered native owner, keeps other
+  columns behind the final mask and retires ownership on completion, failure or
+  cancellation. No query-specific admission, input rewrite or dependency is added.
+  - The prospective matched all-43 gate passes at 3.576340%: the sum of per-query
+    two-sample engine means falls from 57.3990281195 to 55.3462438375 seconds.
+    Both paired totals improve, all 172 values/schemas match and no material
+    query regression occurs. All 324 paired calls remain preserved, including
+    the rejected 78-call mixed-key experiment and retained 74-call text screen.
+  - Seven new native tests, seventeen related regressions, strict native Clippy,
+    required workspace gates, 100 direct binding methods, 4,827 public cases and
+    18 format/workflow cohorts pass. The matrix compares 704 native records with
+    704 independent oracle records; every cohort report is reopened.
+  - The [implementation contract](native-shared-speed-2026-10-18.md),
+    [acceptance report](../benchmarks/native-text-scan-reuse-2026-10-18.md) and
+    [portable evidence](../benchmarks/evidence/native-text-scan-reuse-2026-10-18.json)
+    retain immutable protocols, source identities, complete observations and
+    failure history. Final-head hosted review, CI, three installed-wheel lanes
+    and deployed revision proofs are separate integration gates. Broader PERF
+    obligations and CG-1 through CG-23 remain open; published packages retain
+    their release-time scope.
+
 - [x] `NATIVE-SHARED-EXECUTION-OPTIMIZATION` — shared integer binding, compact
   complete numeric-pair records and bounded dictionary-measure reduction close
   the October 17 batch under PERF-01/04/05/10. The matched 43-query sum of

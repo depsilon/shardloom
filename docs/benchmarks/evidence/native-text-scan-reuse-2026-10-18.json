@@ -1,0 +1,181 @@
+{
+  "schema_version": "shardloom.native_text_scan_reuse_evidence.v1",
+  "status": "passed_local_evidence_packaged",
+  "base_commit": "c653966a3ff6136415969edce0bb1a3231603c75",
+  "uncommitted_source_changes": true,
+  "source_files": 2415,
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-textscan644.json",
+    "bytes": 315663,
+    "sha256": "6a71993970e8061006306197f30bda1b781370ce010799c9af337de6ee11a237"
+  },
+  "artifact_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-textscan644.json",
+    "bytes": 316958,
+    "sha256": "4994416c91d69680ba60626f1ce058f00d82d80888e93f5479d24dd898e26b65"
+  },
+  "performance_decision": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-scan-full43-643/review.json",
+    "bytes": 531065,
+    "sha256": "e0fcb9a2362e886b3b2efbd5cf1b7d1e39198d2f943b0289dad1e85e36a72429"
+  },
+  "frozen_contract_copy": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-scan-design-at-acceptance-644.md",
+    "bytes": 11733,
+    "sha256": "8f05f08bc01679453fe15d572be9367556568b475468f86f41a878cc79a62716"
+  },
+  "member_count": 27981,
+  "raw_bytes": 385960986,
+  "archives": {
+    "native-text-scan-reuse-2026-10-18.tar.xz": {
+      "file": "native-text-scan-reuse-2026-10-18.tar.xz",
+      "bytes": 1324024,
+      "sha256": "5b79dcd3dbd8d53dcc190892d407835029eca3b793ceb6cd92a7768f02f306d5",
+      "raw_bytes": 83746380,
+      "member_count": 7014
+    },
+    "native-text-scan-reuse-2026-10-18.part-2.tar.xz": {
+      "file": "native-text-scan-reuse-2026-10-18.part-2.tar.xz",
+      "bytes": 852228,
+      "sha256": "625da6243cdff4ed46d909cf5e83ecad6639d81b7a3172055eb51d20590bf05f",
+      "raw_bytes": 81022336,
+      "member_count": 4906
+    },
+    "native-text-scan-reuse-2026-10-18.part-3.tar.xz": {
+      "file": "native-text-scan-reuse-2026-10-18.part-3.tar.xz",
+      "bytes": 727768,
+      "sha256": "bd533399adedcbfc815b88b2fd0cc8c75760959e6518a9ed46595f4a1fde02a2",
+      "raw_bytes": 83217628,
+      "member_count": 227
+    },
+    "native-text-scan-reuse-2026-10-18.part-4.tar.xz": {
+      "file": "native-text-scan-reuse-2026-10-18.part-4.tar.xz",
+      "bytes": 19635116,
+      "sha256": "71ecb7529f4b4bdb8a54ae448a6d76a7108387c36e666052f7582d4c2974c6b5",
+      "raw_bytes": 80409101,
+      "member_count": 13399
+    },
+    "native-text-scan-reuse-2026-10-18.part-5.tar.xz": {
+      "file": "native-text-scan-reuse-2026-10-18.part-5.tar.xz",
+      "bytes": 5930936,
+      "sha256": "1cbe439d8f2b6f2d198c802606ba4776c8cd2fa849d3a9dedb1f9186d3657e42",
+      "raw_bytes": 57565541,
+      "member_count": 2435
+    }
+  },
+  "all_members_reopened": true,
+  "max_raw_bytes_per_archive": 83886080,
+  "acceptance": {
+    "complete_paired_calls": 324,
+    "attempts": 3,
+    "paired_cohorts": 7,
+    "workspace_test_executions": 4374,
+    "workspace_ignored": 0,
+    "native_test_executions": 4046,
+    "native_manual_exclusions": 28,
+    "direct_methods": 100,
+    "direct_skips": 0,
+    "public_cases": 4827,
+    "public_families": 36,
+    "modular_cohorts": 18,
+    "native_workflows": 704,
+    "independent_oracle_records": 704
+  },
+  "attempts": [
+    {
+      "attempt": "638",
+      "calls": 78,
+      "decision": "drop_failed_component",
+      "original_review": {
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-mixed-key-screen-638/review.json",
+        "bytes": 140800,
+        "sha256": "1e1d2f96570035e6028c6dbd12ef17be06d1bc1b94a856e7cc2ac197164d3762"
+      },
+      "original_design_sha256": "24e9f703c2460a2ff43e76e4fb9daf565b97233edf13592c9a19aec3571eef86"
+    },
+    {
+      "attempt": "642",
+      "calls": 74,
+      "decision": "retain_for_batch",
+      "original_review": {
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-scan-screen-642/review.json",
+        "bytes": 17223,
+        "sha256": "9570bb6d179d7232220b68396415455f01f9aa822ef4a6279988fb598620e999"
+      },
+      "original_design_sha256": "8f05f08bc01679453fe15d572be9367556568b475468f86f41a878cc79a62716"
+    },
+    {
+      "attempt": "643",
+      "calls": 172,
+      "decision": "accept_material_batch",
+      "original_review": {
+        "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-text-scan-full43-643/review.json",
+        "bytes": 531065,
+        "sha256": "e0fcb9a2362e886b3b2efbd5cf1b7d1e39198d2f943b0289dad1e85e36a72429"
+      },
+      "original_design_sha256": "8f05f08bc01679453fe15d572be9367556568b475468f86f41a878cc79a62716"
+    }
+  ],
+  "whole_workload_readback": {
+    "643": {
+      "mean_totals_engine_seconds": {
+        "control": "57.3990281195",
+        "candidate": "55.3462438375"
+      },
+      "paired_totals_engine_seconds": {
+        "control": {
+          "1": "57.612304164",
+          "2": "57.185752075"
+        },
+        "candidate": {
+          "1": "56.000667129",
+          "2": "54.691820546"
+        }
+      },
+      "observed_gain_percent": "3.576339790503549903925651607",
+      "prospective_greater_than_3_percent_gate_passed": true,
+      "material_query_regressions": []
+    }
+  },
+  "public_reopened": {
+    "cases": 4827,
+    "families": 36,
+    "compressed_json_files": 13004,
+    "value_files": 4495,
+    "compressed_stored_bytes": 45899982,
+    "decoded_raw_bytes": 422428970,
+    "expected_rows": 39979,
+    "envelopes": 6330,
+    "pressure_files": 45,
+    "pressure_rows": 1578741,
+    "predeclared_value_entries": 39,
+    "subquery_predeclared_kind_shapes": 108,
+    "dynamic_predeclared_kind_shapes": 72,
+    "baseline_controls": 32
+  },
+  "modular_acceptance": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/fresh-timed-uat-461/native-text-scan-matrix-644-report.json",
+    "bytes": 285242,
+    "sha256": "f1de1e197726aa03fb1e76fa66aacf894a9727131f42e612346caa2f7a088381"
+  },
+  "source_identity_preserved": true,
+  "limitations": [
+    "The greater-than-3% whole-workload gate was frozen prospectively and passes; the mixed-key experiment remains rejected under its original component gates.",
+    "The two-sample matched comparison has uncontrolled OS cache state and does not establish a single-pass result or external-engine superiority.",
+    "Retained native values and paired schemas are regression references; the format/workflow suite uses a separate pandas oracle only.",
+    "Twelve profile samples and the decoder-invocation fixture receive diagnostic attribution only, without benchmark timing credit.",
+    "Declared memory admission is not a whole-process RSS ceiling.",
+    "Selected source identities match measured build642; later docs/site/evidence and the final Git commit are bridged separately.",
+    "Large datasets, executable binaries and public output payloads are excluded with exact identities; complete values/envelopes and reproduction sources remain.",
+    "Installed-wheel lanes, final-head CI/review and hosted deployment are recorded separately."
+  ],
+  "publication_attempted": false,
+  "performance_claim": "bounded matched complete-workload engine comparison passing the prospective greater-than-3% gate",
+  "manifest": {
+    "file": "native-text-scan-reuse-2026-10-18.manifest.json.xz",
+    "bytes": 1079988,
+    "sha256": "41e4f45d401d16acea188bd51946f9db9c72ddfd219e74ff55f13b18b84cd328",
+    "raw_sha256": "77043857737cd5025be288dda812d06d98d53fc48f3a826a1f54cd200768afe4"
+  },
+  "hosted_integration_complete": false
+}
