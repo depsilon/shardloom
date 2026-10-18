@@ -81,6 +81,9 @@ engineering evidence and measurement boundaries; it does not present a public ra
 individual changes against a frozen ShardLoom control:</p>
 <ul>
 <li>
+<p><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-roadmap-fresh-uat-2026-10-18.md">October 18 fresh merged-source UAT</a> — fresh ingestion validates all 99,997,497 rows, all 43 queries pass complete values and schemas, and all 18 format/workflow cohorts pass (704 native records with 704 independent correctness-oracle records). Full43 engine time is 54.358 s, one execution per query. This is one regression observation, without a matched speedup claim. The portable packet binds the merged runtime, complete results, all per-query clocks and scoped cleanup.</p>
+</li>
+<li>
 <p><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-scan-reuse-2026-10-18.md">October 18 shared native text filter/projection decoding</a> — query-owned reuse lowers the matched all-43 sum of per-query two-run means from 57.399 to 55.346 s engine time (3.58%), passing the prospective greater-than-3% gate. All 172 complete results and schemas match; both paired totals improve and no predefined material query regression occurs. All 4,827 public cases and 18 format/workflow cohorts pass. The report retains the rejected mixed-key experiment and all observations. This comparison is separate from a standard single-pass Full43 result.</p>
 </li>
 <li>

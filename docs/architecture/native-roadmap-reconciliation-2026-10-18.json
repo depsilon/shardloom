@@ -1,0 +1,2796 @@
+{
+  "schema_version": "shardloom.roadmap_reconciliation.v1",
+  "status": "reconciled",
+  "source_head": "7daf50a9fc9125b708310cbba0fb13ac4d83a0cc",
+  "source_path": "docs/architecture/phased-execution-plan.md",
+  "source_sha256": "1977f9ea3ad30986ae6bbca46e89fa8ed1896decd84d32dbf24437d8627b91d5",
+  "original_counts": {
+    "parents": 19,
+    "children": 149,
+    "unchecked_children": 121
+  },
+  "current_counts": {
+    "parents": 14,
+    "children": 54,
+    "dispositions": {
+      "remaining": 111,
+      "completed_reconciled": 10,
+      "completed_preexisting": 28
+    },
+    "step_kinds": {
+      "required": 37,
+      "conditional": 17
+    }
+  },
+  "parents": [
+    {
+      "id": "PERF-01",
+      "title": "attribute remaining work and keep execution evidence accurate.",
+      "current_state": "Fresh-source ingestion, Full43, separate engine/result/transport clocks and several measured optimization campaigns already exist. Internal overlapping work and the legacy numeric bridge still need scoped attribution.",
+      "dependencies": "Cross-cutting: freeze the opportunity and gate before each performance candidate; accompany every implementation family below.",
+      "source": "RFC 0044; performance-attribution-and-execution-structure.md; native-drop-review-2026-10-18.md.",
+      "implementation_scope": "Shared timing/certificate helpers, source_backed_encoded_execution.rs, local_primitives.rs, benchmark reports and public evidence.",
+      "next_outcome": "A named current-source cost signal and a truthful boundary for each selected candidate.",
+      "children": [
+        "PERF-01.attribution",
+        "PERF-01.numeric_bridge"
+      ]
+    },
+    {
+      "id": "PERF-03",
+      "title": "complete shared resource ownership and bounded scheduling.",
+      "current_state": "Explicit operation grants, reviewed payload/selection/codec/metadata owners, worker cleanup and the Q24 provider-driver correction are integrated. The source-split inventory is complete. These scoped owners do not establish a process-RSS ceiling or cover all provider allocations.",
+      "dependencies": "First runtime dependency. Finish concrete ownership gaps before dependent state, topology or writer experiments.",
+      "source": "RFCs 0013/0014/0017/0044; native-local-completion-scope-2026-10-07.md; native-query-revisit-2026-10-12.md; native-file-metadata-buffers-2026-10-16.md.",
+      "implementation_scope": "Resource grants, native session/scan/reader/codec owners, ComputePool and AggregateChunkJobs; preparation and writer ownership.",
+      "next_outcome": "A bounded owner or deterministic denial for each newly admitted provider allocation, with actual scheduling and drain proof.",
+      "children": [
+        "PERF-03.providers",
+        "PERF-03.regions",
+        "PERF-03.mixed_load"
+      ]
+    },
+    {
+      "id": "PERF-06",
+      "title": "finish native pressure transitions and recovery.",
+      "current_state": "General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. Resident membership/population state and broader recovery remain; replay spill alone does not spill consuming state.",
+      "dependencies": "After the relevant PERF-03 owner; before broader streaming/type compositions and output recovery depend on it.",
+      "source": "RFCs 0014/0017/0044; native-local-completion-scope-2026-10-07.md; native-state-structure-campaign-2026-10-07.md.",
+      "implementation_scope": "Native membership/population consumers, query-run store, operator pressure strategies and owned cleanup/recovery.",
+      "next_outcome": "Complete exact supported workloads under the caller\u2019s memory/storage policy, beginning with remaining membership/population families.",
+      "children": [
+        "PERF-06.membership",
+        "PERF-06.recovery",
+        "PERF-06.strategy",
+        "PERF-06.rematerialization",
+        "PERF-06.merge_cost"
+      ]
+    },
+    {
+      "id": "PERF-07",
+      "title": "complete owned result and publication contracts.",
+      "current_state": "Owned native arrays, bounded flat aggregate/ordered streams, persisted output preparation, encoded receiving copies, independent native-file producers, all eight local streaming destinations and single-execution fanout are integrated. Remaining family-specific payload avoidance, transfer lifetime and publication recovery need separate proof.",
+      "dependencies": "After relevant PERF-03/06 owners. Generation-conditional publication follows the current correctness work; transport remains later.",
+      "source": "RFCs 0013/0017/0044; universal-workflow-completion-2026-10-01.md; native-stream-destinations-2026-10-15.md; native-encoded-interchange-2026-10-12.md.",
+      "implementation_scope": "OwnedVortexResultBatch, result streams, native/compatibility writers, retained selections and output transaction owners.",
+      "next_outcome": "Generation-checked output replacement and recoverable publication, with explicit single-file versus multi-destination guarantees.",
+      "children": [
+        "PERF-07.remaining_arrays",
+        "PERF-07.publication",
+        "PERF-07.transfer_lifetime",
+        "PERF-07.output_windows"
+      ]
+    },
+    {
+      "id": "PERF-10",
+      "title": "extend shared physical planning and avoided work.",
+      "current_state": "Typed native operators, owned results, exact reductions and several fused/encoded paths exist. Typed metadata and conservative pruning foundations are real; richer summaries and consumer-wide proof remain. Total-node admission is implemented, while recursive traversal depth remains bounded.",
+      "dependencies": "PERF-03 for regions/resources; PERF-04 for local reduction before region-local ordered candidates. Semantics and ownership precede cost-based selection.",
+      "source": "RFCs 0016/0021/0022/0044; universal-workflow-completion-2026-10-01.md; performance-plan-exhaustion-2026-09-12.md; native-state-structure-campaign-2026-10-07.md.",
+      "implementation_scope": "Shared native plan/binder, metadata pruning, typed kernel selection and aggregate/order/join/window strategies.",
+      "next_outcome": "Concrete missing operator/type contracts and exact work avoidance through existing native providers.",
+      "children": [
+        "PERF-10.contracts",
+        "PERF-10.summaries",
+        "PERF-10.metadata_consumers",
+        "PERF-10.ordered_candidates",
+        "PERF-10.fusion_registry",
+        "PERF-10.constant_keys",
+        "PERF-10.costs",
+        "PERF-10.traversal",
+        "PERF-10.multiway_joins",
+        "PERF-10.learned_indexes"
+      ]
+    },
+    {
+      "id": "PERF-02",
+      "title": "finish prepared execution and measured reuse.",
+      "current_state": "The in-process native Python/resource boundary and persisted native-output reuse are accepted. Remaining family lowering and high-level builder costs are separate from answer caching.",
+      "dependencies": "Use PERF-10 native plan/type contracts and PERF-03 ownership; preserve generation invalidation before reuse.",
+      "source": "RFC 0044; native-python-surface-2026-10-10.md; native-persisted-reuse-2026-10-11.md; native-conditional-work-campaign-2026-10-07.md.",
+      "implementation_scope": "Prepared native plans, resident session/source owners and Python builder lowering.",
+      "next_outcome": "Remaining admitted families use the same typed prepared boundary; a builder change requires material complete-workflow overhead.",
+      "children": [
+        "PERF-02.families",
+        "PERF-02.builder",
+        "PERF-02.physical_cache",
+        "PERF-02.changed_source"
+      ]
+    },
+    {
+      "id": "PERF-11",
+      "title": "certify bounded ingest-to-result composition.",
+      "current_state": "Finite single-use/multiple/repeated producers, native replay, cancellable compatibility preparation, generated ranges and rich typed batch intake are accepted. Remaining type/source/operator/destination combinations and declared envelope tails remain.",
+      "dependencies": "PERF-03/06 owners and PERF-07 publication before broadening dependent compositions; PERF-10 for deeper plans.",
+      "source": "RFCs 0013/0014/0033/0044; universal-workflow-completion-2026-10-01.md; native-stream-input-composition-2026-10-13.md.",
+      "implementation_scope": "Shared input transaction, bounded result streams, source discovery, cancellation and latency harnesses.",
+      "next_outcome": "An explicit supported composition envelope with complete results and resource/failure evidence.",
+      "children": [
+        "PERF-11.envelope",
+        "PERF-11.latency"
+      ]
+    },
+    {
+      "id": "PERF-04",
+      "title": "complete shared aggregate workers and deterministic reduction.",
+      "current_state": "Shared jobs/partitions, worker grants and exact non-null UTF8 COUNT partitions exist, including removal of dual histogram/sketch maintenance. Other concrete states and actual operator scheduling are not certified by descriptor-only scheduler tests.",
+      "dependencies": "PERF-03 ownership first; region-local reduction additionally needs retained topology. Extend concrete states through existing jobs without waiting for a new topology. PERF-06 owns pressure transitions and PERF-05 exact keys.",
+      "source": "RFCs 0014/0016/0044; performance-plan-exhaustion-2026-09-12.md; native-local-completion-scope-2026-10-07.md.",
+      "implementation_scope": "AggregateChunkJobs, native worker states, deterministic reducers and scheduling observers.",
+      "next_outcome": "Actual shared-worker execution for a coherent remaining state family with complete semantic controls.",
+      "children": [
+        "PERF-04.workers",
+        "PERF-04.states",
+        "PERF-04.semantics",
+        "PERF-04.utilization"
+      ]
+    },
+    {
+      "id": "PERF-05",
+      "title": "complete exact key ownership and pressure behavior.",
+      "current_state": "Several reclaimable string, compound-key, weighted-domain and exact-distinct mechanisms are retained. The generic/direct key transition audit and broader nullable/composite pressure contracts remain.",
+      "dependencies": "Coordinate with PERF-04 states and PERF-06 pressure; do not revive rejected histogram/sketch or bitmap variants unchanged.",
+      "source": "RFCs 0014/0021/0044; native-shared-execution-2026-10-17.md; native-text-aggregation-screen-2026-10-17.md; native-state-structure-campaign-2026-10-07.md.",
+      "implementation_scope": "Dictionary domains, owned/interned keys, candidate arenas and compact/general aggregate states.",
+      "next_outcome": "Domain-safe exact keys across all admitted transitions with delayed string materialization and bounded retained state.",
+      "children": [
+        "PERF-05.identity",
+        "PERF-05.pressure",
+        "PERF-05.validation",
+        "PERF-05.nested_identity"
+      ]
+    },
+    {
+      "id": "PERF-08",
+      "title": "remove measured ingestion representation duplication.",
+      "current_state": "CPU-stage attribution and the rejected matched-owner allocation screen are complete. Dictionary-derived paths exist; forced dictionaries/plain replay caches and rejected conversion ownership must not be recreated.",
+      "dependencies": "PERF-03 ownership; measure actual duplication before changing representation. Feed accepted costs into PERF-09.",
+      "source": "RFC 0044; ingest-performance-implementation-2026-09-12.md; performance-plan-exhaustion-2026-09-12.md.",
+      "implementation_scope": "Universal ingest read/normalize/derived/convert/codec/write/finalize stages and source preflight.",
+      "next_outcome": "A measured same-generation duplicate representation or transform removed without weakening validation.",
+      "children": [
+        "PERF-08.duplication",
+        "PERF-08.stages"
+      ]
+    },
+    {
+      "id": "PERF-09",
+      "title": "cost physical layout and bounded ordered writing.",
+      "current_state": "Physical ingest plans, planner-selected large-source settings and the writer retain/drop gate exist. September tuning cleanup and the October six-profile text-size screen are complete; all five new profiles were dropped. Persisted output properties are accepted.",
+      "dependencies": "PERF-08 attribution and PERF-03 resource ownership; independent-region evidence before topology-aware preparation. Keep the retained writer until lifecycle proof passes.",
+      "source": "RFC 0044; ingest-performance-implementation-2026-09-12.md; native-ingest-text-size-2026-10-18.md; native-persisted-reuse-2026-10-11.md.",
+      "implementation_scope": "PhysicalIngestPlan/WriterPhysicalDesignPlan, native codec/layout providers, ordered writer queues and atomic commit.",
+      "next_outcome": "A justified layout or pipeline change with complete durable-ingest and downstream-query economics, or an evidenced drop.",
+      "children": [
+        "PERF-09.overlap",
+        "PERF-09.portfolio",
+        "PERF-09.design",
+        "PERF-09.lifecycle"
+      ]
+    },
+    {
+      "id": "PERF-12",
+      "title": "complete workload, platform and comparative acceptance.",
+      "current_state": "Extensive public, direct, format and Full43 packets certify finite scopes. They do not complete the broad workflow matrix, all OS/resource envelopes, production certification or comparative superiority.",
+      "dependencies": "Cross-cutting: focused tests during implementation, then complete acceptance at each coherent boundary. The October 18 cleanup, ship/drop audit and fresh UAT are recorded in the completed ledger.",
+      "source": "RFCs 0015/0024/0033/0044; universal-workflow-completion-2026-10-01.md; native-local-completion-scope-2026-10-07.md; production-certification-gate.md.",
+      "implementation_scope": "Complete public/native workflow matrices, UAT runners, platform/runtime evidence and release support/claim surfaces.",
+      "next_outcome": "Complete the remaining source/type/operator workflows and declared platform/resource envelopes; preserve independent correctness and matched comparative evidence for every new claim.",
+      "children": [
+        "PERF-12.workflows",
+        "PERF-12.cohort",
+        "PERF-12.topology",
+        "PERF-12.support",
+        "PERF-12.comparisons"
+      ]
+    },
+    {
+      "id": "PERF-13",
+      "title": "evaluate profile-guided compilation only when justified.",
+      "current_state": "No PGO promotion is established. Earlier optimized-build screens retain their recorded decisions.",
+      "dependencies": "After measured PERF-10 instruction/dispatch costs; not an automatic sweep or another runtime route.",
+      "source": "RFC 0044 and the current native performance/control reports.",
+      "implementation_scope": "Build configuration, representative training/held-out workloads and portable-package checks.",
+      "next_outcome": "A reproducible retained benefit or a recorded reasoned drop with unchanged runtime semantics.",
+      "children": [
+        "PERF-13.pgo"
+      ]
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE",
+      "title": "extend native execution across process and transport boundaries.",
+      "current_state": "Local receiving copies and independent native-file producer intake are accepted. Negotiated remote native exchange, authorization and transport runtime are not implemented by those local paths.",
+      "dependencies": "After the current optimization/breadth completion contract; design/provider/security gates precede implementation. CG-23H is attribution, not a replacement phase.",
+      "source": "RFCs 0013/0035/0044; native-encoded-interchange-2026-10-12.md; then-pinned Vortex serialization/IPC and current official Flight SQL/RPC contracts.",
+      "implementation_scope": "Native producer/transport/receiver boundary, negotiation, authorization, dictionaries/credits and client interoperability.",
+      "next_outcome": "A reviewed protocol and one bounded producer-to-real-native-consumer experiment with matched Arrow/Flight and ordinary Vortex IPC controls.",
+      "children": [
+        "NATIVE-ENCODED-EXCHANGE.protocol",
+        "NATIVE-ENCODED-EXCHANGE.ownership",
+        "NATIVE-ENCODED-EXCHANGE.experiment",
+        "NATIVE-ENCODED-EXCHANGE.clients"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "PERF-01.attribution",
+      "parent": "PERF-01",
+      "label": "Attribute exclusive engine/operator spans and overlapping worker work for measured hotspots; retain raw cost and negative-control evidence without treating summed work as elapsed time.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-01.numeric_bridge",
+      "parent": "PERF-01",
+      "label": "Resolve the legacy reader-generated BitPackedUnsigned contract: distinguish unpacked test/descriptive values from executable packed-provider buffers, preserve callable behavior and report actual decode/ownership bytes. The old expansion helpers are currently test-only; do not claim a production hot-path defect without a caller.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-03.providers",
+      "parent": "PERF-03",
+      "label": "Extend one CPU/memory owner to remaining I/O, codec, structural metadata, preparation and writer allocations. Prove actual driver-free sort/filter/projection progress within the grant; preserve the completed Q24 and filtered-count corrections and identify excluded owners.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-03.regions",
+      "parent": "PERF-03",
+      "label": "For a newly justified topology candidate, discover generation-bound natural regions independently of worker count and run them through bounded Capillary admission. Prove complete coverage, original batch boundaries, skew progress, ordered handoff, cancellation and drain before measuring reductions or ordered candidates.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-03.mixed_load",
+      "parent": "PERF-03",
+      "label": "Exercise queue bytes, state growth denial, worker reuse and cancellation under mixed jobs and retained-result pressure; distinguish native credits from caller/Python/library retention and whole-process memory.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-06.membership",
+      "parent": "PERF-06",
+      "label": "Implement quota-accounted native external-memory transitions for remaining resident membership/population consumers and other explicitly unadmitted state families. Preserve exact key, bag, NULL and order semantics; inventory the concrete family before extending the existing run store.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-06.recovery",
+      "parent": "PERF-06",
+      "label": "Complete per-family cancellation, crash/restart, quota exhaustion, corrupt/truncated run, source-generation and owned-cleanup acceptance. State separately whether a route restarts or actually resumes execution.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-06.strategy",
+      "parent": "PERF-06",
+      "label": "Select resident or native external-memory strategies automatically inside authorized memory, temporary-storage and effect policy; prove complete results at pressure transitions on supported large workloads without an arbitrary fixed 4-GiB target.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-06.rematerialization",
+      "parent": "PERF-06",
+      "label": "Conditional investigation: compare retain/spill/regenerate for the already observed reclaimable derived owners. First pin whole-dependency reconstruction cost, lifetime/revocation, headroom and bounded regeneration; preserve zero-reclaim alias/key/constant controls.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-06.merge_cost",
+      "parent": "PERF-06",
+      "label": "Conditional investigation: capture actual spill-run sizes and stable lineage, then compare adjacent cost-aware merge schedules within reader, memory and disk-overlap grants. Preserve stable adjacency and all complete outputs; an ordering-spill connection is not this experiment.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-07.remaining_arrays",
+      "parent": "PERF-07",
+      "label": "Complete the remaining physical-result and sink-family matrix using executable arrays, selections, validity and retained owners. Audit selected-row aggregate handoff, exact DISTINCT/compound and three-key Top-K/transformed grouping/pair-measure outputs; extend only missing adapters and prove late payload access, dtype/order/NULL and copied/decoded bytes at close/cancel/slice.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-07.publication",
+      "parent": "PERF-07",
+      "label": "Finish generation-conditional replacement/publication and partial-commit recovery for the existing local writers/fanout. Validate complete input before publication, preserve one execution and owned retention/spooling, and prove single-file atomicity separately from multi-destination recovery/atomicity.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-07.transfer_lifetime",
+      "parent": "PERF-07",
+      "label": "Preserve the completed reuse of accepted native transfers/prepared sources across later operations. Admit immutable cross-owner sharing only after explicit receiving charges, generation identity, lifetime/revocation and isolation proof; retain the accepted isolated-copy route.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-07.output_windows",
+      "parent": "PERF-07",
+      "label": "Conditional investigation: compare byte-credited producer/consumer overlap with the current native/transport acknowledgement path. Establish a current complete-workflow queue bottleneck first; include slow/failing consumers, bounded queues, cancellation and provisional completion.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-10.contracts",
+      "parent": "PERF-10",
+      "label": "Carry physical encoding, ordering, selection, ownership and memory contracts through remaining plan/result families; preserve one native lowering across SQL, Python, DataFrame and CLI aliases.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-10.summaries",
+      "parent": "PERF-10",
+      "label": "Extend native metadata with false-negative-safe string/domain/dictionary absence, stable transform/frequency summaries and duplicate-heavy candidate directories only where retained physical representation supports them. Preserve exact/conservative/advice-only distinctions and single-artifact provenance.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-10.metadata_consumers",
+      "parent": "PERF-10",
+      "label": "Connect admitted metadata to actual predicate pruning, transformed grouping, heavy-hitter candidates, exact distinct, row-ref Top-K and layout advice. Prove missing/empty/all-null/mixed-null safety with independent false-negative tests and report actual segments/rows/bytes avoided, metadata reads and exactness.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-10.ordered_candidates",
+      "parent": "PERF-10",
+      "label": "After region and local-reduction gates, compare exact region-local ordered candidates with bounded global merge before payload access; cover offset/limit, complete multi-keys, NULL order, ties and absolute source identity.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-10.fusion_registry",
+      "parent": "PERF-10",
+      "label": "Extend shared filter/project/aggregate fusion and executable typed registry selection to remaining admitted specialized families. Preserve provider preconditions, candidate/blocked reasons and decoded-reference parity; remove specializations that fail correctness or their frozen complete-operation gate.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-10.constant_keys",
+      "parent": "PERF-10",
+      "label": "Generalize retained literal-integer constant-key pruning to proven string/NULL constants with exact output reconstruction; do not count ConstantInt-only support as closure.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-10.costs",
+      "parent": "PERF-10",
+      "label": "Cost native canonicalization, aggregate, distinct, joins, sorting and windows against actual materialization/state work; select only semantics-equivalent, resource-admitted strategies.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-10.traversal",
+      "parent": "PERF-10",
+      "label": "Replace fixed recursive plan/expression and nested-schema traversal ceilings with scalable credited traversal/lowering. Prove wide/deep compositions, cancellation and deterministic resource denial without stack exhaustion; total-node admission alone does not close depth.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-10.multiway_joins",
+      "parent": "PERF-10",
+      "label": "Conditional investigation: compare a native compatible-domain multiway strategy with existing binary joins, including first-use preparation and exact multiplicity/NULL/order semantics. Use an independently specified workload and ordinary-join controls before production selection.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-10.learned_indexes",
+      "parent": "PERF-10",
+      "label": "Conditional investigation: identify a large ordered structure with repeated search cost, then certify bounded-error prediction plus exact correction against ordinary search. Include construction, memory, distribution shifts and nonbenefiting controls.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-02.families",
+      "parent": "PERF-02",
+      "label": "Extend typed prepared execution to remaining operator/type families while preserving actual execution, invalidation and native/public parity; reuse accepted lowering instead of adding a parallel route.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-02.builder",
+      "parent": "PERF-02",
+      "label": "Measure high-level SQL generation/parsing/lowering against typed prepared construction on complete workflows, then remove material duplicate work through the shared plan boundary.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-02.physical_cache",
+      "parent": "PERF-02",
+      "label": "Conditional investigation: show repeated reconstruction of physical state rather than repeated references to a live owner. Compare admission/reuse/eviction with exact generation identity, retained bytes and reconstruction cost.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-02.changed_source",
+      "parent": "PERF-02",
+      "label": "Conditional investigation: identify verifiably reusable regions across changed generations with exact layout/encoding identity and source validation, then compare complete preparation/use. Preserve hard generation rejection until the changed-region proof exists.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-11.envelope",
+      "parent": "PERF-11",
+      "label": "Validate declared input/output/memory/queue envelopes under pressure, cancellation, late input failure and slow consumers, including remaining operator/type compositions. Keep original caller owners, finite-completion semantics and unobserved providers explicit.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-11.latency",
+      "parent": "PERF-11",
+      "label": "Extend separately measured p50/p95/p99 to newly admitted families and the remaining bulk-load envelope, including validation/intake/queue/result stages and native, worker, Python and fresh-process surfaces. Preserve actual execution/invalidation and report engine time for routine query comparisons.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-04.workers",
+      "parent": "PERF-04",
+      "label": "Move remaining Q10/Q14/Q17/Q19/Q33/Q34/Q35-style production families onto actual shared workers. After topology retention, push admitted mergeable states into regions and compare compact-state reduction with unchanged consumers.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-04.states",
+      "parent": "PERF-04",
+      "label": "Extend mergeable count/sum/avg/grouped/exact-distinct/predicate and numeric/string/row-ref Top-K states beyond non-null UTF8 COUNT: include additional measures, numeric-plus-UTF8, three-key grouping and packed-pair/grouped-distinct pressure without lossy local Top-K.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-04.semantics",
+      "parent": "PERF-04",
+      "label": "Prove every admitted state\u2019s stable merge order, complete keys, source identity, NULL/tie/offset/limit, integer overflow and floating evaluation policy under skew at 1/2/4/8/12 workers; generic row-count scheduling is insufficient.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-04.utilization",
+      "parent": "PERF-04",
+      "label": "Measure actual kernel/merge work and worker idle/starved/backpressure time through the shared observer; remove superseded scheduling only after the retained candidate passes its complete-operation and control gates.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-05.identity",
+      "parent": "PERF-05",
+      "label": "Bind referenced dictionary entries by exact domain-safe equality and normalize owned/interned keys across generic/direct transitions before and after source-order admission. Audit reclaimable identity/arena and weighted-domain consumers through the same ownership contract.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-05.pressure",
+      "parent": "PERF-05",
+      "label": "Partition compact owned state, defer final strings and establish exact overflow transitions for remaining composite/pair/grouped-distinct families. Preserve PR #1428\u2019s completed removal of dual histogram/sketch work.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-05.validation",
+      "parent": "PERF-05",
+      "label": "Prove nulls, all-unique and duplicate-heavy keys, skew, composites and non-URL workloads against decoded references, including already retained Q17/Q29/Q33/Q35-style kernels and unsupported layouts.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-05.nested_identity",
+      "parent": "PERF-05",
+      "label": "Conditional investigation: measure repeated recursive nested-key work, then compare shared identities after charging canonicalization, collision resolution, representatives and row mapping. Preserve exact nested equality and nonrepeating controls.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-08.duplication",
+      "parent": "PERF-08",
+      "label": "Inventory repeated representations and traversal/conversion work, then remove only measured duplication. For dictionary-lifted derived columns, require a real dictionary/native metadata seam and prove unique transforms/code replay plus NULL/Unicode/temporal parity; preserve source preflight and retained layout.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-08.stages",
+      "parent": "PERF-08",
+      "label": "Attribute real normalization, derived build, metadata, codec, writer-feed, write and commit CPU/wait spans; report actual queue/backpressure, stage throughput, bytes/segments/compression and no-fallback evidence without double-counting overlapping work.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-09.overlap",
+      "parent": "PERF-09",
+      "label": "Only after measured recoverable idle time, extend bounded staged pre-writer overlap across read/derived/convert/compress/ordered feed/digest/commit. Bound completed blocks and head-of-line waits; prove EOF, cancellation, transient ownership, publication races and newly written-artifact queries.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-09.portfolio",
+      "parent": "PERF-09",
+      "label": "For genuinely different admitted Vortex profiles, measure per-column physical bytes and encode/decode CPU and decide costed portfolio admission. Do not rerun the rejected five text profiles unchanged or infer whole-file savings from sampled text.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-09.design",
+      "parent": "PERF-09",
+      "label": "After region evidence, cost preparation jointly for storage, ingest, schedulable topology, pruning, encoded work and merge. Cover small, wide-text, large-numeric, dictionary-heavy, unknown-row-count and constrained-memory planner inputs.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-09.lifecycle",
+      "parent": "PERF-09",
+      "label": "Validate same-source durable ingestion, single-file integrity/atomicity and first/repeated downstream use for every retained writer change. Apply the existing size/ingest/query gate and preserve source validation, statistics and no-fallback evidence.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-12.workflows",
+      "parent": "PERF-12",
+      "label": "Certify read/transform/retain-or-spill/reconsume/write/reopen across formats, renamed schemas, distributions and remaining types/operators. Include held-out ingest/aggregate/relational/ownership/serving cases, source/type/destination combinations and wide/deep plans after their mechanisms; every exposed composition is tested or an explicit implementation gap.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-12.cohort",
+      "parent": "PERF-12",
+      "label": "Pin eligible ClickBench scoring/cohorts separately from cached product sessions; preserve one-call Full43 acceptance versus explicitly authorized repeated comparative cohorts.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-12.topology",
+      "parent": "PERF-12",
+      "label": "After a newly admitted topology mechanism, compare current/coarse and safe small/medium/large topology on identical immutable 100M-row input, build and resources. Preserve the original 129-call comparative protocol and classify scan/reduction/filter/grouped/ordered/global-state response with realized/pruned/materialized work; do not restart rejected coalescing without a new mechanism.",
+      "kind": "conditional"
+    },
+    {
+      "id": "PERF-12.support",
+      "parent": "PERF-12",
+      "label": "Prove ordinary and benchmark resource envelopes, late failure, slow consumers, cancellation, cleanup/recovery and actual supported OS/architecture runtimes. Record observed resources/RSS and scoped support, known issues, compatibility, upgrade/rollback and install evidence; builds alone are not platform-runtime acceptance.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-12.comparisons",
+      "parent": "PERF-12",
+      "label": "Record complete outputs, paired uncertainty and non-ClickBench benefit for retained performance changes; separate engine clocks from transport/ingest/storage and preserve all failures and samples. CG-5/6 and claim gates remain mandatory.",
+      "kind": "required"
+    },
+    {
+      "id": "PERF-13.pgo",
+      "parent": "PERF-13",
+      "label": "Establish material remaining instruction/dispatch cost, then freeze representative/held-out training, compilation/transfer break-even and portable-package correctness gates. Retain PGO only on measured complete-workflow benefit; otherwise record the drop.",
+      "kind": "conditional"
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.protocol",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "label": "Write the pinned-provider RFC/review: native wire/encoding/schema versions, registry/alignment/message duplication, query/partition/snapshot identity, completion/truncation, cancel/reconnect/replay and deterministic strict-native incompatibility. Define authentication, per-request authorization and transport security using established infrastructure.",
+      "kind": "required"
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.ownership",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "label": "Define queue/receive/dictionary grants and exact identity, release/eviction, lifetime and isolation rules. Evaluate buffer/dictionary reuse and same-host mapped handles only with explicit rights/cleanup; version aggregate state separately and keep in-process handles distinct from serialization.",
+      "kind": "required"
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.experiment",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "label": "Implement a bounded producer \u2192 transport \u2192 receiver \u2192 real downstream native operation with equivalent semantics/security/resources and complete error/cleanup behavior. Freeze and measure wire bytes, sender/receiver CPU, copies/materialization, memory and complete downstream cost against optimized Arrow/Flight and ordinary Vortex IPC.",
+      "kind": "conditional"
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.clients",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "label": "Prove ordinary Flight SQL client interoperability and explicit native client selection, then align README, field guide, capabilities, execution evidence and hosted checks before closing only the accepted scope.",
+      "kind": "required"
+    }
+  ],
+  "retired_parent_aliases": {
+    "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1": [
+      "PERF-03",
+      "PERF-08",
+      "PERF-09"
+    ],
+    "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1": [
+      "PERF-10",
+      "PERF-12"
+    ],
+    "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1": [
+      "PERF-03",
+      "PERF-04",
+      "PERF-05"
+    ],
+    "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1": [
+      "PERF-04",
+      "PERF-05",
+      "PERF-07",
+      "PERF-10",
+      "PERF-12"
+    ],
+    "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1": [
+      "PERF-07",
+      "PERF-12"
+    ]
+  },
+  "prose_obligations": {
+    "PERF-06.rematerialization": "docs/architecture/native-local-completion-scope-2026-10-07.md#eight-investigations-with-current-evidence-prerequisites",
+    "PERF-06.merge_cost": "docs/architecture/native-local-completion-scope-2026-10-07.md#eight-investigations-with-current-evidence-prerequisites",
+    "PERF-10.multiway_joins": "docs/architecture/native-local-completion-scope-2026-10-07.md#eight-investigations-with-current-evidence-prerequisites",
+    "PERF-10.learned_indexes": "docs/architecture/native-local-completion-scope-2026-10-07.md#eight-investigations-with-current-evidence-prerequisites",
+    "PERF-05.nested_identity": "docs/architecture/native-local-completion-scope-2026-10-07.md#eight-investigations-with-current-evidence-prerequisites",
+    "PERF-02.physical_cache": "docs/architecture/native-local-completion-scope-2026-10-07.md#eight-investigations-with-current-evidence-prerequisites",
+    "PERF-07.output_windows": "docs/architecture/native-local-completion-scope-2026-10-07.md#eight-investigations-with-current-evidence-prerequisites",
+    "PERF-02.changed_source": "docs/architecture/native-local-completion-scope-2026-10-07.md#eight-investigations-with-current-evidence-prerequisites"
+  },
+  "reconciliation": [
+    {
+      "id": "PERF-01.01",
+      "parent": "PERF-01",
+      "line": 1086,
+      "checked": true,
+      "label": "Record same-source fresh ingestion and all 43 queries with checked outputs. The [October 15 timing UAT](../benchmarks/native-query-timing-uat-2026-10-15.md) binds one frozen executable and 2,258 source hashes to fresh ingestion, all 43 calls and complete returned values. Its uncontrolled OS-cache state is explicit; the source changes were uncommitted at measurement time.",
+      "first_line": "    - [x] Record same-source fresh ingestion and all 43 queries with checked outputs.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1086",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1086"
+      ]
+    },
+    {
+      "id": "PERF-01.02",
+      "parent": "PERF-01",
+      "line": 1091,
+      "checked": false,
+      "label": "Separate exclusive wall spans, overlapping worker work, output, and validation. Engine, result, other process, supervision and external validation clocks now have separate measurements. Attribute internal shared operator and overlapping worker costs for the five prioritized queries; do not infer them from whole-query wall time or summed process CPU.",
+      "first_line": "    - [ ] Separate exclusive wall spans, overlapping worker work, output, and validation.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1091",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-01.attribution"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-01.03",
+      "parent": "PERF-01",
+      "line": 1096,
+      "checked": false,
+      "label": "Extend separately timed latency acceptance to newly admitted families.",
+      "first_line": "    - [ ] Extend separately timed latency acceptance to newly admitted families.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1096",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-11.latency"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-01.04",
+      "parent": "PERF-01",
+      "line": 1097,
+      "checked": false,
+      "label": "Identify dominant costs and preserve raw evidence without synthetic elapsed claims.",
+      "first_line": "    - [ ] Identify dominant costs and preserve raw evidence without synthetic elapsed claims.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1097",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-01.attribution"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-01.05",
+      "parent": "PERF-01",
+      "line": 1098,
+      "checked": false,
+      "label": "Correct the legacy reader-generated `BitPackedUnsigned` expansion evidence: its unpacked values must not be labeled as mapped without decode. Attribute that bridge separately from native packed-predicate provider activation; see `packed-numeric-provider-screen-2026-09-27.md` and PERF-07.",
+      "first_line": "    - [ ] Correct the legacy reader-generated `BitPackedUnsigned` expansion evidence:",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1098",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-01.numeric_bridge"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-02.01",
+      "parent": "PERF-02",
+      "line": 1130,
+      "checked": false,
+      "label": "Extend prepared native execution to the remaining operator families.",
+      "first_line": "    - [ ] Extend prepared native execution to the remaining operator families.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1130",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-02.families"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-02.02",
+      "parent": "PERF-02",
+      "line": 1131,
+      "checked": true,
+      "label": "Complete the native Python prototype/binding decision and migration. PR #1541 proves native ownership, direct interchange, in-process execution and typed prepared plans through the shared engine, with paired workflows and actual installed native wheels on Linux/macOS.",
+      "first_line": "    - [x] Complete the native Python prototype/binding decision and migration.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1131",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1131"
+      ]
+    },
+    {
+      "id": "PERF-02.03",
+      "parent": "PERF-02",
+      "line": 1135,
+      "checked": false,
+      "label": "Measure remaining high-level builder SQL generation/parsing/lowering against existing typed prepared-plan construction on complete workflows. Reuse the shared native plan boundary where measured overhead is material; preserve semantics, admission and source invalidation without a second route.",
+      "first_line": "    - [ ] Measure remaining high-level builder SQL generation/parsing/lowering",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1135",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-02.builder"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-02.04",
+      "parent": "PERF-02",
+      "line": 1139,
+      "checked": false,
+      "label": "Extend separate native, worker, Python and fresh-process latency acceptance to remaining families, preserving invalidation and actual execution.",
+      "first_line": "    - [ ] Extend separate native, worker, Python and fresh-process latency",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1139",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-11.latency"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-02.05",
+      "parent": "PERF-02",
+      "line": 1141,
+      "checked": false,
+      "label": "Consume the persisted output preparation defined by `NATIVE-PERSISTED-REUSE`; keep source-state reuse separate from answer caching.",
+      "first_line": "    - [ ] Consume the persisted output preparation defined by",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1141",
+      "disposition": "completed_reconciled",
+      "targets": [],
+      "evidence": [
+        "docs/architecture/native-persisted-reuse-2026-10-11.md",
+        "docs/benchmarks/evidence/native-persisted-hosted-2026-10-12.json"
+      ]
+    },
+    {
+      "id": "PERF-03.01",
+      "parent": "PERF-03",
+      "line": 1182,
+      "checked": false,
+      "label": "Extend shared admission to remaining Vortex I/O/codec/operator work and prove I/O progress within the CPU ceiling. The current finite reader allocation class is [native file metadata buffers](native-file-metadata-buffers-2026-10-16.md): footer growth, copied schema/layout bytes, cached and in-memory segment realignment and explicitly requested user-metadata payloads. Three original provider regressions and four review regressions reproduce the defects. All twenty focused tests, 139 provider tests, 3,225 workspace tests and a new complete 2,924-test native run pass, with 27 unchanged manual exclusions. Native public-route and preparation checks pass. Corrected release artifacts pass 100 direct methods, 4,827 public cases, fresh ingestion, Full43 and all 18 modular cohorts. The [acceptance report](../benchmarks/native-file-metadata-buffers-2026-10-17.md) retains original failures, both earlier observations and the new review packet. Final-head installed-wheel and hosted acceptance remain PR gates. Structural metadata collections and preparation I/O lifetimes retain separate evidence requirements.",
+      "first_line": "    - [ ] Extend shared admission to remaining Vortex I/O/codec/operator work",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1182",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-03.providers"
+      ],
+      "evidence": [
+        "docs/benchmarks/evidence/native-file-metadata-hosted-2026-10-17.json"
+      ],
+      "completed_portion": "Reviewed native file/footer/segment/user-metadata buffers are integrated; structural collections and preparation lifetimes remain."
+    },
+    {
+      "id": "PERF-03.02",
+      "parent": "PERF-03",
+      "line": 1198,
+      "checked": false,
+      "label": "Verify actual provider scheduling across driver-free configurable sessions, including prepared sort/filter/projection paths. The October 11 retained-file observation shows a material wall/CPU change in Q24; the examined scheduling path already exists in main, so this is a candidate for matched diagnosis, not attribution to the timestamp patch. Evaluate admitted temporary drivers within the shared grant, coordinate with operator workers, and retain any correction only after complete-operation and control gates pass.",
+      "first_line": "    - [ ] Verify actual provider scheduling across driver-free configurable",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1198",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-03.providers"
+      ],
+      "evidence": [
+        "docs/benchmarks/native-query-revisit-2026-10-12.md"
+      ],
+      "completed_portion": "Q24 provider-driver and filtered-count corrections are accepted; remaining provider scheduling is separate."
+    },
+    {
+      "id": "PERF-03.03",
+      "parent": "PERF-03",
+      "line": 1205,
+      "checked": false,
+      "label": "Inventory executable source-split/layout and Capillary/ComputePool seams; distinguish actual kernel scheduling from descriptor-only accounting.",
+      "first_line": "    - [ ] Inventory executable source-split/layout and Capillary/ComputePool seams;",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1205",
+      "disposition": "completed_reconciled",
+      "targets": [],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md#perf-03--one-resource-budget-and-scheduling"
+      ]
+    },
+    {
+      "id": "PERF-03.04",
+      "parent": "PERF-03",
+      "line": 1207,
+      "checked": false,
+      "label": "Discover safe generation-bound native regions, coalesce actual natural boundaries independently of worker count, and execute them through bounded dynamic Capillary admission with ordered streaming handoff and complete drain.",
+      "first_line": "    - [ ] Discover safe generation-bound native regions, coalesce actual natural",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1207",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-03.regions"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-03.05",
+      "parent": "PERF-03",
+      "line": 1210,
+      "checked": false,
+      "label": "Prove source coverage, skew progress, original native batch boundaries, cancellation and memory/CPU ownership at coarse and fine topology levels.",
+      "first_line": "    - [ ] Prove source coverage, skew progress, original native batch boundaries,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1210",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-03.regions"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-03.06",
+      "parent": "PERF-03",
+      "line": 1212,
+      "checked": false,
+      "label": "Verify queue bytes, state growth denial, cancellation and worker reuse under mixed load, with explicit exclusions for unobserved provider owners.",
+      "first_line": "    - [ ] Verify queue bytes, state growth denial, cancellation and worker reuse",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1212",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-03.mixed_load"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-03.07",
+      "parent": "PERF-03",
+      "line": 1214,
+      "checked": true,
+      "label": "Replace cumulative input and top-level schema-width ceilings with growable, credited metadata and bounded execution units. Preserve per-frame memory, cancellation and overflow protections while allowing complete workloads to continue for as long as their authorized resource policy permits. The [input growth acceptance](../benchmarks/native-input-growth-2026-10-09.md) proves this finite contract; nested value-schema bounds and remaining allocation owners retain their separate resource/traversal obligations.",
+      "first_line": "    - [x] Replace cumulative input and top-level schema-width ceilings with growable,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1214",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1214"
+      ]
+    },
+    {
+      "id": "PERF-04.01",
+      "parent": "PERF-04",
+      "line": 1235,
+      "checked": false,
+      "label": "Migrate Q10/Q14/Q17/Q19/Q33/Q34/Q35-style production families to shared workers.",
+      "first_line": "    - [ ] Migrate Q10/Q14/Q17/Q19/Q33/Q34/Q35-style production families to shared workers.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1235",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.workers"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-04.02",
+      "parent": "PERF-04",
+      "line": 1236,
+      "checked": false,
+      "label": "After topology-only retention, push admitted mergeable native states into regions and measure compact-state reduction against unchanged consumers; preserve floating evaluation boundaries, complete keys and exact NULL semantics.",
+      "first_line": "    - [ ] After topology-only retention, push admitted mergeable native states",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1236",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.workers"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-04.03",
+      "parent": "PERF-04",
+      "line": 1239,
+      "checked": false,
+      "label": "Extend independently reduced logical partitions beyond the completed non-null UTF8 COUNT(*) scope without local-top-K loss.",
+      "first_line": "    - [ ] Extend independently reduced logical partitions beyond the completed",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1239",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.states"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-04.04",
+      "parent": "PERF-04",
+      "line": 1241,
+      "checked": false,
+      "label": "Verify integer overflow, ties, skew, and floating semantics at 1/2/4/8/12 workers.",
+      "first_line": "    - [ ] Verify integer overflow, ties, skew, and floating semantics at 1/2/4/8/12 workers.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1241",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.semantics"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-04.05",
+      "parent": "PERF-04",
+      "line": 1242,
+      "checked": false,
+      "label": "Measure actual kernel work and remove superseded scheduling after ship/drop.",
+      "first_line": "    - [ ] Measure actual kernel work and remove superseded scheduling after ship/drop.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1242",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.utilization"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-05.01",
+      "parent": "PERF-05",
+      "line": 1250,
+      "checked": false,
+      "label": "Bind referenced dictionary entries with domain-safe exact key equality.",
+      "first_line": "    - [ ] Bind referenced dictionary entries with domain-safe exact key equality.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1250",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-05.identity"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-05.02",
+      "parent": "PERF-05",
+      "line": 1251,
+      "checked": false,
+      "label": "Normalize owned/interned keys across generic/direct transitions before and after source-order admission; prove exact counts and explicit compact/General transition contracts. C4's bounded closure fix does not close this pre-existing audit.",
+      "first_line": "    - [ ] Normalize owned/interned keys across generic/direct transitions before",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1251",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-05.identity"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-05.03",
+      "parent": "PERF-05",
+      "line": 1254,
+      "checked": false,
+      "label": "Partition compact owned state and defer final string materialization.",
+      "first_line": "    - [ ] Partition compact owned state and defer final string materialization.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1254",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-05.pressure"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-05.04",
+      "parent": "PERF-05",
+      "line": 1255,
+      "checked": false,
+      "label": "Establish and measure exact overflow transitions; retain PR #1428's removal of dual histogram/sketch maintenance without counting it as new work.",
+      "first_line": "    - [ ] Establish and measure exact overflow transitions; retain PR #1428's",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1255",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-05.pressure"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-05.05",
+      "parent": "PERF-05",
+      "line": 1257,
+      "checked": false,
+      "label": "Validate nulls, all-unique keys, skew, composite keys, and non-URL performance.",
+      "first_line": "    - [ ] Validate nulls, all-unique keys, skew, composite keys, and non-URL performance.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1257",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-05.validation"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-06.01",
+      "parent": "PERF-06",
+      "line": 1282,
+      "checked": false,
+      "label": "Extend quota-accounted native runs and exact pressure transitions to the remaining unadmitted state families; retain the accepted finite pivot transition and its completed hosted integration.",
+      "first_line": "    - [ ] Extend quota-accounted native runs and exact pressure transitions to",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1282",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-06.membership"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-06.02",
+      "parent": "PERF-06",
+      "line": 1285,
+      "checked": false,
+      "label": "Complete cancellation, crash recovery, quota exhaustion, corruption and owned-cleanup acceptance across each admitted spill family.",
+      "first_line": "    - [ ] Complete cancellation, crash recovery, quota exhaustion, corruption and",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1285",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-06.recovery"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-06.03",
+      "parent": "PERF-06",
+      "line": 1287,
+      "checked": false,
+      "label": "Prove exact supported large-state completion under the admitted workload budget without external execution; no fixed 4 GiB target is required.",
+      "first_line": "    - [ ] Prove exact supported large-state completion under the admitted workload",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1287",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-06.strategy"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-06.04",
+      "parent": "PERF-06",
+      "line": 1289,
+      "checked": false,
+      "label": "Select resident or native external-memory strategies automatically within the caller's authorized memory, temporary-storage and effect policy. Prove complete results and cleanup at the transition; storage permission remains explicit even when operator strategy selection is automatic.",
+      "first_line": "    - [ ] Select resident or native external-memory strategies automatically",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1289",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-06.strategy"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-07.01",
+      "parent": "PERF-07",
+      "line": 1315,
+      "checked": true,
+      "label": "Complete bounded result streams for already executable flat-scalar aggregate and ordered-result families through downstream operators and admitted local writers, including typed empty results and native spill output. Use the [whole-workflow acceptance matrix](universal-workflow-completion-2026-10-01.md#workflow-acceptance-matrix) across current handoff bounds; do not replace safe limits with unbounded materialization or serialized JSON reconstruction.",
+      "first_line": "    - [x] Complete bounded result streams for already executable flat-scalar",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1315",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1315"
+      ]
+    },
+    {
+      "id": "PERF-07.02",
+      "parent": "PERF-07",
+      "line": 1321,
+      "checked": false,
+      "label": "Carry executable arrays, selections, validity and retained ownership through the remaining physical result and compatibility sink families. The [nullable structural-layout correction](native-nullable-layout-2026-10-18.md) now passes local acceptance for default-layout projection, filtering, parent validity, owned native-file readback and a private nullable-root query-run round trip with retained ownership and cleanup. Hosted closure remains pending. This closes the reproduced source/type defect locally; it does not complete every transfer/sink family or admit new public spill operators. The earlier [file metadata intake](native-file-metadata-buffers-2026-10-16.md#provider-test-integration-and-separate-nullable-root-finding) retains the original failure.",
+      "first_line": "    - [ ] Carry executable arrays, selections, validity and retained ownership",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1321",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-07.remaining_arrays"
+      ],
+      "evidence": [
+        "docs/benchmarks/native-nullable-layout-2026-10-18.md"
+      ],
+      "completed_portion": "Bounded aggregate/ordered results and later typed streams exist. Nullable structural-layout correction completed local and hosted acceptance in merged PR #1574; remaining physical/sink families stay open."
+    },
+    {
+      "id": "PERF-07.03",
+      "parent": "PERF-07",
+      "line": 1331,
+      "checked": false,
+      "label": "Complete compatibility streaming destinations and fanout from one single-use execution, with owned retention or spooling where required; validate all input before publication and preserve partial-commit recovery.",
+      "first_line": "    - [ ] Complete compatibility streaming destinations and fanout from one",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1331",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-07.publication"
+      ],
+      "evidence": [
+        "docs/architecture/native-stream-destinations-2026-10-15.md"
+      ],
+      "completed_portion": "All eight existing local streaming destinations and single-use one-execution fanout are integrated; generation-conditional replacement and broader partial-commit recovery remain."
+    },
+    {
+      "id": "PERF-07.04",
+      "parent": "PERF-07",
+      "line": 1334,
+      "checked": false,
+      "label": "Extend foreign-owner transfer to preserve admitted native encodings, dictionaries and validity where possible under receiving-allocation credits; measure copy/decode bytes and first-transfer/reuse cost against the current bounded copier, with same-owner and generated-range controls.",
+      "first_line": "    - [ ] Extend foreign-owner transfer to preserve admitted native encodings,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1334",
+      "disposition": "completed_reconciled",
+      "targets": [],
+      "evidence": [
+        "docs/architecture/native-encoded-interchange-2026-10-12.md",
+        "docs/benchmarks/evidence/native-encoded-hosted-2026-10-14.json"
+      ]
+    },
+    {
+      "id": "PERF-07.05",
+      "parent": "PERF-07",
+      "line": 1338,
+      "checked": false,
+      "label": "Reuse completed admitted native transfers/prepared sources across later operations. Admit immutable cross-owner sharing only with explicit charging, lifetime/revocation and isolation semantics; retain the isolated-copy path.",
+      "first_line": "    - [ ] Reuse completed admitted native transfers/prepared sources across later",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1338",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-07.transfer_lifetime"
+      ],
+      "evidence": [
+        "docs/architecture/native-encoded-interchange-2026-10-12.md"
+      ],
+      "completed_portion": "Accepted receiving sources/prepared handles already survive and execute later operations; immutable cross-owner sharing retains its separate lifetime/isolation gate."
+    },
+    {
+      "id": "PERF-07.06",
+      "parent": "PERF-07",
+      "line": 1341,
+      "checked": false,
+      "label": "Make native file/object recognition consistent across public entry points and clarify the existing native special case in `from_arrow`. Keep one shared runtime and make any API spelling change a deliberate migration.",
+      "first_line": "    - [ ] Make native file/object recognition consistent across public entry",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1341",
+      "disposition": "completed_reconciled",
+      "targets": [],
+      "evidence": [
+        "docs/architecture/native-encoded-interchange-2026-10-12.md",
+        "python/src/shardloom/_native_backend.py"
+      ]
+    },
+    {
+      "id": "PERF-07.07",
+      "parent": "PERF-07",
+      "line": 1344,
+      "checked": false,
+      "label": "Complete the `v1_candidate_pending_feasibility` gate for encoded interchange with a real independent upstream-Vortex producer/process. Inspect pinned public file/array/IPC contracts, registries, alignment, versions, resource ownership and corrupt-input behavior; implement a feasible native boundary or record the exact external dependency and native-file alternative. Measure full export/transport/import and subsequent execution.",
+      "first_line": "    - [ ] Complete the `v1_candidate_pending_feasibility` gate for encoded",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1344",
+      "disposition": "completed_reconciled",
+      "targets": [],
+      "evidence": [
+        "docs/architecture/native-encoded-interchange-2026-10-12.md",
+        "docs/benchmarks/evidence/native-encoded-hosted-2026-10-14.json"
+      ]
+    },
+    {
+      "id": "PERF-07.08",
+      "parent": "PERF-07",
+      "line": 1350,
+      "checked": true,
+      "label": "Complete `NATIVE-PERSISTED-REUSE` through the existing output writers and reader/planner so fresh-process, different-query acceptance consumes actual output properties; retained in-memory handoff alone does not close it.",
+      "first_line": "    - [x] Complete `NATIVE-PERSISTED-REUSE` through the existing output writers and",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1350",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1350"
+      ]
+    },
+    {
+      "id": "PERF-07.09",
+      "parent": "PERF-07",
+      "line": 1353,
+      "checked": false,
+      "label": "Complete close/cancel/slice and copied/decoded-byte acceptance for those routes, validating complete requested output.",
+      "first_line": "    - [ ] Complete close/cancel/slice and copied/decoded-byte acceptance for",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1353",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-07.remaining_arrays"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-07.10",
+      "parent": "PERF-07",
+      "line": 1355,
+      "checked": false,
+      "label": "Replace the legacy reader-generated numeric expansion with an explicit owned/executable or descriptive-only boundary without removing callable behavior. Keep its bytes and decode reporting consistent with PERF-01.",
+      "first_line": "    - [ ] Replace the legacy reader-generated numeric expansion with an explicit",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1355",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-01.numeric_bridge"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-08.01",
+      "parent": "PERF-08",
+      "line": 1371,
+      "checked": true,
+      "label": "Complete bounded September 12 CPU-stage attribution and one matched-owner allocation screen; drop the slower allocation and retain lifecycle tests.",
+      "first_line": "    - [x] Complete bounded September 12 CPU-stage attribution and one matched-owner",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1371",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1371"
+      ]
+    },
+    {
+      "id": "PERF-08.02",
+      "parent": "PERF-08",
+      "line": 1373,
+      "checked": false,
+      "label": "Establish safely removable repeated representation work before implementing deduplication in `ingest-performance-implementation-2026-09-12.md`.",
+      "first_line": "    - [ ] Establish safely removable repeated representation work before implementing",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1373",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-08.duplication"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-08.03",
+      "parent": "PERF-08",
+      "line": 1375,
+      "checked": false,
+      "label": "Attribute real normalization, metadata, codec, write, and finalization spans.",
+      "first_line": "    - [ ] Attribute real normalization, metadata, codec, write, and finalization spans.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1375",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-08.stages"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-08.04",
+      "parent": "PERF-08",
+      "line": 1376,
+      "checked": false,
+      "label": "Inventory duplicated derived representations and traversal/conversion costs.",
+      "first_line": "    - [ ] Inventory duplicated derived representations and traversal/conversion costs.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1376",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-08.duplication"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-08.05",
+      "parent": "PERF-08",
+      "line": 1377,
+      "checked": false,
+      "label": "Remove measured duplication while preserving validation and source preflight.",
+      "first_line": "    - [ ] Remove measured duplication while preserving validation and source preflight.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1377",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-08.duplication"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-08.06",
+      "parent": "PERF-08",
+      "line": 1378,
+      "checked": false,
+      "label": "Test same-source durable ingest and first/repeated-query lifecycle costs.",
+      "first_line": "    - [ ] Test same-source durable ingest and first/repeated-query lifecycle costs.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1378",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.lifecycle"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-09.01",
+      "parent": "PERF-09",
+      "line": 1405,
+      "checked": true,
+      "label": "Complete the [native text-size admission screen](../benchmarks/native-ingest-text-size-2026-10-18.md) requested October 17: six pinned native Zstd profiles, real 32,768-row source batches, complete physical-byte attribution, 360 native files, exact values, matching footer statistics and repeated native consumers. All five alternatives fail the frozen screen; retain the existing writer. The best sampled text reduction is 37.73%, with consumer regressions; no whole-file reduction, replacement-ingest result or query gain is inferred.",
+      "first_line": "    - [x] Complete the [native text-size admission screen](../benchmarks/native-ingest-text-size-2026-10-18.md)",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1405",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1405"
+      ]
+    },
+    {
+      "id": "PERF-09.02",
+      "parent": "PERF-09",
+      "line": 1412,
+      "checked": false,
+      "label": "If measured subtree idle time justifies it, implement bounded overlap across writer batches with the September 12 EOF, cancellation, transient memory, publication-race and newly written-artifact query tests. The September 12 profile does not identify enough recoverable subtree-tail time; allocation-screen failure alone does not authorize this expansion.",
+      "first_line": "    - [ ] If measured subtree idle time justifies it, implement bounded overlap",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1412",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.overlap"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-09.03",
+      "parent": "PERF-09",
+      "line": 1417,
+      "checked": false,
+      "label": "Measure per-column bytes and encode/decode CPU for admitted Vortex profiles.",
+      "first_line": "    - [ ] Measure per-column bytes and encode/decode CPU for admitted Vortex profiles.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1417",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.portfolio"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-09.04",
+      "parent": "PERF-09",
+      "line": 1418,
+      "checked": false,
+      "label": "After independent-region runtime evidence, cost native preparation jointly for storage, ingest, schedulable topology, pruning, encoded work and bounded merge; preserve the current writer until its lifecycle gate passes.",
+      "first_line": "    - [ ] After independent-region runtime evidence, cost native preparation",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1418",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.design"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-09.05",
+      "parent": "PERF-09",
+      "line": 1421,
+      "checked": false,
+      "label": "Share array ownership and compression resources with the engine governor.",
+      "first_line": "    - [ ] Share array ownership and compression resources with the engine governor.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1421",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-03.providers"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-09.06",
+      "parent": "PERF-09",
+      "line": 1422,
+      "checked": false,
+      "label": "Bound ordered completed blocks and expose backpressure/head-of-line waits.",
+      "first_line": "    - [ ] Bound ordered completed blocks and expose backpressure/head-of-line waits.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1422",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.overlap"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-09.07",
+      "parent": "PERF-09",
+      "line": 1423,
+      "checked": false,
+      "label": "Complete output-property persistence and its write-versus-downstream-use cost gates through `NATIVE-PERSISTED-REUSE`; do not infer optimized result preparation from valid Vortex serialization alone.",
+      "first_line": "    - [ ] Complete output-property persistence and its write-versus-downstream-use",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1423",
+      "disposition": "completed_reconciled",
+      "targets": [],
+      "evidence": [
+        "docs/architecture/native-persisted-reuse-2026-10-11.md",
+        "docs/benchmarks/evidence/native-persisted-hosted-2026-10-12.json"
+      ]
+    },
+    {
+      "id": "PERF-09.08",
+      "parent": "PERF-09",
+      "line": 1426,
+      "checked": false,
+      "label": "Validate single-file integrity/atomicity and ship/drop on lifecycle benefit.",
+      "first_line": "    - [ ] Validate single-file integrity/atomicity and ship/drop on lifecycle benefit.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1426",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.lifecycle"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-10.01",
+      "parent": "PERF-10",
+      "line": 1434,
+      "checked": false,
+      "label": "Carry physical encoding, ordering, selection, ownership, and memory contracts.",
+      "first_line": "    - [ ] Carry physical encoding, ordering, selection, ownership, and memory contracts.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1434",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.contracts"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-10.02",
+      "parent": "PERF-10",
+      "line": 1435,
+      "checked": false,
+      "label": "Prune admitted regions from trustworthy native metadata before payload work, preserving conservative decisions and explicit metadata-I/O scope.",
+      "first_line": "    - [ ] Prune admitted regions from trustworthy native metadata before payload",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1435",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.metadata_consumers"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-10.03",
+      "parent": "PERF-10",
+      "line": 1437,
+      "checked": false,
+      "label": "After topology and local-reduction evidence, implement exact region-local ordered candidates with offset/limit, multi-key/NULL ordering, ties and absolute source-row identity; merge bounded candidates before projected payload access.",
+      "first_line": "    - [ ] After topology and local-reduction evidence, implement exact region-local",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1437",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.ordered_candidates"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-10.04",
+      "parent": "PERF-10",
+      "line": 1440,
+      "checked": false,
+      "label": "Fuse admitted filter/project/aggregate kernels at plan or batch boundaries.",
+      "first_line": "    - [ ] Fuse admitted filter/project/aggregate kernels at plan or batch boundaries.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1440",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.fusion_registry"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-10.05",
+      "parent": "PERF-10",
+      "line": 1441,
+      "checked": false,
+      "label": "Cost native canonicalization, aggregation, distinct, join, sort, and windows.",
+      "first_line": "    - [ ] Cost native canonicalization, aggregation, distinct, join, sort, and windows.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1441",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.costs"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-10.06",
+      "parent": "PERF-10",
+      "line": 1442,
+      "checked": false,
+      "label": "Verify renamed schemas, non-ClickBench compositions, and byte-work reductions.",
+      "first_line": "    - [ ] Verify renamed schemas, non-ClickBench compositions, and byte-work reductions.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1442",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.workflows"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-10.07",
+      "parent": "PERF-10",
+      "line": 1443,
+      "checked": false,
+      "label": "Replace fixed plan/expression depth and node ceilings with scalable, resource-accounted traversal and lowering. Prove wide/deep composed plans, deterministic resource denial and cancellation without stack exhaustion. The input growth unit admits total operator/expression counts through existing metadata credits and verifies 255-node plans. Recursive depth guards and scalable traversal remain open; this combined item is not closed.",
+      "first_line": "    - [ ] Replace fixed plan/expression depth and node ceilings with scalable,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1443",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.traversal"
+      ],
+      "evidence": [
+        "docs/architecture/native-local-completion-scope-2026-10-07.md"
+      ],
+      "completed_portion": "Total-node credit admission and 255-node plans are proved; recursive depth and nested-schema traversal remain."
+    },
+    {
+      "id": "PERF-11.01",
+      "parent": "PERF-11",
+      "line": 1463,
+      "checked": false,
+      "label": "Validate the declared input/output/memory/queue envelope under pressure and cancellation; keep original caller owners and provider gaps explicit.",
+      "first_line": "    - [ ] Validate the declared input/output/memory/queue envelope under pressure",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1463",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-11.envelope"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-11.02",
+      "parent": "PERF-11",
+      "line": 1465,
+      "checked": true,
+      "label": "Complete shared ownership for repeated batch sources, multiple producers and safe dynamic-schema discovery; consume each single-use producer once and support reuse through declared retention or native spool. The [composition acceptance](../benchmarks/native-stream-input-composition-2026-10-13.md) completes this finite family with native pressure/write/reopen proof and all 44 hosted checks in PR #1548; broader envelope acceptance stays open.",
+      "first_line": "    - [x] Complete shared ownership for repeated batch sources, multiple",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1465",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1465"
+      ]
+    },
+    {
+      "id": "PERF-11.03",
+      "parent": "PERF-11",
+      "line": 1471,
+      "checked": false,
+      "label": "Admit exact decimal, binary, temporal and nested batch inputs through the shared native type/buffer machinery, preserving nulls, ordering, logical dtype and complete values across every supported destination.",
+      "first_line": "    - [ ] Admit exact decimal, binary, temporal and nested batch inputs through",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1471",
+      "disposition": "completed_reconciled",
+      "targets": [],
+      "evidence": [
+        "docs/architecture/native-typed-input-2026-10-10.md",
+        "docs/benchmarks/evidence/native-typed-input-hosted-2026-10-10.json"
+      ]
+    },
+    {
+      "id": "PERF-11.04",
+      "parent": "PERF-11",
+      "line": 1474,
+      "checked": true,
+      "label": "Connect automatic compatibility preparation to the transaction's cancellation owner, with source identity, provisional output and owned cleanup preserved across preparation, execution and publication. PR #1548 completes the shared controlled lifecycle with pre-access and post-input cancellation, staging cleanup and source-generation checks.",
+      "first_line": "    - [x] Connect automatic compatibility preparation to the transaction's",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1474",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1474"
+      ]
+    },
+    {
+      "id": "PERF-11.05",
+      "parent": "PERF-11",
+      "line": 1479,
+      "checked": true,
+      "label": "Execute generated ranges through bounded native units instead of a fixed total-length ceiling; preserve checked arithmetic and complete consumption under the shared resource policy. The input growth unit uses compact Vortex Sequence metadata, admitted scan intervals and every-value write/reopen proof beyond one million rows.",
+      "first_line": "    - [x] Execute generated ranges through bounded native units instead of a",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1479",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1479"
+      ]
+    },
+    {
+      "id": "PERF-11.06",
+      "parent": "PERF-11",
+      "line": 1484,
+      "checked": false,
+      "label": "Extend measured p50/p95/p99 to the remaining declared bulk-load envelope, including validation, intake, queue delay and result delivery.",
+      "first_line": "    - [ ] Extend measured p50/p95/p99 to the remaining declared bulk-load envelope,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1484",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-11.latency"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-12.01",
+      "parent": "PERF-12",
+      "line": 1505,
+      "checked": false,
+      "label": "Certify complete read/transform/consume/write/reopen workflows across formats, renamed schemas, distributions and resource pressure using the [breadth and scale matrix](universal-workflow-completion-2026-10-01.md#workflow-acceptance-matrix). Record every exposed composition as tested or a concrete implementation gap; a successful reader, parser or individual operator is insufficient.",
+      "first_line": "    - [ ] Certify complete read/transform/consume/write/reopen workflows across",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1505",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.workflows"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-12.02",
+      "parent": "PERF-12",
+      "line": 1510,
+      "checked": false,
+      "label": "Pin eligible ClickBench scoring/cohort and separate cached product sessions.",
+      "first_line": "    - [ ] Pin eligible ClickBench scoring/cohort and separate cached product sessions.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1510",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.cohort"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-12.03",
+      "parent": "PERF-12",
+      "line": 1511,
+      "checked": false,
+      "label": "Compare current/coarse and safe small/medium/large native topologies on the immutable 100M-row artifact with identical workers, memory, build and runner; retain all 129 complete results/timings, best sum, hot total and observed memory.",
+      "first_line": "    - [ ] Compare current/coarse and safe small/medium/large native topologies on",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1511",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.topology"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-12.04",
+      "parent": "PERF-12",
+      "line": 1514,
+      "checked": false,
+      "label": "Classify topology response by scan/reduction, filter, grouped, ordered bounded and high-cardinality/global-state shapes; report realized regions, actual pruning/encoded/materialized work and remaining global coordination.",
+      "first_line": "    - [ ] Classify topology response by scan/reduction, filter, grouped, ordered",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1514",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.topology"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-12.05",
+      "parent": "PERF-12",
+      "line": 1517,
+      "checked": false,
+      "label": "Add held-out ingest, aggregate, relational, ownership, and serving cases.",
+      "first_line": "    - [ ] Add held-out ingest, aggregate, relational, ownership, and serving cases.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1517",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.workflows"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-12.06",
+      "parent": "PERF-12",
+      "line": 1518,
+      "checked": false,
+      "label": "Exercise supported ordinary and benchmark resource envelopes, recording actual host resources and observed RSS rather than requiring a fixed 4 GiB target.",
+      "first_line": "    - [ ] Exercise supported ordinary and benchmark resource envelopes, recording",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1518",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.support"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-12.07",
+      "parent": "PERF-12",
+      "line": 1520,
+      "checked": false,
+      "label": "Prove complete batch workflows beyond the current cumulative-input, schema-width, generated-range and plan-shape ceilings after their owning mechanisms are implemented. Include resource exhaustion, late input failures, slow consumers, cancellation and exact write/reopen comparisons. Input growth acceptance covers cumulative batches, 4,097 top-level fields, a 1,000,017-row range and total-node growth. Deeper plans and the broader source/type/destination combinations remain uncompleted scope.",
+      "first_line": "    - [ ] Prove complete batch workflows beyond the current cumulative-input,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1520",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.workflows"
+      ],
+      "evidence": [
+        "docs/benchmarks/native-input-growth-2026-10-09.md"
+      ],
+      "completed_portion": "Cumulative batches, 4,097 top-level fields, generated range beyond one million rows and total-node growth are accepted; deep plans and broader combinations remain."
+    },
+    {
+      "id": "PERF-12.08",
+      "parent": "PERF-12",
+      "line": 1527,
+      "checked": false,
+      "label": "Record paired uncertainty, complete outputs, and gains in non-ClickBench families.",
+      "first_line": "    - [ ] Record paired uncertainty, complete outputs, and gains in non-ClickBench families.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1527",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.comparisons"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-13.01",
+      "parent": "PERF-13",
+      "line": 1539,
+      "checked": false,
+      "label": "Determine remaining instruction/dispatch cost after PERF-10.",
+      "first_line": "    - [ ] Determine remaining instruction/dispatch cost after PERF-10.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1539",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-13.pgo"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-13.02",
+      "parent": "PERF-13",
+      "line": 1540,
+      "checked": false,
+      "label": "Train PGO on representative and held-out workloads if justified.",
+      "first_line": "    - [ ] Train PGO on representative and held-out workloads if justified.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1540",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-13.pgo"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-13.03",
+      "parent": "PERF-13",
+      "line": 1541,
+      "checked": false,
+      "label": "Measure compilation/transfer break-even and portable-package correctness.",
+      "first_line": "    - [ ] Measure compilation/transfer break-even and portable-package correctness.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1541",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-13.pgo"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "PERF-13.04",
+      "parent": "PERF-13",
+      "line": 1542,
+      "checked": false,
+      "label": "Retain a measured benefit or record a reasoned drop without extra runtime paths.",
+      "first_line": "    - [ ] Retain a measured benefit or record a reasoned drop without extra runtime paths.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1542",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-13.pgo"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.01",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1623,
+      "checked": true,
+      "label": "Add a `PhysicalIngestPlan`/`WriterPhysicalDesignPlan` data model with source footer facts, schema classes, source row-group/task topology, row-count/byte estimates, desired Vortex layout shape, compression plan, derived metadata plan, resource-envelope budget, and retain/drop thresholds.",
+      "first_line": "    - [x] Add a `PhysicalIngestPlan`/`WriterPhysicalDesignPlan` data model with source footer facts,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1623",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1623"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.02",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1627,
+      "checked": true,
+      "label": "Replace hardcoded large-source writer constants with planner decisions that are stable, digestible, and explainable in public prepare evidence.",
+      "first_line": "    - [x] Replace hardcoded large-source writer constants with planner decisions that are stable,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1627",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1627"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.03",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1629,
+      "checked": false,
+      "label": "Implement H/VH ingest packet `decoupled ordered pre-writer pipeline`.",
+      "first_line": "    - [ ] Implement H/VH ingest packet `decoupled ordered pre-writer pipeline`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1629",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.overlap"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Retained bounded source/conversion stages, sequence order and one-subtree writing exist; another stage requires measured waiting and complete transient/EOF/cancel proof."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.04",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1660,
+      "checked": false,
+      "label": "Implement H/VH ingest packet `dictionary-lifted derived-column construction`.",
+      "first_line": "    - [ ] Implement H/VH ingest packet `dictionary-lifted derived-column construction`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1660",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-08.duplication"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.05",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1735,
+      "checked": false,
+      "label": "Implement H/VH ingest packet `single resource governor`.",
+      "first_line": "    - [ ] Implement H/VH ingest packet `single resource governor`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1735",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-03.providers"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "IngestCpuLanes and later explicit operation grants exist; unreviewed scratch/transient copies and progress remain."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.06",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1779,
+      "checked": false,
+      "label": "Implement H/VH ingest packet `retained layout/codec portfolio admission`.",
+      "first_line": "    - [ ] Implement H/VH ingest packet `retained layout/codec portfolio admission`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1779",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.portfolio"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.07",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1835,
+      "checked": false,
+      "label": "Build a staged pipeline for source read, embedded-derived construction, Arrow-to-Vortex conversion, compression/layout preparation, ordered final writer feed, digest, and atomic commit, with bounded queues and explicit single-artifact cleanup.",
+      "first_line": "    - [ ] Build a staged pipeline for source read, embedded-derived construction, Arrow-to-Vortex",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1835",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.overlap"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Source/conversion/provider pipeline and single-artifact staging exist; source mutation/publication races and transient ownership remain."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.08",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1838,
+      "checked": false,
+      "label": "Parallelize CPU-heavy pre-writer work under ShardLoom control before the final Vortex sink boundary, and report how much time is source wait, derived-build CPU, compression CPU, writer-feed wait, final Vortex write, and commit.",
+      "first_line": "    - [ ] Parallelize CPU-heavy pre-writer work under ShardLoom control before the final Vortex sink",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1838",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.overlap",
+        "PERF-08.stages"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Actual source/conversion/provider workers and work clocks exist; exclusive stage CPU attribution is not established by owner counts."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.09",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1841,
+      "checked": false,
+      "label": "Add a retain/drop gate that rejects writer profiles slower than the retained replacement ingest baseline or that regress artifact size/query UAT without a documented reason.",
+      "first_line": "    - [ ] Add a retain/drop gate that rejects writer profiles slower than the retained replacement",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1841",
+      "disposition": "completed_reconciled",
+      "targets": [],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md#clickbench-production-writer-physical-design-1"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.10",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1843,
+      "checked": false,
+      "label": "Remove or revert the 2026-09-02 experimental tuning patch if its only evidence remains the `360s` rejected UAT run.",
+      "first_line": "    - [ ] Remove or revert the 2026-09-02 experimental tuning patch if its only evidence remains the",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1843",
+      "disposition": "completed_reconciled",
+      "targets": [],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md#clickbench-production-writer-physical-design-1"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.11",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1845,
+      "checked": false,
+      "label": "Add unit tests for planner decisions across small sources, large numeric sources, ClickBench-like wide text sources, source-dictionary-heavy sources, missing row-count sources, and memory-constrained profiles.",
+      "first_line": "    - [ ] Add unit tests for planner decisions across small sources, large numeric sources,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1845",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-09.design"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.12",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1848,
+      "checked": false,
+      "label": "Add integration/UAT harness fields for stage CPU utilization, queue depth/backpressure, rows/sec by stage, artifact bytes, segment count, compression bytes/time, and `fallback_attempted=false` / `external_engine_invoked=false`.",
+      "first_line": "    - [ ] Add integration/UAT harness fields for stage CPU utilization, queue depth/backpressure,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1848",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-08.stages"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1.13",
+      "parent": "CLICKBENCH-PRODUCTION-WRITER-PHYSICAL-DESIGN-1",
+      "line": 1851,
+      "checked": true,
+      "label": "Run replacement-ingest UAT and full 43-query UAT after implementation before moving the item to the completed ledger; current clean implementation evidence is `ingest_cli_uat_gated_20260903T112348Z` at `271s` and `full43_after_clean_ingest_current_impl_20260903T112902Z` at `189.197s` best-of-3 query total.",
+      "first_line": "    - [x] Run replacement-ingest UAT and full 43-query UAT after implementation before moving the",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1851",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1851"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.01",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1915,
+      "checked": true,
+      "label": "Define a typed `SegmentMetadata` model with row range, physical byte range, row count, null count/posture, min/max where ordered, byte-length bounds, dictionary membership summary, string/domain absence certificates, cardinality sketch status, and source provenance.",
+      "first_line": "    - [x] Define a typed `SegmentMetadata` model with row range, physical byte range, row count,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1915",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1915"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.02",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1918,
+      "checked": true,
+      "label": "Define exactness levels: exact, conservative-may-read, approximate-for-advice-only, and diagnostic-only, with explicit fail-closed behavior when a query would need exact metadata.",
+      "first_line": "    - [x] Define exactness levels: exact, conservative-may-read, approximate-for-advice-only, and",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1918",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1918"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.03",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1920,
+      "checked": true,
+      "label": "Persist or reconstruct the metadata through the single `.vortex` artifact contract; any temporary ingest-only structure must either be embedded, derivable from Vortex footer/layout facts, or marked non-production.",
+      "first_line": "    - [x] Persist or reconstruct the metadata through the single `.vortex` artifact contract; any",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1920",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1920"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.04",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1923,
+      "checked": false,
+      "label": "Implement H/VH metadata packet `false-negative-safe string absence summaries`.",
+      "first_line": "    - [ ] Implement H/VH metadata packet `false-negative-safe string absence summaries`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1923",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.summaries"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.05",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1939,
+      "checked": false,
+      "label": "Implement H/VH metadata packet `stable transform and frequency summaries`.",
+      "first_line": "    - [ ] Implement H/VH metadata packet `stable transform and frequency summaries`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1939",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.summaries"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.06",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1958,
+      "checked": false,
+      "label": "Implement H/VH metadata packet `candidate segment directories for duplicate-heavy lanes`.",
+      "first_line": "    - [ ] Implement H/VH metadata packet `candidate segment directories for duplicate-heavy lanes`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1958",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.summaries"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.07",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1974,
+      "checked": false,
+      "label": "Feed the metadata primitive into predicate pruning, URL/domain grouping, heavy-hitter candidate generation, exact distinct, row-ref top-K, writer layout advice, and estimate/explain evidence.",
+      "first_line": "    - [ ] Feed the metadata primitive into predicate pruning, URL/domain grouping, heavy-hitter",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1974",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.metadata_consumers"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Typed metadata and conservative real-file predicate pruning exist; remaining grouping/distinct/ordered/advisor consumers require their own proof."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.08",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1977,
+      "checked": false,
+      "label": "Add tests proving no false negatives for min/max, null, byte-length, dictionary membership, domain absence, empty/all-null segments, mixed-null segments, and missing-metadata blockers.",
+      "first_line": "    - [ ] Add tests proving no false negatives for min/max, null, byte-length, dictionary membership,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1977",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.metadata_consumers"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.09",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1979,
+      "checked": true,
+      "label": "Add public primitive evidence fields for row count, segment count, exactness/provenance, metadata read plan, per-family admission, sidecar/fallback status, and deterministic digest.",
+      "first_line": "    - [x] Add public primitive evidence fields for row count, segment count, exactness/provenance,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1979",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1979"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.10",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1981,
+      "checked": false,
+      "label": "Add public query-consumption evidence fields for `segments_total`, `segments_pruned`, `segments_read`, `rows_pruned`, `bytes_pruned`, metadata exactness, metadata source, and fallback status.",
+      "first_line": "    - [ ] Add public query-consumption evidence fields for `segments_total`, `segments_pruned`, `segments_read`,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1981",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.metadata_consumers"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1.11",
+      "parent": "CLICKBENCH-PRODUCTION-SEGMENT-METADATA-PRIMITIVE-1",
+      "line": 1983,
+      "checked": false,
+      "label": "Run targeted ClickBench lanes that should benefit from metadata before full UAT: Q21-Q24 predicate/top-K, Q29 transformed grouping, Q33/Q34/Q35 heavy-hitter/domain rows, and exact distinct rows.",
+      "first_line": "    - [ ] Run targeted ClickBench lanes that should benefit from metadata before full UAT: Q21-Q24",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L1983",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.comparisons"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.01",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2050,
+      "checked": true,
+      "label": "Define a reusable `MorselScheduler` abstraction over prepared Vortex segments, Parquet row-group tasks, generated sources, and future local compatibility sources, with bounded queueing and stable work IDs.",
+      "first_line": "    - [x] Define a reusable `MorselScheduler` abstraction over prepared Vortex segments, Parquet",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2050",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2050"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.02",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2053,
+      "checked": false,
+      "label": "Define thread-local state traits for count, sum/avg, grouped aggregate, exact distinct, string heavy-hitter, numeric/string top-K, row-ref top-K, and predicate count families.",
+      "first_line": "    - [ ] Define thread-local state traits for count, sum/avg, grouped aggregate, exact distinct,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2053",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.states"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.03",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2055,
+      "checked": false,
+      "label": "Implement H/VH scheduler packet `mergeable string heavy-hitter top-K states`.",
+      "first_line": "    - [ ] Implement H/VH scheduler packet `mergeable string heavy-hitter top-K states`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2055",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.states"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Exact complete-key partitions and final Top-K supersede speculative sketch/recount for non-null COUNT; nullable/extra-measure/pressure scope remains."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.04",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2070,
+      "checked": false,
+      "label": "Implement H/VH scheduler packet `numeric-plus-UTF8 heavy-hitter candidate and recount`.",
+      "first_line": "    - [ ] Implement H/VH scheduler packet `numeric-plus-UTF8 heavy-hitter candidate and recount`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2070",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.states"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Scoped compound COUNT workers and domain reconciliation supersede the old Q17-only candidate/recount motivation; NULL/additional-measure/pressure scope remains."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.05",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2086,
+      "checked": false,
+      "label": "Implement H/VH scheduler packet `tri-key grouped aggregate state`.",
+      "first_line": "    - [ ] Implement H/VH scheduler packet `tri-key grouped aggregate state`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2086",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.states"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.06",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2101,
+      "checked": false,
+      "label": "Implement H/VH scheduler packet `packed pair and grouped distinct states`.",
+      "first_line": "    - [ ] Implement H/VH scheduler packet `packed pair and grouped distinct states`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2101",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.states",
+        "PERF-05.pressure"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Grouped integer DISTINCT, exact pair union and near-unique directories exist; remaining parallel multi-measure and pressure transfer are separate."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.07",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2115,
+      "checked": true,
+      "label": "Implement deterministic merge ordering for the shared scheduler state contract, including stable worker-index merge ordering and test coverage across requested worker counts. Every concrete top-K/distinct/aggregate family still needs its own tie/null/floating-point policy before this item can close.",
+      "first_line": "    - [x] Implement deterministic merge ordering for the shared scheduler state contract, including",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2115",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2115"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.08",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2119,
+      "checked": false,
+      "label": "Implement deterministic merge ordering for every state family, including ties, null ordering, floating-point accumulation policy, source-order preservation, and limit/offset.",
+      "first_line": "    - [ ] Implement deterministic merge ordering for every state family, including ties, null",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2119",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.semantics"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.09",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2121,
+      "checked": true,
+      "label": "Add memory-envelope admission per worker and per merge stage, with spill/fail-closed diagnostics when exact state exceeds budget.",
+      "first_line": "    - [x] Add memory-envelope admission per worker and per merge stage, with spill/fail-closed",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2121",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2121"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.10",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2123,
+      "checked": true,
+      "label": "Add utilization evidence: requested/applied workers, runnable morsels, completed morsels, mean/max stage time, skew ratio, merge time, worker summaries, and rows/sec.",
+      "first_line": "    - [x] Add utilization evidence: requested/applied workers, runnable morsels, completed morsels,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2123",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2123"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.11",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2125,
+      "checked": false,
+      "label": "Add worker idle/starved/backpressure time once route operators run directly through the shared scheduler observer rather than only validating the consumed morsel contract.",
+      "first_line": "    - [ ] Add worker idle/starved/backpressure time once route operators run directly through the",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2125",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.utilization"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.12",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2127,
+      "checked": false,
+      "label": "Convert at least the Q10/Q14/Q17/Q19/Q33/Q34/Q35-style families to the shared scheduler before claiming this item complete.",
+      "first_line": "    - [ ] Convert at least the Q10/Q14/Q17/Q19/Q33/Q34/Q35-style families to the shared scheduler",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2127",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.workers"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.13",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2129,
+      "checked": true,
+      "label": "Test deterministic row-count scheduling at parallelism `1`, `2`, `3`, and `12`, plus memory-budget blockers, metadata-pruned no-work behavior, custom observer state execution, and no-fallback evidence fields.",
+      "first_line": "    - [x] Test deterministic row-count scheduling at parallelism `1`, `2`, `3`, and `12`, plus",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2129",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2129"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1.14",
+      "parent": "CLICKBENCH-PRODUCTION-MORSEL-SCHEDULER-THREADLOCAL-MERGE-1",
+      "line": 2132,
+      "checked": false,
+      "label": "Test intentionally skewed segment distributions and deterministic tie cases for each concrete top-K/distinct/aggregate state family after those states are routed through the shared scheduler.",
+      "first_line": "    - [ ] Test intentionally skewed segment distributions and deterministic tie cases for each",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2132",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.semantics"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.01",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 2188,
+      "checked": true,
+      "label": "Define a kernel registry schema with operator family, input dtype, encoding/layout preconditions, null semantics, determinism, memory envelope, materialization level, Vortex provider surface, fallback prohibition, and unsupported diagnostic.",
+      "first_line": "    - [x] Define a kernel registry schema with operator family, input dtype, encoding/layout",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2188",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2188"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.02",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 2191,
+      "checked": false,
+      "label": "Implement H/VH kernel packet `reclaimable string identity and active-candidate arena`.",
+      "first_line": "    - [ ] Implement H/VH kernel packet `reclaimable string identity and active-candidate arena`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2191",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-05.identity"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "The historical hot-eviction arena is a measured drop; retained partition/dictionary ownership and later text mechanisms are different implementations. Require a remaining lifetime problem before another reclamation design."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.03",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 2214,
+      "checked": false,
+      "label": "Implement H/VH kernel packet `Q35 constant-key canonicalization`.",
+      "first_line": "    - [ ] Implement H/VH kernel packet `Q35 constant-key canonicalization`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2214",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.constant_keys"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.04",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 2237,
+      "checked": false,
+      "label": "Implement H/VH kernel packet `exact string heavy-hitter histogram replay`.",
+      "first_line": "    - [ ] Implement H/VH kernel packet `exact string heavy-hitter histogram replay`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2237",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.states",
+        "PERF-05.pressure"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Weighted dictionary updates, exact histograms and complete-key partitions already remove accepted recount work; do not revive sparse replay or dual maintenance unchanged."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.05",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 2405,
+      "checked": false,
+      "label": "Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.",
+      "first_line": "    - [ ] Implement H/VH kernel packet `Q17 packed numeric-plus-UTF8 top-K`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2405",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.states",
+        "PERF-05.validation"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Dictionary binding, candidate-to-numeric reuse and compound partitions exist; remaining NULL/measure/result-array scope is not a fresh packed-key implementation."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.06",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 2503,
+      "checked": false,
+      "label": "Implement H/VH kernel packet `Q29 fused weighted dictionary-domain aggregate`.",
+      "first_line": "    - [ ] Implement H/VH kernel packet `Q29 fused weighted dictionary-domain aggregate`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2503",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-05.identity",
+        "PERF-10.fusion_registry"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Interned transformed-domain keys and weighted updates exist; remaining measure/result ownership or transform metadata needs actual avoided-work evidence."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.07",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 2676,
+      "checked": false,
+      "label": "Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.",
+      "first_line": "    - [ ] Implement H/VH kernel packet `Q23 encoded predicate and selected-row aggregate`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2676",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.fusion_registry",
+        "PERF-07.remaining_arrays"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Column-scoped residual refinement and native predicates exist; selected-measure/result ownership is shared with PERF-07, not a second predicate implementation."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.08",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 2808,
+      "checked": false,
+      "label": "Implement H/VH kernel packet `Q19 fixed-width tri-key grouped top-K`.",
+      "first_line": "    - [ ] Implement H/VH kernel packet `Q19 fixed-width tri-key grouped top-K`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2808",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.states"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.09",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 2866,
+      "checked": false,
+      "label": "Implement H/VH kernel packet `Q33 duplicate-promotion packed-pair aggregate`.",
+      "first_line": "    - [ ] Implement H/VH kernel packet `Q33 duplicate-promotion packed-pair aggregate`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2866",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-05.pressure"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Exact near-unique duplicate promotion and late measures exist; the ordered singleton-window variant is dropped. Remaining NULL/parallel/pressure scope does not require replacing the directory."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.10",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 2936,
+      "checked": false,
+      "label": "Implement H/VH kernel packet `Q10 exact distinct family split`.",
+      "first_line": "    - [ ] Implement H/VH kernel packet `Q10 exact distinct family split`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L2936",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-04.states"
+      ],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md"
+      ],
+      "completed_portion": "Packed-pair preunion, chunk partials and grouped integer DISTINCT workers exist; other dtype/NULL/multi-measure/pressure families remain."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.11",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 3013,
+      "checked": false,
+      "label": "Register first production kernels for string heavy-hitter top-K, transformed dictionary URL/domain grouping, numeric-pair aggregate, numeric+UTF8 grouped top-K, dense exact distinct, row-ref top-K, exact predicate count, and direct primitive aggregate.",
+      "first_line": "    - [ ] Register first production kernels for string heavy-hitter top-K, transformed",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3013",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.fusion_registry"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.12",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 3016,
+      "checked": true,
+      "label": "Replace route-local policy labels with registry selection where semantics match, while keeping public route names stable.",
+      "first_line": "    - [x] Replace route-local policy labels with registry selection where semantics match, while",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3016",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3016"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.13",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 3018,
+      "checked": false,
+      "label": "Add decoded-reference parity tests for every admitted kernel, including empty, all-null, mixed-null, high-cardinality, low-cardinality, dictionary, direct primitive, and unsupported layout cases.",
+      "first_line": "    - [ ] Add decoded-reference parity tests for every admitted kernel, including empty, all-null,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3018",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-10.fusion_registry",
+        "PERF-05.validation"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.14",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 3021,
+      "checked": true,
+      "label": "Add explain/evidence fields for kernel candidate set, selected kernel, admission reason, execution level, decoded/materialized rows, and blocked alternatives.",
+      "first_line": "    - [x] Add explain/evidence fields for kernel candidate set, selected kernel, admission reason,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3021",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3021"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1.15",
+      "parent": "CLICKBENCH-PRODUCTION-SPECIALIZED-KERNEL-REGISTRY-1",
+      "line": 3023,
+      "checked": false,
+      "label": "Add retain/drop gates so kernel specialization that fails correctness, degrades target UAT, or only changes evidence cannot be marked complete.",
+      "first_line": "    - [ ] Add retain/drop gates so kernel specialization that fails correctness, degrades target UAT,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3023",
+      "disposition": "completed_reconciled",
+      "targets": [],
+      "evidence": [
+        "docs/architecture/performance-plan-exhaustion-2026-09-12.md#clickbench-production-specialized-kernel-registry-1",
+        "docs/architecture/native-drop-review-2026-10-18.md"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1.01",
+      "parent": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1",
+      "line": 3075,
+      "checked": true,
+      "label": "Define a shared `ColumnarResultBatch`/`RetainedRowSet` contract that carries selected columns, row refs/source ordinals, validity/null semantics, order/tie metadata, and sink materialization requirements.",
+      "first_line": "    - [x] Define a shared `ColumnarResultBatch`/`RetainedRowSet` contract that carries selected",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3075",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3075"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1.02",
+      "parent": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1",
+      "line": 3078,
+      "checked": false,
+      "label": "Implement H/VH result packet `selected-row aggregate and retained-row handoff`.",
+      "first_line": "    - [ ] Implement H/VH result packet `selected-row aggregate and retained-row handoff`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3078",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-07.remaining_arrays"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1.03",
+      "parent": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1",
+      "line": 3094,
+      "checked": false,
+      "label": "Implement H/VH result packet `columnar sink parity for exact aggregate families`.",
+      "first_line": "    - [ ] Implement H/VH result packet `columnar sink parity for exact aggregate families`.",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3094",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-07.remaining_arrays"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1.04",
+      "parent": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1",
+      "line": 3109,
+      "checked": false,
+      "label": "Route filter/project/limit, sort/top-K, grouped aggregate, distinct, and row export through columnar result batches until JSON/CSV/user-row rendering requires row materialization.",
+      "first_line": "    - [ ] Route filter/project/limit, sort/top-K, grouped aggregate, distinct, and row export",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3109",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-07.remaining_arrays"
+      ],
+      "evidence": [
+        "docs/architecture/universal-workflow-completion-2026-10-01.md"
+      ],
+      "completed_portion": "Source arrays and later bounded aggregate/ordered streams use actual owned native results. Remaining family coverage must follow state-to-sink behavior; absence of the old descriptor type name alone does not prove a runtime gap."
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1.05",
+      "parent": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1",
+      "line": 3111,
+      "checked": true,
+      "label": "Add sink adapters that can consume columnar batches for Vortex/Arrow-compatible local outputs and explicitly materialize only at JSONL/CSV/CLI text boundaries.",
+      "first_line": "    - [x] Add sink adapters that can consume columnar batches for Vortex/Arrow-compatible local",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3111",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3111"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1.06",
+      "parent": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1",
+      "line": 3113,
+      "checked": true,
+      "label": "Add materialization certificates with rows considered, rows retained, rows materialized, columns decoded, payload bytes decoded, sink boundary, and no-fallback status.",
+      "first_line": "    - [x] Add materialization certificates with rows considered, rows retained, rows materialized,",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3113",
+      "disposition": "completed_preexisting",
+      "targets": [],
+      "evidence": [
+        "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3113"
+      ]
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1.07",
+      "parent": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1",
+      "line": 3115,
+      "checked": false,
+      "label": "Add tests for order stability, null rendering, selected-column projection, wide payload top-K, grouped output, distinct output, JSON/CSV parity, and unsupported remote delivery.",
+      "first_line": "    - [ ] Add tests for order stability, null rendering, selected-column projection, wide payload",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3115",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-07.remaining_arrays",
+        "PERF-12.workflows"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1.08",
+      "parent": "CLICKBENCH-PRODUCTION-COLUMNAR-RESULT-DATAPLANE-1",
+      "line": 3117,
+      "checked": false,
+      "label": "Run targeted UAT on Q23/Q24/Q25 and broad top-K/grouped rows, then full UAT for retained changes.",
+      "first_line": "    - [ ] Run targeted UAT on Q23/Q24/Q25 and broad top-K/grouped rows, then full UAT for retained",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3117",
+      "disposition": "remaining",
+      "targets": [
+        "PERF-12.comparisons"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.01",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "line": 3173,
+      "checked": false,
+      "label": "Write the RFC/provider review against the then-pinned Vortex array serialization and `vortex-ipc` sources, plus current Flight SQL/RPC APIs. Reuse the native representation; audit wire stability, encoding registry, alignment, per-message duplication and stream completion before extending it.",
+      "first_line": "    - [ ] Write the RFC/provider review against the then-pinned Vortex array",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3173",
+      "disposition": "remaining",
+      "targets": [
+        "NATIVE-ENCODED-EXCHANGE.protocol"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.02",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "line": 3177,
+      "checked": false,
+      "label": "Define negotiation, schema/encoding/wire versions, query/partition/ snapshot identities, completion, truncation, cancellation, reconnect and replay contracts; make strict-native incompatibility deterministic.",
+      "first_line": "    - [ ] Define negotiation, schema/encoding/wire versions, query/partition/",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3177",
+      "disposition": "remaining",
+      "targets": [
+        "NATIVE-ENCODED-EXCHANGE.protocol"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.03",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "line": 3180,
+      "checked": false,
+      "label": "Define grants for queued buffers, receive storage and retained dictionaries; establish exact dictionary identity, release/eviction and lifetime rules. Keep in-process handle passage separate from serialization.",
+      "first_line": "    - [ ] Define grants for queued buffers, receive storage and retained",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3180",
+      "disposition": "remaining",
+      "targets": [
+        "NATIVE-ENCODED-EXCHANGE.ownership"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.04",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "line": 3183,
+      "checked": false,
+      "label": "Define authentication, per-request authorization and transport security using established infrastructure. Ensure selections, dictionary entries, retained buffers and reused state cannot expose unauthorized values.",
+      "first_line": "    - [ ] Define authentication, per-request authorization and transport security",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3183",
+      "disposition": "remaining",
+      "targets": [
+        "NATIVE-ENCODED-EXCHANGE.protocol"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.05",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "line": 3186,
+      "checked": false,
+      "label": "Implement the first bounded producer -> transport -> receiver -> real downstream native operation experiment. Compare optimized Arrow/Flight, ordinary Vortex IPC and the candidate with equivalent semantics, security, resources, complete results and error/cleanup behavior.",
+      "first_line": "    - [ ] Implement the first bounded producer -> transport -> receiver -> real",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3186",
+      "disposition": "remaining",
+      "targets": [
+        "NATIVE-ENCODED-EXCHANGE.experiment"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.06",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "line": 3190,
+      "checked": false,
+      "label": "Measure actual wire bytes, sender/receiver CPU, copies, materialized rows, retained/peak memory and complete downstream elapsed. Freeze the retain/drop protocol before timing; an opaque-blob receiver is insufficient.",
+      "first_line": "    - [ ] Measure actual wire bytes, sender/receiver CPU, copies, materialized",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3190",
+      "disposition": "remaining",
+      "targets": [
+        "NATIVE-ENCODED-EXCHANGE.experiment"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.07",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "line": 3193,
+      "checked": false,
+      "label": "Admit useful dictionary/buffer reuse and supported execution metadata incrementally. Prototype same-host shared/mapped storage only with explicit handle rights, lifetimes and cleanup. Version aggregate state separately.",
+      "first_line": "    - [ ] Admit useful dictionary/buffer reuse and supported execution metadata",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3193",
+      "disposition": "remaining",
+      "targets": [
+        "NATIVE-ENCODED-EXCHANGE.ownership"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-ENCODED-EXCHANGE.08",
+      "parent": "NATIVE-ENCODED-EXCHANGE",
+      "line": 3196,
+      "checked": false,
+      "label": "Prove ordinary Flight SQL client interoperability and explicit native client selection; then update README, field guide, capabilities, evidence and hosted checks together before moving accepted scope to the ledger.",
+      "first_line": "    - [ ] Prove ordinary Flight SQL client interoperability and explicit native",
+      "source_url": "https://github.com/depsilon/shardloom/blob/7daf50a9fc9125b708310cbba0fb13ac4d83a0cc/docs/architecture/phased-execution-plan.md#L3196",
+      "disposition": "remaining",
+      "targets": [
+        "NATIVE-ENCODED-EXCHANGE.clients"
+      ],
+      "evidence": []
+    }
+  ],
+  "scope": "One canonical owner per remaining obligation; completed historical rows are retained, ten stale unchecked rows reconciled, eight existing prose investigations made explicit. No whole PERF/CG gate is closed, no runtime behavior or performance result is changed.",
+  "completed_batch_steps": [
+    {
+      "id": "PERF-12.prebump",
+      "parent": "PERF-12",
+      "label": "Complete safe retirement of obsolete local artifacts, this backlog reconciliation and the runnable ship/drop audit; after retained changes, record fresh ingest, all 43 complete queries and all 18 modular cohorts on the final source. Keep the version bump held until this packet is accepted.",
+      "kind": "current",
+      "status": "completed",
+      "authority": "October 18 maintainer instructions: cleanup, backlog reconciliation, eligible ship/drop work and fresh full UAT before the next version bump",
+      "evidence": [
+        "docs/benchmarks/native-roadmap-fresh-uat-2026-10-18.md",
+        "docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.json",
+        "docs/architecture/local-artifact-cleanup-2026-10-18.md",
+        "docs/architecture/native-roadmap-reconciliation-2026-10-18.md"
+      ]
+    }
+  ],
+  "accepted_runtime_commit": "6780e7df564c55f3e256822be1d0383cfabff0c9",
+  "fresh_acceptance_scope": {
+    "queries": 43,
+    "calls": 43,
+    "modular_cohorts": 18,
+    "native_workflows": 704,
+    "independent_oracle_records": 704,
+    "public_acceptance_reexecuted": false
+  }
+}

@@ -54,6 +54,12 @@ entire compiler cache merely to preserve old test executables. Keep failed-run
 diagnostics and reproduction inputs without retaining every generated payload.
 Recheck free space before and after large jobs and preserve the existing guards.
 
+The [October 18 cleanup](local-artifact-cleanup-2026-10-18.md) retires the completed
+debug cache and, after fresh ingestion and complete acceptance, the superseded
+`fresh-text-aggregation-588-a1.vortex`. The original Parquet, current frozen runtime
+and latest accepted `fresh-roadmap-663-a1.vortex` remain. Compact source/result/failure
+evidence and exact retirement receipts are preserved; storage limits are unchanged.
+
 After the [October 17 text aggregation acceptance](../benchmarks/native-text-aggregation-2026-10-17.md),
 the superseded `fresh-native-review-579-a1.vortex` payload is retired after full
 hash, stable-generation, residency and closed-handle checks. The newly accepted

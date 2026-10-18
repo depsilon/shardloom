@@ -1,0 +1,120 @@
+{
+  "schema_version": "shardloom.native_roadmap_fresh_uat_evidence.v1",
+  "status": "passed_local_evidence_packaged",
+  "source_commit": "6780e7df564c55f3e256822be1d0383cfabff0c9",
+  "source_files": 2416,
+  "source_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-source-roadmap663.json",
+    "bytes": 315804,
+    "sha256": "494a80064534f94efc7983b1ca107d1b129d22a63e7f7ad8f9e1a6faea749ca2"
+  },
+  "artifact_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-release-artifacts-roadmap663.json",
+    "bytes": 317137,
+    "sha256": "86e0087e05204233b8ce2fdc372522b35a807a3f5a1c8afa64a8facb8c5f0a5f"
+  },
+  "acceptance": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/fresh-uat663-acceptance.json",
+    "bytes": 60023,
+    "sha256": "23f1c67471922d17cfe17bdc3dae62d38c0ec5fa8ec116065780a69b5ff6fb31"
+  },
+  "member_count": 14712,
+  "raw_bytes": 344719222,
+  "archives": [
+    {
+      "file": "native-roadmap-fresh-uat-2026-10-18.part01.tar.xz",
+      "bytes": 1972868,
+      "sha256": "53f2928c8637309874ce23d28396e3f451eb9f3d7c4c342e25c409ab98f4cd3e",
+      "members": 11076,
+      "raw_bytes": 134042077
+    },
+    {
+      "file": "native-roadmap-fresh-uat-2026-10-18.part02.tar.xz",
+      "bytes": 2465088,
+      "sha256": "ee1c753335a49d188ae485a0298cbfc933ef151cc38c848ce3d5550d0bd6241d",
+      "members": 1189,
+      "raw_bytes": 129186421
+    },
+    {
+      "file": "native-roadmap-fresh-uat-2026-10-18.part03.tar.xz",
+      "bytes": 7627728,
+      "sha256": "37d0bb417465c32d1d4df247130565292bd917a1aff91c44d763809b9dfad4bb",
+      "members": 2447,
+      "raw_bytes": 81490724
+    }
+  ],
+  "bulk_dataset_identities": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+      "bytes": 14779976446,
+      "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+      "generation": {
+        "device": 16777233,
+        "inode": 84833233,
+        "size_bytes": 14779976446,
+        "mtime_ns": 1788461344802364826,
+        "ctime_ns": 1788612069108841600
+      },
+      "resident": true
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+      "bytes": 15713610513,
+      "sha256": "06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22",
+      "generation": {
+        "device": 16777233,
+        "inode": 111843112,
+        "size_bytes": 15713610513,
+        "mtime_ns": 1792325598752257621,
+        "ctime_ns": 1792325598757039417
+      },
+      "resident": true
+    }
+  ],
+  "executable_identities": {
+    "cli": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-cli-release-roadmap663/shardloom",
+      "bytes": 75883760,
+      "sha256": "96e78f3575e17e2b88b3b9b520dcfded3695ab05c586192b174b16297123f0ef"
+    },
+    "binding": {
+      "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/native-roadmap-binding-663/_native.abi3.so",
+      "bytes": 75732880,
+      "sha256": "59b6abffd123922f082c8558e417b911cb0eb78ec58ee006ead351259b091dff"
+    }
+  },
+  "all_members_reopened": true,
+  "source_identity_preserved": true,
+  "full43_engine_seconds": "54.358416752",
+  "fresh_ingest_rows": 99997497,
+  "full43_calls": 43,
+  "modular_cohorts": 18,
+  "native_workflows": 704,
+  "independent_oracle_records": 704,
+  "public_acceptance_reexecuted": false,
+  "performance_claim": false,
+  "publication_attempted": false,
+  "debug_cleanup": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/debug-cache-cleanup-662.json",
+    "bytes": 3511,
+    "sha256": "559df21d9ca9b8419ad0fdf26f728502b358a48a88a2e80923a99a0429b4017d"
+  },
+  "superseded_output_cleanup": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/superseded-vortex-retirement-666.json",
+    "bytes": 3120,
+    "sha256": "5bfeedff50f87a5db7a4ff2c927994a62c12027437899a8a322049fd3e87cda9"
+  },
+  "limitations": [
+    "One complete Full43 observation; retained-native regression reference, no comparative speedup.",
+    "Pandas appears only as the independent modular correctness oracle.",
+    "Public 4827-case acceptance is inherited through the explicit test-only source bridge, not rerun.",
+    "Bulk datasets, native binaries and fixture binary payloads are excluded with exact identities; regenerate from the archived sources and commands.",
+    "No full input/output Cartesian-product, whole-process RSS, competitive, production-readiness or package-release claim."
+  ],
+  "manifest": {
+    "bytes": 544128,
+    "sha256": "5ec92b0a1d246f42578a0397a235f321be26414d49df8458f56c925bf527cf05",
+    "file": "native-roadmap-fresh-uat-2026-10-18.manifest.json.xz"
+  },
+  "excluded_fixture_payload_count": 732
+}

@@ -17,6 +17,35 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-12.prebump` — October 18 cleanup, backlog reconciliation and fresh
+  acceptance complete without a package-version change. The [reconciliation](native-roadmap-reconciliation-2026-10-18.md)
+  maps all 149 historical children: 28 prior completions, ten corrected stale
+  unchecked rows and 111 remaining rows consolidated under 14 parents and 54
+  current substeps. Five overlapping production parents remain historical aliases;
+  required scope, eight investigations and CG-1 through CG-23 stay visible.
+  - The [ship/drop audit](native-drop-review-2026-10-18.md) and reconciliation
+    find no implemented candidate awaiting only its final timing comparison.
+    Existing prerequisites and new candidates remain open; prior drops and gates
+    are preserved.
+  - [Fresh UAT](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md) on merged
+    runtime `6780e7df` validates all 99,997,497 ingested rows, 43 complete queries
+    and 18 format/workflow cohorts (704 native plus 704 independent oracle rows).
+    Full43 engine time is 54.358416752 seconds, one execution per query; no matched
+    speedup is claimed. Every one of 14,712 evidence members is verified.
+  - [Scoped cleanup](local-artifact-cleanup-2026-10-18.md) retires the completed
+    debug cache and superseded Vortex payload after identity/closed-handle checks,
+    preserving the original input, accepted replacement and compact evidence.
+
+- [x] `NATIVE-NULLABLE-LAYOUT` — [PR #1574](https://github.com/depsilon/shardloom/pull/1574)
+  merges nullable structural-record validity and DType preservation at `6780e7df`.
+  [Acceptance](../benchmarks/native-nullable-layout-2026-10-18.md) retains provider,
+  workspace, native, direct/public, Full43 and modular checks. The
+  [144-member hosted packet](../benchmarks/evidence/native-nullable-layout-hosted-2026-10-18.json)
+  verifies all 44 checks, 7,037 native/provider executions, three 100-method wheel
+  lanes and preview/production source, navigation and search. Historical alerts,
+  the test-only correction and closeout/parser corrections remain preserved.
+  No broader state/sink family, PERF owner, CG gate or package release is closed.
+
 - [x] `NATIVE-SHARED-SPEED-FOLLOWUP` — shared native text filter/projection
   decoding completes in [PR #1573](https://github.com/depsilon/shardloom/pull/1573)
   at `9dd72db9` under PERF-01/04/05/10.
