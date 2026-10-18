@@ -64,8 +64,6 @@ mod correlated;
 mod report;
 #[path = "local_primitive_relational_scan.rs"]
 mod scan;
-#[path = "local_primitive_relational_selection.rs"]
-mod selection;
 #[path = "local_primitive_relational_transform.rs"]
 mod transform;
 #[cfg(feature = "vortex-write")]
@@ -1589,36 +1587,20 @@ fn select_batch(
             }
         }
     }
-    if let Some(end) = end.filter(|_| contiguous) {
+    let selected = if let Some(end) = end.filter(|_| contiguous) {
         // Ordered scan batches and consecutive filter matches need only a
         // native view. A gather would retain one u64 index per selected row.
-        return select_range(array, fields, start..end, context);
-    }
-    let indices = index_array(rows.len(), false, context, |row| Ok(Some(rows[row])))?;
-    project_selected_batch(&array.take(indices).map_err(vortex_error)?, fields, context)
-}
-
-fn select_range(
-    array: &ArrayRef,
-    fields: &[(String, DType)],
-    range: std::ops::Range<usize>,
-    context: &NativeExecutionContext<'_>,
-) -> Result<ArrayRef> {
-    context.check_cancelled()?;
-    project_selected_batch(&array.slice(range).map_err(vortex_error)?, fields, context)
-}
-
-fn project_selected_batch(
-    selected: &ArrayRef,
-    fields: &[(String, DType)],
-    context: &NativeExecutionContext<'_>,
-) -> Result<ArrayRef> {
+        array.slice(start..end).map_err(vortex_error)?
+    } else {
+        let indices = index_array(rows.len(), false, context, |row| Ok(Some(rows[row])))?;
+        array.take(indices).map_err(vortex_error)?
+    };
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(fields.len())?;
     for (name, _) in fields {
         columns
             .values
-            .push(super::logical_field_from_native_array(selected, name)?);
+            .push(super::logical_field_from_native_array(&selected, name)?);
     }
     let (columns, _ownership) = columns.into_parts();
     StructArray::try_new(
@@ -1627,7 +1609,7 @@ fn project_selected_batch(
             .map(|(name, _)| name.as_str())
             .collect::<FieldNames>(),
         columns,
-        selected.len(),
+        rows.len(),
         Validity::NonNullable,
     )
     .map_err(vortex_error)
