@@ -1,0 +1,316 @@
+{
+  "schema_version": "shardloom.native_cpu_queue_validation_packet.v1",
+  "status": "passed",
+  "base_commit": "f13da73db2e7550c4c9273faa567e55e9ebaef29",
+  "packages": 6,
+  "parents": 14,
+  "steps": 58,
+  "required": 37,
+  "conditional": 21,
+  "named_investigations": 12,
+  "historical_reconciliation_rows_unchanged": 149,
+  "original_steps_preserved": 54,
+  "new_steps": [
+    "PERF-03.codec_preparation",
+    "PERF-09.structural_payload",
+    "PERF-10.compact_selections",
+    "PERF-10.predicate_exclusion"
+  ],
+  "extended_steps": [
+    "PERF-02.changed_source",
+    "PERF-06.membership",
+    "PERF-07.publication",
+    "PERF-10.summaries"
+  ],
+  "local_links_verified": 255,
+  "anchors_verified": 24,
+  "runtime_source_files": 2416,
+  "runtime_source_unchanged": true,
+  "version_changed": false,
+  "version_bump": "held",
+  "completion_and_release_remain_blocked": true,
+  "benchmark_run": false,
+  "source_identities": [
+    {
+      "file": "docs/architecture/phased-execution-plan.md",
+      "bytes": 68012,
+      "sha256": "cac273208a50082728adf3a7fe0b7f1997f276089b288442d3e77bb780ab53cb"
+    },
+    {
+      "file": "docs/architecture/native-cpu-investigations-2026-10-18.md",
+      "bytes": 16761,
+      "sha256": "e7f294c39bda7ef4f65b34007aad40816497c4851e9cb686950dc21bc9c30fc6"
+    },
+    {
+      "file": "docs/architecture/native-cpu-investigations-2026-10-18.json",
+      "bytes": 8922,
+      "sha256": "e81bebf1e76edaaf2ba2796a1892cd4548514783b7cc170e5c587735a1b515d2"
+    },
+    {
+      "file": "docs/architecture/native-local-completion-scope-2026-10-07.md",
+      "bytes": 31933,
+      "sha256": "c1f791174c54e1ff18f1719f9d817f45999fce94e6da06270fb5715fda6ea06b"
+    },
+    {
+      "file": "docs/release/v1-inclusion-scope-matrix.md",
+      "bytes": 93632,
+      "sha256": "3a8f07e71ce4d66f328080785df06b6f637dca1d7a479149f306f1594cbb9fe2"
+    },
+    {
+      "file": "docs/architecture/phased-execution-completed-ledger.md",
+      "bytes": 3957700,
+      "sha256": "4169dc27c27815bac329e081576283b91db54d6460519806824efc117578a4c6"
+    }
+  ],
+  "primary_semantic_review": "All six packages retain their distinct contracts. A/B begin with measured-cost assessment; C is a different original-payload experiment; D separates first-use summaries from exact complete-coverage facts; E and safe publication in F remain required. No duplicate owner, dependency chain across all packages, relaxed historic drop gate, fallback execution or runtime/benefit claim is introduced.",
+  "validation_scope": "Documentation and existing roadmap regression checks. No native rebuild, candidate execution or benchmark rerun is justified by this queue-only edit; hosted CI validates the final commit.",
+  "checks": [
+    {
+      "name": "whitespace",
+      "returncode": 0,
+      "log": "validation/whitespace.log"
+    },
+    {
+      "name": "roadmap-regressions",
+      "returncode": 0,
+      "log": "validation/roadmap-regressions.log"
+    },
+    {
+      "name": "v1-scope",
+      "returncode": 0,
+      "log": "validation/v1-scope.log"
+    },
+    {
+      "name": "runtime-gaps",
+      "returncode": 0,
+      "log": "validation/runtime-gaps.log"
+    },
+    {
+      "name": "completion",
+      "returncode": 0,
+      "log": "validation/completion.log"
+    },
+    {
+      "name": "release",
+      "returncode": 0,
+      "log": "validation/release.log"
+    },
+    {
+      "name": "public-status",
+      "returncode": 0,
+      "log": "validation/public-status.log"
+    },
+    {
+      "name": "website-readiness",
+      "returncode": 0,
+      "log": "validation/website-readiness.log"
+    },
+    {
+      "name": "contribution",
+      "returncode": 0,
+      "log": "validation/contribution.log"
+    }
+  ],
+  "archive": {
+    "file": "native-cpu-queue-validation-2026-10-18.tar.xz",
+    "bytes": 742604,
+    "sha256": "a615049f1da847586f514b42f4b8f13cd98032ac3ffd7fb4e16865a0d2847c31"
+  },
+  "members": [
+    {
+      "name": "helpers/package_cpu_queue_688.py",
+      "bytes": 5014,
+      "sha256": "519ed8e41bfc5c9e33e7c657c310a4f353b5f1cbdffc753f87bfc7d86f4e9f9a"
+    },
+    {
+      "name": "source/docs/architecture/native-cpu-investigations-2026-10-18.json",
+      "bytes": 8922,
+      "sha256": "e81bebf1e76edaaf2ba2796a1892cd4548514783b7cc170e5c587735a1b515d2"
+    },
+    {
+      "name": "source/docs/architecture/native-cpu-investigations-2026-10-18.md",
+      "bytes": 16761,
+      "sha256": "e7f294c39bda7ef4f65b34007aad40816497c4851e9cb686950dc21bc9c30fc6"
+    },
+    {
+      "name": "source/docs/architecture/native-local-completion-scope-2026-10-07.md",
+      "bytes": 31933,
+      "sha256": "c1f791174c54e1ff18f1719f9d817f45999fce94e6da06270fb5715fda6ea06b"
+    },
+    {
+      "name": "source/docs/architecture/phased-execution-completed-ledger.md",
+      "bytes": 3957700,
+      "sha256": "4169dc27c27815bac329e081576283b91db54d6460519806824efc117578a4c6"
+    },
+    {
+      "name": "source/docs/architecture/phased-execution-plan.md",
+      "bytes": 68012,
+      "sha256": "cac273208a50082728adf3a7fe0b7f1997f276089b288442d3e77bb780ab53cb"
+    },
+    {
+      "name": "source/docs/release/v1-inclusion-scope-matrix.md",
+      "bytes": 93632,
+      "sha256": "3a8f07e71ce4d66f328080785df06b6f637dca1d7a479149f306f1594cbb9fe2"
+    },
+    {
+      "name": "support/bounded_build_process_resume_20260912.py",
+      "bytes": 8431,
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+    },
+    {
+      "name": "support/cpu-intake-coverage-687.md",
+      "bytes": 12645,
+      "sha256": "feaee3f3b4135e240410753ea3d80b39e80b693496fc55d1ebeb1b03513e90f9"
+    },
+    {
+      "name": "support/cpu-queue-docs-686.json",
+      "bytes": 1930,
+      "sha256": "fbe034838c7e8c7ef2a6471ed0161a968b849800d43fec6c6154c48af93b0c34"
+    },
+    {
+      "name": "support/cpu-queue-docs-686.log",
+      "bytes": 246,
+      "sha256": "b6cde1176dd1f98836a43da290cd9ef70711a9a9e27dba148e8e56a5958386ff"
+    },
+    {
+      "name": "support/cpu-queue-docs-686a2.json",
+      "bytes": 1992,
+      "sha256": "e58aa4042cfda34602964b1b2740bbc9302ac1b5e8d9750ff2d0e5c24435f6a7"
+    },
+    {
+      "name": "support/cpu-queue-docs-686a2.log",
+      "bytes": 505,
+      "sha256": "235fbec05a3852ea8cde51eaa39a26b509f521815d7525f4ecfbd5e8d14e72be"
+    },
+    {
+      "name": "support/freeze_native_release_298.py",
+      "bytes": 5254,
+      "sha256": "117f0ef25969f45673a8f71ffb39a57c60ca9e3cab03ad1629d1f89731d0c199"
+    },
+    {
+      "name": "support/local_uat_storage.py",
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d"
+    },
+    {
+      "name": "support/native-release-source-pressure692.json",
+      "bytes": 631861,
+      "sha256": "e18a8cb8f076afd466593b5a281cc97e68709f12dcf94497dc9174bbd059b46c"
+    },
+    {
+      "name": "support/prepare_cpu_queue_683.py",
+      "bytes": 16993,
+      "sha256": "44d4547481a967d11e01f84ac6ffe8bd149e9b18e351963ab0f7513c4e31dbf4"
+    },
+    {
+      "name": "support/prepared-manifest.json",
+      "bytes": 1550,
+      "sha256": "172bd62e0b3d71cb18ad44bf6445d330da6a0c64921d6d48e8ac242796c483d7"
+    },
+    {
+      "name": "support/release_validation_guard.py",
+      "bytes": 1675,
+      "sha256": "5e8298a7b8bec17f7f2ebf9e48d1b14bed23660989feb92c5794ea047a2e2f48"
+    },
+    {
+      "name": "support/run_guarded.py",
+      "bytes": 4275,
+      "sha256": "231129c081911ad362888b328e1ab1c7c9e4bf5b0b9abf372feb80671c00be8e"
+    },
+    {
+      "name": "support/verify_cpu_queue_686.py",
+      "bytes": 8582,
+      "sha256": "8251e4b2651ab4e54fe6a1549ccc0b0f14acb44caad106f9bd9bbbe7d6fced74"
+    },
+    {
+      "name": "validation/completion.json",
+      "bytes": 30907,
+      "sha256": "7bc670f6b7e307bfba00333ab2f31d7d189441c2f5e2fd1abff4b0fba8ed2ef2"
+    },
+    {
+      "name": "validation/completion.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "validation/contribution.json",
+      "bytes": 2433,
+      "sha256": "47f90ce218398eb7212c59786c49e2495e8850db548424e60c47d0c1f5c9a2ae"
+    },
+    {
+      "name": "validation/contribution.log",
+      "bytes": 107,
+      "sha256": "5cb39f5f4abe9687512c18ea4c7ec2bf395cb58c6f28c528cd390895b8743f66"
+    },
+    {
+      "name": "validation/public-status.json",
+      "bytes": 91271,
+      "sha256": "8ebab07940b2970195c851a79170695e3b732b77332cbfd3aed347b606ed3e72"
+    },
+    {
+      "name": "validation/public-status.log",
+      "bytes": 108,
+      "sha256": "92267f693a228fb9234f2218c5ece36bd05700a168f8b69727b6dcaca543cc16"
+    },
+    {
+      "name": "validation/release.json",
+      "bytes": 33779,
+      "sha256": "0df478f12c970452075178e3b110f4c7d3407ced59d03c1afb348393638cb0fc"
+    },
+    {
+      "name": "validation/release.log",
+      "bytes": 102,
+      "sha256": "5bf6bf338acd8a5304e4d584a90c385a15cab533b62102ce751372d414b8eb18"
+    },
+    {
+      "name": "validation/roadmap-regressions.log",
+      "bytes": 115,
+      "sha256": "9ce01e6bd96cf0c77c4bb986771d797cd66ad2d1863cf1963cb71c905c3d3ff3"
+    },
+    {
+      "name": "validation/runtime-gaps.json",
+      "bytes": 69183,
+      "sha256": "0778324686452fca2eb9541b5acf340e33d184a88e7c14b321f7c99caa2c84fa"
+    },
+    {
+      "name": "validation/runtime-gaps.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "validation/v1-scope.json",
+      "bytes": 1293,
+      "sha256": "dad1a94abbaf57440884209a636589ff8156264900d275e1e30d355b41cac916"
+    },
+    {
+      "name": "validation/v1-scope.log",
+      "bytes": 103,
+      "sha256": "79d85978df50417a41d7f99c176ffd2b1bea98f329a1a1009e7b18010bd8ed77"
+    },
+    {
+      "name": "validation/validation.json",
+      "bytes": 93506,
+      "sha256": "c6bb69fc11e9fda06402cf58ced0995692abf252d2f0084a7c7ad590f59969c2"
+    },
+    {
+      "name": "validation/website-readiness.json",
+      "bytes": 12866,
+      "sha256": "72b0e8db61ccf540c6040944f0a554d88f5201311d84934b555f3baf188b5c21"
+    },
+    {
+      "name": "validation/website-readiness.log",
+      "bytes": 138,
+      "sha256": "1ebaf773b618dbb66e6e106bada027e5d2f2f4a861852847176246081674e6ae"
+    },
+    {
+      "name": "validation/whitespace.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "member_count": 38,
+  "all_members_reopened": true,
+  "hosted_status": "Local queue validation only; final PR checks are recorded separately.",
+  "launch_correction": "The initial guarded launch used a relative script path after the supervisor changed directory; Python exited before validation. The corrected absolute-path launch and both observations are preserved.",
+  "coverage_audit_disposition": "Primary compared all six supplied package contracts with the draft and accepted coverage. Numeric retain/drop criteria are frozen per candidate before measurement. Unavailable linked sandbox content and external research speed claims were not inferred."
+}
