@@ -17,6 +17,8 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+The October 18 [CPU investigation intake](native-cpu-investigations-2026-10-18.md) follows merged [PR #1575](https://github.com/depsilon/shardloom/pull/1575). It adds four conditional steps under existing owners and refines the six supplied packages without completing any runtime capability. The 54-step reconciliation below remains its original snapshot; the phase plan owns subsequent queue state. The version bump stays held.
+
 - [x] `PERF-12.prebump` — October 18 cleanup, backlog reconciliation and fresh
   acceptance complete without a package-version change. The [reconciliation](native-roadmap-reconciliation-2026-10-18.md)
   maps all 149 historical children: 28 prior completions, ten corrected stale

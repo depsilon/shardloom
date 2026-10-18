@@ -1,0 +1,211 @@
+{
+  "schema_version": "shardloom.native_cpu_investigation_intake.v1",
+  "status": "queued_not_implemented",
+  "date": "2026-10-18",
+  "basis": "Supplied six-package text brief; no inaccessible linked sandbox document is inferred.",
+  "source_brief_sha256": "ff17dba9dc109c2d9dd926b40cd6e66284ecb570c15bcc7dab58e5fc879487d2",
+  "base_commit": "f13da73db2e7550c4c9273faa567e55e9ebaef29",
+  "preceding_pr": "https://github.com/depsilon/shardloom/pull/1575",
+  "predecessor_reconciliation": {
+    "file": "native-roadmap-reconciliation-2026-10-18.json",
+    "sha256": "5ab0ea3e49dd2c86344d205bd7da4dd32b4289b7488edb418dce61bc38d12c54",
+    "parents": 14,
+    "steps": 54,
+    "required": 37,
+    "conditional": 17
+  },
+  "current_counts": {
+    "parents": 14,
+    "steps": 58,
+    "required": 37,
+    "conditional": 21,
+    "named_investigations": 12
+  },
+  "packages": [
+    {
+      "id": "A",
+      "title": "Compact selections and execution descriptors",
+      "disposition": "new_conditional_investigation",
+      "steps": [
+        "PERF-10.compact_selections"
+      ],
+      "related": [
+        "PERF-07.remaining_arrays",
+        "PERF-03.providers"
+      ]
+    },
+    {
+      "id": "B",
+      "title": "Reusable codec preparation",
+      "disposition": "new_conditional_investigation",
+      "steps": [
+        "PERF-03.codec_preparation"
+      ],
+      "related": [
+        "PERF-02.physical_cache",
+        "PERF-03.providers"
+      ]
+    },
+    {
+      "id": "C",
+      "title": "Reversible structural payload encoding",
+      "disposition": "new_conditional_investigation",
+      "steps": [
+        "PERF-09.structural_payload"
+      ],
+      "related": [
+        "PERF-08.duplication",
+        "PERF-09.lifecycle"
+      ]
+    },
+    {
+      "id": "D",
+      "title": "Better summaries and exact predicate-exclusion reuse",
+      "disposition": "existing_required_summaries_plus_new_conditional_exclusion",
+      "steps": [
+        "PERF-10.summaries",
+        "PERF-10.metadata_consumers",
+        "PERF-10.predicate_exclusion"
+      ],
+      "related": []
+    },
+    {
+      "id": "E",
+      "title": "Partition-major external-memory state",
+      "disposition": "extend_existing_required_capability",
+      "steps": [
+        "PERF-06.membership",
+        "PERF-06.recovery",
+        "PERF-06.strategy"
+      ],
+      "related": []
+    },
+    {
+      "id": "F",
+      "title": "Changed-generation preparation reuse and safe publication",
+      "disposition": "extend_existing_conditional_reuse_and_required_publication",
+      "steps": [
+        "PERF-02.changed_source",
+        "PERF-07.publication",
+        "PERF-09.lifecycle"
+      ],
+      "related": []
+    }
+  ],
+  "new_steps": [
+    {
+      "id": "PERF-03.codec_preparation",
+      "parent": "PERF-03",
+      "kind": "conditional",
+      "package": "B",
+      "label": "Conditional investigation: measure repeated codec setup, then reuse immutable preparation or exclusively leased mutable workspaces through the existing shared owner. Separate recipe identity from data-derived generation identity; include reset, concurrency, reclaim, first-use/later-use costs and portable fresh-process decoding. Follow [CPU package B](native-cpu-investigations-2026-10-18.md#b--reusable-codec-preparation); cross-operation admission belongs with PERF-02.physical_cache."
+    },
+    {
+      "id": "PERF-10.compact_selections",
+      "parent": "PERF-10",
+      "kind": "conditional",
+      "package": "A",
+      "label": "Conditional investigation: find a production selection/descriptor expansion cost, then preserve compact membership or ordered-gather representations through real count and projection consumers. Preserve duplicate/order semantics, checked wide global positions, sliced bases, validity and retained owners; charge construction/conversion/iteration and complete-operation cost. Follow [CPU package A](native-cpu-investigations-2026-10-18.md#a--compact-selections-and-execution-descriptors)."
+    },
+    {
+      "id": "PERF-10.predicate_exclusion",
+      "parent": "PERF-10",
+      "kind": "conditional",
+      "package": "D",
+      "label": "Conditional investigation: reuse exact whole-region evidence that a fully identified predicate has no TRUE result across related operations. Bind complete coverage, immutable region/source, expression/type/NULL/collation/timezone/deletion/access semantics; reject partial/cancelled/failed observations and unsafe negation. Measure construction, use and invalidation separately from first-use summaries under [CPU package D](native-cpu-investigations-2026-10-18.md#d--first-use-summaries-and-exact-predicate-exclusion-reuse)."
+    },
+    {
+      "id": "PERF-09.structural_payload",
+      "parent": "PERF-09",
+      "kind": "conditional",
+      "package": "C",
+      "label": "Conditional investigation: test a small deterministic reversible representation for original payload structure, with literal residuals/exceptions and exact validity. Preserve logical types and bytes, useful native consumers and producer-close/move/fresh-process-reopen/write/reopen behavior; include complete artifact and workflow costs. Follow [CPU package C](native-cpu-investigations-2026-10-18.md#c--reversible-structural-payload-encoding), distinct from derived columns and rejected codec-profile sweeps."
+    }
+  ],
+  "extended_step_suffixes": {
+    "PERF-06.membership": " Apply [CPU package E](native-cpu-investigations-2026-10-18.md#e--partition-major-external-memory-state): partition-major finalization/release, full ordinals and multiplicity, original-position masks, exact population/sampling semantics and skew progress through native runs. Capability completion is independent of a Full43 speed threshold.",
+    "PERF-07.publication": " Apply [CPU package F](native-cpu-investigations-2026-10-18.md#f--changed-generation-reuse-and-safe-publication): real writer coordination and one authoritative managed-generation transition, stable readers, ambiguous-commit retry, separate visibility/durability and reader-safe cleanup. Safe replacement remains required if reuse is dropped.",
+    "PERF-10.summaries": " Apply [CPU package D](native-cpu-investigations-2026-10-18.md#d--first-use-summaries-and-exact-predicate-exclusion-reuse): earn creation/storage/read cost on first use and describe the actual transformed output; recurring exclusion facts have a separate conditional step.",
+    "PERF-02.changed_source": " Apply [CPU package F](native-cpu-investigations-2026-10-18.md#f--changed-generation-reuse-and-safe-publication): trustworthy immutable file/region identity, schema/transform/recipe/dictionary/deletion compatibility and complete refresh-versus-rebuild validation/copy/metadata costs; path/length/mtime alone are insufficient."
+  },
+  "new_parent_ids": [],
+  "preserved_parent_ids": [
+    "PERF-01",
+    "PERF-03",
+    "PERF-06",
+    "PERF-07",
+    "PERF-10",
+    "PERF-02",
+    "PERF-11",
+    "PERF-04",
+    "PERF-05",
+    "PERF-08",
+    "PERF-09",
+    "PERF-12",
+    "PERF-13",
+    "NATIVE-ENCODED-EXCHANGE"
+  ],
+  "preserved_step_ids": [
+    "PERF-01.attribution",
+    "PERF-01.numeric_bridge",
+    "PERF-03.providers",
+    "PERF-03.regions",
+    "PERF-03.mixed_load",
+    "PERF-06.membership",
+    "PERF-06.recovery",
+    "PERF-06.strategy",
+    "PERF-06.rematerialization",
+    "PERF-06.merge_cost",
+    "PERF-07.remaining_arrays",
+    "PERF-07.publication",
+    "PERF-07.transfer_lifetime",
+    "PERF-07.output_windows",
+    "PERF-10.contracts",
+    "PERF-10.summaries",
+    "PERF-10.metadata_consumers",
+    "PERF-10.ordered_candidates",
+    "PERF-10.fusion_registry",
+    "PERF-10.constant_keys",
+    "PERF-10.costs",
+    "PERF-10.traversal",
+    "PERF-10.multiway_joins",
+    "PERF-10.learned_indexes",
+    "PERF-02.families",
+    "PERF-02.builder",
+    "PERF-02.physical_cache",
+    "PERF-02.changed_source",
+    "PERF-11.envelope",
+    "PERF-11.latency",
+    "PERF-04.workers",
+    "PERF-04.states",
+    "PERF-04.semantics",
+    "PERF-04.utilization",
+    "PERF-05.identity",
+    "PERF-05.pressure",
+    "PERF-05.validation",
+    "PERF-05.nested_identity",
+    "PERF-08.duplication",
+    "PERF-08.stages",
+    "PERF-09.overlap",
+    "PERF-09.portfolio",
+    "PERF-09.design",
+    "PERF-09.lifecycle",
+    "PERF-12.workflows",
+    "PERF-12.cohort",
+    "PERF-12.topology",
+    "PERF-12.support",
+    "PERF-12.comparisons",
+    "PERF-13.pgo",
+    "NATIVE-ENCODED-EXCHANGE.protocol",
+    "NATIVE-ENCODED-EXCHANGE.ownership",
+    "NATIVE-ENCODED-EXCHANGE.experiment",
+    "NATIVE-ENCODED-EXCHANGE.clients"
+  ],
+  "version_bump": "held",
+  "runtime_implemented": false,
+  "benchmark_run": false,
+  "performance_claim_allowed": false,
+  "execution_sequence": "Short A/B production-cost assessment, then strongest actual opportunity; actual dependencies only. E and safe publication in F remain required capability work.",
+  "prior_drops_preserved": true,
+  "all_cg_1_through_23_preserved": true
+}
