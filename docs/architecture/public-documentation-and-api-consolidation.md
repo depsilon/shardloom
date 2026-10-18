@@ -1,7 +1,9 @@
 # Public documentation and API consolidation
 
-Status: implementation contract accepted from the October 18, 2026 maintainer
-brief. This records the migration, not a claim that the target API has shipped.
+Status: implemented and locally validated on October 18, 2026. The
+[acceptance record](public-documentation-api-acceptance-2026-10-18.md) pins the
+source, installed artifacts, workflow comparison and documentation checks.
+The development API remains unpublished; the default guide describes v0.6.0.
 Work stays in the [phase plan](phased-execution-plan.md) under RFC 0044 and
 PERF-03/07/10/11/12. It is not another roadmap.
 
@@ -35,7 +37,7 @@ their focused tests. This inventories the listed boundaries, not every method.
 
 | Existing boundary | Classification | Contract |
 | --- | --- | --- |
-| `ShardLoomContext`, `context()` | Canonical configuration facade with lifecycle gaps | Own close/cancel and shared source/prepared/result lifecycle; construction and fluent planning do not execute producers. |
+| `ShardLoomContext`, `context()` | Canonical configuration facade | Own close/cancel and shared source/prepared/result lifecycle; construction and fluent planning do not execute producers. |
 | `ShardLoomSession` and its frame/workflow wrappers | Useful prepared-artifact/reuse reporting plus redundant facade | Delegate shared execution and result behavior. Preserve fingerprint invalidation and reuse evidence; do not declare aliases before lifetime behavior matches. |
 | `ShardLoomClient` transports | Useful deployment distinction | Select once at construction. Preserve explicit process isolation and Windows package requirements; never replay execution through another backend. |
 | `shardloom.native.Session`, typed `Relation`/`Plan` | Useful advanced integration | Retain typed embedding; ordinary Python reaches the same admitted runtime/owners without requiring this interface. |
@@ -48,10 +50,11 @@ their focused tests. This inventories the listed boundaries, not every method.
 | Smoke/fixture/V1/release exports | Maintainer discovery mixed into application discovery | One lazy export authority, curated `__all__`/`__dir__` and reference, explicit maintainer namespace and small compatibility lookup. |
 | CLI registry | Shared authority without audience classification | Minimal audience metadata/filtering in existing discovery/help; generate reference/completion/counts, preserving parsing and JSON envelopes. |
 
-Observed lifecycle gaps to fix before changing defaults: context lacks close and
-cancel; session `reuse=False` calls `client.close()` before executing, permanently
-closing a native client. Native and process close/cancel must be validated. These
-are implementation obligations, not permanent exclusions.
+The implementation closes the observed lifecycle gaps: contexts now own close and
+cancel, and session `reuse=False` releases prepared plans without closing the shared
+native client. Native/process cancellation, completed-result lifetime and installed
+result admission are covered by the linked acceptance. Context and session remain
+deliberate facades with shared ownership, rather than identity aliases.
 The existing process batch protocol requires POSIX. Cross-platform batch delivery
 remains an implementation obligation under PERF-10.contracts and PERF-11.envelope;
 Windows collection and writers remain its explicit supported delivery boundaries.

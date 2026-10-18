@@ -17,6 +17,32 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-10/07/11/12 public documentation and API consolidation` — locally
+  completed at `dba85f1c43aeb83a2640c81654ac2b9ce8b15d98`, following merged
+  PR #1575 and preserving the six CPU investigations. The
+  [acceptance record](public-documentation-api-acceptance-2026-10-18.md) and
+  [portable evidence](../benchmarks/evidence/public-documentation-api-2026-10-18.json)
+  record the finite completed scope; broader PERF owners and CG-1 through CG-23
+  remain open.
+  - One authored first workflow and maintained paid-orders fixture replace
+    duplicate tutorials. The selected published v0.6.0 guide remains separate
+    from development APIs; application reference, capabilities, CLI discovery
+    and completion derive from their existing authorities.
+  - `sl.context` selects a backend once, owns close/cancel and exposes the same
+    retained result, resources and writer contracts. `from_result`, typed errors,
+    deliberate aliases and curated lazy namespaces remove accidental interface
+    choices without replaying failed work or invoking an external engine.
+  - Required Rust gates, native feature checks, the 829-test Python suite (six
+    documented skips), installed
+    wheel tests, clean minimal examples and 80 complete workflow comparison
+    samples pass. Two documentation generations match; desktop/mobile navigation,
+    search, version labels and console checks pass. Exact values and schemas are
+    retained; unavailable engine clocks remain unavailable.
+  - This is local source acceptance, not deployment or release. New Linux/Windows
+    package runtime checks and hosted integration remain under PERF-12.support;
+    POSIX process batch restrictions remain under PERF-10/11. No version bump,
+    package publication, Full43 rerun or kernel-speed claim is made.
+
 The October 18 [CPU investigation intake](native-cpu-investigations-2026-10-18.md) follows merged [PR #1575](https://github.com/depsilon/shardloom/pull/1575). It adds four conditional steps under existing owners and refines the six supplied packages without completing any runtime capability. The 54-step reconciliation below remains its original snapshot; the phase plan owns subsequent queue state. The version bump stays held.
 
 - [x] `PERF-12.prebump` — October 18 cleanup, backlog reconciliation and fresh

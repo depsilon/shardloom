@@ -1,0 +1,110 @@
+{
+  "schema_version": "shardloom.public_documentation_api_acceptance.v1",
+  "status": "passed_local_scope",
+  "base": "c87f893483ce8c985c4aa27da792bb4e1ed64062",
+  "implementation_commit": "dba85f1c43aeb83a2640c81654ac2b9ce8b15d98",
+  "acceptance": "../../architecture/public-documentation-api-acceptance-2026-10-18.md",
+  "archive": {
+    "file": "public-documentation-api-2026-10-18.tar.xz",
+    "bytes": 2212096,
+    "sha256": "829cf61693575a2b50498f4cc5d954f9729061e5a9456092311e5c7ac68516a5"
+  },
+  "manifest": {
+    "file": "public-documentation-api-2026-10-18.manifest.json.xz",
+    "bytes": 25500,
+    "sha256": "b544c5f8d8f3d5cde8ab0caf0f827811505daafb40fce654e0675ea0d81ba63f"
+  },
+  "member_count": 943,
+  "uncompressed_bytes": 120437157,
+  "all_members_reopened": true,
+  "source_bridge": "evidence/final-source-bridge-716.json",
+  "evidence_inventory": "evidence/acceptance-evidence-index-716.md",
+  "final_check_receipts": [
+    "evidence/rust-fmt-716a2.json",
+    "evidence/rust-clippy-715a3.json",
+    "evidence/rust-tests-716a1.json",
+    "evidence/native-feature-checks-714a1.json",
+    "evidence/native-feature-clippy-715a1.json",
+    "evidence/python-all-tests-715a1.json",
+    "evidence/wheel-current-715/report.json",
+    "evidence/wheel-prior-715/report.json",
+    "evidence/installed-minimal-public-715.json",
+    "evidence/published-examples-709a3.json",
+    "evidence/docs-generation-checks-715a3.json",
+    "evidence/final-checks-716b/report.json",
+    "evidence/ui-715/qa.json",
+    "evidence/ui-715/development-final-716.json",
+    "evidence/workflow-comparison-715a2/report.json"
+  ],
+  "full_workflow_samples": 80,
+  "full_workflow_values_and_schemas": "passed",
+  "engine_execution_seconds": null,
+  "clock_scope": "Unavailable engine clocks remain null; separately labeled workflow diagnostics are archived, not claimed as engine performance.",
+  "publication_attempted": false,
+  "deployment_attempted": false,
+  "version_changed": false,
+  "kernel_speedup_claim": false,
+  "platform_scope": "Actual local macOS arm64 Python 3.12 native/process runtime; hosted Linux/Windows acceptance remains open.",
+  "limitations": [
+    "Full Python suite: 829 discovered, 6 skips (3 optional integrations and 3 installed-only tests covered separately).",
+    "Fish syntax check unavailable; Rust executable tests verify generated text/JSON and audience agreement.",
+    "Standalone release-boundary gate failed closed on absent source-rehearsal/package-channel reports; no release readiness claimed.",
+    "Architecture tracker stays blocked by 72 unchecked owner/substep items.",
+    "Process batch pipes require POSIX; Windows uses bounded collection and writers.",
+    "Rejected baseline-cache and nullability-comparison attempts remain diagnostic-only."
+  ],
+  "omitted_bulk_artifacts": "Native binaries, wheel archives and environments are retained locally with SHA-256 identities; this portable packet retains source, reports, exact comparison results and small synthetic Vortex outputs.",
+  "artifacts": {
+    "current": {
+      "wheel": "shardloom-0.6.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "wheel_sha256": "d2dd787fc878d79a5e5cc9d1d45ec15c1c3e1116db06bab47e496478b93431ea",
+      "wheel_bytes": 49427088,
+      "cli_sha256": "4baaab6a7ba063b90b9ed9083c5b47e488a9318811bced19f302b42afbf6725c",
+      "native_library_sha256": "510b5ffff40cc217ee72eb68461a5e9a912a9d70359c29c379d649eb4e1324e0",
+      "python_files_matching_final_source": [
+        "shardloom/__init__.py",
+        "shardloom/__init__.pyi",
+        "shardloom/_batches.py",
+        "shardloom/_compat.py",
+        "shardloom/_exports.py",
+        "shardloom/_input_schema.py",
+        "shardloom/_native_backend.py",
+        "shardloom/_relational_sql.py",
+        "shardloom/_result_schema.py",
+        "shardloom/_version.py",
+        "shardloom/client.py",
+        "shardloom/context.py",
+        "shardloom/diagnostics.py",
+        "shardloom/diagnostics.pyi",
+        "shardloom/errors.py",
+        "shardloom/execution_resources.py",
+        "shardloom/models.py",
+        "shardloom/native.py",
+        "shardloom/query.py",
+        "shardloom/quickstart.py",
+        "shardloom/runtime_defaults.py",
+        "shardloom/session.py",
+        "shardloom/testing.py",
+        "shardloom/testing.pyi"
+      ]
+    },
+    "prior": {
+      "wheel": "shardloom-0.6.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "wheel_sha256": "7a932067e2506962ad402f86643169d0de0de27095b972e4b4e30eac973e91c5",
+      "wheel_bytes": 49427622,
+      "cli_sha256": "fcdb039563a86832c4287778c9d68474bd9652b3eb98cefe3f089e8f7895cf3f",
+      "native_library_sha256": "c2d0301449d41c0a6f7b6e84fde70645455759109702d96e284193f1d416acb9"
+    }
+  },
+  "packaging_verification": {
+    "status": "passed",
+    "returncode": 0,
+    "process_group_drained": true,
+    "direct_child_reaped": true,
+    "timed_out": false,
+    "output_limit_bytes": 8388608,
+    "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+    "log_sha256": "e01347da788f25fd91d18452a2107fa8c5560060189edf696d963bd7550a81c1"
+  },
+  "primary_review": "Checked backend selection/no replay, explicit resources, native/process result lifetime and type fidelity, migration aliases, generated discovery, published/source separation, complete comparison outputs and source identity. The obsolete source-build example description was corrected. This is scoped local acceptance, not a release or all-platform certification."
+}
