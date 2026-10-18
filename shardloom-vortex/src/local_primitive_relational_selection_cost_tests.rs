@@ -95,12 +95,20 @@ fn run(shape: &str, count: bool) -> serde_json::Value {
         prepared
             .for_each_batch(&CancellationToken::default(), |array, context| {
                 let n = super::super::super::logical_field_from_native_array(&array, "n")?;
+                let keep_values =
+                    super::super::super::logical_field_from_native_array(&array, "keep")?;
                 let mut ctx = context.native_session().create_execution_ctx();
                 for row in 0..array.len() {
                     assert_eq!(
                         n.execute_scalar(row, &mut ctx).unwrap(),
                         vortex::scalar::Scalar::from(values[expected[delivered]].unwrap())
                             .cast(n.dtype())
+                            .unwrap()
+                    );
+                    assert_eq!(
+                        keep_values.execute_scalar(row, &mut ctx).unwrap(),
+                        vortex::scalar::Scalar::from(predicate[expected[delivered]])
+                            .cast(keep_values.dtype())
                             .unwrap()
                     );
                     delivered += 1;
