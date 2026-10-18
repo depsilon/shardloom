@@ -131,6 +131,9 @@ pub(crate) mod native_payload;
 #[cfg(all(test, feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_sort_memory_tests.rs"]
 mod sort_memory_tests;
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "local_primitives/text_scan_reuse.rs"]
+mod text_scan_reuse;
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_input_schema.rs"]
@@ -21402,10 +21405,19 @@ fn read_lowered_vortex_simple_aggregate_scan(
             provider_background_workers = count;
         }
     }
+    let mut text_scan_stats = None;
     if input_scan_required {
         let initial_scan_denials =
             worker_memory.map_or(0, |memory| memory.snapshot().denied_reservations);
-        let mut scan = file.scan(session).map_err(vortex_error)?;
+        let mut scan = if winner_filter.is_none() && residual_predicate.is_none() {
+            let (scan, stats) = file
+                .scan_reusing_text(session, lowering, worker_memory, cancellation)
+                .map_err(vortex_error)?;
+            text_scan_stats = stats;
+            scan
+        } else {
+            file.scan(session).map_err(vortex_error)?
+        };
         if let Some(filter) = winner_filter.as_ref().or(plan.filter.as_ref()) {
             scan = scan.with_filter(file.bind(filter)?);
         }
@@ -22243,6 +22255,9 @@ fn read_lowered_vortex_simple_aggregate_scan(
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
     aggregate_timing.annotate_summary(&mut result_summary)?;
+    if let Some(stats) = text_scan_stats {
+        stats.annotate(&mut result_summary)?;
+    }
     if let Some(report) = winner_distinct_report {
         report.annotate(&mut result_summary)?;
     }

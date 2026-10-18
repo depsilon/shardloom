@@ -772,6 +772,16 @@ The original 5% gate remains recorded as failed; the maintainer subsequently
 accepted improvements greater than 3%. Failed resource-efficiency experiments
 are excluded, and published 0.6.0 packages remain unchanged.
 
+The subsequent source-only [native text filter/projection change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-scan-reuse-2026-10-18.md)
+reuses an already decoded text range within the same query. Its matched all-43
+sum of per-query two-run means decreases from 57.399 to 55.346 engine seconds
+(3.58%), passing the prospectively declared greater-than-3% gate. Both paired
+totals improve, all 172 complete results and schemas match, and no query crosses
+the predefined material-regression rule. All 4,827 public cases, 100 direct
+binding methods and 18 format/workflow cohorts pass local acceptance. The
+report preserves the rejected mixed-key experiment and all slower observations.
+The existing input and published 0.6.0 packages remain unchanged.
+
 Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
 provider-backed join workflows execute today. The 0.6.0 packages compose eight admitted
 flat-scalar unary families—DISTINCT, duplicate removal and masks, tail, sampling, scalar
@@ -1195,8 +1205,10 @@ engineering evidence and measurement boundaries; it does not present a public ra
 
 ## Current engineering evidence
 
-Reviewed October 17, 2026. Recent local work validates complete query results and measures
+Reviewed October 18, 2026. Recent local work validates complete query results and measures
 individual changes against a frozen ShardLoom control:
+
+- [October 18 shared native text filter/projection decoding](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-scan-reuse-2026-10-18.md) — query-owned reuse lowers the matched all-43 sum of per-query two-run means from 57.399 to 55.346 s engine time (3.58%), passing the prospective greater-than-3% gate. All 172 complete results and schemas match; both paired totals improve and no predefined material query regression occurs. All 4,827 public cases and 18 format/workflow cohorts pass. The report retains the rejected mixed-key experiment and all observations. This comparison is separate from a standard single-pass Full43 result.
 
 - [October 17 shared numeric and dictionary execution](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-shared-execution-2026-10-17.md) — three shared mechanisms lower the matched 43-query sum of per-query two-run means from 57.310 to 54.899 s engine time (4.21%). All 172 results and schemas match; both paired totals improve and no predefined material query regression occurs. The report preserves the original failed 5% gate, the maintainer's later acceptance above 3%, and every rejected experiment. This comparison is separate from a standard single-pass Full43 result.
 

@@ -17,6 +17,57 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `NATIVE-SHARED-SPEED-FOLLOWUP` — shared native text filter/projection
+  decoding completes implementation and local acceptance under PERF-01/04/05/10.
+  A query-owned scan-range entry shares the filtered native owner, keeps other
+  columns behind the final mask and retires ownership on completion, failure or
+  cancellation. No query-specific admission, input rewrite or dependency is added.
+  - The prospective matched all-43 gate passes at 3.576340%: the sum of per-query
+    two-sample engine means falls from 57.3990281195 to 55.3462438375 seconds.
+    Both paired totals improve, all 172 values/schemas match and no material
+    query regression occurs. All 324 paired calls remain preserved, including
+    the rejected 78-call mixed-key experiment and retained 74-call text screen.
+  - Seven new native tests, seventeen related regressions, strict native Clippy,
+    required workspace gates, 100 direct binding methods, 4,827 public cases and
+    18 format/workflow cohorts pass. The matrix compares 704 native records with
+    704 independent oracle records; every cohort report is reopened.
+  - The [implementation contract](native-shared-speed-2026-10-18.md),
+    [acceptance report](../benchmarks/native-text-scan-reuse-2026-10-18.md) and
+    [portable evidence](../benchmarks/evidence/native-text-scan-reuse-2026-10-18.json)
+    retain immutable protocols, source identities, complete observations and
+    failure history. Final-head hosted review, CI, three installed-wheel lanes
+    and deployed revision proofs are separate integration gates. Broader PERF
+    obligations and CG-1 through CG-23 remain open; published packages retain
+    their release-time scope.
+
+- [x] `NATIVE-SHARED-EXECUTION-OPTIMIZATION` — shared integer binding, compact
+  complete numeric-pair records and bounded dictionary-measure reduction close
+  the October 17 batch under PERF-01/04/05/10. The matched 43-query sum of
+  per-query two-sample means improves from 57.310191503 to 54.899272149 engine
+  seconds (4.206790%); both paired totals improve, all 172 values/schemas match,
+  and no query crosses the predefined material-regression rule. The original
+  failed 5% gate remains preserved beside the maintainer's later explicit
+  acceptance above 3%.
+  - [PR #1571](https://github.com/depsilon/shardloom/pull/1571) merges at
+    `d2e6867d466e1871e45aa72a7e5eadc5525ea133` after all 44 checks pass on
+    `77d5b5da9561b04b4c5cb81e94cce07529528cd8`. Reviewed, synthetic-test and
+    merged trees match; all 2,412 accepted source identities are preserved.
+    Final-head review has no findings or unresolved threads. All 38 compatible
+    action-pin updates from Dependabot #1553 are included, and that PR is closed.
+  - The [acceptance report](../benchmarks/native-shared-execution-2026-10-17.md)
+    and [194-member hosted packet](../benchmarks/evidence/native-shared-execution-hosted-2026-10-17.json)
+    retain the complete local comparison history, 6,784 hosted native/provider
+    test executions with 27 manual exclusions, all twelve new native tests,
+    1,079 native public executions, and three installed-wheel lanes passing 100
+    methods each without skips. Sixteen served-response checks and current-panel
+    and mobile search/navigation checks pass. All hosted members reopen exactly.
+  - No package is published and no new timing is needed for closure. The
+    [implementation contract](native-shared-execution-2026-10-17.md) retains
+    every dropped mechanism and its frozen decision. Ingestion size work follows
+    under PERF-08/09; the initial six-profile native text screen rejects all five
+    alternatives and leaves production unchanged. The larger PERF owners and
+    CG-1 through CG-23 remain open.
+
 - [x] `NATIVE-WORKER-DRAIN` — complete joins preserve worker and queue ownership
   through observer failure, panic and partial reader startup under PERF-03/06
   and RFC 0017. Seven regressions reproduce or protect the finite contract.

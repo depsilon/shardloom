@@ -2,8 +2,12 @@
 
 # Shared execution optimization after native text reconstruction
 
-Status: retained implementation passes local acceptance under PERF-01/04/05/10;
-final-head hosted review, wheels and deployment remain merge gates.
+Status: retained implementation merged in PR #1571 at `d2e6867d`, with local
+acceptance, all 44 final-head checks, review, installed wheels and production
+verification complete under PERF-01/04/05/10. The
+[hosted closeout](../benchmarks/native-shared-execution-2026-10-17.md#hosted-closeout)
+preserves the source and deployment proof. Historical experimental decisions
+below remain unchanged.
 The maintainer requests another material whole-workload improvement, with generic
 runtime admission and complete validation through merge. The accepted starting
 tree is PR #1567, merged at `5bcee25a`; its matched 43-query sum of per-query
