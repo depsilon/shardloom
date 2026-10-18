@@ -249,6 +249,24 @@ the ledger.
 
 ## Planned
 
+The October 18 maintainer request completes a finite
+[dropped-optimization review](native-drop-review-2026-10-18.md)
+and resumes the remaining queue. Future speed candidates may target at least 2%
+of complete-workload engine time, subject to the unchanged correctness,
+repeatability, control-query and resource gates. Historical failures retain their
+original decisions and clocks; already merged mechanisms are not new gains.
+
+`NATIVE-NULLABLE-LAYOUT` has completed implementation and local acceptance under
+PERF-07, with PERF-06 private native-run readback; hosted checks and merge remain
+pending. The [implementation contract](native-nullable-layout-2026-10-18.md) and
+[acceptance report](../benchmarks/native-nullable-layout-2026-10-18.md) cover the
+default structural-layout root-validity defect across projection, filtering and
+persisted native results. Next come the remaining native external-memory
+membership/population obligations under PERF-03/06/10 and generation-conditional
+output replacement/recovery; encoded transfer improvements follow these breadth
+contracts. This resumes the queued breadth work after the speed-focused override.
+The complete PERF owners and CG-1 through CG-23 remain visible and open.
+
 `NATIVE-SHARED-SPEED-FOLLOWUP` completes in
 [PR #1573](https://github.com/depsilon/shardloom/pull/1573) at `9dd72db9` after
 local acceptance, all 44 final-PR-head checks, review, three installed-wheel
@@ -1291,12 +1309,14 @@ records the measured scope and preserved staged work. No PERF or competitive gat
       materialization or serialized JSON reconstruction.
     - [ ] Carry executable arrays, selections, validity and retained ownership
       through the remaining physical result and compatibility sink families.
-      Verify nullable-root projection through the default upstream struct layout:
-      the [file metadata intake](native-file-metadata-buffers-2026-10-16.md#provider-test-integration-and-separate-nullable-root-finding)
-      preserves a failing whole-root scan caused by nonnullable root packing.
-      Keep this source/type correction separate from byte-buffer admission;
-      existing persisted flat-layout readback does not prove the default layout
-      or a dedicated nullable-root spill workflow.
+      The [nullable structural-layout correction](native-nullable-layout-2026-10-18.md)
+      now passes local acceptance for default-layout projection, filtering,
+      parent validity, owned native-file readback and a private nullable-root
+      query-run round trip with retained ownership and cleanup. Hosted closure
+      remains pending. This closes the reproduced source/type defect locally;
+      it does not complete every transfer/sink family or admit new public spill
+      operators. The earlier [file metadata intake](native-file-metadata-buffers-2026-10-16.md#provider-test-integration-and-separate-nullable-root-finding)
+      retains the original failure.
     - [ ] Complete compatibility streaming destinations and fanout from one
       single-use execution, with owned retention or spooling where required;
       validate all input before publication and preserve partial-commit recovery.
@@ -3280,8 +3300,9 @@ hosted and production gates pass. Its original 5% failure remains preserved.
 Ingestion size work follows under PERF-08/09; broader PERF/CG obligations remain
 open.
 
-Keep three production-breadth priorities alongside this campaign: the default
-structural-layout nullable-root correctness follow-up under PERF-07; native
+Keep these production-breadth priorities alongside this campaign: hosted closure
+of the locally accepted [nullable-root correction](native-nullable-layout-2026-10-18.md)
+under PERF-07; native
 external-memory strategies for remaining resident membership/population state
 under PERF-03/06/10; and generation-conditional output replacement/publication
 with recovery under the existing destination owners. Input/replay spill alone

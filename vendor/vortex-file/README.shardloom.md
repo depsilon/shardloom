@@ -36,8 +36,9 @@ The standalone library test target preserves the upstream reader/writer
 regressions and links the reviewed array and layout patches. Its ignored
 crate-local lockfile starts from the workspace lockfile; any extra upstream
 development dependencies belong to that test target only.
-The nullable-root writer fixture now verifies reopened metadata, every logical
-child value with the parent mask applied, and absent unmasked child statistics,
-matching the already admitted layout provider patch instead of expecting its
-former panic. The upstream default struct reader's raw nullable-root projection
-is a separate limitation; this fixture does not claim that projection is fixed.
+The nullable-root writer fixture verifies reopened metadata, whole-record values
+and DTypes, logical child values, null-sensitive filtering and absent unmasked
+child statistics for all-valid, mixed and all-null root validity. The separate
+structural-reader correction and ShardLoom integration acceptance are tracked in
+`docs/architecture/native-nullable-layout-2026-10-18.md`; the original metadata
+intake did not claim to fix raw nullable-root projection.

@@ -147,6 +147,12 @@ the existing persisted nullable-root regression checks every root value and is
 required by this unit's broader acceptance. A dedicated nullable-root spill
 proof remains absent; these checks must not imply that broader coverage.
 
+The later [nullable structural-layout unit](native-nullable-layout-2026-10-18.md)
+corrects this default-reader defect and adds separate owned-result and private
+nullable-root query-run readback/retention/cleanup acceptance. Its linked report
+records the new evidence; the paragraph above describes the original intake's
+scope and finding.
+
 The complete native run also exposes two outdated cleanup assertions in empty
 projection and empty native-output tests: each still holds a cloned schema when
 expecting zero reserved bytes. The corrections explicitly check live credit,

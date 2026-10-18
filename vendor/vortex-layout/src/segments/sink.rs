@@ -30,6 +30,10 @@ pub trait SegmentSink: Send + Sync {
     /// If they do not require ordered segment IDs, for example if segments are stored in
     /// random-access key/values storage, then the sequence ID can be dropped and the segment
     /// written immediately.
+    #[allow(
+        clippy::double_must_use,
+        reason = "async_trait adds must_use to an already must-use boxed future"
+    )]
     async fn write(
         &self,
         sequence_id: SequenceId,

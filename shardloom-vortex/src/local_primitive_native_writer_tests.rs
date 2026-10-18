@@ -354,6 +354,22 @@ fn persisted_statistics_admission_refuses_insufficient_credit() {
 #[cfg(all(feature = "vortex-write", unix))]
 #[test]
 fn persisted_nullable_root_keeps_schema_and_omits_unmasked_statistics() {
+    use vortex::layout::{
+        layouts::flat::writer::FlatLayoutStrategy, layouts::table::TableStrategy,
+    };
+    for layout in [
+        SequentialNativeFlatLayout::strategy(1),
+        Arc::new(TableStrategy::new(
+            Arc::new(FlatLayoutStrategy::default()),
+            Arc::new(FlatLayoutStrategy::default()),
+        )),
+    ] {
+        assert_persisted_nullable_root(layout);
+    }
+}
+
+#[cfg(all(feature = "vortex-write", unix))]
+fn assert_persisted_nullable_root(layout: Arc<dyn vortex::layout::LayoutStrategy>) {
     use vortex::array::{VortexSessionExecute as _, arrays::StructArray, scalar::Scalar};
     use vortex::file::OpenOptionsSessionExt as _;
     let runtime = CurrentThreadRuntime::new();
@@ -374,7 +390,7 @@ fn persisted_nullable_root_keeps_schema_and_omits_unmasked_statistics() {
         &runtime,
         &mut bytes,
         dtype.clone(),
-        SequentialNativeFlatLayout::strategy(1),
+        layout,
         statistics,
     );
     writer.push(array).unwrap();

@@ -111,10 +111,10 @@ CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/v
   --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
   --features vortex-array/table-display --lib -- -D warnings
 cp Cargo.lock vendor/vortex-layout/Cargo.lock
-cargo test --manifest-path vendor/vortex-layout/Cargo.toml \
+cargo test --manifest-path vendor/vortex-layout/Cargo.toml --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib -- --test-threads=2
+CLIPPY_CONF_DIR="$PWD/vendor/vortex-array" cargo clippy --manifest-path vendor/vortex-layout/Cargo.toml \
   --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \
-  --features tokio,vortex-io/tokio,vortex-array/_test-harness \
-  --lib layouts::file_stats::tests::
+  --features tokio,vortex-io/tokio,vortex-array/_test-harness --lib -- -D warnings
 cp Cargo.lock vendor/vortex-file/Cargo.lock
 cargo test --manifest-path vendor/vortex-file/Cargo.toml \
   --config 'patch.crates-io.vortex-array.path="vendor/vortex-array"' \

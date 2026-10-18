@@ -189,6 +189,10 @@ pub trait LayoutStrategy: 'static + Send + Sync {
     ///
     /// Such operations are common, and include things like compression and parsing large blobs
     /// of data, or serializing very large messages to flatbuffers.
+    #[allow(
+        clippy::double_must_use,
+        reason = "async_trait adds must_use to an already must-use boxed future"
+    )]
     async fn write_stream(
         &self,
         ctx: LayoutWriterContext,

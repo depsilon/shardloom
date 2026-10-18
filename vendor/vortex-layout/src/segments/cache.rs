@@ -29,8 +29,16 @@ use crate::segments::SegmentSource;
 #[async_trait]
 pub trait SegmentCache: Send + Sync {
     /// Return a cached segment, or `None` on cache miss.
+    #[allow(
+        clippy::double_must_use,
+        reason = "async_trait adds must_use to an already must-use boxed future"
+    )]
     async fn get(&self, id: SegmentId) -> VortexResult<Option<ByteBuffer>>;
     /// Store a segment in the cache.
+    #[allow(
+        clippy::double_must_use,
+        reason = "async_trait adds must_use to an already must-use boxed future"
+    )]
     async fn put(&self, id: SegmentId, buffer: ByteBuffer) -> VortexResult<()>;
 }
 

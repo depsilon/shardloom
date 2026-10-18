@@ -48,6 +48,7 @@ use vortex_array::expr::eq;
 use vortex_array::expr::get_item;
 use vortex_array::expr::gt;
 use vortex_array::expr::gt_eq;
+use vortex_array::expr::is_null;
 use vortex_array::expr::lit;
 use vortex_array::expr::lt;
 use vortex_array::expr::lt_eq;
@@ -90,6 +91,7 @@ use vortex_layout::layouts::zoned::Zoned;
 use vortex_layout::scan::scan_builder::ScanBuilder;
 use vortex_layout::scan::split_by::SplitBy;
 use vortex_layout::session::LayoutSession;
+use vortex_mask::Mask;
 use vortex_scan::strict_sorted_buffer::StrictSortedBuffer;
 use vortex_session::VortexSession;
 use vortex_zigzag::ZigZag;
@@ -1314,6 +1316,7 @@ async fn write_nullable_top_level_struct() -> VortexResult<()> {
             Validity::from_iter([true, false, true, true, false]),
             [Some(25), None, None, Some(57), None],
         ),
+        (Validity::AllInvalid, [None; 5]),
     ] {
         let ages = PrimitiveArray::from_option_iter([Some(25), Some(31), None, Some(57), None]);
         let array = StructArray::try_new(["age"].into(), vec![ages.into_array()], 5, validity)?
@@ -1331,8 +1334,11 @@ async fn write_nullable_top_level_struct() -> VortexResult<()> {
         let statistics = file.file_stats().expect("file statistics were requested");
         assert_eq!(statistics.stats_sets().len(), 1);
         assert!(statistics.stats_sets()[0].is_empty());
-        // The default struct reader exposes logical fields with the root mask applied.
-        // Its raw nullable-root projection is a separate provider limitation.
+        // A whole-row scan must preserve the root validity and the original child DTypes.
+        let whole = file.scan()?.into_array_stream()?.read_all().await?;
+        assert_arrays_eq!(whole, array, &mut SESSION.create_execution_ctx());
+
+        // Field projection exposes logical fields with the root mask applied.
         let result = file
             .scan()?
             .with_projection(col("age").bind(file.dtype())?)
@@ -1344,7 +1350,32 @@ async fn write_nullable_top_level_struct() -> VortexResult<()> {
             PrimitiveArray::from_option_iter(expected_ages).into_array(),
             &mut SESSION.create_execution_ctx()
         );
+
+        // Null-sensitive predicates see logical fields before filtering, including hidden
+        // non-null child values beneath an invalid root. Default pruning must keep those rows.
+        let filtered = file
+            .scan()?
+            .with_filter(is_null(col("age")).bind(file.dtype())?)
+            .into_array_stream()?
+            .read_all()
+            .await?;
+        let expected = array.filter(Mask::from_iter(expected_ages.iter().map(Option::is_none)))?;
+        assert_arrays_eq!(filtered, expected, &mut SESSION.create_execution_ctx());
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn write_empty_nullable_top_level_struct() -> VortexResult<()> {
+    let array = StructArray::try_new(
+        ["age"].into(),
+        vec![PrimitiveArray::from_iter(Vec::<i32>::new()).into_array()],
+        0,
+        Validity::AllValid,
+    )?
+    .into_array();
+    let actual = round_trip(&array, Ok).await?;
+    assert_arrays_eq!(actual, array, &mut SESSION.create_execution_ctx());
     Ok(())
 }
 

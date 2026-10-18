@@ -1,19 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// ShardLoom modification: evaluate nullable structural scopes before their expressions.
 
+use std::fmt;
 use std::ops::Range;
 use std::sync::Arc;
 use std::sync::OnceLock;
 
-use futures::try_join;
 use itertools::Itertools;
-use vortex_array::ArrayRef;
-use vortex_array::IntoArray;
 use vortex_array::MaskFuture;
-use vortex_array::VortexSessionExecute;
-use vortex_array::arrays::StructArray;
-use vortex_array::arrays::struct_::StructArrayExt;
-use vortex_array::builtins::ArrayBuiltins;
 use vortex_array::dtype::DType;
 use vortex_array::dtype::FieldMask;
 use vortex_array::dtype::FieldName;
@@ -22,17 +17,18 @@ use vortex_array::dtype::StructFields;
 use vortex_array::expr::BoundExpression;
 use vortex_array::expr::ExactBoundExpr;
 use vortex_array::expr::bound::get_item;
+use vortex_array::expr::bound::mask;
+use vortex_array::expr::bound::not;
 use vortex_array::expr::bound::pack;
 use vortex_array::expr::make_bound_free_field_annotator;
-use vortex_array::expr::root;
 use vortex_array::expr::transform::BoundPartitionedExpr;
 use vortex_array::expr::transform::partition_bound;
 use vortex_array::expr::traversal::NodeExt;
 use vortex_array::expr::traversal::Transformed;
 use vortex_array::expr::traversal::TraversalOrder;
 use vortex_array::scalar_fn::fns::get_item::GetItem;
-use vortex_array::scalar_fn::fns::merge::Merge;
-use vortex_array::scalar_fn::fns::pack::Pack;
+use vortex_array::scalar_fn::fns::is_not_null::IsNotNull;
+use vortex_array::scalar_fn::fns::is_null::IsNull;
 use vortex_array::scalar_fn::fns::select::Select;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
@@ -108,7 +104,9 @@ impl StructReader {
         );
 
         // Create an expanded root expression that contains all fields of the struct.
-        let expanded_root_expr = expanded_struct_root(layout.dtype(), struct_dt)?;
+        // Child layouts contain unmasked fields. Parent validity is a separate dependency,
+        // applied before evaluating expressions over the reconstructed logical scope.
+        let expanded_root_expr = expanded_struct_root(&layout.dtype().as_nonnullable(), struct_dt)?;
 
         // This is where we need to do some complex things with the scan in order to split it into
         // different scans for different fields.
@@ -186,10 +184,17 @@ impl StructReader {
     }
 
     fn compute_partitioned_expr(&self, expr: &BoundExpression) -> VortexResult<Partitioned> {
+        if self.dtype().is_nullable() {
+            return self.compute_nullable_partitioned_expr(expr);
+        }
         // First, we expand the root scope into the fields of the struct to ensure
         // that partitioning works correctly.
-        let expr =
-            expand_struct_root(expr.clone(), &self.expanded_root_expr, self.struct_fields())?;
+        let expr = expand_struct_root(
+            expr.clone(),
+            &self.expanded_root_expr,
+            self.struct_fields(),
+            None,
+        )?;
 
         // Partition the expression into expressions that can be evaluated over individual fields
         let mut partitioned = partition_bound(
@@ -232,6 +237,60 @@ impl StructReader {
 
         Ok(Partitioned::Multi(Arc::new(partitioned)))
     }
+
+    fn compute_nullable_partitioned_expr(
+        &self,
+        expr: &BoundExpression,
+    ) -> VortexResult<Partitioned> {
+        // This boolean root is an internal scope for the validity child. Partitioning removes
+        // both it and the unmasked struct scope before evaluating the recombination expression.
+        let validity = BoundExpression::new_root(DType::Bool(Nullability::NonNullable));
+        let expr = expand_struct_root(
+            expr.clone(),
+            &self.expanded_root_expr,
+            self.struct_fields(),
+            Some(&validity),
+        )?;
+        let annotate_field = make_bound_free_field_annotator(self.struct_fields());
+        let mut partitioned = partition_bound(expr, |node: &BoundExpression| {
+            if node.is_root() && node.dtype() == validity.dtype() {
+                vec![NullablePartition::Validity]
+            } else {
+                annotate_field(node)
+                    .into_iter()
+                    .map(NullablePartition::Field)
+                    .collect()
+            }
+        })?;
+        let partitions = partitioned
+            .partitions
+            .iter()
+            .zip_eq(partitioned.partition_annotations.iter())
+            .map(|(expr, source)| match source {
+                NullablePartition::Field(name) => step_into_struct_field(
+                    expr.clone(),
+                    name,
+                    self.field_reader(name)?.dtype().clone(),
+                ),
+                NullablePartition::Validity => Ok(expr.clone()),
+            })
+            .try_collect::<_, Vec<_>, _>()?
+            .into_boxed_slice();
+        partitioned.replace_partitions(partitions)?;
+        Ok(Partitioned::Nullable(Arc::new(partitioned)))
+    }
+
+    fn nullable_partition_reader(
+        &self,
+        source: &NullablePartition,
+    ) -> VortexResult<&LayoutReaderRef> {
+        match source {
+            NullablePartition::Field(name) => self.field_reader(name),
+            NullablePartition::Validity => self.validity()?.ok_or_else(|| {
+                vortex_err!("Nullable struct layout is missing its validity reader")
+            }),
+        }
+    }
 }
 
 fn expanded_struct_root(
@@ -254,12 +313,17 @@ fn expand_struct_root(
     expr: BoundExpression,
     expanded_root: &BoundExpression,
     fields: &StructFields,
+    validity: Option<&BoundExpression>,
 ) -> VortexResult<BoundExpression> {
+    let apply_validity = |value: BoundExpression| match validity {
+        Some(validity) => mask(value, validity.clone()),
+        None => value,
+    };
     Ok(expr
         .transform_down(|node| {
             if node.is_root() {
                 return Ok(Transformed {
-                    value: expanded_root.clone(),
+                    value: apply_validity(expanded_root.clone()),
                     changed: true,
                     order: TraversalOrder::Skip,
                 });
@@ -276,12 +340,31 @@ fn expand_struct_root(
                 return Ok(Transformed::no(node));
             }
 
+            // The validity child completely answers a test of the original record itself.
+            // Its fields may have independent nulls and need not be read at all.
+            if let Some(validity) = validity {
+                let value = if scalar_fn.is::<IsNull>() {
+                    Some(not(validity.clone()))
+                } else if scalar_fn.is::<IsNotNull>() {
+                    Some(validity.clone())
+                } else {
+                    None
+                };
+                if let Some(value) = value {
+                    return Ok(Transformed {
+                        value,
+                        changed: true,
+                        order: TraversalOrder::Skip,
+                    });
+                }
+            }
+
             if let Some(field_name) = scalar_fn.as_opt::<GetItem>() {
                 let idx = fields.find(field_name).ok_or_else(|| {
                     vortex_err!("Field {field_name} not found while expanding struct root")
                 })?;
                 return Ok(Transformed {
-                    value: expanded_root.children()[idx].clone(),
+                    value: apply_validity(expanded_root.children()[idx].clone()),
                     changed: true,
                     order: TraversalOrder::Skip,
                 });
@@ -299,7 +382,10 @@ fn expand_struct_root(
                     })
                     .collect();
                 return Ok(Transformed {
-                    value: pack(names.into_iter().zip(children), Nullability::NonNullable),
+                    value: apply_validity(pack(
+                        names.into_iter().zip(children),
+                        Nullability::NonNullable,
+                    )),
                     changed: true,
                     order: TraversalOrder::Skip,
                 });
@@ -336,9 +422,26 @@ fn step_into_struct_field(
         .into_inner())
 }
 
-fn is_pack_or_merge(expr: &BoundExpression) -> bool {
-    expr.as_scalar()
-        .is_some_and(|scalar_fn| scalar_fn.is::<Pack>() || scalar_fn.is::<Merge>())
+/// Private sources, with disjoint partition names even when a user field is named "validity".
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum NullablePartition {
+    Field(FieldName),
+    Validity,
+}
+
+impl fmt::Display for NullablePartition {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Field(name) => write!(formatter, "field:{name}"),
+            Self::Validity => formatter.write_str("validity"),
+        }
+    }
+}
+
+impl From<NullablePartition> for FieldName {
+    fn from(source: NullablePartition) -> Self {
+        source.to_string().into()
+    }
 }
 
 /// When partitioning an expression, in the case it only has a single partition we can avoid
@@ -350,6 +453,8 @@ enum Partitioned {
     Single(FieldName, BoundExpression),
     /// An expression which operates over multiple fields
     Multi(Arc<BoundPartitionedExpr<FieldName>>),
+    /// A nullable scope whose field and validity dependencies must be combined before evaluation.
+    Nullable(Arc<BoundPartitionedExpr<NullablePartition>>),
 }
 
 impl LayoutReader for StructReader {
@@ -406,6 +511,11 @@ impl LayoutReader for StructReader {
                         ))
                     })
             }
+            Partitioned::Nullable(_) => {
+                // Child statistics describe unmasked values. Parent nulls may make a predicate
+                // true (for example is_null(field)), so child-only pruning is not conservative.
+                Ok(MaskFuture::ready(mask))
+            }
             Partitioned::Multi(_) => {
                 // TODO(ngates): if all partitions are boolean, we can use a pruning evaluation. Otherwise
                 //  there's not much we can do? Maybe... it's complicated...
@@ -452,6 +562,27 @@ impl LayoutReader for StructReader {
                 },
                 self.session.clone(),
             ),
+            Partitioned::Nullable(partitioned) => Arc::clone(partitioned).into_mask_future(
+                mask,
+                |source, expr, mask| {
+                    self.nullable_partition_reader(source)?
+                        .filter_evaluation(row_range, expr, mask)
+                        .map_err(|error| {
+                            error
+                                .with_context(format!("While evaluating filter partition {source}"))
+                        })
+                },
+                |source, expr, mask| {
+                    self.nullable_partition_reader(source)?
+                        .projection_evaluation(row_range, expr, mask)
+                        .map_err(|error| {
+                            error.with_context(format!(
+                                "While evaluating projection partition {source}"
+                            ))
+                        })
+                },
+                self.session.clone(),
+            ),
         }
     }
 
@@ -461,31 +592,17 @@ impl LayoutReader for StructReader {
         expr: &BoundExpression,
         mask_fut: MaskFuture,
     ) -> VortexResult<ArrayFuture> {
-        let validity_fut = self
-            .validity()?
-            .map(|reader| {
-                let root = root().bind(reader.dtype())?;
-                reader.projection_evaluation(row_range, &root, mask_fut.clone())
-            })
-            .transpose()?;
-
         // Partition the expression into expressions that can be evaluated over individual fields
-        let (projected, is_pack_merge) = match &self.partition_expr(expr)? {
+        match &self.partition_expr(expr)? {
             Partitioned::Single(name, partition) => {
                 let reader = self.field_reader(name)?;
-                (
-                    reader
-                        .projection_evaluation(row_range, partition, mask_fut)
-                        .map_err(|err| {
-                            err.with_context(format!(
-                                "While evaluating projection partition {name}"
-                            ))
-                        })?,
-                    is_pack_or_merge(partition),
-                )
+                reader
+                    .projection_evaluation(row_range, partition, mask_fut)
+                    .map_err(|err| {
+                        err.with_context(format!("While evaluating projection partition {name}"))
+                    })
             }
-
-            Partitioned::Multi(partitioned) => (
+            Partitioned::Multi(partitioned) => {
                 Arc::clone(partitioned).into_array_future(mask_fut, |name, expr, mask| {
                     let reader = self.field_reader(name)?;
                     reader
@@ -495,41 +612,20 @@ impl LayoutReader for StructReader {
                                 "While evaluating projection partition {name}"
                             ))
                         })
-                })?,
-                is_pack_or_merge(&partitioned.root),
-            ),
-        };
-
-        let session = self.session.clone();
-        Ok(Box::pin(async move {
-            if let Some(validity_fut) = validity_fut {
-                let (array, validity) = try_join!(projected, validity_fut)?;
-
-                // If root expression was a pack, then we apply the validity to each child field
-                if is_pack_merge {
-                    let mut ctx = session.create_execution_ctx();
-                    let struct_array = array.execute::<StructArray>(&mut ctx)?;
-                    let masked_fields: Vec<ArrayRef> = struct_array
-                        .iter_unmasked_fields()
-                        .map(|a| a.clone().mask(validity.clone()))
-                        .try_collect()?;
-
-                    Ok(StructArray::try_new(
-                        struct_array.names().clone(),
-                        masked_fields,
-                        struct_array.len(),
-                        struct_array.validity()?,
-                    )?
-                    .into_array())
-                } else {
-                    // If the root expression was not a pack or merge, e.g. if it's something like
-                    // a get_item, then we apply the validity directly to the result
-                    array.mask(validity)
-                }
-            } else {
-                projected.await
+                })
             }
-        }))
+            Partitioned::Nullable(partitioned) => {
+                Arc::clone(partitioned).into_array_future(mask_fut, |source, expr, mask| {
+                    self.nullable_partition_reader(source)?
+                        .projection_evaluation(row_range, expr, mask)
+                        .map_err(|error| {
+                            error.with_context(format!(
+                                "While evaluating projection partition {source}"
+                            ))
+                        })
+                })
+            }
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -539,6 +635,8 @@ impl LayoutReader for StructReader {
 
 #[cfg(test)]
 mod tests {
+    mod nullable;
+
     use std::sync::Arc;
 
     use rstest::fixture;

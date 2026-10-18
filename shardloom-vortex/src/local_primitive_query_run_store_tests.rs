@@ -121,6 +121,108 @@ fn native_array_runs_roundtrip_non_sort_schema_and_empty_without_row_serializati
 }
 
 #[test]
+fn nullable_root_native_runs_preserve_schema_values_retention_and_cleanup() {
+    use vortex::array::{arrays::StructArray, validity::Validity};
+
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4)
+            .expect("explicit fixture allocation"),
+    );
+    let session = VortexSession::default().with_handle(runtime.handle());
+    for (validity, empty) in [
+        (Validity::AllValid, false),
+        (Validity::AllInvalid, false),
+        (Validity::from_iter([false, true, true, false, true]), false),
+        (Validity::AllValid, true),
+    ] {
+        let workspace = Workspace::new();
+        let memory = LiveMemoryPool::new(4 << 20).unwrap();
+        let work = Arc::new(memory.reserve(1 << 20).unwrap());
+        let mut store = store(&workspace, &memory);
+        let array = StructArray::new(
+            ["value", "optional"].into(),
+            vec![
+                PrimitiveArray::from_iter([99_i64, 1, 7, 98, 5]).into_array(),
+                PrimitiveArray::from_option_iter([Some(1_i32), None, Some(3), Some(4), None])
+                    .into_array(),
+            ],
+            5,
+            validity,
+        )
+        .into_array();
+        let array = if empty {
+            array.slice(0..0).unwrap()
+        } else {
+            array
+        };
+        let spec = QueryRunSpec {
+            dtype: array.dtype().clone(),
+            rows: array.len() as u64,
+            block_rows: 2,
+            metadata_bytes: 16 << 10,
+        };
+        let blocks = (0..array.len()).step_by(2).map(|start| {
+            array
+                .slice(start..(start + 2).min(array.len()))
+                .map_err(vortex_error)
+        });
+        let run = store
+            .write_arrays(&spec, blocks, &runtime, &session, &work)
+            .unwrap();
+        let mut reader = store
+            .open(&run, &spec.dtype, &runtime, &session, Arc::clone(&work))
+            .unwrap();
+        let mut context = session.create_execution_ctx();
+        let mut held = Vec::new();
+        let mut seen = 0;
+        while let Some(block) = reader.next_block(&runtime).unwrap() {
+            assert_eq!(block.array().dtype(), &spec.dtype);
+            assert!(block.array().len() <= spec.block_rows);
+            for row in 0..block.array().len() {
+                assert_eq!(
+                    block.array().execute_scalar(row, &mut context).unwrap(),
+                    array.execute_scalar(seen, &mut context).unwrap()
+                );
+                seen += 1;
+            }
+            held.push(block);
+        }
+        assert_eq!(seen, array.len());
+        reader.validate().unwrap();
+        let retained = run.metadata.bytes() + reader.path_credit.bytes() + work.bytes();
+        store.policy.cancellation.cancel();
+        assert!(
+            reader
+                .next_block(&runtime)
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("cancelled")
+        );
+        drop((reader, run, work));
+        store.cleanup().unwrap();
+        drop(store);
+        workspace.assert_empty();
+        assert_eq!(
+            memory.snapshot().reserved_bytes,
+            if held.is_empty() { 0 } else { retained }
+        );
+        let mut seen = 0;
+        for block in &held {
+            for row in 0..block.array().len() {
+                assert_eq!(
+                    block.array().execute_scalar(row, &mut context).unwrap(),
+                    array.execute_scalar(seen, &mut context).unwrap()
+                );
+                seen += 1;
+            }
+        }
+        drop(held);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
 fn positional_native_blocks_preserve_sequential_cursor_bounds_and_retained_owners() {
     let workspace = Workspace::new();
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
