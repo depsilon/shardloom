@@ -1,282 +1,116 @@
 ---
-title: "Python"
-description: "Read, transform, and write data through ShardLoom's native pipeline from Python."
-sidebar: {"label":"Python","order":2}
+title: "Work with data in Python"
+description: "Configure a context, build a plan, consume results, and reuse native data."
+sidebar: {label: "Python and DataFrames"}
 ---
 
+import GuideVersion from '../../../components/GuideVersion.astro';
 
-Use Python to read local data, build queries, and inspect or export results. Admitted queries
-run in ShardLoom. Unsupported work returns a diagnostic without fallback execution.
+<GuideVersion />
+
+Use `sl.context(...)` to configure your execution resources and backend, then
+declare inputs and build a SQL or DataFrame plan. Start with the complete,
+copyable [paid-orders example](/field-guide/start-local-proof).
 
 ## Run a local query
 
-Create the small CSV in the [getting-started walkthrough](/start) before running this example.
-The public `run()` report exposes the result and native execution evidence. The 16 GiB / 8 lane allocation below is an illustrative caller choice, not a recommendation, default, or measurement.
-The configured-context examples use the published 0.6.0 API. Upgrading from 0.5.1 requires explicit memory and parallelism allocations.
-Missing or malformed resources fail before data access. Configure once as below,
-or pass an explicit allocation on the execution call. Environment loading is
-deliberate through `sl.ExecutionResources.from_env()`; importing ShardLoom does
-not choose a budget. See [resources and recovery](/field-guide/runtime-and-io/#resources-and-recovery).
+The first workflow uses `ctx.read_csv(path)`, `filter(sl.col("status") == "paid")`,
+`sort("order_id")`, and `collect(check=True)`. Building that fluent chain does
+not execute the query. Collection executes once under the declared allocation.
+Set `check=True` in 0.6.0 to raise `ShardLoomCommandError` with its structured
+diagnostic rather than inspect a failed execution report yourself.
 
-```python
-import shardloom as sl
+`ctx.read(path)` infers the reader from the extension. Named helpers such as
+`read_csv`, `read_json`, `read_parquet`, and `read_vortex` make the boundary explicit.
+Pass `schema=` when the input needs a declared type contract. See
+[formats and types](/field-guide/runtime-and-io#local-formats).
 
-ctx = sl.context(memory_gb=16, max_parallelism=8)
-result = (
-    ctx.read("data/orders.csv")
-       .filter(sl.col("status") == "paid")
-       .limit(10)
-       .run()
-)
+For generated data, the context provides `from_rows`, `from_batches`, `range`,
+and `repeat`. Typed batches require a schema; arbitrary Python callbacks are
+not a query execution backend. Resource validation happens before data access.
 
-print(result.envelope.field_int("output_row_count"))
-print(result.envelope.human_text)
-print(result.fallback_attempted, result.external_engine_invoked)
-```
+## Consume results
 
-`ctx.read(path)` infers local adapters for `.csv`, `.json`, `.jsonl`, `.ndjson`, `.parquet`,
-`.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex`. CSV, flat JSON/JSONL/NDJSON,
-generated rows, and scoped local Vortex inputs are the default public examples. Parquet, Arrow
-IPC/Feather, Avro, and ORC are scoped local-format surfaces when the matching feature-gated build is
-present; otherwise ShardLoom returns deterministic adapter blockers without fallback execution.
+| Intent | Published 0.6.0 operation | Result |
+| --- | --- | --- |
+| Collect a small complete result | `plan.collect(check=True)` | Data and execution report in `VortexWorkflowExecutionReport`; retained native owner when using native transport. |
+| Read schema | `result.result_schema` | Ordered names and logical types, including empty results. |
+| Convert to Python values | `result.python_objects` | Complete tuple of row mappings; allocates Python objects explicitly. |
+| Export columnar data | `result.to_arrow()` | Arrow table; requires optional PyArrow and may convert encoded buffers. |
+| Export to pandas or NumPy | `result.to_pandas()`, `result.to_numpy()` | Explicit optional integration with its documented type conversion. |
+| Deliver larger admitted results | `plan.iter_batches()` or a writer | Bounded delivery rather than an arbitrary-sized Python tuple. |
+| Inspect execution | `result.envelope` | Structured diagnostics, source identity and native execution evidence. |
 
-## Reuse And Export
+Small computed-result collection is limited to **65,536 rows and 8 MiB** in this
+release. `result_rows` is the wire-oriented row representation; `python_objects`
+restores logical binary, decimal and temporal values. Neither conversion reruns
+the source. A query memory allocation does not bound consumer-retained Python objects.
 
-Python contexts can retain a local worker to avoid per-call CLI startup. Automatic preparation
-reuses an unchanged source only when its schema and artifact identities match. Each query still
-has fresh execution state; a prepared artifact is not a cache of query results.
-
-Admitted flat results can use `write_vortex`, `write_parquet`, `write_arrow_ipc`,
-`write_avro`, `write_orc`, `write_csv`, `write_json`, and `write_jsonl` through the
-shared native result and sink contracts. Feature gates, supported types, and result limits apply.
-See [runtime and I/O](/field-guide/runtime-and-io) and the
-[user-surface index](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md).
-
-## Keep results native
-
-The published 0.6.0 Linux x86_64 and macOS arm64 wheels include the optional
-in-process Python extension with a `cp310-abi3` contract. Linux requires the
-audited `manylinux_2_39_x86_64` platform. Windows retains its CLI-backed package;
-the source distribution contains no compiled native module. See the
-[package install guide](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md)
-for exact artifacts or the [source build guide](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding)
-to build locally. The ordinary client still defaults to a subprocess. Select `ShardLoomClient(transport="native", ...)`
-explicitly for embedded workflows, or use `shardloom.native` for typed native
-plans and retained results.
-
-```python
-import pyarrow as pa
-from shardloom.native import ExecutionResources, Relation, Session, col, lit
-
-session = Session(ExecutionResources(256 << 20, 2))
-source = session.from_range("value", 0, 1, 100)
-relation = (
-    Relation.scan("memory://values")
-    .filter(col("value") >= lit(10))
-    .project([("value", col("value"))])
-)
-result = session.plan(relation, sources=[("memory://values", source)]).collect()
-session.close()
-
-# The complete result keeps its owner after the session closes.
-table = pa.RecordBatchReader.from_stream(result).read_all()
-```
-
-The example's 256 MiB and two lanes are explicit caller choices. Native results
-can feed another operation, use existing writers, or export columnar batches
-without constructing Python row objects. `session.from_arrow(producer)` admits
-columnar input; `result.row_export()` explicitly requests Python objects.
-Foreign input may require an accounted copy, and encoded data may need conversion
-for Arrow. These APIs use the shared ShardLoom planner, native providers,
-resources and cancellation owner.
-
-The 0.6.0 packages recognize ShardLoom native sources and results passed to
-`session.from_arrow(...)` or `ctx.from_arrow_table(...)` without an intermediate
-Arrow export. Same-owner sources share ownership; transfers between owners copy
-admitted encoded buffers under the receiving grant. For an independent producer,
-`ctx.from_vortex_ipc(array_message, dtype_message=dtype_message)` accepts complete
-immutable messages for the pinned Vortex provider, within a combined 64-MiB
-limit. The [encoded transfer contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-encoded-interchange-2026-10-12.md)
-defines the accepted schemas and encodings; its
-[acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-encoded-interchange-2026-10-12.md)
-separates the original local proof from hosted integration. The accepted
-encoded transfer surface is included in 0.6.0.
-
-The [local acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-python-surface-2026-10-11.md)
-records installed-wheel checks and paired complete Python workflows for input,
-output, retained chains, short calls, wide plans and a native-file query.
-Those measurements establish their own workflow scope; no new ingest or Full43
-measurement is claimed. PR #1541 subsequently completed all 44 hosted checks,
-including all 75 installed native methods on each Linux Python 3.10/3.13 and
-macOS arm64 Python 3.13 wheel lane. The
-[hosted receipt](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-python-surface-hosted-2026-10-11.json)
-records those builds and production verification. Broader platform/workload
-acceptance and public distribution remain separate.
+`run()` is the compatibility report-oriented operation; it is not a shortcut
+to faster execution. `profile()` performs bounded profiling and returns its
+own statistics. Prefer `collect()` for data and an explicit writer for persistence.
+The [development migration](/field-guide/development) explains the newer result names.
 
 ## Consume results in batches
 
-The published engine supports `iter_batches()` for admitted results and
-`from_batches()` for explicitly typed resident input. These additions merged
-in PR #1526 after complete local and hosted checks. The published engine also admits opt-in `streaming=True` for one finite
-source used once through scan/filter/project, global sorting, aggregation, joins,
-analytic windows and draining limits. See the [contracts and spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
+Use a context manager so stopping early closes the iterator:
 
 ```python
-def orders():
-    yield [{"order_id": 1, "amount": 12.5}]
-    yield [{"order_id": 2, "amount": None}]
-
-frame = sl.from_batches(
-    orders, schema={"order_id": "int64", "amount": "float64"},
-    streaming=True, memory_gb=16, max_parallelism=8,
-)
-with frame.iter_batches(batch_rows=1024) as batches:
+with plan.iter_batches(batch_rows=1024) as batches:
     for batch in batches:
-        print(batch.result_rows)
+        consume(batch)  # your application; convert only when needed
     assert batches.report is not None
 ```
 
-The 0.6.0 packages admit explicit exact-width signed and unsigned
-integers, finite Float32/Float64, Boolean, UTF8, binary, Decimal128, Date32,
-timezone-free microsecond timestamps, lists, fixed-size lists and ordered structs.
-The original four scalar declarations, aliases and inference remain compatible;
-rich types require an explicit schema. Published v0.5.1 artifacts retain their
-release-time input types and limits. The subprocess row protocol carries at most
-2,048 row mappings and an 8 MiB frame per batch. Direct native columnar intake
-uses admitted column buffers instead of that row protocol. The 0.6.0 packages admit growing field and batch
-metadata through the shared query grant, without fixed total field or batch
-counts. In default resident mode (`streaming=False`), total native input must fit
-the query memory grant. A factory, as above, supplies fresh input for repeated
-calls; an iterable can be consumed once.
-The [input growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
-is included in 0.6.0; historical 0.5.1 artifacts retain
-their release-time limits. Schema declarations still have an 8 MiB envelope.
-The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
-records wide schemas, cumulative input, generated ranges, resource denial and complete write/reopen checks.
-The [typed native input contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-input-2026-10-10.md)
-defines schema syntax, value conversion, nullability and admitted recursive types
-for both `from_rows` and `from_batches`.
-Python object results use `date`/`datetime` where Python's calendar can represent
-the value; other valid temporal values remain exact integer epoch days or
-microseconds, including nested fields. The
-[complete typed-input acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-typed-input-2026-10-10.md)
-records complete values, writer fidelity, failure controls and the review correction.
+Here `plan` is an admitted native or typed-input plan and `consume` is your own
+batch consumer. For compatibility files in 0.6.0, prepare them to Vortex before
+batch consumption. Python batch pipes require Linux or macOS; the Windows
+CLI-backed package supports collection and writers instead. A batch is provisional until the input is fully drained and
+the final report succeeds: a later producer error invalidates completion.
+Closing early cancels delivery and does not certify unobserved input.
 
-The 0.6.0 packages retain at most one original native input batch, so cumulative input may exceed
-the query grant while individual batches remain bounded. It supports incremental results,
-bounded small collection or one native Vortex destination. Retained operator
-state shares the grant; ordering, general aggregation, joins, analytic windows
-and dynamic pivots support an explicit native spill policy. Distinct finite
-producers can occur on both join sides alongside ordinary file/resident sources.
-Each producer runs once per execution. Repeated references and self-joins use
-credited native replay, with native runs when the caller permits spill.
-Limits and offsets drain and validate every source, including zero limits.
-Sets and other unadmitted stateful/subquery shapes retain explicit refusals.
-Analytic window partitions and frames span input batches and complete their input
-before evaluating results. Windows preserve the input row order in delivered
-results; use a separate sort to change it.
-Every producer must reach its explicit end
-event before results are final. Typed intake and output compaction are charged
-copies; retained replay, output and sink reservations share the same grant.
-Compatibility preparation also uses the transaction's cancellation owner.
-These contracts do not establish a process-RSS ceiling. See the
-[streaming composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md),
-which records the source acceptance included in 0.6.0, and the
-[streamed ordering contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-streamed-ordering-2026-10-07.md)
-and [aggregate, join and window spill examples](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md).
+Use `ctx.from_batches(producer, schema=..., streaming=True)` for admitted finite
+streaming producers. The subprocess protocol uses at most 2,048 row mappings and
+8 MiB per frame. Native columnar intake and output preserve admitted array owners;
+process transport serializes buffers. Operator state and consumer retention have
+separate memory obligations. See [resources and cancellation](/field-guide/resources).
 
-The subsequent source implementation extends finite streaming input to all eight
-admitted local writers: Vortex, Parquet, Arrow IPC, Avro, ORC, CSV, JSON and JSONL.
-The direct native binding also routes independent producers through collection,
-incremental delivery and writes. One destination streams directly; several
-destinations execute once and share credited native result replay, with spill
-only when explicitly enabled. Every producer, writer and owned cleanup must
-finish before publication. Multi-file publication remains non-atomic, and each
-writer retains its type and fidelity limits. The
-[destination acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md)
-passes 84 direct tests, 777 public cases and all 43 complete query results.
-PR #1557 merged after all 44 checks passed; three installed-wheel lanes each
-pass 84 tests, with preview/production source and navigation verified.
-These source changes do not alter the
-immutable 0.6.0 packages.
+## Reuse and export
 
-Current source also admits `UNION ALL`, `UNION`, `INTERSECT` and `EXCEPT`
-over finite streaming inputs through the existing SQL and DataFrame methods.
-Independent producers keep separate completion state; repeated references use
-declared native replay. Both branches preserve type admission and complete
-source validation. Set membership remains resident under the query grant and
-refuses excess growth, including when replay spill is enabled. The
-[set-operation contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md)
-and [local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-sets-2026-10-15.md)
-record 87 direct tests, 1,121 public cases and one complete 43-query pass.
-PR #1558 merged after all 44 checks passed. Three installed-wheel lanes each
-pass 87 tests, and the [107-member hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-sets-hosted-2026-10-15.json)
-verifies preview/production source, navigation and successful deployment.
-The 0.6.0 packages keep their release-time scope.
+Preparation reuses a native artifact only while its source, schema, and artifact
+identities still match. Each query has fresh execution state. Reuse is not a cache
+of query answers. `ctx.prepare(...)` and `ctx.session(...)` expose advanced reuse
+and preparation controls; ordinary reads use the same preparation machinery.
 
-Current source also connects the nine existing static unary families to finite
-streaming producers: DISTINCT, duplicate removal and masks, tail, sampling,
-scalar rewrites, melt, explode and rolling. Existing option/type rules remain,
-and each stage consumes its preceding schema and rows. Output stop conditions
-still drain complete input. Unary membership and population state remain resident
-under the grant; source/output replay spill does not spill that state. The
-[unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md)
-and [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-unary-2026-10-15.md)
-record 91 direct methods, 2,601 public cases and all 43 regression queries
-passing locally. PR #1559 merged after all 44 checks passed. Three installed-wheel
-lanes each pass 91 methods with zero skips; the
-[273-member hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-unary-hosted-2026-10-15.json)
-retains preview/production source and browser verification. These source changes
-do not alter the immutable 0.6.0 packages.
+The [first workflow](/field-guide/start-local-proof#write-and-reopen) shows
+`write_vortex` followed by `read_vortex`. Other named writers are
+`write_parquet`, `write_arrow_ipc`, `write_avro`, `write_orc`, `write_csv`,
+`write_json`, and `write_jsonl`. Read their
+[fidelity and publication limits](/field-guide/runtime-and-io#write-results).
 
-Current source also connects finite producers to existing `IN`/`NOT IN`, row
-membership, `EXISTS`/`NOT EXISTS`, quantified `ANY`/`ALL` and scalar subqueries.
-Inner sources and schemas must be declared before execution; indexed correlation
-and parameterized `outer` references are supported within that scope. Shared
-inputs complete native replay before nested reads. An unused inner producer still
-drains and validates, without evaluating skipped expressions or scalar cardinality.
-Subquery membership/index state remains resident under the grant, including when
-source replay spill is enabled. Opaque dynamically declared inner sources remain
-unsupported. The [finite subquery contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-subqueries-2026-10-15.md)
-and [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-subqueries-2026-10-15.md)
-record 96 direct methods, 3,724 public cases, all six Rust gates and all 43
-regression queries passing locally. PR #1560 merged after all 44 checks passed;
-three installed-wheel lanes each pass 96 methods without skips. The
-[150-member hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-subqueries-hosted-2026-10-16.json)
-verifies preview/production source and navigation. The published 0.6.0 packages
-retain their release-time behavior.
+## Keep results native
 
-The [dynamic predicate extension](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md)
-also admits finite producers to existing IN/NOT IN, row membership,
-EXISTS/NOT EXISTS and quantified ANY/ALL subqueries when the inner pivot schema
-depends on the outer parameter. SQL and DataFrame declarations provide the
-complete finite source set automatically. Nested restrictions apply before
-schema discovery requests input; unused producers still require valid completion.
-The [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
-records 100 direct methods, 4,827 public cases, all six Rust gates and all 43
-regression queries passing locally. PR #1561 merged after all 44 checks passed;
-three installed-wheel lanes each pass 100 methods without skips. The
-[147-member hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json)
-verifies preview/production source and navigation. Opaque
-undeclared callbacks and dynamic scalar output-schema inference remain unsupported.
-Subquery membership/index state remains resident; replay spill does not spill that
-state. Published 0.6.0 packages retain their release-time behavior.
+On a supported native wheel, configure `transport="native"` explicitly in 0.6.0.
+A collected result retains its native owner. Pass that result directly to
+`ctx.from_arrow_table(result)` for subsequent native work: this historical method
+name also recognizes ShardLoom-owned data and does **not** require an Arrow export.
+Same-owner admission shares ownership; cross-owner transfer may copy encoded
+buffers under the receiving allocation. Do not convert to rows merely to chain work.
 
-Relational pivots over file or resident-memory sources can deliver complete
-admitted results through `iter_batches()` with an explicit `spill` policy.
-The [sparse pivot example](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state)
-shows setup and cleanup. The 0.6.0 packages also admit dynamic pivots over
-finite streaming input; schema discovery, source completion and downstream
-execution share the same native transaction.
+`ctx.from_vortex_ipc(array_message, dtype_message=...)` accepts complete immutable
+messages for the pinned provider within a combined 64 MiB intake limit. Its
+[encoded transfer contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-encoded-interchange-2026-10-12.md)
+lists the accepted schemas and encodings. Native file inputs use `read_vortex`.
 
-Requesting the next result batch acknowledges the preceding one. Use the
-context manager when stopping early, and treat delivered batches as provisional
-until the final report is present after full exhaustion. The 0.6.0 packages
-prepare compatibility files inside the same cancellable transaction. See
-[resource boundaries](/field-guide/runtime-and-io#resources-and-recovery).
+The published context is a configuration facade; call `ctx.client.close()` when
+finished. Direct native results keep their promised independent owner after
+session close. Closing or cancelling active work has distinct semantics; see
+[lifetime and cancellation](/field-guide/resources#lifetime-and-cancellation).
 
 ## Next steps
 
-See [the examples](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md)
-for preparation, bounded collection, writes, and blocker inspection. The [limitations](/field-guide/limitations)
-page describes current coverage gaps.
+- [SQL](/field-guide/sql) uses the same context and result semantics.
+- [Resources](/field-guide/resources) covers grants, spill and cancellation.
+- [Reference](/field-guide/reference) links application APIs and diagnostics.
+- [Embedding](/field-guide/embedding) covers typed native and Rust integration.
+- [Capabilities and known issues](/field-guide/limitations) identify version limits.

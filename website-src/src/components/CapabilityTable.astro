@@ -1,0 +1,10 @@
+---
+import { release } from "../data/release.mjs";
+---
+<p>Availability below is scoped to {release.release_tag}. The platform table specifies the available backends.</p>
+<table>
+  <thead><tr><th>Operation and types</th><th>Package requirements</th><th>Restrictions</th></tr></thead>
+  <tbody>{release.capabilities.map((row) => (
+    <tr><td><a href={row.reference}>{row.operation}</a><br />{row.types_formats}</td><td>{row.artifact_requirement}</td><td>{row.restriction}</td></tr>
+  ))}</tbody>
+</table>

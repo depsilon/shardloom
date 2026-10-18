@@ -43,7 +43,7 @@ Documentation = "https://github.com/depsilon/shardloom/tree/main/docs"
 where = ["src"]
 
 [tool.setuptools.package-data]
-shardloom = ["py.typed", "bin/*/shardloom", "bin/*/shardloom.exe", "_native.abi3.so"]
+shardloom = ["py.typed", "*.pyi", "bin/*/shardloom", "bin/*/shardloom.exe", "_native.abi3.so"]
 
 [tool.setuptools.dynamic]
 version = { attr = "shardloom._version.__version__" }

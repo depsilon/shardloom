@@ -33,6 +33,8 @@ EXPECTED_PAGES = [
     "field-guide/execution-routes/index.html",
     "field-guide/benchmark-methodology/index.html",
     "field-guide/limitations/index.html",
+    *[f"field-guide/{slug}/index.html" for slug in
+      ("sql", "cli", "resources", "reference", "embedding", "troubleshooting", "development")],
     "benchmarks.html",
     "benchmarks/index.html",
     "compute-engine-flow.html",
@@ -179,7 +181,7 @@ class HtmlRefs(HTMLParser):
             self.local_links.append(values["href"])
             if values["href"] in EXPECTED_NAV_PATHS:
                 self.nav_links.add(values["href"])
-        if tag == "a" and "href" not in values:
+        if tag == "a" and "href" not in values and not (values.get("id") or values.get("name")):
             self.anchor_without_href_count += 1
         if tag == "img":
             self.images.append(values)
@@ -382,6 +384,16 @@ def validate_html_page(
     parser = HtmlRefs()
     parser.feed(html)
     relative = relative_override or html_relative(path, website)
+    if relative in {"start.html", "start/index.html"}:
+        if 'content="0;url=/field-guide/start-local-proof"' not in html:
+            blockers.append(f"{relative} must redirect to the canonical first workflow")
+        if parser.meta.get("robots") != "noindex":
+            blockers.append(f"{relative} redirect must stay outside search")
+        if parser.canonical != "https://shardloom.io/field-guide/start-local-proof":
+            blockers.append(f"{relative} must canonicalize to the guide")
+        return
+    if relative == "field-guide/development/index.html" and "data-pagefind-body" in html:
+        blockers.append("development material must stay outside product search")
     if parser.html_lang != "en":
         blockers.append(f"{relative} must declare html lang=en")
     if not parser.title:
@@ -631,7 +643,7 @@ def main() -> int:
         for host in sorted(forbidden_runtime_hosts(text)):
             blockers.append(f"runtime file references forbidden host {host}: {relative}")
         for snippet in sorted(FORBIDDEN_RUNTIME_SNIPPETS):
-            if snippet in text:
+            if snippet in text and relative != "field-guide/development/index.html":
                 blockers.append(f"runtime file references active phase plan queue: {relative}")
         if "pagefind" in text.lower() and "pagefind/" not in relative:
             # Starlight's local Pagefind bundle is an approved static-search asset.
@@ -651,9 +663,8 @@ def main() -> int:
     link_report = check_site_links(website)
     blockers.extend(link_report["blockers"])
     expected_guide_pages = {
-        "index.html", "start-local-proof/index.html", "python-surface/index.html",
-        "runtime-and-io/index.html", "execution-model/index.html", "execution-routes/index.html",
-        "benchmark-methodology/index.html", "limitations/index.html", "compute-flow/index.html",
+        page.removeprefix("field-guide/")
+        for page in EXPECTED_PAGES if page.startswith("field-guide/")
     }
     guide_root = website / "field-guide"
     actual_guide_pages = {path.relative_to(guide_root).as_posix() for path in guide_root.rglob("*.html")}

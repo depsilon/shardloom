@@ -1,0 +1,48 @@
+---
+title: "SQL"
+description: "Use SQL through the ordinary context with the same inputs, resources and results."
+---
+
+import { Code } from '@astrojs/starlight/components';
+import GuideVersion from '../../../components/GuideVersion.astro';
+import { sqlExample, expectedRows } from '../../../data/quickstart.mjs';
+
+<GuideVersion />
+
+SQL is a language for declaring ShardLoom work. It uses the same context resource
+policy, native execution and result delivery as DataFrame expressions.
+
+## Query a local file
+
+This self-contained program creates the same fixture as the
+[DataFrame quickstart](/field-guide/start-local-proof) and returns the same rows:
+
+<Code code={sqlExample} lang="python" title="paid_orders_sql.py" />
+<Code code={expectedRows} lang="python" />
+
+## Statements and expressions
+
+The implemented SELECT-query subset includes admitted projections, filters,
+aggregates, grouping/HAVING, joins, ordering, sets, windows and subqueries.
+Literal SELECT, VALUES and generated-range inputs provide source-free forms.
+Each family has type and shape restrictions; this is not a claim of full SQL
+standard or another database's dialect compatibility.
+
+Use `ctx.sql_support()` for the installed engine's inspection report. Use plan
+inspection to check a particular expression; inspection is not query execution.
+The [published parser/binder reference](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/sql-parser-binder-readiness.md),
+[typed expression contract](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-typed-expressions-2026-10-03.md),
+and [scalar-subquery semantics](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-scalar-subqueries-2026-10-05.md)
+describe the admitted forms and deterministic rejections.
+
+COUNT, SUM, AVG, MIN, MAX and exact COUNT DISTINCT retain their type/NULL
+semantics. Decimal arithmetic binds exact output metadata before execution.
+Explicit `NULLS FIRST` or `NULLS LAST` controls NULL placement independently of
+ascending/descending ordering. Unsupported expressions fail without another engine.
+
+## Deliver the result
+
+The SQL plan supports collection, admitted batch iteration, and named writers.
+Use the [same result contract](/field-guide/python-surface#consume-results) as
+DataFrame plans. Parameters, identifiers and paths must follow the supported
+binding contract; the example interpolates only its own generated local path.

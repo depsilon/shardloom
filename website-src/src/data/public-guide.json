@@ -1,0 +1,132 @@
+{
+  "release": {
+    "release_tag": "v0.6.0",
+    "source_revision": "936313473fedca78176d1fd983446673ed8ae62b",
+    "artifact_channel": "pypi",
+    "evidence_ref": "docs/release/v0.6.0-publication-verification.md",
+    "platforms": [
+      {
+        "wheel_tag": "cp310-abi3-macosx_26_0_arm64",
+        "platform": "macOS 26 or newer, Apple silicon",
+        "python": "CPython 3.10 or newer",
+        "backends": [
+          "native",
+          "subprocess"
+        ],
+        "artifact": {
+          "filename": "shardloom-0.6.0-cp310-abi3-macosx_26_0_arm64.whl",
+          "packagetype": "bdist_wheel",
+          "python_version": "cp310",
+          "sha256": "1dc4f6c0f0c6af61c5ee29aa46dab404f089a4a16599dbddf50c6e4bf38ad8df",
+          "size": 48975023,
+          "upload_time_iso_8601": "2026-10-15T03:07:26.465489Z",
+          "url": "https://files.pythonhosted.org/packages/b2/7f/9d871079886496b3514a286177896adc2710e47311e6ffda531faab9b48c/shardloom-0.6.0-cp310-abi3-macosx_26_0_arm64.whl"
+        }
+      },
+      {
+        "wheel_tag": "cp310-abi3-manylinux_2_39_x86_64",
+        "platform": "Linux x86_64, glibc 2.39 or newer",
+        "python": "CPython 3.10 or newer",
+        "backends": [
+          "native",
+          "subprocess"
+        ],
+        "artifact": {
+          "filename": "shardloom-0.6.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "packagetype": "bdist_wheel",
+          "python_version": "cp310",
+          "sha256": "8a1acbb83b7ce12bbb9e8adea284cfc7a74515735cb5d14c5566d8c31dc555ef",
+          "size": 55253571,
+          "upload_time_iso_8601": "2026-10-15T03:07:32.388176Z",
+          "url": "https://files.pythonhosted.org/packages/06/15/b54d6410cdcd99f8e2c913f55b33bbce174f7d1325244ce830e2452afc44/shardloom-0.6.0-cp310-abi3-manylinux_2_39_x86_64.whl"
+        }
+      },
+      {
+        "wheel_tag": "cp313-cp313-win_amd64",
+        "platform": "Windows x86_64",
+        "python": "CPython 3.13",
+        "backends": [
+          "subprocess"
+        ],
+        "artifact": {
+          "filename": "shardloom-0.6.0-cp313-cp313-win_amd64.whl",
+          "packagetype": "bdist_wheel",
+          "python_version": "cp313",
+          "sha256": "c05f64e25fa3c9eac5b25c1758caebaf5a915238d93443a0e40e18229b90b613",
+          "size": 25173961,
+          "upload_time_iso_8601": "2026-10-15T03:07:36.996708Z",
+          "url": "https://files.pythonhosted.org/packages/d9/14/5ecbc4043a256c6e2bc51bf56510c216725ce0e8f19b39a830a8246dd039/shardloom-0.6.0-cp313-cp313-win_amd64.whl"
+        }
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "local-files",
+        "operation": "Read local files",
+        "types_formats": "CSV, JSON, JSONL/NDJSON, Vortex, Parquet, Arrow IPC/Feather, Avro and ORC",
+        "artifact_requirement": "Published CLI or Python wheel; source builds need the matching format features",
+        "restriction": "Local paths only. Reader options and representable types depend on the format; remote catalogs and transactions are separate work.",
+        "reference": "/field-guide/runtime-and-io#local-formats"
+      },
+      {
+        "id": "query",
+        "operation": "Filter, project, aggregate, join and order",
+        "types_formats": "Admitted typed scalar and static nested inputs",
+        "artifact_requirement": "Published CLI or Python wheel",
+        "restriction": "Only implemented expressions and relational shapes execute. Arbitrary Python callbacks and unrestricted SQL compatibility are not provided.",
+        "reference": "/field-guide/runtime-and-io#native-execution"
+      },
+      {
+        "id": "collect",
+        "operation": "Collect complete results",
+        "types_formats": "Admitted computed result schemas",
+        "artifact_requirement": "Published Python wheel",
+        "restriction": "Small computed-result collection is limited to 65,536 rows and 8 MiB. Use batches or a writer for larger admitted results. Python object conversion allocates separately.",
+        "reference": "/field-guide/python-surface#consume-results"
+      },
+      {
+        "id": "batches",
+        "operation": "Iterate result batches",
+        "types_formats": "Admitted finite results and explicitly typed finite producers",
+        "artifact_requirement": "Linux or macOS Python wheel; native columnar ownership requires a native wheel",
+        "restriction": "Full drain and final success establish completion. Process batch pipes require POSIX; Windows users should use collection or a writer. Process frames contain at most 2,048 rows and 8 MiB. A yielded batch does not certify later input.",
+        "reference": "/field-guide/python-surface#consume-results-in-batches"
+      },
+      {
+        "id": "write",
+        "operation": "Write local results",
+        "types_formats": "Vortex, CSV, JSON, JSONL, Parquet, Arrow IPC, Avro and ORC",
+        "artifact_requirement": "Published CLI or Python wheel with the matching writer",
+        "restriction": "Use a new destination. CSV translates nested values to JSON text; ORC rejects nested output. Individual writer fidelity and publication rules apply; multi-file atomic publication is not promised.",
+        "reference": "/field-guide/runtime-and-io#write-results"
+      },
+      {
+        "id": "retained-results",
+        "operation": "Reuse a native result as input",
+        "types_formats": "Admitted ShardLoom-owned arrays and exact schemas",
+        "artifact_requirement": "Linux or macOS native Python wheel; transport=native",
+        "restriction": "Version 0.6.0 admits owned results through from_arrow_table without an Arrow export. Cross-owner admission may copy under the receiving grant.",
+        "reference": "/field-guide/python-surface#keep-results-native"
+      }
+    ],
+    "version": "0.6.0",
+    "installCommand": "python -m pip install shardloom==0.6.0",
+    "sourceUrl": "https://github.com/depsilon/shardloom/tree/936313473fedca78176d1fd983446673ed8ae62b",
+    "evidenceUrl": "https://github.com/depsilon/shardloom/blob/main/docs/release/v0.6.0-publication-verification.md"
+  },
+  "examples": {
+    "snippets": {
+      "setup": "from pathlib import Path\nfrom tempfile import TemporaryDirectory\nimport shardloom as sl\n\nworkspace = TemporaryDirectory(prefix=\"shardloom-orders-\")\norders = Path(workspace.name) / \"orders.csv\"\norders.write_text(\"order_id,status\\n1,paid\\n2,pending\\n3,paid\\n\", encoding=\"utf-8\")\n\n# Illustrative caller choices: 256 MiB and two execution lanes.\nctx = sl.context(transport=\"native\", memory_bytes=256 << 20, max_parallelism=2)",
+      "dataframe": "paid = ctx.read_csv(orders).filter(sl.col(\"status\") == \"paid\").sort(\"order_id\")\nresult = paid.collect(check=True)\nprint(result.python_objects)",
+      "sql": "sql_result = ctx.sql(\n    f\"SELECT order_id, status FROM '{orders}' \"\n    \"WHERE status = 'paid' ORDER BY order_id\"\n).collect(check=True)\nprint(sql_result.python_objects)",
+      "write": "output = Path(workspace.name) / \"paid.vortex\"\nwritten = paid.write_vortex(output)\nreopened = ctx.read_vortex(output).sort(\"order_id\").collect(check=True)\nprint(reopened.python_objects)",
+      "cleanup": "ctx.client.close()\nworkspace.cleanup()"
+    },
+    "pythonExample": "from pathlib import Path\nfrom tempfile import TemporaryDirectory\nimport shardloom as sl\n\nworkspace = TemporaryDirectory(prefix=\"shardloom-orders-\")\norders = Path(workspace.name) / \"orders.csv\"\norders.write_text(\"order_id,status\\n1,paid\\n2,pending\\n3,paid\\n\", encoding=\"utf-8\")\n\n# Illustrative caller choices: 256 MiB and two execution lanes.\nctx = sl.context(transport=\"native\", memory_bytes=256 << 20, max_parallelism=2)\n\npaid = ctx.read_csv(orders).filter(sl.col(\"status\") == \"paid\").sort(\"order_id\")\nresult = paid.collect(check=True)\nprint(result.python_objects)\n\nctx.client.close()\nworkspace.cleanup()",
+    "sqlExample": "from pathlib import Path\nfrom tempfile import TemporaryDirectory\nimport shardloom as sl\n\nworkspace = TemporaryDirectory(prefix=\"shardloom-orders-\")\norders = Path(workspace.name) / \"orders.csv\"\norders.write_text(\"order_id,status\\n1,paid\\n2,pending\\n3,paid\\n\", encoding=\"utf-8\")\n\n# Illustrative caller choices: 256 MiB and two execution lanes.\nctx = sl.context(transport=\"native\", memory_bytes=256 << 20, max_parallelism=2)\n\nsql_result = ctx.sql(\n    f\"SELECT order_id, status FROM '{orders}' \"\n    \"WHERE status = 'paid' ORDER BY order_id\"\n).collect(check=True)\nprint(sql_result.python_objects)\n\nctx.client.close()\nworkspace.cleanup()",
+    "expectedRows": "({'order_id': 1, 'status': 'paid'}, {'order_id': 3, 'status': 'paid'})",
+    "csvFixture": "order_id,status\n1,paid\n2,pending\n3,paid\n",
+    "cliExample": "workspace=\"$(mktemp -d)\"\ntrap 'rm -rf \"$workspace\"' EXIT\nprintf '%s' 'order_id,status\n1,paid\n2,pending\n3,paid\n' > \"$workspace/orders.csv\"\nshardloom run sql --input \"$workspace/orders.csv\" \\\n  --sql \"SELECT order_id, status FROM '$workspace/orders.csv' WHERE status = 'paid' ORDER BY order_id\" \\\n  --request collect --bounded true --memory-bytes 268435456 --max-parallelism 2 --format json",
+    "developmentExample": "# SPDX-License-Identifier: Apache-2.0\n\"\"\"Unpublished-source example: reuse completed data after its context closes.\"\"\"\n\nimport shardloom as sl\n\n\ndef reuse_completed_result(transport=None):\n    # Illustrative caller choices, not automatic engine defaults.\n    resources = {\"memory_bytes\": 256 << 20, \"max_parallelism\": 2}\n    with sl.context(transport=transport, **resources) as ctx:\n        result = ctx.range(1, 4, column=\"id\").filter(sl.col(\"id\") != 2).collect()\n\n    # The completed result owns its data independently of the closed context.\n    with sl.context(transport=transport, **resources) as receiver:\n        return receiver.from_result(result).sort(\"id\").collect()\n\n\nif __name__ == \"__main__\":\n    print(reuse_completed_result().to_rows())"
+  }
+}

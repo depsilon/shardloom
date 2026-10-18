@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import textwrap
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -54,6 +56,12 @@ class V1FrontDoorRuntimeScopeTests(unittest.TestCase):
         *,
         fail_write: bool = False,
     ) -> list[str]:
+        worker_env_patch = mock.patch.dict(
+            os.environ,
+            {"SHARDLOOM_PERSISTENT_WORKER": "0"},
+        )
+        worker_env_patch.start()
+        self.addCleanup(worker_env_patch.stop)
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         if calls_path is None:
@@ -312,7 +320,7 @@ class V1FrontDoorRuntimeScopeTests(unittest.TestCase):
         run_commands = [args for args in commands if args and args[0] == "run"]
         self.assertEqual(len(run_commands), 10, commands)
         self.assertEqual([args[:2] for args in run_commands], [["run", "sql"]] * 10)
-        self.assertEqual({args[0] for args in commands}, {"run", "python-worker"})
+        self.assertEqual({args[0] for args in commands}, {"run"})
         requests = [args[args.index("--request") + 1] for args in run_commands]
         self.assertEqual(
             requests,
@@ -387,7 +395,7 @@ class V1FrontDoorRuntimeScopeTests(unittest.TestCase):
         if source_path not in sys.path:
             sys.path.insert(0, source_path)
         from shardloom import context
-        from shardloom import UnsupportedWorkflowOperationReport
+        from shardloom.diagnostics import UnsupportedWorkflowOperationReport
 
         ctx = context(repo_root=REPO_ROOT, binary=self.fake_cli())
         frame = ctx.read_csv("events.csv", schema={"id": "int64"})

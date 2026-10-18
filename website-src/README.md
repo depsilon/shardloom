@@ -31,14 +31,17 @@ npm run check
 
 The build must not run ShardLoom benchmarks, fetch runtime GitHub/raw content, publish packages, or
 expand support claims. The benchmark page links to ClickBench instead of rendering committed local
-artifact rows as a public leaderboard. `npm run sync-content` generates the nine public Field Guide
-pages from `website-src/scripts/sync-content.mjs`, and keeps repository use-case records under
-`docs/use-cases/generated/` for source-of-truth evidence instead of publishing a generated use-case
-browser. `website-src/src/data/field-guide.json` is retained as vocabulary and backlink metadata;
-`sync-content.mjs` uses its redirects to send retired vocabulary URLs to current guide sections.
+artifact rows as a public leaderboard. `npm run sync-content` copies the canonical compute-flow reference
+into website assets, generates repository use-case records under `docs/use-cases/generated/` for
+source-of-truth evidence instead of publishing a generated use-case browser, and refreshes redirects
+from retired Field Guide vocabulary. `website-src/src/data/field-guide.json` remains vocabulary and
+backlink metadata; it is not the owner of guide copy.
 
-Edit Field Guide page content in `website-src/scripts/sync-content.mjs`; its MDX files are generated.
-Do not use `src/data/field-guide.json` for guide copy. Each `.html` compatibility page must be
+The nine public Field Guide pages are hand-authored MDX under
+`website-src/src/content/docs/field-guide/`. Edit those files directly; `sync-content.mjs` does not
+overwrite or prune guide pages. It removes only the specifically retired
+`website-src/src/content/docs/docs.mdx` Starlight source, which would reintroduce the old `/docs`
+route that the clean-slate IA redirects to `/field-guide/`. Each `.html` compatibility page must be
 byte-identical to its canonical directory page after the build. Old bookmarks must never select
 separate page content. From the repository root, validate with:
 

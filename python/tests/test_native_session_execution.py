@@ -10,8 +10,10 @@ from types import SimpleNamespace
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from shardloom import ShardLoomClient, ShardLoomContext, SessionSqlResult, VortexWorkflowExecutionReport
+from shardloom import ShardLoomContext
+from shardloom.diagnostics import ShardLoomClient, SessionSqlResult
 from shardloom.models import OutputEnvelope
+from shardloom.query import Result
 
 
 def response(value, *, reused=False):
@@ -50,14 +52,16 @@ class NativeSessionExecutionTests(unittest.TestCase):
 
     def test_source_free_sql_reset_and_close_share_the_native_owner(self):
         workflow = self.session.sql("SELECT 1 AS id")
-        with mock.patch.object(self.client, "close") as close:
+        with mock.patch.object(self.client, "close") as close, mock.patch.object(self.client, "release_prepared") as release:
             with mock.patch.object(self.client, "public_workflow_run", return_value=response(1)) as execute:
                 result = workflow.collect(reuse=False)
             self.assertIsInstance(result, SessionSqlResult)
             self.assertEqual(execute.call_count, 1)
-            self.assertEqual(close.call_count, 1)
+            self.assertEqual(close.call_count, 0)
+            self.assertEqual(release.call_count, 1)
+            self.assertFalse(self.session.closed)
             self.session.close()
-            self.assertEqual(close.call_count, 2)
+            self.assertEqual(close.call_count, 1)
             with self.assertRaisesRegex(RuntimeError, "closed"):
                 workflow.collect()
 
@@ -72,12 +76,12 @@ class NativeSessionExecutionTests(unittest.TestCase):
                     "public_workflow_preparation_source_state_digest": "source-digest-1",
                     "public_workflow_local_source_prepared_vortex_path": "/native/input.vortex",
                 }, command="run")
-                report = VortexWorkflowExecutionReport(frame, "collect", envelope)
+                report = Result(frame, "collect", envelope)
                 self.assertEqual(report.vortex_ingest_performed, performed)
                 self.assertEqual(report.prepared_vortex_path, "/native/input.vortex")
                 self.assertEqual(report.source_state_id, "source-state-1")
                 self.assertEqual(report.source_state_digest, "source-digest-1")
-        report = VortexWorkflowExecutionReport(frame, "collect", response(1).envelope)
+        report = Result(frame, "collect", response(1).envelope)
         self.assertFalse(report.vortex_ingest_performed)
         self.assertIsNone(report.prepared_vortex_path)
         self.assertIsNone(report.source_state_id)

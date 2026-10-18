@@ -9,9 +9,10 @@ import os
 import selectors
 import subprocess
 import time
+import threading
 from typing import Any, Mapping, Sequence
 
-from .errors import ShardLoomCommandError, ShardLoomProtocolError
+from .errors import ShardLoomCommandError, ShardLoomProtocolError, ShardLoomTimeoutError
 from ._result_schema import ResultType, python_rows, schema_fields
 
 _MAX_INPUT_FRAME = 8 << 20
@@ -107,6 +108,14 @@ class ResultBatch:
     result_schema: tuple[tuple[str, ResultType], ...]
 
     @property
+    def schema(self):
+        return self.result_schema
+
+    def to_rows(self):
+        """Explicitly convert this provisional batch into logical Python values."""
+        return self.python_objects
+
+    @property
     def result_columns(self) -> tuple[str, ...]:
         return tuple(name for name, _ in self.result_schema)
 
@@ -141,6 +150,7 @@ class ResultBatchIterator:
     """
 
     def __init__(self, client, args, *, inputs=None, batch_rows=2048, stream_results=True, check=True):
+        client._ensure_open()
         if type(batch_rows) is not int or not 1 <= batch_rows <= 2048:
             raise ValueError("batch_rows must be an integer in 1..=2048")
         if os.name != "posix":
@@ -162,9 +172,16 @@ class ResultBatchIterator:
         self._rows = 0
         self._schema = None
         self._closed = False
+        self._cancelled = threading.Event()
+        self._iteration_lock = threading.RLock()
+        self._closing = False
+        self._pulling = False
         self._command = _redact_command_for_error([*client._binary_parts(), *self._args])
         self.report = None
         self._terminal_envelope = None
+        with client._native_backend_lock:
+            client._ensure_open()
+            client._batch_streams.add(self)
 
     def __enter__(self):
         return self
@@ -184,6 +201,7 @@ class ResultBatchIterator:
     def _start(self, deadline):
         if self._process is not None:
             return
+        self._client._ensure_open()
         self._process = subprocess.Popen(
             [*self._client._binary_parts(), "python-worker", "--batch-stream"],
             cwd=self._client._cwd, env=self._client._effective_env(),
@@ -196,13 +214,16 @@ class ResultBatchIterator:
                      "batch_rows": self._batch_rows}, deadline, 16 << 20)
 
     def _ready(self, stream, event, deadline):
-        remaining = None if deadline is None else deadline - time.monotonic()
-        if remaining is not None and remaining <= 0:
-            raise subprocess.TimeoutExpired(self._command, self._client._timeout)
         with selectors.DefaultSelector() as selector:
             selector.register(stream, event)
-            if not selector.select(remaining):
-                raise subprocess.TimeoutExpired(self._command, self._client._timeout)
+            while True:
+                if not self._closing:
+                    self._raise_if_cancelled()
+                remaining = None if deadline is None else deadline - time.monotonic()
+                if remaining is not None and remaining <= 0:
+                    raise ShardLoomTimeoutError(self._command, self._client._timeout)
+                if selector.select(0.05 if remaining is None else min(0.05, remaining)):
+                    return
 
     def _write(self, value, deadline, maximum=_MAX_INPUT_FRAME):
         # iterencode caps temporary JSON storage before completing a large frame.
@@ -273,16 +294,32 @@ class ResultBatchIterator:
             self._input_indices[uri] = index + 1
 
     def __next__(self):
-        if self._closed:
+        with self._iteration_lock:
+            self._pulling = True
+            try:
+                return self._next_batch()
+            finally:
+                self._pulling = False
+
+    def _raise_if_cancelled(self):
+        if self._cancelled.is_set():
+            self._cancelled.clear()
+            from .errors import _cancelled_error
+            raise _cancelled_error(self._command, forced=False)
+
+    def _next_batch(self):
+        if self._closed and not self._cancelled.is_set():
             raise StopIteration
         deadline = self._deadline()
         try:
+            self._raise_if_cancelled()
             self._start(deadline)
             if self._ack is not None:
                 self._write({"kind": "ack", "index": self._ack}, deadline)
                 self._ack = None
             while True:
                 text, value = self._read(deadline)
+                self._raise_if_cancelled()
                 if value.get("kind") == "input":
                     self._provide_input(value, deadline)
                     continue
@@ -311,6 +348,7 @@ class ResultBatchIterator:
                     raise ShardLoomProtocolError("native batch final report has duplicate fields")
                 remaining = None if deadline is None else max(0.001, deadline - time.monotonic())
                 code = self._process.wait(timeout=remaining)
+                self._raise_if_cancelled()
                 if code != 0 or envelope.status != "success":
                     if self._check or self._stream_results:
                         raise ShardLoomCommandError(command=self._command, returncode=code or 2,
@@ -348,8 +386,26 @@ class ResultBatchIterator:
             pass
 
     def close(self):
+        with self._iteration_lock:
+            self._close()
+
+    def cancel(self):
+        """Request cooperative cancellation, including a currently blocked read."""
         if self._closed:
             return
+        self._cancelled.set()
+        if self._pulling:
+            return
+        if self._iteration_lock.acquire(blocking=False):
+            try:
+                self._close()
+            finally:
+                self._iteration_lock.release()
+
+    def _close(self):
+        if self._closed:
+            return
+        self._closing = True
         try:
             self._stop_process()
         finally:
@@ -389,6 +445,8 @@ class ResultBatchIterator:
 
     def _finish_close(self):
         self._closed = True
+        with self._client._native_backend_lock:
+            self._client._batch_streams.discard(self)
         cleanup_error = None
         owners = list(self._iterators.values())
         if self._process is not None:

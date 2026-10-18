@@ -3850,7 +3850,7 @@ fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
     )));
     assert!(output.contains(&string_field_pair(
         "command_registry_row_help_usage_fragment",
-        "help [command]"
+        "help [--audience application|maintainer|all] [command]"
     )));
     assert!(output.contains(&string_field_pair(
         "command_registry_row_vortex_prepare_input_contract",

@@ -48,13 +48,14 @@ from .query import (
     LazyFrame,
     SqlWorkflow,
     UnsupportedWorkflowOperationReport,
-    VortexWorkflowExecutionReport,
+    Result,
     WorkflowSource,
     calendar as generated_calendar,
     dataframe_generated_with_column as generated_dataframe_generated_with_column,
     dataframe_source_free_projection as generated_dataframe_source_free_projection,
     from_arrow_ipc,
     from_arrow_table,
+    from_result,
     from_vortex_ipc,
     from_pandas,
     from_rows,
@@ -553,7 +554,7 @@ class GeneratedObjectStoreOutputReport:
     staging_path: str
     output_format: str
     provider_profile: str
-    generated_report: VortexWorkflowExecutionReport
+    generated_report: Result
     object_store_report: OutputEnvelope
     object_store_recovery_report: OutputEnvelope | None = None
 
@@ -840,7 +841,7 @@ class FoundryGeneratedOutputReport:
     output_ref: str
     result_dataset_path: str
     evidence_dataset_path: str
-    generated_report: VortexWorkflowExecutionReport
+    generated_report: Result
     result_dataset_report: Mapping[str, object]
     evidence_dataset_report: Mapping[str, object]
 
@@ -5176,9 +5177,9 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         cli_commands=("run", "vortex-prepare"),
         context_methods=("sql", "run", "read", "read_csv", "read_json", "read_vortex",
                          "from_vortex_ipc",
-                         "from_rows", "from_batches", "literal_table", "range", "sequence", "calendar",
+                         "from_rows", "from_result", "from_batches", "literal_table", "range", "sequence", "calendar",
                          "sql_values", "sql_literal_select", "dataframe_source_free_projection",
-                         "dataframe_generated_with_column", "prepare_vortex", "session"),
+                         "dataframe_generated_with_column", "prepare_vortex", "session", "cancel", "close"),
         client_methods=("public_workflow_run", "public_workflow_batches", "vortex_prepare"),
         runtime_route="native_vortex_query",
         promotion_criteria="one native planner, source admission, resource policy and sink contract",
@@ -5192,8 +5193,8 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "Context construction and environment/repo binding",
         "high_level_context",
         "side_effect_free_constructor",
-        context_methods=("from_env", "from_repo", "resources", "resource_limits", "transport"),
-        client_methods=("from_env", "from_repo", "resources", "resource_limits", "transport"),
+        context_methods=("from_env", "from_repo", "resources", "resource_limits", "transport", "closed"),
+        client_methods=("from_env", "from_repo", "resources", "resource_limits", "transport", "closed"),
         runtime_route="constructor_only_no_runtime_execution",
         promotion_criteria="constructs a high-level context without probing data, catalogs, or engines",
         evidence_refs=("context_constructor_no_side_effect_docstrings", "python_import_smoke"),
@@ -5205,7 +5206,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "Low-level client invocation and binary resolution",
         "client_only",
         "explicit_cli_invocation",
-        client_methods=("run", "binary_command", "cancel", "close"),
+        client_methods=("run", "binary_command", "cancel", "close", "release_prepared"),
         runtime_route="explicit_user_requested_cli_command",
         promotion_criteria=(
             "low-level escape hatch and explicit local worker lifecycle control stay available "
@@ -10106,8 +10107,8 @@ class ShardLoomContext:
     """High-level Python context for side-effect-free discovery and explicit work.
 
     Constructing a context does not run the ShardLoom CLI, inspect datasets, probe
-    catalogs, touch object stores, or invoke external engines. Methods run only
-    explicit ShardLoom CLI JSON commands through the wrapped client.
+    catalogs, touch object stores, or invoke external engines. It selects its
+    installation backend once and shares that owner's sources, plans and results.
     """
 
     def __init__(
@@ -10133,10 +10134,12 @@ class ShardLoomContext:
         )
         if client is not None and transport is not None:
             raise ValueError("client cannot be combined with transport configuration")
+        from ._native_backend import application_transport
         self.client = client if client is not None else ShardLoomClient.from_env(
-            transport="subprocess" if transport is None else transport,
+            transport=application_transport(transport),
         )
         self.engine = _normalize_engine_mode(engine)
+        self._preparation_session: ShardLoomSession | None = None
 
     @property
     def resources(self) -> ExecutionResources | None:
@@ -10156,6 +10159,29 @@ class ShardLoomContext:
 
         return self.client.transport
 
+    @property
+    def closed(self) -> bool:
+        """Whether this context's shared execution owner rejects future work."""
+        return self.client.closed
+
+    def cancel(self) -> None:
+        """Cancel current work through the selected backend; completed results live on."""
+        self.client.cancel()
+
+    def close(self) -> None:
+        """Revoke new work and close shared session state, preserving completed data."""
+        if self._preparation_session is not None:
+            self._preparation_session.close()
+        else:
+            self.client.close()
+
+    def __enter__(self) -> "ShardLoomContext":
+        self.client._ensure_open()
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
     @classmethod
     def from_env(
         cls,
@@ -10172,6 +10198,10 @@ class ShardLoomContext:
     ) -> "ShardLoomContext":
         """Create a context from environment configuration without running commands."""
 
+        from ._native_backend import application_transport
+        kwargs["transport"] = application_transport(
+            kwargs.get("transport"), binary=kwargs.get("binary"), env=env,
+        )
         return cls(
             ShardLoomClient.from_env(
                 env=env,
@@ -11049,7 +11079,7 @@ class ShardLoomContext:
             allow_overwrite=allow_overwrite,
             check=check,
         )
-        if (not isinstance(generated_report, VortexWorkflowExecutionReport)
+        if (not isinstance(generated_report, Result)
                 or generated_report.status != "success"
                 or generated_report.rows_written is None):
             raise ValueError("generated result sink did not report a successful native write")
@@ -11380,6 +11410,7 @@ class ShardLoomContext:
         max_parallelism: int | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
+        reuse: bool = True,
         check: bool = True,
     ) -> VortexIngestSmokeReport:
         """Prepare one local compatibility input to a caller-selected Vortex artifact."""
@@ -11390,7 +11421,7 @@ class ShardLoomContext:
         )
         if target_vortex_path is None:
             raise ValueError("prepare_vortex requires target_vortex_path")
-        return self.client.vortex_prepare(
+        return self.session().prepare_vortex(
             source_path,
             target_vortex_path,
             input_format=input_format,
@@ -11398,8 +11429,9 @@ class ShardLoomContext:
             certification_level=certification_level,
             memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
             max_parallelism=max_parallelism,
+            reuse=reuse,
             check=check,
-        )
+        ).report
 
     def object_store_read_smoke(
         self,
@@ -11652,20 +11684,46 @@ class ShardLoomContext:
         resources: ExecutionResources | None = None,
         resource_limits: ExecutionResourceLimits | None = None,
     ) -> ShardLoomSession:
-        """Create a caller-owned local session for scoped prepared-state reuse."""
+        """Return a compatibility session sharing this context's lifetime.
 
+        The unconfigured session also owns this context's prepared-artifact
+        cache. Closing either facade revokes work through the shared client.
+        """
+
+        self.client._ensure_open()
+        shared = all(value is None for value in (
+            session_id, memory_gb, memory_bytes, max_parallelism, resources, resource_limits,
+        ))
+        if shared and self._preparation_session is not None:
+            return self._preparation_session
         allocation = optional_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes,
             max_parallelism=max_parallelism, resources=resources,
             inherited=self.resources, limits=merge_resource_limits(self.resource_limits, resource_limits), origin="session",
         )
-        return ShardLoomSession(
+        result = ShardLoomSession(
             self.client,
             engine=self.engine,
             session_id=session_id,
             resources=allocation,
             resource_limits=merge_resource_limits(self.resource_limits, resource_limits),
         )
+        if shared:
+            self._preparation_session = result
+        return result
+
+    def from_result(
+        self, result: object, *, memory_gb: int | None = None,
+        memory_bytes: int | None = None, max_parallelism: int | None = None,
+        resources: ExecutionResources | None = None,
+    ) -> LazyFrame:
+        """Reuse completed native data through its actual retained owner."""
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+        return from_result(result, client=self.client, engine_mode=self.engine,
+                           resources=allocation, resource_limits=self.resource_limits)
 
     def from_rows(
         self, rows: Sequence[Mapping[str, object]], *, schema: Mapping[str, object] | None = None,
@@ -11929,9 +11987,9 @@ def context(
 ) -> ShardLoomContext:
     """Return a side-effect-free ShardLoom context.
 
-    Passing `repo_root` selects source-tree binary resolution; otherwise the
-    context uses environment/PATH resolution. The function only constructs a
-    client and does not run the CLI.
+    Native Linux/macOS installations use in-process execution. Windows or an
+    explicit binary/repo configuration uses the CLI; `transport` overrides this
+    installation choice. Construction does not execute or allocate resources.
     """
 
     resources = optional_resources(
@@ -11966,7 +12024,7 @@ def context(
         profile_order=profile_order,
         timeout=timeout,
         engine=engine,
-        transport="subprocess" if transport is None else transport,
+        transport=transport,
         resources=resources,
         resource_limits=resource_limits,
     )

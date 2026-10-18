@@ -1,0 +1,64 @@
+---
+title: "Use the CLI"
+description: "Execute and inspect a local query with explicit resources and stable JSON output."
+sidebar: {label: "CLI"}
+---
+
+import { Code } from '@astrojs/starlight/components';
+import GuideVersion from '../../../components/GuideVersion.astro';
+import { cliExample, expectedRows } from '../../../data/quickstart.mjs';
+
+<GuideVersion />
+
+## Install the executable
+
+For macOS/Linux with Homebrew:
+
+```sh
+brew install depsilon/tap/shardloom
+shardloom status --format json
+```
+
+The Python wheel also bundles a compatible CLI. Exact download artifacts and
+source builds are linked from [installation](/field-guide/start-local-proof).
+
+## Query the same orders
+
+Run this in a POSIX shell. It creates a temporary CSV and returns the same
+complete paid-order values as the Python and SQL examples. The 256 MiB and two
+lanes are illustrative caller allocations.
+
+`--bounded true` declares that this known three-row fixture fits collection;
+it does not remove the result size limits or truncate larger data.
+
+<Code code={cliExample} lang="sh" />
+
+The stable JSON envelope contains the result schema, values and execution
+diagnostics. The row values are:
+
+<Code code={expectedRows} lang="python" />
+
+`run sql` identifies the input language. `run dataframe` expresses a DataFrame
+request through the same engine; neither label selects another execution backend.
+Use `--format json` for automation and inspect the success/error envelope rather
+than scraping human text.
+
+## Find an operation
+
+| Task | Command family |
+| --- | --- |
+| Execute an admitted plan | `run` |
+| Prepare a reusable Vortex artifact | `prepare` |
+| Inspect planned work and boundaries | `route`, `explain`, `estimate` |
+| Inspect capabilities or setup | `capabilities`, `status`, `doctor` |
+| Read exact command arguments | `help COMMAND` |
+| Discover machine-readable command metadata | `command-metadata --format json` |
+
+The installed registry is the authority for arguments and available commands.
+In 0.6.0 the complete metadata also includes maintainer smoke/rehearsal commands;
+they are tools for contributors, not alternate ways to execute a production query.
+The [source reference](/field-guide/reference) distinguishes application and
+maintainer discovery for development builds.
+
+Plan/capability inspection is not query execution. Writers require explicit
+destinations and follow the [format and publication contract](/field-guide/runtime-and-io#write-results).

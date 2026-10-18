@@ -1,43 +1,119 @@
 ---
-title: "Install and run"
-description: "Install the published local engine and inspect native execution evidence."
-sidebar: {"label":"Install and run","order":1}
+title: "Install and query your first data"
+description: "Install ShardLoom, select resources, return paid orders, and write a native Vortex file."
+sidebar: {label: "Install and run"}
 ---
 
+import { Code } from '@astrojs/starlight/components';
+import GuideVersion from '../../../components/GuideVersion.astro';
+import PackagePlatforms from '../../../components/PackagePlatforms.astro';
+import { release } from '../../../data/release.mjs';
+import { pythonExample, snippets, expectedRows } from '../../../data/quickstart.mjs';
 
-ShardLoom 0.6.0 is a published local engine. Install from PyPI or Homebrew,
-then follow the [local query walkthrough](/start). GitHub pre-release and TestPyPI artifacts are
-also available; see [package installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md)
-for supported platforms and channel verification.
+<GuideVersion />
 
-**Operational hardening is in progress.** Preview support refers to the remaining workload,
-resource and failure acceptance. Package availability is verified. Read the
-[local-engine exit criteria](/field-guide/limitations#release-and-readiness) before relying on a
-production support promise.
+Read three orders, return the two paid orders, then save them as a Vortex file.
+You need Python and one compatible package below. No repository checkout,
+PyArrow, pandas, or NumPy is needed for this example.
 
+<a id="1-install-a-package"></a>
 ## Install
 
+Use a fresh Python virtual environment, then install the named release:
+
 ```sh
-python -m pip install shardloom
-# Or install the CLI with Homebrew
-brew install depsilon/tap/shardloom
+python -m venv .venv
 ```
 
-## Develop from source
+Activate it on macOS or Linux:
 
-For development, follow [source checkout installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md).
+```sh
+. .venv/bin/activate
+```
 
-## Verify execution
+On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1` instead.
 
-- `fallback_attempted=false`
-- `external_engine_invoked=false`
-- a visible `claim_gate_status`
-- local output evidence or a deterministic blocker
+<Code code={release.installCommand} lang="sh" />
 
-## Boundary
+<PackagePlatforms />
 
-Check the
-[supported surface](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/v1-supported-unsupported.md)
-and [troubleshooting guide](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/troubleshooting-support.md).
-Neither establishes production readiness, broad SQL/DataFrame parity, object-store runtime, or
-performance superiority.
+The example selects `transport="native"` on Linux or macOS. On the Windows
+package, use `transport="subprocess"`. This changes process isolation, not the
+query engine. The Windows wheel has build and artifact inspection evidence;
+it does not have the Linux/macOS native runtime coverage. The source distribution
+contains no compiled engine; use the [source build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md)
+if no wheel matches your platform. PyPy and other CPU/OS combinations are not
+covered by these wheel tags.
+
+<a id="2-bring-a-local-file"></a>
+<a id="3-run-and-inspect"></a>
+## Read and collect
+
+Save this as `quickstart.py` and run `python quickstart.py`. It creates the CSV
+in a new temporary directory, so it needs no pre-existing file or working directory.
+The **256 MiB and two lanes** are small example allocations selected by the caller,
+not defaults or machine sizing advice.
+
+<Code code={pythonExample} lang="python" title="quickstart.py" />
+
+Expected values:
+
+<Code code={expectedRows} lang="python" />
+
+`read_csv`, `filter`, and `sort` declare the plan. `collect(check=True)` executes
+it and raises a typed error on execution failure. Accessing `python_objects`
+explicitly allocates Python values from the completed result. This example is
+small; use [batches or a writer](/field-guide/python-surface#consume-results)
+for larger output.
+
+## Express the same work in SQL
+
+Insert this before the two cleanup lines in `quickstart.py`. It uses the same
+input and resources and returns the same complete values shown above.
+
+<Code code={snippets.sql} lang="python" />
+
+SQL and DataFrame expressions describe work for ShardLoom's native execution.
+Supported statements and expressions are listed in the [SQL reference](/field-guide/sql).
+
+## Write and reopen
+
+Insert this before cleanup to persist the DataFrame result. The destination is
+new; this example does not overwrite an existing file.
+
+<Code code={snippets.write} lang="python" />
+
+The reopened file returns the same two rows. Vortex preserves the native
+representation; [other writers](/field-guide/runtime-and-io#write-results)
+have explicit type and fidelity contracts. Cleanup removes this example's temporary directory.
+
+<details>
+  <summary>Inspect execution details</summary>
+  <p><code>result.result_schema</code> describes the delivered columns.
+  <code>result.envelope</code> contains the structured execution report;
+  <code>result.fallback_attempted</code> and <code>result.external_engine_invoked</code>
+  are false. Inspection does not rerun the query.</p>
+  <p>See <a href="/field-guide/execution-model#execution-evidence">execution evidence</a>
+  and <a href={release.evidenceUrl}>published artifact verification</a>.</p>
+</details>
+
+<a id="or-run-the-same-query-with-the-cli"></a>
+## Use the CLI
+
+The [CLI guide](/field-guide/cli) runs the same paid-orders query with an explicit
+resource allocation. Homebrew installs the executable independently of Python.
+
+<a id="support-and-source-development"></a>
+<a id="boundary"></a>
+<a id="verify-execution"></a>
+## Get help
+
+For installation, resource, or unsupported-operation errors, use
+[troubleshooting](/field-guide/troubleshooting). Check
+[version-specific capabilities and known issues](/field-guide/limitations)
+before expanding this example. Unsupported work raises a diagnostic; it is never
+delegated to another query engine.
+
+<a id="develop-from-source"></a>
+Source builds and unreleased API changes have their own
+[development and migration page](/field-guide/development).

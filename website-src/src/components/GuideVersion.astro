@@ -1,0 +1,15 @@
+---
+import { release } from "../data/release.mjs";
+const { development = false } = Astro.props;
+---
+<aside class="guide-version" aria-label="Documentation version" data-pagefind-ignore>
+  <strong>{development ? "Development source" : `Published ${release.version}`}</strong>
+  <span>{development ? "These API changes are not in the published package." : "Examples and availability refer to this package."}</span>
+  <a href={development ? "/field-guide/start-local-proof" : "/field-guide/development"}>
+    {development ? "Published guide" : "Development and migration"}
+  </a>
+</aside>
+<style>
+  .guide-version { display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: .8rem 1rem; border: 1px solid var(--sl-color-gray-5); border-radius: .5rem; font-size: .85rem; }
+  .guide-version span { color: var(--sl-color-gray-2); }
+</style>

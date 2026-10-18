@@ -100,15 +100,11 @@ COMMAND_FAMILY_FUNCTIONS = (
     ("is_optimizer_planning_command", "optimizer_planning"),
     ("is_extension_planning_command", "extension_planning"),
 )
+# Canonical onboarding/snippet/release facts are checked by check_v1_docs_productization; this check owns contributor proof.
 REQUIRED_DOC_MARKERS = {
     "README.md": [
         "https://shardloom.io/field-guide/python-surface/",
         "docs/reference/shardloom-user-surface-index.md",
-    ],
-    "python/README.md": [
-        "user_surface_graduation_matrix",
-        "high_level_context",
-        "client_only",
     ],
     "docs/status/cli-command-registry.md": [
         "user_surface_graduation_posture",

@@ -1,0 +1,14 @@
+---
+import { release } from "../data/release.mjs";
+---
+<table>
+  <thead><tr><th>Platform</th><th>Python</th><th>Execution backend</th></tr></thead>
+  <tbody>{release.platforms.map((row) => (
+    <tr><td>{row.platform}</td><td>{row.python}</td><td>{row.backends.join(" or ")}</td></tr>
+  ))}</tbody>
+</table>
+<details>
+  <summary>Exact package artifacts and provenance</summary>
+  <ul>{release.platforms.map((row) => <li><a href={row.artifact.url}><code>{row.artifact.filename}</code></a></li>)}</ul>
+  <p><a href={release.evidenceUrl}>Installation and artifact verification</a> · <a href={release.sourceUrl}>Release source</a></p>
+</details>

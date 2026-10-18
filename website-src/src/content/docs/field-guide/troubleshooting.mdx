@@ -1,0 +1,37 @@
+---
+title: "Troubleshooting"
+description: "Resolve installation, resource, schema, execution and output errors."
+---
+
+import GuideVersion from '../../../components/GuideVersion.astro';
+
+<GuideVersion />
+
+| Symptom | Next action |
+| --- | --- |
+| pip cannot find a compatible distribution | Compare Python, OS and architecture with the [exact wheel requirements](/field-guide/limitations#platforms-and-packages). Use a matching environment or a source build. |
+| Native module unavailable | Install a native Linux/macOS wheel, or explicitly select supported process transport and a compatible CLI. Do not retry a failed execution through a different backend. |
+| CLI binary unavailable | Use the bundled CLI from a matching wheel, Homebrew, or explicitly configure `SHARDLOOM_BIN`. Source distributions have no bundled executable. |
+| Missing or malformed execution resources | Set both memory and parallelism before data inspection or execution. See [resources](/field-guide/resources). |
+| Unsupported type or expression | Inspect the diagnostic and the relevant [operation contract](/field-guide/runtime-and-io); capability inspection does not grant support for arbitrary shapes. |
+| Result exceeds collection limits | Consume batches or use a writer when supported. Do not treat a successful prefix as a complete result. |
+| Destination exists or writer rejects a type | Choose a new destination and a writer that preserves the required schema. Check the publication report before consuming output. |
+| A late producer error follows yielded batches | Treat the operation as failed; full input observation and final success are required. Close the iterator and handle its diagnostic. |
+
+## Inspect an error
+
+Use `collect(check=True)` for throwing execution in published 0.6.0.
+`ShardLoomCommandError` carries its structured output envelope. Keep the stable
+diagnostic code and input/type/resource context when reporting a problem;
+avoid including credentials or private data. Unsupported execution never falls
+back to another engine.
+
+## Safe inspection
+
+`shardloom status --format json`, `shardloom doctor --format json`, and
+`shardloom capabilities --format json` inspect their documented state. They do
+not execute your workload. The [support-bundle reference](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/troubleshooting-support.md)
+describes local/redacted support data and what the command does not collect.
+
+Report reproducible issues at [GitHub](https://github.com/depsilon/shardloom/issues)
+with the installed version, platform, minimal example, and diagnostic code.

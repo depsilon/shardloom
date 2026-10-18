@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from shardloom import QuickstartProofReport, ShardLoomClient, quickstart_proof
+from shardloom.diagnostics import ShardLoomClient
+from shardloom.testing import QuickstartProofReport, quickstart_proof
 
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     """
@@ -43,6 +46,12 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 
 class QuickstartProofTests(unittest.TestCase):
     def fake_cli(self, body: str) -> list[str]:
+        worker_env_patch = mock.patch.dict(
+            os.environ,
+            {"SHARDLOOM_PERSISTENT_WORKER": "0"},
+        )
+        worker_env_patch.start()
+        self.addCleanup(worker_env_patch.stop)
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         path = Path(tempdir.name) / "fake_shardloom.py"

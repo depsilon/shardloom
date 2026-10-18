@@ -1,0 +1,14 @@
+---
+import evidence from "../../../docs/benchmarks/evidence/native-roadmap-fresh-uat-2026-10-18.json";
+const seconds = Number(evidence.full43_engine_seconds);
+if (evidence.full43_calls !== 43 || !Number.isFinite(seconds) || seconds <= 0 ||
+    !evidence.all_members_reopened || evidence.performance_claim) {
+  throw new Error("Benchmark summary requires complete, non-comparative Full43 evidence");
+}
+---
+<p><strong>{seconds.toFixed(3)} s Full43 engine time</strong> in the recorded October 18, 2026
+  development run: {evidence.full43_calls} queries, one execution each, with
+  complete values and schemas verified. This is one regression observation,
+  not a matched speedup or a measurement of the published package.</p>
+<p>Source <a href={`https://github.com/depsilon/shardloom/tree/${evidence.source_commit}`}><code>{evidence.source_commit.slice(0, 12)}</code></a> ·
+  <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-roadmap-fresh-uat-2026-10-18.md">method, complete results and reproducible evidence</a>.</p>

@@ -36,6 +36,18 @@ def normalize_schema(schema: Mapping[str, object] | None) -> tuple[tuple[str, Re
     return tuple(fields)
 
 
+def result_type_specification(dtype: ResultType) -> dict[str, object]:
+    """Project verified result metadata into the existing typed input contract."""
+    value: dict[str, object] = {"type": dtype.label, "nullable": dtype.nullable}
+    if dtype.name in {"list", "fixed_size_list"}:
+        value.update(type=dtype.name, item=result_type_specification(dtype.parameters[0]))
+        if dtype.name == "fixed_size_list":
+            value["size"] = dtype.parameters[1]
+    elif dtype.name == "struct":
+        value["fields"] = {name: result_type_specification(child) for name, child in dtype.parameters}
+    return value
+
+
 def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultType:
     budget[0] += 1
     budget[1] += 1024

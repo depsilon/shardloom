@@ -10,9 +10,10 @@ import tempfile
 import textwrap
 import unittest
 
-from shardloom import ResultBatch, ResultBatchIterator, ShardLoomClient, ShardLoomContext, from_batches
+from shardloom import ResultBatch, ResultBatchIterator, ShardLoomContext, from_batches
 from shardloom._batches import BatchInput
-from shardloom.errors import ShardLoomProtocolError
+from shardloom.diagnostics import ShardLoomClient
+from shardloom.errors import ShardLoomCommandError, ShardLoomProtocolError
 
 
 SCHEMA = {"Struct": [{"names": ["n"], "dtypes": [{"Primitive": ["i64", True]}]}, False]}
@@ -256,6 +257,27 @@ request = read()
             next(iterator)
         self.assertIsNone(iterator.report)
         self.assertIsNotNone(iterator._process.poll())
+
+    def test_context_cancel_reports_once_for_paused_and_unopened_process_streams(self):
+        iterator, trace = self.transaction("batch()\nassert read() == {'kind':'cancel'}\n")
+        retained = next(iterator)
+        iterator._client.cancel()
+        with self.assertRaises(ShardLoomCommandError) as failure:
+            next(iterator)
+        self.assertEqual(failure.exception.diagnostics[0].code, "SL_EXECUTION_CANCELLED")
+        with self.assertRaises(StopIteration):
+            next(iterator)
+        self.assertIsNone(iterator.report)
+        self.assertEqual(retained.to_rows(), ({"n": 7},))
+        self.assertIsNotNone(iterator._process.poll())
+        self.assertEqual(len(trace.read_text().splitlines()), 2)
+        unopened, trace = self.transaction("raise AssertionError('must stay lazy')")
+        unopened._client.close()
+        with self.assertRaises(ShardLoomCommandError):
+            next(unopened)
+        with self.assertRaises(StopIteration):
+            next(unopened)
+        self.assertFalse(trace.exists())
 
     def test_timeout_cancels_one_process_without_query_replay(self):
         iterator, trace = self.transaction("assert read() == {'kind':'cancel'}\n", timeout=0.15)

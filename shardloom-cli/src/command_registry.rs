@@ -30,6 +30,23 @@ const USER_SURFACE_GRADUATION_POSTURE_VOCABULARY: &[&str] = &[
     "feature_gated",
     "not_user_facing",
 ];
+const COMMAND_AUDIENCE_VOCABULARY: &[&str] = &["application", "maintainer"];
+const APPLICATION_COMMANDS: &[&str] = &[
+    "help",
+    "command-metadata",
+    "status",
+    "run",
+    "prepare",
+    "route",
+    "vortex-prepare",
+    "input-adapters",
+    "input-plan",
+    "capabilities",
+    "doctor",
+    "support-bundle",
+    "explain",
+    "estimate",
+];
 const REGISTRY_REPORT_ID: &str = "review-p1-1.command_registry";
 const REGISTRY_SOURCE: &str = "shardloom-cli/src/command_registry.rs";
 const REGISTRY_DOCS_REF: &str = "docs/status/cli-command-registry.md";
@@ -250,7 +267,83 @@ pub(crate) struct CommandDescriptor {
     pub command: &'static str,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CommandAudience {
+    Application,
+    Maintainer,
+    All,
+}
+
+impl CommandAudience {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Application => "application",
+            Self::Maintainer => "maintainer",
+            Self::All => "all",
+        }
+    }
+
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "app" | "application" => Ok(Self::Application),
+            "maintainer" => Ok(Self::Maintainer),
+            "all" => Ok(Self::All),
+            _ => Err(format!(
+                "invalid command audience {value:?}; expected application, maintainer, or all"
+            )),
+        }
+    }
+
+    fn includes(self, descriptor: CommandDescriptor) -> bool {
+        matches!(self, Self::All) || self.as_str() == descriptor.audience()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CompletionShell {
+    Bash,
+    Zsh,
+    Fish,
+}
+
+impl CompletionShell {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "bash" => Ok(Self::Bash),
+            "zsh" => Ok(Self::Zsh),
+            "fish" => Ok(Self::Fish),
+            _ => Err(format!(
+                "invalid completion shell {value:?}; expected bash, zsh, or fish"
+            )),
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Bash => "bash",
+            Self::Zsh => "zsh",
+            Self::Fish => "fish",
+        }
+    }
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+struct RegistryArguments {
+    selected: Option<String>,
+    audience: Option<CommandAudience>,
+    completion: Option<CompletionShell>,
+}
+
 impl CommandDescriptor {
+    #[must_use]
+    pub(crate) fn audience(self) -> &'static str {
+        if APPLICATION_COMMANDS.contains(&self.command) {
+            "application"
+        } else {
+            "maintainer"
+        }
+    }
+
     #[must_use]
     pub(crate) fn family(self) -> &'static str {
         classify_command(self.command).as_str()
@@ -309,6 +402,12 @@ pub(crate) fn registered_commands() -> impl Iterator<Item = CommandDescriptor> {
         .map(|command| CommandDescriptor { command })
 }
 
+fn commands_for_audience(audience: CommandAudience) -> Vec<CommandDescriptor> {
+    registered_commands()
+        .filter(|descriptor| audience.includes(*descriptor))
+        .collect()
+}
+
 #[must_use]
 pub(crate) fn lookup(command: &str) -> Option<CommandDescriptor> {
     REGISTERED_COMMANDS
@@ -320,28 +419,88 @@ pub(crate) fn lookup(command: &str) -> Option<CommandDescriptor> {
 
 #[must_use]
 pub(crate) fn usage_line(command_name: &str) -> String {
-    let fragments = registered_commands()
+    usage_line_for_audience(command_name, CommandAudience::All)
+}
+
+fn usage_line_for_audience(command_name: &str, audience: CommandAudience) -> String {
+    let fragments = commands_for_audience(audience)
+        .into_iter()
         .map(CommandDescriptor::usage_fragment)
         .collect::<Vec<_>>()
         .join("|");
     format!("usage: {command_name} <{fragments}> [--format text|json]")
 }
 
+fn parse_registry_arguments(
+    args: impl Iterator<Item = String>,
+    command: &str,
+    allow_completion: bool,
+) -> Result<RegistryArguments, String> {
+    let mut parsed = RegistryArguments::default();
+    let mut seen_audience = false;
+    let mut seen_completion = false;
+    let mut args = args;
+    while let Some(argument) = args.next() {
+        match argument.as_str() {
+            "--audience" => {
+                if seen_audience {
+                    return Err("duplicate --audience option".to_string());
+                }
+                seen_audience = true;
+                let Some(value) = args.next() else {
+                    return Err("missing value for --audience".to_string());
+                };
+                if value.starts_with("--") {
+                    return Err("missing value for --audience".to_string());
+                }
+                parsed.audience = Some(CommandAudience::parse(&value)?);
+            }
+            "--completion" if allow_completion => {
+                if seen_completion {
+                    return Err("duplicate --completion option".to_string());
+                }
+                seen_completion = true;
+                let Some(value) = args.next() else {
+                    return Err("missing value for --completion".to_string());
+                };
+                if value.starts_with("--") {
+                    return Err("missing value for --completion".to_string());
+                }
+                parsed.completion = Some(CompletionShell::parse(&value)?);
+            }
+            flag if flag.starts_with("--") => {
+                return Err(format!("unknown {command} option: {flag}"));
+            }
+            _ if parsed.selected.is_some() => {
+                return Err(format!("unexpected {command} argument: {argument}"));
+            }
+            _ => parsed.selected = Some(argument),
+        }
+    }
+    Ok(parsed)
+}
+
 pub(crate) fn handle_command_help(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
     command_name: &str,
 ) -> ExitCode {
-    let selected = args.next();
-    if let Some(extra) = args.next() {
-        return emit_error(
-            "help",
-            format,
-            "unexpected help argument",
-            &ShardLoomError::InvalidOperation(format!("unexpected help argument: {extra}")),
-        );
-    }
-    let selected_descriptor = match selected.as_deref() {
+    let parsed = match parse_registry_arguments(args, "help", false) {
+        Ok(parsed) => parsed,
+        Err(message) => {
+            return emit_error(
+                "help",
+                format,
+                "invalid help options",
+                &ShardLoomError::InvalidOperation(message),
+            );
+        }
+    };
+    let audience = parsed.audience.unwrap_or(match format {
+        OutputFormat::Text => CommandAudience::Application,
+        OutputFormat::Json => CommandAudience::All,
+    });
+    let selected_descriptor = match parsed.selected.as_deref() {
         Some(command) => match lookup(command) {
             Some(descriptor) => Some(descriptor),
             None => {
@@ -356,12 +515,39 @@ pub(crate) fn handle_command_help(
         None => None,
     };
 
-    let mut fields = command_metadata_fields(selected_descriptor);
+    if let (Some(descriptor), Some(explicit_audience)) = (selected_descriptor, parsed.audience)
+        && !explicit_audience.includes(descriptor)
+    {
+        return emit_error(
+            "help",
+            format,
+            "command is outside the selected audience",
+            &ShardLoomError::InvalidOperation(format!(
+                "help target {:?} belongs to the {} audience, not {}",
+                descriptor.command,
+                descriptor.audience(),
+                explicit_audience.as_str()
+            )),
+        );
+    }
+
+    let mut fields = if audience == CommandAudience::All {
+        command_metadata_fields(selected_descriptor)
+    } else {
+        command_metadata_fields_for_audience(selected_descriptor, audience)
+    };
     fields.push((
         "help_scope".to_string(),
-        selected.unwrap_or_else(|| "all".to_string()),
+        parsed
+            .selected
+            .unwrap_or_else(|| audience.as_str().to_string()),
     ));
-    fields.push(("usage_line".to_string(), usage_line(command_name)));
+    let usage = if format == OutputFormat::Json {
+        usage_line(command_name)
+    } else {
+        usage_line_for_audience(command_name, audience)
+    };
+    fields.push(("usage_line".to_string(), usage));
     if let Some(descriptor) = selected_descriptor {
         fields.push((
             "selected_command_help_text".to_string(),
@@ -373,7 +559,7 @@ pub(crate) fn handle_command_help(
         format,
         CommandStatus::Success,
         "command help rendered from registry metadata without side effects".to_string(),
-        command_help_text_for_selection(command_name, selected_descriptor),
+        command_help_text_for_selection(command_name, selected_descriptor, audience),
         Vec::<Diagnostic>::new(),
         fields,
     );
@@ -381,21 +567,28 @@ pub(crate) fn handle_command_help(
 }
 
 pub(crate) fn handle_command_metadata(
-    mut args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = String>,
     format: OutputFormat,
 ) -> ExitCode {
-    let selected = args.next();
-    if let Some(extra) = args.next() {
-        return emit_error(
-            "command-metadata",
-            format,
-            "unexpected command metadata argument",
-            &ShardLoomError::InvalidOperation(format!(
-                "unexpected command-metadata argument: {extra}"
-            )),
-        );
-    }
-    let selected_descriptor = match selected.as_deref() {
+    let parsed = match parse_registry_arguments(args, "command-metadata", true) {
+        Ok(parsed) => parsed,
+        Err(message) => {
+            return emit_error(
+                "command-metadata",
+                format,
+                "invalid command metadata options",
+                &ShardLoomError::InvalidOperation(message),
+            );
+        }
+    };
+    let audience = parsed.audience.unwrap_or_else(|| {
+        if parsed.completion.is_some() {
+            CommandAudience::Application
+        } else {
+            CommandAudience::All
+        }
+    });
+    let selected_descriptor = match parsed.selected.as_deref() {
         Some(command) => match lookup(command) {
             Some(descriptor) => Some(descriptor),
             None => {
@@ -412,8 +605,45 @@ pub(crate) fn handle_command_metadata(
         None => None,
     };
 
-    let fields = command_metadata_fields(selected_descriptor);
-    let text = command_metadata_text(selected_descriptor);
+    if let Some(descriptor) = selected_descriptor
+        && !audience.includes(descriptor)
+    {
+        return emit_error(
+            "command-metadata",
+            format,
+            "command is outside the selected audience",
+            &ShardLoomError::InvalidOperation(format!(
+                "command-metadata target {:?} belongs to the {} audience, not {}",
+                descriptor.command,
+                descriptor.audience(),
+                audience.as_str()
+            )),
+        );
+    }
+
+    let completion_audience = parsed.audience.unwrap_or(CommandAudience::Application);
+    let completion_script = parsed
+        .completion
+        .map(|shell| (shell, completion_script(shell, completion_audience)));
+    let mut fields = if audience == CommandAudience::All {
+        command_metadata_fields(selected_descriptor)
+    } else {
+        command_metadata_fields_for_audience(selected_descriptor, audience)
+    };
+    if let Some((shell, script)) = &completion_script {
+        fields.extend([
+            ("completion_shell".to_string(), shell.as_str().to_string()),
+            (
+                "completion_audience".to_string(),
+                completion_audience.as_str().to_string(),
+            ),
+            ("completion_script".to_string(), script.clone()),
+        ]);
+    }
+    let text = completion_script.map_or_else(
+        || command_metadata_text_for_audience(selected_descriptor, audience),
+        |(_, script)| script,
+    );
     emit(
         "command-metadata",
         format,
@@ -428,7 +658,20 @@ pub(crate) fn handle_command_metadata(
 
 #[allow(clippy::too_many_lines)]
 fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, String)> {
-    let descriptors = registered_commands().collect::<Vec<_>>();
+    command_metadata_fields_for_audience(selected, CommandAudience::All)
+}
+
+#[allow(clippy::too_many_lines)]
+fn command_metadata_fields_for_audience(
+    selected: Option<CommandDescriptor>,
+    audience: CommandAudience,
+) -> Vec<(String, String)> {
+    let all_descriptors = registered_commands().collect::<Vec<_>>();
+    let descriptors = all_descriptors
+        .iter()
+        .copied()
+        .filter(|descriptor| audience.includes(*descriptor))
+        .collect::<Vec<_>>();
     let mut fields = vec![
         (
             "command_registry_schema_version".to_string(),
@@ -452,7 +695,31 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
         ),
         (
             "command_registry_registered_command_count".to_string(),
+            all_descriptors.len().to_string(),
+        ),
+        (
+            "command_registry_generated_command_count".to_string(),
+            all_descriptors.len().to_string(),
+        ),
+        (
+            "command_registry_filtered_command_count".to_string(),
             descriptors.len().to_string(),
+        ),
+        (
+            "command_registry_selected_audience".to_string(),
+            audience.as_str().to_string(),
+        ),
+        (
+            "command_registry_audience_vocabulary".to_string(),
+            COMMAND_AUDIENCE_VOCABULARY.join(","),
+        ),
+        (
+            "command_registry_audience_map".to_string(),
+            all_descriptors
+                .iter()
+                .map(|descriptor| format!("{}={}", descriptor.command, descriptor.audience()))
+                .collect::<Vec<_>>()
+                .join(","),
         ),
         (
             "command_registry_support_state_vocabulary".to_string(),
@@ -583,6 +850,10 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
                 descriptor.command.to_string(),
             ),
             (
+                "selected_command_audience".to_string(),
+                descriptor.audience().to_string(),
+            ),
+            (
                 "selected_command_family".to_string(),
                 descriptor.family().to_string(),
             ),
@@ -627,11 +898,15 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
     fields
 }
 
-fn command_metadata_text(selected: Option<CommandDescriptor>) -> String {
+fn command_metadata_text_for_audience(
+    selected: Option<CommandDescriptor>,
+    audience: CommandAudience,
+) -> String {
     if let Some(descriptor) = selected {
         return format!(
-            "{}\nfamily={}\nsupport_state={}\nuser_surface_graduation_posture={}\nside_effect_level={}\nusage={}\nfeature_gate_status={}\ninput_contract={}\noutput_contract={}\nowning_phase_item={}\nevidence_fields={COMMAND_EVIDENCE_FIELDS}\nclaim_boundary={CLAIM_BOUNDARY}\nfallback_boundary={FALLBACK_BOUNDARY}",
+            "{}\naudience={}\nfamily={}\nsupport_state={}\nuser_surface_graduation_posture={}\nside_effect_level={}\nusage={}\nfeature_gate_status={}\ninput_contract={}\noutput_contract={}\nowning_phase_item={}\nevidence_fields={COMMAND_EVIDENCE_FIELDS}\nclaim_boundary={CLAIM_BOUNDARY}\nfallback_boundary={FALLBACK_BOUNDARY}",
             descriptor.command,
+            descriptor.audience(),
             descriptor.family(),
             descriptor.support_state(),
             descriptor.user_surface_graduation_posture(),
@@ -644,23 +919,58 @@ fn command_metadata_text(selected: Option<CommandDescriptor>) -> String {
         );
     }
 
-    let commands = registered_commands()
+    let descriptors = registered_commands()
+        .filter(|descriptor| audience.includes(*descriptor))
+        .collect::<Vec<_>>();
+    let commands = descriptors
+        .iter()
+        .copied()
         .map(|descriptor| {
             format!(
-                "{} [{}; {}; {}; {}]",
+                "{} [{}; {}; {}; {}; audience={}]",
                 descriptor.command,
                 descriptor.family(),
                 descriptor.support_state(),
                 descriptor.user_surface_graduation_posture(),
-                descriptor.side_effect_level()
+                descriptor.side_effect_level(),
+                descriptor.audience()
             )
         })
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "command_registry_schema_version={REGISTRY_SCHEMA_VERSION}\nregistered_command_count={}\n{commands}\nclaim_boundary={CLAIM_BOUNDARY}\nfallback_boundary={FALLBACK_BOUNDARY}",
-        REGISTERED_COMMANDS.len()
+        "command_registry_schema_version={REGISTRY_SCHEMA_VERSION}\nregistered_command_count={}\ncommand_registry_registered_command_count={}\ncommand_registry_selected_audience={}\n{commands}\nclaim_boundary={CLAIM_BOUNDARY}\nfallback_boundary={FALLBACK_BOUNDARY}",
+        descriptors.len(),
+        REGISTERED_COMMANDS.len(),
+        audience.as_str()
     )
+}
+
+fn completion_script(shell: CompletionShell, audience: CommandAudience) -> String {
+    let commands = commands_for_audience(audience)
+        .into_iter()
+        .map(|descriptor| descriptor.command)
+        .collect::<Vec<_>>();
+    match shell {
+        CompletionShell::Bash => format!(
+            "# Generated by shardloom command-metadata; static registry completion.\n_shardloom_commands='{}'\n_shardloom_complete() {{\n  COMPREPLY=( $(compgen -W \"$_shardloom_commands\" -- \"${{COMP_WORDS[COMP_CWORD]}}\") )\n}}\ncomplete -F _shardloom_complete shardloom\n",
+            commands.join(" ")
+        ),
+        CompletionShell::Zsh => format!(
+            "#compdef shardloom\n# Generated by shardloom command-metadata; static registry completion.\n_arguments '1:command:({})'\n",
+            commands.join(" ")
+        ),
+        CompletionShell::Fish => {
+            commands
+                .iter()
+                .map(|command| {
+                    format!("complete -c shardloom -f -n '__fish_use_subcommand' -a '{command}'")
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+                + "\n"
+        }
+    }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -853,7 +1163,8 @@ pub(crate) fn append_command_registry_capability_fields(fields: &mut Vec<(String
 #[allow(clippy::too_many_lines)]
 fn command_usage_fragment(command: &str) -> String {
     let mut usage = match command {
-        "help" => "help [command]".to_string(),
+        "help" => "help [--audience application|maintainer|all] [command]".to_string(),
+        "command-metadata" => "command-metadata [--audience application|maintainer|all] [--completion bash|zsh|fish] [command]".to_string(),
         "evidence-schema" => "evidence-schema [surface]".to_string(),
         "route" => "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>]".to_string(),
         "run" => "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl>] [--output <ref>]".to_string(),
@@ -1410,22 +1721,54 @@ fn user_surface_graduation_posture_count(
 fn command_help_text_for_selection(
     command_name: &str,
     selected: Option<CommandDescriptor>,
+    audience: CommandAudience,
 ) -> String {
     selected.map_or_else(
         || {
+            let commands = commands_for_audience(audience)
+                .iter()
+                .map(|descriptor| {
+                    format!(
+                        "  {} — {}",
+                        descriptor.command,
+                        command_description(descriptor.command)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
             format!(
-                "{}\n\nUse '{command_name} help <command>' or '{command_name} <command> --help' for command-specific metadata. Use '{command_name} command-metadata [command] --format json' for agent-readable registry output.",
-                usage_line(command_name)
+                "usage: {command_name} <command> [options] [--format text|json]\n\n{commands}\n\nUse '{command_name} help <command>' or '{command_name} <command> --help' for command-specific metadata. Use '{command_name} command-metadata --audience all' for the complete registry, or '{command_name} command-metadata [command] --format json' for agent-readable registry output."
             )
         },
         |descriptor| command_help_text(command_name, descriptor),
     )
 }
 
+fn command_description(command: &str) -> &'static str {
+    match command {
+        "help" => "Show command help",
+        "command-metadata" => "Inspect command metadata or generate completion",
+        "status" => "Show engine status",
+        "run" => "Execute a declared workload",
+        "prepare" => "Prepare input as native Vortex",
+        "route" => "Inspect a workload declaration",
+        "vortex-prepare" => "Prepare a local file as native Vortex",
+        "input-adapters" => "List input adapters",
+        "input-plan" => "Inspect input requirements",
+        "capabilities" => "Inspect installed capabilities",
+        "doctor" => "Check installation/configuration",
+        "support-bundle" => "Collect redacted support details",
+        "explain" => "Explain an operation",
+        "estimate" => "Estimate an operation",
+        _ => classify_command(command).as_str(),
+    }
+}
+
 fn command_help_text(command_name: &str, descriptor: CommandDescriptor) -> String {
     format!(
-        "command: {}\nusage: {command_name} {} [--format text|json]\nfamily: {}\nsupport_state: {}\nside_effect_level: {}\nfeature_gate_status: {}\ninput_contract: {}\noutput_contract: {}\nowning_phase_item: {}\nevidence_fields: {COMMAND_EVIDENCE_FIELDS}\nclaim_boundary: {CLAIM_BOUNDARY}\nfallback_boundary: {FALLBACK_BOUNDARY}",
+        "command: {}\naudience: {}\nusage: {command_name} {} [--format text|json]\nfamily: {}\nsupport_state: {}\nside_effect_level: {}\nfeature_gate_status: {}\ninput_contract: {}\noutput_contract: {}\nowning_phase_item: {}\nevidence_fields: {COMMAND_EVIDENCE_FIELDS}\nclaim_boundary: {CLAIM_BOUNDARY}\nfallback_boundary: {FALLBACK_BOUNDARY}",
         descriptor.command,
+        descriptor.audience(),
         descriptor.usage_fragment(),
         descriptor.family(),
         descriptor.support_state(),
@@ -1472,9 +1815,237 @@ mod tests {
     }
 
     #[test]
+    fn command_audiences_partition_registry_without_losing_commands() {
+        let application = commands_for_audience(CommandAudience::Application);
+        let maintainer = commands_for_audience(CommandAudience::Maintainer);
+        let all = commands_for_audience(CommandAudience::All);
+        assert_eq!(application.len() + maintainer.len(), all.len());
+        assert_eq!(all.len(), REGISTERED_COMMANDS.len());
+        assert!(
+            application
+                .iter()
+                .all(|command| command.audience() == "application")
+        );
+        assert!(
+            maintainer
+                .iter()
+                .all(|command| command.audience() == "maintainer")
+        );
+        let partitioned = application
+            .iter()
+            .chain(&maintainer)
+            .map(|command| command.command)
+            .collect::<HashSet<_>>();
+        assert_eq!(
+            partitioned,
+            all.iter().map(|command| command.command).collect()
+        );
+        assert_eq!(
+            CommandAudience::parse("app"),
+            Ok(CommandAudience::Application)
+        );
+        let mut allowlisted = HashSet::new();
+        for command in APPLICATION_COMMANDS {
+            assert!(
+                allowlisted.insert(command),
+                "duplicate application command: {command}"
+            );
+            assert!(
+                lookup(command).is_some(),
+                "unregistered application command: {command}"
+            );
+        }
+    }
+
+    #[test]
+    fn registry_argument_parser_rejects_duplicate_unknown_and_missing_options() {
+        let duplicate = parse_registry_arguments(
+            ["--audience", "application", "--audience", "all"]
+                .map(str::to_string)
+                .into_iter(),
+            "help",
+            false,
+        );
+        assert!(duplicate.unwrap_err().contains("duplicate --audience"));
+
+        let missing = parse_registry_arguments(
+            ["--audience"].map(str::to_string).into_iter(),
+            "help",
+            false,
+        );
+        assert!(
+            missing
+                .unwrap_err()
+                .contains("missing value for --audience")
+        );
+
+        let unknown = parse_registry_arguments(
+            ["--bogus"].map(str::to_string).into_iter(),
+            "command-metadata",
+            true,
+        );
+        assert!(
+            unknown
+                .unwrap_err()
+                .contains("unknown command-metadata option")
+        );
+
+        let invalid = parse_registry_arguments(
+            ["--audience", "secret"].map(str::to_string).into_iter(),
+            "help",
+            false,
+        );
+        assert!(invalid.unwrap_err().contains("invalid command audience"));
+
+        let completion_on_help = parse_registry_arguments(
+            ["--completion", "bash"].map(str::to_string).into_iter(),
+            "help",
+            false,
+        );
+        assert!(
+            completion_on_help
+                .unwrap_err()
+                .contains("unknown help option")
+        );
+
+        let duplicate_completion = parse_registry_arguments(
+            ["--completion", "fish", "--completion", "zsh"]
+                .map(str::to_string)
+                .into_iter(),
+            "command-metadata",
+            true,
+        );
+        assert!(
+            duplicate_completion
+                .unwrap_err()
+                .contains("duplicate --completion")
+        );
+
+        let missing_completion = parse_registry_arguments(
+            ["--completion"].map(str::to_string).into_iter(),
+            "command-metadata",
+            true,
+        );
+        assert!(
+            missing_completion
+                .unwrap_err()
+                .contains("missing value for --completion")
+        );
+
+        let invalid_completion = parse_registry_arguments(
+            ["--completion", "powershell"]
+                .map(str::to_string)
+                .into_iter(),
+            "command-metadata",
+            true,
+        );
+        assert!(
+            invalid_completion
+                .unwrap_err()
+                .contains("invalid completion shell")
+        );
+
+        let extra_argument = parse_registry_arguments(
+            ["help", "status"].map(str::to_string).into_iter(),
+            "help",
+            false,
+        );
+        assert!(
+            extra_argument
+                .unwrap_err()
+                .contains("unexpected help argument")
+        );
+    }
+
+    #[test]
+    fn completion_defaults_to_application_and_is_static_and_side_effect_free() {
+        let parsed = parse_registry_arguments(
+            ["--completion", "bash"].map(str::to_string).into_iter(),
+            "command-metadata",
+            true,
+        )
+        .expect("valid completion args");
+        let audience = parsed.audience.unwrap_or_else(|| {
+            if parsed.completion.is_some() {
+                CommandAudience::Application
+            } else {
+                CommandAudience::All
+            }
+        });
+        assert_eq!(audience, CommandAudience::Application);
+        let fields = command_metadata_fields_for_audience(None, audience);
+        assert!(fields.contains(&("fallback_attempted".into(), "false".into())));
+        assert!(fields.contains(&("external_engine_invoked".into(), "false".into())));
+        assert!(!fields.iter().any(|(name, _)| name == "completion_audience"));
+        let generated = completion_script(CompletionShell::Bash, audience);
+        let vocabulary = generated
+            .lines()
+            .find_map(|line| line.strip_prefix("_shardloom_commands='"))
+            .and_then(|line| line.strip_suffix('\''))
+            .expect("static Bash completion vocabulary");
+        for command in ["help", "command-metadata", "status"] {
+            assert!(vocabulary.split_whitespace().any(|word| word == command));
+        }
+        assert!(!generated.contains("spill-lifecycle"));
+    }
+
+    #[test]
+    fn unfiltered_metadata_keeps_all_existing_commands_and_adds_audience_evidence() {
+        let fields = command_metadata_fields(None);
+        assert!(fields.contains(&(
+            "registered_command_count".to_string(),
+            REGISTERED_COMMANDS.len().to_string()
+        )));
+        assert!(fields.contains(&(
+            "registered_commands".to_string(),
+            REGISTERED_COMMANDS.join(",")
+        )));
+        assert!(fields.contains(&(
+            "command_registry_selected_audience".to_string(),
+            "all".to_string()
+        )));
+    }
+
+    #[test]
+    fn selected_command_metadata_reports_audience_and_filtering_is_enforced() {
+        let descriptor = lookup("vortex-prepare").expect("registered application command");
+        let fields =
+            command_metadata_fields_for_audience(Some(descriptor), CommandAudience::Application);
+        assert!(fields.contains(&("selected_command_audience".into(), "application".into())));
+        assert!(fields.contains(&("selected_command".into(), "vortex-prepare".into())));
+        assert!(
+            !CommandAudience::Application
+                .includes(lookup("spill-lifecycle").expect("registered maintainer command"))
+        );
+    }
+
+    #[test]
+    fn completion_scripts_cover_bash_zsh_and_fish() {
+        let bash = completion_script(CompletionShell::Bash, CommandAudience::Application);
+        let zsh = completion_script(CompletionShell::Zsh, CommandAudience::Maintainer);
+        let fish = completion_script(CompletionShell::Fish, CommandAudience::All);
+        assert!(bash.contains("complete -F _shardloom_complete shardloom"));
+        assert!(bash.contains("vortex-prepare"));
+        assert!(!bash.contains("spill-lifecycle"));
+        assert!(zsh.starts_with("#compdef shardloom"));
+        assert!(zsh.contains("spill-lifecycle"));
+        assert!(!zsh.contains(" vortex-prepare"));
+        assert!(
+            fish.contains(
+                "complete -c shardloom -f -n '__fish_use_subcommand' -a 'vortex-prepare'"
+            )
+        );
+        assert!(
+            fish.contains(
+                "complete -c shardloom -f -n '__fish_use_subcommand' -a 'spill-lifecycle'"
+            )
+        );
+    }
+
+    #[test]
     fn usage_line_is_registry_backed() {
         let usage = usage_line("shardloom");
-        assert!(usage.starts_with("usage: shardloom <help [command]|command-metadata|"));
+        assert!(usage.starts_with("usage: shardloom <help [--audience application|maintainer|all] [command]|command-metadata [--audience application|maintainer|all]"));
         assert!(usage.contains("route <sql|python|dataframe|cli>"));
         assert!(usage.contains("evidence-schema [surface]"));
         assert!(usage.contains("capabilities [sql|functions"));
@@ -1488,6 +2059,28 @@ mod tests {
             .filter(|command| command.ends_with("-execute"))
             .count();
         assert_eq!(execute_command_count, 5);
+    }
+
+    #[test]
+    fn help_honors_explicit_audience_for_a_selected_command() {
+        let arguments = ["--audience", "application", "spill-lifecycle"];
+        assert_eq!(
+            handle_command_help(
+                arguments.map(str::to_string).into_iter(),
+                OutputFormat::Json,
+                "shardloom"
+            ),
+            ExitCode::from(2)
+        );
+        assert_eq!(
+            handle_command_help(
+                ["spill-lifecycle"].map(str::to_string).into_iter(),
+                OutputFormat::Text,
+                "shardloom"
+            ),
+            ExitCode::SUCCESS,
+            "explicit command lookup remains compatible without an audience filter"
+        );
     }
 
     #[test]
@@ -1534,6 +2127,34 @@ mod tests {
         assert!(help.contains("support_state: executable"));
         assert!(help.contains("owning_phase_item: GAR-RUNTIME-IMPL-4"));
         assert!(help.contains("fallback_boundary: metadata rendering is side-effect-free"));
+    }
+
+    #[test]
+    fn default_human_help_lists_application_commands_as_readable_lines() {
+        let help = command_help_text_for_selection("shardloom", None, CommandAudience::Application);
+        for command in APPLICATION_COMMANDS {
+            let line_prefix = format!("  {command} — ");
+            assert_eq!(
+                help.lines()
+                    .filter(|line| line.starts_with(&line_prefix))
+                    .count(),
+                1,
+                "expected one concise help line for {command}"
+            );
+        }
+        assert!(!help.contains("  spill-lifecycle — "));
+        assert!(!help.contains("--input"));
+        assert!(!help.contains("--sql"));
+
+        let selected = command_help_text_for_selection(
+            "shardloom",
+            lookup("vortex-prepare"),
+            CommandAudience::Application,
+        );
+        assert!(
+            selected
+                .contains("usage: shardloom vortex-prepare <local-source-path> <target.vortex>")
+        );
     }
 
     #[test]

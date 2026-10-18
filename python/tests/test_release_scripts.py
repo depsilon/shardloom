@@ -13,6 +13,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+from unittest import mock
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -6320,6 +6321,65 @@ jobs:
             v1_local_output_sink_module,
             repo_root,
         )
+        self._write_public_guide_fixture(v1_docs_module, repo_root)
+
+    def _write_public_guide_fixture(self, module: object, repo_root: Path) -> None:
+        # Copy real authored sources; marker-only fixtures cannot prove snippet or link identity.
+        matrix = json.loads((REPO_ROOT / module.DEFAULT_PACKAGE_MATRIX).read_text())
+        channel = next(row for row in matrix["channels"]
+                       if row["channel_id"] == matrix["user_guide"]["artifact_channel"])
+        for relative in (*module.CONTRACT_INPUTS, module.DEFAULT_PACKAGE_MATRIX,
+                         module.DEFAULT_RUNS_TODAY, channel["install_transcript_ref"]):
+            target = repo_root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text((REPO_ROOT / relative).read_text(encoding="utf-8"), encoding="utf-8")
+
+    def test_public_guide_contract_rejects_divergent_examples_links_and_search(self) -> None:
+        module = self._load_script_module("check_v1_docs_productization.py", "public_guide_contract_test")
+        mutations = (
+            ("python/README.md", 'print(result.python_objects)', 'print(result.output_row_count)', "differs from the executable"),
+            ("website-src/src/data/public-guide.json", 'paid.collect(check=True)', 'paid.collect()', "generated guide snippets"),
+            ("examples/paid-orders/context-result.py", 'ctx.range(1, 4', 'ctx.range(1, 5', "development example"),
+            ("docs/getting-started/install.md", 'https://shardloom.io/field-guide/start-local-proof', 'https://example.com', "canonical first-workflow"),
+            ("website-src/src/content/docs/field-guide/development.mdx", 'pagefind: false', 'pagefind: true', "outside default product search"),
+            ("website-src/src/content/docs/field-guide/reference.mdx", '/field-guide/resources', '/field-guide/missing', "unresolved guide link"),
+            ("website-src/src/content/docs/field-guide/sql.mdx", '../../../data/quickstart.mjs', '../../../data/old.mjs', "canonical example"),
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            self._write_public_guide_fixture(module, root)
+            self.assertEqual(module.validate_public_contract(root), [])
+            for relative, before, after, expected in mutations:
+                with self.subTest(path=relative):
+                    target = root / relative
+                    original = target.read_text()
+                    self.assertIn(before, original)
+                    target.write_text(original.replace(before, after))
+                    self.assertTrue(any(expected in error for error in module.validate_public_contract(root)))
+                    target.write_text(original)
+
+    def test_public_guide_rejects_unverified_release_platform_and_capability(self) -> None:
+        module = self._load_script_module("check_v1_docs_productization.py", "public_guide_release_test")
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            self._write_public_guide_fixture(module, root)
+            target = root / module.DEFAULT_PACKAGE_MATRIX
+            original = target.read_text()
+            for kind in ("revision", "wheel", "capability", "reference"):
+                with self.subTest(kind=kind):
+                    matrix = json.loads(original)
+                    guide = matrix["user_guide"]
+                    if kind == "revision":
+                        guide["source_revision"] = "0" * 40
+                    elif kind == "wheel":
+                        guide["platforms"][0]["wheel_tag"] = "unverified"
+                    elif kind == "capability":
+                        guide["capabilities"][0]["restriction"] = ""
+                    else:
+                        guide["capabilities"][0]["reference"] = "/field-guide/missing"
+                    target.write_text(json.dumps(matrix))
+                    self.assertTrue(module.validate_release_facts(root))
+            target.write_text(original)
 
     def _write_public_claim_language_fixture(
         self,
@@ -7262,59 +7322,25 @@ jobs:
             )
         )
 
-    def test_v1_supported_doc_generator_inverts_no_fallback_aggregate(self) -> None:
+    def test_support_doc_projects_user_links_without_internal_status_dump(self) -> None:
         module = self._load_script_module(
-            "write_v1_supported_unsupported_docs.py",
-            "write_v1_supported_unsupported_docs_no_fallback_for_test",
+            "write_v1_supported_unsupported_docs.py", "support_doc_projection_test",
         )
-
-        rendered = module.render(
-            {
-                "schema_version": "shardloom.runs_today_support_matrix.v1",
-                "row_count": 0,
-                "family_order": [],
-                "rows": [],
-                "all_rows_fallback_attempted_false": True,
-                "all_rows_external_engine_invoked_false": True,
-                "performance_claim_allowed": False,
-                "package_publication_allowed": False,
-                "production_unsupported_diagnostic_schema_version": (
-                    "shardloom.production_unsupported_diagnostics.v1"
-                ),
-                "production_unsupported_diagnostic_row_count": 1,
-                "production_unsupported_diagnostic_all_rows_fallback_attempted_false": True,
-                "production_unsupported_diagnostic_all_rows_external_engine_invoked_false": True,
-                "production_unsupported_diagnostic_all_rows_side_effects_performed_false": True,
-                "production_unsupported_diagnostics": [
-                    {
-                        "id": "object_store_runtime",
-                        "production_family": "object_store",
-                        "user_surface": ["object_store_read", "s3://"],
-                        "support_status": "unsupported_boundary",
-                        "diagnostic_code": "SL_UNSUPPORTED_PRODUCTION_OBJECT_STORE",
-                        "blocker_id": (
-                            "review-p0-3.object_store_runtime_and_path_safety_required"
-                        ),
-                        "next_action": "Use object-store capability reports.",
-                    }
-                ],
-            },
-            {
-                "schema_version": "shardloom.package_channel_readiness_matrix.v1",
-                "channels": [],
-                "public_package_release_claim_allowed": False,
-                "publication_attempted": False,
-                "tag_created": False,
-                "package_channel_submission_attempted": False,
-            },
-        )
-
-        header = rendered.split("```text", maxsplit=1)[1].split("```", maxsplit=1)[0]
-        self.assertIn("fallback_attempted=false", header)
-        self.assertIn("external_engine_invoked=false", header)
-        self.assertIn("## Production Unsupported Diagnostics", rendered)
-        self.assertIn("SL_UNSUPPORTED_PRODUCTION_OBJECT_STORE", rendered)
-        self.assertIn("production_unsupported_diagnostic_side_effects_performed=false", rendered)
+        runs_today = json.loads((REPO_ROOT / module.DEFAULT_RUNS_TODAY).read_text())
+        matrix = json.loads((REPO_ROOT / module.DEFAULT_PACKAGE_MATRIX).read_text())
+        rendered = module.render(runs_today, matrix)
+        self.assertIn(matrix["selected_v0_1_0_release_tag"], rendered)
+        self.assertIn("https://shardloom.io/field-guide/start-local-proof", rendered)
+        self.assertIn("https://shardloom.io/field-guide/limitations", rendered)
+        self.assertIn("../status/runs-today-support-matrix.json", rendered)
+        self.assertIn("../release/package-channel-readiness-matrix.json", rendered)
+        self.assertNotIn("SL_UNSUPPORTED_PRODUCTION_OBJECT_STORE", rendered)
+        self.assertNotIn("package_publication_allowed=", rendered)
+        self.assertNotIn("performance_claim_allowed=", rendered)
+        with self.assertRaises(ValueError):
+            module.render({}, matrix)
+        with self.assertRaises(ValueError):
+            module.render(runs_today, {})
 
     def test_local_format_production_profiles_validator_accepts_current_matrix(self) -> None:
         module = self._load_script_module(
@@ -7532,36 +7558,33 @@ jobs:
         self.assertEqual(report["claim_gate_status"], "not_claim_grade")
         self.assertFalse(report["public_package_claim_allowed"])
         self.assertFalse(report["fallback_attempted"])
-        self.assertEqual(report["support_doc"]["header"]["fallback_attempted"], "false")
+        self.assertEqual(report["support_doc"]["runtime_authority"], module.RUNS_TODAY_MATRIX.as_posix())
         self.assertIn("object-store runtime", report["unsupported_production_families"])
 
-    def test_v1_release_boundary_blocks_stale_support_doc_no_fallback_header(self) -> None:
+    def test_release_boundary_rejects_stale_public_link_and_runtime_fallback(self) -> None:
         module = self._load_script_module(
-            "check_v1_release_boundary.py",
-            "check_v1_release_boundary_support_doc_blocker_for_test",
+            "check_v1_release_boundary.py", "release_boundary_contract_drift_test",
         )
-
         with tempfile.TemporaryDirectory() as tempdir:
-            repo_root = Path(tempdir)
-            self._write_v1_release_boundary_fixture(module, repo_root)
-            support_doc = repo_root / module.V1_SUPPORTED_DOC
-            support_doc.write_text(
-                support_doc.read_text(encoding="utf-8").replace(
-                    "fallback_attempted=false",
-                    "fallback_attempted=true",
-                    1,
-                ),
-                encoding="utf-8",
-            )
-            report = module.build_report(repo_root)
+            root = Path(tempdir)
+            self._write_v1_release_boundary_fixture(module, root)
+            support_doc = root / module.V1_SUPPORTED_DOC
+            original = support_doc.read_text()
+            support_doc.write_text(original.replace(
+                "https://shardloom.io/field-guide/limitations", "https://example.com", 1))
+            report = module.build_report(root)
+            self.assertEqual(report["status"], "failed")
+            self.assertTrue(any("generated docs are stale" in error for error in report["blockers"]))
+            support_doc.write_text(original)
 
-        self.assertEqual(report["status"], "failed")
-        self.assertTrue(
-            any(
-                "v1 supported doc header fallback_attempted=true" in blocker
-                for blocker in report["blockers"]
-            )
-        )
+            matrix_path = root / module.RUNS_TODAY_MATRIX
+            matrix = json.loads(matrix_path.read_text())
+            matrix["all_rows_fallback_attempted_false"] = False
+            matrix_path.write_text(json.dumps(matrix))
+            report = module.build_report(root)
+            self.assertEqual(report["status"], "failed")
+            self.assertTrue(any("all_rows_fallback_attempted_false must be true" in error
+                                for error in report["blockers"]))
 
     def test_v1_release_boundary_blocks_production_package_classifier(self) -> None:
         module = self._load_script_module(
@@ -7793,6 +7816,12 @@ jobs:
             self.assertTrue(os.access(binary, os.X_OK))
 
     def test_local_python_smoke_runs_user_surface_quickstart(self) -> None:
+        worker_env_patch = mock.patch.dict(
+            os.environ,
+            {"SHARDLOOM_PERSISTENT_WORKER": "0"},
+        )
+        worker_env_patch.start()
+        self.addCleanup(worker_env_patch.stop)
         module = self._load_module_from_path(
             REPO_ROOT / "examples" / "local-python-smoke" / "run.py",
             "local_python_smoke_for_test",
@@ -8429,7 +8458,7 @@ jobs:
                 "pip --no-index\n"
                 "SHARDLOOM_BIN\n"
             ),
-            "docs/getting-started/first-10-minutes.md": (
+            "docs/release/local-source-rehearsal.md": (
                 "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1\n"
                 "ctx.from_rows\nctx.read\nquickstart_local_file_blocker_id\n"
                 "quickstart_generated_output_row_count\nctx.range\n"

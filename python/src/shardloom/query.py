@@ -1269,7 +1269,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
-        """Run this SQL workflow through the shared public route facade."""
+        """Execute once and return a transport-level receipt; use collect for data."""
 
         normalized_bounded = (
             _find_top_level_sql_keyword_outside_quotes(self.statement.strip(), "limit")
@@ -1297,16 +1297,14 @@ class SqlWorkflow:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
-    ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
-    ):
-        """Collect rows or run admitted local Vortex SQL primitives."""
+    ) -> Result:
+        """Complete the result once; errors raise unless ``check=False`` is explicit."""
 
         if limit is not None:
             return self.limit(limit).collect(
@@ -1325,7 +1323,7 @@ class SqlWorkflow:
             inherited=self.resources, limits=self.resource_limits,
             native_plan=self._native_plan,
         )
-        return VortexWorkflowExecutionReport(
+        return Result(
             workflow=self._report_workflow(), operation="collect", envelope=envelope,
         )
 
@@ -1547,17 +1545,18 @@ class SqlWorkflow:
         self,
         limit: int = 100,
         *,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
     ) -> (
-        WorkflowProfileReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        WorkflowProfileReport | UnsupportedWorkflowOperationReport
     ):
-        """Return a metadata-first profile for admitted Vortex/prepared SQL."""
+        """Execute one bounded sample and inspect its values/schema in Python.
+
+        This is a data-consuming diagnostic, not a metadata-only explain call.
+        """
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes,
@@ -1632,12 +1631,12 @@ class SqlWorkflow:
         self,
         limit: int = 20,
         *,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Return a bounded preview through the native Vortex SQL route when admitted."""
 
         allocation = resolve_resources(
@@ -1652,12 +1651,12 @@ class SqlWorkflow:
         self,
         limit: int = 20,
         *,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Return a bounded SQL preview using familiar DataFrame naming."""
 
         allocation = resolve_resources(
@@ -1672,12 +1671,12 @@ class SqlWorkflow:
         self,
         count: int,
         *,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Return a bounded SQL preview for the requested row count."""
 
         allocation = resolve_resources(
@@ -1692,7 +1691,7 @@ class SqlWorkflow:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -1714,7 +1713,7 @@ class SqlWorkflow:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -1743,7 +1742,7 @@ class SqlWorkflow:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -1772,7 +1771,7 @@ class SqlWorkflow:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -1801,7 +1800,7 @@ class SqlWorkflow:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -1830,7 +1829,7 @@ class SqlWorkflow:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -1895,7 +1894,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        Result | UnsupportedWorkflowOperationReport
     ):
         """Write an admitted SQL result to a scoped local output."""
 
@@ -1922,7 +1921,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        Result | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="jsonl")`."""
 
@@ -1948,7 +1947,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        Result | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="json")` (one JSON array)."""
 
@@ -1974,7 +1973,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        Result | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="csv")`."""
 
@@ -1999,7 +1998,7 @@ class SqlWorkflow:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="parquet")`.
 
         Local SQL-source Parquet output requires a CLI built with
@@ -2028,7 +2027,7 @@ class SqlWorkflow:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="arrow-ipc")`.
 
         Local SQL-source Arrow IPC output requires a CLI built with
@@ -2057,7 +2056,7 @@ class SqlWorkflow:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="avro")`.
 
         Local SQL-source Avro output requires a CLI built with
@@ -2086,7 +2085,7 @@ class SqlWorkflow:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="orc")`.
 
         Local SQL-source ORC output requires a CLI built with
@@ -2116,7 +2115,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        Result | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="vortex")`.
 
@@ -2150,7 +2149,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        Result | UnsupportedWorkflowOperationReport
     ):
         """Write an admitted SQL result to primary and fanout local sinks."""
 
@@ -2183,7 +2182,7 @@ class SqlWorkflow:
         spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        Result | UnsupportedWorkflowOperationReport
     ):
         # The CLI owns source preparation and native operator/sink admission.
         # Sending the original statement preserves optimized aggregate/sort paths
@@ -2206,7 +2205,7 @@ class SqlWorkflow:
             check=check,
             **self._declared_or_embedded_vortex_input_kwargs(),
         )
-        return VortexWorkflowExecutionReport(
+        return Result(
             workflow=self._report_workflow(),
             operation=requested_output,
             envelope=execution.envelope,
@@ -2270,7 +2269,7 @@ class SqlWorkflow:
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes,
             max_parallelism=max_parallelism, resources=resources,
@@ -2377,12 +2376,35 @@ class UnsupportedWorkflowOperationReport:
 
 
 @dataclass(frozen=True, slots=True)
-class VortexWorkflowExecutionReport:
-    """Rows, diagnostics and sink evidence from the shared Vortex-native engine."""
+class Result:
+    """Completed data and its existing native owner, or a completed write receipt.
+
+    Collection does not export Python rows. ``to_rows`` and the optional
+    integration conversions are explicit allocation boundaries and never rerun
+    the query. Process results retain their delivered typed payload instead.
+    """
 
     workflow: "LazyFrame"
     operation: str
     envelope: OutputEnvelope
+
+    @property
+    def schema(self) -> tuple[tuple[str, ResultType], ...]:
+        """Ordered exact result types; available for empty collected results too."""
+        return self.result_schema
+
+    @property
+    def details(self) -> OutputEnvelope:
+        """Typed diagnostics, certificates and execution fields from this call."""
+        return self.envelope
+
+    def to_rows(self) -> tuple[Mapping[str, Any], ...]:
+        """Explicitly allocate exact logical Python values for the complete result.
+
+        Python objects occupy caller memory outside the engine's retained
+        allocation. Use ``iter_batches`` on a plan for incremental delivery.
+        """
+        return self.python_objects
 
     @property
     def native_result(self) -> object | None:
@@ -2812,6 +2834,10 @@ class VortexWorkflowExecutionReport:
 
 
 
+
+
+# Compatibility name: retained until an announced breaking release.
+VortexWorkflowExecutionReport = Result
 
 
 @dataclass(frozen=True, slots=True)
@@ -3342,7 +3368,7 @@ class WorkflowSchemaReport:
     """Schema report backed by an admitted local-source runtime smoke."""
 
     workflow: "LazyFrame"
-    smoke_report: VortexWorkflowExecutionReport
+    smoke_report: Result
     fields: tuple[WorkflowSchemaField, ...]
 
     @property
@@ -3522,7 +3548,7 @@ class WorkflowProfileReport:
     """Bounded runtime profile over an admitted local-source workflow."""
 
     workflow: "LazyFrame"
-    smoke_report: VortexWorkflowExecutionReport
+    smoke_report: Result
     schema_report: WorkflowSchemaReport
     limit: int
 
@@ -3622,7 +3648,7 @@ class WorkflowQuarantineReport:
     limit: int
     target_uri: str | None
     output_format: str | None
-    sink_report: VortexWorkflowExecutionReport | None = None
+    sink_report: Result | None = None
 
     @property
     def quarantine_policy(self) -> str:
@@ -3750,7 +3776,7 @@ class WorkflowNotebookPreview:
     """Bounded notebook/display preview with explicit materialization evidence."""
 
     workflow: "LazyFrame"
-    smoke_report: VortexWorkflowExecutionReport
+    smoke_report: Result
     limit: int
 
     @property
@@ -4397,9 +4423,7 @@ class LazyFrame:
         check: bool = False,
         **kwargs: object,
     ) -> (
-        WorkflowProfileReport
-        | VortexWorkflowExecutionReport
-        | UnsupportedWorkflowOperationReport
+        WorkflowProfileReport | UnsupportedWorkflowOperationReport
     ):
         """Return a metadata-first profile for admitted local/Vortex columns."""
 
@@ -5414,17 +5438,20 @@ class LazyFrame:
         self,
         limit: int = 100,
         *,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
     ) -> (
         WorkflowProfileReport
-        | VortexWorkflowExecutionReport
+        | Result
         | UnsupportedWorkflowOperationReport
     ):
-        """Return a metadata-first profile for admitted Vortex/prepared workflows."""
+        """Execute one bounded sample and inspect its values/schema in Python.
+
+        This is a data-consuming diagnostic, not a metadata-only explain call.
+        """
 
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes,
@@ -5446,22 +5473,24 @@ class LazyFrame:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
-    ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
-    ):
+    ) -> Result:
         """Collect the complete bounded result through the shared native engine."""
         if limit is not None:
             return self.limit(limit).collect(check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
                                             max_parallelism=max_parallelism, spill=spill)
         statement = self._relation_statement()
         if statement is None:
-            return self._unsupported_operation("collect", check=check)
+            resolve_resources(memory_gb=memory_gb, memory_bytes=memory_bytes,
+                              max_parallelism=max_parallelism, resources=resources,
+                              inherited=self.resources, limits=self.resource_limits)
+            report = self._unsupported_operation("collect", check=check)
+            return Result(self, "collect", report.envelope)
         envelope = _collect_native_relational(
             self.client, statement, surface="dataframe", plan_summary=self.operation_summary,
             input_kwargs={"input_uri": self.source.uri,
@@ -5472,7 +5501,7 @@ class LazyFrame:
             inherited=self.resources, limits=self.resource_limits,
             native_plan=self._native_plan,
         )
-        return VortexWorkflowExecutionReport(self, "collect", envelope)
+        return Result(self, "collect", envelope)
 
     def iter_batches(
         self, *, batch_rows: int = 2048,
@@ -5504,14 +5533,14 @@ class LazyFrame:
     def count(
         self,
         *,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
     ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        Result | UnsupportedWorkflowOperationReport
     ):
         """Declare COUNT over this complete input; native planning selects its strategy."""
         if self._relation_statement() is None:
@@ -5532,7 +5561,7 @@ class LazyFrame:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        Result | UnsupportedWorkflowOperationReport
     ):
         """Write this complete native declaration through the requested output adapter."""
         normalized_output_format = _normalize_local_output_format(output_format)
@@ -5555,7 +5584,7 @@ class LazyFrame:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="jsonl")`."""
 
         return self.write(
@@ -5579,7 +5608,7 @@ class LazyFrame:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="json")` (one JSON array)."""
 
         return self.write(
@@ -5603,7 +5632,7 @@ class LazyFrame:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="csv")`."""
 
         return self.write(
@@ -5627,7 +5656,7 @@ class LazyFrame:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="parquet")`.
 
         The CLI must be built with `--features universal-format-io`; default
@@ -5655,7 +5684,7 @@ class LazyFrame:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="arrow-ipc")`.
 
         The CLI must be built with `--features universal-format-io`; default
@@ -5683,7 +5712,7 @@ class LazyFrame:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="avro")`.
 
         The CLI must be built with `--features universal-format-io`; default
@@ -5711,7 +5740,7 @@ class LazyFrame:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="orc")`.
 
         The CLI must be built with `--features universal-format-io`; default
@@ -5740,7 +5769,7 @@ class LazyFrame:
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
     ) -> (
-        VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        Result | UnsupportedWorkflowOperationReport
     ):
         """Write one declared workflow through the common multi-output owner."""
         normalized_outputs = _normalize_fanout_outputs(outputs)
@@ -5757,7 +5786,7 @@ class LazyFrame:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -5786,7 +5815,7 @@ class LazyFrame:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -5815,7 +5844,7 @@ class LazyFrame:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -5844,7 +5873,7 @@ class LazyFrame:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -5873,7 +5902,7 @@ class LazyFrame:
         self,
         *,
         limit: int | None = None,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -5901,7 +5930,7 @@ class LazyFrame:
     def to_python_objects(
         self,
         *,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -5932,7 +5961,7 @@ class LazyFrame:
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
         check: bool = True,
-    ) -> VortexIngestSmokeReport | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> VortexIngestSmokeReport | Result | UnsupportedWorkflowOperationReport:
         """Prepare this raw local source into a caller-owned `VortexPreparedState`.
 
         When `workspace` is supplied without `target_vortex_path`, the target is derived as
@@ -6002,7 +6031,7 @@ class LazyFrame:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         check: bool = True,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Write native Vortex output through the common output adapter contract."""
         return self.write(target_uri, output_format="vortex", allow_overwrite=allow_overwrite,
                           memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
@@ -6021,7 +6050,7 @@ class LazyFrame:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
         fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
-    ) -> VortexWorkflowExecutionReport:
+    ) -> Result:
         statement = self._relation_statement()
         if statement is None:
             raise ValueError(
@@ -6047,7 +6076,7 @@ class LazyFrame:
             **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources),
             check=check,
         )
-        return VortexWorkflowExecutionReport(
+        return Result(
             workflow=self, operation=requested_output, envelope=execution.envelope,
         )
 
@@ -6480,7 +6509,7 @@ class LazyFrame:
             target_uri,
             output_format,
         )
-        sink_report: VortexWorkflowExecutionReport | None = None
+        sink_report: Result | None = None
         if target_uri is not None and rows:
             pushdown_statement = self._quarantine_pushdown_statement(
                 parsed_checks,
@@ -6516,12 +6545,12 @@ class LazyFrame:
         self,
         limit: int = 20,
         *,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Return a bounded local preview when admitted, otherwise report unsupported."""
 
         allocation = resolve_resources(
@@ -6536,12 +6565,12 @@ class LazyFrame:
         self,
         limit: int = 20,
         *,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Return a bounded preview report using familiar DataFrame naming."""
 
         allocation = resolve_resources(
@@ -6556,12 +6585,12 @@ class LazyFrame:
         self,
         count: int,
         *,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         """Return a bounded preview report for the requested row count."""
 
         allocation = resolve_resources(
@@ -7665,7 +7694,7 @@ class LazyFrame:
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
-    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> Result | UnsupportedWorkflowOperationReport:
         allocation = resolve_resources(
             memory_gb=memory_gb, memory_bytes=memory_bytes,
             max_parallelism=max_parallelism, resources=resources,
@@ -9358,6 +9387,47 @@ def from_vortex_ipc(
     )
 
 
+def from_result(
+    result: object,
+    *,
+    client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
+    **client_config: object,
+) -> LazyFrame:
+    """Admit completed ShardLoom data without an Arrow or row round trip in process.
+
+    Native owners and credits are preserved by the existing native admission
+    boundary. Moving a process result uses an explicit typed Python payload
+    conversion; no cross-process zero-copy claim is made.
+    """
+    from ._batches import ResultBatch
+    from ._native_backend import NativeResultBatch
+    from ._input_schema import result_type_specification
+    from .session import SessionSqlResult
+
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+    mode = _normalize_engine_mode(engine_mode)
+    if type(result) is SessionSqlResult:
+        result = result.report
+    if resolved_client.transport == "native":
+        backend = resolved_client._native_backend_for(resources)
+        if type(result) is backend.module.Result or type(result) is backend.module.ColumnarBatch:
+            owner = backend.from_arrow(result, resources)
+            return _native_input_frame(owner, client=resolved_client, engine_mode=mode,
+                                       resources=resources, resource_limits=resource_limits)
+        if (type(result) is Result or type(result) is NativeResultBatch) and result.native_result is not None:
+            owner = backend.from_arrow(result, resources)
+            return _native_input_frame(owner, client=resolved_client, engine_mode=mode,
+                                       resources=resources, resource_limits=resource_limits)
+    if not any(type(result) is candidate for candidate in (Result, ResultBatch, NativeResultBatch)):
+        raise TypeError("from_result requires a completed ShardLoom Result or result batch")
+    if isinstance(result, Result) and (result.is_error or result.operation != "collect"):
+        raise ValueError("from_result requires successful collected data, not a write or error receipt")
+    schema = {name: result_type_specification(dtype) for name, dtype in result.result_schema}
+    return _memory_rows_source(result.python_objects, schema=schema, client=resolved_client,
+                               engine_mode=mode, resources=resources, resource_limits=resource_limits)
+
+
 def from_arrow_table(
     table: object,
     *,
@@ -9892,6 +9962,8 @@ def _client_from_config(
     if client is not None:
         if client_config:
             raise ValueError("client cannot be combined with client configuration arguments")
+        if isinstance(client, ShardLoomClient):
+            client._ensure_open()
         return client
     config = dict(client_config)
     binary = config.pop("binary", None)
@@ -9900,7 +9972,8 @@ def _client_from_config(
     repo_root = config.pop("repo_root", None)
     profile_order = config.pop("profile_order", None)
     timeout = config.pop("timeout", None)
-    transport = config.pop("transport", "subprocess")
+    from ._native_backend import application_transport
+    transport = application_transport(config.pop("transport", None), binary=binary, repo_root=repo_root, env=env)
     if config:
         unknown = ", ".join(sorted(str(key) for key in config))
         raise TypeError(f"unknown client configuration argument(s): {unknown}")
@@ -13572,7 +13645,7 @@ def _optional_sql_having_clause(predicate: str | None) -> str:
 
 def _workflow_schema_report(
     workflow: LazyFrame,
-    smoke_report: VortexWorkflowExecutionReport,
+    smoke_report: Result,
 ) -> WorkflowSchemaReport:
     rows = smoke_report.result_rows
     declared = dict(workflow.source.schema)
@@ -13926,18 +13999,18 @@ def _row_field_order(rows: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
     return tuple(fields)
 
 
-def _result_to_pandas(report: VortexWorkflowExecutionReport, pandas: object) -> object:
+def _result_to_pandas(report: Result, pandas: object) -> object:
     # Object columns preserve NULL and full-width integers without float coercion.
     return getattr(pandas, "DataFrame")(report.python_objects, columns=report.result_columns, dtype=object)
 
 
-def _result_to_arrow_table(report: VortexWorkflowExecutionReport, pyarrow: object) -> object:
+def _result_to_arrow_table(report: Result, pyarrow: object) -> object:
     if getattr(report, "native_result", None) is not None:
         return pyarrow.RecordBatchReader.from_stream(report.native_result).read_all()
     return arrow_table(report.result_rows, report.result_schema, pyarrow)
 
 
-def _result_to_arrow_ipc(report: VortexWorkflowExecutionReport, pyarrow: object) -> bytes:
+def _result_to_arrow_ipc(report: Result, pyarrow: object) -> bytes:
     table = _result_to_arrow_table(report, pyarrow)
     sink = getattr(pyarrow, "BufferOutputStream")()
     with pyarrow.ipc.new_stream(sink, table.schema) as writer:
@@ -13945,7 +14018,7 @@ def _result_to_arrow_ipc(report: VortexWorkflowExecutionReport, pyarrow: object)
     return sink.getvalue().to_pybytes()
 
 
-def _result_to_numpy(report: VortexWorkflowExecutionReport, numpy: object) -> object:
+def _result_to_numpy(report: Result, numpy: object) -> object:
     rows, columns = report.python_objects, report.result_columns
     # Assign whole cells to keep mixed scalars and nested values in two axes.
     values = getattr(numpy, "empty")((len(rows), len(columns)), dtype=object)

@@ -1,5 +1,81 @@
 {
   "schema_version": "shardloom.package_channel_readiness_matrix.v1",
+  "user_guide": {
+    "release_tag": "v0.6.0",
+    "source_revision": "936313473fedca78176d1fd983446673ed8ae62b",
+    "artifact_channel": "pypi",
+    "evidence_ref": "docs/release/v0.6.0-publication-verification.md",
+    "platforms": [
+      {
+        "wheel_tag": "cp310-abi3-macosx_26_0_arm64",
+        "platform": "macOS 26 or newer, Apple silicon",
+        "python": "CPython 3.10 or newer",
+        "backends": ["native", "subprocess"]
+      },
+      {
+        "wheel_tag": "cp310-abi3-manylinux_2_39_x86_64",
+        "platform": "Linux x86_64, glibc 2.39 or newer",
+        "python": "CPython 3.10 or newer",
+        "backends": ["native", "subprocess"]
+      },
+      {
+        "wheel_tag": "cp313-cp313-win_amd64",
+        "platform": "Windows x86_64",
+        "python": "CPython 3.13",
+        "backends": ["subprocess"]
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "local-files",
+        "operation": "Read local files",
+        "types_formats": "CSV, JSON, JSONL/NDJSON, Vortex, Parquet, Arrow IPC/Feather, Avro and ORC",
+        "artifact_requirement": "Published CLI or Python wheel; source builds need the matching format features",
+        "restriction": "Local paths only. Reader options and representable types depend on the format; remote catalogs and transactions are separate work.",
+        "reference": "/field-guide/runtime-and-io#local-formats"
+      },
+      {
+        "id": "query",
+        "operation": "Filter, project, aggregate, join and order",
+        "types_formats": "Admitted typed scalar and static nested inputs",
+        "artifact_requirement": "Published CLI or Python wheel",
+        "restriction": "Only implemented expressions and relational shapes execute. Arbitrary Python callbacks and unrestricted SQL compatibility are not provided.",
+        "reference": "/field-guide/runtime-and-io#native-execution"
+      },
+      {
+        "id": "collect",
+        "operation": "Collect complete results",
+        "types_formats": "Admitted computed result schemas",
+        "artifact_requirement": "Published Python wheel",
+        "restriction": "Small computed-result collection is limited to 65,536 rows and 8 MiB. Use batches or a writer for larger admitted results. Python object conversion allocates separately.",
+        "reference": "/field-guide/python-surface#consume-results"
+      },
+      {
+        "id": "batches",
+        "operation": "Iterate result batches",
+        "types_formats": "Admitted finite results and explicitly typed finite producers",
+        "artifact_requirement": "Linux or macOS Python wheel; native columnar ownership requires a native wheel",
+        "restriction": "Full drain and final success establish completion. Process batch pipes require POSIX; Windows users should use collection or a writer. Process frames contain at most 2,048 rows and 8 MiB. A yielded batch does not certify later input.",
+        "reference": "/field-guide/python-surface#consume-results-in-batches"
+      },
+      {
+        "id": "write",
+        "operation": "Write local results",
+        "types_formats": "Vortex, CSV, JSON, JSONL, Parquet, Arrow IPC, Avro and ORC",
+        "artifact_requirement": "Published CLI or Python wheel with the matching writer",
+        "restriction": "Use a new destination. CSV translates nested values to JSON text; ORC rejects nested output. Individual writer fidelity and publication rules apply; multi-file atomic publication is not promised.",
+        "reference": "/field-guide/runtime-and-io#write-results"
+      },
+      {
+        "id": "retained-results",
+        "operation": "Reuse a native result as input",
+        "types_formats": "Admitted ShardLoom-owned arrays and exact schemas",
+        "artifact_requirement": "Linux or macOS native Python wheel; transport=native",
+        "restriction": "Version 0.6.0 admits owned results through from_arrow_table without an Arrow export. Cross-owner admission may copy under the receiving grant.",
+        "reference": "/field-guide/python-surface#keep-results-native"
+      }
+    ]
+  },
   "status": "ready",
   "claim_gate_status": "not_claim_grade",
   "public_package_release_claim_allowed": true,

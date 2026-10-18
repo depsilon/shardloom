@@ -23,6 +23,7 @@ from .errors import (
     ShardLoomBinaryNotFoundError,
     ShardLoomCommandError,
     ShardLoomProtocolError,
+    ShardLoomTimeoutError,
 )
 from .models import (
     ClaimSummary,
@@ -6445,6 +6446,10 @@ class ShardLoomClient:
         self._worker_stdout_buffer = b""
         self._worker_disabled = False
         self._worker_lock = threading.Lock()
+        self._active_processes: set[subprocess.Popen] = set()
+        self._cancelled_processes: set[subprocess.Popen] = set()
+        import weakref
+        self._batch_streams = weakref.WeakSet()
 
     @property
     def resources(self) -> ExecutionResources | None:
@@ -6464,6 +6469,15 @@ class ShardLoomClient:
 
         return self._transport
 
+    @property
+    def closed(self) -> bool:
+        return self._native_closed
+
+    def _ensure_open(self) -> None:
+        from .errors import ShardLoomClosedError
+        if self._native_closed:
+            raise ShardLoomClosedError()
+
     def _native_backend_for(self, allocation: ExecutionResources | None = None):
         from ._native_backend import NativeBackend
         if self.transport != "native":
@@ -6473,8 +6487,7 @@ class ShardLoomClient:
                 resources=allocation, inherited=self.resources, limits=self.resource_limits,
             )
         with self._native_backend_lock:
-            if self._native_closed:
-                raise RuntimeError("native client is closed; retained results remain valid")
+            self._ensure_open()
             if self._native_backend is None:
                 self._native_backend = NativeBackend(self.resources, self.resource_limits, self._timeout)
             return self._native_backend
@@ -6883,6 +6896,7 @@ class ShardLoomClient:
         input_batches: Mapping[str, object] | None = None, **kwargs: Any,
     ):
         """Iterate native result batches; use a context manager for early close."""
+        self._ensure_open()
         if self.transport == "native":
             request = dict(kwargs, surface=surface, input_batches=input_batches)
             allocation = resolve_resources(
@@ -6890,7 +6904,12 @@ class ShardLoomClient:
                 max_parallelism=kwargs.get("max_parallelism"), resources=kwargs.get("resources"),
                 inherited=self.resources, limits=self.resource_limits,
             )
-            return self._native_backend_for(allocation).batches(request, allocation, batch_rows)
+            iterator = self._native_backend_for(allocation).batches(request, allocation, batch_rows)
+            with self._native_backend_lock:
+                self._ensure_open()
+                iterator._client = self
+                self._batch_streams.add(iterator)
+            return iterator
         kwargs.pop("_native_plan", None)
         from ._batches import ResultBatchIterator, validate_inputs
         if kwargs.get("requested_output", "collect") != "collect":
@@ -8575,6 +8594,7 @@ class ShardLoomClient:
     def run(self, args: Sequence[CommandPart], *, check: bool = True) -> OutputEnvelope:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
 
+        self._ensure_open()
         if self.transport == "native":
             command = [str(arg) for arg in args]
             payload = self._native_backend_for().command(command)
@@ -8592,28 +8612,85 @@ class ShardLoomClient:
         return self._run_subprocess(args, check=check)
 
     def cancel(self) -> None:
-        """Cancel this native client's current calls; later calls remain usable.
+        """Cancel current calls; later calls remain usable.
 
-        Cancellation is cooperative. A foreign producer callback must return
-        before native work can observe it. Completed results remain valid.
+        Native/batch cancellation is cooperative and producer callbacks must
+        return. Ordinary CLI processes are terminated: their active call reports
+        that output cleanup cannot be confirmed. Completed results remain valid.
         """
 
-        if self.transport != "native":
-            raise ValueError("cancel() requires transport='native'")
-        with self._native_backend_lock:
-            if self._native_closed:
-                raise RuntimeError("native client is closed; retained results remain valid")
-            if self._native_backend is not None:
-                self._native_backend.cancel()
+        self._stop_active_work(closing=False)
 
     def close(self) -> None:
         """Close this client's native session or persistent local CLI worker."""
 
+        self._stop_active_work(closing=True)
+
+    def _stop_active_work(self, *, closing: bool) -> None:
+        errors = []
         with self._native_backend_lock:
-            self._native_closed = True
+            if closing:
+                self._native_closed = True
+            else:
+                self._ensure_open()
             if self._native_backend is not None:
-                self._native_backend.close()
-        self._close_worker()
+                try:
+                    if closing:
+                        self._native_backend.close()
+                    else:
+                        self._native_backend.cancel()
+                except Exception as error:
+                    errors.append(error)
+            processes = tuple(self._active_processes)
+            self._cancelled_processes.update(processes)
+            streams = tuple(self._batch_streams)
+            # An active worker's caller owns its pipes and reaping. Closing a
+            # TextIOWrapper from here can block behind its reader's lock.
+            worker_active = self._worker_process in self._active_processes
+        for stream in streams:
+            try:
+                stream.cancel()
+            except Exception as error:
+                errors.append(error)
+        for process in processes:
+            try:
+                if process.poll() is None:
+                    process.kill()
+            except ProcessLookupError:
+                pass  # The caller still owns the completed process and reaps it.
+            except Exception as error:
+                errors.append(error)
+        if closing and not worker_active:
+            self._close_worker()
+        if errors:
+            raise errors[0]
+
+    def release_prepared(self) -> None:
+        """Discard preparation, retaining this client's sources, results and lifetime."""
+        with self._native_backend_lock:
+            self._ensure_open()
+            if self._native_backend is not None:
+                self._native_backend.release_prepared()
+        if self.transport == "subprocess":
+            with self._worker_lock:
+                self._close_worker()
+
+    def _register_process(self, process) -> None:
+        with self._native_backend_lock:
+            self._ensure_open()
+            self._active_processes.add(process)
+
+    def _release_process(self, process) -> None:
+        with self._native_backend_lock:
+            self._active_processes.discard(process)
+            self._cancelled_processes.discard(process)
+
+    def _check_process_cancelled(self, process, command) -> None:
+        with self._native_backend_lock:
+            cancelled = process in self._cancelled_processes
+        if cancelled:
+            from .errors import _cancelled_error
+            raise _cancelled_error(command, forced=True)
 
     def __del__(self) -> None:
         try:
@@ -8627,30 +8704,45 @@ class ShardLoomClient:
         command = self._command(args)
         redacted_command = _redact_command_for_error(command)
         try:
-            completed = subprocess.run(
-                command,
-                cwd=self._cwd,
-                env=self._effective_env(),
-                text=True,
-                capture_output=True,
-                timeout=self._timeout,
-                check=False,
-            )
+            with self._native_backend_lock:
+                self._ensure_open()
+                process = subprocess.Popen(
+                    command, cwd=self._cwd, env=self._effective_env(), text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                )
+                self._active_processes.add(process)
         except FileNotFoundError as exc:
             raise ShardLoomBinaryNotFoundError(
                 "ShardLoom CLI binary was not found while running "
                 f"{command[0]!r}. Install the ShardLoom CLI package, put "
                 "`shardloom` on PATH, or set SHARDLOOM_BIN to a valid binary."
             ) from exc
-        envelope = self._parse_stdout(completed.stdout, redacted_command)
-        if check and (completed.returncode != 0 or envelope.is_error):
-            raise ShardLoomCommandError(
-                command=redacted_command,
-                returncode=completed.returncode,
-                envelope=envelope,
-                stderr=completed.stderr,
-            )
-        return envelope
+        try:
+            try:
+                stdout, stderr = process.communicate(timeout=self._timeout)
+            except subprocess.TimeoutExpired as error:
+                process.kill()
+                process.communicate()
+                raise ShardLoomTimeoutError(
+                    redacted_command, self._timeout, error.output, error.stderr,
+                ) from error
+            except BaseException:
+                # KeyboardInterrupt, cancellation and communication failures
+                # must not leave a detached child running an output operation.
+                if process.poll() is None:
+                    process.kill()
+                process.communicate()
+                raise
+            self._check_process_cancelled(process, redacted_command)
+            envelope = self._parse_stdout(stdout, redacted_command)
+            if check and (process.returncode != 0 or envelope.is_error):
+                raise ShardLoomCommandError(redacted_command, process.returncode, envelope, stderr)
+            return envelope
+        finally:
+            self._release_process(process)
+            for pipe in (process.stdout, process.stderr):
+                if pipe is not None:
+                    pipe.close()
 
     def _run_worker(
         self, args: Sequence[CommandPart], *, check: bool = True
@@ -8660,9 +8752,7 @@ class ShardLoomClient:
             [*self._binary_parts(), *command_args]
         )
         with self._worker_lock:
-            first_request_for_process = (
-                self._worker_process is None or self._worker_process.poll() is not None
-            )
+            self._ensure_open()
             process = self._ensure_worker()
             if process.stdin is None or process.stdout is None:
                 self._worker_disabled = True
@@ -8674,56 +8764,41 @@ class ShardLoomClient:
                 else None
             )
             try:
-                self._write_worker_request(
-                    process,
-                    request + "\n",
-                    redacted_command,
-                    deadline,
-                )
-            except (BrokenPipeError, OSError) as exc:
-                self._close_worker()
-                if first_request_for_process:
-                    raise _ShardLoomWorkerStartupError(
-                        "ShardLoom persistent worker exited before accepting first request"
+                self._register_process(process)
+                try:
+                    # From this point on the request may have reached the engine.
+                    # A missing response never authorizes replay, even on call one.
+                    self._write_worker_request(process, request + "\n", redacted_command, deadline)
+                    response_line = self._read_worker_response_line(process, redacted_command, deadline)
+                    self._check_process_cancelled(process, redacted_command)
+                    if not response_line:
+                        raise ShardLoomProtocolError(
+                            "ShardLoom worker exited without a response; execution may have begun. No request was replayed."
+                        )
+                    envelope = self._parse_stdout(response_line, redacted_command)
+                    expected_command = command_args[0] if command_args else ""
+                    if expected_command and envelope.command == "python-worker":
+                        raise ShardLoomProtocolError(
+                            "ShardLoom worker returned a startup envelope instead of the requested command; no request was replayed. "
+                            "For an older CLI, explicitly configure use_persistent_worker=False."
+                        )
+                except ShardLoomTimeoutError:
+                    # The compatibility timeout also inherits OSError through
+                    # TimeoutError; preserve its type and structured diagnostic.
+                    raise
+                except (BrokenPipeError, OSError, ValueError) as exc:
+                    self._check_process_cancelled(process, redacted_command)
+                    raise ShardLoomProtocolError(
+                        "ShardLoom worker communication failed after request admission; no request was replayed."
                     ) from exc
-                raise ShardLoomProtocolError(
-                    "ShardLoom persistent worker closed before accepting a request"
-                ) from exc
-            response_line = self._read_worker_response_line(
-                process,
-                redacted_command,
-                deadline,
-            )
-            if not response_line:
-                stderr = self._worker_stderr_preview(process)
+                if check and envelope.is_error:
+                    raise ShardLoomCommandError(redacted_command, 2, envelope, "")
+                return envelope
+            except BaseException:
                 self._close_worker()
-                if first_request_for_process:
-                    raise _ShardLoomWorkerStartupError(
-                        "ShardLoom persistent worker exited before first response"
-                    )
-                detail = f": {stderr}" if stderr else ""
-                raise ShardLoomProtocolError(
-                    f"ShardLoom persistent worker emitted no JSON output{detail}"
-                )
-        envelope = self._parse_stdout(response_line, redacted_command)
-        expected_command = command_args[0] if command_args else ""
-        if expected_command and envelope.command == "python-worker":
-            message = (
-                "ShardLoom persistent worker emitted a startup envelope instead "
-                f"of the requested {expected_command!r} command"
-            )
-            self._close_worker()
-            if first_request_for_process:
-                raise _ShardLoomWorkerStartupError(message)
-            raise ShardLoomProtocolError(message)
-        if check and envelope.is_error:
-            raise ShardLoomCommandError(
-                command=redacted_command,
-                returncode=2,
-                envelope=envelope,
-                stderr="",
-            )
-        return envelope
+                raise
+            finally:
+                self._release_process(process)
 
     def _write_worker_request(
         self,
@@ -8763,7 +8838,7 @@ class ShardLoomClient:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     timed_out = True
-                    raise subprocess.TimeoutExpired(redacted_command, self._timeout)
+                    raise ShardLoomTimeoutError(redacted_command, self._timeout)
                 try:
                     written = os.write(fd, view[offset:])
                 except BlockingIOError:
@@ -8774,7 +8849,7 @@ class ShardLoomClient:
                 events = selector.select(remaining)
                 if not events:
                     timed_out = True
-                    raise subprocess.TimeoutExpired(redacted_command, self._timeout)
+                    raise ShardLoomTimeoutError(redacted_command, self._timeout)
         finally:
             selector.close()
             try:
@@ -8825,11 +8900,11 @@ class ShardLoomClient:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     self._close_worker()
-                    raise subprocess.TimeoutExpired(redacted_command, self._timeout)
+                    raise ShardLoomTimeoutError(redacted_command, self._timeout)
                 events = selector.select(remaining)
                 if not events:
                     self._close_worker()
-                    raise subprocess.TimeoutExpired(redacted_command, self._timeout)
+                    raise ShardLoomTimeoutError(redacted_command, self._timeout)
                 chunk = os.read(process.stdout.fileno(), 8192)
                 if not chunk:
                     if self._worker_stdout_buffer:

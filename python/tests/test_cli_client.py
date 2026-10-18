@@ -30,50 +30,55 @@ client_module = importlib.import_module("shardloom.client")
 from shardloom import (
     __version__,
     context as shardloom_context,
-    session as shardloom_session,
-    ClaimGateCloseoutReport,
+    ShardLoomBinaryNotFoundError,
+    ShardLoomClosedError,
+    ShardLoomCommandError,
+    ShardLoomContext,
+    ShardLoomProtocolError,
+    from_rows,
+)
+from shardloom.diagnostics import (
+    CapabilityPosture,
+    CapabilityView,
     CommandMetadataReport,
     ComputeCapabilityMatrix,
-    CompatibilitySourceSmokeReport,
-    CapabilityPosture,
     ContextCapabilities,
-    CapabilityView,
-    DataFrameFutureContractClassificationMatrix,
     DataFrameMethodCapabilityMatrix,
+    EngineCapabilityMatrix,
+    EvidenceAwareOptimizerTraceReport,
+    EvidenceSchemaRegistryReport,
+    ExecutionResultEnvelopeView,
+    OutputEnvelope,
+    PredicateDtypeCoverageRow,
+    PreparedVortexScanPushdownRow,
+    ProductionUnsupportedDiagnosticRow,
+    RuntimeActivationSummary,
+    SessionLazyFrame,
+    SessionPreparedState,
+    SessionSqlResult,
+    SessionSqlWorkflow,
+    ShardLoomClient,
+    ShardLoomSession,
+    validate_runtime_execution_fields,
+    session as shardloom_session,
+)
+from shardloom.testing import (
+    ClaimGateCloseoutReport,
+    CompatibilitySourceSmokeReport,
+    DataFrameFutureContractClassificationMatrix,
     DataFrameNotebookPackageReadinessReport,
     ETLWorkflowCapabilityMatrix,
-    GeneratedSourceApiAdmissionMatrix,
-    EngineCapabilityMatrix,
-    EvidenceSchemaRegistryReport,
-    EvidenceAwareOptimizerTraceReport,
-    ExecutionResultEnvelopeView,
     FoundryGeneratedOutputReport,
     FrontDoorParityMatrix,
     FrontDoorSemanticSurfaceMatrix,
     GeneratedObjectStoreOutputReport,
     GeneratedPartitionedObjectStoreOutputReport,
+    GeneratedSourceApiAdmissionMatrix,
     GeneratedSourceCertificateContract,
     GeneratedSourceEvidenceAlignmentReport,
     LocalVortexPrimitiveSmokeReport,
     OpenLineageFacetMappingReport,
     OpenTelemetryTraceExportContractReport,
-    ShardLoomBinaryNotFoundError,
-    ShardLoomClient,
-    ShardLoomCommandError,
-    ShardLoomContext,
-    ShardLoomSession,
-    ShardLoomProtocolError,
-    VortexWorkflowExecutionReport,
-    from_rows,
-    SessionPreparedState,
-    SessionLazyFrame,
-    SessionSqlResult,
-    SessionSqlWorkflow,
-    OutputEnvelope,
-    RuntimeActivationSummary,
-    PreparedVortexScanPushdownRow,
-    PredicateDtypeCoverageRow,
-    ProductionUnsupportedDiagnosticRow,
     RestApiContractPlan,
     RestApiDataPlane,
     RestApiDiscoveryContract,
@@ -85,11 +90,11 @@ from shardloom import (
     RunsTodaySupportRow,
     SemanticConformanceSuite,
     SessionCacheSmokeReport,
-    validate_runtime_execution_fields,
     VortexIngestSmokeReport,
     WorkloadCertificationDossier,
     WorkflowReadinessSmokeReport,
 )
+from shardloom.query import Result
 
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     """
@@ -195,6 +200,12 @@ class ShardLoomClientTests(unittest.TestCase):
         *,
         supports_worker: bool = False,
     ) -> list[str]:
+        worker_env_patch = mock.patch.dict(
+            os.environ,
+            {"SHARDLOOM_PERSISTENT_WORKER": "1" if supports_worker else "0"},
+        )
+        worker_env_patch.start()
+        self.addCleanup(worker_env_patch.stop)
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         path = Path(tempdir.name) / "fake_shardloom.py"
@@ -2397,7 +2408,16 @@ class ShardLoomClientTests(unittest.TestCase):
         )
 
     def test_native_workflow_report_result_rows_validate_jsonl_objects(self) -> None:
-        def report_for(result_jsonl: str) -> VortexWorkflowExecutionReport:
+        context = ShardLoomContext(
+            client=ShardLoomClient(
+                binary=("unused-shardloom",),
+                use_persistent_worker=False,
+                env={"SHARDLOOM_PERSISTENT_WORKER": "0"},
+            )
+        )
+        self.addCleanup(context.client.close)
+
+        def report_for(result_jsonl: str) -> Result:
             envelope = OutputEnvelope.from_json(
                 {
                     "schema_version": "shardloom.output.v2",
@@ -2423,8 +2443,10 @@ class ShardLoomClientTests(unittest.TestCase):
                     "fields": [{"key": "result_jsonl", "value": result_jsonl}],
                 }
             )
-            return VortexWorkflowExecutionReport(
-                workflow=from_rows([{"id": 1}], memory_gb=4, max_parallelism=2),
+            return Result(
+                workflow=context.from_rows(
+                    [{"id": 1}], memory_gb=4, max_parallelism=2
+                ),
                 operation="collect",
                 envelope=envelope,
             )
@@ -3700,7 +3722,7 @@ class ShardLoomClientTests(unittest.TestCase):
 
             report = ctx.from_rows([{"id": 1, "label": "alpha"}]).prepare_vortex(workspace=workspace)
 
-            self.assertIsInstance(report, VortexWorkflowExecutionReport)
+            self.assertIsInstance(report, Result)
             self.assertEqual(report.output_path, str(target))
             self.assertEqual(report.output_format, "vortex")
             self.assertEqual(report.rows_written, 1)
@@ -3794,8 +3816,8 @@ class ShardLoomClientTests(unittest.TestCase):
             range_report = ctx.range(0, 2).prepare_vortex(workspace=workspace)
             sql_report = ctx.sql_values(sql_statement).write_vortex(sql_target)
 
-            self.assertIsInstance(range_report, VortexWorkflowExecutionReport)
-            self.assertIsInstance(sql_report, VortexWorkflowExecutionReport)
+            self.assertIsInstance(range_report, Result)
+            self.assertIsInstance(sql_report, Result)
             self.assertEqual(range_report.output_path, str(range_target))
             self.assertEqual(sql_report.output_path, str(sql_target))
             self.assertEqual(range_report.output_format, "vortex")
@@ -3918,8 +3940,9 @@ class ShardLoomClientTests(unittest.TestCase):
 
             closed_evidence = session.close()
             self.assertTrue(closed_evidence["session_closed"])
-            with self.assertRaisesRegex(RuntimeError, "ShardLoomSession is closed"):
+            with self.assertRaises(ShardLoomClosedError) as closed:
                 session.prepare_vortex(source_path, target_path)
+            self.assertEqual(closed.exception.diagnostics[0].code, "SL_CONTEXT_CLOSED")
 
     def test_session_directory_fingerprints_are_metadata_first_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -4091,8 +4114,9 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertFalse(evidence["external_engine_invoked"])
 
             sess.close()
-            with self.assertRaisesRegex(RuntimeError, "ShardLoomSession is closed"):
+            with self.assertRaises(ShardLoomClosedError) as closed:
                 frame.collect()
+            self.assertEqual(closed.exception.diagnostics[0].code, "SL_CONTEXT_CLOSED")
 
     def test_capabilities_scope_uses_explicit_scope(self) -> None:
         binary = self.fake_cli(
@@ -10379,7 +10403,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("worker-start\n", log_text)
         self.assertNotIn("subprocess-replay\n", log_text)
 
-    def test_explicit_binary_without_worker_falls_back_to_subprocess(self) -> None:
+    def test_explicit_binary_with_one_shot_transport_uses_process_command(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
@@ -10393,28 +10417,24 @@ class ShardLoomClientTests(unittest.TestCase):
                     "human_text": "ok",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
-                    "fields": [
-                        {"key": "worker_transport", "value": "subprocess_after_worker_startup_miss"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"}
-                    ],
+                    "fields": [],
                 }))
                 """
             )
         )
-        client = ShardLoomClient(binary=binary)
+        client = ShardLoomClient(
+            binary=binary,
+            use_persistent_worker=False,
+            env={"SHARDLOOM_PERSISTENT_WORKER": "0"},
+        )
         self.addCleanup(client.close)
 
         result = client.status()
 
         self.assertEqual(result.command, "status")
-        self.assertEqual(
-            result.field("worker_transport"),
-            "subprocess_after_worker_startup_miss",
-        )
         self.assertFalse(result.fallback.attempted)
 
-    def test_one_shot_cli_worker_startup_envelope_falls_back_to_subprocess(self) -> None:
+    def test_one_shot_cli_worker_startup_envelope_is_rejected_without_replay(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
@@ -10446,17 +10466,17 @@ class ShardLoomClientTests(unittest.TestCase):
             ),
             supports_worker=True,
         )
-        client = ShardLoomClient(binary=binary)
+        client = ShardLoomClient(
+            binary=binary,
+            env={"SHARDLOOM_PERSISTENT_WORKER": "1"},
+        )
         self.addCleanup(client.close)
 
-        result = client.status()
+        with mock.patch.object(client, "_run_subprocess") as run_subprocess:
+            with self.assertRaises(ShardLoomProtocolError):
+                client.status()
 
-        self.assertEqual(result.command, "status")
-        self.assertEqual(
-            result.field("worker_transport"),
-            "subprocess_after_worker_startup_miss",
-        )
-        self.assertFalse(result.fallback.attempted)
+        run_subprocess.assert_not_called()
 
     def test_bundled_binary_is_resolved_before_path_binary(self) -> None:
         tempdir = tempfile.TemporaryDirectory()

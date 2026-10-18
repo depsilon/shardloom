@@ -25,6 +25,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from check_benchmark_artifact_completeness import result_rows as benchmark_result_rows
 from check_python_user_surface_completion import _load_dataframe_method_rows
 from check_sql_python_dataframe_parity import build_report as build_parity_report
+from check_v1_docs_productization import validate_public_contract, validate_release_facts
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,11 +54,13 @@ STATUS_TERMS = (
 
 DOC_STATUS_FILES = (
     Path("README.md"),
-    Path("docs/getting-started/first-10-minutes.md"),
     Path("docs/architecture/sql-python-dataframe-front-door-parity.md"),
-    Path("website-src/src/pages/start.astro"),
     Path("examples/local-vortex-benchmark/README.md"),
 )
+
+# Published guide availability is structured in the verified package matrix.
+# Validate its facts, snippets and links below instead of interpreting a mention
+# of an unsupported-operation diagnostic as an unavailable runtime feature.
 
 
 FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
@@ -958,6 +961,8 @@ def build_report(
 ) -> dict[str, Any]:
     inventory_rows: list[dict[str, Any]] = []
     blockers: list[str] = []
+    guide_blockers = validate_release_facts(repo_root) + validate_public_contract(repo_root)
+    blockers.extend(guide_blockers)
 
     for rows, row_blockers in (
         front_door_gap_rows(repo_root),
@@ -1000,6 +1005,11 @@ def build_report(
         "source_counts": dict(sorted(source_counts.items())),
         "observed_status_counts": dict(sorted(observed_status_counts.items())),
         "benchmark_support_summary": benchmark,
+        "published_guide_contract": {
+            "authority": "docs/release/package-channel-readiness-matrix.json#user_guide",
+            "status": "passed" if not guide_blockers else "blocked",
+            "blockers": guide_blockers,
+        },
         "inventory_rows": inventory_rows,
         "acceptance_summary": {
             "shardloom_benchmark_unsupported_rows": benchmark["shardloom_unsupported_row_count"],

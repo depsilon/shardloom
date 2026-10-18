@@ -100,7 +100,7 @@ REQUIRED_SOURCE_MARKERS = {'python/src/shardloom/context.py': ['class FrontDoorP
                                    'source_alias: object | None = None',
                                    'def _normalize_sort_nulls(',
                                    'def _sql_local_subquery_source(',
-                                   'class VortexWorkflowExecutionReport',
+                                   'class Result',
                                    'def result_schema(',
                                    'def python_objects('],
  'python/tests/test_query_builder.py': ['test_workflow_route_uses_shared_cli_contract_for_sql_and_dataframe',

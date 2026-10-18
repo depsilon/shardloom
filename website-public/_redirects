@@ -12,7 +12,9 @@
 /benchmarks/ /field-guide/benchmark-methodology 301
 /benchmarks.html /field-guide/benchmark-methodology 301
 /about.html /about
-/start.html /start
+/start /field-guide/start-local-proof 301
+/start/ /field-guide/start-local-proof 301
+/start.html /field-guide/start-local-proof 301
 /flow /field-guide/compute-flow 301
 /flow/ /field-guide/compute-flow 301
 /compute-flow /field-guide/compute-flow 301

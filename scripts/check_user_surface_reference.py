@@ -11,6 +11,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from write_public_api_reference import generated_files
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.user_surface_index.v1"
@@ -21,15 +27,10 @@ STREAM_DESTINATION_REFERENCE = "docs/architecture/native-stream-destinations-202
 
 REQUIRED_MD_MARKERS = (
     "Schema marker: `shardloom.user_surface_index.v1`",
-    "shardloom --version",
-    "shardloom command-metadata --format json",
-    "shardloom agent-contract-pack --format json",
-    "ctx.front_door_semantic_surface_matrix()",
-    "ctx.read(path)",
-    "ctx.sql(\"SELECT ...\")",
-    "fallback_attempted=false",
-    "external_engine_invoked=false",
-    "Hidden fallback execution in DuckDB, DataFusion, Spark, Polars, pandas",
+    "python-api-migration.md",
+    "https://shardloom.io/field-guide/start-local-proof/",
+    "<!-- BEGIN GENERATED APPLICATION REFERENCE -->",
+    "<!-- END GENERATED APPLICATION REFERENCE -->",
 )
 
 REQUIRED_BACKLINKS = {
@@ -37,7 +38,7 @@ REQUIRED_BACKLINKS = {
         "docs/reference/shardloom-user-surface-index.md",
         "docs/reference/shardloom-user-surface-index.json",
     ),
-    "python/README.md": (
+    "website-src/src/content/docs/field-guide/reference.mdx": (
         "docs/reference/shardloom-user-surface-index.md",
         "docs/reference/shardloom-user-surface-index.json",
     ),
@@ -207,6 +208,16 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
     for marker in REQUIRED_MD_MARKERS:
         if marker not in md:
             blockers.append(f"{MD_PATH}: missing marker {marker!r}")
+
+    # Compare exports, callable signatures, audiences and registry identity to
+    # their actual authorities. The historical semantic/evidence checks below
+    # remain independent of this generated application reference.
+    try:
+        for path, expected in generated_files(repo_root).items():
+            if read_text(repo_root, path) != expected:
+                blockers.append(f"{path}: generated application reference is stale")
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        blockers.append(f"application reference generation failed: {error}")
 
     for path_raw, markers in REQUIRED_BACKLINKS.items():
         path = Path(path_raw)

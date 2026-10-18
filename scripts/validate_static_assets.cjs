@@ -18,6 +18,7 @@ const requiredFiles = [
   "field-guide/runtime-and-io/index.html",
   "field-guide/benchmark-methodology/index.html",
   "field-guide/limitations/index.html",
+  ...["sql", "cli", "resources", "reference", "embedding", "troubleshooting", "development"].map((slug) => `field-guide/${slug}/index.html`),
   "field-guide/execution-model/index.html",
   "field-guide/compute-flow/index.html",
   "field-guide/execution-routes/index.html",
@@ -56,7 +57,7 @@ const removedWebsiteSurfaces = [
 
 const forbiddenRuntimeText = [
   "raw.githubusercontent.com",
-  "docs/architecture/phased-execution-plan.md",
+
 ];
 const statusVocabulary = new Set([
   "runtime_supported",
@@ -194,7 +195,6 @@ for (const file of runtimeFiles) {
 const htmlFiles = [
   "index.html",
   "about.html",
-  "start.html",
   "field-guide.html",
   "field-guide/start-local-proof/index.html",
   "field-guide/python-surface/index.html",
@@ -213,7 +213,7 @@ for (const file of htmlFiles) {
   if (file === "index.html") {
     assert(content.includes('/assets/parallax-home.css'), `${file} must use parallax homepage CSS`);
     assert(content.includes('/assets/parallax-home.js'), `${file} must use parallax homepage JS`);
-  } else if (["about.html", "start.html"].includes(file)) {
+  } else if (["about.html"].includes(file)) {
     assert(content.includes('/assets/site.css'), `${file} must use shared CSS`);
   }
   assert(content.includes('<link rel="canonical"'), `${file} must include canonical URL`);
@@ -221,6 +221,12 @@ for (const file of htmlFiles) {
 }
 for (const file of collectFiles(root).filter((candidate) => candidate.endsWith(".html"))) {
   const content = read(file);
+  if (["start.html", "start/index.html"].includes(file)) {
+    assert(content.includes('content="0;url=/field-guide/start-local-proof"'), `${file} must redirect to the canonical first workflow`);
+    assert(content.includes('content="noindex"'), `${file} redirect must not enter search`);
+    assert(content.includes('rel="canonical" href="https://shardloom.io/field-guide/start-local-proof"'), `${file} must canonicalize to the guide`);
+    continue;
+  }
   for (const stale of [
     "Start from a source checkout, not a package-publication claim",
     "package publication readiness",
@@ -331,33 +337,30 @@ for (const required of [
   "Get started",
   "Execution model",
   "Data lifecycle",
-  "Read the evidence",
+  "Application reference",
 ]) {
   assert(fieldGuide.includes(required), `field guide missing ${required}`);
 }
 
+const guideData = JSON.parse(fs.readFileSync(path.join(repoRoot, "website-src/src/data/public-guide.json"), "utf8"));
 const startLocalProof = read("field-guide/start-local-proof/index.html");
 for (const required of [
-  "Install and run",
-  "fallback_attempted=false",
-  "external_engine_invoked=false",
-  "claim_gate_status",
+  `Published ${guideData.release.version}`,
+  'id="read-and-collect"', 'id="write-and-reopen"',
+  'href="/field-guide/troubleshooting"', 'data-pagefind-body',
+  "order_id", "paid", "python_objects",
 ]) {
-  assert(startLocalProof.includes(required), `start local proof doc missing ${required}`);
+  assert(startLocalProof.includes(required), `first workflow doc missing ${required}`);
 }
-
 const pythonSurface = read("field-guide/python-surface/index.html");
 for (const required of [
-  "Python",
-  "Run a local query",
-  "ctx = sl.context(memory_gb=16, max_parallelism=8)",
-  "ctx.read(path)",
-  "result.envelope",
-  "fallback_attempted",
-  "external_engine_invoked",
+  'href="/field-guide/start-local-proof"', 'id="consume-results"',
+  "result.result_schema", "result.python_objects", "result.envelope",
 ]) {
-  assert(pythonSurface.includes(required), `python surface doc missing ${required}`);
+  assert(pythonSurface.includes(required), `Python task guide missing ${required}`);
 }
+assert(!read("field-guide/development/index.html").includes("data-pagefind-body"),
+  "development material must stay out of the product search body");
 
 const benchmarkMethodology = read("field-guide/benchmark-methodology/index.html");
 for (const required of [
@@ -371,12 +374,10 @@ for (const required of [
 
 const limitations = read("field-guide/limitations/index.html");
 for (const required of [
-  "Support and limitations",
-  "production support",
-  "Spark displacement",
-  "fallback engine",
+  `Published ${guideData.release.version}`, "Known issues",
+  'href="/field-guide/troubleshooting"', "Package requirements", "Restrictions",
 ]) {
-  assert(limitations.includes(required), `limitations doc missing ${required}`);
+  assert(limitations.includes(required), `version-scoped capabilities missing ${required}`);
 }
 
 const redirects = read("_redirects");
@@ -384,6 +385,7 @@ const redirectTargets = new Map(
   redirects.split("\n").filter((line) => line.trim().startsWith("/")).map((line) => line.trim().split(/\s+/).slice(0, 2)),
 );
 for (const [legacy, current] of [
+  ["start", "field-guide/start-local-proof"],
   ["benchmarks", "field-guide/benchmark-methodology"],
   ["compute-engine-flow", "field-guide/compute-flow"],
 ]) {

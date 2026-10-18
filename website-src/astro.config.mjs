@@ -38,11 +38,20 @@ export default defineConfig({
       ],
       sidebar: [
         {
-          label: "Start here",
+          label: "Start",
           items: [
             { slug: "field-guide", label: "Overview" },
             { slug: "field-guide/start-local-proof", label: "Install and run" },
-            { slug: "field-guide/python-surface", label: "Python" },
+          ],
+        },
+        {
+          label: "Work with data",
+          items: [
+            { slug: "field-guide/python-surface" },
+            { slug: "field-guide/sql" },
+            { slug: "field-guide/cli" },
+            { slug: "field-guide/runtime-and-io" },
+            { slug: "field-guide/resources" },
           ],
         },
         {
@@ -51,14 +60,22 @@ export default defineConfig({
             { slug: "field-guide/execution-model" },
             { slug: "field-guide/compute-flow" },
             { slug: "field-guide/execution-routes" },
-            { slug: "field-guide/runtime-and-io" },
           ],
         },
         {
-          label: "Evidence and limits",
+          label: "Reference",
           items: [
-            { slug: "field-guide/benchmark-methodology" },
+            { slug: "field-guide/reference" },
+            { slug: "field-guide/embedding" },
+          ],
+        },
+        {
+          label: "Versions and help",
+          items: [
             { slug: "field-guide/limitations" },
+            { slug: "field-guide/troubleshooting" },
+            { slug: "field-guide/development" },
+            { slug: "field-guide/benchmark-methodology" },
           ],
         },
         {

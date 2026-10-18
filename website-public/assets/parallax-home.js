@@ -506,11 +506,7 @@ $$('[data-layer]').forEach(button=>button.addEventListener('click',()=>{
 }));
 
 /* Public local examples; SQL runs through the Python context. */
-const samples={
- python:{title:'quickstart.py',code:`import shardloom as sl\n\nctx = sl.context(memory_gb=16, max_parallelism=8)\nresult = (\n    ctx.read("orders.csv")\n       .filter(sl.col("status") == "paid")\n       .limit(10)\n       .run()\n)\n\nprint(result.envelope.field_int("output_row_count"))`,note:'Published 0.6.0 Python example with illustrative caller-declared limits of 16 GiB and 8 lanes (not defaults or recommendations). Upgrading from 0.5.1 requires explicit memory and parallelism allocations. Bring a local orders.csv with a status column; supported operations and enabled features still apply.'},
- sql:{title:'query.py',code:`import shardloom as sl\n\nctx = sl.context(memory_gb=16, max_parallelism=8)\nresult = ctx.sql(\n    "SELECT COUNT(*) FROM hits "\n    "WHERE URL LIKE '%google%'",\n    input="hits.vortex",\n).run(bounded=True)\n\nprint(result.envelope.field_int("count"))`,note:'Published 0.6.0 SQL example with illustrative caller-declared limits of 16 GiB and 8 lanes (not defaults or recommendations). Upgrading from 0.5.1 requires explicit memory and parallelism allocations. Bring an admitted local hits.vortex artifact with a URL column.'},
- install:{title:'terminal',code:`# Python package\npython -m pip install shardloom\n\n# Or Homebrew\nbrew install depsilon/tap/shardloom\n\n# Then follow the local getting-started guide.`,note:'Package installation commands. Check repository support and platform requirements before use.'}
-};
+const samples=JSON.parse(document.getElementById('quickstart-samples').textContent);
 function escapeHTML(t){return t.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function highlight(text){
  // Tokenize the original text, then escape each token; never execute code.
@@ -542,7 +538,7 @@ async function copyText(text,status){
  status.textContent=copied?'Copied to clipboard.':'Copy unavailable here. Select and copy the visible command or code.';
 }
 $('#copyCode').addEventListener('click',()=>copyText(samples[state.code].code,$('#copyStatus')));
-$('#copyInstall').addEventListener('click',()=>copyText('python -m pip install shardloom',$('#installStatus')));
+$('#copyInstall').addEventListener('click',()=>copyText(samples.install.code,$('#installStatus')));
 setCode('python');
 
 /* These studies visualize documented contracts, not live engine outcomes. */
