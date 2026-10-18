@@ -215,7 +215,7 @@
   "rust_selectors_source_verified": 22,
   "executed_documentation_checks": 11,
   "runtime_source_files": 2416,
-  "runtime_source_unchanged": true,
+  "runtime_source_unchanged": false,
   "source_identities": [
     {
       "file": "docs/architecture/phased-execution-plan.md",
@@ -240,7 +240,32 @@
     "local_links_verified": 328,
     "anchors_verified": 33
   },
-  "native_execution_note": "No Rust tests/builds or benchmark reruns in this documentation correction. Existing native sources are identical to the accepted fresh UAT. Hosted CI reruns against the final PR head.",
+  "native_execution_note": "The original archived documentation correction ran no Rust tests/builds and had identical native sources to the fresh UAT. The subsequent test-only pressure correction changes one selected source file. Its linked packet records the exact source delta, production-code equivalence after cfg(test) elision, 14 passing focused tests and passing workspace format, Clippy and test gates. No benchmark rerun occurred; final-head CI is a separate merge requirement.",
   "correction": "The first static audit rejected an incorrect unittest class from the worker inventory before executing checks. The class and writer feature flags are verified against source; original audit/helper and both guard receipts are preserved.",
-  "helper_imports": "Common guard and freeze helper import closure is preserved in the initial documentation-validation archive at the pinned initial head."
+  "helper_imports": "Common guard and freeze helper import closure is preserved in the initial documentation-validation archive at the pinned initial head.",
+  "historical_runtime_source_unchanged": {
+    "value": true,
+    "scope": "The original archived owner-verification correction at 9aabef1a444f766223b0a2b62af8453256477c3e; it predates the test-only pressure correction."
+  },
+  "test_pressure_followup": {
+    "file": "native-roadmap-test-pressure-2026-10-18.json",
+    "sha256": "4b4b10e555c7d6209c669ca4944175f6758cefcd874e27f907992db3ce758053",
+    "tested_source_commit": "3122328a9ed85a9aacc24337a2e4ef1486d89954",
+    "source_files": 2416,
+    "changes": {
+      "shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs": {
+        "before": "e378f53db68eda95e55165d4a88885a59fb66dd93cfb3c46e05b4e88c0d44fea",
+        "after": "c98f2bbee01c641494d23ba5147337647d1e2096445da1a4ba0892dd14b02c4f"
+      }
+    },
+    "production_code_unchanged_by_exact_cfg_test_elision": true,
+    "focused_tests": 14,
+    "required_workspace_checks": [
+      "format",
+      "clippy",
+      "test"
+    ],
+    "review_comment": "https://github.com/depsilon/shardloom/pull/1575#discussion_r4307343828",
+    "scope": "Passing local validation of the sole test-gated source delta; fresh final-head CI is required separately before merge."
+  }
 }

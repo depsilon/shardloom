@@ -1,8 +1,8 @@
 {
-  "source_identity_scope": "The original checks and final_source_identities describe initial PR head a456b42ff6e9eb7a972d51c0c126bc5b41de7330. The owner-verification follow-up below records the subsequent review correction without rewriting that evidence.",
+  "source_identity_scope": "The original checks and final_source_identities describe initial PR head a456b42ff6e9eb7a972d51c0c126bc5b41de7330. The owner-verification and test-pressure follow-ups record subsequent review corrections; original archived evidence is preserved.",
   "verification_contract_followup": {
     "file": "native-roadmap-verification-contracts-2026-10-18.json",
-    "sha256": "d6f4714d688b7e413f67a434082b2506c9dbb52db46e12d8d9d198108e29c8de"
+    "sha256": "13c0ca135dbe0b759de11338908d7adc730214032c441aa30d3484bb69981ce6"
   },
   "schema_version": "shardloom.native_roadmap_documentation_validation.v1",
   "status": "passed",
@@ -245,7 +245,7 @@
   ],
   "source_commit": "6780e7df564c55f3e256822be1d0383cfabff0c9",
   "runtime_source_files": 2416,
-  "runtime_source_unchanged": true,
+  "runtime_source_unchanged": false,
   "reports": [
     {
       "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/roadmap-docs-completion-boundary-670a2.json",
@@ -299,7 +299,7 @@
     }
   ],
   "version_changed": false,
-  "broad_rust_gate_note": "No runtime/test/config implementation changes in this documentation batch. Exact unchanged runtime passed PR #1574 workspace/native/provider gates, installed wheels and fresh merged-source UAT. Formatting rerun; existing roadmap contract tests and documentation/site validators run here.",
+  "broad_rust_gate_note": "The original documentation batch preserved the accepted runtime/test/config sources and reused PR #1574 validation plus fresh merged-source UAT. The subsequent pressure-test correction changes one cfg(test) statement; its linked packet records 14 focused Rust tests and the required workspace format, Clippy and test gates. Production code is identical after excluding that statement; final-head hosted CI remains separately required.",
   "completion_claim_allowed": false,
   "release_claim_allowed": false,
   "boundary_note": "Compute completion and release tracker run in their existing inspection modes. Open development remains a blocker; exit zero does not mark either claim ready.",
@@ -1458,7 +1458,7 @@
     ],
     "reason": "Final review found the new entry was only in the generated page and regeneration removed it. Updated the producer, rebuilt and checked the entry in source, generated page and built output. The child report and supervisor used one filename; the preserved supervisor receipt and complete log retain the successful commands and final content assertion."
   },
-  "verification_note": "The original 22 checks and full mechanical audit remain immutable. Nine focused website checks and final content/source identity checks cover the subsequent generator correction. No runtime source or version change; no benchmark rerun.",
+  "verification_note": "The original 22 checks and mechanical audit remain immutable. Nine focused website checks cover the generator correction. The later test-only source delta and its validation are recorded in test_pressure_followup; no version change or benchmark rerun.",
   "packager": {
     "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/package_roadmap_documentation_675.py",
     "bytes": 8053,
@@ -1501,5 +1501,30 @@
     "retirement_receipt_sha256": "5bfeedff50f87a5db7a4ff2c927994a62c12027437899a8a322049fd3e87cda9",
     "verification": "Compared current filesystem generations and retired-path absence with the accepted retirement receipt; no new payload hashing, native execution or benchmark rerun.",
     "correction": "Earlier residency statements are explicitly historical; the October 17 payload is recorded as retained only until its October 18 retirement."
+  },
+  "historical_runtime_source_unchanged": {
+    "value": true,
+    "scope": "The original archived documentation and site correction at a456b42ff6e9eb7a972d51c0c126bc5b41de7330; it predates the test-only pressure correction."
+  },
+  "test_pressure_followup": {
+    "file": "native-roadmap-test-pressure-2026-10-18.json",
+    "sha256": "4b4b10e555c7d6209c669ca4944175f6758cefcd874e27f907992db3ce758053",
+    "tested_source_commit": "3122328a9ed85a9aacc24337a2e4ef1486d89954",
+    "source_files": 2416,
+    "changes": {
+      "shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs": {
+        "before": "e378f53db68eda95e55165d4a88885a59fb66dd93cfb3c46e05b4e88c0d44fea",
+        "after": "c98f2bbee01c641494d23ba5147337647d1e2096445da1a4ba0892dd14b02c4f"
+      }
+    },
+    "production_code_unchanged_by_exact_cfg_test_elision": true,
+    "focused_tests": 14,
+    "required_workspace_checks": [
+      "format",
+      "clippy",
+      "test"
+    ],
+    "review_comment": "https://github.com/depsilon/shardloom/pull/1575#discussion_r4307343828",
+    "scope": "Passing local validation of the sole test-gated source delta; fresh final-head CI is required separately before merge."
   }
 }

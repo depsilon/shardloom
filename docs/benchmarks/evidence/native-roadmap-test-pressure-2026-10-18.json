@@ -1,0 +1,191 @@
+{
+  "schema_version": "shardloom.native_roadmap_test_pressure_correction.v1",
+  "status": "passed",
+  "changes": {
+    "shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs": {
+      "before": "e378f53db68eda95e55165d4a88885a59fb66dd93cfb3c46e05b4e88c0d44fea",
+      "after": "c98f2bbee01c641494d23ba5147337647d1e2096445da1a4ba0892dd14b02c4f"
+    }
+  },
+  "source_files": 2416,
+  "production_code_unchanged_by_exact_cfg_test_elision": true,
+  "focused_tests": 14,
+  "focused_log": {
+    "path": "/Users/dylan/LocalData/shardloom/native-python-surface-20261010/dictionary-pressure-regressions-691a2.log",
+    "sha256": "c31e45b5b24e8e860db9f2b3175c0bcc18bee4b25396139a4abd1cacd67eab90"
+  },
+  "checks": [
+    {
+      "name": "format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "returncode": 0,
+      "log": {
+        "file": "format.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "name": "workspace-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "returncode": 0,
+      "log": {
+        "file": "workspace-clippy.log",
+        "bytes": 5861,
+        "sha256": "6812b0e2ccfb3c59e5c6b37e0cf3ffa8da1b46a03f8d19f8e2d5fe3aba3466f5"
+      }
+    },
+    {
+      "name": "workspace-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "returncode": 0,
+      "log": {
+        "file": "workspace-tests.log",
+        "bytes": 484380,
+        "sha256": "808b4faf5e97be024f22b7d22dbf140ed4e667548adabfee5b7433aecb0a1e91"
+      }
+    }
+  ],
+  "source_bridge": {
+    "file": "test-only-source-bridge.json",
+    "sha256": "c458d20394daa5644afd3e04e100845212918ce6a526cccfca0902871b3d6c6f"
+  },
+  "original_failure": {
+    "ci_run": 39130883999,
+    "job": 117685968840,
+    "head": "29aa4cf068b6b75dd61543463f00683d70c8147f",
+    "log_sha256": "f33f0a6a330f8dca82a6b211cc9f32274275310b8011780f8f33d680be965777",
+    "passed": 2967,
+    "failed": 1,
+    "ignored": 28,
+    "failing_test": "local_primitives::dictionary_prepare_workers_tests::dictionary_preparation_numeric_native_ordinary_prepared_owned_and_pressure"
+  },
+  "cause": "The test-only hook retained all but 1024 bytes of the shared grant; a concurrent provider requested 11320 bytes while 67107840 of 67108864 bytes were reserved. The denied read was correct; the synthetic worker-admission stimulus starved an unrelated owner.",
+  "correction": "Under cfg(test) only, inflate this worker task admission request to u64::MAX. The unchanged production retirement path is exercised without reserving the provider grant. Existing separate fixtures retain real memory denial, retry, ordered drain and cleanup coverage.",
+  "benchmark_run": false,
+  "version_bump": "held",
+  "hosted_validation": "Final changed head requires fresh CI; previous failed observation is retained.",
+  "archive": {
+    "file": "native-roadmap-test-pressure-2026-10-18.tar.xz",
+    "bytes": 233976,
+    "sha256": "23ea8f164a8b0c702b374f24a3cc80e53d97cc80e6f601b898ce77f3271c909c"
+  },
+  "members": [
+    {
+      "name": "support/dictionary-pressure-gates-692.json",
+      "bytes": 1662,
+      "sha256": "e542aa7c65e914188f541be4dbe33904e39cf7d5162bf6fc2538972e0c50832e"
+    },
+    {
+      "name": "support/dictionary-pressure-gates-692.log",
+      "bytes": 203,
+      "sha256": "fc6ff9db60438485f846dc194e018d85414d00e049e2ed52324f8e2906f6d434"
+    },
+    {
+      "name": "support/dictionary-pressure-regressions-691.json",
+      "bytes": 1790,
+      "sha256": "210412f6b6d6ac5383fb70b367f9958f53c74ed99f9289f8e755283fbfa1c361"
+    },
+    {
+      "name": "support/dictionary-pressure-regressions-691.log",
+      "bytes": 89,
+      "sha256": "19b2d85633de73f3da72b78a67aff966746559bbe83e5d76ea58e8970842211a"
+    },
+    {
+      "name": "support/dictionary-pressure-regressions-691a2.json",
+      "bytes": 1792,
+      "sha256": "0682e06f55b4c6e2cc0db9e4bc18f6ec5a0800f248970df586761f53e532493c"
+    },
+    {
+      "name": "support/dictionary-pressure-regressions-691a2.log",
+      "bytes": 2403,
+      "sha256": "c31e45b5b24e8e860db9f2b3175c0bcc18bee4b25396139a4abd1cacd67eab90"
+    },
+    {
+      "name": "support/native-release-source-pressure692.json",
+      "bytes": 631861,
+      "sha256": "e18a8cb8f076afd466593b5a281cc97e68709f12dcf94497dc9174bbd059b46c"
+    },
+    {
+      "name": "support/package_dictionary_pressure_693.py",
+      "bytes": 2997,
+      "sha256": "3db23ca05e296bf5dff25edf75234a0135079c16b7ab8a7b8c4677ac4897fe8a"
+    },
+    {
+      "name": "support/pr1575-native-failure-690.log",
+      "bytes": 644678,
+      "sha256": "f33f0a6a330f8dca82a6b211cc9f32274275310b8011780f8f33d680be965777"
+    },
+    {
+      "name": "support/run_dictionary_pressure_gates_692.py",
+      "bytes": 5594,
+      "sha256": "972296035033782a3afa1a814aa173293f1b5e5eaf8968b956a9298e62daa0a2"
+    },
+    {
+      "name": "support/run_guarded.py",
+      "bytes": 4275,
+      "sha256": "231129c081911ad362888b328e1ab1c7c9e4bf5b0b9abf372feb80671c00be8e"
+    },
+    {
+      "name": "validation/after.rs",
+      "bytes": 19857,
+      "sha256": "c98f2bbee01c641494d23ba5147337647d1e2096445da1a4ba0892dd14b02c4f"
+    },
+    {
+      "name": "validation/before.rs",
+      "bytes": 19725,
+      "sha256": "e378f53db68eda95e55165d4a88885a59fb66dd93cfb3c46e05b4e88c0d44fea"
+    },
+    {
+      "name": "validation/format.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "validation/test-only-source-bridge.json",
+      "bytes": 631892,
+      "sha256": "c458d20394daa5644afd3e04e100845212918ce6a526cccfca0902871b3d6c6f"
+    },
+    {
+      "name": "validation/validation.json",
+      "bytes": 3098,
+      "sha256": "10cf21791bbb6bfe3a45a8b012ec09779f6500b7e8d9a295fc74575cc7d7709d"
+    },
+    {
+      "name": "validation/workspace-clippy.log",
+      "bytes": 5861,
+      "sha256": "6812b0e2ccfb3c59e5c6b37e0cf3ffa8da1b46a03f8d19f8e2d5fe3aba3466f5"
+    },
+    {
+      "name": "validation/workspace-tests.log",
+      "bytes": 484380,
+      "sha256": "808b4faf5e97be024f22b7d22dbf140ed4e667548adabfee5b7433aecb0a1e91"
+    }
+  ],
+  "member_count": 18,
+  "all_members_reopened": true,
+  "initial_local_attempt": "The first local invocation used a CI lane label as a Cargo feature and ran no tests. It is retained separately; the corrected release-user-surfaces invocation is the accepted focused run."
+}
