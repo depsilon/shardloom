@@ -31,6 +31,9 @@ KINDS = (
     "mask-false",
 )
 SHAPES = ("mixed", "empty", "all-null")
+# Wide-row compatibility writers also admit native-to-Arrow conversion work.
+# The independent membership pressure family retains its 16 MiB/8 MiB grants.
+DESTINATION_GRANT = 32 << 20
 SPILL_POLICY = {
     "workspace": "",
     "quota_bytes": 128 << 20,
@@ -45,6 +48,7 @@ def run(harness):
     foreign.write_bytes(b"preserve")
     spill = dict(SPILL_POLICY, workspace=str(workspace))
     requested = dict(POLICY, spill=spill)
+    destination_policy = dict(requested, memory_bytes=DESTINATION_GRANT)
 
     def clean():
         assert foreign.read_bytes() == b"preserve"
@@ -81,6 +85,7 @@ def run(harness):
         "destination_width": 8192,
         "destination_oracles": stress_expected,
         "grant_bytes": GRANT,
+        "destination_grant_bytes": DESTINATION_GRANT,
         "spill": spill,
     })
 
@@ -139,10 +144,10 @@ def run(harness):
                     extension: harness.output / f"{case_name}.{extension}"
                     for extension in formats
                 }
-                report = query.fanout(targets, **requested) if destination == "fanout" else getattr(
-                    query, f"write_{destination}")(targets[destination], **requested)
+                report = query.fanout(targets, **destination_policy) if destination == "fanout" else getattr(
+                    query, f"write_{destination}")(targets[destination], **destination_policy)
                 envelope = report.envelope
-                complete(harness, case_name, envelope, [trace], [True], grant=GRANT)
+                complete(harness, case_name, envelope, [trace], [True], grant=DESTINATION_GRANT)
                 assert envelope.field_int("relational_spillable_unary_membership_stages") == 1
                 for suffix in ("input_rows", "observed_rows", "groups", "output_rows"):
                     assert envelope.field_int(f"relational_spillable_unary_{suffix}") == 257

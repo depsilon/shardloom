@@ -349,6 +349,7 @@ class NativeUnaryBindingTests(unittest.TestCase):
                          patch("subprocess.Popen", side_effect=AssertionError("child process")), \
                          patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON input")):
                         client, retained = self.client(), None
+                        verification_client = None
                         root = Path(directory)
                         workspace = root / "spill"
                         workspace.mkdir()
@@ -402,6 +403,12 @@ class NativeUnaryBindingTests(unittest.TestCase):
                                     "native_vortex_result_export_target_count"), 3)
                                 self.assertEqual(report.envelope.field_int(
                                     "native_vortex_result_export_replay_count"), 3)
+                            # Persisted-file scan and Arrow conversion have their
+                            # own admission, independent of the 32 MiB execution
+                            # and publication grant asserted below.
+                            verification_client = sl.ShardLoomClient(
+                                transport="native", memory_bytes=128 << 20, max_parallelism=1)
+                            self.addCleanup(verification_client.close)
                             for extension, path in targets.items():
                                 if extension == "jsonl":
                                     self.assertEqual(
@@ -409,7 +416,8 @@ class NativeUnaryBindingTests(unittest.TestCase):
                                         wanted_rows,
                                     )
                                 else:
-                                    reopened = getattr(sl, "read_" + extension)(path, client=client)
+                                    reopened = getattr(sl, "read_" + extension)(
+                                        path, client=verification_client)
                                     table = reopened.collect(check=True).to_arrow()
                                     self.assertTrue(table.schema.equals(wanted.schema, check_metadata=True))
                                     self.assertTrue(table.equals(wanted, check_metadata=True))
@@ -443,4 +451,6 @@ class NativeUnaryBindingTests(unittest.TestCase):
                         self.assertEqual(list(workspace.iterdir()), [foreign])
                         self.assertEqual(foreign.read_bytes(), b"preserve")
                         client.close()
+                        if verification_client is not None:
+                            verification_client.close()
                         self.assertTrue(retained.equals(wanted, check_metadata=True))
