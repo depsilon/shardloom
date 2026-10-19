@@ -210,3 +210,17 @@ readiness gates, and rejects absent, incomplete, extra and stale counts. All 180
 release-script, conformance and producer-contract tests pass locally. This fixes
 source-evidence accounting and does not change runtime behavior or claim that
 the pending hosted release-readiness run has passed.
+
+The next release-readiness job
+[118038464603](https://github.com/depsilon/shardloom/actions/runs/39242475270/job/118038464603)
+passed that accounting boundary, then found the benchmark guide missing the
+required `production readiness` claim marker. The guide now uses that term in
+its existing statement that a complete regression suite does not establish
+production readiness. Generated pages and search assets carry the same wording.
+
+A new test applies the production-certification checker to the actual current
+claim surfaces and reproduces the missing marker before the wording correction.
+All 181 release-script, conformance and producer-contract tests pass locally
+afterward. This restores the existing claim boundary without relaxing the
+checker or asserting hosted readiness; the updated PR still requires its own
+hosted result.
