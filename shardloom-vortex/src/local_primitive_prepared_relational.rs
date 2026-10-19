@@ -140,6 +140,17 @@ pub struct ExecutedVortexRelational {
     pub spillable_unary_lookup_blocks: u64,
     /// Replacement-state readers opened; excludes identity/output ordering I/O.
     pub spillable_unary_reader_opens: u64,
+    /// Sampling nodes admitted to the finite native population strategy.
+    /// Actual file activity remains in `spill`; small populations stay resident.
+    pub spillable_sampling_stages: u64,
+    pub spillable_sampling_input_rows: u64,
+    /// Passing rows retained logically across resident buffers and native runs.
+    pub spillable_sampling_population_rows: u64,
+    pub spillable_sampling_output_rows: u64,
+    /// Replacement draws, including repeated selected rows.
+    pub spillable_sampling_replacement_draws: u64,
+    /// Positional blocks loaded for replacement; excludes ordering merge scans.
+    pub spillable_sampling_lookup_blocks: u64,
     /// Join nodes executed through the explicit ordered native spill strategy.
     pub ordered_join_stages: u64,
     pub ordered_join_build_rows: u64,
@@ -703,6 +714,12 @@ struct Metrics<'a> {
     spillable_unary_output_rows: Cell<u64>,
     spillable_unary_lookup_blocks: Cell<u64>,
     spillable_unary_reader_opens: Cell<u64>,
+    spillable_sampling_stages: Cell<u64>,
+    spillable_sampling_input_rows: Cell<u64>,
+    spillable_sampling_population_rows: Cell<u64>,
+    spillable_sampling_output_rows: Cell<u64>,
+    spillable_sampling_replacement_draws: Cell<u64>,
+    spillable_sampling_lookup_blocks: Cell<u64>,
     ordered_join_stages: Cell<u64>,
     ordered_join_build_rows: Cell<u64>,
     ordered_join_probe_rows: Cell<u64>,
@@ -1188,6 +1205,16 @@ impl PreparedVortexRelational {
                 spillable_unary_output_rows: metrics.spillable_unary_output_rows.get(),
                 spillable_unary_lookup_blocks: metrics.spillable_unary_lookup_blocks.get(),
                 spillable_unary_reader_opens: metrics.spillable_unary_reader_opens.get(),
+                spillable_sampling_stages: metrics.spillable_sampling_stages.get(),
+                spillable_sampling_input_rows: metrics.spillable_sampling_input_rows.get(),
+                spillable_sampling_population_rows: metrics
+                    .spillable_sampling_population_rows
+                    .get(),
+                spillable_sampling_output_rows: metrics.spillable_sampling_output_rows.get(),
+                spillable_sampling_replacement_draws: metrics
+                    .spillable_sampling_replacement_draws
+                    .get(),
+                spillable_sampling_lookup_blocks: metrics.spillable_sampling_lookup_blocks.get(),
                 ordered_join_stages: metrics.ordered_join_stages.get(),
                 ordered_join_build_rows: metrics.ordered_join_build_rows.get(),
                 ordered_join_probe_rows: metrics.ordered_join_probe_rows.get(),
@@ -1248,6 +1275,34 @@ impl PreparedVortexRelational {
                 metrics.record_pivot_spill(report)
             }
             NodeKind::Unary { input, operation } => {
+                #[cfg(all(feature = "vortex-write", unix))]
+                if let Some(spill) = &metrics.spill
+                    && operation.sampling_spill_supported(input.upper_rows(&self.sources))
+                {
+                    let (usage, report) = operation.consume_relation_sampling(
+                        context,
+                        spill,
+                        batch_rows,
+                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                        consume,
+                    )?;
+                    metrics.record_unary(usage.items, usage.all_input_retained)?;
+                    add(&metrics.spillable_sampling_stages, 1)?;
+                    add(&metrics.spillable_sampling_input_rows, report.input_rows)?;
+                    add(
+                        &metrics.spillable_sampling_population_rows,
+                        report.population_rows,
+                    )?;
+                    add(&metrics.spillable_sampling_output_rows, report.output_rows)?;
+                    add(
+                        &metrics.spillable_sampling_replacement_draws,
+                        report.replacement_draws,
+                    )?;
+                    return add(
+                        &metrics.spillable_sampling_lookup_blocks,
+                        report.lookup_blocks,
+                    );
+                }
                 #[cfg(all(feature = "vortex-write", unix))]
                 if let Some(spill) = &metrics.spill
                     && operation.membership_spill_supported()

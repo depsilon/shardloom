@@ -3,6 +3,9 @@
 use super::*;
 use crate::relational_query::VortexRelationalSpillPolicy;
 
+#[path = "local_primitive_relational_sampling_population_pressure_tests.rs"]
+mod sampling_tests;
+
 const TOTAL: usize = 8193;
 const INPUT_WIDTH: usize = 251;
 const GRANT: u64 = 16 << 20;
@@ -231,8 +234,8 @@ fn streaming_unary_bounded_state_completes_input_larger_than_its_grant() {
 }
 
 #[test]
-fn streaming_unary_membership_spills_at_the_original_grant_while_samples_remain_resident() {
-    let mut requests = cases(&ROWS)
+fn streaming_unary_membership_spills_at_the_original_grant() {
+    let requests = cases(&ROWS)
         .into_iter()
         .filter(|(name, _, _)| {
             name == "distinct" || name.starts_with("dedup-") || name.starts_with("mask-")
@@ -250,16 +253,7 @@ fn streaming_unary_membership_spills_at_the_original_grant_while_samples_remain_
             (name, request, expected)
         })
         .collect::<Vec<_>>();
-    let mut fraction = request(Kind::SampleRows, &["n", "s", "items"]);
-    fraction.sample_fraction = Some(0.5);
-    fraction.sample_seed = Some(7);
-    requests.push(("sample-fraction".into(), fraction, vec![]));
-    let mut replacement = request(Kind::SampleRows, &["n", "s", "items"]);
-    replacement.source_order_limit = Some(3);
-    replacement.sample_seed = Some(7);
-    replacement.sample_with_replacement = true;
-    requests.push(("sample-replacement".into(), replacement, vec![]));
-    assert_eq!(requests.len(), 9);
+    assert_eq!(requests.len(), 7);
     for (name, request, _) in requests {
         for spill in [false, true] {
             let (_fixture, directory) = workspace();
@@ -269,26 +263,23 @@ fn streaming_unary_membership_spills_at_the_original_grant_while_samples_remain_
             }
             let baseline = prepared.snapshot().memory.reserved_bytes;
             let mut input = WideInput::new(TOTAL, 2048, true);
-            let membership = request.kind != Kind::SampleRows;
             let mut delivered = 0;
             let result = prepared
                 .with_batch_inputs(&mut |_, ordinal, session| input.next(ordinal, session))
                 .unwrap()
                 .for_each_batch(&CancellationToken::default(), |array, context| {
-                    if membership {
-                        for row in values(&array, context)? {
-                            let expected = if request.kind == Kind::DuplicateMaskRows {
-                                json!({"duplicated": false})
-                            } else {
-                                expected_row(delivered, 2048, true)
-                            };
-                            assert_eq!(row, expected, "{name}/{spill}/{delivered}");
-                            delivered += 1;
-                        }
+                    for row in values(&array, context)? {
+                        let expected = if request.kind == Kind::DuplicateMaskRows {
+                            json!({"duplicated": false})
+                        } else {
+                            expected_row(delivered, 2048, true)
+                        };
+                        assert_eq!(row, expected, "{name}/{spill}/{delivered}");
+                        delivered += 1;
                     }
                     Ok(())
                 });
-            if membership && spill {
+            if spill {
                 let report = result.unwrap_or_else(|error| panic!("{name}: {error}"));
                 assert!(input.ended);
                 assert_eq!(delivered, TOTAL);

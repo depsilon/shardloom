@@ -30,6 +30,9 @@ mod explode_tests;
 mod nested_pivot_tests;
 #[path = "local_primitive_unary_pivot_tests.rs"]
 mod pivot_tests;
+#[cfg(unix)]
+#[path = "local_primitive_unary_sampling_tests.rs"]
+mod sampling_tests;
 #[cfg(feature = "universal-format-io")]
 #[path = "local_primitive_unary_writer_tests.rs"]
 mod writer_tests;

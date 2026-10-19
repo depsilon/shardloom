@@ -71,6 +71,65 @@ pub(super) fn unsigned(
     )
 }
 
+/// Preserve scalar storage already observed by a resident state owner. A later
+/// selection can discard nonfinite floats; public delivery still validates them.
+#[allow(clippy::cast_possible_truncation)] // Native F32 values were widened exactly.
+pub(super) fn preserved_column<'a>(
+    dtype: &DType,
+    rows: usize,
+    context: &NativeExecutionContext<'_>,
+    mut value: impl FnMut(usize) -> Result<Value<'a>>,
+) -> Result<ArrayRef> {
+    let storage = match dtype {
+        DType::Primitive(PType::F32, nullable) => DType::Primitive(PType::U32, *nullable),
+        DType::Primitive(PType::F64, nullable) => DType::Primitive(PType::U64, *nullable),
+        _ => {
+            return result_batch::build_column(
+                dtype,
+                rows,
+                &context.native_session().allocator(),
+                value,
+            );
+        }
+    };
+    let bits = result_batch::build_column(
+        &storage,
+        rows,
+        &context.native_session().allocator(),
+        |row| {
+            context.check_cancelled()?;
+            match value(row)? {
+                Value::Null => Ok(Value::Null),
+                Value::Float(value) => Ok(Value::UInt(
+                    if matches!(dtype, DType::Primitive(PType::F32, _)) {
+                        u64::from((value as f32).to_bits())
+                    } else {
+                        value.to_bits()
+                    },
+                )),
+                _ => Err(failed("private native floating payload changed type")),
+            }
+        },
+    )?;
+    let validity = bits.validity().map_err(vortex_error)?;
+    let primitive = bits
+        .as_opt::<Primitive>()
+        .ok_or_else(|| failed("private native floating storage is absent"))?;
+    Ok(match dtype {
+        DType::Primitive(PType::F32, _) => PrimitiveArray::new(
+            Buffer::<f32>::from_byte_buffer(primitive.to_buffer::<u32>().into_byte_buffer()),
+            validity,
+        )
+        .into_array(),
+        DType::Primitive(PType::F64, _) => PrimitiveArray::new(
+            Buffer::<f64>::from_byte_buffer(primitive.to_buffer::<u64>().into_byte_buffer()),
+            validity,
+        )
+        .into_array(),
+        _ => return Err(failed("private native floating dtype changed")),
+    })
+}
+
 pub(super) fn structure(
     fields: &[(String, DType)],
     columns: ReservedVec<ArrayRef>,

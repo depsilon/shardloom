@@ -266,6 +266,12 @@ their original operator-pressure grants. Sampling populations, subquery
 indexes and broader recovery remain open. Resume the optimization/breadth
 sequence below without closing any broader owner or CPU investigation.
 
+The next active finite unit is the [sampling population pressure contract](native-sampling-population-spill-2026-10-19.md):
+unknown-bound fractional samples without replacement and fixed/fractional samples
+with replacement, weighted or unweighted, through the shared relational route.
+Implementation and acceptance are in progress; this does not yet close or
+advertise the scoped population capability.
+
 1. The nullable-layout integration, cleanup, ship/drop readiness audit and fresh UAT are complete in the [October 18 packet](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md). PR #1575 integrates the reconciled queue. Keep the next version bump held for a separate maintainer decision.
 2. Continue the [six-package CPU intake](native-cpu-investigations-2026-10-18.md) from its recorded evidence. A production ordinal-allocation signal selected the contiguous-range A candidate, but its [corrected complete-operation comparison](native-compact-selection-2026-10-18.md) failed the frozen throughput gate and the runtime change was removed. A remains open for a materially different mechanism; do not rerun the unchanged candidate. B already reuses codec contexts within an operation; measure actual repeated preparation across the proposed ownership boundary before admitting another candidate. No benefit is assumed by queue intake.
 3. Continue required breadth through the existing owners: remaining PERF-03 resources, PERF-06 membership/population pressure and recovery, PERF-07 generation-conditional publication, and PERF-02/10/11 source/type/operator compositions. E and F extend these owners; required capabilities do not depend on a Full43 speed gain. PERF-01 attribution and PERF-12 acceptance accompany each coherent unit.

@@ -644,6 +644,30 @@ pub(super) fn append_execution(
             result.spillable_unary_reader_opens.to_string(),
         ),
         (
+            "relational_spillable_sampling_stages".into(),
+            result.spillable_sampling_stages.to_string(),
+        ),
+        (
+            "relational_spillable_sampling_input_rows".into(),
+            result.spillable_sampling_input_rows.to_string(),
+        ),
+        (
+            "relational_spillable_sampling_population_rows".into(),
+            result.spillable_sampling_population_rows.to_string(),
+        ),
+        (
+            "relational_spillable_sampling_output_rows".into(),
+            result.spillable_sampling_output_rows.to_string(),
+        ),
+        (
+            "relational_spillable_sampling_replacement_draws".into(),
+            result.spillable_sampling_replacement_draws.to_string(),
+        ),
+        (
+            "relational_spillable_sampling_lookup_blocks".into(),
+            result.spillable_sampling_lookup_blocks.to_string(),
+        ),
+        (
             "relational_ordered_join_build_rows".into(),
             result.ordered_join_build_rows.to_string(),
         ),

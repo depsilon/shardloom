@@ -29,8 +29,17 @@ pub(super) fn certificate(
         metrics.ordered_set_groups.get(),
         metrics.ordered_set_output_rows.get(),
     );
+    let sampling_proof = format!(
+        "spillable_sampling_stages={} spillable_sampling_input_rows={} spillable_sampling_population_rows={} spillable_sampling_output_rows={} spillable_sampling_replacement_draws={} spillable_sampling_lookup_blocks={}",
+        metrics.spillable_sampling_stages.get(),
+        metrics.spillable_sampling_input_rows.get(),
+        metrics.spillable_sampling_population_rows.get(),
+        metrics.spillable_sampling_output_rows.get(),
+        metrics.spillable_sampling_replacement_draws.get(),
+        metrics.spillable_sampling_lookup_blocks.get(),
+    );
     let unary_proof = format!(
-        "spillable_unary_membership_stages={} spillable_unary_input_rows={} spillable_unary_observed_rows={} spillable_unary_groups={} spillable_unary_identity_rows={} spillable_unary_output_rows={} spillable_unary_lookup_blocks={} spillable_unary_reader_opens={}",
+        "spillable_unary_membership_stages={} spillable_unary_input_rows={} spillable_unary_observed_rows={} spillable_unary_groups={} spillable_unary_identity_rows={} spillable_unary_output_rows={} spillable_unary_lookup_blocks={} spillable_unary_reader_opens={} {sampling_proof}",
         metrics.spillable_unary_membership_stages.get(),
         metrics.spillable_unary_input_rows.get(),
         metrics.spillable_unary_observed_rows.get(),

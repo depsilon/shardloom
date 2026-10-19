@@ -13,15 +13,14 @@ use crate::local_primitives::{
     native_relational_spill::{Ordering, State, replacement},
     result_batch,
 };
+use records::preserved_column;
 use shardloom_exec::live_memory::{Budgeted, MemoryLease};
 use std::borrow::Cow;
 use vortex::array::{
-    ArrayRef, IntoArray as _,
-    arrays::{Primitive, PrimitiveArray},
-    dtype::{DType, Nullability, PType},
+    ArrayRef,
+    dtype::{DType, Nullability},
     memory::MemorySessionExt as _,
 };
-use vortex::buffer::Buffer;
 
 const LAST: usize = 4;
 const COUNT: usize = 5;
@@ -283,66 +282,6 @@ impl Schema {
         }
         records::delivered(&plan.fields, columns, rows, context)
     }
-}
-
-/// Preserve floating storage already read by the resident row owner, including
-/// values that a later replacement, multiplicity decision or limit can discard.
-/// Every delivered public value still passes the normal finite-value builder.
-#[allow(clippy::cast_possible_truncation)] // F32 values were widened exactly by native scalar access.
-fn preserved_column<'a>(
-    dtype: &DType,
-    rows: usize,
-    context: &NativeExecutionContext<'_>,
-    mut value: impl FnMut(usize) -> Result<Value<'a>>,
-) -> Result<ArrayRef> {
-    let storage = match dtype {
-        DType::Primitive(PType::F32, nullable) => DType::Primitive(PType::U32, *nullable),
-        DType::Primitive(PType::F64, nullable) => DType::Primitive(PType::U64, *nullable),
-        _ => {
-            return result_batch::build_column(
-                dtype,
-                rows,
-                &context.native_session().allocator(),
-                value,
-            );
-        }
-    };
-    let bits = result_batch::build_column(
-        &storage,
-        rows,
-        &context.native_session().allocator(),
-        |row| {
-            context.check_cancelled()?;
-            match value(row)? {
-                Value::Null => Ok(Value::Null),
-                Value::Float(value) => Ok(Value::UInt(
-                    if matches!(dtype, DType::Primitive(PType::F32, _)) {
-                        u64::from((value as f32).to_bits())
-                    } else {
-                        value.to_bits()
-                    },
-                )),
-                _ => Err(failed("private membership floating payload changed type")),
-            }
-        },
-    )?;
-    let validity = bits.validity().map_err(super::super::vortex_error)?;
-    let primitive = bits
-        .as_opt::<Primitive>()
-        .ok_or_else(|| failed("private membership floating storage is absent"))?;
-    Ok(match dtype {
-        DType::Primitive(PType::F32, _) => PrimitiveArray::new(
-            Buffer::<f32>::from_byte_buffer(primitive.to_buffer::<u32>().into_byte_buffer()),
-            validity,
-        )
-        .into_array(),
-        DType::Primitive(PType::F64, _) => PrimitiveArray::new(
-            Buffer::<f64>::from_byte_buffer(primitive.to_buffer::<u64>().into_byte_buffer()),
-            validity,
-        )
-        .into_array(),
-        _ => return Err(failed("private membership floating dtype changed")),
-    })
 }
 
 struct Identity {

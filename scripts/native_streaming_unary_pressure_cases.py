@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Bounded unary state, spilled membership, resident sampling and source replay."""
+"""Bounded unary state, native membership/population spill and source replay."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from native_streaming_set_cases import complete
 from native_streaming_set_pressure_cases import capture
 from native_streaming_order_pressure_cases import encoded
 from native_unary_reference import sample_ordinals
+from generate_native_sampling_population_reference import fixture as sampling_reference
 
 ROWS, BATCH_ROWS, WIDTH, GRANT = 8193, 251, 2048, 16 << 20
 POLICY = {"memory_bytes": GRANT, "max_parallelism": 1}
@@ -123,7 +124,8 @@ def run(harness):
         "input_rows": ROWS, "batch_rows": BATCH_ROWS, "width": WIDTH, "grant": GRANT,
         "low_cardinality_key": "row_index % 3", "unique_key": "row_index",
         "oracles": oracles, "spill": spill, "unary_membership_spill": True,
-        "sampling_population_spill": False,
+        "sampling_population_spill": True,
+        "sampling_reference": sampling_reference(),
         "source_replay_is_separate": True,
     })
     for kind in KINDS:
@@ -186,21 +188,46 @@ def run(harness):
                 return dict(record, unary_membership_spill=True)
             harness.case(name, membership)
 
-    for kind in ("sample-fraction", "sample-replacement"):
+    for case in sampling_reference()["cases"]:
         for stored in (False, True):
-            name = f"unary-resident-state-denied-{kind}-spill-{stored}"
+            name = f"unary-sampling-population-{case['name']}-spill-{stored}"
 
-            def refuse(name=name, kind=kind, stored=stored):
+            def population(name=name, case=case, stored=stored):
                 batch, trace = source(harness, unique=True)
-                if kind == "sample-fraction":
-                    query = batch.sample(frac=0.5, random_state=7)
-                else:
-                    query = batch.sample(3, random_state=7, replace=True)
-                denied(harness, name, query, trace, dict(POLICY, spill=spill) if stored else POLICY)
-                assert BATCH_ROWS < trace["rows"] <= ROWS
+                if case["weighted"]:
+                    batch = batch.filter("n > 0")
+                query = batch.sample(
+                    n=case["count"], frac=case["fraction"], random_state=case["seed"],
+                    replace=case["replace"], weights="n" if case["weighted"] else None)
+                if not stored:
+                    denied(harness, name, query, trace, POLICY)
+                    assert BATCH_ROWS < trace["rows"] <= ROWS
+                    clean()
+                    return {"producer_trace": trace, "sampling_population_spill": False}
+
+                def reference():
+                    yield from (row(index, unique=True) for index in case["expected"])
+
+                envelope, record = capture(
+                    harness, name, query.iter_batches(batch_rows=257, spill=spill, **POLICY), reference)
+                complete(harness, name, envelope, [trace], [True], grant=GRANT)
+                assert record["complete_rows"] == len(case["expected"])
+                assert envelope.field_int("relational_spillable_sampling_stages") == 1
+                # A public filter can run before the sample stage; the shared
+                # producer's complete input row count is verified by complete().
+                assert envelope.field_int("relational_spillable_sampling_input_rows") == case["population"]
+                assert envelope.field_int("relational_spillable_sampling_population_rows") == case["population"]
+                assert envelope.field_int("relational_spillable_sampling_output_rows") == len(case["expected"])
+                draws = len(case["expected"]) if case["replace"] else 0
+                assert envelope.field_int("relational_spillable_sampling_replacement_draws") == draws
+                assert (envelope.field_int("relational_spillable_sampling_lookup_blocks") > 0) == case["replace"]
+                assert envelope.field_int("relational_spill_runs_written") > 0
+                assert envelope.field_bool("relational_spill_owned_cleanup_completed") is True
+                assert envelope.field_int("relational_spill_peak_disk_bytes") <= spill["quota_bytes"]
+                assert envelope.field_int("native_input_replay_spilled_sources") == 0
                 clean()
-                return {"producer_trace": trace, "sampling_population_spill": False}
-            harness.case(name, refuse)
+                return dict(record, sampling_population_spill=True)
+            harness.case(name, population)
 
     future_masks(harness, spill, clean)
     replay(harness, workspace, spill, clean)

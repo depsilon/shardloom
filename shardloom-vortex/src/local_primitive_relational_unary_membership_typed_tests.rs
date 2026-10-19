@@ -12,7 +12,7 @@ use vortex::array::{
     extension::datetime::{Date, TimeUnit, Timestamp},
 };
 
-const FIELDS: [&str; 10] = [
+pub(in crate::local_primitives) const FIELDS: [&str; 10] = [
     "id",
     "binary",
     "decimal",
@@ -63,7 +63,7 @@ fn expected_typed_rows(
     }).collect()
 }
 
-fn typed_source(dictionary: bool) -> (ArrayRef, Vec<Value>) {
+pub(in crate::local_primitives) fn typed_source(dictionary: bool) -> (ArrayRef, Vec<Value>) {
     let edge = 10_i128.pow(38) - 1;
     let binary: [Option<&[u8]>; 6] = [
         Some(b"\0\xff"),
