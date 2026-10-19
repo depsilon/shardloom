@@ -1,0 +1,256 @@
+{
+  "all_members_reopened": true,
+  "archive": {
+    "bytes": 1107712,
+    "file": "predicate-attribution-portable-767.tar.xz",
+    "sha256": "df05476fbc21fdbe5b997e04064bbde13cb84e12fd1bf6a47e4bc578fdc910bf"
+  },
+  "claim_boundary": "Attribution evidence only; no production optimization or performance claim.",
+  "excluded_future_or_mutable_artifacts": {
+    "later_candidate_work": "not in the fixed allowlist or named source trees",
+    "packaging_or_reopen_logs": "not in the fixed allowlist"
+  },
+  "inclusions": {
+    "allowlisted_current_predicate_evidence_files": [
+      "predicate-attribution-767-a1-source-freeze.json",
+      "predicate-attribution-767-a1-tracked.patch",
+      "predicate-attribution-767-a2-artifact.json",
+      "predicate-attribution-767-a2-source-freeze.json",
+      "predicate-attribution-767-a2-test-inventory.txt",
+      "predicate-attribution-767-a2-tracked.patch",
+      "predicate-attribution-build-767-a1.json",
+      "predicate-attribution-build-767-a1.log",
+      "predicate-attribution-build-767-a2.json",
+      "predicate-attribution-build-767-a2.log",
+      "predicate-attribution-build-driver-767-a1.log",
+      "predicate-attribution-build-driver-767-a2.log",
+      "predicate-attribution-harness-review-767.json",
+      "predicate-decision-767-a1-sequence.log",
+      "predicate-exclusion-attribution-protocol-766.json",
+      "predicate-exclusion-cargo-metadata-766.json",
+      "predicate-exclusion-decision-767-a1.json",
+      "predicate-exclusion-preflight-767-a1.json",
+      "predicate-exclusion-sequence-767-a1.json",
+      "predicate-exclusion-sequence-driver-767-a1.log",
+      "predicate-exclusion-verification-767.json",
+      "predicate-exclusion-verification-driver-767.log",
+      "predicate-final-source-verify-767-a1-sequence.log",
+      "predicate-measure-A-off-767-a1-link.json",
+      "predicate-measure-A-off-767-a1-sequence.log",
+      "predicate-measure-A-off-767-a1.json",
+      "predicate-measure-A-off-767-a1.log",
+      "predicate-measure-A-on-767-a1-link.json",
+      "predicate-measure-A-on-767-a1-sequence.log",
+      "predicate-measure-A-on-767-a1.json",
+      "predicate-measure-A-on-767-a1.log",
+      "predicate-measure-B-off-767-a1-link.json",
+      "predicate-measure-B-off-767-a1-sequence.log",
+      "predicate-measure-B-off-767-a1.json",
+      "predicate-measure-B-off-767-a1.log",
+      "predicate-measure-B-on-767-a1-link.json",
+      "predicate-measure-B-on-767-a1-sequence.log",
+      "predicate-measure-B-on-767-a1.json",
+      "predicate-measure-B-on-767-a1.log",
+      "predicate-oracle-before-primary-review-767.py",
+      "predicate-preflight-off-767-a1-link.json",
+      "predicate-preflight-off-767-a1-sequence.log",
+      "predicate-preflight-off-767-a1.json",
+      "predicate-preflight-off-767-a1.log",
+      "predicate-preflight-on-767-a1-link.json",
+      "predicate-preflight-on-767-a1-sequence.log",
+      "predicate-preflight-on-767-a1.json",
+      "predicate-preflight-on-767-a1.log",
+      "predicate-preflight-verify-767-a1-sequence.log",
+      "predicate_exclusion_driver_767.py"
+    ],
+    "cargo_cache_included": false,
+    "drivers_and_packager": [
+      "analyze_predicate_exclusion_766.py",
+      "test_predicate_oracle_766.py",
+      "run_predicate_exclusion_767.py",
+      "verify_predicate_exclusion_767.py",
+      "run_guarded_observed_757.py",
+      "package_predicate_attribution_767.py",
+      "attribution-packager-before-primary-review-768.py"
+    ],
+    "extra_source_files": {
+      "a1": [
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a1-extra-sources/shardloom-vortex/src/local_primitive_relational_predicate_cost_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a1-extra-sources/shardloom-vortex/src/resident_memory_predicate_observation.rs"
+      ],
+      "a2": [
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a2-extra-sources/shardloom-vortex/src/local_primitive_relational_predicate_cost_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a2-extra-sources/shardloom-vortex/src/resident_memory_predicate_observation.rs"
+      ]
+    },
+    "guard_dependency_sources": [
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/local_uat_storage.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/run_clickbench_paired_query_uat.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/native_workflow_protocol.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/query_timing_report.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/clickbench_reference_packet.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/run_clickbench_query_uat.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/__init__.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_exports.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_result_schema.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/errors.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_compat.py",
+      "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/models.py",
+      "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/release_validation_guard.py",
+      "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py"
+    ],
+    "native_input_dataset_included": false,
+    "package_environment_included": false,
+    "raw_streams": [
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-767-a1/measure-A-off.jsonl",
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-767-a1/measure-A-on.jsonl",
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-767-a1/measure-B-off.jsonl",
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-767-a1/measure-B-on.jsonl",
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-767-a1/preflight-preflight-off.jsonl",
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-767-a1/preflight-preflight-on.jsonl"
+    ],
+    "witness_count": 42
+  },
+  "manifest": {
+    "bytes": 6496,
+    "file": "predicate-attribution-portable-767.manifest.json.xz",
+    "sha256": "82f05f70b5752a4ea9421e519717081ed31738f66944783013aac651cf57e0b7"
+  },
+  "measured_scope": {
+    "all_three_targets_qualify": true,
+    "common_qualifying_families": [
+      "correlated",
+      "membership",
+      "contains"
+    ],
+    "full_content_witnesses": 42,
+    "operations": 2916,
+    "production_accepted": false,
+    "workflows": 1252
+  },
+  "member_count": 123,
+  "omitted_compiled_test_executable": {
+    "bytes": 94815024,
+    "copied": false,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a2-test",
+    "reason": "large compiled test executable intentionally excluded",
+    "reproduction": {
+      "artifact_receipt": "evidence/predicate-attribution-767-a2-artifact.json",
+      "build_command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "build_log": "evidence/predicate-attribution-build-767-a2.log",
+      "build_receipt": "evidence/predicate-attribution-build-767-a2.json",
+      "cargo_target_cache": "/Users/dylan/.cache/shardloom/cargo-target",
+      "extra_sources": "sources/a2-extra/",
+      "source_freeze": "evidence/predicate-attribution-767-a2-source-freeze.json",
+      "tracked_patch": "evidence/predicate-attribution-767-a2-tracked.patch"
+    },
+    "sha256": "f2e344f9877bce35ba960ca8ce25e147ed099ab49fe8e753b1b10ab1f1f54c6e"
+  },
+  "preserved_review_context": {
+    "harness_review": {
+      "bytes": 2103,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-harness-review-767.json",
+      "sha256": "51a1a87394033ae1dc1b08321497a6d8c66803dab5a8ba42d5a2a5705a90cee6"
+    },
+    "original_worker_oracle_before_primary_review": {
+      "bytes": 14715,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-oracle-before-primary-review-767.py",
+      "sha256": "a984e8e79a39bd90a1730f7cb90744720f8cbec6ff2108c716411ccdffe8e0e2"
+    },
+    "packager_primary_review": "Historical a1 extra sources are verified against their own frozen identities; only a2 must equal the working source. Corrected the reviewed-oracle pointer before first packaging run; preserved the original script.",
+    "reviewed_worker_oracle": {
+      "bytes": 15405,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/analyze_predicate_exclusion_766.py",
+      "sha256": "7611880af482e6d19a0e523309b2de774f301e78f623e3574cfb3793677fdf16"
+    }
+  },
+  "production_accepted": false,
+  "protocol": {
+    "bytes": 9859,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-attribution-protocol-766.json",
+    "sha256": "153892a4e056c9adf769dd65ba758ec304f70a2f8d62111d3b96197842d9a5e3"
+  },
+  "schema_version": "shardloom.predicate_attribution_portable_packet.v1",
+  "scope_result": "attribution_positive",
+  "source_freezes": {
+    "a1_extra_sources": [
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a1-extra-sources/shardloom-vortex/src/local_primitive_relational_predicate_cost_tests.rs",
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a1-extra-sources/shardloom-vortex/src/resident_memory_predicate_observation.rs"
+    ],
+    "a1_failed_build_preserved": true,
+    "a1_failed_build_receipt": {
+      "bytes": 10761,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-build-767-a1.json",
+      "sha256": "36cbdc6df36a7cd53bf4fb76b7ec4bf8bb0d874baa06df419b546c03034ca8d4"
+    },
+    "a1_tracked_patch": {
+      "bytes": 2703,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a1-tracked.patch",
+      "sha256": "563bc1ed89d2dc762735c3fc4b80c5a2e70707c23fc67356330cfa2759cf13d7"
+    },
+    "a2_extra_sources": [
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a2-extra-sources/shardloom-vortex/src/local_primitive_relational_predicate_cost_tests.rs",
+      "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a2-extra-sources/shardloom-vortex/src/resident_memory_predicate_observation.rs"
+    ],
+    "a2_passed_build_receipt": {
+      "bytes": 194947,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-build-767-a2.json",
+      "sha256": "a5d92bd62cea6ecf0196a0c1b9c12f4f0d95263c550d0707d54a5ff3cd33e3f5"
+    },
+    "a2_tracked_patch": {
+      "bytes": 2703,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a2-tracked.patch",
+      "sha256": "563bc1ed89d2dc762735c3fc4b80c5a2e70707c23fc67356330cfa2759cf13d7"
+    },
+    "failed_build_a1": {
+      "bytes": 358791,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a1-source-freeze.json",
+      "sha256": "0e7668713ea51b3c484211e90c14c85f42b2fb3b778aac8c12ad642173b907ca"
+    },
+    "successful_build_a2": {
+      "bytes": 358791,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-767-a2-source-freeze.json",
+      "sha256": "98cf965686f16b7bb45a1c51016fc5c4dec9e2ca5c6b131420cf2dfd0cf0fbfe"
+    }
+  },
+  "status": "verified_positive_attribution_evidence",
+  "storage_check": {
+    "before_write": {
+      "free_bytes": 20856496128,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0,
+      "workspace_bytes": 5244891247
+    },
+    "guard": "local_uat_storage.require_local_path and check_budgets",
+    "limits": {
+      "candidate_reserve_bytes": 134217728,
+      "maximum_log_bytes": 201326592,
+      "maximum_workspace_bytes": 107374182400,
+      "minimum_free_bytes": 12884901888
+    }
+  },
+  "uncompressed_bytes": 50366314,
+  "verification": {
+    "bytes": 7897,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-verification-767.json",
+    "sha256": "3652d339549dc0258892c9b66aa488e0e8f662bb8c37d5f8e3aa731f251c2747"
+  }
+}

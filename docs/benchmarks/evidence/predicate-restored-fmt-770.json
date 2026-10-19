@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "command": ["/Users/dylan/.cargo/bin/rustup", "run", "1.99.0", "cargo", "fmt", "--all", "--", "--check"],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "returncode": 0,
+  "output": "",
+  "stage": "after_verified_candidate_archive_and_exact_runtime_restoration",
+  "source_binding": "predicate-exclusion-restoration-770.json",
+  "observation": "Direct tool execution completed with exit 0; no native benchmarks or full test suites were repeated."
+}

@@ -17,6 +17,31 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-10.predicate_exclusion exact-fact experiment` — reject the finite
+  one-fact-per-immutable-source candidate after both frozen comparison cohorts.
+  The [decision](native-predicate-exclusion-2026-10-19.md),
+  [candidate packet](../benchmarks/evidence/predicate-candidate-portable-770.json)
+  and [attribution packet](../benchmarks/evidence/predicate-attribution-portable-767.json)
+  preserve protocols, full results, original/final sources and failed observations.
+  - Attribution verifies 1,252 workflows/2,916 operations and material repeated
+    native predicate work for all three predefined targets in both cohorts.
+    Candidate preflight and measurement verify 1,828 workflows/4,260 operations,
+    exact values/types, source identity, activation, certificates and cleanup.
+  - All three repeated-use targets pass their engine and complete-workflow
+    benefit gates in both cohorts. Two single-call membership controls fail
+    their frozen regression bounds. All resource controls, 16 lifecycle tests
+    and 13 driver/oracle checks pass; no samples or thresholds are changed.
+  - Independent verification recomputes all 114 cells' gates and reopens every
+    member of the 211-member candidate and 123-member attribution packets.
+    Experimental runtime, observer and test changes are removed. All 1,899
+    Rust/Cargo inputs match accepted commit `896c7179`, and all 2,217 previously
+    accepted runtime/Python/test/harness source contents remain byte-identical.
+    Formatting passes; prior full acceptance is preserved without a new run.
+  - This is the sixth finite decision in the 21-row pass: five rejected and
+    one retained, with 15 first decisions remaining. Broader owners, all 58
+    substeps and CG-1 through CG-23 keep their gates. First-use summaries,
+    publication and the release decision remain separate.
+
 - [x] `PERF-10.compact_selections bounded local-width experiment` — retain
   credited U16 local ordinals and native take indices for source extents up to
   65,536 rows. Larger local extents and global gathers retain their checked wide

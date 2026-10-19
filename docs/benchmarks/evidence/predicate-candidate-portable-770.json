@@ -1,0 +1,808 @@
+{
+  "all_members_reopened": true,
+  "archive": {
+    "bytes": 2475308,
+    "file": "predicate-candidate-portable-770.tar.xz",
+    "sha256": "20abde8b9c57916a97cc4a9cbf478c0e395bd96a96f2790258029c40860acb4c"
+  },
+  "builds": {
+    "failed_first_build": {
+      "log": {
+        "bytes": 335560,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1.log",
+        "sha256": "897a708642c488c526d208c348894a101f5341617fc686f8b409ebb787532a63"
+      },
+      "receipt": {
+        "bytes": 11527,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1.json",
+        "sha256": "9f5c90fff6b7cd9f077a2fe20117247c2ac365a156057e131df0c9c478e2c0b5"
+      }
+    },
+    "final_successful_frozen_binary": {
+      "artifact_receipt": {
+        "bytes": 1803,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-artifact.json",
+        "sha256": "c87cb24a2fd9ac4c04efd8846b84b8a4051edcce21719f0aa552a31449851edc"
+      },
+      "binary_bytes": 95035616,
+      "binary_copied": false,
+      "binary_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-test",
+      "binary_sha256": "57e85541b2d7ea87040967b70ffa8e513b7612f2f5008973a62f5b00e315afcb",
+      "build_command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "build_receipt": {
+        "bytes": 193128,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-build-769-a2.json",
+        "sha256": "f8dbb4706c9de40ceb52a12524210dd1c7cfab2050e21cd1fe61cffdc3e18a44"
+      },
+      "rebuild_inputs": [
+        "predicate-candidate-769-a2-source-freeze.json",
+        "predicate-candidate-769-a2-tracked.patch"
+      ]
+    },
+    "first_successful_frozen_binary": {
+      "artifact_receipt": {
+        "bytes": 2173,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-artifact.json",
+        "sha256": "1082a16e141418a846919ab78cedbf41a0be109b580ff9be60be83044c0a4409"
+      },
+      "binary_bytes": 95035616,
+      "binary_copied": false,
+      "binary_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-test",
+      "binary_sha256": "c3bc5adda268c3dd4fcd177f0d91c28853b327a797e7c0a5c5ccea53df18b8ab",
+      "build_command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "build_receipt": {
+        "bytes": 191893,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2.json",
+        "sha256": "819e1725f4de55d6606d374b91c5da10e7b570dec443b161c71a43dc5e7b5bb1"
+      },
+      "rebuild_inputs": [
+        "predicate-candidate-769-a1-source-freeze.json",
+        "predicate-candidate-769-a1-tracked.patch",
+        "predicate-candidate-first-build-768-a2-source-freeze.json",
+        "predicate-candidate-first-build-768-a2-tracked.patch"
+      ]
+    }
+  },
+  "candidate_design_doc": {
+    "bytes": 4651,
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-predicate-exclusion-design-2026-10-19.md",
+    "sha256": "4d07013f3bf57347bf1d53bc22a328c1f3cc182008a51a093bc5f63035c93766"
+  },
+  "claim_boundary": "The frozen finite comparison rejects this candidate because two controls fail. No production acceptance, changed threshold, or semantic decision is asserted.",
+  "comparison": {
+    "all_three_targets_pass_both_cohorts": true,
+    "controls_pass": false,
+    "decision": {
+      "bytes": 154944,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-decision.json",
+      "sha256": "c84da8c572b5d7a851cc9212ac4334f01f1a97a578b5ae2f655ca95de3b032e6"
+    },
+    "failed_controls": [
+      "65536-membership-no_true-1:B",
+      "65536-membership-interleaved_parameters-1:A"
+    ],
+    "focused_lifecycle_tests_passed": 16,
+    "focused_test_log": {
+      "bytes": 2585,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-lifecycle-769-a2.log",
+      "sha256": "99f162679fdf95308521386544342ecfd9b1fb3ddde381669ce637bdc059520e"
+    },
+    "helper_tests_log": {
+      "bytes": 2357,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-helper-tests-769.log",
+      "sha256": "3e13e26fff5ca9a3fc031a5f4839f4c81ba2cf07110283e077dd6f38c707bfb1"
+    },
+    "maximum_median_peak_overhead_bytes": 5128,
+    "operations": 4260,
+    "preflight_verification": {
+      "bytes": 863,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-preflight-verification.json",
+      "sha256": "e72af021e0c0d1528589a58d51f8573f70923849ffaef8d1e102f9864a75e09e"
+    },
+    "raw_streams": {
+      "measure-A-baseline.jsonl": {
+        "identity": {
+          "bytes": 7829351,
+          "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/measure-A-baseline.jsonl",
+          "sha256": "5674d9fb52cf08ff4e84e539c9c4bdd89b6b9ee3369a687c4a048ea6f0ec21da"
+        },
+        "operations": 799,
+        "workflows": 343
+      },
+      "measure-A-candidate.jsonl": {
+        "identity": {
+          "bytes": 7470806,
+          "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/measure-A-candidate.jsonl",
+          "sha256": "5a62fab8b85c14070fd489387d88bfdee4320d8a0260b2f43c2ebbdfb6c37da8"
+        },
+        "operations": 799,
+        "workflows": 343
+      },
+      "measure-B-baseline.jsonl": {
+        "identity": {
+          "bytes": 7829132,
+          "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/measure-B-baseline.jsonl",
+          "sha256": "a6ed95b52ea86db476351178ee96cabdaa88ff13c9d181957e1bdb266cad64d5"
+        },
+        "operations": 799,
+        "workflows": 343
+      },
+      "measure-B-candidate.jsonl": {
+        "identity": {
+          "bytes": 7470816,
+          "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/measure-B-candidate.jsonl",
+          "sha256": "45ed812ce877af3b188e011d31e9e93aef6eab2b18d1ab24613489c94b9ba92b"
+        },
+        "operations": 799,
+        "workflows": 343
+      },
+      "preflight-preflight-baseline.jsonl": {
+        "identity": {
+          "bytes": 4878028,
+          "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/preflight-preflight-baseline.jsonl",
+          "sha256": "81812e971c546ffd667bd8d05963f566ade08c7475a86957a98824a91dfb7822"
+        },
+        "operations": 532,
+        "workflows": 228
+      },
+      "preflight-preflight-candidate.jsonl": {
+        "identity": {
+          "bytes": 4758672,
+          "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/preflight-preflight-candidate.jsonl",
+          "sha256": "83df0aa313afef688651559b4ceca09d73d92593450e0a8e8e65ed8123546408"
+        },
+        "operations": 532,
+        "workflows": 228
+      }
+    },
+    "resource_controls_pass": true,
+    "witnesses": [
+      {
+        "bytes": 12,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/12de724afe55ea3078a737a0b334d16222f818c23e9c984ae9bed4f536b1de86.json",
+        "sha256": "12de724afe55ea3078a737a0b334d16222f818c23e9c984ae9bed4f536b1de86"
+      },
+      {
+        "bytes": 178,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/1569d2b47a435ebd1fa10193fe023756947e56253270c00281998ec937babec9.json",
+        "sha256": "1569d2b47a435ebd1fa10193fe023756947e56253270c00281998ec937babec9"
+      },
+      {
+        "bytes": 108,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/17777b17021f1be5c860cb8c78f7a3ce67ce82c55e9ff71f4b1489b860b44711.json",
+        "sha256": "17777b17021f1be5c860cb8c78f7a3ce67ce82c55e9ff71f4b1489b860b44711"
+      },
+      {
+        "bytes": 15,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/1782a20196bab25d0159f69c330a0b68634142cf50aeb3da2a105f7b6fa6b368.json",
+        "sha256": "1782a20196bab25d0159f69c330a0b68634142cf50aeb3da2a105f7b6fa6b368"
+      },
+      {
+        "bytes": 14,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/1b24080b08ac2717b7a1098cfb749704869b5c1d0cbc9cfb06f11389c2675929.json",
+        "sha256": "1b24080b08ac2717b7a1098cfb749704869b5c1d0cbc9cfb06f11389c2675929"
+      },
+      {
+        "bytes": 15,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/203d6fc3817dfe12b0add85400a27458f1da22accc64414cb1a5c7d2848ee403.json",
+        "sha256": "203d6fc3817dfe12b0add85400a27458f1da22accc64414cb1a5c7d2848ee403"
+      },
+      {
+        "bytes": 16,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/248bdf44fa0c6eb9d05ca9c8453e126a7163951d247854423516f1ffd711fb1a.json",
+        "sha256": "248bdf44fa0c6eb9d05ca9c8453e126a7163951d247854423516f1ffd711fb1a"
+      },
+      {
+        "bytes": 4292019,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/258b16048e97c8f2d3030cd976843128e7ba9da6b6b3ec1fbaaf5c882f6267d7.json",
+        "sha256": "258b16048e97c8f2d3030cd976843128e7ba9da6b6b3ec1fbaaf5c882f6267d7"
+      },
+      {
+        "bytes": 895,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/2c8f1fed6609ede9644034ae0868e53e8a811ddd477c616db8628d07bbbf4368.json",
+        "sha256": "2c8f1fed6609ede9644034ae0868e53e8a811ddd477c616db8628d07bbbf4368"
+      },
+      {
+        "bytes": 3675219,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/327bdbd15c97e55b52524d38a3a8fbfa46bdce1ee1955f93ee563d59cb1cd85a.json",
+        "sha256": "327bdbd15c97e55b52524d38a3a8fbfa46bdce1ee1955f93ee563d59cb1cd85a"
+      },
+      {
+        "bytes": 947,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/38e1f51b3573b2fb08a8313307a674c0e2b7d30c36c17e59151bc4f6114740bf.json",
+        "sha256": "38e1f51b3573b2fb08a8313307a674c0e2b7d30c36c17e59151bc4f6114740bf"
+      },
+      {
+        "bytes": 3675219,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/391f624e29d54fc1d05fe7036dcab3d1db483bd11ba24ae60b0764b0117ec223.json",
+        "sha256": "391f624e29d54fc1d05fe7036dcab3d1db483bd11ba24ae60b0764b0117ec223"
+      },
+      {
+        "bytes": 176,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/3acb043f119bd1312df03503ce758fe50efd73360286e0a68c738756fbc8f194.json",
+        "sha256": "3acb043f119bd1312df03503ce758fe50efd73360286e0a68c738756fbc8f194"
+      },
+      {
+        "bytes": 13,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/3e2679a55fd12c2ab5d5bcda2f3f66990d51e0dfdc8f640f5c9c205c0538e9e6.json",
+        "sha256": "3e2679a55fd12c2ab5d5bcda2f3f66990d51e0dfdc8f640f5c9c205c0538e9e6"
+      },
+      {
+        "bytes": 16,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/4ab89eaa5d779108d84a17f389732dac835f2711764b5fdda035a6d2a02f4d1d.json",
+        "sha256": "4ab89eaa5d779108d84a17f389732dac835f2711764b5fdda035a6d2a02f4d1d"
+      },
+      {
+        "bytes": 895,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/4cfdfd669756e5159f4457176b85df53c02922fb592667075e4d7015b259992d.json",
+        "sha256": "4cfdfd669756e5159f4457176b85df53c02922fb592667075e4d7015b259992d"
+      },
+      {
+        "bytes": 2,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "bytes": 536508,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/6f52e03a3c2ddb07e23effe891258c33749d1ed497d2f25a789bf02530af591d.json",
+        "sha256": "6f52e03a3c2ddb07e23effe891258c33749d1ed497d2f25a789bf02530af591d"
+      },
+      {
+        "bytes": 178,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/74efc1a2416fed53ed49b8125512f9b7f86638b7666da2751fcd5149a6822f55.json",
+        "sha256": "74efc1a2416fed53ed49b8125512f9b7f86638b7666da2751fcd5149a6822f55"
+      },
+      {
+        "bytes": 459408,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/7b8461b548aaacde7b50f9f1d0bad6a34adf6b1c3e97e312ef9a4db332438cfe.json",
+        "sha256": "7b8461b548aaacde7b50f9f1d0bad6a34adf6b1c3e97e312ef9a4db332438cfe"
+      },
+      {
+        "bytes": 3736989,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/8942ceeecc74b745cf90e88654c87af4089f0f186b7f757fbb4c845aa58cafbb.json",
+        "sha256": "8942ceeecc74b745cf90e88654c87af4089f0f186b7f757fbb4c845aa58cafbb"
+      },
+      {
+        "bytes": 188,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/8953281dd204ca3bc6e279e9a8e72a8d89d3b1782e1899773a3f0da410724e5a.json",
+        "sha256": "8953281dd204ca3bc6e279e9a8e72a8d89d3b1782e1899773a3f0da410724e5a"
+      },
+      {
+        "bytes": 1055,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/8a055fd0bbef9359a34f6a687bb04a355eddff9d0548aa5509f85eb46ef1377d.json",
+        "sha256": "8a055fd0bbef9359a34f6a687bb04a355eddff9d0548aa5509f85eb46ef1377d"
+      },
+      {
+        "bytes": 13,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/9c71f52607c798a69e97a4242d15136bcead64b37414706f5aa64247617a3973.json",
+        "sha256": "9c71f52607c798a69e97a4242d15136bcead64b37414706f5aa64247617a3973"
+      },
+      {
+        "bytes": 169,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/a57d07ff954e8f6781b20badced7022f93a30e684bb36b379e5693594af04690.json",
+        "sha256": "a57d07ff954e8f6781b20badced7022f93a30e684bb36b379e5693594af04690"
+      },
+      {
+        "bytes": 177,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/a581b4891869410aebe6ab8c9cd2097d19f3b081b4ced3f8642570cc6dbe7e99.json",
+        "sha256": "a581b4891869410aebe6ab8c9cd2097d19f3b081b4ced3f8642570cc6dbe7e99"
+      },
+      {
+        "bytes": 177,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/a6b55c83601d1093a45bf355ed8a2d880725849a0cb0cfeaa25be4571fc37733.json",
+        "sha256": "a6b55c83601d1093a45bf355ed8a2d880725849a0cb0cfeaa25be4571fc37733"
+      },
+      {
+        "bytes": 783,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/b2155aa3bd880d40380b76930f02c44a1404dfc66f763f73bd54153c6638ab41.json",
+        "sha256": "b2155aa3bd880d40380b76930f02c44a1404dfc66f763f73bd54153c6638ab41"
+      },
+      {
+        "bytes": 76,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/b3a3d4fda5fbf62ba901db5b184272991c52048c2c917e4494dcd97ff61a45fe.json",
+        "sha256": "b3a3d4fda5fbf62ba901db5b184272991c52048c2c917e4494dcd97ff61a45fe"
+      },
+      {
+        "bytes": 13,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/b6da8c2e1a8152300297c4d01069c05330f2febd313d0a50c5bf856a3126411c.json",
+        "sha256": "b6da8c2e1a8152300297c4d01069c05330f2febd313d0a50c5bf856a3126411c"
+      },
+      {
+        "bytes": 178,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/b9ee7c25fd4f39fc1e21cc820b3dd3c0222f1bb6c3ed9c01d475ae8cb75b0625.json",
+        "sha256": "b9ee7c25fd4f39fc1e21cc820b3dd3c0222f1bb6c3ed9c01d475ae8cb75b0625"
+      },
+      {
+        "bytes": 2969240,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/c5df6d8f14fa28fb647dee275eb99d4cf35f1ab4588805129e9881ac2a7ff0a9.json",
+        "sha256": "c5df6d8f14fa28fb647dee275eb99d4cf35f1ab4588805129e9881ac2a7ff0a9"
+      },
+      {
+        "bytes": 176,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/cbbf0a41ed1d8a8761f29990b8e374b53ee24456ec8c770b705e444b849349b2.json",
+        "sha256": "cbbf0a41ed1d8a8761f29990b8e374b53ee24456ec8c770b705e444b849349b2"
+      },
+      {
+        "bytes": 371163,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/d860b38caff8546c4e3fe6a0533810fb3452f20ba3e684f4e324a8413ea29f5b.json",
+        "sha256": "d860b38caff8546c4e3fe6a0533810fb3452f20ba3e684f4e324a8413ea29f5b"
+      },
+      {
+        "bytes": 15,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/d9f99612c41e6357957e8fded0460820246140e8e54b4bdc0568dabda7b78c70.json",
+        "sha256": "d9f99612c41e6357957e8fded0460820246140e8e54b4bdc0568dabda7b78c70"
+      },
+      {
+        "bytes": 178,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/dac471228e6f4a5c185a470f14cb1c0202133364155d982f1e9600e71d13d2f4.json",
+        "sha256": "dac471228e6f4a5c185a470f14cb1c0202133364155d982f1e9600e71d13d2f4"
+      },
+      {
+        "bytes": 16,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/e0bde32d711a6f3ffa704720ec279e194984a55a0a5168ca027c7f9c61f33baa.json",
+        "sha256": "e0bde32d711a6f3ffa704720ec279e194984a55a0a5168ca027c7f9c61f33baa"
+      },
+      {
+        "bytes": 180,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/e690b29c92cdbfbef6862d91956856faafb6dee93b0245fc1315239a01d1d808.json",
+        "sha256": "e690b29c92cdbfbef6862d91956856faafb6dee93b0245fc1315239a01d1d808"
+      },
+      {
+        "bytes": 177,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/eb88f3a62960370929b28bdade8d4f75a89263c8bbcb278b538cbf4271dc3a29.json",
+        "sha256": "eb88f3a62960370929b28bdade8d4f75a89263c8bbcb278b538cbf4271dc3a29"
+      },
+      {
+        "bytes": 467125,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/f1d30edb2a28f7eb849c4a9bf41b1eba7831be859554fa65902a83b883c3a8ff.json",
+        "sha256": "f1d30edb2a28f7eb849c4a9bf41b1eba7831be859554fa65902a83b883c3a8ff"
+      },
+      {
+        "bytes": 459408,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/f777801e1b33f9c20cce9d8b04c357757c1660ecb5efe0a96c08db19c5b9d7b8.json",
+        "sha256": "f777801e1b33f9c20cce9d8b04c357757c1660ecb5efe0a96c08db19c5b9d7b8"
+      },
+      {
+        "bytes": 13,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2/witnesses/ff418f003e53c5566dc1446bc73a36daa7dd8409ea79349276d93b92d5116804.json",
+        "sha256": "ff418f003e53c5566dc1446bc73a36daa7dd8409ea79349276d93b92d5116804"
+      }
+    ],
+    "workflows": 1828
+  },
+  "guard_dependency_sources": [
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/local_uat_storage.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/run_clickbench_paired_query_uat.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/native_workflow_protocol.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/query_timing_report.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/clickbench_reference_packet.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/run_clickbench_query_uat.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/__init__.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_exports.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_result_schema.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/errors.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/_compat.py",
+    "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/python/src/shardloom/models.py",
+    "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/release_validation_guard.py",
+    "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py"
+  ],
+  "inclusions": {
+    "binary_bytes_included": false,
+    "cargo_cache_included": false,
+    "data_tree": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2",
+    "fixed_top_level_evidence": [
+      "predicate-exclusion-attribution-protocol-766.json",
+      "predicate-exclusion-candidate-protocol-768.json",
+      "predicate_candidate_driver_769.py",
+      "test_predicate_candidate_driver_769.py",
+      "analyze_predicate_candidate_768.py",
+      "test_predicate_candidate_oracle_768.py",
+      "run_predicate_candidate_sequence_769.py",
+      "freeze_predicate_initial_build_768.py",
+      "run_guarded_observed_757.py",
+      "predicate-candidate-769-a1-source-freeze.json",
+      "predicate-candidate-769-a1-tracked.patch",
+      "predicate-candidate-769-a1-artifact.json",
+      "predicate-candidate-769-a1-test-inventory.txt",
+      "predicate-candidate-769-a2-source-freeze.json",
+      "predicate-candidate-769-a2-tracked.patch",
+      "predicate-candidate-769-a2-artifact.json",
+      "predicate-candidate-769-a2-test-inventory.txt",
+      "predicate-candidate-first-build-768-a1-source-freeze.json",
+      "predicate-candidate-first-build-768-a1-tracked.patch",
+      "predicate-candidate-first-build-768-a1.json",
+      "predicate-candidate-first-build-768-a1.log",
+      "predicate-candidate-first-build-driver-768-a1.log",
+      "predicate-candidate-first-build-768-a2-source-freeze.json",
+      "predicate-candidate-first-build-768-a2-tracked.patch",
+      "predicate-candidate-first-build-768-a2.json",
+      "predicate-candidate-first-build-768-a2.log",
+      "predicate-candidate-first-build-driver-768-a2.log",
+      "predicate-candidate-build-769-a2.json",
+      "predicate-candidate-build-769-a2.log",
+      "predicate-candidate-build-driver-769-a2.log",
+      "predicate-candidate-bind-769-a1.json",
+      "predicate-candidate-bind-769-a1.log",
+      "predicate-candidate-bind-driver-769-a1.log",
+      "predicate-candidate-bind-769-a2.json",
+      "predicate-candidate-bind-769-a2.log",
+      "predicate-candidate-lifecycle-769-a1.json",
+      "predicate-candidate-lifecycle-769-a1.log",
+      "predicate-candidate-lifecycle-driver-769-a1.log",
+      "predicate-candidate-lifecycle-769-a2.json",
+      "predicate-candidate-lifecycle-769-a2.log",
+      "predicate-candidate-helper-tests-769.log",
+      "predicate-candidate-review-corrections-769.json",
+      "analyze-predicate-candidate-before-primary-review-769.py",
+      "test-predicate-candidate-before-primary-review-769.py",
+      "predicate-candidate-769-a2-preflight-verification.json",
+      "predicate-candidate-769-a2-decision.json",
+      "predicate-candidate-769-a2-sequence-identity.json",
+      "predicate-candidate-769-a2-sequence-completion.json",
+      "predicate-candidate-sequence-driver-769-a2.log",
+      "predicate-candidate-decision-769-a2.json",
+      "predicate-candidate-verification-770.json",
+      "verify-predicate-candidate-770.log",
+      "verify_predicate_candidate_770.py",
+      "predicate-candidate-preflight-baseline-769-a2-link.json",
+      "predicate-candidate-preflight-candidate-769-a2-link.json",
+      "predicate-candidate-measure-A-baseline-769-a2-link.json",
+      "predicate-candidate-measure-A-candidate-769-a2-link.json",
+      "predicate-candidate-measure-B-baseline-769-a2-link.json",
+      "predicate-candidate-measure-B-candidate-769-a2-link.json",
+      "verify_predicate_attribution_packet_768.py",
+      "attribution-reopen-before-family-order-correction-768.py",
+      "predicate-attribution-packet-verification-768.json",
+      "verify-attribution-packet-768.log",
+      "verify-attribution-packet-768-a2.log",
+      "package_predicate_attribution_767.py",
+      "package_predicate_candidate_770.py",
+      "predicate-candidate-packager-before-primary-review-770.py",
+      "predicate-candidate-packager-review-770.json",
+      "attribution-packager-before-primary-review-768.py",
+      "package-attribution-768.log",
+      "predicate-attribution-portable-767/predicate-attribution-portable-767.json",
+      "predicate-attribution-portable-767/predicate-attribution-portable-767.manifest.json.xz",
+      "predicate-attribution-portable-767/predicate-attribution-portable-767.tar.xz",
+      "docs/architecture/native-predicate-exclusion-design-2026-10-19.md"
+    ],
+    "guard_closure_matches_attribution_packager": true,
+    "source_trees": [
+      "final_a1",
+      "final_a2",
+      "initial_a1",
+      "initial_a2"
+    ]
+  },
+  "independent_candidate_verification": {
+    "all_114_gates_independently_recomputed": true,
+    "log": {
+      "bytes": 290,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify-predicate-candidate-770.log",
+      "sha256": "cd2d8dd2e5ca690afa41819350eba639d3383faf8b2c712519524b37d1eed017"
+    },
+    "receipt": {
+      "bytes": 6733,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-verification-770.json",
+      "sha256": "6cf40e18d0ba6a99162ff2f20e755172fb9bf1d1c773e8575f1b722a7c3559eb"
+    },
+    "verifier": {
+      "bytes": 10274,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_predicate_candidate_770.py",
+      "sha256": "70e063300009eb013b032067ac0760a66e8eda918e63d97600a61fce5a94de8f"
+    }
+  },
+  "manifest": {
+    "bytes": 10000,
+    "file": "predicate-candidate-portable-770.manifest.json.xz",
+    "sha256": "ae52d31cadeea1542fb010b124c24d53631e8e3cb7ba4962d4c5c71a0613da48"
+  },
+  "member_count": 211,
+  "omitted_binaries": {
+    "final_successful_frozen_binary": {
+      "artifact_receipt": {
+        "bytes": 1803,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-artifact.json",
+        "sha256": "c87cb24a2fd9ac4c04efd8846b84b8a4051edcce21719f0aa552a31449851edc"
+      },
+      "binary_bytes": 95035616,
+      "binary_copied": false,
+      "binary_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-test",
+      "binary_sha256": "57e85541b2d7ea87040967b70ffa8e513b7612f2f5008973a62f5b00e315afcb",
+      "build_command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "build_receipt": {
+        "bytes": 193128,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-build-769-a2.json",
+        "sha256": "f8dbb4706c9de40ceb52a12524210dd1c7cfab2050e21cd1fe61cffdc3e18a44"
+      },
+      "cargo_cache_included": false,
+      "reason": "compiled test executable metadata retained; binary omitted",
+      "rebuild_inputs": [
+        "predicate-candidate-769-a2-source-freeze.json",
+        "predicate-candidate-769-a2-tracked.patch"
+      ]
+    },
+    "first_successful_frozen_binary": {
+      "artifact_receipt": {
+        "bytes": 2173,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-artifact.json",
+        "sha256": "1082a16e141418a846919ab78cedbf41a0be109b580ff9be60be83044c0a4409"
+      },
+      "binary_bytes": 95035616,
+      "binary_copied": false,
+      "binary_path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-test",
+      "binary_sha256": "c3bc5adda268c3dd4fcd177f0d91c28853b327a797e7c0a5c5ccea53df18b8ab",
+      "build_command": [
+        "/Users/dylan/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "--no-run",
+        "--message-format=json"
+      ],
+      "build_receipt": {
+        "bytes": 191893,
+        "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2.json",
+        "sha256": "819e1725f4de55d6606d374b91c5da10e7b570dec443b161c71a43dc5e7b5bb1"
+      },
+      "cargo_cache_included": false,
+      "reason": "compiled test executable metadata retained; binary omitted",
+      "rebuild_inputs": [
+        "predicate-candidate-769-a1-source-freeze.json",
+        "predicate-candidate-769-a1-tracked.patch",
+        "predicate-candidate-first-build-768-a2-source-freeze.json",
+        "predicate-candidate-first-build-768-a2-tracked.patch"
+      ]
+    }
+  },
+  "prior_attribution_packet": {
+    "archive": {
+      "bytes": 1107712,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-portable-767/predicate-attribution-portable-767.tar.xz",
+      "sha256": "df05476fbc21fdbe5b997e04064bbde13cb84e12fd1bf6a47e4bc578fdc910bf"
+    },
+    "manifest": {
+      "bytes": 6496,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-portable-767/predicate-attribution-portable-767.manifest.json.xz",
+      "sha256": "82f05f70b5752a4ea9421e519717081ed31738f66944783013aac651cf57e0b7"
+    },
+    "packet_index": {
+      "bytes": 13412,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-portable-767/predicate-attribution-portable-767.json",
+      "sha256": "ed05b9cc8d6c2626adc2a56700eaa62acb67a9ccecd77263c602113ea60494e9"
+    },
+    "preserved_prior_attempt": {
+      "bytes": 4115,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/attribution-reopen-before-family-order-correction-768.py",
+      "sha256": "c4a84103947db530dc57f31bd605546d63ed4edafc6a10138103cf99a75b9e2b"
+    },
+    "prior_attempt_log": {
+      "bytes": 389,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify-attribution-packet-768.log",
+      "sha256": "084b0c40d6e27bc14aab900b5cff9fa7d3551eee2d43902aa4ed5fb909bc4548"
+    },
+    "reopen_receipt": {
+      "bytes": 957,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-attribution-packet-verification-768.json",
+      "sha256": "0047b77af23ab49022c0cd7f6f8701fd3d196d63f5be1f44805a8e71434875b6"
+    },
+    "reopen_verifier": {
+      "bytes": 4398,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_predicate_attribution_packet_768.py",
+      "sha256": "5c0436e03173563880fcdc06003b049168c6d68be10f437144b57904d1a7925d"
+    },
+    "separate_packet": true,
+    "successful_reopen_log": {
+      "bytes": 915,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify-attribution-packet-768-a2.log",
+      "sha256": "022b4685f9f44ec6995a28ca16f73f18a373ed04ec15b9597c3ee1ea78076af2"
+    }
+  },
+  "production_accepted": false,
+  "protocols": {
+    "attribution": {
+      "bytes": 9859,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-attribution-protocol-766.json",
+      "sha256": "153892a4e056c9adf769dd65ba758ec304f70a2f8d62111d3b96197842d9a5e3"
+    },
+    "candidate": {
+      "bytes": 14010,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-exclusion-candidate-protocol-768.json",
+      "sha256": "e8653d467b11c9d5928b6be5bd2776ff840672b999d3dfaabac6ee3714c5ae5a"
+    }
+  },
+  "schema_version": "shardloom.predicate_candidate_portable_packet.v1",
+  "scope_result": "candidate_comparison_rejected",
+  "sequence": {
+    "completion": {
+      "bytes": 238,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-sequence-completion.json",
+      "sha256": "93503d993c52f784e7c4a78a44c876aa081d7dab5f83bb62e86f581bd35460dd"
+    },
+    "identity": {
+      "bytes": 962,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-sequence-identity.json",
+      "sha256": "c91ad31639d42f55e9746133c6e7b52660c079c5ca8282be489e34d51721598d"
+    },
+    "ordered_roles": [
+      "preflight/baseline",
+      "preflight/candidate",
+      "A/baseline",
+      "A/candidate",
+      "B/candidate",
+      "B/baseline"
+    ],
+    "steps": [
+      "predicate-candidate-bind-769-a2",
+      "predicate-candidate-lifecycle-769-a2",
+      "predicate-candidate-preflight-baseline-769-a2",
+      "predicate-candidate-preflight-candidate-769-a2",
+      "predicate-candidate-preflight-check-769-a2",
+      "predicate-candidate-measure-A-baseline-769-a2",
+      "predicate-candidate-measure-A-candidate-769-a2",
+      "predicate-candidate-measure-B-candidate-769-a2",
+      "predicate-candidate-measure-B-baseline-769-a2",
+      "predicate-candidate-decision-769-a2",
+      "predicate-candidate-final-binding-769-a2"
+    ]
+  },
+  "source_binding": {
+    "a1_freeze": {
+      "bytes": 360215,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-source-freeze.json",
+      "sha256": "ffbace681b52e01e4a5acb3f7c164e4760c66cd7ca5ebb62215a4287d80c3077"
+    },
+    "a1_patch": {
+      "bytes": 19396,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-tracked.patch",
+      "sha256": "4eee7a19c673105386f55a514a8fc14290b0b81be74b4ddd1c04aa4d16345199"
+    },
+    "a2_freeze": {
+      "bytes": 360215,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-source-freeze.json",
+      "sha256": "2ced0dbef5541318a1a7f2b21295296244f9609e63082f9feb021bec55ce05be"
+    },
+    "a2_patch": {
+      "bytes": 19396,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-tracked.patch",
+      "sha256": "4eee7a19c673105386f55a514a8fc14290b0b81be74b4ddd1c04aa4d16345199"
+    },
+    "current_frozen_source_count": 1904,
+    "current_sources_all_hash_verified": true,
+    "head": "896c71793a8859a6b4770bbc8a9fe0b85d755cf8",
+    "initial_a1_freeze": {
+      "bytes": 359089,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-source-freeze.json",
+      "sha256": "a6417b5890d8e19c54239103e2597a9af4de2f3ce7fe25a08587bf23ad099662"
+    },
+    "initial_a2_freeze": {
+      "bytes": 359144,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-source-freeze.json",
+      "sha256": "60d28e969e1134e2471479e6bc6afba0664a768d624f7671106088b11fada04b"
+    },
+    "snapshot_files": {
+      "final_a1": [
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-extra-sources/shardloom-vortex/src/local_primitive_relational_predicate_candidate_cost_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-extra-sources/shardloom-vortex/src/local_primitive_relational_predicate_exclusion_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-extra-sources/shardloom-vortex/src/resident_memory_predicate_exclusion.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-extra-sources/shardloom-vortex/src/resident_memory_predicate_exclusion_observation.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a1-extra-sources/shardloom-vortex/src/resident_memory_predicate_observation.rs"
+      ],
+      "final_a2": [
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-extra-sources/shardloom-vortex/src/local_primitive_relational_predicate_candidate_cost_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-extra-sources/shardloom-vortex/src/local_primitive_relational_predicate_exclusion_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-extra-sources/shardloom-vortex/src/resident_memory_predicate_exclusion.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-extra-sources/shardloom-vortex/src/resident_memory_predicate_exclusion_observation.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-769-a2-extra-sources/shardloom-vortex/src/resident_memory_predicate_observation.rs"
+      ],
+      "initial_a1": [
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/local_primitive_prepared_relational.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/local_primitive_relational_bind.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/local_primitive_relational_predicate_candidate_cost_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/local_primitive_relational_predicate_exclusion_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/local_primitive_relational_report.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/local_primitive_relational_scan.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/local_primitive_relational_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/resident_memory_arrow.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/resident_memory_batches.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/resident_memory_predicate_exclusion.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/resident_memory_predicate_exclusion_observation.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/resident_memory_predicate_observation.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/resident_memory_range.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a1-sources/shardloom-vortex/src/resident_memory_source.rs"
+      ],
+      "initial_a2": [
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/local_primitive_prepared_relational.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/local_primitive_relational_bind.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/local_primitive_relational_predicate_candidate_cost_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/local_primitive_relational_predicate_exclusion_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/local_primitive_relational_report.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/local_primitive_relational_scan.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/local_primitive_relational_tests.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/resident_memory_arrow.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/resident_memory_batches.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/resident_memory_predicate_exclusion.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/resident_memory_predicate_exclusion_observation.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/resident_memory_predicate_observation.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/resident_memory_range.rs",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/predicate-candidate-first-build-768-a2-sources/shardloom-vortex/src/resident_memory_source.rs"
+      ]
+    }
+  },
+  "status": "verified_rejected_finite_candidate_comparison",
+  "storage_check": {
+    "before_write": {
+      "free_bytes": 20554870784,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0,
+      "workspace_bytes": 5506883695
+    },
+    "guard": "local_uat_storage.require_local_path and check_budgets",
+    "limits": {
+      "candidate_reserve_bytes": 134217728,
+      "maximum_log_bytes": 201326592,
+      "maximum_workspace_bytes": 107374182400,
+      "minimum_free_bytes": 12884901888
+    }
+  },
+  "uncompressed_bytes": 67066786
+}

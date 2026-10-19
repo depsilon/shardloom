@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "packet_index_sha256": "ed05b9cc8d6c2626adc2a56700eaa62acb67a9ccecd77263c602113ea60494e9",
+  "archive_sha256": "df05476fbc21fdbe5b997e04064bbde13cb84e12fd1bf6a47e4bc578fdc910bf",
+  "manifest_sha256": "82f05f70b5752a4ea9421e519717081ed31738f66944783013aac651cf57e0b7",
+  "members": 123,
+  "workflows": 1252,
+  "operations": 2916,
+  "full_content_witnesses": 42,
+  "unchanged_runtime_inputs": 1901,
+  "production_accepted": false,
+  "scope_result": "attribution_positive",
+  "reopen_helper_correction": "Preserved first failure: the verifier imposed an alphabetical order not required by the protocol; corrected to the exact three unique family identities without altering any evidence.",
+  "original_packager_preserved": true,
+  "packager_review_corrections": [
+    "Historical failed-build sources checked against their own frozen identities.",
+    "Reviewed worker oracle points to the analyzer, not the native run driver."
+  ]
+}

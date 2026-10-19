@@ -1,0 +1,63 @@
+{
+  "schema_version": "shardloom.predicate_exclusion_attribution_protocol.v1",
+  "protocol_id": "predicate-exclusion-attribution-766-v1",
+  "owner": "PERF-10.predicate_exclusion",
+  "status": "frozen_before_observer_harness_and_measurement",
+  "production_commit": "896c71793a8859a6b4770bbc8a9fe0b85d755cf8",
+  "scope": "Attribute existing native predicate evaluation and WHERE-mask construction over one immutable resident-memory owner across complete related operations. No cache, exclusion fact, query shortcut, native algorithm change or production optimization is implemented in this stage.",
+  "source_evidence": {
+    "native_filter_and_mask": "shardloom-vortex/src/resident_memory_source.rs:650-721: bound Vortex BoolArray evaluation, session-owned bit mask, NULL-as-false WHERE semantics, native filter and projection",
+    "production_memory_scan": "shardloom-vortex/src/local_primitive_relational_scan.rs:64-78: complete ordered 8192-row ranges through PreparedMemoryProjection::execute_range",
+    "immutable_owner": "shardloom-vortex/src/resident_memory_source.rs:109-126,171-246: immutable Arc owner with exact array dtype and retained ResidentVortexSession; copied/privately owned native buffers",
+    "original_typed_predicate": "shardloom-vortex/src/local_primitive_relational_bind.rs:464-555: typed scan predicate lowered before native memory projection; shardloom-core/src/encoded.rs:489-518 records full PartialEq predicate tree and parameters",
+    "completion_boundary": "shardloom-vortex/src/local_primitive_prepared_relational.rs:997-1019,1684-1774: whole source validation precedes later JSON/result finalization. A future fact may not be published merely because a scan or inner consumer completed."
+  },
+  "provider_check": {
+    "classification": "use_vortex_native_provider",
+    "provider": "Pinned Vortex 0.85.0 bound expressions, BoolArray, owned mask/filter and native struct arrays through the existing admitted ShardLoom memory/relational boundary",
+    "semantics": "Exact typed predicates and immutable source ownership are available for a future finite design. No source path/mtime identity, NOT inference, access/deletion mutation, external engine or answer cache is admitted by this attribution.",
+    "future_candidate_gate": "A positive attribution result permits a separately frozen candidate design; it does not certify an exclusion cache or a speed improvement. Whole-operation success, coverage, owner/key identity, charging, invalidation and failure/cancellation tests remain mandatory."
+  },
+  "workload": {
+    "rows": [8192, 65536],
+    "families": ["correlated", "membership", "contains"],
+    "scenarios": ["no_true", "positive", "all_null", "changed_parameters"],
+    "additional_shape": {"family": "unfiltered", "scenario": "unfiltered"},
+    "calls": [1, 2, 4],
+    "cells": 78,
+    "source": "Fields in exact order x, y, text, g, v. x/y are nullable Int64; text is nullable Utf8; g/v are nonnullable Int64. For row r: present iff r%17 != 0 except all_null makes x/y/text absent; base=2*(r%2048); x=base; y=base; text='item/'+(r%97)+'/part-'+(r%11); g=r%8; v=(r%101)-50. In positive correlated only, y=base-4096. In positive membership only, x=base+1. In positive contains only, append '::absent::' to text. Nullable fields retain the presence rule. Unfiltered uses the base source and no predicate. The same immutable native source owner and shared session are registered by every plan in a workflow.",
+    "predicates": "For call c, parameter k=c only in changed_parameters, otherwise 0. correlated is x > (2047+2*k) AND y < (2048+2*k). membership is x IN [1+32*k+2*i for i=0..15], negated=false. contains is text CONTAINS '::absent::' when k=0; for k>0 the needle is '::absent::'+k, negated=false. Unfiltered has no predicate. Only TRUE passes. Each scalar comparison/contains/membership on a NULL source value is NULL; none is interpreted as proof about a negated predicate.",
+    "operations": "Call 0 and every even call execute COUNT(*) AS rows. Odd calls execute GROUP BY g, SUM(v) AS total, then native ORDER BY g ASC NULLS LAST. Prepare the exact plan for each call inside the workflow; use one shared immutable source. Each call collects complete JSONL through the existing shared native API. Count dtype is nonnullable U64; grouped output fields are nonnullable Int64 g and nullable Float64 total, with a nonnullable outer struct.",
+    "expected_values": "Independently derive the complete selected row set from the source and predicate formulas for every call. Count returns one row even for empty input. Grouped sum returns exactly the nonempty groups, ordered by integer g, with each integer sum represented exactly as Float64. Empty/all-null/no-TRUE outputs retain their exact dtypes.",
+    "preflight_rows": [0, 17, 8192, 65536],
+    "preflight_samples_per_cell_role": 1,
+    "preflight_total_workflows": 312,
+    "preflight_total_operations": 728,
+    "samples_per_cell_role_cohort": 3,
+    "cohorts": ["A", "B"],
+    "order": "A: observer off then on. B: observer on then off, reversing the complete cell order. Each role/cohort is one fresh process. Both cohorts finish before comparative analysis.",
+    "warmup": "Exactly one 8192-row unfiltered one-call workflow per measured role/cohort, retained and excluded. It has its own source owner and creates no reusable state for later workflows.",
+    "workflows_per_role_cohort_including_warmup": 235,
+    "operations_per_role_cohort_including_warmup": 547,
+    "total_measured_workflows_including_warmup": 940,
+    "total_measured_operations_including_warmup": 2188,
+    "resources": {"memory_bytes": 33554432, "cpu_lanes": 1, "provider_background_workers": 0}
+  },
+  "observation": {
+    "binary": "One fresh release test executable shared by both roles. All runtime and test source contents are frozen before build and verified around every run. Hooks and harness are compiled only for tests.",
+    "stages": "Disjoint optional timers: evaluation covers array.clone/apply_bound/execute BoolArray; mask covers session allocation, mask fill/WHERE loop and native array.filter. Count native filter calls and evaluated input rows, mask calls/input rows and selected output rows. Record cumulative observations after each public operation. With observer off all counts and durations remain exactly zero. No per-row timing or changed Boolean evaluation logic.",
+    "coverage": "For enabled nonempty filtered input, each complete operation must observe ceil(rows/8192) evaluation and mask calls and exactly rows evaluated/masked; selected output rows equal the independent WHERE cardinality. Empty and unfiltered inputs observe zero calls. Cumulative stage durations must be nonnegative and no greater than cumulative engine time. Enabled snapshots cannot decrease. Correct values/types, source opens, completed executions, certificates and cleanup are prerequisites for every record.",
+    "primary_clock": "Sum of existing engine_execution_ns across each workflow's complete calls; median of three samples per cell/role/cohort. Native filter/mask attribution is a subset of that engine clock.",
+    "complete_clock": "Session creation, native source intake, all typed plan construction/preparation, all public execution/complete JSON consumption, output release and all prepared/source/session destruction. Caller fixture generation, independent oracle and witness file I/O are outside compared clocks symmetrically.",
+    "raw_evidence": "Content-addressed complete source values/schema and actual/expected result/schema witnesses; every operation's native certificate, engine/serialization/consumption clock, completed-execution count and cumulative observer snapshot; workflow preparation/destruction, peak tracked reservations and final zero reservations. Preserve all warmups and failed attempts."
+  },
+  "decision": {
+    "observer_eligibility": "A cell/cohort is ineligible for material-attribution claims if enabled median engine time or complete-workflow time exceeds disabled by BOTH 5% and 250000 ns. Keep excluded cells and all raw results. Other cells do not substitute for failed targets.",
+    "material_targets": "Exactly three possible targets: 65536 rows, no_true scenario, four calls, one per predicate family. A target qualifies only if it is observer-eligible in BOTH cohorts and the median enabled native evaluation-plus-mask duration after call 0 is at least 1000000 ns AND at least 25% of the median enabled whole-workflow engine time in EACH cohort.",
+    "proceed": "At least two of the same three targets must qualify across both cohorts, with all semantic/resource/observation prerequisites passed. This permits a finite design for exact whole-owner predicate exclusion; no candidate code or speed claim follows automatically.",
+    "no_signal": "If fewer than two common targets qualify, record no material eligible repeated-cost signal for this finite scope. Do not implement a cache under this protocol; preserve evidence and remove the attribution-only hooks/harness. A materially different opportunity requires a new protocol.",
+    "failure": "Any semantic/resource or observation mismatch blocks attribution. Preserve the failed observation; repair only a demonstrated harness/observer/fixture defect without changing formulas, targets or thresholds. Do not reclassify production failure as successful attribution. Both valid measured cohorts must complete before comparative inspection."
+  },
+  "supervision": {"minimum_free_gib": 12, "maximum_workspace_gib": 100, "maximum_experiment_log_mib": 192, "maximum_command_output_mib": 8, "concurrent_native_jobs": 1, "timeout_seconds": 1800},
+  "claims": {"production_optimization": false, "cpu_speedup": false, "whole_process_memory_limit": false, "broader_conditional_closed": false, "package_publication": false, "external_runtime_fallback": false}
+}
