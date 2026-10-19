@@ -5,6 +5,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +29,19 @@ def load_parity_module():
 
 
 class SqlPythonDataFrameParityTests(unittest.TestCase):
+    def test_static_dataframe_rows_do_not_probe_an_execution_backend(self) -> None:
+        module = load_parity_module()
+        from shardloom.context import DATAFRAME_METHOD_CAPABILITY_ROWS
+
+        with mock.patch(
+            "shardloom.client.ShardLoomClient.capabilities",
+            side_effect=AssertionError("source contract invoked a backend"),
+        ):
+            matrix = module.load_dataframe_method_matrix(REPO_ROOT)
+
+        self.assertEqual(matrix.rows, DATAFRAME_METHOD_CAPABILITY_ROWS)
+        self.assertGreater(len(matrix.rows), 0)
+
     def test_current_repo_parity_gate_is_honest_about_scope_and_gaps(self) -> None:
         module = load_parity_module()
 

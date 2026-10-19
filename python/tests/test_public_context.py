@@ -21,7 +21,10 @@ from shardloom.errors import (
 )
 from shardloom.query import Result, VortexWorkflowExecutionReport
 from shardloom.models import OutputEnvelope
-from test_native_binding import _load_native
+try:
+    from .test_native_binding import _load_native
+except ImportError:
+    from test_native_binding import _load_native
 
 
 GRANT = {"memory_bytes": 64 << 20, "max_parallelism": 2}

@@ -153,3 +153,29 @@ platform and workflow obligations. The [phase plan](phased-execution-plan.md)
 resumes the existing CPU/breadth sequence. CG-1 through CG-23, native Vortex
 input/output, no external-engine fallback, the version hold and publication
 authorization remain unchanged.
+
+## Hosted integration follow-up — October 19
+
+[PR #1577](https://github.com/depsilon/shardloom/pull/1577) publishes this source
+change for review. The first hosted core shard, job
+[117992326766](https://github.com/depsilon/shardloom/actions/runs/39232121032/job/117992326766),
+reported four errors that were reproduced locally with the exact shard entry
+point and no selected native extension. The prior discovery-based acceptance
+did not exercise that package-qualified test import path.
+
+The context test now imports its shared native helper in both package and
+discovery modes. The resource-admission test uses its existing recording client
+for a successful construction assertion; missing-resource checks still reject
+before data access. The source-only parity checker reads the same static method
+rows directly instead of probing an installed backend. A regression test rejects
+any backend invocation from that metadata check. Runtime transport selection and
+missing-native-extension errors are unchanged.
+
+The corrected `python scripts/run_python_test_shard.py --shard core` passes
+locally: 661 discovered cases, 551 executed, zero failures/errors and 16 reported
+skips, including native classes unavailable in that source-only environment.
+The difference between discovered and executed counts includes whole-class skips;
+it is not additional passing runtime coverage. Hosted checks remain separate.
+These integration changes affect tests and source-validation tooling, not the
+frozen Rust or Python runtime implementation. The four preceding trailing-blank-line
+removals and regenerated API source identities are also behavior-preserving.

@@ -122,8 +122,12 @@ class RequiredResourceBoundaryTests(unittest.TestCase):
         with self.assertRaises(sl.ShardLoomResourceConfigurationError):
             ctx.from_rows(rows, max_parallelism=False)
         self.assertEqual(rows.accesses, 0)
-        frame = sl.context().from_rows([{"x": 1}], memory_gb=1, max_parallelism=1)
+        client = RecordingClient()
+        frame = sl.context(client=client).from_rows(
+            [{"x": 1}], memory_gb=1, max_parallelism=1
+        )
         self.assertEqual(frame.resources.memory_origin, "execution_call")
+        self.assertEqual(client.calls, [])
 
     def test_columnar_ipc_and_calendar_reject_before_conversion(self):
         for make in (sl.from_pandas, sl.from_arrow_table):
