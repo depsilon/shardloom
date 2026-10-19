@@ -1,0 +1,23 @@
+{
+  "schema_version": "shardloom.native_sampling_population_packet_inspection.v1",
+  "status": "passed",
+  "source_commit": "f363f2890436b532469d9682f69457cee3ef7b2f",
+  "index": {
+    "file": "native-sampling-population-spill-2026-10-19.json",
+    "bytes": 1200908,
+    "sha256": "18ceb6dca186f604d1400a0b9455af8e4c828fa0afab72657d0ff31df74a66a9"
+  },
+  "archive_parts": 4,
+  "members_independently_reopened": 29451,
+  "source_and_document_identities_verified": true,
+  "failure_history_preserved": true,
+  "public_cases": 5492,
+  "public_families": 38,
+  "sampling_complete_rows_reopened": 11518,
+  "engine_execution_seconds": "50.415902622",
+  "remaining_owners": 14,
+  "remaining_substeps": 58,
+  "broader_owners_closed": [],
+  "claim_gate_status": "not_claim_grade",
+  "publication_attempted": false
+}

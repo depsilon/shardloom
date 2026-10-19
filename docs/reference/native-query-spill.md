@@ -167,10 +167,20 @@ can spill their requested row identities. Small state can remain resident even
 when this strategy is selected. The
 [unary membership contract](../architecture/native-unary-membership-spill-2026-10-18.md)
 and [local acceptance report](../benchmarks/native-unary-membership-spill-2026-10-18.md)
-record the finite scope and verified pressure, value and cleanup evidence. Sampling populations, subquery
-membership/index state and legacy standalone `PreparedVortexUnary` remain under
-their resident contracts. In the machine index, `unary_membership_spill` names
-this scoped capability; the broad `unary_state_spill` guarantee remains false.
+record the finite scope and verified pressure, value and cleanup evidence.
+
+Explicit native spill also supports fractional sampling without replacement
+when the input row upper bound is unknown, and fixed-count or fractional sampling
+with replacement for known or unknown bounds. Both weighted and unweighted
+variants preserve their existing seeded rank, draw and output-order semantics.
+The [sampling population contract](../architecture/native-sampling-population-spill-2026-10-19.md)
+and [local acceptance report](../benchmarks/native-sampling-population-spill-2026-10-19.md)
+cover this shared relational route on the `vortex-write` Unix boundary.
+Fixed-count and known-bound fractional sampling without replacement retain their
+bounded resident top-k path. Subquery membership/index state and legacy standalone
+`PreparedVortexUnary` retain their resident contracts. In the machine index,
+`unary_membership_spill` and `unary_sampling_population_spill` identify separate
+scoped capabilities; the broad `unary_state_spill` guarantee remains false.
 The [finite unary contract](../architecture/native-stream-unary-2026-10-15.md)
 continues to define tail, sampling, scalar rewrites, melt, explode and rolling.
 

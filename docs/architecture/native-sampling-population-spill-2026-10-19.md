@@ -1,6 +1,10 @@
 # Native sampling populations under memory pressure
 
-Status: implementation contract; acceptance is pending. This finite RFC 0044
+Status: implemented and locally accepted for the six variants below. The
+[acceptance report](../benchmarks/native-sampling-population-spill-2026-10-19.md)
+retains complete values, source identities and failed observations. Hosted,
+installed-package, other-platform and competitive acceptance remain separate.
+This finite RFC 0044
 unit extends PERF-06.membership/recovery/strategy and CPU package E, with
 PERF-03 ownership and PERF-07/11/12 output and workflow obligations. It follows
 the locally accepted unary membership unit at `a2728ac5`. The 14 roadmap owners,
@@ -87,8 +91,9 @@ population. It is not a count of resident heap entries. Dedicated counters repor
 sampling stages, input and passing population rows, output rows, replacement
 draws and lookup blocks. Actual run/merge/disk counters and shared reservations
 remain separate evidence. The broad `unary_state_spill` all-family flag stays
-false; the scoped sampling-population capability can change only with complete
-finite acceptance and explicit operation/bound restrictions.
+false; `unary_sampling_population_spill` now records the locally accepted finite
+scope with explicit operation/bound restrictions. The machine index links this
+contract and its acceptance report, with hosted acceptance still pending.
 
 ## Verification and acceptance
 
@@ -123,3 +128,21 @@ semantics, a cache bypassing generation checks, uncredited retained ownership,
 and finalization overlap that cannot fit the original pressure grant. Fix those
 before advertising this scoped capability. Broader sampling strategies, subquery
 indexes, recovery families and the remaining competitive gates stay open.
+
+## Local acceptance
+
+Source and compiled artifacts are frozen at `f363f289`. All 18 new native
+selectors and 17 unary-membership regression selectors pass in the 3,010-pass
+native suite. The original 16-MiB population pressure grant is unchanged;
+direct-binding and wide publication workflows use 32 MiB, with a separate
+128-MiB native-file readback grant. All 5,492 public cases across 38 families pass.
+Independent inspection reopens 406 sampling value archives and all 11,518 rows.
+The 66 failure/preservation checks distinguish 54 incomplete-execution faults
+from 12 existing-destination refusals before producer demand.
+
+Full43 passes all 43 queries once and all 381 result rows and schemas. Its engine
+time is 50.415902622 seconds. All 18 modular cohorts match 704 native workflows
+to 704 fresh independent oracle workflows. These are capability and regression
+observations, with no speed claim. The report records broad checks, existing
+skips, actual process-death cleanup/fresh restart, exact source binding and
+portable evidence. No broader PERF-06 substep or competitive gate is closed.

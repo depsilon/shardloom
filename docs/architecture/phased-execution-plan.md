@@ -262,15 +262,20 @@ evidence remain. The subsequent [distinct-set membership acceptance](../benchmar
 completes finite `UNION`/`INTERSECT`/`EXCEPT` pressure and cleanup under explicit
 spill. The [finite unary membership acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md)
 also completes distinct, first/last/all deduplication and duplicate masks under
-their original operator-pressure grants. Sampling populations, subquery
-indexes and broader recovery remain open. Resume the optimization/breadth
-sequence below without closing any broader owner or CPU investigation.
+their original operator-pressure grants. The [finite sampling population acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md)
+now completes the six admitted weighted/unweighted population variants at their
+original 16-MiB pressure grant. Subquery indexes, other sampling strategies,
+legacy standalone unary state and broader recovery remain open. Resume the
+optimization/breadth sequence below without closing any broader owner or CPU
+investigation.
 
-The next active finite unit is the [sampling population pressure contract](native-sampling-population-spill-2026-10-19.md):
+Next, ground the remaining subquery membership/index pressure owner before
+extending the existing run store. Preserve indexed and parameterized correlation,
+selected-branch demand, complete inner-key validation, three-valued predicates,
+scalar cardinality and separate source-replay ownership. The completed
+[sampling contract](native-sampling-population-spill-2026-10-19.md) admits only
 unknown-bound fractional samples without replacement and fixed/fractional samples
-with replacement, weighted or unweighted, through the shared relational route.
-Implementation and acceptance are in progress; this does not yet close or
-advertise the scoped population capability.
+with replacement through the shared relational route.
 
 1. The nullable-layout integration, cleanup, ship/drop readiness audit and fresh UAT are complete in the [October 18 packet](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md). PR #1575 integrates the reconciled queue. Keep the next version bump held for a separate maintainer decision.
 2. Continue the [six-package CPU intake](native-cpu-investigations-2026-10-18.md) from its recorded evidence. A production ordinal-allocation signal selected the contiguous-range A candidate, but its [corrected complete-operation comparison](native-compact-selection-2026-10-18.md) failed the frozen throughput gate and the runtime change was removed. A remains open for a materially different mechanism; do not rerun the unchanged candidate. B already reuses codec contexts within an operation; measure actual repeated preparation across the proposed ownership boundary before admitting another candidate. No benefit is assumed by queue intake.
@@ -327,7 +332,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
 - [ ] `PERF-06` finish native pressure transitions and recovery.
   - V1 scope classification: `required_for_v1`.
   - Source: RFCs 0014/0017/0044; native-local-completion-scope-2026-10-07.md; native-state-structure-campaign-2026-10-07.md.
-  - Current state: General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. [Finite distinct-set membership](../benchmarks/native-set-membership-spill-2026-10-18.md) for `UNION`, `INTERSECT` and `EXCEPT`, and [seven relational unary membership/mask variants](../benchmarks/native-unary-membership-spill-2026-10-18.md), are locally accepted under explicit spill. Sampling populations, subquery indexes, legacy standalone unary state and broader recovery remain; replay spill alone does not spill consuming state.
+  - Current state: General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. [Finite distinct-set membership](../benchmarks/native-set-membership-spill-2026-10-18.md), [seven relational unary membership/mask variants](../benchmarks/native-unary-membership-spill-2026-10-18.md) and [six sampling population variants](../benchmarks/native-sampling-population-spill-2026-10-19.md) are locally accepted under explicit spill. Subquery indexes, other sampling strategies, legacy standalone unary state and broader recovery remain; replay spill alone does not spill consuming state.
   - Dependencies: After the relevant PERF-03 owner; before broader streaming/type compositions and output recovery depend on it.
   - Implementation scope: Native membership/population consumers, query-run store, operator pressure strategies and owned cleanup/recovery.
   - ShardLoom technique review: apply the common contract above to these shared owners; retain actual activation, resource and avoided-work evidence.

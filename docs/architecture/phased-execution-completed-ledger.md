@@ -17,6 +17,48 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-06 sampling populations` — finite local acceptance completes
+  unknown-bound fractional sampling without replacement and fixed/fractional
+  sampling with replacement, weighted or unweighted, through shared relational
+  execution with explicit native spill. The
+  [acceptance report](../benchmarks/native-sampling-population-spill-2026-10-19.md)
+  and [evidence index](../benchmarks/evidence/native-sampling-population-spill-2026-10-19.json)
+  retain exact sources, complete values and failed observations.
+  - Native rank/ordinal runs preserve deterministic scores, ties, fractional
+    targets, sequential cumulative weights, first-equal weighted lookup and
+    replacement draw order. Predicate and payload observation remain unchanged.
+    Every positional access validates the stored generation, including cache hits.
+    Fixed-count and known-bound fractional nonreplacement retain bounded top-k.
+  - All six variants complete the 8,193-wide-row fixture at its unchanged
+    16-MiB operator grant. No-spill denial and bounded controls pass. Direct
+    binding and wide publication use 32 MiB; independent native-file readback
+    uses a separate 128-MiB grant. Managed reservations are not an RSS ceiling.
+  - All 5,492 public cases across 38 families pass, including 358 population
+    cases and 59 unary pressure cases. Independent verification reopens 406
+    sampling value archives and all 11,518 rows, plus prior membership/set
+    archives. The 66 failure/preservation cases comprise 54 execution faults
+    and 12 existing-destination refusals before producer demand.
+  - Full43 passes 43 queries once and all 381 result rows and schemas, with
+    50.415902622 seconds of engine time. All 18 modular cohorts match 704 native
+    workflows to 704 fresh independent oracle workflows. No speed improvement
+    or competitive claim follows from this single regression observation.
+  - Formatting, strict workspace/native lint and 3,235 workspace, 3,010 native,
+    1,087 CLI, 104 direct-binding and 17 context tests pass. All 18 new native
+    selectors and 17 membership regressions pass. The native suite retains 29
+    ignored opt-in screens; one context test requires a separately selected
+    clean installed package and remains skipped. Suites overlap.
+  - Source and both compiled artifacts are frozen at `f363f289`. Acceptance
+    verifies all 2,195 source entries. The closeout bridge permits only the
+    machine-reference claim validator to change; runtime, Python and harness
+    sources remain byte-identical. The packet preserves the earlier strict-lint
+    and path-alias recovery-test failures and their corrections.
+  - Only this finite scope is complete. Subquery indexes, other sampling
+    strategies, legacy standalone unary state and broader recovery remain open.
+    Recovery cleans owned abandoned runs and starts fresh; it does not resume
+    interrupted execution. All 14 owners, 58 substeps (37 required and 21
+    conditional), and CG-1 through CG-23 retain their gates. Hosted/platform
+    proofs and the release hold remain; published v0.6.0 is unchanged.
+
 - [x] `PERF-06 unary membership` — finite local acceptance completes distinct,
   first/last/all-duplicates deduplication and duplicate masks under explicit
   native spill. The [acceptance report](../benchmarks/native-unary-membership-spill-2026-10-18.md)

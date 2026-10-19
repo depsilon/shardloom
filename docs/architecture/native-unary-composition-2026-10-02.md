@@ -33,9 +33,13 @@ incompatible mixed domains are rejected during preparation.
 
 The current small collection bounds, complete local writer boundary, source
 generation checks and fixed per-operation CPU/memory allocation remain shared.
-Unsupported unary state spill is still an explicit resource denial. A surrounding
-admitted relational sort may use its existing spill provider; that permission
-does not give unary state an unimplemented spill path.
+Unadmitted unary state pressure remains an explicit resource denial. Current
+shared relational execution has separate finite
+[membership](native-unary-membership-spill-2026-10-18.md) and
+[sampling population](native-sampling-population-spill-2026-10-19.md) spill
+contracts. Permission for a surrounding sort or replay does not by itself
+establish a consuming operator's spill capability. The direct prepared unary
+API retains its resident contract.
 
 ## Reuse ownership
 

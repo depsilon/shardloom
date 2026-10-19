@@ -6,7 +6,8 @@ retains complete values, source identities and failure history. Hosted, package,
 other-platform and competitive acceptance are not claimed.
 This finite RFC 0044 work unit belongs to PERF-06.membership/recovery/strategy,
 with PERF-03 ownership and PERF-07/11/12 workflow/output obligations. Sampling
-populations, subquery indexes and broader recovery remain open. CG-5/14/16/19/20/21
+populations have a [separate finite contract](native-sampling-population-spill-2026-10-19.md);
+subquery indexes and broader recovery remain open. CG-5/14/16/19/20/21
 apply; CG-1 through CG-23 retain their independent evidence requirements. No
 release or version change is included.
 
@@ -47,9 +48,12 @@ resident-only contract; this change does not silently grant it spill permission.
 
 The public index adds `unary_membership_spill` with the seven finite operations
 and an explicit acceptance status. The existing broad `unary_state_spill` field
-remains false and is identified as an all-family guarantee; sampling populations
-retain their separate false flag. Existing readers therefore remain conservative,
-while readers of the scoped capability can discover the implemented transition.
+remains false and is identified as an all-family guarantee. Sampling populations
+retained their separate false flag at this unit's acceptance; the later
+[sampling acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md)
+updates that scoped flag with explicit operation and row-bound restrictions.
+Existing readers remain conservative, while readers of each scoped capability
+can discover its implemented transition.
 
 ## Provider and state decision
 
@@ -107,7 +111,9 @@ This is required capability work, with no performance superiority claim.
 
 - Complete all seven variants beyond their original failing grants, comparing
   every value, type, null and defined source order. Preserve resident denial
-  without permission and sampling-population denial with permission.
+  without permission. Sampling-population denial with permission was a control
+  at this unit's original acceptance; current sampling pressure follows its
+  separate contract above.
 - Cover empty/all-null, unique/skewed/duplicate-heavy, nested/composite,
   decimal/binary/temporal and signed-zero keys; small resident controls, positive
   limits, predicates, ignored invalid suffixes/payloads and large single records.

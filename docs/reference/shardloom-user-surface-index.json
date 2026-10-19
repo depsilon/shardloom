@@ -231,7 +231,21 @@
         "mask-false"
       ],
       "unary_membership_spill_acceptance_status": "locally_accepted_hosted_pending",
-      "unary_sampling_population_spill": false,
+      "unary_sampling_population_spill": true,
+      "unary_sampling_population_spill_reference": "docs/architecture/native-sampling-population-spill-2026-10-19.md",
+      "unary_sampling_population_spill_acceptance_reference": "docs/benchmarks/native-sampling-population-spill-2026-10-19.md",
+      "unary_sampling_population_spill_operations": [
+        "fraction-unweighted",
+        "replacement-unweighted",
+        "fraction-replacement-unweighted",
+        "fraction-weighted",
+        "replacement-weighted",
+        "fraction-replacement-weighted"
+      ],
+      "unary_sampling_population_spill_acceptance_status": "locally_accepted_hosted_pending",
+      "unary_sampling_population_spill_scope": "shared_relational_unary;explicit_native_query_spill;vortex_write_unix",
+      "unary_sampling_fraction_without_replacement_scope": "unknown_input_row_upper_bound_only",
+      "unary_sampling_replacement_scope": "fixed_count_or_fraction_with_known_or_unknown_input_row_upper_bound",
       "subquery_reference": "docs/architecture/native-stream-subqueries-2026-10-15.md",
       "subquery_acceptance_reference": "docs/benchmarks/native-stream-subqueries-2026-10-15.md",
       "subquery_acceptance_status": "local_and_hosted_acceptance_complete",
