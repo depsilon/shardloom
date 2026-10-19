@@ -190,6 +190,22 @@ production and the existing regression selectors above are restored. The
 candidate-specific range tests are archived with the rejected source. Do not
 rerun that unchanged candidate or treat its correctness passes as retention.
 
+The separate [bounded local-index acceptance](native-compact-local-indices-2026-10-19.md)
+retains U16 local positions with checked wide gathers. Its nine boundary tests
+use the prefix `compact_local_selection_`; its ignored comparison selector is
+`native_compact_local_indices_screen`. The packet preserves the exact
+`SHARDLOOM_COMPACT_INDEX_*` settings, independent oracle, two frozen source/build
+states, complete memory and throughput controls, and all integration receipts:
+
+```sh
+cargo test -p shardloom-vortex --features release-user-surfaces --lib compact_local_selection_ -- --nocapture
+cargo test --release -p shardloom-vortex --features release-user-surfaces --lib native_compact_local_indices_screen -- --ignored --nocapture --test-threads=1
+```
+
+The ignored selector requires a new evidence destination and its frozen driver;
+the bare command is not a complete comparison. Preserve the recorded engine-time
+tradeoff and current-host scope. The broader conditional substep remains open.
+
 ## PERF-11
 
 Protect real streaming resource lifetimes and public nullable write/reopen:

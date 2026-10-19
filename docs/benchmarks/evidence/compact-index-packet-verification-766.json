@@ -1,0 +1,28 @@
+{
+  "schema_version": "shardloom.compact_packet_independent_reopen.v1",
+  "status": "passed",
+  "archive": {
+    "bytes": 27402240,
+    "file": "compact-index-portable-765.tar.xz",
+    "sha256": "7621b3b47265c67c7d62539f3273f3b81361ca8a3e663ac3c4d0cf148d244eeb"
+  },
+  "manifest": {
+    "bytes": 577100,
+    "file": "compact-index-portable-765.manifest.json.xz",
+    "sha256": "a4e8faacd5649b94b85df2aa559318980b0b079990ac18064fac457a87530ae9"
+  },
+  "index_sha256": "5b40578d96851761edaeca315ec9631dffabd5f9990912a72d90a90b7eb19c74",
+  "members": 17113,
+  "all_members_and_originals_reopened": true,
+  "public_compressed_logs": 16389,
+  "public_cases": 5930,
+  "installed_proof_logs": 8,
+  "installed_binding_tests": 105,
+  "installed_context_tests": 19,
+  "full43_queries": 43,
+  "full43_engine_execution_seconds": "50.311516250",
+  "modular_native_workflows": 704,
+  "independent_oracle_workflows": 704,
+  "accepted_source_files_unchanged": 2217,
+  "verifier_sha256": "3e59a67041b80ac8bb187b52f9f932b80c63d96e15baaf28d72e07ff53ddab8d"
+}

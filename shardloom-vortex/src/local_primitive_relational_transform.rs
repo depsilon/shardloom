@@ -2,9 +2,9 @@
 
 use super::super::native_relational_keys::Cell as KeyCell;
 use super::{
-    ArrayRef, FieldNames, Metrics, NativeExecutionContext, Node, NodeKind,
+    ArrayRef, FieldNames, LocalSelection, Metrics, NativeExecutionContext, Node, NodeKind,
     PreparedVortexRelational, ReservedVec, Result, StructArray, Validity, failed,
-    native_relational_expression, native_relational_sort, select_batch, vortex_error,
+    native_relational_expression, native_relational_sort, vortex_error,
 };
 
 impl PreparedVortexRelational {
@@ -55,20 +55,16 @@ impl PreparedVortexRelational {
                         &predicate.evaluate(&array, context)?,
                         context,
                     )?;
-                    let mut rows = ReservedVec::new(context.memory())?;
-                    rows.reserve(array.len())?;
+                    let mut rows = LocalSelection::new(array.len(), context)?;
                     for row in 0..array.len() {
                         if row.is_multiple_of(1024) {
                             context.check_cancelled()?;
                         }
                         if predicate.cell(row)? == KeyCell::Boolean(true) {
-                            rows.values.push(row);
+                            rows.push(row)?;
                         }
                     }
-                    if rows.values.is_empty() {
-                        return Ok(());
-                    }
-                    consume(select_batch(&array, &node.fields, &rows.values, context)?)
+                    rows.for_each_batch(&array, &node.fields, array.len().max(1), context, consume)
                 },
             ),
             NodeKind::Sort { .. } => {

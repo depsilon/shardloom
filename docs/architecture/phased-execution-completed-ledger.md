@@ -17,6 +17,37 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-10.compact_selections bounded local-width experiment` — retain
+  credited U16 local ordinals and native take indices for source extents up to
+  65,536 rows. Larger local extents and global gathers retain their checked wide
+  representation. The [acceptance record](native-compact-local-indices-2026-10-19.md)
+  and [portable packet](../benchmarks/evidence/compact-index-portable-765.json)
+  preserve the predeclared protocol, both source/build identities and all results.
+  - Both fresh-process cohorts pass all eight memory targets and every one of
+    28 throughput/memory controls. Target peak tracked memory falls 4.38–15.36%.
+    Small-case engine time increases; this is a memory result with an explicit
+    execution tradeoff, not a CPU speed improvement. The prior contiguous-range
+    rejection remains binding.
+  - All 168 preflight workflows/420 operations and 340 measured workflows/844
+    operations, including retained excluded warmups, pass independent complete
+    value/schema and ownership checks. Nine new boundary tests cover widths,
+    duplicates/order, NULLs, slices, wide gathers, denial, failure, cancellation
+    and last-owner release.
+  - Formatting, strict workspace/native lint, 3,235 workspace, 3,031 native,
+    1,087 CLI, 105 installed binding and 19 installed context tests pass. The
+    native suite has 30 opt-in ignores; installed tests have no skips. All
+    5,930 Public39 cases pass. Full43 validates 43 queries once and 381 rows and
+    schemas with 50.31151625 seconds of engine time. All 18 modular cohorts
+    match 704 native workflows to 704 independent oracle workflows. Suites overlap.
+  - Final acceptance reopens the raw comparison and every required receipt;
+    independent packaging verification checks all 17,113 archive members and
+    2,217 unchanged source inputs. Build/lint failures and helper corrections are
+    preserved. No native run, result or threshold was changed for closeout.
+  - This is the fifth finite decision in the 21-row pass; 16 first decisions
+    remain. All broader owners, 58 substeps and CG-1 through CG-23 retain their
+    gates. Hosted/platform acceptance and publication remain separate; v0.6.0
+    and the release hold are unchanged.
+
 - [x] `PERF-06 subquery predicates` — finite local acceptance completes shared
   relational `IN`, `EXISTS` and quantified `ANY`/`ALL` state with explicit native
   spill, including negation, indexed correlation and parameter-specific inner

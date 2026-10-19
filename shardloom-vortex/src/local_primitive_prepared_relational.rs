@@ -64,6 +64,9 @@ mod correlated;
 mod report;
 #[path = "local_primitive_relational_scan.rs"]
 mod scan;
+#[path = "local_primitive_relational_selection.rs"]
+mod selection;
+use selection::LocalSelection;
 #[path = "local_primitive_relational_transform.rs"]
 mod transform;
 #[cfg(feature = "vortex-write")]
@@ -78,6 +81,9 @@ pub use writer::{
 mod arrow;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 pub use arrow::ExecutedVortexArrowRelational;
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "local_primitives/native_local_selection_observation.rs"]
+mod selection_observation;
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "local_primitive_relational_tests.rs"]
 mod tests;
@@ -1797,12 +1803,20 @@ fn select_batch(
         let indices = index_array(rows.len(), false, context, |row| Ok(Some(rows[row])))?;
         array.take(indices).map_err(vortex_error)?
     };
+    project_selected_batch(&selected, fields, context)
+}
+
+fn project_selected_batch(
+    selected: &ArrayRef,
+    fields: &[(String, DType)],
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(fields.len())?;
     for (name, _) in fields {
         columns
             .values
-            .push(super::logical_field_from_native_array(&selected, name)?);
+            .push(super::logical_field_from_native_array(selected, name)?);
     }
     let (columns, _ownership) = columns.into_parts();
     StructArray::try_new(
@@ -1811,7 +1825,7 @@ fn select_batch(
             .map(|(name, _)| name.as_str())
             .collect::<FieldNames>(),
         columns,
-        rows.len(),
+        selected.len(),
         Validity::NonNullable,
     )
     .map_err(vortex_error)

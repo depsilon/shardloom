@@ -2,8 +2,9 @@
 
 # Conditional investigation sequence — October 19, 2026
 
-Status: active conditional-first pass; four finite investigations completed with
-rejected mechanisms, 17 rows awaiting their first completed decision in this pass.
+Status: active conditional-first pass; five finite investigations completed with
+four rejected mechanisms and one retained mechanism, 16 rows awaiting their first
+completed decision in this pass.
 No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
 rest of the queue, after the PR boundary. Public API/guide work is in
@@ -82,13 +83,14 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | `PERF-02.physical_cache` | [Physical-array retention rejected](native-physical-retention-2026-10-19.md). The one-entry policy passed the initial comparison but failed two frozen one-call controls after integration corrections. The original sixteen-entry rejection remains binding. All candidate changes were archived and removed. | A materially different mechanism needs a new design and protocol. Positive reconstruction attribution and correctness checks do not establish an accepted cache. |
 | `PERF-02.builder` | [Existing typed frontend substitution rejected](native-builder-frontends-2026-10-19.md). All 1,684 workflows passed exact semantics and cleanup; both cohorts passed controls but missed the frozen aggregate benefit threshold. | Public routing and the typed API are unchanged. A materially different high-level bridge/lowering mechanism needs its own design and frozen protocol. |
 | `PERF-05.nested_identity` | [Dictionary identity candidate rejected at preflight](native-nested-key-identity-2026-10-19.md). Two attribution cohorts found material recursive-key work, but only four of eight required candidate targets activated. All 320 preflight workflows passed exact semantics and cleanup; no candidate timing comparison ran. | Production is restored. Any future mechanism needs a new provider/wrapper admission design and complete target activation before benefit measurement. Attribution alone is not accepted capability. |
+| `PERF-10.compact_selections` | [Bounded U16 local indices retained](native-compact-local-indices-2026-10-19.md). Both frozen cohorts pass all memory targets and throughput controls; full native/workspace, installed Python, Public39, Full43 and modular acceptance pass. | The measured engine-time increase in small cases remains explicit. Wide global gathers are unchanged. Broader descriptor work stays open, and the earlier contiguous-range rejection remains binding. |
 
 These are finite evaluated mechanisms, not closure of entire conditional substeps.
 The phase checklist therefore retains its 58 substeps, including 21 conditional
 rows. The physical-cache and builder decisions are complete for their frozen
-scopes. The nested identity candidate has a completed preflight rejection. The
-next unstarted investigation is `PERF-10.compact_selections`, using a materially
-different mechanism from the rejected contiguous range.
+scopes. The nested identity candidate has a completed preflight rejection, and
+the bounded local-width mechanism has completed local acceptance. The next
+unstarted investigation is `PERF-10.predicate_exclusion`.
 
 ## Deferred required work
 
