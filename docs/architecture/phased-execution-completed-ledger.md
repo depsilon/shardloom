@@ -17,6 +17,48 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-06 subquery predicates` — finite local acceptance completes shared
+  relational `IN`, `EXISTS` and quantified `ANY`/`ALL` state with explicit native
+  spill, including negation, indexed correlation and parameter-specific inner
+  schemas. The [acceptance report](../benchmarks/native-subquery-membership-spill-2026-10-19.md)
+  and [evidence index](../benchmarks/evidence/native-subquery-membership-spill-2026-10-19.json)
+  retain complete values, exact sources and failed observations.
+  - Projected native keys, full ordinals and collision-safe lookup preserve
+    complete selected-key validation, three-valued row comparisons, guarded
+    demand and outer order. Scalar zero/one-row state and cardinality errors
+    remain unchanged. Predicate state, source replay and inner pivot/order have
+    distinct counters; actual predicate spill is separately recorded.
+  - Original native pressure passes at 4 MiB and public wide-key pressure at
+    8 MiB. Deferred public pivot/replay retains its established 32-MiB grant;
+    independent direct native-file readback uses 128 MiB. All eight writers
+    and fanout preserve complete values. Managed reservations are not an RSS cap.
+  - All 5,930 public cases across 39 families pass, including 438 new predicate
+    cases and two replaced pressure controls. Independent verification reopens
+    483 subquery value archives and all 1,701 rows. The 24 failure/preservation
+    cases comprise 18 incomplete executions and six existing-target refusals;
+    every case checks a fresh successful execution afterward.
+  - Full43 passes all 43 queries once and all 381 result rows and schemas,
+    with 51.811495794 seconds of engine time. All 18 modular cohorts match
+    704 native workflows to 704 fresh independent oracle workflows. This single
+    regression observation makes no speed improvement or competitive claim.
+  - Formatting and strict workspace/native lint pass, with 3,235 workspace,
+    3,022 native, 1,087 CLI, 105 binding and 17 context tests passing. Fourteen
+    required native selectors, all 60 subquery regressions and 48 new binding
+    subcases pass. The native suite retains 29 opt-in ignores, and one context
+    test requires a separately selected clean installed package. Suites overlap.
+  - Source and both compiled artifacts are frozen at `a6108842`. Acceptance
+    verifies all 2,208 source entries; the closeout bridge changes only the
+    machine-reference claim validator. Runtime, Python and harness sources stay
+    byte-identical. Pressure overlap, lowering expectations, a deferred fixture
+    grant, diagnostic text and a verifier lookup were corrected with all failed
+    observations retained. Frozen acceptance needed no source or verifier repair.
+  - Other sampling strategies, legacy standalone unary and broader recovery
+    remain open. Process-death coverage proves exact owned cleanup and fresh
+    restart, not interrupted-query resume. All 14 owners, 58 substeps (37 required
+    and 21 conditional), and CG-1 through CG-23 retain their gates. Hosted,
+    installed-package and other-platform proof remain separate; the release hold
+    and published v0.6.0 are unchanged.
+
 - [x] `PERF-06 sampling populations` — finite local acceptance completes
   unknown-bound fractional sampling without replacement and fixed/fractional
   sampling with replacement, weighted or unweighted, through shared relational
@@ -52,7 +94,8 @@ phase plan first.
     machine-reference claim validator to change; runtime, Python and harness
     sources remain byte-identical. The packet preserves the earlier strict-lint
     and path-alias recovery-test failures and their corrections.
-  - Only this finite scope is complete. Subquery indexes, other sampling
+  - Only this finite scope was complete at that acceptance. Subquery indexes
+    were subsequently accepted in the predicate unit above; other sampling
     strategies, legacy standalone unary state and broader recovery remain open.
     Recovery cleans owned abandoned runs and starts fresh; it does not resume
     interrupted execution. All 14 owners, 58 substeps (37 required and 21
@@ -88,8 +131,10 @@ phase plan first.
     corrections. Fresh binding/public/Full43/modular proofs use that identity.
     A final-verifier correction distinguishes declared modular progress streams
     from JSON receipts, preserving the original plan, verifier and failed check.
-  - Sampling populations, subquery indexes, legacy standalone unary state and
-    broader recovery/strategy remain open. Recovery starts a fresh execution
+  - At that acceptance, sampling populations, subquery indexes, legacy
+    standalone unary state and broader recovery/strategy remained open. The
+    later finite sampling and predicate acceptances are recorded above.
+    Recovery starts a fresh execution
     after cleanup; interrupted-query resume is not established. All 58 substeps,
     37 required and 21 conditional, and CG-1 through CG-23 retain their gates.
     Hosted/platform proofs and the release hold remain; published v0.6.0 is
@@ -123,8 +168,9 @@ phase plan first.
     early-close test harness. Exact equality for all other frozen sources,
     artifact hashes and original clean gate receipts supports runtime reuse.
     Public, Full43 and modular acceptance are fresh after the harness correction.
-  - The broader membership/population, recovery and strategy owners remain
-    open, including unary keys/masks, sampling and subquery indexes. Recovery
+  - At that acceptance, the broader membership/population, recovery and strategy
+    owners remained open, including unary keys/masks, sampling and subquery
+    indexes. Their later finite acceptances are recorded above. Recovery
     restarts after owned cleanup; it does not resume interrupted execution.
     All 58 substeps, 37 required and 21 conditional, and CG-1 through CG-23
     retain their independent obligations. Hosted/platform proofs and the

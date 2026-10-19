@@ -265,6 +265,7 @@
       "subquery_state_spill": true,
       "subquery_state_spill_scope": "shared_relational_non_scalar_predicates;explicit_native_query_spill;vortex_write_unix",
       "subquery_state_spill_reference": "docs/architecture/native-subquery-membership-spill-2026-10-19.md",
+      "subquery_state_spill_acceptance_reference": "docs/benchmarks/native-subquery-membership-spill-2026-10-19.md",
       "subquery_state_spill_operations": [
         "in",
         "exists",
@@ -272,7 +273,7 @@
         "quantified-all"
       ],
       "subquery_state_spill_inner_scope": "statically_bound_or_declared_parameter_specific_schema",
-      "subquery_state_spill_acceptance_status": "local_acceptance_in_progress",
+      "subquery_state_spill_acceptance_status": "locally_accepted_hosted_pending",
       "scalar_subquery_state": "resident_zero_or_one_selected_row;cardinality_error_preserved",
       "opaque_deferred_subquery_streaming": false,
       "dynamic_subquery_reference": "docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md",

@@ -6,8 +6,11 @@ retains complete values, source identities and failure history. Hosted, package,
 other-platform and competitive acceptance are not claimed.
 This finite RFC 0044 work unit belongs to PERF-06.membership/recovery/strategy,
 with PERF-03 ownership and PERF-07/11/12 workflow/output obligations. Sampling
-populations have a [separate finite contract](native-sampling-population-spill-2026-10-19.md);
-subquery indexes and broader recovery remain open. CG-5/14/16/19/20/21
+populations have a [separate finite contract](native-sampling-population-spill-2026-10-19.md).
+The finite non-scalar subquery predicate scope has a separate
+[accepted contract](native-subquery-membership-spill-2026-10-19.md) and
+[local acceptance report](../benchmarks/native-subquery-membership-spill-2026-10-19.md);
+broader recovery remains open. CG-5/14/16/19/20/21
 apply; CG-1 through CG-23 retain their independent evidence requirements. No
 release or version change is included.
 

@@ -1,6 +1,10 @@
 # Native subquery predicate state under memory pressure
 
-Status: implementation contract; acceptance is pending. This finite RFC 0044
+Status: implemented and locally accepted for the predicate scope below. The
+[acceptance report](../benchmarks/native-subquery-membership-spill-2026-10-19.md)
+retains complete values, source identities and failed observations. Hosted,
+installed-package, other-platform and competitive acceptance remain separate.
+This finite RFC 0044
 unit extends PERF-06.membership/recovery/strategy and CPU package E, with
 PERF-03 ownership and PERF-07/11/12 publication and workflow obligations. It
 follows the sampling acceptance at `2da183da`. The 14 roadmap owners, 58
@@ -161,3 +165,23 @@ bypassing generation validation, parameterized runs accumulating, and wide-key
 merge overlap exceeding the original grant. Resolve these before advertising
 the scoped capability. Broader recovery, other resident families and competitive
 acceptance remain separate obligations.
+
+## Finite local acceptance
+
+The original 8,193-row native pressure controls pass at 4 MiB; public wide-key
+controls pass at 8 MiB. Additional wide-key fixtures require actual predicate
+runs and merges. Deferred public pivot/replay compositions retain their separate
+32-MiB grant, and independent direct native-file readback uses 128 MiB.
+All 5,930 public cases across 39 families pass. Independent verification reopens
+483 subquery value archives and all 1,701 rows, with 24 public failure/preservation
+cases followed by fresh successful executions. Fourteen required native
+selectors, all 60 subquery regressions, all eight writer formats, direct binding,
+complete Full43 results and 18 modular cohorts pass.
+
+Source and compiled artifacts are frozen at `a6108842`; all 2,208 source entries
+and five verification helpers pass identity checks. The documentation closeout
+bridge permits only the scoped machine-reference claim validator to change.
+Runtime, Python and harness sources remain byte-identical. The report preserves
+the pressure, lowering-expectation, fixture-grant, diagnostic and verifier
+corrections without treating their failed attempts as accepted observations.
+No broader PERF owner, release or competitive gate closes with this finite scope.

@@ -106,8 +106,12 @@ with [finite local acceptance](../benchmarks/native-unary-membership-spill-2026-
 [sampling population scope](../architecture/native-sampling-population-spill-2026-10-19.md)
 with [finite local acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md),
 [subquery predicate scope](../architecture/native-subquery-membership-spill-2026-10-19.md)
-(local acceptance in progress),
-and [finite unary contract](../architecture/native-stream-unary-2026-10-15.md).
+with [finite local acceptance](../benchmarks/native-subquery-membership-spill-2026-10-19.md).
+Hosted, installed-package and other-platform proof remain separate. Scalar
+subqueries retain their zero/one-row state and cardinality error; opaque deferred
+subquery streaming remains unsupported. The
+[finite unary contract](../architecture/native-stream-unary-2026-10-15.md) also
+retains the legacy standalone unary resident boundary.
 Pivot consumes the producer once for
 execution-time domain discovery and retains the completed native pivot state;
 downstream output uses that state without requesting the source again. A later

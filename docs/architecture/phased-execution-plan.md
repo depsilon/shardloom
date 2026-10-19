@@ -264,15 +264,20 @@ spill. The [finite unary membership acceptance](../benchmarks/native-unary-membe
 also completes distinct, first/last/all deduplication and duplicate masks under
 their original operator-pressure grants. The [finite sampling population acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md)
 now completes the six admitted weighted/unweighted population variants at their
-original 16-MiB pressure grant. Subquery indexes, other sampling strategies,
-legacy standalone unary state and broader recovery remain open. Resume the
+original 16-MiB pressure grant. The [finite subquery predicate acceptance](../benchmarks/native-subquery-membership-spill-2026-10-19.md)
+also completes shared relational `IN`, `EXISTS` and quantified `ANY`/`ALL`
+state with original 4-MiB native and 8-MiB public pressure controls. Other
+sampling strategies, legacy standalone unary state and broader recovery remain
+open. Resume the
 optimization/breadth sequence below without closing any broader owner or CPU
 investigation.
 
-Next, ground the remaining subquery membership/index pressure owner before
-extending the existing run store. Preserve indexed and parameterized correlation,
-selected-branch demand, complete inner-key validation, three-valued predicates,
-scalar cardinality and separate source-replay ownership. The completed
+Next, extend fixed-count and known-bound fractional sampling without replacement
+through the existing native run store. Preserve exact scores, oldest-first ties,
+passing ordinals, final source order and payload observation for every initial
+candidate and transient winner, without observing later losing payloads. Keep
+bounded candidate retention separate from replay and full-population sampling.
+Freeze its pressure and failure contract before implementation. The completed
 [sampling contract](native-sampling-population-spill-2026-10-19.md) admits only
 unknown-bound fractional samples without replacement and fixed/fractional samples
 with replacement through the shared relational route.
@@ -332,7 +337,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
 - [ ] `PERF-06` finish native pressure transitions and recovery.
   - V1 scope classification: `required_for_v1`.
   - Source: RFCs 0014/0017/0044; native-local-completion-scope-2026-10-07.md; native-state-structure-campaign-2026-10-07.md.
-  - Current state: General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. [Finite distinct-set membership](../benchmarks/native-set-membership-spill-2026-10-18.md), [seven relational unary membership/mask variants](../benchmarks/native-unary-membership-spill-2026-10-18.md) and [six sampling population variants](../benchmarks/native-sampling-population-spill-2026-10-19.md) are locally accepted under explicit spill. Subquery indexes, other sampling strategies, legacy standalone unary state and broader recovery remain; replay spill alone does not spill consuming state.
+  - Current state: General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. [Finite distinct-set membership](../benchmarks/native-set-membership-spill-2026-10-18.md), [seven relational unary membership/mask variants](../benchmarks/native-unary-membership-spill-2026-10-18.md), [six sampling population variants](../benchmarks/native-sampling-population-spill-2026-10-19.md) and [shared relational subquery predicates](../benchmarks/native-subquery-membership-spill-2026-10-19.md) are locally accepted under explicit spill. Fixed-count and known-bound fractional nonreplacement, legacy standalone unary state and broader recovery remain; replay spill alone does not spill consuming state.
   - Dependencies: After the relevant PERF-03 owner; before broader streaming/type compositions and output recovery depend on it.
   - Implementation scope: Native membership/population consumers, query-run store, operator pressure strategies and owned cleanup/recovery.
   - ShardLoom technique review: apply the common contract above to these shared owners; retain actual activation, resource and avoided-work evidence.

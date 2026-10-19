@@ -106,10 +106,16 @@ bounds violations, late errors and absent completion even for unused branches.
 It must not evaluate skipped expressions or invent source/replay counters.
 
 Replay, outer and retained-inner copies, parameter values, pivot state, schema
-metadata, membership state and output share the admitted grant. Existing native
-replay spill and pivot spill keep their distinct contracts; replay spill does
-not make membership state spillable. Resident state must still refuse pressure
-deterministically, clean up and allow a fresh execution afterward.
+metadata, membership state and output share the admitted grant. At this unit's
+original acceptance, native replay spill and pivot spill retained distinct
+contracts, and replay spill did not make membership state spillable; resident
+membership state refused pressure deterministically, cleaned up and allowed a
+fresh execution. The later finite
+[predicate-spill contract](native-subquery-membership-spill-2026-10-19.md)
+admits explicit native spill for shared-relational `IN`, `EXISTS` and quantified
+`ANY`/`ALL` predicates, including negation and indexed, parameterized or
+declared-schema inner execution. Replay, inner pivot and predicate populations
+remain separate owners.
 
 ## Acceptance frozen before implementation
 
@@ -137,10 +143,12 @@ producer events, binary identities and source hashes as counterfactual evidence.
    nested restriction escape, undeclared scans hidden inside schema discovery,
    foreign/double/unconsumed references and late role changes. Verify rejection
    before demand of the forbidden source and recovery after failure.
-6. Prove memory denial for declaration/copy/pivot/membership state, replay with
-   and without explicit spill, cancellation during discovery/replay, consumer
-   failure and writer/fanout cleanup. Verify source-replay and pivot-state spill
-   separately; do not infer one from the other's counters.
+6. The original acceptance proved memory denial for declaration/copy/pivot/
+   membership state, replay with and without explicit spill, cancellation during
+   discovery/replay, consumer failure and writer/fanout cleanup. It verified
+   source-replay and pivot-state spill separately; do not infer one from the
+   other's counters. The later predicate-spill contract has separate pressure
+   evidence for predicate populations.
 7. Run focused native tests, direct installed-binding tests and public
    SQL/Python consumers/writers, followed by the required workspace/native gates
    and one complete Full43 pass. Report engine time only in routine updates.
@@ -218,7 +226,10 @@ source walkers, pre-demand checks and acceptance cases above target those risks.
 
 Dynamic scalar-value subqueries still require a separate output-schema contract:
 their output dtype is needed by the outer expression binder. This unit admits
-the dynamic predicate families already supported for resident input. It does not
-claim new scalar dtype inference, arbitrary runtime source discovery, general
-subquery-state spill, broad SQL parity, production readiness, transport support
-or package publication. Published package artifacts remain immutable.
+the dynamic predicate families already supported for resident input. This unit's
+acceptance did not claim new scalar dtype inference, arbitrary runtime source
+discovery or general subquery-state spill; the later finite
+[predicate-spill contract](native-subquery-membership-spill-2026-10-19.md)
+admits only its scoped native predicates. Broad SQL parity, production readiness,
+transport support and package publication remain outside both claims. Published
+package artifacts remain immutable.

@@ -1,0 +1,23 @@
+{
+  "schema_version": "shardloom.native_subquery_membership_packet_inspection.v1",
+  "status": "passed",
+  "source_commit": "a61088426b31b8bf67c840d10f9c6f5905d42c43",
+  "index": {
+    "file": "native-subquery-membership-spill-2026-10-19.json",
+    "bytes": 1384972,
+    "sha256": "39b0c447123f8af95d19a5a0675210a98b96024a7d630dfedd276cfc71a7739c"
+  },
+  "archive_parts": 4,
+  "members_independently_reopened": 33448,
+  "source_and_document_identities_verified": true,
+  "failure_history_preserved": true,
+  "public_cases": 5930,
+  "public_families": 39,
+  "subquery_complete_rows_reopened": 1701,
+  "engine_execution_seconds": "51.811495794",
+  "remaining_owners": 14,
+  "remaining_substeps": 58,
+  "broader_owners_closed": [],
+  "claim_gate_status": "not_claim_grade",
+  "publication_attempted": false
+}

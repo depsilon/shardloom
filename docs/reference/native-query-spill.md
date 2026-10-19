@@ -185,13 +185,14 @@ The [finite unary contract](../architecture/native-stream-unary-2026-10-15.md)
 continues to define tail, sampling, scalar rewrites, melt, explode and rolling.
 
 The [subquery predicate contract](../architecture/native-subquery-membership-spill-2026-10-19.md)
-adds explicit native spill for `IN`, `EXISTS` and quantified `ANY`/`ALL`, including
+and [finite local acceptance report](../benchmarks/native-subquery-membership-spill-2026-10-19.md)
+cover explicit native spill for `IN`, `EXISTS` and quantified `ANY`/`ALL`, including
 negation, indexed correlation and parameter-specific inner schemas. The strategy
 retains only required native keys; small key sets can remain resident. It preserves
 selected-branch demand, complete key validation, nullable row equality and outer
 order. Source replay, an inner pivot/order and predicate state have separate
 counters. Scalar subqueries retain their zero/one-row state and cardinality error.
-Local acceptance for this source extension is in progress; existing hosted
+Hosted, installed-package and other-platform proof remain separate; existing hosted
 subquery acceptance does not cover this extension.
 
 ```python

@@ -126,8 +126,11 @@ is attached to its completion.
 The principal risks are premature payload validation, changed floating/tie
 semantics, a cache bypassing generation checks, uncredited retained ownership,
 and finalization overlap that cannot fit the original pressure grant. Fix those
-before advertising this scoped capability. Broader sampling strategies, subquery
-indexes, recovery families and the remaining competitive gates stay open.
+before advertising this scoped capability. Broader sampling strategies and
+recovery families stay open. Finite non-scalar subquery predicate spill has a
+separate [accepted contract](native-subquery-membership-spill-2026-10-19.md)
+and [local acceptance report](../benchmarks/native-subquery-membership-spill-2026-10-19.md);
+broader subquery modes and the remaining competitive gates stay open.
 
 ## Local acceptance
 
