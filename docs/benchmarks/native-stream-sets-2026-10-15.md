@@ -15,6 +15,10 @@ no new package is published. The [implementation contract](../architecture/nativ
 keeps high-cardinality membership spill, other stateful families and native
 transport outside this finite unit.
 
+The subsequent [October 18 membership acceptance](native-set-membership-spill-2026-10-18.md)
+adds native spill for the three distinct set operations. Its local proof and
+hosted boundary are separate from the historical results recorded here.
+
 ## Shared behavior and scope
 
 The frozen prior runtime passes twelve controls: eight explicit streaming

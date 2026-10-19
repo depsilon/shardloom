@@ -204,7 +204,9 @@ Direct `shardloom.native` and Rust embedding remain available through the
 [integration guide](https://shardloom.io/field-guide/embedding/).
 Existing focused references retain detailed contracts:
 [SQL binding](../architecture/sql-parser-binder-readiness.md), [resident owners](resident-native-results.md),
-[query spill](native-query-spill.md), and
+[query spill](native-query-spill.md),
+[distinct-set spill](../architecture/native-set-membership-spill-2026-10-18.md)
+with [finite local acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md), and
 [stream destinations](../architecture/native-stream-destinations-2026-10-15.md).
 They identify the behavior and source/release scope they cover.
 

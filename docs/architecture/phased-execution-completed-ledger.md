@@ -17,6 +17,41 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-06 distinct-set membership` — finite local acceptance completes
+  `UNION` (distinct), `INTERSECT` and `EXCEPT` under explicit native spill. The
+  [acceptance report](../benchmarks/native-set-membership-spill-2026-10-18.md) and
+  [evidence index](../benchmarks/evidence/native-set-membership-spill-2026-10-18.json)
+  retain complete values, exact sources and every failed attempt.
+  - Native full-key/ordinal ordering, group reduction and final source ordering
+    extend the existing Vortex run store. Set and fanout replay blocks remain
+    within 256 rows, under the original 16-MiB producer grant. No-spill resident
+    execution and `UNION ALL` retain their prior paths; no fallback is added.
+  - All 4,911 public cases across 36 families pass. The 83 new membership checks
+    plus four early-close controls retain 74 independently reopened value
+    archives with 450,606 rows. All eight writer formats complete from one
+    execution per native set fanout. Independent file verification has its own
+    admission and is not evidence of a smaller producer grant.
+  - All 43 Full43 queries pass once, including all 381 result rows and schemas;
+    engine time is 49.583021628 seconds. All 18 modular cohorts pass, with 704
+    native workflows matching 704 fresh independent oracle workflows. These
+    establish regression and capability evidence, not a speed claim.
+  - Required formatting/lint and 3,235 workspace tests pass. The native suite
+    has 2,978 passes and 29 ignored opt-in screens; 1,087 selected CLI tests,
+    102 direct binding tests and 17 public-context tests pass. One context test
+    requires a separately selected clean installed package and remains skipped.
+    The focused family includes 75 fault combinations, six existing-output
+    controls and three real process-death cleanup/fresh-restart cases.
+  - Compiled source is `7a55bc7f`; acceptance source `7831657a` changes only the
+    early-close test harness. Exact equality for all other frozen sources,
+    artifact hashes and original clean gate receipts supports runtime reuse.
+    Public, Full43 and modular acceptance are fresh after the harness correction.
+  - The broader membership/population, recovery and strategy owners remain
+    open, including unary keys/masks, sampling and subquery indexes. Recovery
+    restarts after owned cleanup; it does not resume interrupted execution.
+    All 58 substeps, 37 required and 21 conditional, and CG-1 through CG-23
+    retain their independent obligations. Hosted/platform proofs and the
+    release hold remain; published v0.6.0 is unchanged.
+
 - [x] `PERF-10.compact_selections experiment` — the October 18 contiguous-range
   candidate is measured and **dropped**, with production restored at `1acca085`.
   The [experiment record](native-compact-selection-2026-10-18.md) and
@@ -353,8 +388,10 @@ The October 18 [CPU investigation intake](native-cpu-investigations-2026-10-18.m
     and 11 skipped tests. All 16 preview/production responses preserve source;
     production version `785c4ca6-95bc-4b1b-94f7-8408af584d2e` completes.
     Actual browser guide, search and navigation observations are retained.
-  - Set membership stays resident under credits. Replay spill does not spill
-    membership state. Native Vortex remains highest fidelity; writer type/loss
+  - This October 15 unit retained resident set membership under credits; replay
+    spill did not spill membership state. The separate
+    [October 18 membership acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md)
+    subsequently admits native spill for the three distinct variants. Native Vortex remains highest fidelity; writer type/loss
     limits and non-atomic fanout publication remain. The single Full43 timing
     is descriptive regression evidence. The next unit is `NATIVE-STREAM-UNARY`;
     broader allocation/state/recovery, all six areas/eight investigations and

@@ -313,7 +313,7 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         ("set_membership_spill", True),
         ("set_membership_spill_reference", "docs/architecture/native-set-membership-spill-2026-10-18.md"),
         ("set_membership_spill_operations", ["UNION", "INTERSECT", "EXCEPT"]),
-        ("set_membership_spill_acceptance_status", "local_acceptance_in_progress"),
+        ("set_membership_spill_acceptance_status", "locally_accepted_hosted_pending"),
         ("single_source_single_use", False),
         ("multiple_batch_producers", True),
         ("each_streaming_source_single_use", True),

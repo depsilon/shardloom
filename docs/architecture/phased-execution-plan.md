@@ -258,8 +258,11 @@ acceptance and the release hold remain explicit. The completed scope is in the
 ledger. The subsequent [compact-selection experiment](native-compact-selection-2026-10-18.md)
 is measured and dropped: two projection regressions repeat under the frozen
 confirmation gate, and production is restored. Its corrected cost harness and
-evidence remain. Resume the optimization/breadth sequence below without closing
-any broader owner or CPU investigation.
+evidence remain. The subsequent [distinct-set membership acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md)
+completes finite `UNION`/`INTERSECT`/`EXCEPT` pressure and cleanup under explicit
+spill. Unary membership/population, subquery indexes and broader recovery remain
+open. Resume the optimization/breadth sequence below without closing any broader
+owner or CPU investigation.
 
 1. The nullable-layout integration, cleanup, ship/drop readiness audit and fresh UAT are complete in the [October 18 packet](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md). PR #1575 integrates the reconciled queue. Keep the next version bump held for a separate maintainer decision.
 2. Continue the [six-package CPU intake](native-cpu-investigations-2026-10-18.md) from its recorded evidence. A production ordinal-allocation signal selected the contiguous-range A candidate, but its [corrected complete-operation comparison](native-compact-selection-2026-10-18.md) failed the frozen throughput gate and the runtime change was removed. A remains open for a materially different mechanism; do not rerun the unchanged candidate. B already reuses codec contexts within an operation; measure actual repeated preparation across the proposed ownership boundary before admitting another candidate. No benefit is assumed by queue intake.
@@ -316,7 +319,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
 - [ ] `PERF-06` finish native pressure transitions and recovery.
   - V1 scope classification: `required_for_v1`.
   - Source: RFCs 0014/0017/0044; native-local-completion-scope-2026-10-07.md; native-state-structure-campaign-2026-10-07.md.
-  - Current state: General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. Resident membership/population state and broader recovery remain; replay spill alone does not spill consuming state.
+  - Current state: General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. [Finite distinct-set membership](../benchmarks/native-set-membership-spill-2026-10-18.md) for `UNION`, `INTERSECT` and `EXCEPT` is locally accepted under explicit spill. Unary membership/mask state, sampling populations, subquery indexes and broader recovery remain; replay spill alone does not spill consuming state.
   - Dependencies: After the relevant PERF-03 owner; before broader streaming/type compositions and output recovery depend on it.
   - Implementation scope: Native membership/population consumers, query-run store, operator pressure strategies and owned cleanup/recovery.
   - ShardLoom technique review: apply the common contract above to these shared owners; retain actual activation, resource and avoided-work evidence.

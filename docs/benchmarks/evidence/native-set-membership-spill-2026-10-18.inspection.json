@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "scope": "independent local archive-copy and acceptance-record inspection",
+  "index_sha256": "3d0e9413b5ea6a95b343ac7a9709e7ae936de3ae805acf41016828ca4f01a68f",
+  "manifest_sha256": "01e1a666977d5555ac67778c44ffa6e63700648da25b7702b41ae7af54b26cf3",
+  "archive_parts": 4,
+  "all_archives_and_members_reopened": true,
+  "members": 31226,
+  "source_commit": "7831657a5bb5c3d2504fd6aaf7f0bb8152e3f755",
+  "compiled_source_commit": "7a55bc7fa4fea475035493eded4672c393e85b42",
+  "source_reuse_bridge_verified": true,
+  "public_cases": 4911,
+  "complete_value_archives": 74,
+  "complete_new_set_rows": 450606,
+  "full43_queries": 43,
+  "full43_engine_execution_seconds": "49.583021628",
+  "native_workflows": 704,
+  "independent_pandas_oracle_workflows": 704,
+  "failed_attempts_retained": true,
+  "broader_owners_closed": [],
+  "runtime_reexecuted": false,
+  "package_receipt_sha256": "4a467f9795c05390995dde84843a73e3a9c6e90db060089eb72c4781e435a03f"
+}

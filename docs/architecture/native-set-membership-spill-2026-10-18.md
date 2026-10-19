@@ -1,6 +1,8 @@
 # Native set membership under memory pressure
 
-Status: implementation and acceptance in progress. This finite RFC 0044 unit
+Status: finite local acceptance passed; hosted and other-platform proof remain
+pending. The [acceptance report](../benchmarks/native-set-membership-spill-2026-10-18.md)
+records complete values, failures and the source/build equality proof. This finite RFC 0044 unit
 extends PERF-06.membership/recovery/strategy through PERF-03 ownership and
 PERF-07/11/12 output/workflow acceptance. The broader membership/population
 owner remains open. CG-5/14/16/19/20/21 apply; all CG-1 through CG-23 retain
@@ -73,6 +75,11 @@ whether actual files are needed. Strategy counters and actual run counters are
 distinct, and source replay is not reported as set membership. A complete input
 must be observed even when the result is empty. Retained public output owns its
 credits independently of temporary runs and producer lifetime.
+
+Ordered membership consumes both sources before its first output. Abandoning
+that output still produces no final completion report. Separate resident and
+spill early-close controls preserve this distinction and require child exit,
+retained-value validity and exact owned cleanup.
 
 ## Verification contract
 

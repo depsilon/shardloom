@@ -127,7 +127,10 @@ boundaries.
 delivers admitted typed/nested results with acknowledged backpressure. Consume
 inside a `with` block, especially when stopping early. Each batch is provisional
 until the iterator is exhausted and its final `report` is present after source
-validation. Retaining Python objects is outside the native grant. Current source
+validation. `batch_rows` bounds Python delivery slices; native file-reader and
+Arrow admission have separate batch and allocation boundaries. A smaller delivery
+slice does not guarantee that the file producer fits a smaller grant. Retaining
+Python objects is outside the native grant. Current source
 builds prepare admitted compatibility inputs to Vortex using this transaction's
 cancellation token and native allocation. See the
 [composition contract](../architecture/native-stream-input-composition-2026-10-13.md).
