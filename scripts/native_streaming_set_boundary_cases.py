@@ -72,30 +72,38 @@ def dynamic_consumers(harness, spill, clean):
 
 def interrupted(harness, spill, clean):
     for kind in KINDS:
-        name = "set-early-close-" + kind
-        def close(name=name, kind=kind):
-            events = [[], []]
-            def source(side):
-                def producer():
-                    events[side].append("opened")
-                    try:
-                        for number in range(20):
-                            yield [{"n": number + side * 10}]
-                        events[side].append("ended")
-                    finally:
-                        events[side].append("closed")
-                return harness.context.from_batches(producer, schema={"n": "int64"}, streaming=True)
-            query = combine(source(0), source(1), kind)
-            with query.iter_batches(batch_rows=1, spill=spill, **POLICY) as iterator:
-                retained = next(iterator)
-                assert iterator.report is None
-            assert iterator.report is None and iterator._process.poll() is not None
-            harness.values(name, retained.result_rows, [{"n": 10 if kind == "intersect" else 0}])
-            assert any("opened" in trace and "ended" not in trace for trace in events), events
-            assert all(not trace or trace[-1] == "closed" for trace in events), events
-            clean()
-            return {"producer_events": events, "completion_report": None}
-        harness.case(name, close)
+        for stored in (False, True):
+            name = f"set-early-close-{kind}-spill-{stored}"
+            def close(name=name, kind=kind, stored=stored):
+                events = [[], []]
+                def source(side):
+                    def producer():
+                        events[side].append("opened")
+                        try:
+                            for number in range(20):
+                                yield [{"n": number + side * 10}]
+                            events[side].append("ended")
+                        finally:
+                            events[side].append("closed")
+                    return harness.context.from_batches(producer, schema={"n": "int64"}, streaming=True)
+                query = combine(source(0), source(1), kind)
+                requested = dict(POLICY, spill=spill) if stored else POLICY
+                with query.iter_batches(batch_rows=1, **requested) as iterator:
+                    retained = next(iterator)
+                    assert iterator.report is None
+                assert iterator.report is None and iterator._process.poll() is not None
+                harness.values(name, retained.result_rows, [{"n": 10 if kind == "intersect" else 0}])
+                # Ordered membership consumes both sources before output; an
+                # abandoned output stream is still provisional after input ends.
+                if stored and kind != "union_all":
+                    assert events == [["opened", "ended", "closed"]] * 2, events
+                else:
+                    assert any("opened" in trace and "ended" not in trace for trace in events), events
+                assert all(not trace or trace[-1] == "closed" for trace in events), events
+                clean()
+                return {"producer_events": events, "completion_report": None,
+                        "ordered_membership_strategy": stored and kind != "union_all"}
+            harness.case(name, close)
 
         for side in (0, 1):
             for terminal in ("collect", "zero", "write"):
