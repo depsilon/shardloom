@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "mode": "preflight",
+  "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+  "workflows": 117,
+  "streams": [
+    {
+      "path": "preflight-retain-preflight.jsonl",
+      "sha256": "15083a5d431c75c26581e7074ea65612fd198dd4b404ea2e2dd9ab962ce495c9",
+      "bytes": 356016,
+      "workflows": 39
+    },
+    {
+      "path": "preflight-spill-preflight.jsonl",
+      "sha256": "f4554ed418a55a2af4cce937a7959c203dedb27f63a0f117cdb15af4220c6cb1",
+      "bytes": 371530,
+      "workflows": 39
+    },
+    {
+      "path": "preflight-regenerate-preflight.jsonl",
+      "sha256": "10178701c119391cb88793adf3caf7f5ae7af554a6f4cdf3a863a00a06a6a045",
+      "bytes": 378298,
+      "workflows": 39
+    }
+  ],
+  "witnesses_verified": 43,
+  "source_output_schema_values_order_activation_grants_and_cleanup": true
+}

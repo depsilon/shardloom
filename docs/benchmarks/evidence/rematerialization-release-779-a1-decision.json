@@ -1,0 +1,683 @@
+{
+  "status": "passed",
+  "mode": "measure",
+  "protocol_sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442",
+  "workflows": 240,
+  "streams": [
+    {
+      "path": "measure-retain-A.jsonl",
+      "sha256": "be8bc45ce41def90204566c6b0704ba6088551e4402a144d2db44618557ab749",
+      "bytes": 401599,
+      "workflows": 40
+    },
+    {
+      "path": "measure-spill-A.jsonl",
+      "sha256": "d629b2fa2dbc3b7d9673ed77dc7188228ff65cd22903ba029f4e83f21602ee25",
+      "bytes": 419759,
+      "workflows": 40
+    },
+    {
+      "path": "measure-regenerate-A.jsonl",
+      "sha256": "17a324d568fc5fb69f131642e7df58a423d00760dc28f0e6adb345bb3d2148a2",
+      "bytes": 470641,
+      "workflows": 40
+    },
+    {
+      "path": "measure-retain-B.jsonl",
+      "sha256": "b07a30c93cd7e1fe03830baf7b7af11dc29067024667fc9be480d775dc91bc32",
+      "bytes": 401619,
+      "workflows": 40
+    },
+    {
+      "path": "measure-spill-B.jsonl",
+      "sha256": "3d622fda18eb6cad608fc05fbbbcf6081607e8cf9086ca637b034b10e918ebb5",
+      "bytes": 419762,
+      "workflows": 40
+    },
+    {
+      "path": "measure-regenerate-B.jsonl",
+      "sha256": "e5cd09fc3a8dc611d3242ca1e6b02e00ae479936a1a9be49bed874b9f3c84aa9",
+      "bytes": 470638,
+      "workflows": 40
+    }
+  ],
+  "witnesses_verified": 28,
+  "source_output_schema_values_order_activation_grants_and_cleanup": true,
+  "decision": "reject",
+  "failures": [
+    {
+      "cohort": "A",
+      "cell": "one-32768-1",
+      "gate": "engine_execution_ns",
+      "comparison": "retain"
+    },
+    {
+      "cohort": "A",
+      "cell": "one-32768-1",
+      "gate": "complete_workflow_ns",
+      "comparison": "retain"
+    },
+    {
+      "cohort": "A",
+      "cell": "wide-dependencies-32768-64",
+      "gate": "engine_execution_ns",
+      "comparison": "retain"
+    },
+    {
+      "cohort": "A",
+      "cell": "wide-dependencies-32768-64",
+      "gate": "complete_workflow_ns",
+      "comparison": "retain"
+    },
+    {
+      "cohort": "A",
+      "cell": "all-null-32768-8",
+      "gate": "engine_execution_ns",
+      "comparison": "retain"
+    },
+    {
+      "cohort": "A",
+      "cell": "all-null-32768-8",
+      "gate": "complete_workflow_ns",
+      "comparison": "retain"
+    },
+    {
+      "cohort": "B",
+      "cell": "wide-dependencies-32768-64",
+      "gate": "engine_execution_ns",
+      "comparison": "retain"
+    },
+    {
+      "cohort": "B",
+      "cell": "wide-dependencies-32768-64",
+      "gate": "complete_workflow_ns",
+      "comparison": "retain"
+    },
+    {
+      "cohort": "B",
+      "cell": "all-null-32768-8",
+      "gate": "engine_execution_ns",
+      "comparison": "retain"
+    },
+    {
+      "cohort": "B",
+      "cell": "all-null-32768-8",
+      "gate": "complete_workflow_ns",
+      "comparison": "retain"
+    }
+  ],
+  "cells": [
+    {
+      "cohort": "A",
+      "cell": "mixed-32768-8",
+      "target": true,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 95112082,
+          "complete_workflow_ns": 97996708,
+          "peak_reserved_bytes": 4282464
+        },
+        "spill": {
+          "engine_execution_ns": 249464788,
+          "complete_workflow_ns": 252599999,
+          "peak_reserved_bytes": 3244532
+        },
+        "regenerate": {
+          "engine_execution_ns": 88826292,
+          "complete_workflow_ns": 91753917,
+          "peak_reserved_bytes": 3151264
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "mixed-32768-64",
+      "target": true,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 435229088,
+          "complete_workflow_ns": 450322750,
+          "peak_reserved_bytes": 22332384
+        },
+        "spill": {
+          "engine_execution_ns": 2196569959,
+          "complete_workflow_ns": 2212822916,
+          "peak_reserved_bytes": 11540638
+        },
+        "regenerate": {
+          "engine_execution_ns": 320651709,
+          "complete_workflow_ns": 336529791,
+          "peak_reserved_bytes": 7897376
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "mixed-65536-8",
+      "target": true,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 215585791,
+          "complete_workflow_ns": 221370375,
+          "peak_reserved_bytes": 7916784
+        },
+        "spill": {
+          "engine_execution_ns": 548532457,
+          "complete_workflow_ns": 554780500,
+          "peak_reserved_bytes": 5027188
+        },
+        "regenerate": {
+          "engine_execution_ns": 196682171,
+          "complete_workflow_ns": 202335125,
+          "peak_reserved_bytes": 4310592
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "mixed-65536-64",
+      "target": true,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 953135046,
+          "complete_workflow_ns": 983486292,
+          "peak_reserved_bytes": 41334896
+        },
+        "spill": {
+          "engine_execution_ns": 5052312713,
+          "complete_workflow_ns": 5085515125,
+          "peak_reserved_bytes": 16993342
+        },
+        "regenerate": {
+          "engine_execution_ns": 676750877,
+          "complete_workflow_ns": 708940459,
+          "peak_reserved_bytes": 9056704
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "small-256-64",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 3149666,
+          "complete_workflow_ns": 3483500,
+          "peak_reserved_bytes": 2532248
+        },
+        "spill": {
+          "engine_execution_ns": 3019250,
+          "complete_workflow_ns": 3329958,
+          "peak_reserved_bytes": 2534908
+        },
+        "regenerate": {
+          "engine_execution_ns": 3156708,
+          "complete_workflow_ns": 3495875,
+          "peak_reserved_bytes": 2532248
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "one-32768-1",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 53013001,
+          "complete_workflow_ns": 54246459,
+          "peak_reserved_bytes": 2026304
+        },
+        "spill": {
+          "engine_execution_ns": 83419626,
+          "complete_workflow_ns": 84660624,
+          "peak_reserved_bytes": 2316488
+        },
+        "regenerate": {
+          "engine_execution_ns": 56134749,
+          "complete_workflow_ns": 57494375,
+          "peak_reserved_bytes": 2026304
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "aliases-32768-64",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 317126167,
+          "complete_workflow_ns": 331936667,
+          "peak_reserved_bytes": 3720160
+        },
+        "spill": {
+          "engine_execution_ns": 2095091251,
+          "complete_workflow_ns": 2111476167,
+          "peak_reserved_bytes": 10492178
+        },
+        "regenerate": {
+          "engine_execution_ns": 318013416,
+          "complete_workflow_ns": 333410625,
+          "peak_reserved_bytes": 3720160
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "constants-32768-64",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 132324249,
+          "complete_workflow_ns": 143706917,
+          "peak_reserved_bytes": 3687392
+        },
+        "spill": {
+          "engine_execution_ns": 672879921,
+          "complete_workflow_ns": 685371000,
+          "peak_reserved_bytes": 10383206
+        },
+        "regenerate": {
+          "engine_execution_ns": 132618667,
+          "complete_workflow_ns": 144789083,
+          "peak_reserved_bytes": 3687392
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "derived-key-32768-8",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 71595834,
+          "complete_workflow_ns": 74200083,
+          "peak_reserved_bytes": 4298976
+        },
+        "spill": {
+          "engine_execution_ns": 185531750,
+          "complete_workflow_ns": 188407458,
+          "peak_reserved_bytes": 3253264
+        },
+        "regenerate": {
+          "engine_execution_ns": 72167251,
+          "complete_workflow_ns": 74884375,
+          "peak_reserved_bytes": 4298976
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "boolean-32768-8",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 96694626,
+          "complete_workflow_ns": 100547667,
+          "peak_reserved_bytes": 21989512
+        },
+        "spill": {
+          "engine_execution_ns": 248401586,
+          "complete_workflow_ns": 252513707,
+          "peak_reserved_bytes": 21989512
+        },
+        "regenerate": {
+          "engine_execution_ns": 97839625,
+          "complete_workflow_ns": 101730082,
+          "peak_reserved_bytes": 21989512
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "wide-unused-32768-64",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 438043834,
+          "complete_workflow_ns": 456053666,
+          "peak_reserved_bytes": 41032672
+        },
+        "spill": {
+          "engine_execution_ns": 2206568873,
+          "complete_workflow_ns": 2226350292,
+          "peak_reserved_bytes": 29188538
+        },
+        "regenerate": {
+          "engine_execution_ns": 333587416,
+          "complete_workflow_ns": 352264292,
+          "peak_reserved_bytes": 26597664
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "wide-dependencies-32768-64",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 436256751,
+          "complete_workflow_ns": 459099500,
+          "peak_reserved_bytes": 41311200
+        },
+        "spill": {
+          "engine_execution_ns": 2216622836,
+          "complete_workflow_ns": 2241874709,
+          "peak_reserved_bytes": 29467318
+        },
+        "regenerate": {
+          "engine_execution_ns": 599317208,
+          "complete_workflow_ns": 622096959,
+          "peak_reserved_bytes": 29456672
+        }
+      }
+    },
+    {
+      "cohort": "A",
+      "cell": "all-null-32768-8",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 70285543,
+          "complete_workflow_ns": 72882292,
+          "peak_reserved_bytes": 4278112
+        },
+        "spill": {
+          "engine_execution_ns": 148956541,
+          "complete_workflow_ns": 151618416,
+          "peak_reserved_bytes": 3240338
+        },
+        "regenerate": {
+          "engine_execution_ns": 78640750,
+          "complete_workflow_ns": 81187333,
+          "peak_reserved_bytes": 3146912
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "mixed-32768-8",
+      "target": true,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 102375500,
+          "complete_workflow_ns": 105491125,
+          "peak_reserved_bytes": 4282464
+        },
+        "spill": {
+          "engine_execution_ns": 247144709,
+          "complete_workflow_ns": 250393750,
+          "peak_reserved_bytes": 3244564
+        },
+        "regenerate": {
+          "engine_execution_ns": 88914248,
+          "complete_workflow_ns": 91774208,
+          "peak_reserved_bytes": 3151264
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "mixed-32768-64",
+      "target": true,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 452771459,
+          "complete_workflow_ns": 468620667,
+          "peak_reserved_bytes": 22332384
+        },
+        "spill": {
+          "engine_execution_ns": 2215543667,
+          "complete_workflow_ns": 2231805000,
+          "peak_reserved_bytes": 11540670
+        },
+        "regenerate": {
+          "engine_execution_ns": 335809125,
+          "complete_workflow_ns": 352796291,
+          "peak_reserved_bytes": 7897376
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "mixed-65536-8",
+      "target": true,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 223339836,
+          "complete_workflow_ns": 229155250,
+          "peak_reserved_bytes": 7916784
+        },
+        "spill": {
+          "engine_execution_ns": 554714712,
+          "complete_workflow_ns": 560981875,
+          "peak_reserved_bytes": 5027220
+        },
+        "regenerate": {
+          "engine_execution_ns": 195332955,
+          "complete_workflow_ns": 200726709,
+          "peak_reserved_bytes": 4310592
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "mixed-65536-64",
+      "target": true,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 987104543,
+          "complete_workflow_ns": 1017715417,
+          "peak_reserved_bytes": 41334896
+        },
+        "spill": {
+          "engine_execution_ns": 4982997035,
+          "complete_workflow_ns": 5015380499,
+          "peak_reserved_bytes": 16993342
+        },
+        "regenerate": {
+          "engine_execution_ns": 693918331,
+          "complete_workflow_ns": 726869207,
+          "peak_reserved_bytes": 9056704
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "small-256-64",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 3213291,
+          "complete_workflow_ns": 3597501,
+          "peak_reserved_bytes": 2532248
+        },
+        "spill": {
+          "engine_execution_ns": 3352083,
+          "complete_workflow_ns": 3891583,
+          "peak_reserved_bytes": 2534908
+        },
+        "regenerate": {
+          "engine_execution_ns": 3097083,
+          "complete_workflow_ns": 3406292,
+          "peak_reserved_bytes": 2532248
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "one-32768-1",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 54165001,
+          "complete_workflow_ns": 55464751,
+          "peak_reserved_bytes": 2026304
+        },
+        "spill": {
+          "engine_execution_ns": 85285504,
+          "complete_workflow_ns": 86572209,
+          "peak_reserved_bytes": 2316488
+        },
+        "regenerate": {
+          "engine_execution_ns": 55572207,
+          "complete_workflow_ns": 56862292,
+          "peak_reserved_bytes": 2026304
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "aliases-32768-64",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 321897041,
+          "complete_workflow_ns": 337586624,
+          "peak_reserved_bytes": 3720160
+        },
+        "spill": {
+          "engine_execution_ns": 2094319837,
+          "complete_workflow_ns": 2110105084,
+          "peak_reserved_bytes": 10492178
+        },
+        "regenerate": {
+          "engine_execution_ns": 319962498,
+          "complete_workflow_ns": 336974625,
+          "peak_reserved_bytes": 3720160
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "constants-32768-64",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 143764958,
+          "complete_workflow_ns": 156531417,
+          "peak_reserved_bytes": 3687392
+        },
+        "spill": {
+          "engine_execution_ns": 666125291,
+          "complete_workflow_ns": 678597542,
+          "peak_reserved_bytes": 10383206
+        },
+        "regenerate": {
+          "engine_execution_ns": 139674873,
+          "complete_workflow_ns": 152420582,
+          "peak_reserved_bytes": 3687392
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "derived-key-32768-8",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 78238417,
+          "complete_workflow_ns": 81177458,
+          "peak_reserved_bytes": 4298976
+        },
+        "spill": {
+          "engine_execution_ns": 184476996,
+          "complete_workflow_ns": 187340291,
+          "peak_reserved_bytes": 3253264
+        },
+        "regenerate": {
+          "engine_execution_ns": 72174126,
+          "complete_workflow_ns": 74920834,
+          "peak_reserved_bytes": 4298976
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "boolean-32768-8",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 104040086,
+          "complete_workflow_ns": 108370377,
+          "peak_reserved_bytes": 21989512
+        },
+        "spill": {
+          "engine_execution_ns": 243327166,
+          "complete_workflow_ns": 247368792,
+          "peak_reserved_bytes": 21989512
+        },
+        "regenerate": {
+          "engine_execution_ns": 97387749,
+          "complete_workflow_ns": 101285792,
+          "peak_reserved_bytes": 21989512
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "wide-unused-32768-64",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 573749418,
+          "complete_workflow_ns": 595984749,
+          "peak_reserved_bytes": 41032672
+        },
+        "spill": {
+          "engine_execution_ns": 2220325625,
+          "complete_workflow_ns": 2238388375,
+          "peak_reserved_bytes": 29188506
+        },
+        "regenerate": {
+          "engine_execution_ns": 339769460,
+          "complete_workflow_ns": 358658625,
+          "peak_reserved_bytes": 26597664
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "wide-dependencies-32768-64",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 443591960,
+          "complete_workflow_ns": 467519249,
+          "peak_reserved_bytes": 41311200
+        },
+        "spill": {
+          "engine_execution_ns": 2205099877,
+          "complete_workflow_ns": 2228366458,
+          "peak_reserved_bytes": 29467286
+        },
+        "regenerate": {
+          "engine_execution_ns": 599586585,
+          "complete_workflow_ns": 622955667,
+          "peak_reserved_bytes": 29456672
+        }
+      }
+    },
+    {
+      "cohort": "B",
+      "cell": "all-null-32768-8",
+      "target": false,
+      "medians": {
+        "retain": {
+          "engine_execution_ns": 71093290,
+          "complete_workflow_ns": 73735291,
+          "peak_reserved_bytes": 4278112
+        },
+        "spill": {
+          "engine_execution_ns": 148348459,
+          "complete_workflow_ns": 151002001,
+          "peak_reserved_bytes": 3240306
+        },
+        "regenerate": {
+          "engine_execution_ns": 78922834,
+          "complete_workflow_ns": 81527958,
+          "peak_reserved_bytes": 3146912
+        }
+      }
+    }
+  ]
+}

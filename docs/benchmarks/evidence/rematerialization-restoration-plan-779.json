@@ -1,0 +1,63 @@
+{
+  "status": "verified_before_any_candidate_removal",
+  "baseline": "0b52edf4676e430c62719ad240aa2634b627319e",
+  "decision": "reject",
+  "files": [
+    {
+      "path": "shardloom-vortex/src/local_primitive_prepared_relational.rs",
+      "tracked": true,
+      "observed_sha256": "78eeb5bcdd378bea070df3c33dfa3bdfcf7c777ade1d746e7b8af3936cfc6f19",
+      "baseline_sha256": "85ce4b9fef99cb0d49182d50c93621ab835ec8475c571894b9a78c303f024f06"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_tests.rs",
+      "tracked": true,
+      "observed_sha256": "0a2aaae125e0112e6515aed9d61ddf3bd33c0b23a3c4a0e0abca9422c9ef79f4",
+      "baseline_sha256": "49c0896fc417956e4738aecec1479354d4a005088856c34415e4b3ad0381aa34"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_transform.rs",
+      "tracked": true,
+      "observed_sha256": "a32f9d4f25b60338f923efe2923fdbdf3594cd46cdd9618076fad77722a5f096",
+      "baseline_sha256": "a64a0e921b6ca6c7e0cfe541e4eed8d80de3b2781877e78687c956a3210abf9c"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_rematerialization.rs",
+      "tracked": false,
+      "observed_sha256": "5140b39ceac99fe7fc48d83367a1079d3628135aa3bcf28bf0532a0ffeaade78",
+      "baseline_sha256": null
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_rematerialization_admission_tests.rs",
+      "tracked": false,
+      "observed_sha256": "dd8f91baece0d1f1b19e5de2687429de0fb31535a732cffe59f24d15d21b1c87",
+      "baseline_sha256": null
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_rematerialization_cost_tests.rs",
+      "tracked": false,
+      "observed_sha256": "75d043a76bcb27a9f26c7b71b226ad0daecec473caa4355970a88c955ee7d747",
+      "baseline_sha256": null
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_rematerialization_fixture.rs",
+      "tracked": false,
+      "observed_sha256": "55aba3771b1c9ef232be3c89c41fb2673ded00b0587e363d58e53251d9086373",
+      "baseline_sha256": null
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_rematerialization_tests.rs",
+      "tracked": false,
+      "observed_sha256": "947a0db3200cdeec79effba46bc9cceb2de02c3fecd89277a695acf5d75b2486",
+      "baseline_sha256": null
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_rematerialization_observation.rs",
+      "tracked": false,
+      "observed_sha256": "1cc743cf33ceb48b1acb6695f45f8334ee6245d6643ee9941fc981fd452e1f7c",
+      "baseline_sha256": null
+    }
+  ],
+  "archive_sha256": "ce85cf314c711e92bbc2b38971cff9da2874d441c7630a040255ccc23377f46a",
+  "all_removed_source_content_preserved": true
+}

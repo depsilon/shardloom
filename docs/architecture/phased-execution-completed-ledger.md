@@ -17,6 +17,31 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-06.rematerialization private projection experiment` — reject bounded
+  private projection regeneration at the resident sort boundary. The
+  [decision](native-rematerialization-2026-10-19.md) and
+  [portable packet](../benchmarks/evidence/rematerialization-portable-779.json)
+  preserve the protocol, all six source versions, complete results and failures.
+  - All 357 release workflows pass independent source/output/schema, activation,
+    full-dependency, actual credit release, reconstruction and cleanup checks.
+    All four memory targets pass both cohorts; wide-dependency/all-null controls
+    fail engine and complete-workflow bounds in both, and one-output fails in A.
+    The candidate is rejected without changing samples, gates or admitted shapes.
+  - The same frozen candidate passes 12 focused tests in debug/release, 81 debug
+    smoke workflows and 15 independent checker tests including 19 corrupt-record
+    mutations. Three earlier compile/test failures and one compile-only reviewed
+    attempt are preserved; none contributes comparative measurements.
+  - Independent reopening verifies all 2,177 archive members, reconstructs every
+    source version, checks 69 complete witnesses and 30 guarded receipts, and
+    recomputes the decision. Three tracked changes and six added Rust files are
+    removed. All 1,899 Rust/Cargo and 2,217 accepted runtime/Python/test/harness
+    sources remain unchanged; formatting passes. Prior broad acceptance is
+    preserved without claiming fresh runs or candidate acceptance.
+  - This is the eighth finite decision: six rejected mechanisms, one retained
+    mechanism and one no-signal attribution, with 13 first decisions remaining.
+    All 58 substeps and CG-1 through CG-23 keep their gates. The next conditional
+    investigation is complete-workflow attribution for output-window overlap.
+
 - [x] `PERF-06.merge_cost final-tail attribution` — record no eligible material
   signal in the frozen final-stack scope. The
   [decision](native-merge-tail-2026-10-19.md) and

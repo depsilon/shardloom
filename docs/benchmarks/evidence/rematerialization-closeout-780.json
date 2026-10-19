@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "finite_result": "reject",
+  "runtime_files": 1899,
+  "accepted_source_files": 2217,
+  "all_copied_evidence_exact": true,
+  "all_table_values_recomputed": true,
+  "all_21_rows_preserved": true,
+  "all_23_competitive_gates_preserved": true,
+  "local_links_verified": 281,
+  "finite_decisions": 8,
+  "remaining_first_decisions": 13,
+  "source_sha256": "12a7ef5521579e09ac647ce1060cedb778f6de4e853108559d5ce67f256354af",
+  "reviewed_objections": [
+    "Whole dependency and pinned source remain charged.",
+    "Inactive control failure is preserved without causal attribution.",
+    "Broad prior acceptance is reused only after exact source restoration."
+  ]
+}

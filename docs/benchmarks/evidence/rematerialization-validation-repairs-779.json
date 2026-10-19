@@ -1,0 +1,73 @@
+{
+  "status": "preserved_diagnostic_repairs_before_comparative_measurements",
+  "protocol": {
+    "path": "rematerialization-protocol-778.json",
+    "bytes": 12328,
+    "sha256": "dbce5d1135a89704463f7b54c6557a58902c1aa41f6b4ad89778a1241e390442"
+  },
+  "failed_attempts": [
+    {
+      "receipt": {
+        "path": "rematerialization-debug-build-778-a1.json",
+        "bytes": 11152,
+        "sha256": "4d726ab2a554f643af89fdbf0799a6ec562f32382d477b9aeec87f0c2b6647c9"
+      },
+      "log": {
+        "path": "rematerialization-debug-build-778-a1.log",
+        "bytes": 323688,
+        "sha256": "e98d54e6634abe510e3e94e7a9bd5fd18b974c321185e58fae5c76810a68bb90"
+      },
+      "cause": "The test harness formatted a sha2 0.11 digest using LowerHex, which that type does not implement.",
+      "repair": "Encode the same SHA-256 digest as two hexadecimal characters per byte; no hash algorithm or witness content changed.",
+      "comparison_measurements": 0
+    },
+    {
+      "receipt": {
+        "path": "rematerialization-debug-focused-779-a2.json",
+        "bytes": 16696,
+        "sha256": "8873bebd9101f91a060f6ff92f6cbcf5308e0567cd5eba50e2d87735de21752d"
+      },
+      "log": {
+        "path": "rematerialization-debug-focused-779-a2.log",
+        "bytes": 1844,
+        "sha256": "b67098c1503e9b0205e0c8dbef4ad37039cc779bad6dbb01320937448dc131e7"
+      },
+      "cause": "The admission test tried to execute 65537 rows through the public memory-source API, whose input bound is 65536.",
+      "repair": "Assert explicit public refusal above the bound; preserve successful native results at supported optimization boundaries. No production input limit raised.",
+      "comparison_measurements": 0
+    },
+    {
+      "receipt": {
+        "path": "rematerialization-debug-focused-779-a4.json",
+        "bytes": 21703,
+        "sha256": "8b117ed8aa22c76053e1d438d1c6e3d41822e6950bd86d9cefb0df8c3a630efb"
+      },
+      "log": {
+        "path": "rematerialization-debug-focused-779-a4.log",
+        "bytes": 2737,
+        "sha256": "f8800684c40d459603707bab3258ac2380fac0da1bbc3bd6429bf269e45aa0ce"
+      },
+      "cause": "The strengthened escaped-output test retained a Vortex validity owner while expecting all memory to be released; 512 bytes correctly remained reserved.",
+      "repair": "Keep a positive reservation assertion while the validity owner remains, then drop it and require exactly zero. Original native ownership behavior unchanged.",
+      "comparison_measurements": 0
+    }
+  ],
+  "compile_only_review": {
+    "path": "rematerialization-debug-779-a3-compile-only.json",
+    "bytes": 1732,
+    "sha256": "c7fbee5266179e3d90936ad16bd00c877f5ae6d8ed9e347b7310dd3262af6655"
+  },
+  "passed_focused": {
+    "path": "rematerialization-debug-779-a5-focused.json",
+    "bytes": 21701,
+    "sha256": "c5ee7c764fd45fee0cc6a176553a4686130babffb6a4a49c3b40f599f9e4f054"
+  },
+  "passed_smoke": {
+    "path": "rematerialization-debug-779-a5-analysis.json",
+    "bytes": 829,
+    "sha256": "4643e40604ad659dcab90afccf2adf0f2a25b012f98b0991c20820a3fea2890d"
+  },
+  "frozen_gates_unchanged": true,
+  "production_candidate_after_a1_hash_fix_unchanged": true,
+  "remaining": "Full release preflight and frozen comparisons have not yet run."
+}

@@ -1,0 +1,47 @@
+{
+  "status": "passed",
+  "decision": "reject",
+  "archive_sha256": "ce85cf314c711e92bbc2b38971cff9da2874d441c7630a040255ccc23377f46a",
+  "manifest_sha256": "51afb7fe1efd25a5c49323013e70fdf8aad35129086feb32512bb12b3ab5d7d6",
+  "member_count": 2177,
+  "all_members_and_original_bytes_verified": true,
+  "reconstructed_versions": [
+    {
+      "label": "rematerialization-debug-attempt-778-a1",
+      "source_files": 1904,
+      "all_source_and_helper_bytes_match": true
+    },
+    {
+      "label": "rematerialization-debug-attempt-779-a2",
+      "source_files": 1904,
+      "all_source_and_helper_bytes_match": true
+    },
+    {
+      "label": "rematerialization-debug-attempt-779-a3",
+      "source_files": 1905,
+      "all_source_and_helper_bytes_match": true
+    },
+    {
+      "label": "rematerialization-debug-attempt-779-a4",
+      "source_files": 1905,
+      "all_source_and_helper_bytes_match": true
+    },
+    {
+      "label": "rematerialization-debug-779-a5",
+      "source_files": 1905,
+      "all_source_and_helper_bytes_match": true
+    },
+    {
+      "label": "rematerialization-release-779-a1",
+      "source_files": 1905,
+      "all_source_and_helper_bytes_match": true
+    }
+  ],
+  "workflows": {
+    "rematerialization-debug-779-a5": 81,
+    "rematerialization-release-779-a1": 357
+  },
+  "full_witnesses_verified": 69,
+  "guarded_receipts_verified": 30,
+  "every_source_schema_output_value_and_decision_recomputed": true
+}
