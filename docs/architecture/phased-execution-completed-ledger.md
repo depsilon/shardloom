@@ -17,6 +17,31 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-10.compact_selections experiment` — the October 18 contiguous-range
+  candidate is measured and **dropped**, with production restored at `1acca085`.
+  The [experiment record](native-compact-selection-2026-10-18.md) and
+  [portable evidence](../benchmarks/evidence/native-compact-selection-2026-10-18.json)
+  preserve the frozen protocol, every sample and the exact restoration.
+  - The corrected cost screen verifies both projected fields, counts and complete
+    cleanup. All 168 corrected operations pass correctness, and both all-pass
+    consumers exceed the memory target. Unfiltered and contiguous-band projection
+    regressions repeat in the single allowed reversed-order confirmation, so the
+    throughput gate rejects the runtime change. Preliminary observations that
+    omitted the second field remain superseded evidence.
+  - The candidate passed 4,827 public checks, 100 direct binding tests, Full43
+    complete values/schemas and 704 native format workflows against 704 independent
+    oracle workflows. These remain candidate correctness evidence; no retained
+    runtime improvement or whole-engine speedup is claimed.
+  - All production source returns to the prior accepted base. The final Rust
+    changes are the corrected ignored measurement test and its module registration.
+    Fresh restored checks pass formatting, strict workspace/native-feature lint,
+    3,235 workspace tests and 2,969 native tests; 29 opt-in screens remain ignored
+    in the full native suite.
+  - Only this experiment is closed. `PERF-10.compact_selections` remains open
+    for a different mechanism; B and the broader PERF/CG owners remain open.
+    The active queue stays at 58 substeps, 37 required and 21 conditional.
+    Version 0.6.0, no-fallback boundaries and the release hold are unchanged.
+
 - [x] `PERF-10/07/11/12 public documentation and API consolidation` — locally
   completed at `dba85f1c43aeb83a2640c81654ac2b9ce8b15d98`, following merged
   PR #1575 and preserving the six CPU investigations. The

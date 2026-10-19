@@ -136,6 +136,24 @@ cargo test -p shardloom-cli --features release-user-surfaces --test public_workf
 
 Deliver `perf-10-acceptance.json` with complete native/reference parity, negative pruning controls, changed plan/type boundaries, actual avoided rows/bytes and public-surface agreement. New summary, join, index or fusion strategies need their own exact semantics and matched workload controls.
 
+The [compact-selection experiment](native-compact-selection-2026-10-18.md)
+retains the exact ignored selector `native_selection_complete_cost_screen`.
+It covers seven shapes, native projection/count consumers, both projected fields,
+certificate checks and complete reservation cleanup. Execute it only through a
+frozen, serial, guarded release comparison:
+
+```sh
+cargo test --release -p shardloom-vortex --features release-user-surfaces --lib native_selection_complete_cost_screen -- --ignored --nocapture --test-threads=1
+```
+
+The command alone does not establish an optimization. Preserve byte-identical
+measurement source, source/binary/protocol identities, every sample and the
+predeclared retain/drop gates. The October 18 contiguous-range candidate was
+dropped after its permitted confirmation repeated projection regressions;
+production and the existing regression selectors above are restored. The
+candidate-specific range tests are archived with the rejected source. Do not
+rerun that unchanged candidate or treat its correctness passes as retention.
+
 ## PERF-11
 
 Protect real streaming resource lifetimes and public nullable write/reopen:

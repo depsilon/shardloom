@@ -1,0 +1,332 @@
+{
+  "schema_version": "shardloom.native_compact_selection_investigation.v1",
+  "status": "completed_drop",
+  "decision": "drop",
+  "completed_substeps": [],
+  "broader_owners_closed": [],
+  "investigated_substeps": [
+    "PERF-10.compact_selections"
+  ],
+  "investigation_remains_open": true,
+  "base": "61afe0f547885d4ab3efd19ca216b5e083fd04a7",
+  "restored_commit": "1acca0853bd3a80af60a520ecf429de9d6dbe8a0",
+  "candidate_runtime_commit": "f0a67d0067c33039e1dc240ba46977411fcffbef",
+  "candidate_measurement_commit": "e53e6068b5ae7f8a8707a5540a6c6f6b0ef7dd2c",
+  "acceptance": "../../architecture/native-compact-selection-2026-10-18.md",
+  "archive": {
+    "file": "native-compact-selection-2026-10-18.tar.xz",
+    "bytes": 24256748,
+    "sha256": "da5f02204c06c33018f76c6301fcdae9c1eb25a4f3e9dd773ef52ad071078629"
+  },
+  "manifest": {
+    "file": "native-compact-selection-2026-10-18.manifest.json.xz",
+    "bytes": 801732,
+    "sha256": "bbca50968e256c3deb5c03d5fe827714b06abda90d13c13146fabed0ad75d1f0"
+  },
+  "member_count": 28449,
+  "uncompressed_bytes": 368022940,
+  "all_members_reopened": true,
+  "owner_acceptance": "evidence/perf-10-acceptance.json",
+  "runtime_acceptance": "evidence/acceptance-final-verified.json",
+  "source_bridge": "evidence/selection-final-source-bridge.json",
+  "closeout_source_bridge": "evidence/selection-closeout-source-bridge.json",
+  "cost_comparison": "evidence/selection-complete-cost-confirmation-720.json",
+  "corrected_projection_fields": [
+    "n",
+    "keep"
+  ],
+  "superseded_preliminary_cost": "evidence/selection-cost-comparison-719.json",
+  "restored_rust_tests": {
+    "selection-restored-workspace-tests-720": {
+      "passed": 3235,
+      "ignored": 0,
+      "groups": 107
+    },
+    "selection-restored-native-tests-720": {
+      "passed": 2969,
+      "ignored": 29,
+      "groups": 1
+    }
+  },
+  "candidate_correctness_evidence": {
+    "runtime_acceptance": {
+      "path": "/Users/dylan/LocalData/shardloom/native-cpu-20261018/acceptance-final-verified.json",
+      "bytes": 6458,
+      "sha256": "7b3aac34403d2c71a52323a0e92fc075b1b1fae08314eeaa86d02aadcb728956"
+    },
+    "public_workflows": 4827,
+    "public_families": 36,
+    "direct_binding_tests": 100,
+    "native_format_workflows": 704,
+    "independent_pandas_oracle_workflows": 704,
+    "full43_queries": 43,
+    "full43_complete_rows": 381,
+    "full43_engine_execution_seconds": "53.065528453",
+    "full43_reference_kind": "retained_native_regression",
+    "scope": "correctness of the dropped candidate; not retained-runtime performance acceptance"
+  },
+  "corrected_complete_operations": 168,
+  "repeated_regression_cells": [
+    [
+      "band",
+      "projection"
+    ],
+    [
+      "unfiltered",
+      "projection"
+    ]
+  ],
+  "platform_scope": "local macOS arm64",
+  "omitted_bulk_artifacts": [
+    {
+      "path": "artifacts/_native.abi3.so",
+      "file": "_native.abi3.so",
+      "bytes": 75767024,
+      "sha256": "b264d57418e4271ca460633e21c612cc311162bffb14fe8f08b562e00e73a9f5",
+      "scope": "native executable/library retained locally"
+    },
+    {
+      "path": "artifacts/shardloom",
+      "file": "shardloom",
+      "bytes": 75901504,
+      "sha256": "2d92813d5076ba71841588bb91a181b6739e3745ed6c8c93638bbaf40bc05add",
+      "scope": "native executable/library retained locally"
+    },
+    {
+      "path": "public-36/outputs/aggregate-pressure.vortex",
+      "file": "aggregate-pressure.vortex",
+      "bytes": 9490512,
+      "sha256": "5e47e21e55c8d87c0c14dbc9cdbed940bcc8ca1790c9ca4369b91eedc3a3f0ef",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/dynamic-pressure.vortex",
+      "file": "dynamic-pressure.vortex",
+      "bytes": 4829840,
+      "sha256": "c675e970e11a108b7a7913e766a978c8a4d09a1107a3c71e3865d167b5c2587a",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-range.vortex",
+      "file": "growth-range.vortex",
+      "bytes": 8144588,
+      "sha256": "7d8f478d3b1c0ac409b338f37aab20f7feb2cb28369a28ae19e4bd745471e7fb",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-resident-arrow_ipc-normalized.vortex",
+      "file": "growth-wide-resident-arrow_ipc-normalized.vortex",
+      "bytes": 4235973,
+      "sha256": "8f085f8506f91332d5536489a58b890684d839073319f380fb759d9cb6746f80",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-resident-avro-normalized.vortex",
+      "file": "growth-wide-resident-avro-normalized.vortex",
+      "bytes": 4235958,
+      "sha256": "cd02f3e5b2daf5dc3b527e8b2335b052383482d06ac9be92c1dc1b8b3f28bd6c",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-resident-orc-normalized.vortex",
+      "file": "growth-wide-resident-orc-normalized.vortex",
+      "bytes": 4235955,
+      "sha256": "cd9b8c1f55497df125cbf276b23d9fb707855155907953b609fb001599abe146",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-resident-parquet-normalized.vortex",
+      "file": "growth-wide-resident-parquet-normalized.vortex",
+      "bytes": 4235967,
+      "sha256": "ae47a62c75709bccdddce5323a5ae435cd4b71db1bf0e9947f3e1f5134237456",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-resident-vortex.vortex",
+      "file": "growth-wide-resident-vortex.vortex",
+      "bytes": 2711568,
+      "sha256": "402f442062c73a0ee511c51f0fdb55d0c7c3063852bee23e4ad85a2a0e7400c1",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-rows-arrow_ipc-normalized.vortex",
+      "file": "growth-wide-rows-arrow_ipc-normalized.vortex",
+      "bytes": 4235969,
+      "sha256": "dc84fa7aff5f2a5b0b22cc5548788265153c304d6ad58741c639f250b6871c20",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-rows-avro-normalized.vortex",
+      "file": "growth-wide-rows-avro-normalized.vortex",
+      "bytes": 4235954,
+      "sha256": "e24b4f92cff7d73ad60dc23769c8e7da7ddfe6e65a9f3b400e8cd9d6aed63a96",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-rows-orc-normalized.vortex",
+      "file": "growth-wide-rows-orc-normalized.vortex",
+      "bytes": 4235951,
+      "sha256": "720c51163fe264771b0aa8e0a185bb00f07252675e03d09661534ba5c1efe290",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-rows-parquet-normalized.vortex",
+      "file": "growth-wide-rows-parquet-normalized.vortex",
+      "bytes": 4235963,
+      "sha256": "7a3b202bc233fe624799d4811bd913b363b6343e5de5ff0943e32def98bc5db4",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-rows-vortex.vortex",
+      "file": "growth-wide-rows-vortex.vortex",
+      "bytes": 1902208,
+      "sha256": "664b5c91be5dbd3e58e680c7e1a44e104421a053ce778511cd4c24e54736767c",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-streaming-arrow_ipc-normalized.vortex",
+      "file": "growth-wide-streaming-arrow_ipc-normalized.vortex",
+      "bytes": 7325094,
+      "sha256": "16df29160f479c2f86b005b7940d7eaa8ed398cdd300cc22fc9133a74f487ede",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-streaming-avro-normalized.vortex",
+      "file": "growth-wide-streaming-avro-normalized.vortex",
+      "bytes": 4235959,
+      "sha256": "ef18efa57396bb94ef009c46669536ec1d26f91e9d629aac3d315b1357a59964",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-streaming-orc-normalized.vortex",
+      "file": "growth-wide-streaming-orc-normalized.vortex",
+      "bytes": 4235956,
+      "sha256": "948b4856472e4d0b73d97db8efd80adeb77128e6c6d5cb74d29a19c52d831a73",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-streaming-parquet-normalized.vortex",
+      "file": "growth-wide-streaming-parquet-normalized.vortex",
+      "bytes": 4235968,
+      "sha256": "917d35de7c6e7b338f460f2fc45925844d4d5c11868ded9acc22a99cb49db8ed",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-streaming-parquet.parquet",
+      "file": "growth-wide-streaming-parquet.parquet",
+      "bytes": 1068426,
+      "sha256": "0cce0bad6bf81538bf419d8cc749f493184f3eb507447e3c4f8fdc1970c5fcc7",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/growth-wide-streaming-vortex.vortex",
+      "file": "growth-wide-streaming-vortex.vortex",
+      "bytes": 2353168,
+      "sha256": "5306165104cb6e48b43839245b42de85963f559bb24c8da81f3a49e8090c7c40",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/join-pressure.vortex",
+      "file": "join-pressure.vortex",
+      "bytes": 34730680,
+      "sha256": "09cd9f091db6f31f396496eab681558628b0ad6de401d7ce3eb5925674b372dd",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/multiple-pressure.vortex",
+      "file": "multiple-pressure.vortex",
+      "bytes": 34730680,
+      "sha256": "09cd9f091db6f31f396496eab681558628b0ad6de401d7ce3eb5925674b372dd",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/ordered-pressure.vortex",
+      "file": "ordered-pressure.vortex",
+      "bytes": 35274840,
+      "sha256": "5ccd1e87c6b407c62190240f8adf8c2fc6b44163950a5b408f46ae21099921c0",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/replay-pressure.vortex",
+      "file": "replay-pressure.vortex",
+      "bytes": 19500544,
+      "sha256": "ce3a9892d9476e8de0f767b6c6f8cdb71c142b4a51877c62e2c060ada3d1e1d5",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/replay-rich-actual-spill-write-reopen.vortex",
+      "file": "replay-rich-actual-spill-write-reopen.vortex",
+      "bytes": 3632256,
+      "sha256": "821d4eda2f76396b4abc756075d61f04a5b9c805adc673dd5cef70ee40b6a48f",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/set-replay-spilled-vortex.vortex",
+      "file": "set-replay-spilled-vortex.vortex",
+      "bytes": 34024912,
+      "sha256": "74db864b574080c237bd917b7939c940bca97fdc80e7d125ed1b8ff472484b1e",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "public-36/outputs/window-pressure.vortex",
+      "file": "window-pressure.vortex",
+      "bytes": 19681032,
+      "sha256": "d4973756a3f789132bed8da146cdc3bd075129f420f4f05a757262446ea53411",
+      "scope": "generated bulk fixture/output retained locally; complete validation records archived"
+    },
+    {
+      "path": "selection-baseline/selection-tests",
+      "file": "selection-tests",
+      "bytes": 93376944,
+      "sha256": "d104a45561db3512a5ddfcbe814249a6f8e0fcf7b8ba87e0ea42299915585edd",
+      "scope": "native executable/library retained locally"
+    },
+    {
+      "path": "selection-baseline-complete/selection-tests",
+      "file": "selection-tests",
+      "bytes": 93376944,
+      "sha256": "34ba82c892398c9bb9188a1051b960719e657f6a047b7a3cfa1d1e8c2c27c53c",
+      "scope": "native executable/library retained locally"
+    },
+    {
+      "path": "selection-candidate/selection-tests",
+      "file": "selection-tests",
+      "bytes": 93431024,
+      "sha256": "de786f4ff841d9c7cf6bf32063b5efaba73472fbe369ea11c7fde4824129c939",
+      "scope": "native executable/library retained locally"
+    },
+    {
+      "path": "selection-candidate-complete/selection-tests",
+      "file": "selection-tests",
+      "bytes": 93431024,
+      "sha256": "bcb67fc1509275f7dc321fa3f4128bb47014c2369d0f5bead556d143ceb2e95d",
+      "scope": "native executable/library retained locally"
+    }
+  ],
+  "external_input": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/vortex/fresh-roadmap-663-a1.vortex",
+    "bytes": 15713610513,
+    "sha256": "06f70eb6f118d11e4a5226eb641225d708fdb4ac1b3f45942872d5ef5df4fc22",
+    "generation": {
+      "device": 16777233,
+      "inode": 111843112,
+      "size_bytes": 15713610513,
+      "mtime_ns": 1792325598752257621,
+      "ctime_ns": 1792325598757039417
+    },
+    "resident": true
+  },
+  "claim_gate_status": "not_claim_grade",
+  "whole_engine_speedup_claim": false,
+  "release_version_changed": false,
+  "publication_attempted": false,
+  "limitations": [
+    "PERF-10.compact_selections requires a different mechanism and frozen protocol",
+    "PERF-01/03/07/10/11/12 broader obligations",
+    "CPU package B production-cost evidence",
+    "CG-5/CG-6 and all remaining competitive gates",
+    "hosted integration and release hold"
+  ],
+  "failed_and_superseded_observations_retained": true,
+  "unused_provisional_retain_finalizer": "evidence/finalize_selection_runtime.py"
+}
