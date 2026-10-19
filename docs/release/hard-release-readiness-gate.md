@@ -617,7 +617,7 @@ target/v1-correctness-conformance-report.json
 shardloom.v1_example_replay_report.v1
 shardloom.v1_correctness_conformance_matrix.v1
 shardloom.v1_correctness_conformance_report.v1
-docs_marker_source_count=6
+docs_marker_source_count=3
 runtime_command_count=3
 golden_workflow_replay_verified_count=3
 benchmark_scenario_count=9
