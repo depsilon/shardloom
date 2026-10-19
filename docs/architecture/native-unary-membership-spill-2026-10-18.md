@@ -1,7 +1,9 @@
 # Native unary membership under memory pressure
 
-Status: implemented in source; finite local acceptance is in progress. Hosted,
-package, other-platform and competitive acceptance are not claimed.
+Status: implemented and locally accepted for the seven variants below. The
+[acceptance report](../benchmarks/native-unary-membership-spill-2026-10-18.md)
+retains complete values, source identities and failure history. Hosted, package,
+other-platform and competitive acceptance are not claimed.
 This finite RFC 0044 work unit belongs to PERF-06.membership/recovery/strategy,
 with PERF-03 ownership and PERF-07/11/12 workflow/output obligations. Sampling
 populations, subquery indexes and broader recovery remain open. CG-5/14/16/19/20/21
@@ -125,3 +127,13 @@ copy, reader/output overlap under the original grant, and damage to pivot's
 existing replacement behavior. Dedicated regression controls must cover each.
 PulseWeave scheduling and existing Capillary admission remain shared; this unit
 does not introduce metadata proofs, distributed execution or a process-RSS cap.
+
+Finite local acceptance preserves the original 16-MiB key and 8-MiB future-mask
+pressure fixtures. The wider direct-binding producer/publication and public
+destination fixtures use 32 MiB; independent direct native-file readback uses
+128 MiB. Those separate grants do not change the operator-pressure evidence.
+All 5,126 public cases, 274 independently reopened unary value archives,
+complete Full43 results and 704 native format workflows pass. The evidence binds
+the compiled source to the two subsequent harness corrections and retains the
+separate final-verifier correction without changing runtime results. Broader
+PERF-06 owners and CG-1 through CG-23 remain open.

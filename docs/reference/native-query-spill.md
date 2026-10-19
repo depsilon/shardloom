@@ -166,7 +166,8 @@ source order retain their existing semantics; future-dependent duplicate masks
 can spill their requested row identities. Small state can remain resident even
 when this strategy is selected. The
 [unary membership contract](../architecture/native-unary-membership-spill-2026-10-18.md)
-records the finite scope and acceptance status. Sampling populations, subquery
+and [local acceptance report](../benchmarks/native-unary-membership-spill-2026-10-18.md)
+record the finite scope and verified pressure, value and cleanup evidence. Sampling populations, subquery
 membership/index state and legacy standalone `PreparedVortexUnary` remain under
 their resident contracts. In the machine index, `unary_membership_spill` names
 this scoped capability; the broad `unary_state_spill` guarantee remains false.

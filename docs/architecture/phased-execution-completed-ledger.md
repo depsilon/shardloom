@@ -17,6 +17,42 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-06 unary membership` — finite local acceptance completes distinct,
+  first/last/all-duplicates deduplication and duplicate masks under explicit
+  native spill. The [acceptance report](../benchmarks/native-unary-membership-spill-2026-10-18.md)
+  and [evidence index](../benchmarks/evidence/native-unary-membership-spill-2026-10-18.json)
+  retain exact sources, complete values and failed observations.
+  - Chronological replacement runs preserve exact unary keys and payload
+    observation. Future deduplication restores selected source order; future
+    masks retain bounded prefix identities. All seven variants pass the
+    unchanged 16-MiB key fixture, and future masks pass the unchanged 8-MiB
+    identity fixture. Wide destination/direct-binding workflows use 32 MiB;
+    independent native-file verification uses a separate 128-MiB grant.
+  - All 5,126 public cases across 37 families pass, including 210 membership
+    and 51 pressure checks. Independent verification reopens 274 unary value
+    archives with 2,183,578 rows and all 74 earlier set-value archives. The
+    family covers 63 public publication failures, native generation/quota/grant
+    and cancellation faults, and seven real process-death cleanup/fresh restarts.
+  - Full43 passes all 43 queries once, with all 381 result rows and schemas;
+    engine time is 50.027328742 seconds. All 18 modular cohorts pass, matching
+    704 native workflows to 704 fresh independent oracle workflows. No speed
+    improvement or competitive claim follows from this single observation.
+  - Formatting and strict lint pass; 3,235 workspace, 2,992 native, 1,087 CLI,
+    103 direct-binding and 17 public-context tests pass. The native suite retains
+    29 ignored opt-in screens; one context test requires a separately selected
+    clean installed package and remains skipped. Suites overlap.
+  - Compiled source `a31bd774` is linked to acceptance source `cafa2ae7` by exact
+    equality of 2,179 unchanged frozen sources and the two identified harness
+    corrections. Fresh binding/public/Full43/modular proofs use that identity.
+    A final-verifier correction distinguishes declared modular progress streams
+    from JSON receipts, preserving the original plan, verifier and failed check.
+  - Sampling populations, subquery indexes, legacy standalone unary state and
+    broader recovery/strategy remain open. Recovery starts a fresh execution
+    after cleanup; interrupted-query resume is not established. All 58 substeps,
+    37 required and 21 conditional, and CG-1 through CG-23 retain their gates.
+    Hosted/platform proofs and the release hold remain; published v0.6.0 is
+    unchanged.
+
 - [x] `PERF-06 distinct-set membership` — finite local acceptance completes
   `UNION` (distinct), `INTERSECT` and `EXCEPT` under explicit native spill. The
   [acceptance report](../benchmarks/native-set-membership-spill-2026-10-18.md) and

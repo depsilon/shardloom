@@ -207,7 +207,8 @@ Existing focused references retain detailed contracts:
 [query spill](native-query-spill.md),
 [distinct-set spill](../architecture/native-set-membership-spill-2026-10-18.md)
 with [finite local acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md),
-[unary membership spill scope and acceptance status](../architecture/native-unary-membership-spill-2026-10-18.md), and
+[unary membership spill scope](../architecture/native-unary-membership-spill-2026-10-18.md)
+with [finite local acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md), and
 [stream destinations](../architecture/native-stream-destinations-2026-10-15.md).
 They identify the behavior and source/release scope they cover.
 

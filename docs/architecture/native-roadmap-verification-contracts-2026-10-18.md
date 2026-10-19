@@ -82,8 +82,9 @@ Deliver `perf-05-acceptance.json` with decoded-reference comparisons for new nul
 
 ## PERF-06
 
-Protect existing external-memory ordering, distinct-set membership with explicit
-spill permission, and the separate resident refusal without that permission:
+Protect existing external-memory ordering, distinct-set and finite relational
+unary membership with explicit spill permission, and resident refusal without
+that permission:
 
 ```sh
 cargo test -p shardloom-vortex --features release-user-surfaces --lib native_relational_spill_stable_multikey_complete_values_and_repeated_cleanup -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-spill.log" 2>&1
@@ -94,9 +95,20 @@ cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_
 cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_faults_cannot_complete_or_publish_partial_output -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-faults.log" 2>&1
 cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_writes_reject_existing_targets_before_input -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-existing-output.log" 2>&1
 cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_recovery_preserves_live_and_unknown_owners_then_restarts_exactly -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-recovery.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_unary_membership_spills_at_the_original_grant_while_samples_remain_resident -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-pressure.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_future_duplicate_masks_charge_population_identities_separately_from_keys -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-identities.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_spilled_typed_and_dictionary_keys_preserve_values_and_null_parents -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-typed.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_private_payload_movement_preserves_unobserved_float_values -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-payload.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_validates_open_cache_gap_and_both_merge_generations -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-generations.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_quota_grant_and_cancelled_merge_release_owned_state -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-quota.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_late_producer_schema_consumer_and_cancellation_never_complete -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-failures.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_recovery_preserves_live_unknown_and_foreign_owners_then_restarts -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-recovery.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_native_file_generation_failure_cleans_then_fresh_preparation_completes -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-source-generation.log" 2>&1
 ```
 
-Deliver `perf-06-acceptance.json` proving exact completion when newly supported logical state exceeds its grant, including quota, skew, truncation/corruption, cancellation, crash/restart or actual resume, and owned cleanup. The [distinct-set contract](native-set-membership-spill-2026-10-18.md) covers `UNION`, `INTERSECT` and `EXCEPT`; source replay, unary membership/population and subquery indexes keep their independent boundaries. Its process-death route cleans owned abandoned runs and executes a fresh query; it does not resume interrupted execution. These enabled/disabled regressions replace the prior combined membership refusal selector. The [finite local acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md) records 4,911 public cases, complete Full43 results and 704 native format workflows, with the actual compiled commit and the corrected test-harness commit linked by exact source equality. It closes no broader PERF-06 substep. Freeze separate reconstruction/merge protocols for conditional experiments.
+Deliver `perf-06-acceptance.json` proving exact completion when newly supported logical state exceeds its grant, including quota, skew, truncation/corruption, cancellation, crash/restart or actual resume, and owned cleanup. The [distinct-set contract](native-set-membership-spill-2026-10-18.md) covers `UNION`, `INTERSECT` and `EXCEPT`; the [unary membership contract](native-unary-membership-spill-2026-10-18.md) covers distinct and three deduplication/mask policies. Sampling populations, subquery indexes and legacy standalone unary state retain separate resident boundaries. Both process-death routes clean owned abandoned runs and execute fresh queries; they do not resume interrupted execution. These enabled/disabled regressions replace prior combined membership refusal selectors.
+
+The [distinct-set acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md) records 4,911 public cases. Subsequent [unary acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md) records 5,126 public cases, 274 independently reopened unary value archives, complete Full43 results and 704 native format workflows. Both bind the actual compiled source to their corrected test harnesses by exact source equality and preserve all failed observations. Separate writer/readback grants do not replace the original unary 16/8-MiB pressure controls. Neither finite acceptance closes a broader PERF-06 substep. Freeze separate reconstruction/merge protocols for conditional experiments.
 
 ## PERF-07
 

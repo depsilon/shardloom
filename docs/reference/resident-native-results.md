@@ -95,7 +95,8 @@ with first, last and remove-all policies, including future-mask row identities.
 Sampling populations, subquery membership/index state and legacy standalone
 `PreparedVortexUnary` retain their resident contracts. See the
 [native set membership spill contract](../architecture/native-set-membership-spill-2026-10-18.md),
-[unary membership scope and acceptance status](../architecture/native-unary-membership-spill-2026-10-18.md)
+[unary membership scope](../architecture/native-unary-membership-spill-2026-10-18.md)
+with [finite local acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md)
 and [finite unary contract](../architecture/native-stream-unary-2026-10-15.md).
 Pivot consumes the producer once for
 execution-time domain discovery and retains the completed native pivot state;

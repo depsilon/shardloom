@@ -1,0 +1,14 @@
+{
+  "schema_version": "shardloom.native_unary_membership_packet_inspection.v1",
+  "status": "passed",
+  "index_sha256": "b7d40f754793b34f16cc761c74069f62077809c596961cb3f9982ce502d70db6",
+  "members_reopened": 29116,
+  "archive_parts": 2,
+  "all_copied_source_members_match_current_files": true,
+  "all_closeout_documents_match_archive": true,
+  "failed_observations_and_verifier_correction_preserved": true,
+  "remaining_owner_count": 14,
+  "remaining_substep_count": 58,
+  "completed_substeps": [],
+  "claim_gate_status": "not_claim_grade"
+}

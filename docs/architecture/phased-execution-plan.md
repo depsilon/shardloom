@@ -260,8 +260,9 @@ is measured and dropped: two projection regressions repeat under the frozen
 confirmation gate, and production is restored. Its corrected cost harness and
 evidence remain. The subsequent [distinct-set membership acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md)
 completes finite `UNION`/`INTERSECT`/`EXCEPT` pressure and cleanup under explicit
-spill. The [finite unary membership work](native-unary-membership-spill-2026-10-18.md)
-is implemented and undergoing local acceptance. Sampling populations, subquery
+spill. The [finite unary membership acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md)
+also completes distinct, first/last/all deduplication and duplicate masks under
+their original operator-pressure grants. Sampling populations, subquery
 indexes and broader recovery remain open. Resume the optimization/breadth
 sequence below without closing any broader owner or CPU investigation.
 
@@ -320,7 +321,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
 - [ ] `PERF-06` finish native pressure transitions and recovery.
   - V1 scope classification: `required_for_v1`.
   - Source: RFCs 0014/0017/0044; native-local-completion-scope-2026-10-07.md; native-state-structure-campaign-2026-10-07.md.
-  - Current state: General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. [Finite distinct-set membership](../benchmarks/native-set-membership-spill-2026-10-18.md) for `UNION`, `INTERSECT` and `EXCEPT` is locally accepted under explicit spill. Unary membership/mask state, sampling populations, subquery indexes and broader recovery remain; replay spill alone does not spill consuming state.
+  - Current state: General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. [Finite distinct-set membership](../benchmarks/native-set-membership-spill-2026-10-18.md) for `UNION`, `INTERSECT` and `EXCEPT`, and [seven relational unary membership/mask variants](../benchmarks/native-unary-membership-spill-2026-10-18.md), are locally accepted under explicit spill. Sampling populations, subquery indexes, legacy standalone unary state and broader recovery remain; replay spill alone does not spill consuming state.
   - Dependencies: After the relevant PERF-03 owner; before broader streaming/type compositions and output recovery depend on it.
   - Implementation scope: Native membership/population consumers, query-run store, operator pressure strategies and owned cleanup/recovery.
   - ShardLoom technique review: apply the common contract above to these shared owners; retain actual activation, resource and avoided-work evidence.
