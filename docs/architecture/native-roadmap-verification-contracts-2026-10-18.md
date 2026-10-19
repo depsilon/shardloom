@@ -58,6 +58,15 @@ cargo test -p shardloom-vortex --features release-user-surfaces --lib mismatched
 
 Deliver `perf-03-acceptance.json` with the concrete new owner inventory, simultaneous/serial controls, allocation/release/denial counters, bounded queues, cancellation/drain and actual operator progress. Region work needs complete coverage and skew/ordered-handoff evidence. Native credits do not establish a process-RSS ceiling.
 
+The [October 19 codec-preparation decision](native-codec-preparation-2026-10-19.md)
+preserves a finite rejected candidate and its `perf-03-acceptance.json`. Its
+opt-in harness and implementation exist only in the portable archive; they were
+removed together after the frozen cost gate failed. Reproduce them by applying
+the archived source to the recorded baseline. Do not run an absent selector in
+the current tree and count zero matching tests as success. The report separates
+passed focused checks from unattempted broad candidate acceptance and closes no
+broader PERF-03 obligation.
+
 ## PERF-04
 
 Protect shared aggregate workers and complete exact dictionary-domain reductions:

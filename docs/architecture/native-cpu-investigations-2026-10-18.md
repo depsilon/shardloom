@@ -45,6 +45,14 @@ Begin within one operation or explicitly retained context. Extend across operati
 
 Persist portable recipe descriptions and required tables only, never process pointers or opaque mutable decoder memory. New artifacts must decode after the originating process exits. Measure setup plus first use and the complete later-use sequence, including lookup, synchronization, retention, eviction, reset and cleanup. Test changing inputs/recipes, concurrency, allocation denial and corrupt inputs. This is not a renamed rerun of the rejected stronger-Zstd/dictionary profiles.
 
+The [October 19 finite investigation](native-codec-preparation-2026-10-19.md)
+found a real repeated dictionary-setup signal and tested one idle prepared
+dictionary under the existing owner. It passed focused correctness/resource and
+fresh-process portability checks, but failed the frozen complete-workload and
+control gates. All experimental code was archived and removed. Further codec
+retention needs a materially different mechanism; physical-reader reconstruction
+remains a separate investigation.
+
 ## C — reversible structural payload encoding
 
 The [text-size inventory](../benchmarks/native-ingest-text-size-2026-10-18.md) attributes 44.63% of its measured artifact to four original text columns. That is an opportunity signal, not proof that a structural encoding will save space. Existing domain/length derived columns and the five rejected text profiles are different mechanisms.

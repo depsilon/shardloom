@@ -2,7 +2,8 @@
 
 # Conditional investigation sequence — October 19, 2026
 
-Status: active sequencing decision; no investigation is completed by this intake.
+Status: active conditional-first pass; one finite candidate evaluated and rejected,
+20 rows awaiting their first decision in this pass. No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
 rest of the queue, after the PR boundary. Public API/guide work is in
 [PR #1577](https://github.com/depsilon/shardloom/pull/1577); finite native spill
@@ -43,8 +44,8 @@ Do not lower correctness or repeatability gates to force a positive result.
 
 ## Sequence and prerequisites
 
-All rows initially remain pending. Related rows may share inventories or a
-coherent validation batch, but each retains its own cost signal and decision.
+The sequence below retains all 21 original rows. Related rows may share inventories
+or a coherent validation batch, but each retains its own cost signal and decision.
 Dependency changes may reorder rows within this pass, never silently remove one.
 
 | Order | Existing conditional ID | Investigation boundary and prerequisite |
@@ -70,6 +71,18 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | 19 | `PERF-12.topology` | A newly admitted mechanism precedes the immutable 100M-row, 129-call comparison. Preserve the rejected coalescing decision and original complete-output protocol. |
 | 20 | `PERF-13.pgo` | Establish material instruction/dispatch cost, then freeze representative/held-out training, compilation/transfer break-even and portable-package correctness. |
 | 21 | `NATIVE-ENCODED-EXCHANGE.experiment` | First complete the scoped pinned-provider protocol/ownership/security review; then compare a bounded producer/transport/receiver/real-consumer path with matched Arrow/Flight and ordinary Vortex IPC controls. Local transfer is not transport proof. |
+
+## Recorded decisions in this pass
+
+| Existing conditional ID | Finite result | Remaining boundary |
+| --- | --- | --- |
+| `PERF-03.codec_preparation` | [One idle prepared-dictionary candidate rejected](native-codec-preparation-2026-10-19.md). Both complete-workload cohorts missed the frozen benefit threshold, and one control failed its regression bound. All experimental code was archived and removed. | Further retention requires a materially different mechanism and a new protocol. Broader physical-reader caching and all other PERF-03 obligations remain open. |
+
+This is one evaluated mechanism, not closure of an entire conditional substep.
+The phase checklist therefore retains its 58 substeps, including 21 conditional
+rows. The next investigation is `PERF-02.physical_cache`.
+
+## Deferred required work
 
 The fixed-count/known-bound nonreplacement sampling baseline is preserved on
 `codex/native-sampling-candidates` at `2bea9553`. It adds only the deterministic
