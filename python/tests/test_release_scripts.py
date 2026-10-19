@@ -5755,6 +5755,21 @@ class ReleaseScriptTests(unittest.TestCase):
             ],
         }
 
+    def test_production_certification_claim_surfaces_match_current_sources(self) -> None:
+        module = self._load_script_module(
+            "check_production_certification_gate.py",
+            "check_production_certification_gate_sources_for_test",
+        )
+
+        report, blockers = module.validate_claim_surfaces(REPO_ROOT)
+
+        self.assertEqual(blockers, [])
+        self.assertEqual(report["status"], "passed")
+        self.assertEqual(
+            {row["path"] for row in report["surfaces"]},
+            set(module.CLAIM_SURFACE_REFS),
+        )
+
     def test_production_certification_gate_passes_with_blocked_workload(self) -> None:
         module = self._load_script_module(
             "check_production_certification_gate.py",
