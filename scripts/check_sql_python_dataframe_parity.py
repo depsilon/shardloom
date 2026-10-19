@@ -336,13 +336,11 @@ def load_dataframe_method_matrix(repo_root: Path) -> Any:
     src = repo_root / "python" / "src"
     if str(src) not in sys.path:
         sys.path.insert(0, str(src))
-    from shardloom import ShardLoomBinaryNotFoundError, ShardLoomContext
     from shardloom.context import DATAFRAME_METHOD_CAPABILITY_ROWS
 
-    try:
-        return ShardLoomContext(client=None).dataframe_method_matrix()
-    except ShardLoomBinaryNotFoundError:
-        return SimpleNamespace(rows=DATAFRAME_METHOD_CAPABILITY_ROWS)
+    # This source contract checks static rows, not installed backend availability.
+    # The runtime matrix uses these same rows with an execution capability envelope.
+    return SimpleNamespace(rows=DATAFRAME_METHOD_CAPABILITY_ROWS)
 
 
 def load_dataframe_future_contract_matrix(repo_root: Path) -> Any:
