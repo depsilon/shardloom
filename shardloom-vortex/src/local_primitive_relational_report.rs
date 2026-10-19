@@ -56,13 +56,24 @@ pub(super) fn certificate(
         input.replay_buffer_bytes_copied, input.replay_spilled_sources,
         input.replay_prefilled_sources,
     ));
-    let subquery_proof = input.map_or_else(String::new, |input| format!(
+    let subquery_population = format!(
+        "spillable_subquery_stages={} spilled_subquery_stages={} spillable_subquery_input_rows={} spillable_subquery_indexed_rows={} spillable_subquery_probe_rows={} spillable_subquery_candidate_rows={} spillable_subquery_lookup_blocks={}",
+        metrics.spillable_subquery_stages.get(),
+        metrics.spilled_subquery_stages.get(),
+        metrics.spillable_subquery_input_rows.get(),
+        metrics.spillable_subquery_indexed_rows.get(),
+        metrics.spillable_subquery_probe_rows.get(),
+        metrics.spillable_subquery_candidate_rows.get(),
+        metrics.spillable_subquery_lookup_blocks.get(),
+    );
+    let subquery_input = input.map_or_else(String::new, |input| format!(
         "streaming_subquery_outer_batches_detached={} streaming_subquery_outer_rows_detached={} streaming_subquery_build_batches_detached={} streaming_subquery_build_rows_detached={} streaming_subquery_validation_sources={} streaming_subquery_validation_batches={} streaming_subquery_validation_rows={}",
         input.subquery_outer_batches_detached, input.subquery_outer_rows_detached,
         input.subquery_build_batches_detached, input.subquery_build_rows_detached,
         input.subquery_validation_sources, input.subquery_validation_batches,
         input.subquery_validation_rows,
     ));
+    let subquery_proof = format!("{subquery_population} {subquery_input}");
     let pivot_proof = format!(
         "spilled_pivot_stages={} spilled_pivot_input_rows={} spilled_pivot_index_rows={} spilled_pivot_domains={} spilled_pivot_cells={} spilled_pivot_lookup_blocks={} spilled_pivot_reader_opens={}",
         metrics.spilled_pivot_stages.get(),

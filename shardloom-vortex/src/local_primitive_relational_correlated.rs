@@ -46,19 +46,14 @@ impl PreparedVortexRelational {
                 for &row in &selected.values {
                     context.check_cancelled()?;
                     let parameter = take_batch(&left.array, &input.fields, &[row], context)?;
-                    let mut subquery =
-                        native_relational_subquery::Subquery::new(spec, context.memory())?;
-                    let mut build = |array| {
-                        subquery.build(metrics.detach_subquery_build(array, context)?, context)
-                    };
-                    match relation {
-                        SubqueryRelation::Bound(relation) => self.run(
+                    let mut subquery = match relation {
+                        SubqueryRelation::Bound(relation) => self.complete_subquery(
+                            spec,
                             relation,
                             context,
                             metrics,
                             batch_rows,
                             Some(&parameter),
-                            &mut build,
                         )?,
                         SubqueryRelation::Dynamic(declaration) => {
                             let mut preparation = VortexRelationalPreparation {
@@ -77,17 +72,19 @@ impl PreparedVortexRelational {
                             let root = preparation.binding.bind(&plan, 0)?;
                             preparation.binding.ensure_consumed()?;
                             bind::validate_subquery_relation(spec, &input.fields, &root.fields)?;
-                            self.run(
+                            self.complete_subquery(
+                                spec,
                                 &root,
                                 context,
                                 metrics,
                                 batch_rows,
                                 Some(&parameter),
-                                &mut build,
-                            )?;
+                            )?
                         }
-                    }
-                    values.push(&subquery, &left, row, context)?;
+                    };
+                    subquery.push_result(&mut values, &left, row, context)?;
+                    // The next parameter must not retain this inner reader/run.
+                    metrics.record_subquery(&subquery.finish(context)?)?;
                 }
                 consume(values.finish(spec, &left.array, context)?)?;
                 context.check_cancelled()
@@ -113,12 +110,12 @@ impl PreparedVortexRelational {
         else {
             return Err(failed("uncorrelated subquery requires a bound relation"));
         };
-        let mut subquery = native_relational_subquery::Subquery::new(spec, context.memory())?;
+        let mut subquery = native_relational_subquery::Ready::empty(spec, context)?;
         if spec.guard.is_some()
             || matches!(spec.kind, native_relational_subquery::Kind::Scalar { .. })
         {
             let mut initialized = false;
-            return self.run(
+            self.run(
                 input,
                 context,
                 metrics,
@@ -127,38 +124,73 @@ impl PreparedVortexRelational {
                 &mut |array| {
                     let selected = spec.selected_rows(&array, context)?;
                     if !initialized && !selected.values.is_empty() {
-                        self.run(
-                            relation,
-                            context,
-                            metrics,
-                            batch_rows,
-                            parameter,
-                            &mut |array| {
-                                subquery
-                                    .build(metrics.detach_subquery_build(array, context)?, context)
-                            },
+                        subquery = self.complete_subquery(
+                            spec, relation, context, metrics, batch_rows, parameter,
                         )?;
                         initialized = true;
                     }
                     subquery.consume_selected(array, &selected.values, context, consume)
                 },
-            );
+            )?;
+        } else {
+            subquery =
+                self.complete_subquery(spec, relation, context, metrics, batch_rows, parameter)?;
+            self.run(
+                input,
+                context,
+                metrics,
+                batch_rows,
+                parameter,
+                &mut |array| subquery.consume(array, context, consume),
+            )?;
         }
-        self.run(
-            relation,
+        metrics.record_subquery(&subquery.finish(context)?)
+    }
+
+    #[allow(clippy::too_many_arguments)] // One bound inner node and its existing execution context.
+    fn complete_subquery<'a>(
+        &self,
+        spec: &'a native_relational_subquery::Spec,
+        relation: &Node,
+        context: &NativeExecutionContext<'_>,
+        metrics: &'a Metrics<'_>,
+        batch_rows: usize,
+        parameter: Option<&ArrayRef>,
+    ) -> Result<native_relational_subquery::Ready<'a>> {
+        #[cfg(feature = "vortex-write")]
+        let detaches_keys = metrics.spill.is_some()
+            && !matches!(spec.kind, native_relational_subquery::Kind::Scalar { .. });
+        #[cfg(not(feature = "vortex-write"))]
+        let detaches_keys = false;
+        native_relational_subquery::Ready::build(
+            spec,
+            &relation.fields,
             context,
-            metrics,
             batch_rows,
-            parameter,
-            &mut |array| subquery.build(metrics.detach_subquery_build(array, context)?, context),
-        )?;
-        self.run(
-            input,
-            context,
-            metrics,
-            batch_rows,
-            parameter,
-            &mut |array| subquery.consume(array, context, consume),
+            #[cfg(feature = "vortex-write")]
+            metrics.spill.as_ref(),
+            |accept| {
+                self.run(
+                    relation,
+                    context,
+                    metrics,
+                    batch_rows,
+                    parameter,
+                    &mut |array| {
+                        if detaches_keys {
+                            // The predicate builder validates all keys and copies
+                            // its private key records before releasing this batch.
+                            // A full-row copy here would duplicate that ownership
+                            // and overlap input replay plus native merge readers.
+                            let rows = array.len();
+                            accept(array)?;
+                            metrics.record_detached_subquery_build(rows)
+                        } else {
+                            accept(metrics.detach_subquery_build(array, context)?)
+                        }
+                    },
+                )
+            },
         )
     }
 }

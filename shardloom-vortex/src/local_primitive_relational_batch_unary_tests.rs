@@ -9,7 +9,7 @@ mod fault_tests;
 mod pressure_tests;
 
 #[path = "local_primitive_relational_unary_membership_tests.rs"]
-mod membership_tests;
+pub(in crate::local_primitives) mod membership_tests;
 use crate::query_primitive::{
     VortexDuplicateKeepPolicy as Keep, VortexExplodeProjectionRequest,
     VortexExpressionProjectionRequest, VortexExpressionRewrite as Rewrite,

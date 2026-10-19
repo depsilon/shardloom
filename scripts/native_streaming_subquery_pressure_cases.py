@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Bounded inner scans, shared native replay and credited resident-state denial."""
+"""Bounded inners, separate source replay and native predicate pressure."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import shardloom as sl
 from shardloom.errors import ShardLoomCommandError
 from native_streaming_subquery_cases import SCHEMA, complete_inputs
 from native_streaming_unary_cases import frame
+from native_workflow_outputs import verify_output
 
 
 def large_frame(harness, count, width):
@@ -97,9 +98,9 @@ def run(harness):
             return {"trace": trace, "grant": grant, "actual_spilled_replay": spilling}
         harness.case(name, shared)
 
-        name = f"subquery-membership-resident-denial-spill-{spilling}"
+        name = f"subquery-membership-original-pressure-spill-{spilling}"
 
-        def denied(name=name, spilling=spilling):
+        def membership(name=name, spilling=spilling):
             grant, count = 8 << 20, 8193
             left, a = frame(harness, [dict(n=0, s="00000000" + "p" * 4096)], SCHEMA, width=1)
             right, b = large_frame(harness, count, 4096)
@@ -109,16 +110,36 @@ def run(harness):
                 requested["spill"] = spill
             target = harness.output / (name + ".vortex")
             before = set(harness.output.iterdir())
-            try:
-                query.write_vortex(target, **requested)
-            except ShardLoomCommandError as error:
-                harness.envelope(name, error.envelope, success=False)
-                assert "reservation denied" in json.dumps(error.envelope.raw), error.envelope.raw
+            if spilling:
+                report = query.write_vortex(target, **requested)
+                expected = [dict(n=0, s="00000000" + "p" * 4096, answer=True)]
+                complete_inputs(harness, name, report.envelope, [a, b], grant=grant)
+                assert report.envelope.field_int("native_input_replay_sources") == 0
+                assert report.envelope.field_int("relational_spillable_subquery_stages") == 1
+                assert report.envelope.field_int("relational_spilled_subquery_stages") == 1
+                assert report.envelope.field_int("relational_spillable_subquery_input_rows") == count
+                assert report.envelope.field_int("relational_spillable_subquery_indexed_rows") == count
+                assert report.envelope.field_int("relational_spillable_subquery_probe_rows") == 1
+                assert report.envelope.field_int("relational_spill_runs_written") > 2
+                assert report.envelope.field_int("relational_spill_merge_passes") > 0
+                assert report.envelope.field_bool("relational_spill_owned_cleanup_completed") is True
+                verify_output(
+                    harness.context, target, "vortex", expected, ["n", "s", "answer"],
+                    name=name + "-reopened",
+                    accepted=lambda label, result: harness.envelope(label, result.envelope) or result.envelope,
+                    complete=lambda label, actual, wanted, _path=None: harness.values(label, actual, wanted),
+                )
             else:
-                raise AssertionError("source replay spill silently spilled resident subquery state")
-            assert a["opened"] == 0
-            assert 0 < b["rows"] < count and b["closed"] and not b["ended"]
-            assert set(harness.output.iterdir()) == before and not target.exists()
+                try:
+                    query.write_vortex(target, **requested)
+                except ShardLoomCommandError as error:
+                    harness.envelope(name, error.envelope, success=False)
+                    assert "reservation denied" in json.dumps(error.envelope.raw), error.envelope.raw
+                else:
+                    raise AssertionError("resident subquery state exceeded its original grant")
+                assert a["opened"] == 0
+                assert 0 < b["rows"] < count and b["closed"] and not b["ended"]
+                assert set(harness.output.iterdir()) == before and not target.exists()
             clean()
             # A fresh finite subquery on the same client proves failure cleanup.
             outer, a2 = frame(harness, [dict(n=1, s="small")], SCHEMA)
@@ -127,8 +148,9 @@ def run(harness):
             harness.values(name + "-fresh", report.result_rows, [dict(n=1, s="small", answer=True)])
             complete_inputs(harness, name + "-fresh", report.envelope, [a2, b2], grant=grant)
             clean()
-            return {"traces": [a, b], "grant": grant, "resident_state_denied": True, "fresh_completed": True}
-        harness.case(name, denied)
+            return {"traces": [a, b], "grant": grant, "resident_state_denied": not spilling,
+                    "native_membership_completed": spilling, "fresh_completed": True}
+        harness.case(name, membership)
 
     name = "subquery-prefill-quota-denial"
 

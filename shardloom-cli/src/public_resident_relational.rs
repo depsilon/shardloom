@@ -668,6 +668,34 @@ pub(super) fn append_execution(
             result.spillable_sampling_lookup_blocks.to_string(),
         ),
         (
+            "relational_spillable_subquery_stages".into(),
+            result.spillable_subquery_stages.to_string(),
+        ),
+        (
+            "relational_spilled_subquery_stages".into(),
+            result.spilled_subquery_stages.to_string(),
+        ),
+        (
+            "relational_spillable_subquery_input_rows".into(),
+            result.spillable_subquery_input_rows.to_string(),
+        ),
+        (
+            "relational_spillable_subquery_indexed_rows".into(),
+            result.spillable_subquery_indexed_rows.to_string(),
+        ),
+        (
+            "relational_spillable_subquery_probe_rows".into(),
+            result.spillable_subquery_probe_rows.to_string(),
+        ),
+        (
+            "relational_spillable_subquery_candidate_rows".into(),
+            result.spillable_subquery_candidate_rows.to_string(),
+        ),
+        (
+            "relational_spillable_subquery_lookup_blocks".into(),
+            result.spillable_subquery_lookup_blocks.to_string(),
+        ),
+        (
             "relational_ordered_join_build_rows".into(),
             result.ordered_join_build_rows.to_string(),
         ),

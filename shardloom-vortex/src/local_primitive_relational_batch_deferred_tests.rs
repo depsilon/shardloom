@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::relational_query::{
-    VortexRelationalQuantifier as Quantifier, VortexRelationalSubquery,
-    VortexRelationalSubqueryKind as Kind,
+    VortexRelationalQuantifier as Quantifier, VortexRelationalSpillPolicy,
+    VortexRelationalSubquery, VortexRelationalSubqueryKind as Kind,
 };
 use serde_json::{Value, json};
 use shardloom_core::{ComparisonOp, ExpressionKind, ScalarValue};
@@ -86,6 +86,7 @@ fn collect(prepared: &PreparedVortexRelational) -> (CollectedVortexRelational, [
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Keep both pressure strategies beside the same complete replay oracle.
 fn streaming_dynamic_subqueries_preserve_predicates_parameter_schemas_replay_and_owner_release() {
     let mut cases = vec![
         (
@@ -130,56 +131,86 @@ fn streaming_dynamic_subqueries_preserve_predicates_parameter_schemas_replay_and
     }
     for shared in [false, true] {
         for (kind, negated, answer) in &cases {
-            let domains = Arc::new(Mutex::new(Vec::new()));
-            let observed = domains.clone();
-            let kind = kind.clone();
-            let negated = *negated;
-            let count = if shared { 1 } else { 2 };
-            let prepared = prepare_streams(count, move |schemas| {
-                let index = usize::from(!shared);
-                let observed = observed.clone();
-                let uri = DatasetUri::new(URIS[index])?;
-                let relation = schemas.defer_subquery_with_sources(
-                    &[uri.clone(), uri],
-                    65_536,
-                    move |schemas| {
-                        let (relation, columns) = schemas.resolve_output(&inner(index))?;
-                        observed.lock().unwrap().push(columns);
-                        Ok(project(relation, &["entity".into()]))
-                    },
-                )?;
-                let mut query = query(relation, kind.clone());
-                query.negated = negated;
-                Ok(VortexRelationalPlan::CorrelatedSubquery(Box::new(query)))
-            });
-            let baseline = prepared.snapshot().memory.reserved_bytes;
-            for execution in 1..=2 {
-                let (result, calls) = collect(&prepared);
-                assert_eq!(json_rows(&result), expected(*answer));
-                assert_eq!(calls, [4, if shared { 0 } else { 4 }]);
-                let input = result.execution.input.as_ref().unwrap();
-                assert_eq!(input.sources, count);
-                assert_eq!(input.replay_sources, 1);
-                assert_eq!(input.replay_prefilled_sources, u64::from(shared));
-                assert_eq!(input.replay_passes, if shared { 5 } else { 3 });
-                assert_eq!(input.replay_rows, if shared { 20 } else { 12 });
-                assert_eq!(result.execution.runtime.completed_executions, execution);
-                drop(result);
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            for spilling in [false, true] {
+                let fixture = Fixture::new(keyed(&[Some(0)], &[0]), 1);
+                let spill_directory = fixture.0.join("dynamic-subquery-matrix");
+                fs::create_dir(&spill_directory).unwrap();
+                let domains = Arc::new(Mutex::new(Vec::new()));
+                let observed = domains.clone();
+                let kind = kind.clone();
+                let negated = *negated;
+                let count = if shared { 1 } else { 2 };
+                let prepared = prepare_streams(count, move |schemas| {
+                    let index = usize::from(!shared);
+                    let observed = observed.clone();
+                    let uri = DatasetUri::new(URIS[index])?;
+                    let relation = schemas.defer_subquery_with_sources(
+                        &[uri.clone(), uri],
+                        65_536,
+                        move |schemas| {
+                            let (relation, columns) = schemas.resolve_output(&inner(index))?;
+                            observed.lock().unwrap().push(columns);
+                            Ok(project(relation, &["entity".into()]))
+                        },
+                    )?;
+                    let mut query = query(relation, kind.clone());
+                    query.negated = negated;
+                    Ok(VortexRelationalPlan::CorrelatedSubquery(Box::new(query)))
+                });
+                let prepared = if spilling {
+                    prepared
+                        .with_spill(
+                            VortexRelationalSpillPolicy::new(&spill_directory, 64 << 20, 1 << 20)
+                                .unwrap(),
+                        )
+                        .unwrap()
+                } else {
+                    prepared
+                };
+                let baseline = prepared.snapshot().memory.reserved_bytes;
+                for execution in 1..=2 {
+                    let (result, calls) = collect(&prepared);
+                    assert_eq!(json_rows(&result), expected(*answer));
+                    assert_eq!(calls, [4, if shared { 0 } else { 4 }]);
+                    let input = result.execution.input.as_ref().unwrap();
+                    assert_eq!(input.sources, count);
+                    assert_eq!(input.replay_sources, 1);
+                    assert_eq!(input.replay_prefilled_sources, u64::from(shared));
+                    assert_eq!(input.replay_passes, if shared { 5 } else { 3 });
+                    assert_eq!(input.replay_rows, if shared { 20 } else { 12 });
+                    assert_eq!(result.execution.runtime.completed_executions, execution);
+                    assert_eq!(
+                        result.execution.spillable_subquery_stages,
+                        if spilling { 4 } else { 0 }
+                    );
+                    if spilling {
+                        assert!(
+                            result
+                                .execution
+                                .spill
+                                .as_ref()
+                                .unwrap()
+                                .owned_cleanup_completed
+                        );
+                    }
+                    drop(result);
+                    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                    assert_eq!(fs::read_dir(&spill_directory).unwrap().count(), 0);
+                }
+                assert_eq!(
+                    *domains.lock().unwrap(),
+                    [
+                        vec!["entity", "pivot_a", "pivot_b"],
+                        vec!["entity", "pivot_a", "pivot_b"],
+                        vec!["entity", "pivot_a"],
+                        vec!["entity", "pivot_a"],
+                    ]
+                    .into_iter()
+                    .cycle()
+                    .take(8)
+                    .collect::<Vec<_>>()
+                );
             }
-            assert_eq!(
-                *domains.lock().unwrap(),
-                [
-                    vec!["entity", "pivot_a", "pivot_b"],
-                    vec!["entity", "pivot_a", "pivot_b"],
-                    vec!["entity", "pivot_a"],
-                    vec!["entity", "pivot_a"],
-                ]
-                .into_iter()
-                .cycle()
-                .take(8)
-                .collect::<Vec<_>>()
-            );
         }
     }
 }

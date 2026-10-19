@@ -151,6 +151,21 @@ pub struct ExecutedVortexRelational {
     pub spillable_sampling_replacement_draws: u64,
     /// Positional blocks loaded for replacement; excludes ordering merge scans.
     pub spillable_sampling_lookup_blocks: u64,
+    /// Completed predicate inner builds using the native spill-capable strategy.
+    /// Each selected parameter can build one instance; small key sets stay resident.
+    pub spillable_subquery_stages: u64,
+    /// Completed predicate inner populations retained in an actual native run.
+    /// Excludes source replay, inner operators and output replay spill.
+    pub spilled_subquery_stages: u64,
+    pub spillable_subquery_input_rows: u64,
+    /// Rows retained after complete key validation and null-correlation exclusion.
+    pub spillable_subquery_indexed_rows: u64,
+    /// Selected outer rows evaluated against those completed inner builds.
+    pub spillable_subquery_probe_rows: u64,
+    /// Exact-correlation candidate visits, including complete-key hash collisions.
+    pub spillable_subquery_candidate_rows: u64,
+    /// Positional blocks loaded; excludes source replay and ordering merge scans.
+    pub spillable_subquery_lookup_blocks: u64,
     /// Join nodes executed through the explicit ordered native spill strategy.
     pub ordered_join_stages: u64,
     pub ordered_join_build_rows: u64,
@@ -720,6 +735,13 @@ struct Metrics<'a> {
     spillable_sampling_output_rows: Cell<u64>,
     spillable_sampling_replacement_draws: Cell<u64>,
     spillable_sampling_lookup_blocks: Cell<u64>,
+    spillable_subquery_stages: Cell<u64>,
+    spilled_subquery_stages: Cell<u64>,
+    spillable_subquery_input_rows: Cell<u64>,
+    spillable_subquery_indexed_rows: Cell<u64>,
+    spillable_subquery_probe_rows: Cell<u64>,
+    spillable_subquery_candidate_rows: Cell<u64>,
+    spillable_subquery_lookup_blocks: Cell<u64>,
     ordered_join_stages: Cell<u64>,
     ordered_join_build_rows: Cell<u64>,
     ordered_join_probe_rows: Cell<u64>,
@@ -748,6 +770,19 @@ struct Metrics<'a> {
 }
 
 impl Metrics<'_> {
+    fn record_subquery(&self, report: &super::native_relational_subquery::Report) -> Result<()> {
+        add(&self.spillable_subquery_stages, report.stages)?;
+        add(&self.spilled_subquery_stages, report.spilled_stages)?;
+        add(&self.spillable_subquery_input_rows, report.input_rows)?;
+        add(&self.spillable_subquery_indexed_rows, report.indexed_rows)?;
+        add(&self.spillable_subquery_probe_rows, report.probe_rows)?;
+        add(
+            &self.spillable_subquery_candidate_rows,
+            report.candidate_rows,
+        )?;
+        add(&self.spillable_subquery_lookup_blocks, report.lookup_blocks)
+    }
+
     fn detach_subquery_build(
         &self,
         array: ArrayRef,
@@ -761,9 +796,16 @@ impl Metrics<'_> {
             super::native_payload::CopyPolicy::PreserveUnobserved,
             context,
         )?;
-        add(&self.subquery_build_batches_detached, 1)?;
-        add(&self.subquery_build_rows_detached, array.len() as u64)?;
+        self.record_detached_subquery_build(array.len())?;
         Ok(detached)
+    }
+
+    fn record_detached_subquery_build(&self, rows: usize) -> Result<()> {
+        if self.input.is_some() && rows != 0 {
+            add(&self.subquery_build_batches_detached, 1)?;
+            add(&self.subquery_build_rows_detached, rows as u64)?;
+        }
+        Ok(())
     }
 
     fn record_pivot_spill(&self, report: PivotSpillReport) -> Result<()> {
@@ -1215,6 +1257,13 @@ impl PreparedVortexRelational {
                     .spillable_sampling_replacement_draws
                     .get(),
                 spillable_sampling_lookup_blocks: metrics.spillable_sampling_lookup_blocks.get(),
+                spillable_subquery_stages: metrics.spillable_subquery_stages.get(),
+                spilled_subquery_stages: metrics.spilled_subquery_stages.get(),
+                spillable_subquery_input_rows: metrics.spillable_subquery_input_rows.get(),
+                spillable_subquery_indexed_rows: metrics.spillable_subquery_indexed_rows.get(),
+                spillable_subquery_probe_rows: metrics.spillable_subquery_probe_rows.get(),
+                spillable_subquery_candidate_rows: metrics.spillable_subquery_candidate_rows.get(),
+                spillable_subquery_lookup_blocks: metrics.spillable_subquery_lookup_blocks.get(),
                 ordered_join_stages: metrics.ordered_join_stages.get(),
                 ordered_join_build_rows: metrics.ordered_join_build_rows.get(),
                 ordered_join_probe_rows: metrics.ordered_join_probe_rows.get(),

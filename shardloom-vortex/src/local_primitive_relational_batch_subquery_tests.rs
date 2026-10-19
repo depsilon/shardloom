@@ -18,6 +18,9 @@ mod pressure_tests;
 #[path = "local_primitive_relational_batch_subquery_fault_tests.rs"]
 mod fault_tests;
 
+#[path = "local_primitive_relational_subquery_membership_tests.rs"]
+mod membership_tests;
+
 type Row = (Option<i64>, Option<&'static str>);
 const URIS: [&str; 2] = ["memory://stream", "memory://inner"];
 const LEFT: [Row; 4] = [
@@ -248,50 +251,70 @@ fn streaming_subqueries_predicates_preserve_nulls_negation_correlations_and_batc
     }
     for (name, kind, negated, answers) in cases {
         for width in [1, 3] {
-            let mut declaration = query(input_scan(0), input_scan(1), kind.clone());
-            declaration.negated = negated;
-            let plan = VortexRelationalPlan::Subquery(Box::new(declaration));
-            let prepared = prepare_sources(&plan, 2, 8 << 20).unwrap();
-            let baseline = prepared.snapshot().memory.reserved_bytes;
-            for execution in 1..=2 {
-                let mut inputs = Inputs::new(&LEFT, &RIGHT, width);
-                let mut held = Vec::new();
-                let mut actual = Vec::new();
-                let result = prepared
-                    .with_batch_inputs(&mut |uri, ordinal, session| {
-                        inputs.next(uri, ordinal, session)
-                    })
-                    .unwrap()
-                    .for_each_batch(&CancellationToken::default(), |array, context| {
-                        actual.extend(values(&array, context)?);
-                        held.push(array);
-                        Ok(())
-                    })
-                    .unwrap();
-                assert_eq!(actual, expected(&answers), "{name} width={width}");
-                assert_eq!(
-                    inputs.calls,
-                    [
-                        (LEFT.len().div_ceil(width) + 2) as u64,
-                        (RIGHT.len().div_ceil(width) + 2) as u64
-                    ]
-                );
-                let input = result.input.as_ref().unwrap();
-                assert_eq!(input.sources, 2);
-                assert_eq!(input.rows, 7);
-                assert_eq!(input.max_retained_input_batches, 1);
-                assert_eq!(input.subquery_build_rows_detached, 3);
-                assert_eq!(input.subquery_outer_rows_detached, 0);
-                assert_eq!(input.subquery_validation_sources, 0);
-                assert_eq!(input.replay_sources, 0);
-                assert!(input.end_of_input_observed && input.output_ownership_detached);
-                assert!(result.native_io_certificate.is_certified());
-                assert!(!result.native_io_certificate.side_effects.fallback_attempted);
-                assert_eq!(result.runtime.completed_executions, execution);
-                drop(result);
-                assert!(prepared.snapshot().memory.reserved_bytes > baseline);
-                drop(held);
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            for spilling in [false, true] {
+                let fixture = Fixture::new(keyed(&[Some(0)], &[0]), 1);
+                let spill_directory = fixture.0.join("subquery-predicate-matrix");
+                fs::create_dir(&spill_directory).unwrap();
+                let mut declaration = query(input_scan(0), input_scan(1), kind.clone());
+                declaration.negated = negated;
+                let plan = VortexRelationalPlan::Subquery(Box::new(declaration));
+                let mut prepared = prepare_sources(&plan, 2, 8 << 20).unwrap();
+                if spilling {
+                    prepared = prepared
+                        .with_spill(
+                            VortexRelationalSpillPolicy::new(&spill_directory, 64 << 20, 1 << 20)
+                                .unwrap(),
+                        )
+                        .unwrap();
+                }
+                let baseline = prepared.snapshot().memory.reserved_bytes;
+                for execution in 1..=2 {
+                    let mut inputs = Inputs::new(&LEFT, &RIGHT, width);
+                    let mut held = Vec::new();
+                    let mut actual = Vec::new();
+                    let result = prepared
+                        .with_batch_inputs(&mut |uri, ordinal, session| {
+                            inputs.next(uri, ordinal, session)
+                        })
+                        .unwrap()
+                        .for_each_batch(&CancellationToken::default(), |array, context| {
+                            actual.extend(values(&array, context)?);
+                            held.push(array);
+                            Ok(())
+                        })
+                        .unwrap();
+                    assert_eq!(actual, expected(&answers), "{name} width={width}");
+                    assert_eq!(
+                        inputs.calls,
+                        [
+                            (LEFT.len().div_ceil(width) + 2) as u64,
+                            (RIGHT.len().div_ceil(width) + 2) as u64
+                        ]
+                    );
+                    let input = result.input.as_ref().unwrap();
+                    assert_eq!(input.sources, 2);
+                    assert_eq!(input.rows, 7);
+                    assert_eq!(input.max_retained_input_batches, 1);
+                    assert_eq!(input.subquery_build_rows_detached, 3);
+                    assert_eq!(input.subquery_outer_rows_detached, 0);
+                    assert_eq!(input.subquery_validation_sources, 0);
+                    assert_eq!(input.replay_sources, 0);
+                    assert!(input.end_of_input_observed && input.output_ownership_detached);
+                    assert!(result.native_io_certificate.is_certified());
+                    assert!(!result.native_io_certificate.side_effects.fallback_attempted);
+                    assert_eq!(result.runtime.completed_executions, execution);
+                    assert_eq!(result.spillable_subquery_stages, u64::from(spilling));
+                    if spilling {
+                        assert!(result.spill.as_ref().unwrap().owned_cleanup_completed);
+                    }
+                    drop(result);
+                    assert!(prepared.snapshot().memory.reserved_bytes > baseline);
+                    drop(held);
+                    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                    if spilling {
+                        assert_eq!(fs::read_dir(&spill_directory).unwrap().count(), 0);
+                    }
+                }
             }
         }
     }
@@ -301,24 +324,55 @@ fn streaming_subqueries_predicates_preserve_nulls_negation_correlations_and_batc
             columns: vec![key("n")],
         },
     ] {
-        let mut declaration = query(input_scan(0), input_scan(1), kind);
-        declaration.correlation = vec![key("s")];
-        let prepared = prepare_sources(
-            &VortexRelationalPlan::Subquery(Box::new(declaration)),
-            2,
-            8 << 20,
-        )
-        .unwrap();
-        let mut inputs = Inputs::new(&LEFT, &RIGHT, 2);
-        let result = prepared
-            .with_batch_inputs(&mut |uri, ordinal, session| inputs.next(uri, ordinal, session))
-            .unwrap()
-            .collect_jsonl(&CancellationToken::default())
+        for spilling in [false, true] {
+            let fixture = Fixture::new(keyed(&[Some(0)], &[0]), 1);
+            let spill_directory = fixture.0.join("subquery-correlated-matrix");
+            fs::create_dir(&spill_directory).unwrap();
+            let mut declaration = query(input_scan(0), input_scan(1), kind.clone());
+            declaration.correlation = vec![key("s")];
+            let mut prepared = prepare_sources(
+                &VortexRelationalPlan::Subquery(Box::new(declaration)),
+                2,
+                8 << 20,
+            )
             .unwrap();
-        assert_eq!(
-            json_rows(&result),
-            expected(&[json!(false), json!(true), json!(false), json!(false)])
-        );
+            if spilling {
+                prepared = prepared
+                    .with_spill(
+                        VortexRelationalSpillPolicy::new(&spill_directory, 64 << 20, 1 << 20)
+                            .unwrap(),
+                    )
+                    .unwrap();
+            }
+            let mut inputs = Inputs::new(&LEFT, &RIGHT, 2);
+            let result = prepared
+                .with_batch_inputs(&mut |uri, ordinal, session| inputs.next(uri, ordinal, session))
+                .unwrap()
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            assert_eq!(
+                json_rows(&result),
+                expected(&[json!(false), json!(true), json!(false), json!(false)])
+            );
+            assert_eq!(
+                result.execution.spillable_subquery_stages,
+                u64::from(spilling)
+            );
+            if spilling {
+                assert!(
+                    result
+                        .execution
+                        .spill
+                        .as_ref()
+                        .unwrap()
+                        .owned_cleanup_completed
+                );
+            }
+            drop(result);
+            if spilling {
+                assert_eq!(fs::read_dir(&spill_directory).unwrap().count(), 0);
+            }
+        }
     }
 }
 

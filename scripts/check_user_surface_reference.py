@@ -293,7 +293,12 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         ("subquery_nested_demand_requires_original_owner_release", True),
         ("subquery_shared_source_replay_completed_before_query", True),
         ("subquery_unused_producers", "raw_validation_without_skipped_expression_or_cardinality_evaluation"),
-        ("subquery_state_spill", False),
+        ("subquery_state_spill", True),
+        ("subquery_state_spill_scope", "shared_relational_non_scalar_predicates;explicit_native_query_spill;vortex_write_unix"),
+        ("subquery_state_spill_reference", "docs/architecture/native-subquery-membership-spill-2026-10-19.md"),
+        ("subquery_state_spill_operations", ["in", "exists", "quantified-any", "quantified-all"]),
+        ("subquery_state_spill_inner_scope", "statically_bound_or_declared_parameter_specific_schema"),
+        ("scalar_subquery_state", "resident_zero_or_one_selected_row;cardinality_error_preserved"),
         ("opaque_deferred_subquery_streaming", False),
         ("dynamic_subquery_reference", "docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md"),
         ("dynamic_subquery_acceptance_reference", "docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md"),
@@ -357,6 +362,11 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         "local_acceptance_in_progress", "locally_accepted_hosted_pending",
     ):
         blockers.append(f"{JSON_PATH}: unary membership spill must retain its finite local acceptance status")
+
+    if streaming.get("subquery_state_spill_acceptance_status") not in (
+        "local_acceptance_in_progress", "locally_accepted_hosted_pending",
+    ):
+        blockers.append(f"{JSON_PATH}: subquery predicate spill must retain its finite local acceptance status")
 
     relational_spill = payload.get("native_relational_order_spill", {})
     for field in ("cleanup_required_before_publication", "stable_ties", "multiple_keys", "relational_fanout"):

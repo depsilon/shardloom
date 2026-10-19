@@ -1,4 +1,4 @@
-//! Replay ownership and resident subquery state have separate resource contracts.
+//! Replay and predicate state retain separate resource contracts under pressure.
 
 use super::*;
 
@@ -153,7 +153,7 @@ fn streaming_subqueries_bounded_inner_aggregate_consumes_more_than_grant_without
 }
 
 #[test]
-fn streaming_subqueries_resident_membership_denial_is_not_hidden_by_replay_spill() {
+fn streaming_subqueries_membership_original_pressure_completes_only_with_native_strategy() {
     let fixture = Fixture::new(keyed(&[Some(0)], &[0]), 1);
     let directory = fixture.0.join("resident-state");
     fs::create_dir(&directory).unwrap();
@@ -174,6 +174,7 @@ fn streaming_subqueries_resident_membership_denial_is_not_hidden_by_replay_spill
         };
         let baseline = prepared.snapshot().memory.reserved_bytes;
         let mut calls = [0_u64; 2];
+        let mut delivered = 0;
         let result = prepared
             .with_batch_inputs(&mut |uri, ordinal, session| {
                 let index = usize::from(uri.as_str() == URIS[1]);
@@ -182,17 +183,45 @@ fn streaming_subqueries_resident_membership_denial_is_not_hidden_by_replay_spill
                 large_source(session, ordinal, 8193, 2048)
             })
             .unwrap()
-            .for_each_batch(&CancellationToken::default(), |_, _| {
-                panic!("eager build denial must precede output")
+            .for_each_batch(&CancellationToken::default(), |array, context| {
+                assert!(spilling, "eager resident build denial must precede output");
+                for row in values(&array, context)? {
+                    assert_eq!(
+                        row,
+                        json!({
+                            "n": delivered,
+                            "s": format!("{delivered:08}{}", "p".repeat(2048)),
+                            "answer": true,
+                        })
+                    );
+                    delivered += 1;
+                }
+                Ok(())
             });
-        let error = result
-            .err()
-            .expect("resident membership must exceed its grant")
-            .to_string();
-        assert!(error.contains("reservation denied"), "{error}");
-        assert_eq!(calls[0], 0, "inner build is eager");
-        assert!(calls[1] > 1 && calls[1] < 8193_usize.div_ceil(127) as u64);
-        assert_eq!(prepared.snapshot().completed_executions, 0);
+        if spilling {
+            let report = result.unwrap();
+            assert_eq!(delivered, 8193);
+            assert_eq!(calls, [(8193_usize.div_ceil(127) + 1) as u64; 2]);
+            assert_eq!(report.spillable_subquery_stages, 1);
+            assert_eq!(report.spillable_subquery_input_rows, 8193);
+            assert_eq!(report.spillable_subquery_indexed_rows, 8193);
+            assert_eq!(report.spillable_subquery_probe_rows, 8193);
+            assert_eq!(report.input.as_ref().unwrap().replay_sources, 0);
+            assert!(report.spill.as_ref().unwrap().owned_cleanup_completed);
+            assert!(report.runtime.memory.peak_reserved_bytes <= 4 << 20);
+        } else {
+            let error = result
+                .err()
+                .expect("resident membership must exceed its grant")
+                .to_string();
+            assert!(error.contains("reservation denied"), "{error}");
+            assert_eq!(calls[0], 0, "inner build is eager");
+            assert!(calls[1] > 1 && calls[1] < 8193_usize.div_ceil(127) as u64);
+        }
+        assert_eq!(
+            prepared.snapshot().completed_executions,
+            u64::from(spilling)
+        );
         assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
         assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
         assert_eq!(fs::read(directory.join("foreign")).unwrap(), b"keep");

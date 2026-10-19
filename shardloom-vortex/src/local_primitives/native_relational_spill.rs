@@ -199,6 +199,7 @@ pub(super) struct Ordering<'p, 's> {
     block_rows: usize,
     work: Option<Arc<MemoryLease>>,
     retained_bytes: u64,
+    buffer_bytes: u64,
 }
 
 impl<'p, 's> Ordering<'p, 's> {
@@ -216,7 +217,18 @@ impl<'p, 's> Ordering<'p, 's> {
             block_rows: batch_rows.clamp(1, BLOCK_ROWS),
             work: None,
             retained_bytes: 0,
+            buffer_bytes: state.policy.buffer_bytes,
         })
+    }
+
+    /// A concurrent consumer may need a smaller batching threshold. This never
+    /// enlarges the authorized buffer or creates an independent memory grant.
+    pub(super) fn limit_buffer(&mut self, bytes: u64) -> Result<()> {
+        if bytes == 0 || self.sort.rows() != 0 || !self.runs.values.is_empty() {
+            return Err(failed("sort buffer must be bounded before its first input"));
+        }
+        self.buffer_bytes = self.buffer_bytes.min(bytes);
+        Ok(())
     }
 
     pub(super) fn build(
@@ -226,7 +238,7 @@ impl<'p, 's> Ordering<'p, 's> {
     ) -> Result<()> {
         context.check_cancelled()?;
         let incoming = self.sort.incoming_bytes(&array)?;
-        if incoming > self.state.policy.buffer_bytes {
+        if incoming > self.buffer_bytes {
             // A lazy take/field view may retain a much larger input domain. Only
             // when retention crosses the threshold, compact selected native rows
             // instead of rejecting an otherwise small logical batch.
@@ -248,7 +260,7 @@ impl<'p, 's> Ordering<'p, 's> {
                         context,
                     )?;
                     let bytes = self.sort.incoming_bytes(&compact)?;
-                    if bytes <= self.state.policy.buffer_bytes {
+                    if bytes <= self.buffer_bytes {
                         self.build_admitted(compact, bytes, context)?;
                         break;
                     }
@@ -276,13 +288,7 @@ impl<'p, 's> Ordering<'p, 's> {
         incoming: u64,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
-        if incoming
-            > self
-                .state
-                .policy
-                .buffer_bytes
-                .saturating_sub(self.retained_bytes)
-        {
+        if incoming > self.buffer_bytes.saturating_sub(self.retained_bytes) {
             self.flush(context)?;
         }
         self.sort.build(array, context)?;
@@ -472,12 +478,17 @@ struct Cursor<'a> {
     reader: Reader<'a>,
     block: Option<Arc<HeldBlock>>,
     row: usize,
+    pending: bool,
 }
 
 impl Cursor<'_> {
     fn load(&mut self, spec: &Spec, context: &NativeExecutionContext<'_>) -> Result<()> {
         context.check_cancelled()?;
+        if !self.pending {
+            return Ok(());
+        }
         self.row = 0;
+        self.block = None;
         self.block = self
             .reader
             .next_block(context.runtime())?
@@ -489,19 +500,23 @@ impl Cursor<'_> {
                 }))
             })
             .transpose()?;
+        self.pending = false;
         Ok(())
     }
 
-    fn advance(&mut self, spec: &Spec, context: &NativeExecutionContext<'_>) -> Result<()> {
+    fn advance(&mut self) {
         self.row += 1;
         if self
             .block
             .as_ref()
             .is_some_and(|block| self.row == block.batch.array.len())
         {
-            self.load(spec, context)?;
+            // Selected rows keep this block alive until the output is gathered.
+            // Reading ahead here would add the next payload to that overlap,
+            // including when the current output block is already complete.
+            self.block = None;
+            self.pending = true;
         }
-        Ok(())
     }
 }
 
@@ -523,6 +538,7 @@ impl<'a> Merge<'a> {
                 reader,
                 block: None,
                 row: 0,
+                pending: true,
             }),
         };
         for cursor in &mut this.cursors {
@@ -538,7 +554,10 @@ impl<'a> Merge<'a> {
         Ok(())
     }
 
-    fn winner(&self) -> Result<Option<usize>> {
+    fn winner(&mut self, context: &NativeExecutionContext<'_>) -> Result<Option<usize>> {
+        for cursor in &mut self.cursors {
+            cursor.load(self.spec, context)?;
+        }
         let [left, right] = &self.cursors;
         let (Some(a), Some(b)) = (&left.block, &right.block) else {
             return Ok(if left.block.is_some() {
@@ -575,7 +594,7 @@ impl<'a> Merge<'a> {
         let mut rows = ReservedVec::new(context.memory())?;
         rows.reserve(block_rows)?;
         while rows.values.len() < block_rows {
-            let Some(winner) = self.winner()? else {
+            let Some(winner) = self.winner(context)? else {
                 break;
             };
             let cursor = &mut self.cursors[winner];
@@ -600,7 +619,7 @@ impl<'a> Merge<'a> {
                     .checked_add(cursor.row)
                     .ok_or_else(|| failed("merge selection overflow"))?,
             ));
-            cursor.advance(self.spec, context)?;
+            cursor.advance();
         }
         if rows.values.is_empty() {
             self.validate()?;

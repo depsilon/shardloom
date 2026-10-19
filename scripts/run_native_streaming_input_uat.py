@@ -53,6 +53,7 @@ from native_streaming_subquery_cases import run as subquery_cases
 from native_streaming_subquery_composition_cases import run as subquery_composition_cases
 from native_streaming_subquery_fault_cases import run as subquery_fault_cases
 from native_streaming_subquery_pressure_cases import run as subquery_pressure_cases
+from native_streaming_subquery_membership_cases import run as subquery_membership_cases
 from native_streaming_dynamic_subquery_cases import run as dynamic_subquery_cases
 from native_streaming_dynamic_subquery_reference_cases import run as dynamic_subquery_reference_cases
 from native_streaming_dynamic_subquery_composition_cases import run as dynamic_subquery_composition_cases
@@ -76,6 +77,7 @@ FAMILIES = {"input": public_cases, "growth": growth_cases, "typed-input": typed_
             "subqueries": subquery_cases,
             "subqueries-composition": subquery_composition_cases,
             "subqueries-fault": subquery_fault_cases, "subqueries-pressure": subquery_pressure_cases,
+            "subquery-membership": subquery_membership_cases,
             "dynamic-subqueries": dynamic_subquery_cases,
             "dynamic-subqueries-reference": dynamic_subquery_reference_cases,
             "dynamic-subqueries-composition": dynamic_subquery_composition_cases,
@@ -254,6 +256,7 @@ def main():
               Path(__file__).with_name("native_streaming_subquery_composition_cases.py"),
               Path(__file__).with_name("native_streaming_subquery_fault_cases.py"),
               Path(__file__).with_name("native_streaming_subquery_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_subquery_membership_cases.py"),
               Path(__file__).with_name("native_streaming_dynamic_subquery_cases.py"),
               Path(__file__).with_name("native_streaming_dynamic_subquery_reference_cases.py"),
               Path(__file__).with_name("native_streaming_dynamic_subquery_composition_cases.py"),

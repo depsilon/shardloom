@@ -177,12 +177,22 @@ The [sampling population contract](../architecture/native-sampling-population-sp
 and [local acceptance report](../benchmarks/native-sampling-population-spill-2026-10-19.md)
 cover this shared relational route on the `vortex-write` Unix boundary.
 Fixed-count and known-bound fractional sampling without replacement retain their
-bounded resident top-k path. Subquery membership/index state and legacy standalone
-`PreparedVortexUnary` retain their resident contracts. In the machine index,
+bounded resident top-k path. Legacy standalone `PreparedVortexUnary` retains its
+resident contract. In the machine index,
 `unary_membership_spill` and `unary_sampling_population_spill` identify separate
 scoped capabilities; the broad `unary_state_spill` guarantee remains false.
 The [finite unary contract](../architecture/native-stream-unary-2026-10-15.md)
 continues to define tail, sampling, scalar rewrites, melt, explode and rolling.
+
+The [subquery predicate contract](../architecture/native-subquery-membership-spill-2026-10-19.md)
+adds explicit native spill for `IN`, `EXISTS` and quantified `ANY`/`ALL`, including
+negation, indexed correlation and parameter-specific inner schemas. The strategy
+retains only required native keys; small key sets can remain resident. It preserves
+selected-branch demand, complete key validation, nullable row equality and outer
+order. Source replay, an inner pivot/order and predicate state have separate
+counters. Scalar subqueries retain their zero/one-row state and cardinality error.
+Local acceptance for this source extension is in progress; existing hosted
+subquery acceptance does not cover this extension.
 
 ```python
 import tempfile
@@ -423,8 +433,10 @@ The [declared dynamic-subquery extension](../architecture/native-stream-dynamic-
 also allows those inner pivot schemas to vary by outer parameter in existing
 predicate subqueries. Source restrictions are installed before discovery, and
 each parameter releases its completed inner state under the shared grant.
-Source replay, pivot state and subquery membership retain separate accounting:
-explicit replay or pivot spill does not make membership/index state spillable.
+Source replay, pivot state and subquery membership retain separate accounting.
+The historical extension did not spill membership/index state; the later
+[predicate spill contract](../architecture/native-subquery-membership-spill-2026-10-19.md)
+implements that state separately under explicit policy.
 The [acceptance report](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
 verifies replay/pivot pressure, resident-state refusals, unused-source validation,
 cancellation, cleanup and fresh execution. PR #1561 completes hosted integration

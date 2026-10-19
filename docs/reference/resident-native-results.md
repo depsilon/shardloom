@@ -96,13 +96,17 @@ The shared relational route also admits explicit population spill for
 unknown-bound fractional sampling without replacement and fixed/fractional
 sampling with replacement, weighted or unweighted. Fixed-count and known-bound
 fractional sampling without replacement keep their bounded resident top-k path.
-Subquery membership/index state and legacy standalone `PreparedVortexUnary`
-retain their resident contracts. See the
+Non-scalar subquery predicates also implement explicit native spill for their
+projected membership and correlation keys, including declared parameter-specific
+schemas. Scalar subqueries keep their zero/one-row resident state, and legacy
+standalone `PreparedVortexUnary` retains its resident contract. See the
 [native set membership spill contract](../architecture/native-set-membership-spill-2026-10-18.md),
 [unary membership scope](../architecture/native-unary-membership-spill-2026-10-18.md)
 with [finite local acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md),
 [sampling population scope](../architecture/native-sampling-population-spill-2026-10-19.md)
 with [finite local acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md),
+[subquery predicate scope](../architecture/native-subquery-membership-spill-2026-10-19.md)
+(local acceptance in progress),
 and [finite unary contract](../architecture/native-stream-unary-2026-10-15.md).
 Pivot consumes the producer once for
 execution-time domain discovery and retains the completed native pivot state;

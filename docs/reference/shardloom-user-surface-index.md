@@ -210,7 +210,9 @@ with [finite local acceptance](../benchmarks/native-set-membership-spill-2026-10
 [unary membership spill scope](../architecture/native-unary-membership-spill-2026-10-18.md)
 with [finite local acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md),
 [sampling population spill scope](../architecture/native-sampling-population-spill-2026-10-19.md)
-with [finite local acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md), and
+with [finite local acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md),
+[subquery predicate spill scope](../architecture/native-subquery-membership-spill-2026-10-19.md)
+(local acceptance in progress), and
 [stream destinations](../architecture/native-stream-destinations-2026-10-15.md).
 They identify the behavior and source/release scope they cover.
 

@@ -77,7 +77,30 @@ impl<'p, 's> Recorder<'p, 's> {
         metrics: &'s Metrics<'_>,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        Self::with_batch_rows(schema, metrics, context, COPY_ROWS)
+        // Source replay is recorded before its consumer runs. Its flush and
+        // merge payloads therefore overlap the consumer's retained state under
+        // the same grant. Keep these blocks small when native spill is enabled;
+        // output fanout supplies its own bound through `with_batch_rows`.
+        #[cfg(feature = "vortex-write")]
+        let copy_rows = if metrics.spill.is_some() {
+            64
+        } else {
+            COPY_ROWS
+        };
+        #[cfg(not(feature = "vortex-write"))]
+        let copy_rows = COPY_ROWS;
+        let recorder = Self::with_batch_rows(schema, metrics, context, copy_rows)?;
+        #[cfg(feature = "vortex-write")]
+        let recorder = {
+            let mut recorder = recorder;
+            if let Some(ordering) = &mut recorder.ordering {
+                // Leave room for the original input, gathered writer blocks,
+                // merge readers and downstream retained state in the same pool.
+                ordering.limit_buffer(context.memory().snapshot().limit_bytes / 8)?;
+            }
+            recorder
+        };
+        Ok(recorder)
     }
 
     pub(super) fn with_batch_rows(

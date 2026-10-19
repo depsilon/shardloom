@@ -262,7 +262,18 @@
       "subquery_nested_demand_requires_original_owner_release": true,
       "subquery_shared_source_replay_completed_before_query": true,
       "subquery_unused_producers": "raw_validation_without_skipped_expression_or_cardinality_evaluation",
-      "subquery_state_spill": false,
+      "subquery_state_spill": true,
+      "subquery_state_spill_scope": "shared_relational_non_scalar_predicates;explicit_native_query_spill;vortex_write_unix",
+      "subquery_state_spill_reference": "docs/architecture/native-subquery-membership-spill-2026-10-19.md",
+      "subquery_state_spill_operations": [
+        "in",
+        "exists",
+        "quantified-any",
+        "quantified-all"
+      ],
+      "subquery_state_spill_inner_scope": "statically_bound_or_declared_parameter_specific_schema",
+      "subquery_state_spill_acceptance_status": "local_acceptance_in_progress",
+      "scalar_subquery_state": "resident_zero_or_one_selected_row;cardinality_error_preserved",
       "opaque_deferred_subquery_streaming": false,
       "dynamic_subquery_reference": "docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md",
       "dynamic_subquery_acceptance_reference": "docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md",
@@ -301,7 +312,11 @@
         "general_relational_aggregation",
         "native_relational_join",
         "native_relational_window",
-        "native_relational_pivot"
+        "native_relational_pivot",
+        "native_relational_set_membership",
+        "native_relational_unary_membership",
+        "native_relational_sampling_population",
+        "native_relational_subquery_predicates"
       ],
       "output_modes": [
         "incremental_results",

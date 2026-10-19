@@ -7,7 +7,7 @@ use super::*;
 mod failure_tests;
 
 #[path = "local_primitive_relational_unary_membership_typed_tests.rs"]
-pub(super) mod typed_tests;
+pub(in crate::local_primitives) mod typed_tests;
 
 fn membership_cases() -> Vec<(String, VortexQueryPrimitiveRequest)> {
     cases(&ROWS)
