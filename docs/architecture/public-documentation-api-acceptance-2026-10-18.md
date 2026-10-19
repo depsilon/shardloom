@@ -179,3 +179,19 @@ it is not additional passing runtime coverage. Hosted checks remain separate.
 These integration changes affect tests and source-validation tooling, not the
 frozen Rust or Python runtime implementation. The four preceding trailing-blank-line
 removals and regenerated API source identities are also behavior-preserving.
+
+The later package smoke job
+[117995447125](https://github.com/depsilon/shardloom/actions/runs/39232909840/job/117995447125)
+built and installed the CLI-bundled wheel successfully, then failed its generated
+row and range output commands because they implicitly selected the in-process
+transport without an installed native extension. Those two commands now select
+`transport="subprocess"` explicitly, matching this package proof's bundled CLI.
+The separate native-wheel gate continues to prove the in-process package; neither
+the application default nor installation-error behavior changes.
+
+The strengthened output-proof test fails against the original commands. All 168
+output-proof and release-script tests pass after the correction on both PR source
+stacks. The two corrected commands also pass through the public Python wrappers
+and the retained native CLI with the native Python extension absent, validating
+all committed values and no-fallback fields. This local reproducer does not claim
+a rebuilt installed-wheel pass; the new hosted package job supplies that evidence.

@@ -701,12 +701,16 @@ def stage_python_package_with_bundled_cli(
 
 
 def native_output_runtime_script(output_path: Path, declaration: str, expected: list[dict[str, Any]]) -> str:
-    """Check actual committed rows from the same public native workflow."""
+    """Check committed native-engine rows through this proof's bundled CLI.
+
+    This package is staged with the CLI, without the optional in-process binding.
+    Select its transport explicitly; native-wheel proof is a separate CI gate.
+    """
     output_arg = json.dumps(str(output_path))
     return (
         "import json; from pathlib import Path; "
         "from shardloom import context; "
-        "ctx=context(memory_gb=4, max_parallelism=2); "
+        "ctx=context(memory_gb=4, max_parallelism=2, transport='subprocess'); "
         f"report={declaration}.write("
         f"{output_arg}, allow_overwrite=True); "
         "assert report.envelope.status == 'success', report.envelope.human_text; "
