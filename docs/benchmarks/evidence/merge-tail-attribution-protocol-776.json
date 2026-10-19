@@ -1,0 +1,189 @@
+{
+  "schema_version": "shardloom.merge_tail_attribution_protocol.v1",
+  "protocol_id": "merge-tail-attribution-776-v4",
+  "owner": "PERF-06.merge_cost",
+  "status": "frozen_before_resident_source_accounting_repair_and_debug_preflight",
+  "production_commit": "d732d7889207e7d8fc0de8d746de1623174c1dcf",
+  "scope": "Observe the unchanged general relational spill Ordering, especially its final stack. Compare an offline estimated adjacent tree with the actual rightmost schedule. No candidate runtime schedule, changed ingest merges, larger fan-in, numeric-query-sort change or production optimization is implemented.",
+  "provider_check": {
+    "classification": "use_vortex_native_provider",
+    "provider": "Pinned Vortex 0.85.0 native arrays, NativeWriter and SequentialNativeFlatLayout through the existing ShardLoom QueryRunStore; release-user-surfaces test build.",
+    "sources": [
+      "shardloom-vortex/src/local_primitives/native_relational_spill.rs:312-450",
+      "shardloom-vortex/src/local_primitives/native_relational_spill.rs:553-584",
+      "shardloom-vortex/src/local_primitive_query_run_store.rs:400-550",
+      "shardloom-vortex/src/local_primitive_native_flat_layout.rs:1-76"
+    ],
+    "boundary": "ShardLoom owns stable adjacent merge scheduling and actual query memory/disk admission. Native serialized sizes are real observations, not CPU costs or promises of additive compressed output size. No external executor, new dependency, source format or fallback is admitted."
+  },
+  "workload": {
+    "row_counts": [
+      16383,
+      32767
+    ],
+    "profiles": [
+      "uniform24",
+      "uniform256",
+      "quarters_up",
+      "quarters_down",
+      "wide_head",
+      "wide_tail",
+      "alternating"
+    ],
+    "spill_cells": 14,
+    "unspilled_controls": [
+      {
+        "rows": 8192,
+        "profile": "uniform24"
+      },
+      {
+        "rows": 32767,
+        "profile": "uniform24"
+      }
+    ],
+    "cells": 16,
+    "cell_order": "For rows in row_counts order, profiles in listed order, spill enabled; then the two unspilled_controls in listed order. IDs are rows-profile-spill or rows-profile-resident. Cohort B reverses the complete cell list.",
+    "source": "Fields in order k, tie, ordinal, payload. k/tie are nullable Int64; ordinal is nonnullable Int64; payload is nullable Utf8; outer struct nonnullable. Source row r has k=NULL iff r%17=0 else (37*r%257)-128; tie=NULL iff r%13=0 else r%7; ordinal=r. Payload is NULL iff r%31=0, otherwise eight zero-padded decimal digits for r, then ':', then ASCII ('a'+r%23) repeated to the prescribed total width.",
+    "widths": "uniform24=24; uniform256=256; quarters_up=[24,64,256,512][min(3,floor(4*r/rows))]; quarters_down=[512,256,64,24][same index]; wide_head=512 when r<floor(rows/16), else 24; wide_tail=512 when r>=rows-floor(rows/16), else 24; alternating=24 if floor(r/1024)%2=0, else 512. Empty inputs evaluate no width formula.",
+    "plan": "Real prepared resident-memory Scan then Sort on k ASC NULLS LAST, tie DESC NULLS FIRST, with no ordinal sort key, no limit and no projection. The existing public for_each_json_batch consumes every result synchronously in batches bounded to 2048 rows and 2097152 bytes. The test client retains their credited strings under the same native grant, refuses more than 16777216 total JSON bytes or 1024 batches, validates each schema and row count, then independently checks the complete ordered result. No whole-result collector cap is changed. Exactly one independently prepared source and one operation per workflow. Stable source ordinal must break equal-key ties implicitly.",
+    "preflight": "One sample of every 16 measured cell, preceded by 0-row spill, 17-row spill, 0-row resident and 17-row resident uniform24 cases. Both roles run, totaling 40 workflows/operations; complete independent verification precedes measurements.",
+    "samples_per_cell_role_cohort": 3,
+    "roles": [
+      "off",
+      "on"
+    ],
+    "cohorts": [
+      "A",
+      "B"
+    ],
+    "role_order": "A off then on; B on then off. Each role/cohort is a fresh process; both complete cohorts precede comparative analysis.",
+    "warmup": "One 8192-uniform24-resident workflow before each measured role/cohort. Retained and excluded; no owner is reused.",
+    "workflows_per_role_cohort": 49,
+    "total_measured_workflows_including_warmups": 196,
+    "resources": {
+      "memory_bytes": 67108864,
+      "cpu_lanes": 1,
+      "provider_background_workers": 0,
+      "spill_buffer_bytes": 1048576,
+      "spill_quota_bytes": 134217728,
+      "merge_reader_work_bytes": 131072,
+      "maximum_merge_readers": 2
+    },
+    "result_delivery": {
+      "api": "for_each_json_batch",
+      "batch_rows_limit": 2048,
+      "batch_bytes_limit": 2097152,
+      "maximum_retained_json_bytes": 16777216,
+      "maximum_retained_batches": 1024,
+      "container_credit": "Existing ReservedVec credits the retained SerializedVortexResultBatch handles. Each retained JSON/schema string retains its existing native credit. Full source/expected/actual witness JSON trees are test evidence outside the query grant.",
+      "clock": "A test-only hook measures nonoverlapping synchronous JSON sink and consumer spans in BOTH observer roles, without changing production behavior. QueryTiming::from_elapsed computes engine duration as the complete public streaming call minus those spans. Each record binds accumulated span, batch count, full consumption interval and exact byte/row limits."
+    },
+    "source_accounting": {
+      "resident_source_preparations": 1,
+      "prepared_sources": 1,
+      "prepared_file_sources": 0,
+      "prepared_source_opens": 0,
+      "completed_executions": 1,
+      "contract": "Count each successful ResidentMemorySource::from_columns call at the test factory, and bind the existing per-plan prepared_sources/prepared_file_sources report. The existing session prepared_source_opens counter counts file preparations and correctly remains zero for this memory-only workflow. Exactly one independently prepared immutable memory source and one completed public operation are still required."
+    }
+  },
+  "observation": {
+    "source_binding": "One freshly compiled release test binary with opt-in test-only observation. Bind all Rust/Cargo sources, helpers, protocol, patch and extras before build; verify identities around every native invocation. Off and on share the executable and actual schedule.",
+    "trace": "Observer-only owner IDs. Leaf runs record native run ID, actual rows/bytes/level, monotonically assigned complete source interval and before/after store snapshots. Merge runs record ordered parent IDs, actual output rows/bytes/level, phase (ingest/final_tail), elapsed native merge span, before/after-write/after-removal store snapshots and open reader counts. Each final frontier is captured before tail merging. Terminal removal and store cleanup are recorded. Events are bounded to 4096 per workflow; observer allocations are test instrumentation outside the native grant and are not a production memory claim. A separate bounded test-only synchronous-sink accumulator operates identically in off/on roles; it records no per-row timers and adds no production clock or API.",
+    "validation": "Reconstruct every leaf/merged interval, adjacency, parent single-use, stable left/right order, row conservation, binary-carry ingestion and rightmost final-tail schedule. Replay store live bytes with its marker reservation, outputs held alongside inputs and exact removals; peak disk and run counts must agree with the native report. At most two readers are admitted. No spill trace for resident controls; Spill permission does not force I/O: any enabled case may create an owner without runs if the retained data never crosses the admitted buffer. Such a trace must contain only one owner and cleanup, with every store/run/reader counter zero; it supplies no merge opportunity. Empty/17-row cases must follow this path. Observer-off contains no events. Trace spans cannot exceed complete engine time. Source accounting distinguishes one successful resident source construction and one bound source from zero prepared file sources and zero session file opens.",
+    "primary_clock": "QueryTiming::from_elapsed yields engine_execution_ns for the complete public batch operation minus its nonoverlapping synchronous JSON sink and consumer spans. This preserves the existing engine/result clock definition; no V1/V2 workflow completed. Use the median of three samples per cell/role/cohort and sum only nonoverlapping final-tail merge spans for attribution.",
+    "complete_clock": "Typed plan construction, native source intake and preparation, spill-policy binding, for_each_json_batch including synchronous JSON sink/consumer work and completion certification, release of all credited result strings/containers, and destruction of every prepared/source/session owner. Fixture generation, independent oracle and witness persistence are outside compared clocks symmetrically.",
+    "raw_evidence": "Every full source/schema and output/schema witness, native certificate, source/completion counters, complete run trace, preparation/engine/serialization/consumption/release/destruction clocks, peak reservations, zero final reservations and empty owned spill directory. All samples, warmups and failures retained."
+  },
+  "decision": {
+    "estimated_cost": "For the observed final frontier weights w_i=actual serialized bytes, compute C[i,j]=sum(w_i..w_j)+min_k(C[i,k]+C[k+1,j]), with C[i,i]=0. Leftmost minimizing split resolves ties. Preserve the tree and all weights. Independently derive the existing rightmost tree cost from that same additive model. Also report actual final-tail input bytes; estimated cost does not substitute for real candidate execution.",
+    "observer_eligibility": "A cell/cohort is ineligible for material attribution if on median engine time OR complete-workflow time exceeds off by BOTH 10% and 1000000 ns. Preserve every excluded case.",
+    "material_signal": "At least one same spill cell must qualify in both cohorts. Each cohort requires a distinct lower-cost estimated adjacent tree, median estimated saving >=10% of baseline weighted final-tail cost AND >=1048576 bytes, and median actual final-tail merge time >=20% of enabled engine time AND >=2000000 ns, with observer eligibility and all correctness/resource/trace checks. Compare the complete per-sample vectors; do not combine different cells between cohorts.",
+    "proceed": "At least one same qualifying cell permits a separately frozen candidate protocol. There is no retained optimization or actual speedup claim from the DP estimate.",
+    "no_signal": "If no same cell qualifies, record no material eligible signal for this finite mechanism/workload, distinguishing absent byte-cost opportunity, insufficient observed work and observer-ineligible cases. Do not implement a schedule under this protocol or rerun unchanged to seek favorable observations.",
+    "failure": "Any semantic, resource, source-binding or trace mismatch blocks valid attribution. Preserve it and repair only a demonstrated harness/observer defect without changing formulas, cells, thresholds or actual production sort behavior. A production failure is not successful attribution."
+  },
+  "supervision": {
+    "minimum_free_gib": 12,
+    "maximum_workspace_gib": 100,
+    "maximum_experiment_log_mib": 192,
+    "maximum_command_output_mib": 8,
+    "concurrent_native_jobs": 1,
+    "timeout_seconds": 1800
+  },
+  "claims": {
+    "production_optimization": false,
+    "actual_schedule_speedup": false,
+    "full43_performance": false,
+    "whole_process_memory_limit": false,
+    "broader_conditional_closed": false,
+    "package_publication": false,
+    "external_runtime_fallback": false
+  },
+  "correction": {
+    "supersedes_protocol_id": "merge-tail-attribution-774-v3",
+    "prior_protocol_sha256": "2db26a89965125f7deb44e644dd28852c475add5944089e486bf8fa8d6aa38bc",
+    "failure_receipt": "merge-tail-source-accounting-failure-775.json",
+    "completed_recorded_prior_workflows": 0,
+    "measured_prior_workflows": 0,
+    "prior_public_operations_completed_before_harness_assertion": 1,
+    "reason": "The first V3 zero-row memory-source operation returned and passed complete output/schema/certificate checks. Its completed_executions was1, then the harness wrongly expected prepared_source_opens1 and observed0. Current resident-session implementation and memory-source regression tests establish zero file opens as correct. V4 repairs only harness source accounting, records one actual successful resident-source preparation plus existing plan counts, and adds a non-comparative debug preflight before the fresh release build. No native behavior, formula, cell, sample, cohort ordering, decision threshold, grant or public admission limit changes. The partial V3 call has no complete emitted record or measured engine sample and receives no decision credit.",
+    "source_contracts": [
+      "shardloom-vortex/src/resident_session.rs:136",
+      "shardloom-vortex/src/resident_session.rs:589",
+      "shardloom-vortex/src/local_primitive_prepared_relational.rs:1235",
+      "shardloom-vortex/src/resident_memory_source_tests.rs:398",
+      "shardloom-vortex/src/resident_memory_batch_tests.rs:96",
+      "shardloom-vortex/src/resident_memory_arrow_tests.rs:194"
+    ],
+    "storage_admission_retry": "The separate V3 focused-test refusal before child launch and its unchanged-guard continuation are retained; no files were removed to resume.",
+    "previous_corrections": [
+      {
+        "supersedes_protocol_id": "merge-tail-attribution-773-v2",
+        "prior_protocol_sha256": "081a46278f799945e00a4f1d87fb5c316e2408cfd613c38998acad1c8f190865",
+        "failure_receipt": "merge-tail-collector-admission-failure-773.json",
+        "completed_prior_workflows": 0,
+        "reason": "Before any V2 workflow, source review proved the complete collector 8 MiB cap is below two frozen outputs: 9647504 and 10028024 compact JSONL bytes. The V2 build was deliberately interrupted with complete process-group drain. V3 uses the existing public bounded streaming JSON consumer, preserving all rows, values, schemas, source formulas, cells, samples, ordering, decision thresholds, memory/disk limits, reader work and actual scheduling. All previous attempts remain invalid with zero decision credit; no public admission or resource limit is raised.",
+        "public_admission_sources": [
+          "shardloom-vortex/src/relational_query.rs:29-47",
+          "shardloom-vortex/src/local_primitive_prepared_relational.rs:899-921",
+          "shardloom-vortex/src/local_primitives/native_relational_spill.rs:449-460",
+          "shardloom-vortex/src/local_primitive_prepared_relational.rs:1013-1096",
+          "shardloom-vortex/src/local_primitive_prepared_relational.rs:1684-1700",
+          "shardloom-vortex/src/local_primitive_query_timing.rs:1-29"
+        ],
+        "constraints": {
+          "absolute_existing_real_workspace": true,
+          "minimum_disk_quota_bytes": 32768,
+          "minimum_buffer_bytes": 1048576,
+          "buffer_not_above_memory_grant": true,
+          "json_batch_rows_range": "1..=2048",
+          "json_batch_bytes_range": "1..=8388608",
+          "unchanged_complete_collection_cap_bytes": 8388608
+        },
+        "previous_corrections": [
+          {
+            "protocol_id": "merge-tail-attribution-771-v1",
+            "protocol_sha256": "e2ffc917bf17d64bffdc0f27943e86f12345ceaeb29a65ee69d290279eaa6a72",
+            "failure_receipt": "merge-tail-protocol-admission-failure-772.json",
+            "completed_workflows": 0,
+            "reason": "The first V1 preflight failed in the public spill policy constructor before collect_jsonl: 128 KiB is below its 1 MiB minimum. V2 uses the existing admitted minimum, preserving all workload formulas, cells, samples, ordering, thresholds, memory/disk limits, reader work, and actual scheduling. V1 remains invalid and receives no decision credit. The verifier recognizes the existing no-run finish branch for any retained source that stays below the buffer; no run count or favorable topology is forced."
+          }
+        ]
+      }
+    ]
+  },
+  "verification_stages": {
+    "debug_smoke": {
+      "purpose": "Catch harness/schema/trace/resource contract errors before an expensive release rebuild; no performance comparison or decision credit.",
+      "profile": "Cargo test without --release, CARGO_PROFILE_TEST_DEBUG=0 and CARGO_PROFILE_DEV_DEBUG=0, same locked features and source freeze",
+      "native_tests": "The nine existing focused spill tests plus the same complete preflight in off/on order, twenty workflows per role. Independently validate all forty complete records and every full source/output/schema/trace/resource witness.",
+      "allowed_modes": [
+        "preflight"
+      ],
+      "measured_workflows": 0,
+      "decision_credit": false
+    },
+    "release": "Only after debug smoke passes, freshly compile the frozen release test binary. Repeat the unchanged forty-workflow preflight, then all 192 measured workflows and four retained warmups. Every original gate, cell, role order and count is unchanged."
+  }
+}

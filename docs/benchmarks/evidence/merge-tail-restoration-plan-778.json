@@ -1,0 +1,40 @@
+{
+  "status": "verified_before_observer_removal",
+  "baseline": "d732d7889207e7d8fc0de8d746de1623174c1dcf",
+  "packet": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-portable-778/merge-tail-portable-778.json",
+    "bytes": 28644,
+    "sha256": "5dd870ba15069677b7bc2298205974717ccb303ac0896b51be2d03477453d3ae"
+  },
+  "files": [
+    {
+      "path": "shardloom-vortex/src/local_primitive_prepared_relational.rs",
+      "tracked": true,
+      "observed_sha256": "ac32228c71e6c864e40923c11b215c2d96e30235cb9b5be0033335466719ef71",
+      "baseline_sha256": "85ce4b9fef99cb0d49182d50c93621ab835ec8475c571894b9a78c303f024f06"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_tests.rs",
+      "tracked": true,
+      "observed_sha256": "4c71cfdc9539e4f9f7817f6673a6850db24711af0788a292038524c5798cfa6e",
+      "baseline_sha256": "49c0896fc417956e4738aecec1479354d4a005088856c34415e4b3ad0381aa34"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_spill.rs",
+      "tracked": true,
+      "observed_sha256": "e21401dfb4c974e84b476e8788be0fea27e02556c23952c94eb9b4e11d7b7156",
+      "baseline_sha256": "2f8a0b38eca1895fc17a1534d645dd0493dbec30131507486db882288dbbc06c"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_merge_cost_tests.rs",
+      "tracked": false,
+      "observed_sha256": "dc0f86654e94e5034d4688587c4459e77a3af061cfdfe377ce2787a1b1d8a752"
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_merge_cost_observation.rs",
+      "tracked": false,
+      "observed_sha256": "26c81b23db6e84bfd69e6f3d2ac2f7530360ca108f73c8d210c0a089197ba2ee"
+    }
+  ],
+  "all_removed_source_content_preserved": true
+}

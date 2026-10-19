@@ -1,0 +1,153 @@
+{
+  "status": "passed",
+  "command": [
+    "/Users/dylan/.cargo/bin/rustup",
+    "run",
+    "1.99.0",
+    "cargo",
+    "fmt",
+    "--all",
+    "--",
+    "--check"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "d732d7889207e7d8fc0de8d746de1623174c1dcf",
+  "working_tree": "?? docs/architecture/native-merge-tail-design-2026-10-19.md\n",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "driver_sha256": "81cb5075bbb437ba01a5d8f007416833668942d65444c282ceceefcca8f0cc8c",
+  "host": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu_count": 10,
+    "samples": [
+      {
+        "utc": "2026-10-19T22:02:27.136665+00:00",
+        "load_average": [
+          3.8115234375,
+          2.640625,
+          2.33251953125
+        ],
+        "vm_stat": {
+          "Pages free": 50916,
+          "Pages inactive": 396797,
+          "Pages reactivated": 335578069,
+          "File-backed pages": 267269,
+          "Anonymous pages": 406359,
+          "Pages occupied by compressor": 103928,
+          "Decompressions": 233954828,
+          "Compressions": 397186138,
+          "Pageins": 402094035,
+          "Pageouts": 150259,
+          "Swapins": 2235286,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": []
+      },
+      {
+        "utc": "2026-10-19T22:02:29.520252+00:00",
+        "load_average": [
+          3.8115234375,
+          2.640625,
+          2.33251953125
+        ],
+        "vm_stat": {
+          "Pages free": 9947,
+          "Pages inactive": 349194,
+          "Pages reactivated": 335640214,
+          "File-backed pages": 316117,
+          "Anonymous pages": 387675,
+          "Pages occupied by compressor": 109386,
+          "Decompressions": 233955271,
+          "Compressions": 397209543,
+          "Pageins": 402097961,
+          "Pageouts": 150259,
+          "Swapins": 2235358,
+          "Swapouts": 3272557
+        },
+        "vm_page_size_bytes": 16384,
+        "owned_processes": [
+          {
+            "pid": 84067,
+            "parent_pid": 84054,
+            "process_group": 84067,
+            "sampled_cpu_percent": 0.0,
+            "rss_bytes": 3014656,
+            "executable": "cargo-fmt"
+          },
+          {
+            "pid": 84069,
+            "parent_pid": 84067,
+            "process_group": 84067,
+            "sampled_cpu_percent": 96.5,
+            "rss_bytes": 333856768,
+            "executable": "rustfmt"
+          }
+        ]
+      }
+    ],
+    "scope": "Host load and sampled process CPU/RSS are context, not exclusive attribution or an RSS ceiling.",
+    "physical_memory_bytes": 17179869184,
+    "final": {
+      "utc": "2026-10-19T22:02:30.542071+00:00",
+      "load_average": [
+        3.8115234375,
+        2.640625,
+        2.33251953125
+      ],
+      "vm_stat": {
+        "Pages free": 29714,
+        "Pages inactive": 346624,
+        "Pages reactivated": 335641290,
+        "File-backed pages": 316255,
+        "Anonymous pages": 373184,
+        "Pages occupied by compressor": 109708,
+        "Decompressions": 233955282,
+        "Compressions": 397210436,
+        "Pageins": 402098171,
+        "Pageouts": 150259,
+        "Swapins": 2235358,
+        "Swapouts": 3272557
+      },
+      "vm_page_size_bytes": 16384
+    }
+  },
+  "storage_last_observation": {
+    "output": {
+      "workspace_bytes": 6535610479,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 23380926464,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    },
+    "cargo": {
+      "workspace_bytes": 13853863936,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 23304007680,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    }
+  },
+  "timeout_seconds": 1800.0,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 84067,
+  "output_bytes": 0,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 3.3810356250032783,
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

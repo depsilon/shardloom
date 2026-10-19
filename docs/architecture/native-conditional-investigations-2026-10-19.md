@@ -2,8 +2,9 @@
 
 # Conditional investigation sequence — October 19, 2026
 
-Status: active conditional-first pass; six finite investigations completed with
-five rejected mechanisms and one retained mechanism, 15 rows awaiting their first
+Status: active conditional-first pass; seven finite investigations completed with
+five rejected mechanisms, one retained mechanism and one no-signal attribution,
+14 rows awaiting their first
 completed decision in this pass.
 No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
@@ -85,14 +86,16 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | `PERF-05.nested_identity` | [Dictionary identity candidate rejected at preflight](native-nested-key-identity-2026-10-19.md). Two attribution cohorts found material recursive-key work, but only four of eight required candidate targets activated. All 320 preflight workflows passed exact semantics and cleanup; no candidate timing comparison ran. | Production is restored. Any future mechanism needs a new provider/wrapper admission design and complete target activation before benefit measurement. Attribution alone is not accepted capability. |
 | `PERF-10.compact_selections` | [Bounded U16 local indices retained](native-compact-local-indices-2026-10-19.md). Both frozen cohorts pass all memory targets and throughput controls; full native/workspace, installed Python, Public39, Full43 and modular acceptance pass. | The measured engine-time increase in small cases remains explicit. Wide global gathers are unchanged. Broader descriptor work stays open, and the earlier contiguous-range rejection remains binding. |
 | `PERF-10.predicate_exclusion` | [One exact fact per immutable source rejected](native-predicate-exclusion-2026-10-19.md). All three repeated-use targets pass both frozen cohorts, but two single-call controls fail. All 1,828 workflows/4,260 operations and 16 lifecycle tests pass correctness, activation and cleanup; experimental code is archived and removed. | Positive attribution and target gains do not override controls. A materially different mechanism requires a new design and protocol; first-use summaries and broader predicate-exclusion obligations remain open. |
+| `PERF-06.merge_cost` | [No eligible final-tail signal](native-merge-tail-2026-10-19.md). All 236 release workflows pass exact output, source, trace and cleanup checks. The 84 observed measured spill workflows leave one or two final runs, so estimated adjacent-order savings are zero. No candidate is implemented; temporary observer code is archived and removed. | This frozen workload does not establish general merge optimality. A new final-tail protocol must first establish an actual choice among at least three remaining runs and material tail work. Broader merge-cost and pressure obligations remain open. |
 
 These are finite evaluated mechanisms, not closure of entire conditional substeps.
 The phase checklist therefore retains its 58 substeps, including 21 conditional
 rows. The physical-cache and builder decisions are complete for their frozen
 scopes. The nested identity candidate has a completed preflight rejection, and
 the bounded local-width mechanism has completed local acceptance. Exact
-predicate exclusion has a completed finite comparison rejection. The next
-unstarted investigation is `PERF-06.merge_cost`.
+predicate exclusion has a completed finite comparison rejection, and final-tail
+merge attribution has a completed no-signal decision. The next unstarted
+investigation is `PERF-06.rematerialization`.
 
 ## Deferred required work
 

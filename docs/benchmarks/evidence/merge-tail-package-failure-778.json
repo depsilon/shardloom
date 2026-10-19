@@ -1,0 +1,58 @@
+{
+  "status": "packaging_failed_at_directory_name_reopen_check",
+  "utc": "2026-10-19T21:59:47.397272+00:00",
+  "reason": "Python tarfile strips trailing slashes from directory names on read. The package compared its raw getnames list to manifest names that retained slashes. Both empty-directory entries exist with the correct directory type and zero size.",
+  "failure_guard": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-package-777.json",
+    "bytes": 15179,
+    "sha256": "b1ed12c0c7849009b9540812855c659aba9397b4d740973689679eb4e12645c6"
+  },
+  "failure_log": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-package-777.log",
+    "bytes": 429,
+    "sha256": "5b0c5a2a48fdf1c2e835c07f1cd26011fd878e2a9c9d3c3fc8248b0d1bf3354c"
+  },
+  "failure_driver_log": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-package-777-driver.log",
+    "bytes": 211,
+    "sha256": "05387a3b2203462dcad9be3b6c6cdda439729dcd24d75a234509979f51b26c88"
+  },
+  "packager": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_merge_tail_777.py",
+    "bytes": 24289,
+    "sha256": "f339a1dd3cdf37cebfd8239c44eab6a3ec6ec8a61bf48eb36d7c489b0a751353"
+  },
+  "primary_review": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-package-primary-review-777.json",
+    "bytes": 4650,
+    "sha256": "adf5ac88647c2e5ae49c93c26ef11115dd70be8aaa90320e9d1a5b040fac36f0"
+  },
+  "preserved_partial_archive": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-portable-777/merge-tail-portable-777.tar.xz",
+    "bytes": 10717576,
+    "sha256": "b4fd4cdc245ea46e30217c9be2c1386220df5f050db995b03fcdd31944a9bfef"
+  },
+  "archive_regular_files": 2239,
+  "directory_name_evidence": [
+    {
+      "reader_name": "failed-v1/spill-0-uniform24-spill-off-preflight-0-false",
+      "expected_manifest_name": "failed-v1/spill-0-uniform24-spill-off-preflight-0-false/",
+      "type": "directory",
+      "bytes": 0,
+      "lookup_with_slash_matches": true
+    },
+    {
+      "reader_name": "failed-v3/spill-0-uniform24-spill-off-preflight-0-false",
+      "expected_manifest_name": "failed-v3/spill-0-uniform24-spill-off-preflight-0-false/",
+      "type": "directory",
+      "bytes": 0,
+      "lookup_with_slash_matches": true
+    }
+  ],
+  "manifest_or_success_index_written": false,
+  "process_group_drained": true,
+  "observer_removal_started": false,
+  "native_sources_protocol_results_and_decision_unchanged": true,
+  "native_execution_repeated": false,
+  "correction": "Normalize directory-only names to the manifest slash convention in both packager and independent verifier; still require exact order, file/directory type, size, member content, original content and safe paths. Create a fresh packet and preserve the failed archive and receipts."
+}

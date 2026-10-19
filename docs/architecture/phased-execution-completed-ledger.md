@@ -17,6 +17,31 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-06.merge_cost final-tail attribution` — record no eligible material
+  signal in the frozen final-stack scope. The
+  [decision](native-merge-tail-2026-10-19.md) and
+  [portable packet](../benchmarks/evidence/merge-tail-portable-778.json)
+  preserve all sources, measurements, complete values and invalid attempts.
+  - All 236 release workflows pass independent output/schema/source, stable
+    run-lineage, disk/reader accounting and cleanup verification. The 84 measured
+    observer-enabled spill workflows leave 48 one-run and 36 two-run frontiers;
+    every estimated optimal tree equals the actual tree, with zero savings.
+    No alternative schedule is implemented or accepted.
+  - All 40 debug preflight workflows, nine focused spill tests in each current
+    build and 18 oracle tests pass. Debug observations and three invalid prior
+    attempts receive no comparison credit. V3 completed one public operation
+    before its harness assertion but emitted no complete workflow or timing
+    record. The storage refusal and failed archive are retained separately.
+  - Independent reopening verifies 2,247 regular archive members and two empty
+    directories, reconstructs all four 1,901-file frozen source sets, and checks
+    every helper identity. Temporary observer/harness code is removed; all
+    1,899 Rust/Cargo and 2,217 accepted runtime/Python/test/harness source contents
+    remain unchanged. Formatting passes without repeating accepted native suites.
+  - This is the seventh finite decision: five rejected mechanisms, one retained
+    mechanism and one no-signal attribution, with 14 first decisions remaining.
+    General merge-cost, all 58 substeps and CG-1 through CG-23 retain their gates.
+    The next conditional row is derived-owner rematerialization.
+
 - [x] `PERF-10.predicate_exclusion exact-fact experiment` — reject the finite
   one-fact-per-immutable-source candidate after both frozen comparison cohorts.
   The [decision](native-predicate-exclusion-2026-10-19.md),

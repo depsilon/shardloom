@@ -1,0 +1,127 @@
+{
+  "status": "invalid_resident_source_counter_assertion",
+  "utc": "2026-10-19T21:25:14.247573+00:00",
+  "label": "merge-tail-attribution-774-a1",
+  "protocol_sha256": "2db26a89965125f7deb44e644dd28852c475add5944089e486bf8fa8d6aa38bc",
+  "completed_recorded_workflows": 0,
+  "measured_workflows": 0,
+  "engine_samples_emitted": 0,
+  "engine_measurement_available": false,
+  "public_native_operations_completed_before_harness_assertion": 1,
+  "completed_execution_counter_observed": 1,
+  "output_schema_and_certificate_checks_before_assertion_passed": true,
+  "final_cleanup_assertions_reached": false,
+  "process_group_drained": true,
+  "production_bug_established": false,
+  "cause": "The first zero-row memory-source public operation returned successfully; completed_executions==1 passed. The harness then asserted prepared_source_opens==1, observing0. That existing session counter records file preparation; admitted memory sources correctly leave it at0. The harness has not emitted a full workflow record or compared timings.",
+  "source_evidence": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_relational_merge_cost_tests.rs",
+      "bytes": 16453,
+      "sha256": "33e5380a0dde336947363cbbeb714b4d353f4e52050036c2479551e9d5f67b45"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/resident_session.rs",
+      "bytes": 64884,
+      "sha256": "f0c3f7d6c59a0c0021a517a350e454ba55d0969de89b4367f3d2aa97e52f06a4"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/resident_memory_source_tests.rs",
+      "bytes": 29138,
+      "sha256": "3d0f6e4acac8edaaa2edeee43abd0e6919511602b2aaea01cf162b9b5a461344"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/resident_memory_batch_tests.rs",
+      "bytes": 11106,
+      "sha256": "45baf975b3941b40ac5cc42180ec656c4e7cf6c3d01b09d449a96106dd353a9a"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/resident_memory_arrow_tests.rs",
+      "bytes": 12427,
+      "sha256": "075e2ed684f76b6582ca833921cb063e572286206377870ae9aa37c2ad5d62dd"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-off-774-a1.json",
+      "bytes": 4112,
+      "sha256": "4d9de82876a846689beef95fea9e5d0f4e30fad28b95a02b03d1c7dbb35202eb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-off-774-a1.log",
+      "bytes": 681,
+      "sha256": "9be609a02fe9495739820d07428514d4e967304ea5174d892831049042f72f75"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-off-774-a1-link.json",
+      "bytes": 1779,
+      "sha256": "9ea4b2626665fa8a831a8c0260de840442141cc26d3236ba86999559f4d7ad16"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-off-774-a1-sequence-step.json",
+      "bytes": 821,
+      "sha256": "df77908d53fca7a6c1df41c4278c16d89a4fa8d519ba6cd246f028faf832fac0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-off-774-a1-sequence-output.log",
+      "bytes": 225,
+      "sha256": "ddfd870feffb985cbd9d6925f9b95870092044e06dacc711c17fdec10ee2ef0e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-continuation-775-driver.log",
+      "bytes": 1044,
+      "sha256": "b04cd61521f3ae1248dfb143dc363b5bea3c66311f2695f3718a1a29f975b288"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-continuation-identity-775.json",
+      "bytes": 1185,
+      "sha256": "0227ffebe8f8df1a566ab9d4b7428d585b1583c692cd3202d2343e3346c57d69"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-continuation-primary-review-775.json",
+      "bytes": 2613,
+      "sha256": "b3d0f3a27d595c802c66a4098669e4afbfcd8474129a0986af5c16926a6add16"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-focused-spill-774-a2.json",
+      "bytes": 4762,
+      "sha256": "93cc92d53cf3af55862bd632d3900ca93fc806c3b1e2d111c56b4bc0b07a2a02"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-focused-spill-774-a2.log",
+      "bytes": 1455,
+      "sha256": "7219c3b88dcc1ea1ea0be1266566c9c1806c776f10575e7470b907c771f02e49"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-774-a1-source-freeze.json",
+      "bytes": 365410,
+      "sha256": "bc73e126fb5f8e385c03cf9f20fdcc772d5946ec366931aa3aa31d11a92d7377"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-774-a1-artifact.json",
+      "bytes": 2088,
+      "sha256": "9ce3e1c546256ea039ed89e92f51ebf5eea536199988b6ae60a68ce8c63b3470"
+    }
+  ],
+  "failed_data_files": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-774-a1/preflight-preflight-off.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-774-a1/witnesses/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-774-a1/witnesses/cf4fc90318cc404cb7c1265c7c2b96421aab31f0d733cfb5079d7237867deb8c.json",
+      "bytes": 167,
+      "sha256": "cf4fc90318cc404cb7c1265c7c2b96421aab31f0d733cfb5079d7237867deb8c"
+    }
+  ],
+  "retained_empty_directories": [
+    "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-774-a1/spill-0-uniform24-spill-off-preflight-0-false"
+  ],
+  "next_step": "Freeze V4 before correcting file opens to0 and observing one actual resident source preparation in a separate field. Preserve all formulas, cells, roles, samples, thresholds, grants and actual production behavior. Add complete debug-profile preflight-only verification of both roles before a fresh release build; do not give debug timings comparison credit."
+}

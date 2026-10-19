@@ -1,0 +1,129 @@
+{
+  "schema_version": "shardloom.merge_tail_closeout.v1",
+  "status": "passed",
+  "baseline": "d732d7889207e7d8fc0de8d746de1623174c1dcf",
+  "accepted_source": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/compact-index-acceptance-source-764.json",
+    "bytes": 282897,
+    "sha256": "021867bd6eb39bcc77e9285106249e214fa92e2b4cf6d0f7b88967e12d23f000"
+  },
+  "accepted_source_files": 2217,
+  "all_accepted_source_contents_unchanged": true,
+  "runtime_inputs": 1899,
+  "restoration": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/merge-tail-restoration-778.json",
+    "bytes": 498892,
+    "sha256": "26d03c39492c282db2465fdbee65ac26e92a9f5a8f9322e656eaa18dca6b3e79"
+  },
+  "packet": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/merge-tail-portable-778.json",
+    "bytes": 28644,
+    "sha256": "5dd870ba15069677b7bc2298205974717ccb303ac0896b51be2d03477453d3ae"
+  },
+  "conditional_sequence_preserved": 21,
+  "conditional_substeps": 21,
+  "required_substeps": 37,
+  "required_and_conditional_substeps_preserved": 58,
+  "competitive_gates_preserved": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+  ],
+  "finite_decisions": 7,
+  "finite_retained": 1,
+  "finite_rejected_candidates": 5,
+  "finite_no_signal_attributions": 1,
+  "first_decisions_remaining": 14,
+  "release_workflows": 236,
+  "debug_workflows_without_decision_credit": 40,
+  "invalid_attempt_recorded_workflows": 0,
+  "v3_partial_completed_public_operations": 1,
+  "new_relative_links_checked": 22,
+  "unstaged_whitespace_check": "passed",
+  "staged_whitespace_check": "passed",
+  "documentation": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-merge-tail-2026-10-19.md",
+      "bytes": 9629,
+      "sha256": "30a6605e00c1d626eea3b05862de4b968def7e2181a09dbd83752a3a2d5aff42"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-merge-tail-design-2026-10-19.md",
+      "bytes": 8102,
+      "sha256": "a310d77bf9dd3ff5148787bdffcf46e57882cb0fac8179548258f1d9e5bbcff3"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-conditional-investigations-2026-10-19.md",
+      "bytes": 13015,
+      "sha256": "9ed69dfcaf69164dbf714ff71be23c19ce3a8c63c20c6da80e84972db4c928db"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/phased-execution-plan.md",
+      "bytes": 76281,
+      "sha256": "987730288dcffc55ba0817ee49ac82a1f39720457c82c030273c28c4e34c1099"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/phased-execution-completed-ledger.md",
+      "bytes": 3979220,
+      "sha256": "41b1bed748e7602639424090904cb37a6646601d4e368f4ab98cae59fb06ded4"
+    }
+  ],
+  "staged_paths": [
+    "docs/architecture/native-conditional-investigations-2026-10-19.md",
+    "docs/architecture/native-merge-tail-2026-10-19.md",
+    "docs/architecture/native-merge-tail-design-2026-10-19.md",
+    "docs/architecture/phased-execution-completed-ledger.md",
+    "docs/architecture/phased-execution-plan.md",
+    "docs/benchmarks/evidence/compact-index-acceptance-source-764.json",
+    "docs/benchmarks/evidence/finalize_merge_tail_restoration_778.py",
+    "docs/benchmarks/evidence/merge-tail-attribution-protocol-776.json",
+    "docs/benchmarks/evidence/merge-tail-observer-removal-778.patch.xz",
+    "docs/benchmarks/evidence/merge-tail-package-778.json",
+    "docs/benchmarks/evidence/merge-tail-package-failure-778.json",
+    "docs/benchmarks/evidence/merge-tail-packet-verification-778.json",
+    "docs/benchmarks/evidence/merge-tail-packet-verify-778.json",
+    "docs/benchmarks/evidence/merge-tail-portable-778.json",
+    "docs/benchmarks/evidence/merge-tail-portable-778.manifest.json.xz",
+    "docs/benchmarks/evidence/merge-tail-portable-778.tar.xz",
+    "docs/benchmarks/evidence/merge-tail-restoration-778.json",
+    "docs/benchmarks/evidence/merge-tail-restoration-plan-778.json",
+    "docs/benchmarks/evidence/merge-tail-restored-fmt-778.json",
+    "docs/benchmarks/evidence/merge-tail-restored-fmt-778.log",
+    "docs/benchmarks/evidence/merge-tail-source-accounting-failure-775.json",
+    "docs/benchmarks/evidence/merge-tail-storage-admission-failure-775.json",
+    "docs/benchmarks/evidence/merge-tail-verification-776.json",
+    "docs/benchmarks/evidence/verify_merge_tail_closeout_778.py",
+    "docs/benchmarks/evidence/verify_merge_tail_packet_778.py"
+  ],
+  "verifier": {
+    "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/benchmarks/evidence/verify_merge_tail_closeout_778.py",
+    "bytes": 8698,
+    "sha256": "cb2cb0ebf38b3c9c23de1510e7e324f72e94030a5e78b389f34947b47727152d"
+  },
+  "native_runs_repeated_for_closeout": false,
+  "expert_review": {
+    "frontier_scope": "One/two-run frontiers cannot establish general scheduling optimality; the report requires a new protocol for a real alternative.",
+    "failed_attempts": "Partial public execution, invalid complete workflow records, debug checks and release measurements retain distinct counts and credit.",
+    "restoration": "All production inputs match accepted bytes; prior acceptance is inherited without claiming fresh broad suite runs."
+  }
+}

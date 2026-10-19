@@ -1,0 +1,213 @@
+{
+  "actual_schedule_speedup": false,
+  "all_complete_values_types_traces_and_decisions_recomputed": true,
+  "all_frozen_sources_and_helpers_unchanged": true,
+  "all_native_process_groups_drained": true,
+  "artifact_binding": {
+    "bytes": 2088,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-776-a1-artifact.json",
+    "sha256": "0216f8f18138d4390ab669941738500b89e95b136b39b0c125337f955180a97f"
+  },
+  "claims": "Finite attribution only; estimates do not establish executed schedule savings, accepted runtime behavior, Full43 performance or broader owner completion.",
+  "debug_preflight_workflows_without_decision_credit": 40,
+  "debug_smoke_completion": {
+    "bytes": 667,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-debug-smoke-776-a1-completion.json",
+    "sha256": "40336610664c8e829fc18572b76236e2513ff12fe59e12c0bcd850f10c945176"
+  },
+  "decision_binding": {
+    "bytes": 197277,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-776-a1-decision.json",
+    "sha256": "513bae527976e67a6953f1572a0ba4fce122e7706f5d39ca198bb1ce7ad661a0"
+  },
+  "focused_spill_tests": [
+    "local_primitives::prepared_relational::tests::spill_tests::native_relational_spill_configuration_and_unspilled_empty_work_are_inert",
+    "local_primitives::prepared_relational::tests::spill_tests::native_relational_spill_corrupt_truncated_and_replaced_runs_cannot_complete",
+    "local_primitives::prepared_relational::tests::spill_tests::native_relational_spill_denial_cancellation_and_consumer_error_never_complete",
+    "local_primitives::prepared_relational::tests::spill_tests::native_relational_spill_keeps_exact_scalar_extrema_nulls_and_signed_zero",
+    "local_primitives::prepared_relational::tests::spill_tests::native_relational_spill_large_single_row_uses_the_grant_and_missing_workspace_fails",
+    "local_primitives::prepared_relational::tests::spill_tests::native_relational_spill_nested_order_stages_share_quota_and_keep_stable_input_order",
+    "local_primitives::prepared_relational::tests::spill_tests::native_relational_spill_source_mutation_after_delivery_prevents_success",
+    "local_primitives::prepared_relational::tests::spill_tests::native_relational_spill_stable_multikey_complete_values_and_repeated_cleanup",
+    "local_primitives::prepared_relational::tests::spill_tests::native_relational_spill_streams_exact_rows_when_resident_sort_exceeds_query_budget"
+  ],
+  "full_content_witnesses": 34,
+  "guard_receipts": [
+    {
+      "bytes": 204276,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-build-776-a1.json",
+      "sha256": "e1031fadc5e74b70460297080dfbb23c04544803a28966cca2694f6078dbb5f3"
+    },
+    {
+      "bytes": 3885,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-bind-776-a1.json",
+      "sha256": "558c4ad2a6d94d2743c45cbbfe59836e4bed6b6be42cfc2a4fb120aae46a5762"
+    },
+    {
+      "bytes": 4769,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-focused-spill-776-a1.json",
+      "sha256": "c7bde4dd2d2f5326274848caec1131658426092f484d817210ecdd1dc2d93e31"
+    },
+    {
+      "bytes": 5089,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-off-776-a1.json",
+      "sha256": "441e6507989522d1c265d309cffc25e018e0d3753b0d4a09b9ed6043ae2aff46"
+    },
+    {
+      "bytes": 5090,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-on-776-a1.json",
+      "sha256": "359f6a6b1c4d3af3cae6d8f243692f0c5d2652f346e9ede86c31cb8ed834f4e5"
+    },
+    {
+      "bytes": 5014,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-check-776-a1.json",
+      "sha256": "2fe77710044dc2bc6c09229903052f7e19e036796a51a652dbd6f936de59b23e"
+    },
+    {
+      "bytes": 8008,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-A-off-776-a1.json",
+      "sha256": "53ccb0aefa10514aee34bbbf5d0b877c7e87c66f1baa6573fe99b845b9f17dc5"
+    },
+    {
+      "bytes": 7995,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-A-on-776-a1.json",
+      "sha256": "1d890fd7777a12706ca3cc608adcd2d296b2b00fdb8b62c09caa7275baca2d1a"
+    },
+    {
+      "bytes": 8009,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-B-on-776-a1.json",
+      "sha256": "fe50d9a8c813aebb04e167fe1c58ef0dc2e91c3c01f06f03d7eadd66dac3973a"
+    },
+    {
+      "bytes": 8013,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-B-off-776-a1.json",
+      "sha256": "11813edce4c020d7323f84b5dcb7eed225d7617d55a1ba000bbc50de372e247b"
+    },
+    {
+      "bytes": 14520,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-decision-776-a1.json",
+      "sha256": "0f67851d852b1e303f6e40309e0ac048a0e726161f35910636674ad59c754d3c"
+    }
+  ],
+  "helper_inputs": 39,
+  "label": "merge-tail-attribution-776-a1",
+  "measured_workflows": 192,
+  "owned_spill_directories_removed": true,
+  "preflight_workflows": 40,
+  "production_head": "d732d7889207e7d8fc0de8d746de1623174c1dcf",
+  "production_optimization": false,
+  "protocol_sha256": "111f66f588ae5f388170ce8b906f80fff21ba64d20e41e59eb7bf3df467fccf7",
+  "qualifying_spill_cells": [],
+  "run_links": [
+    {
+      "bytes": 1782,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-off-776-a1-link.json",
+      "sha256": "4395f9887eb59d504ebaaac7367384109457397104d7700ee7d5a25c624b40e6"
+    },
+    {
+      "bytes": 1778,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-on-776-a1-link.json",
+      "sha256": "b4acb3676ccf0329a7f635d278a9bd2b1fa0d1294ed792af1f9a3c25453e8f1a"
+    },
+    {
+      "bytes": 1752,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-A-off-776-a1-link.json",
+      "sha256": "906f8a89faedc2cb48ce0329061cccb3be362ec43acf2719d069c868fce307e9"
+    },
+    {
+      "bytes": 1749,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-A-on-776-a1-link.json",
+      "sha256": "152139b6de80ac7fcfd574a60234774d82639533c595a3ffb2219917a89794bc"
+    },
+    {
+      "bytes": 1749,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-B-on-776-a1-link.json",
+      "sha256": "a7b458bb9acae2726369118e59dcf1e6dcf4875a57c1399829cb1c13759860df"
+    },
+    {
+      "bytes": 1752,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-B-off-776-a1-link.json",
+      "sha256": "ea7af744c505e2df0c5b043b49a3768f67589d425929ab303cb2c3228a437c07"
+    }
+  ],
+  "runtime_inputs": 1901,
+  "schema_version": "shardloom.merge_tail_attribution_verification.v1",
+  "scope_result": "no_signal",
+  "sequence_identity": {
+    "bytes": 1282,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-776-a1-sequence-identity.json",
+    "sha256": "d34ccf60d1ba1d23a29f0936415ccdd044364906164bc519d4996089a5bfadd8"
+  },
+  "sequence_steps": [
+    {
+      "bytes": 957,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-bind-776-a1-sequence-step.json",
+      "sha256": "e22c14da04916d170b611208b26a09d00b5b90df9b3880ec353075bff5d158c2"
+    },
+    {
+      "bytes": 879,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-focused-spill-776-a1-sequence-step.json",
+      "sha256": "6f122b36144e29541b4678f4632a18cf6b43995daca14a452b6635ad30ad2a38"
+    },
+    {
+      "bytes": 819,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-off-776-a1-sequence-step.json",
+      "sha256": "2a315a0c69e7abb7c62f40599bdc7ce801eb8a19c65b74d4b9eaab9548c22161"
+    },
+    {
+      "bytes": 816,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-on-776-a1-sequence-step.json",
+      "sha256": "2f5663d770ab4d6456b92fc0e01d432d4a00e10949a0b61d4a221b2d70079d56"
+    },
+    {
+      "bytes": 1157,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-preflight-check-776-a1-sequence-step.json",
+      "sha256": "9868e00ae6e90d723dceb99a118c4c1420e3a4f994ea40430cb1a08ea0cbbe71"
+    },
+    {
+      "bytes": 809,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-A-off-776-a1-sequence-step.json",
+      "sha256": "44f349b107a83b72dc2f4d98c0ab935cd8b6f211d4d7a806f501bac8b7ffec53"
+    },
+    {
+      "bytes": 806,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-A-on-776-a1-sequence-step.json",
+      "sha256": "ae0080172e4be84b0de0a310ada3a5dd97183e95cdc7a37ba881e7b0cec86afc"
+    },
+    {
+      "bytes": 806,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-B-on-776-a1-sequence-step.json",
+      "sha256": "c163228a93f4fb9bedc1ee75596837b2a2cb81400e5591af67bd993f19b3edb2"
+    },
+    {
+      "bytes": 809,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-measure-B-off-776-a1-sequence-step.json",
+      "sha256": "d3d066f82ec89733d7c9e5a15d9cd076853dece964dae811ce78d234b77edf87"
+    },
+    {
+      "bytes": 1128,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-decision-776-a1-sequence-step.json",
+      "sha256": "85c42feaba376e8d5c530485dcb5122b9b8559a611d7fd8f37f90d2331304722"
+    },
+    {
+      "bytes": 629,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-final-binding-776-a1-sequence-step.json",
+      "sha256": "611a2e6580bd4e78753fc37080bd76e1e1dabc837dd871cd3d70c5e63c779733"
+    }
+  ],
+  "source_binding": {
+    "bytes": 367098,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/merge-tail-attribution-776-a1-source-freeze.json",
+    "sha256": "17b8bae4db4247b81b0c130c270b3a600da644ddda12b5aee8a6826086b1e362"
+  },
+  "status": "passed",
+  "stream_count": 6,
+  "total_operations": 236,
+  "total_workflows": 236,
+  "verifier": {
+    "bytes": 19333,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_merge_tail_776.py",
+    "sha256": "6d1d2d9fa1be7f76f1982ad2f891eecaaa1d766d90e6f0912fc499ef8c72a1ee"
+  },
+  "warmup_workflows": 4
+}
