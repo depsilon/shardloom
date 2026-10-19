@@ -2,6 +2,10 @@
 
 # Finite streaming set operations
 
+The [October 18 distinct-set spill contract](native-set-membership-spill-2026-10-18.md)
+extends the resident membership boundary recorded below. Its acceptance is
+tracked separately from this completed finite-source contract.
+
 Status: local and hosted acceptance complete in PR #1558. This
 cohesive breadth unit under PERF-03/06/07/11/12 and CG-5/19/20/21 follows the
 destination work in PR #1557. The [acceptance report](../benchmarks/native-stream-sets-2026-10-15.md)

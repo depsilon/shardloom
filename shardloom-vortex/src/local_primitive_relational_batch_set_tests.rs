@@ -89,6 +89,30 @@ fn reference(left: &[Row], right: &[Row], kind: SetKind) -> Vec<Value> {
         .collect()
 }
 
+fn optional_spill(
+    prepared: PreparedVortexRelational,
+    enabled: bool,
+) -> (PreparedVortexRelational, Fixture) {
+    let fixture = Fixture::new(keyed(&[Some(0)], &[0]), 1);
+    let directory = fixture.0.join("set-runs");
+    fs::create_dir(&directory).unwrap();
+    let prepared = if enabled {
+        prepared
+            .with_spill(
+                crate::relational_query::VortexRelationalSpillPolicy::new(
+                    directory,
+                    128 << 20,
+                    1 << 20,
+                )
+                .unwrap(),
+            )
+            .unwrap()
+    } else {
+        prepared
+    };
+    (prepared, fixture)
+}
+
 struct Inputs<'a> {
     rows: [&'a [Row]; 2],
     calls: [u64; 2],
@@ -150,80 +174,92 @@ impl<'a> Inputs<'a> {
 #[test]
 fn streaming_sets_complete_nulls_duplicates_empty_branches_and_retained_outputs() {
     let all_null = [(None, None); 3];
-    for (left, right) in [
-        (&LEFT[..], &RIGHT[..]),
-        (&[][..], &RIGHT[..]),
-        (&LEFT[..], &[][..]),
-        (&[][..], &[][..]),
-        (&all_null[..], &all_null[..]),
-    ] {
-        for kind in KINDS {
-            let plan = set(input_scan(0), input_scan(1), kind);
-            let prepared = prepared_set(&plan, 2, 4 << 20);
-            let memory = prepared.session.memory().clone();
-            let mut inputs = Inputs::new(left, right);
-            let mut held = Vec::new();
-            let mut actual = Vec::new();
-            let report = prepared
-                .with_batch_inputs(&mut |uri, ordinal, session| inputs.next(uri, ordinal, session))
-                .unwrap()
-                .for_each_batch(&CancellationToken::default(), |array, context| {
-                    actual.extend(values(&array, context)?);
-                    held.push(array);
-                    Ok(())
-                })
-                .unwrap();
-            let expected = reference(left, right, kind);
-            assert_eq!(actual, expected, "{kind:?}");
-            assert_eq!(inputs.ended, [true; 2]);
-            assert_eq!(inputs.positions, [left.len(), right.len()]);
-            assert_eq!(
-                inputs.calls,
-                [
-                    left.len().div_ceil(2) as u64 + 2,
-                    right.len().div_ceil(2) as u64 + 2
-                ]
-            );
-            let input = report.input.as_ref().unwrap();
-            assert_eq!(input.sources, 2);
-            assert_eq!(input.rows, (left.len() + right.len()) as u64);
-            assert_eq!(input.payload_batches, inputs.calls.iter().sum::<u64>() - 2);
-            assert_eq!(input.replay_sources, 0);
-            assert_eq!(input.replay_passes, 0);
-            assert!(input.end_of_input_observed && input.output_ownership_detached);
-            assert!(report.native_io_certificate.is_certified());
-            assert!(!report.native_io_certificate.side_effects.fallback_attempted);
-            drop(report);
-            drop(prepared);
-            if !expected.is_empty() {
-                assert!(
-                    memory.snapshot().reserved_bytes > 0,
-                    "retained output lost its credits"
+    for spill in [false, true] {
+        for (left, right) in [
+            (&LEFT[..], &RIGHT[..]),
+            (&[][..], &RIGHT[..]),
+            (&LEFT[..], &[][..]),
+            (&[][..], &[][..]),
+            (&all_null[..], &all_null[..]),
+        ] {
+            for kind in KINDS {
+                let plan = set(input_scan(0), input_scan(1), kind);
+                let (prepared, fixture) = optional_spill(prepared_set(&plan, 2, 4 << 20), spill);
+                let directory = fixture.0.join("set-runs");
+                let memory = prepared.session.memory().clone();
+                let mut inputs = Inputs::new(left, right);
+                let mut held = Vec::new();
+                let mut actual = Vec::new();
+                let report = prepared
+                    .with_batch_inputs(&mut |uri, ordinal, session| {
+                        inputs.next(uri, ordinal, session)
+                    })
+                    .unwrap()
+                    .for_each_batch(&CancellationToken::default(), |array, context| {
+                        actual.extend(values(&array, context)?);
+                        held.push(array);
+                        Ok(())
+                    })
+                    .unwrap();
+                let expected = reference(left, right, kind);
+                assert_eq!(actual, expected, "{kind:?}");
+                assert_eq!(inputs.ended, [true; 2]);
+                assert_eq!(inputs.positions, [left.len(), right.len()]);
+                assert_eq!(
+                    inputs.calls,
+                    [
+                        left.len().div_ceil(2) as u64 + 2,
+                        right.len().div_ceil(2) as u64 + 2
+                    ]
                 );
-            }
-            let mut context = VortexSession::default().create_execution_ctx();
-            let mut after_teardown = Vec::new();
-            for array in &held {
-                let numbers =
-                    crate::local_primitives::logical_field_from_native_array(array, "n").unwrap();
-                let strings =
-                    crate::local_primitives::logical_field_from_native_array(array, "s").unwrap();
-                for row in 0..array.len() {
-                    let n = result_batch::scalar_value(&numbers, row, &mut context)
-                        .unwrap()
-                        .into_json()
-                        .unwrap();
-                    let s = result_batch::scalar_value(&strings, row, &mut context)
-                        .unwrap()
-                        .into_json()
-                        .unwrap();
-                    after_teardown.push(json!({"n":n,"s":s}));
+                let input = report.input.as_ref().unwrap();
+                assert_eq!(input.sources, 2);
+                assert_eq!(input.rows, (left.len() + right.len()) as u64);
+                assert_eq!(input.payload_batches, inputs.calls.iter().sum::<u64>() - 2);
+                assert_eq!(input.replay_sources, 0);
+                assert_eq!(input.replay_passes, 0);
+                assert!(input.end_of_input_observed && input.output_ownership_detached);
+                assert!(report.native_io_certificate.is_certified());
+                assert!(!report.native_io_certificate.side_effects.fallback_attempted);
+                assert_eq!(
+                    report.ordered_set_stages,
+                    u64::from(spill && kind != SetKind::UnionAll)
+                );
+                assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
+                drop(report);
+                drop(prepared);
+                if !expected.is_empty() {
+                    assert!(
+                        memory.snapshot().reserved_bytes > 0,
+                        "retained output lost its credits"
+                    );
                 }
+                let mut context = VortexSession::default().create_execution_ctx();
+                let mut after_teardown = Vec::new();
+                for array in &held {
+                    let numbers =
+                        crate::local_primitives::logical_field_from_native_array(array, "n")
+                            .unwrap();
+                    let strings =
+                        crate::local_primitives::logical_field_from_native_array(array, "s")
+                            .unwrap();
+                    for row in 0..array.len() {
+                        let n = result_batch::scalar_value(&numbers, row, &mut context)
+                            .unwrap()
+                            .into_json()
+                            .unwrap();
+                        let s = result_batch::scalar_value(&strings, row, &mut context)
+                            .unwrap()
+                            .into_json()
+                            .unwrap();
+                        after_teardown.push(json!({"n":n,"s":s}));
+                    }
+                }
+                assert_eq!(after_teardown, expected);
+                drop(context);
+                drop(held);
+                assert_eq!(memory.snapshot().reserved_bytes, 0);
             }
-            assert_eq!(after_teardown, expected);
-            drop(context);
-            drop(held);
-            assert_eq!(memory.snapshot().reserved_bytes, 0);
         }
     }
 }
@@ -256,9 +292,12 @@ fn streaming_sets_inspect_both_branches_and_preserve_static_depth_refusals() {
 
 #[test]
 fn streaming_sets_reuse_one_producer_through_native_replay_for_every_kind() {
-    for kind in KINDS {
+    for (spill, kind) in [false, true]
+        .into_iter()
+        .flat_map(|spill| KINDS.map(|kind| (spill, kind)))
+    {
         let plan = set(input_scan(0), input_scan(0), kind);
-        let prepared = prepared_set(&plan, 1, 8 << 20);
+        let (prepared, fixture) = optional_spill(prepared_set(&plan, 1, 8 << 20), spill);
         let baseline = prepared.snapshot().memory.reserved_bytes;
         for execution in 1..=2 {
             let mut inputs = Inputs::new(&LEFT, &[]);
@@ -281,6 +320,7 @@ fn streaming_sets_reuse_one_producer_through_native_replay_for_every_kind() {
             assert_eq!(result.execution.runtime.completed_executions, execution);
             drop(result);
             assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(fs::read_dir(fixture.0.join("set-runs")).unwrap().count(), 0);
         }
     }
 }
@@ -304,13 +344,13 @@ fn streaming_sets_nested_replay_and_zero_limits_drain_all_producers() {
         .collect::<Vec<_>>();
     plans.push((nested, vec![json!({"n":9,"s":" "})], 1));
     for (input_plan, expected, replay_sources) in plans {
-        for limit in [0, 2] {
+        for (spill, limit) in [(false, 0), (false, 2), (true, 0), (true, 2)] {
             let plan = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
                 input: input_plan.clone(),
                 offset: 0,
                 count: limit,
             }));
-            let prepared = prepared_set(&plan, 2, 8 << 20);
+            let (prepared, fixture) = optional_spill(prepared_set(&plan, 2, 8 << 20), spill);
             let baseline = prepared.snapshot().memory.reserved_bytes;
             let mut inputs = Inputs::new(&LEFT, &RIGHT);
             let result = prepared
@@ -329,6 +369,7 @@ fn streaming_sets_nested_replay_and_zero_limits_drain_all_producers() {
             assert!(input.end_of_input_observed);
             drop(result);
             assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(fs::read_dir(fixture.0.join("set-runs")).unwrap().count(), 0);
         }
     }
 }
@@ -336,8 +377,13 @@ fn streaming_sets_nested_replay_and_zero_limits_drain_all_producers() {
 #[test]
 fn streaming_sets_failure_cancellation_and_consumer_errors_release_all_state() {
     for kind in KINDS {
-        for fault in ["left", "right", "consumer", "cancel", "initial-cancel"] {
-            let prepared = prepared_set(&set(input_scan(0), input_scan(1), kind), 2, 8 << 20);
+        for (spill, fault) in [false, true].into_iter().flat_map(|spill| {
+            ["left", "right", "consumer", "cancel", "initial-cancel"].map(|fault| (spill, fault))
+        }) {
+            let (prepared, fixture) = optional_spill(
+                prepared_set(&set(input_scan(0), input_scan(1), kind), 2, 8 << 20),
+                spill,
+            );
             let baseline = prepared.snapshot().memory.reserved_bytes;
             let token = CancellationToken::default();
             if fault == "initial-cancel" {
@@ -392,6 +438,7 @@ fn streaming_sets_failure_cancellation_and_consumer_errors_release_all_state() {
             );
             assert_eq!(prepared.snapshot().completed_executions, 0);
             assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(fs::read_dir(fixture.0.join("set-runs")).unwrap().count(), 0);
         }
     }
 }

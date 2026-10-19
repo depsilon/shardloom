@@ -4,7 +4,7 @@ use super::*;
 use crate::local_primitives::VortexLocalPrimitiveRowExportFormat as Format;
 use std::cell::Cell;
 
-fn runs(directory: &std::path::Path) -> Vec<PathBuf> {
+pub(super) fn runs(directory: &std::path::Path) -> Vec<PathBuf> {
     fs::read_dir(directory)
         .unwrap()
         .flat_map(|entry| {

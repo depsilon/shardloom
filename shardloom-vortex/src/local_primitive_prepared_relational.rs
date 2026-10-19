@@ -117,6 +117,12 @@ pub struct ExecutedVortexRelational {
     pub ordered_aggregate_input_rows: u64,
     /// Additional nonnull distinct records, with duplicate measure aliases shared.
     pub ordered_aggregate_distinct_rows: u64,
+    /// Distinct set nodes using the bounded native ordering strategy.
+    pub ordered_set_stages: u64,
+    pub ordered_set_input_rows: u64,
+    /// Complete null-equal key groups across both source sides.
+    pub ordered_set_groups: u64,
+    pub ordered_set_output_rows: u64,
     /// Join nodes executed through the explicit ordered native spill strategy.
     pub ordered_join_stages: u64,
     pub ordered_join_build_rows: u64,
@@ -668,6 +674,10 @@ struct Metrics<'a> {
     ordered_aggregate_stages: Cell<u64>,
     ordered_aggregate_input_rows: Cell<u64>,
     ordered_aggregate_distinct_rows: Cell<u64>,
+    ordered_set_stages: Cell<u64>,
+    ordered_set_input_rows: Cell<u64>,
+    ordered_set_groups: Cell<u64>,
+    ordered_set_output_rows: Cell<u64>,
     ordered_join_stages: Cell<u64>,
     ordered_join_build_rows: Cell<u64>,
     ordered_join_probe_rows: Cell<u64>,
@@ -1141,6 +1151,10 @@ impl PreparedVortexRelational {
                 ordered_aggregate_stages: metrics.ordered_aggregate_stages.get(),
                 ordered_aggregate_input_rows: metrics.ordered_aggregate_input_rows.get(),
                 ordered_aggregate_distinct_rows: metrics.ordered_aggregate_distinct_rows.get(),
+                ordered_set_stages: metrics.ordered_set_stages.get(),
+                ordered_set_input_rows: metrics.ordered_set_input_rows.get(),
+                ordered_set_groups: metrics.ordered_set_groups.get(),
+                ordered_set_output_rows: metrics.ordered_set_output_rows.get(),
                 ordered_join_stages: metrics.ordered_join_stages.get(),
                 ordered_join_build_rows: metrics.ordered_join_build_rows.get(),
                 ordered_join_probe_rows: metrics.ordered_join_probe_rows.get(),
@@ -1387,6 +1401,7 @@ impl PreparedVortexRelational {
         }
     }
 
+    #[allow(clippy::too_many_lines)] // Keep streaming, authorized spill and resident membership under the same alignment boundary.
     fn run_set(
         &self,
         node: &Node,
@@ -1416,6 +1431,35 @@ impl PreparedVortexRelational {
                     &mut |array| consume(cast_batch(&array, &input.fields, &node.fields, context)?),
                 )?;
             }
+            return Ok(());
+        }
+        #[cfg(feature = "vortex-write")]
+        if let Some(spill) = &metrics.spill {
+            let report = super::native_relational_set_spill::run(
+                *kind,
+                &node.fields,
+                spill,
+                context,
+                batch_rows,
+                |is_left, accept| {
+                    let input = if is_left { left } else { right };
+                    self.run(
+                        input,
+                        context,
+                        metrics,
+                        batch_rows,
+                        parameter,
+                        &mut |array| {
+                            accept(cast_batch(&array, &input.fields, &node.fields, context)?)
+                        },
+                    )
+                },
+                consume,
+            )?;
+            add(&metrics.ordered_set_stages, 1)?;
+            add(&metrics.ordered_set_input_rows, report.input_rows)?;
+            add(&metrics.ordered_set_groups, report.groups)?;
+            add(&metrics.ordered_set_output_rows, report.output_rows)?;
             return Ok(());
         }
         let mut output = RowSet::new(&node.fields, names, context.memory())?;

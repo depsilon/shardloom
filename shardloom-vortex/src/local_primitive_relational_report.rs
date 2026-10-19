@@ -22,6 +22,13 @@ pub(super) fn certificate(
     let sources = file_sources + memory_sources + batch_sources;
     let data_work = metrics.data_scans.get() > 0;
     let spilled = spill.is_some_and(|report| report.runs_written > 0);
+    let set_proof = format!(
+        "ordered_set_stages={} ordered_set_input_rows={} ordered_set_groups={} ordered_set_output_rows={}",
+        metrics.ordered_set_stages.get(),
+        metrics.ordered_set_input_rows.get(),
+        metrics.ordered_set_groups.get(),
+        metrics.ordered_set_output_rows.get(),
+    );
     let replay_proof = input.map_or_else(String::new, |input| format!(
         "streaming_replay_sources={} streaming_replay_passes={} streaming_replay_rows={} streaming_replay_batches_detached={} streaming_replay_rows_detached={} streaming_replay_buffer_bytes_copied={} streaming_replay_spilled_sources={} streaming_replay_prefilled_sources={}",
         input.replay_sources, input.replay_passes, input.replay_rows,
@@ -85,7 +92,7 @@ pub(super) fn certificate(
                 "bound_types_and_generation_checked_before_and_after_final_consumer".into()
             },
             proof_basis: format!(
-                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {pivot_proof} {replay_proof} {subquery_proof}",
+                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {pivot_proof} {replay_proof} {subquery_proof} {set_proof}",
                 metrics.scans_started.get(),
                 metrics.scans_pruned.get(),
                 metrics.scan_batches.get(),
@@ -171,7 +178,7 @@ pub(super) fn certificate(
                 to_state: RepresentationState::DecodedColumnar,
                 required_by: "typed_keys_and_bounded_native_result_consumption".into(),
                 reason: format!(
-                    "native key execution and native take followed by explicit compact output copies; streaming ordering input is separately compacted before retention; declared repeated streaming sources retain compact full-schema native replay under the same grant and optional query spill policy; {replay_proof}; ordered aggregate stages={} compact typed base/distinct records, retained group keys and completed results through the same query owner; ordered join stages={} compact build/candidate/output records with exact key and ON evaluation; ordered window stages={} compact typed input, peer/frame records, exact DISTINCT interval events, extrema summaries and completed results through the same query owner; unary scalar access and retained row state use the shared operation kernels and native output builder; unary stages retaining the complete population={}; native ordering run materialization performed={spilled}; physical decoder bytes are unobserved, so the legacy numeric bytes field is not a zero-decode claim; final output buffer bytes are reported separately; reservations exclude upstream provider scratch and are not an RSS bound",
+                    "native key execution and native take followed by explicit compact output copies; streaming ordering input is separately compacted before retention; declared repeated streaming sources retain compact full-schema native replay under the same grant and optional query spill policy; {replay_proof}; {set_proof}; distinct sets compact complete typed rows and source ordinals, reduce exact key groups, and restore first-occurrence order through the shared query owner; ordered aggregate stages={} compact typed base/distinct records, retained group keys and completed results through the same query owner; ordered join stages={} compact build/candidate/output records with exact key and ON evaluation; ordered window stages={} compact typed input, peer/frame records, exact DISTINCT interval events, extrema summaries and completed results through the same query owner; unary scalar access and retained row state use the shared operation kernels and native output builder; unary stages retaining the complete population={}; native ordering run materialization performed={spilled}; physical decoder bytes are unobserved, so the legacy numeric bytes field is not a zero-decode claim; final output buffer bytes are reported separately; reservations exclude upstream provider scratch and are not an RSS bound",
                     metrics.ordered_aggregate_stages.get(),
                     metrics.ordered_join_stages.get(),
                     metrics.ordered_window_stages.get(),

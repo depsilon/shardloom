@@ -236,6 +236,7 @@ def main():
               Path(__file__).with_name("native_streaming_set_composition_cases.py"),
               Path(__file__).with_name("native_streaming_set_boundary_cases.py"),
               Path(__file__).with_name("native_streaming_set_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_set_spill_cases.py"),
               Path(__file__).with_name("native_streaming_unary_cases.py"),
               Path(__file__).with_name("native_streaming_unary_reference_cases.py"),
               Path(__file__).with_name("native_streaming_unary_composition_cases.py"),

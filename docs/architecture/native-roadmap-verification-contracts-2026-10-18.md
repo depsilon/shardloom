@@ -82,14 +82,20 @@ Deliver `perf-05-acceptance.json` with decoded-reference comparisons for new nul
 
 ## PERF-06
 
-Protect existing external-memory ordering and the explicit boundary between replay spill and resident membership:
+Protect existing external-memory ordering, distinct-set membership with explicit
+spill permission, and the separate resident refusal without that permission:
 
 ```sh
 cargo test -p shardloom-vortex --features release-user-surfaces --lib native_relational_spill_stable_multikey_complete_values_and_repeated_cleanup -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-spill.log" 2>&1
-cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_growth_is_denied_with_or_without_replay_spill_permission -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-boundary.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_growth_is_denied_without_spill_permission -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-disabled.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_spill_completes_exact_values_beyond_the_resident_grant -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-enabled.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_spill_keeps_a_single_hot_key_bounded -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-skew.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_faults_cannot_complete_or_publish_partial_output -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-faults.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_writes_reject_existing_targets_before_input -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-existing-output.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_recovery_preserves_live_and_unknown_owners_then_restarts_exactly -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-recovery.log" 2>&1
 ```
 
-Deliver `perf-06-acceptance.json` proving exact completion when newly supported logical state exceeds its grant, including quota, skew, truncation/corruption, cancellation, crash/restart or actual resume, and owned cleanup. When the membership boundary changes, update that refusal regression and add explicit enabled/disabled external-memory cases; passing today's refusal test does not complete membership spill. Freeze separate reconstruction/merge protocols for conditional experiments.
+Deliver `perf-06-acceptance.json` proving exact completion when newly supported logical state exceeds its grant, including quota, skew, truncation/corruption, cancellation, crash/restart or actual resume, and owned cleanup. The [distinct-set contract](native-set-membership-spill-2026-10-18.md) covers `UNION`, `INTERSECT` and `EXCEPT`; source replay, unary membership/population and subquery indexes keep their independent boundaries. Its process-death route cleans owned abandoned runs and executes a fresh query; it does not resume interrupted execution. These enabled/disabled regressions replace the prior combined membership refusal selector. Freeze separate reconstruction/merge protocols for conditional experiments.
 
 ## PERF-07
 

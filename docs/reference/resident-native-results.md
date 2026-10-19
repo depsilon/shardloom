@@ -86,9 +86,13 @@ explicit spill policy. Result replay is distinct from repeated-source replay.
 Cumulative input may exceed the query grant while each batch/frame stays bounded;
 typed intake, retained operator state, output compaction and result/sink owners
 remain charged. Ordering, aggregation, joins and analytic windows admit explicit
-native spill, as does relational pivot. Set membership and unary retained state
-remain resident; replay spill does not spill those states. See the
-[finite unary contract](../architecture/native-stream-unary-2026-10-15.md).
+native spill, as does relational pivot. With an explicit spill policy, bounded
+native full-row membership spill is available for `UNION` (distinct),
+`INTERSECT` and `EXCEPT`, preserving their existing first-occurrence order;
+`UNION ALL` retains its streaming path. Unary membership/population and subquery
+membership/index state remain resident under their separate contracts. See the
+[native set membership spill contract](../architecture/native-set-membership-spill-2026-10-18.md)
+and [finite unary contract](../architecture/native-stream-unary-2026-10-15.md).
 Pivot consumes the producer once for
 execution-time domain discovery and retains the completed native pivot state;
 downstream output uses that state without requesting the source again. A later

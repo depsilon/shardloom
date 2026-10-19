@@ -78,13 +78,13 @@ def run(harness):
         "schema": SCHEMA, "grant": GRANT, "spill": spill,
         "low_cardinality_key": "source_index * 64 + row_index % 128",
         "unique_key": "row_index", "text": "eight_digit_key_then_2040_p", "oracles": oracles,
-        "set_membership_spill": False,
+        "set_membership_spill": True,
     })
 
     def clean():
         assert foreign.read_bytes() == b"preserve" and list(workspace.iterdir()) == [foreign]
 
-    def source(side, unique=False, failure=None):
+    def source(side, unique=False, failure=None, offset=0, reverse=False):
         trace = {"opened": 0, "batches": 0, "rows": 0, "ended": False, "closed": False, "fault": False}
         def produce():
             trace["opened"] += 1
@@ -92,7 +92,7 @@ def run(harness):
                 for start in range(0, ROWS, BATCH_ROWS):
                     if trace["batches"] == 6 and failure in ("producer", "corrupt"):
                         runs = sorted(workspace.glob("shardloom-query-*/*.vortex"))
-                        assert runs, "failure must follow actual native source replay spill"
+                        assert runs, "failure must follow actual native spill"
                         trace["fault"] = True
                         if failure == "producer":
                             raise RuntimeError("set replay producer sentinel")
@@ -100,7 +100,8 @@ def run(harness):
                         assert not damaged.is_symlink() and damaged.parent.parent == workspace
                         with damaged.open("r+b") as stream:
                             stream.truncate(1)
-                    batch = [row(index if unique else side * 64 + index % 128)
+                    batch = [row(offset + (ROWS - 1 - index if reverse else index)
+                                 if unique else side * 64 + index % 128)
                              for index in range(start, min(start + BATCH_ROWS, ROWS))]
                     trace["batches"] += 1
                     trace["rows"] += len(batch)
@@ -126,28 +127,26 @@ def run(harness):
         harness.case(name, duplicate)
 
     for kind in ("union", "intersect", "except_"):
-        for stored in (False, True):
-            name = f"set-membership-pressure-denied-{kind}-spill-{stored}"
-            def denied(name=name, kind=kind, stored=stored):
-                left, a = source(0, unique=True)
-                right, b = source(1, unique=True)
-                query = combine(left, right, kind)
-                requested = dict(POLICY, spill=spill) if stored else POLICY
-                iterator = query.iter_batches(batch_rows=257, **requested)
-                try:
-                    with iterator:
-                        for _ in iterator:
-                            assert iterator.report is None
-                except ShardLoomCommandError as error:
-                    harness.envelope(name, error.envelope, success=False)
-                    assert "reservation denied" in json.dumps(error.envelope.raw)
-                else:
-                    raise AssertionError("unbounded distinct membership was admitted")
-                assert iterator.report is None and iterator._process.poll() is not None
-                assert a["rows"] + b["rows"] < ROWS * 2
-                assert all(not trace["opened"] or trace["closed"] for trace in (a, b))
-                clean()
-            harness.case(name, denied)
+        name = f"set-membership-pressure-denied-{kind}-spill-False"
+        def denied(name=name, kind=kind):
+            left, a = source(0, unique=True)
+            right, b = source(1, unique=True)
+            query = combine(left, right, kind)
+            iterator = query.iter_batches(batch_rows=257, **POLICY)
+            try:
+                with iterator:
+                    for _ in iterator:
+                        assert iterator.report is None
+            except ShardLoomCommandError as error:
+                harness.envelope(name, error.envelope, success=False)
+                assert "reservation denied" in json.dumps(error.envelope.raw)
+            else:
+                raise AssertionError("unbounded distinct membership was admitted")
+            assert iterator.report is None and iterator._process.poll() is not None
+            assert a["rows"] + b["rows"] < ROWS * 2
+            assert all(not trace["opened"] or trace["closed"] for trace in (a, b))
+            clean()
+        harness.case(name, denied)
 
     def verify_replay(name, envelope, trace):
         complete(harness, name, envelope, [trace], [True], replay=1, grant=GRANT)
@@ -231,3 +230,6 @@ def run(harness):
                     assert iterator.report is None and iterator._process.poll() is not None
                 clean()
             harness.case(name, fail)
+
+    from native_streaming_set_spill_cases import run as membership
+    membership(harness, source, spill, clean)

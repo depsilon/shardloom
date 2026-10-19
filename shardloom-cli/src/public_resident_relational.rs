@@ -596,6 +596,22 @@ pub(super) fn append_execution(
             result.ordered_join_stages.to_string(),
         ),
         (
+            "relational_ordered_set_stages".into(),
+            result.ordered_set_stages.to_string(),
+        ),
+        (
+            "relational_ordered_set_input_rows".into(),
+            result.ordered_set_input_rows.to_string(),
+        ),
+        (
+            "relational_ordered_set_groups".into(),
+            result.ordered_set_groups.to_string(),
+        ),
+        (
+            "relational_ordered_set_output_rows".into(),
+            result.ordered_set_output_rows.to_string(),
+        ),
+        (
             "relational_ordered_join_build_rows".into(),
             result.ordered_join_build_rows.to_string(),
         ),

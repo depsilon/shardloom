@@ -154,10 +154,13 @@ publication. Local multi-file publication is not group-atomic; existing
 partial-publication diagnostics and commit behavior remain in effect. Other
 unadmitted stateful families retain their separate contracts.
 
-Set membership and unary membership/population state remain resident under the
-shared grant. Permission to spill source or output replay does not spill those
-operator states. The [finite unary contract](../architecture/native-stream-unary-2026-10-15.md)
-keeps existing DISTINCT, duplicate selection/masks, tail, sampling, scalar
+With an explicit spill policy, bounded native full-row membership spill is
+available for `UNION` (distinct), `INTERSECT` and `EXCEPT`, preserving their
+existing first-occurrence order. `UNION ALL` retains its streaming path. Unary
+membership/population and subquery membership/index state remain resident under
+their separate contracts. See the [native set membership spill contract](../architecture/native-set-membership-spill-2026-10-18.md)
+and [finite unary contract](../architecture/native-stream-unary-2026-10-15.md),
+which keeps existing DISTINCT, duplicate selection/masks, tail, sampling, scalar
 rewrites, melt, explode and rolling semantics while admitting finite producers.
 
 ```python

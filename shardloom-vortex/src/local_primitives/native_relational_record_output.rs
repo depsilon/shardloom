@@ -1,10 +1,14 @@
-//! Compact completed groups before retaining them for first-seen output order.
+//! Compact completed records before retaining them for first-seen output order.
 
-use super::{Ordering, State, failed};
 use crate::{
     local_primitives::{
-        native_capacity::ReservedVec, native_payload, native_relational_batch::index_array,
-        native_relational_sort::Spec, vortex_error,
+        native_capacity::ReservedVec,
+        native_payload,
+        native_relational_batch::failed,
+        native_relational_batch::index_array,
+        native_relational_sort::Spec,
+        native_relational_spill::{Ordering, State},
+        vortex_error,
     },
     resident_session::NativeExecutionContext,
 };
@@ -38,7 +42,7 @@ impl<'a> Results<'a> {
         let dtype = DType::struct_(spec.fields.clone(), Nullability::NonNullable);
         let row_metadata_bytes = crate::native_payload_schema::schema_bytes(&dtype)?
             .checked_mul(2)
-            .ok_or_else(|| failed("aggregate result metadata capacity overflow"))?;
+            .ok_or_else(|| failed("completed record metadata capacity overflow"))?;
         Ok(Self {
             order: Ordering::new(spec, state, batch_rows, context)?,
             dtype,
@@ -56,13 +60,13 @@ impl<'a> Results<'a> {
         context.check_cancelled()?;
         if array.len() != 1 || array.dtype() != &self.dtype {
             return Err(failed(
-                "completed aggregate group changed its row count or dtype",
+                "completed native record changed its row count or dtype",
             ));
         }
         let bytes = array
             .nbytes()
             .checked_add(self.row_metadata_bytes)
-            .ok_or_else(|| failed("aggregate result capacity overflow"))?;
+            .ok_or_else(|| failed("completed record capacity overflow"))?;
         if bytes > PENDING_BYTES.saturating_sub(self.pending_bytes)
             || self.pending.values.len() >= PENDING_ROWS
         {
@@ -76,7 +80,7 @@ impl<'a> Results<'a> {
         self.pending_bytes = self
             .pending_bytes
             .checked_add(bytes)
-            .ok_or_else(|| failed("aggregate pending output capacity overflow"))?;
+            .ok_or_else(|| failed("completed record pending output capacity overflow"))?;
         Ok(())
     }
 
