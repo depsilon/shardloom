@@ -218,8 +218,14 @@ def run(harness):
                         else:
                             assert isinstance(error, ShardLoomCommandError)
                             harness.envelope(name, error.envelope, success=False)
-                            expected_diagnostic = "quota" if failure == "quota" else "byte length changed"
-                            assert expected_diagnostic in json.dumps(error.envelope.raw)
+                            message = json.dumps(error.envelope.raw)
+                            if failure == "quota":
+                                assert "quota" in message
+                            else:
+                                # A previously opened run fails its generation
+                                # check; a fresh reader can fail the size check.
+                                assert ("byte length changed" in message or
+                                        "prepared source changed" in message)
                     else:
                         raise AssertionError("failed unary membership spill returned a complete report")
 
