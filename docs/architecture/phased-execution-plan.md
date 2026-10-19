@@ -268,26 +268,29 @@ original 16-MiB pressure grant. The [finite subquery predicate acceptance](../be
 also completes shared relational `IN`, `EXISTS` and quantified `ANY`/`ALL`
 state with original 4-MiB native and 8-MiB public pressure controls. Other
 sampling strategies, legacy standalone unary state and broader recovery remain
-open. Resume the
-optimization/breadth sequence below without closing any broader owner or CPU
-investigation.
+open. The maintainer's October 19 sequencing decision is to work through all
+**21 conditional investigations before resuming the 37 required substeps**, after
+the public API and spill PR boundary. The
+[conditional investigation sequence](native-conditional-investigations-2026-10-19.md)
+maps every conditional ID to its prerequisites and decision record. This changes
+priority, not acceptance criteria, required capability scope or competitive gates.
 
-Next, extend fixed-count and known-bound fractional sampling without replacement
-through the existing native run store. Preserve exact scores, oldest-first ties,
-passing ordinals, final source order and payload observation for every initial
-candidate and transient winner, without observing later losing payloads. Keep
-bounded candidate retention separate from replay and full-population sampling.
-Freeze its pressure and failure contract before implementation. The completed
+The fixed-count and known-bound fractional sampling baseline is preserved for
+later required work. Its eventual implementation must preserve exact scores,
+oldest-first ties, passing ordinals, final source order and payload observation
+for every initial candidate and transient winner, without observing later losing
+payloads. Keep bounded candidate retention separate from replay and full-population
+sampling. The completed
 [sampling contract](native-sampling-population-spill-2026-10-19.md) admits only
 unknown-bound fractional samples without replacement and fixed/fractional samples
 with replacement through the shared relational route.
 
 1. The nullable-layout integration, cleanup, ship/drop readiness audit and fresh UAT are complete in the [October 18 packet](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md). PR #1575 integrates the reconciled queue. Keep the next version bump held for a separate maintainer decision.
-2. Continue the [six-package CPU intake](native-cpu-investigations-2026-10-18.md) from its recorded evidence. A production ordinal-allocation signal selected the contiguous-range A candidate, but its [corrected complete-operation comparison](native-compact-selection-2026-10-18.md) failed the frozen throughput gate and the runtime change was removed. A remains open for a materially different mechanism; do not rerun the unchanged candidate. B already reuses codec contexts within an operation; measure actual repeated preparation across the proposed ownership boundary before admitting another candidate. No benefit is assumed by queue intake.
-3. Continue required breadth through the existing owners: remaining PERF-03 resources, PERF-06 membership/population pressure and recovery, PERF-07 generation-conditional publication, and PERF-02/10/11 source/type/operator compositions. E and F extend these owners; required capabilities do not depend on a Full43 speed gain. PERF-01 attribution and PERF-12 acceptance accompany each coherent unit.
+2. Work through the 21 conditional investigations using the [October 19 sequence](native-conditional-investigations-2026-10-19.md), beginning with repeated codec preparation, physical-state reconstruction and builder costs. Preserve the [six-package CPU intake](native-cpu-investigations-2026-10-18.md) and its recorded evidence. The contiguous-range A candidate failed its [corrected complete-operation gate](native-compact-selection-2026-10-18.md) and was removed; do not rerun it unchanged. B already reuses codec contexts within an operation. Freeze a measured opportunity and candidate protocol before implementation; no benefit is assumed by intake.
+3. Resume required breadth only after the conditional pass: remaining PERF-03 resources, PERF-06 membership/population pressure and recovery, PERF-07 generation-conditional publication, and PERF-02/10/11 source/type/operator compositions. E and F retain their required capability scope; completion does not depend on a Full43 speed gain. Necessary investigation-specific prerequisites and PERF-01/12 evidence accompany each coherent experiment without bypassing their gates or silently expanding into the rest of the required queue.
 4. Treat original-payload structural encoding (C) and first-use summaries/exact exclusion (D) as independent scoped work with their actual provider/resource prerequisites. Extend PERF-04 reductions within accepted jobs when justified; new region/topology work first passes PERF-03 admission. None of A–F requires all the others to finish first.
 5. Preserve recorded drops and paused large format/text experiments. The twelve named investigations retain distinct prerequisites and frozen gates; no unchanged sweep or unimplemented candidate is waiting only for a final timing run. C investigates a different original-payload mechanism rather than repeating rejected codec profiles.
-6. Queue native encoded transport after the current optimization/breadth contract. Continuous, distributed and shared-service outcomes retain the roadmap dependencies below.
+6. Include the conditional native encoded exchange experiment in this pass. Its pinned-provider protocol, ownership and security prerequisites still precede any transport implementation; a missing prerequisite is recorded explicitly, not represented as a successful experiment. Continuous, distributed, shared-service and general client outcomes retain their separate roadmap dependencies below.
 
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
 
@@ -507,7 +510,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
   - V1 scope classification: `v1_candidate_pending_feasibility`.
   - Source: RFCs 0013/0035/0044; native-encoded-interchange-2026-10-12.md; then-pinned Vortex serialization/IPC and current official Flight SQL/RPC contracts.
   - Current state: Local receiving copies and independent native-file producer intake are accepted. Negotiated remote native exchange, authorization and transport runtime are not implemented by those local paths.
-  - Dependencies: After the current optimization/breadth completion contract; design/provider/security gates precede implementation. CG-23H is attribution, not a replacement phase.
+  - Dependencies: The October 19 maintainer decision brings the conditional experiment into the investigation pass before the remaining required queue. Its scoped design/provider/security/ownership prerequisites still precede implementation. General client/remote-service completion retains the broader optimization/breadth dependencies. CG-23H is attribution, not a replacement phase.
   - Implementation scope: Native producer/transport/receiver boundary, negotiation, authorization, dictionaries/credits and client interoperability.
   - ShardLoom technique review: apply the common contract above to these shared owners; retain actual activation, resource and avoided-work evidence.
   - Execution checklist:
