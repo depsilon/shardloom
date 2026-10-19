@@ -1334,10 +1334,10 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "unpublished_source",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "7d559c101381cbcf2d6f086a612ca59f412a6a58c048b5c6f86559f1b9bfb93c",
+    "source_identity": "0ffe814740dd6b2b9401e87df9b572aa80a773414db6971572862d5eb12a7622",
     "source_inputs": {
       "python/src/shardloom/_batches.py": "fdffdf7583333a8acaa1d7cf1501378578af3c5967d90a2924c58d93d0991c82",
-      "python/src/shardloom/_exports.py": "5cf3ff135caa2314cf8a5c4e69f8834cfe57715e8540ecf0b0d0f950c640d9b8",
+      "python/src/shardloom/_exports.py": "1e208f7c360a40986a6814fea2ed64526347dee73c160a950b8f47047045b014",
       "python/src/shardloom/_result_schema.py": "a333496967e0a7a77c091194ccbe32b43c8be55d583ac9dbdc60019bae78f355",
       "python/src/shardloom/_version.py": "846878f7d86e573aacc97e3efca93e6ac29870c84c7b436382c528ed2b733e3d",
       "python/src/shardloom/client.py": "25459e107ef61dca2cbe1b25a5143f26a8962ac4d53195bb71a5a501b42b39a8",
