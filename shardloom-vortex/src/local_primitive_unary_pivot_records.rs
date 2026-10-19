@@ -11,7 +11,7 @@ use crate::local_primitives::{
     native_decimal_reduce::Total,
     native_relational_records as records,
     native_relational_sort::Spec,
-    native_relational_spill::pivot::{self, Key, Row},
+    native_relational_spill::replacement::{self as pivot, Key, Row},
     result_batch,
 };
 use shardloom_exec::live_memory::MemoryLease;

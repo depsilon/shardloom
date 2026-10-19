@@ -586,7 +586,7 @@ fn native_relational_spill_source_mutation_after_delivery_prevents_success() {
 }
 
 #[test]
-fn native_relational_spill_oversized_row_and_missing_workspace_fail_explicitly() {
+fn native_relational_spill_large_single_row_uses_the_grant_and_missing_workspace_fails() {
     let array = StructArray::try_new(
         FieldNames::from(["label"]),
         vec![VarBinViewArray::from_iter_str(["x".repeat(2 << 20)]).into_array()],
@@ -603,13 +603,38 @@ fn native_relational_spill_oversized_row_and_missing_workspace_fail_explicitly()
     .unwrap()
     .with_spill(spill(&oversized))
     .unwrap();
+    let before = prepared.snapshot().memory.reserved_bytes;
+    let collected = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        json_rows(&collected),
+        [serde_json::json!({"label":"x".repeat(2 << 20)})]
+    );
+    assert!(collected.execution.spill.as_ref().unwrap().runs_written > 0);
+    assert!(collected.execution.native_io_certificate.is_certified());
+    assert_eq!(prepared.snapshot().completed_executions, 1);
+    drop(collected);
+    assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+    assert_clean(&oversized);
+
+    let mut limited = policy();
+    limited.resource_envelope.memory_budget_bytes = 4 << 20;
+    let prepared = prepare_relational(
+        &sorted(oversized.scan(), vec![key("label", false)]),
+        limited,
+    )
+    .unwrap()
+    .with_spill(spill(&oversized))
+    .unwrap();
+    let before = prepared.snapshot().memory.reserved_bytes;
     let error = prepared
         .for_each_batch(&CancellationToken::default(), |_, _| Ok(()))
         .err()
-        .unwrap()
-        .to_string();
-    assert!(error.contains("one native ordering row exceeds"), "{error}");
+        .expect("the actual memory grant must still deny an oversized live owner");
+    assert!(error.to_string().contains("reservation denied"), "{error}");
     assert_eq!(prepared.snapshot().completed_executions, 0);
+    assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
     assert_clean(&oversized);
 
     let (fixture, _) = fixture(20_013);

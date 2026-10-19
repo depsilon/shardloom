@@ -1,7 +1,7 @@
 use super::*;
 use crate::local_primitives::native_relational_spill::{
     AFTER_MERGE_BLOCK, BEFORE_RUN_OPEN,
-    pivot::{AFTER_COUNT_PASS, BEFORE_CACHE_HIT, BEFORE_GAP_HIT},
+    replacement::{AFTER_COUNT_PASS, BEFORE_CACHE_HIT, BEFORE_GAP_HIT},
 };
 use std::{cell::RefCell, path::Path, rc::Rc};
 

@@ -1,6 +1,6 @@
 //! Two bounded passes preserve exact latest-state cardinality and native payloads.
 
-use super::{Arc, BLOCK_ROWS, Held, NativeExecutionContext, Result, Row, Run, Spec, failed, load};
+use super::{Arc, Held, NativeExecutionContext, Result, Row, Run, Spec, failed, load};
 use crate::local_primitives::{
     native_capacity::ReservedVec,
     native_relational_batch::{Batch, Table},
@@ -31,10 +31,10 @@ impl Cursor<'_, '_> {
             held: Arc::clone(
                 self.held
                     .as_ref()
-                    .ok_or_else(|| failed("pivot merge head is absent"))?,
+                    .ok_or_else(|| failed("replacement merge head is absent"))?,
             ),
             row: usize::try_from(self.position - start)
-                .map_err(|_| failed("pivot merge row offset exceeds addressable memory"))?,
+                .map_err(|_| failed("replacement merge row offset exceeds addressable memory"))?,
         }))
     }
 }
@@ -42,12 +42,19 @@ impl Cursor<'_, '_> {
 pub(super) struct Merge<'a, 's> {
     spec: &'a Spec,
     cursors: [Cursor<'a, 's>; 2],
+    block_rows: usize,
 }
 
 impl<'a, 's> Merge<'a, 's> {
-    pub(super) fn new(spec: &'a Spec, left: &'a Run<'s>, right: &'a Run<'s>) -> Self {
+    pub(super) fn new(
+        spec: &'a Spec,
+        left: &'a Run<'s>,
+        right: &'a Run<'s>,
+        block_rows: usize,
+    ) -> Self {
         Self {
             spec,
+            block_rows,
             cursors: [left, right].map(|run| Cursor {
                 run,
                 held: None,
@@ -94,8 +101,8 @@ impl<'a, 's> Merge<'a, 's> {
         let mut table = Table::new(context.memory())?;
         let mut owners = ReservedVec::<(Arc<Held>, usize)>::new(context.memory())?;
         let mut rows = ReservedVec::new(context.memory())?;
-        rows.reserve(BLOCK_ROWS)?;
-        while rows.values.len() < BLOCK_ROWS {
+        rows.reserve(self.block_rows)?;
+        while rows.values.len() < self.block_rows {
             let Some(row) = self.next_row(context)? else {
                 break;
             };
@@ -114,7 +121,7 @@ impl<'a, 's> Merge<'a, 's> {
             rows.values.push(Some(
                 offset
                     .checked_add(row.row)
-                    .ok_or_else(|| failed("pivot merge selection overflow"))?,
+                    .ok_or_else(|| failed("replacement merge selection overflow"))?,
             ));
         }
         if rows.values.is_empty() {
@@ -143,12 +150,13 @@ pub(super) fn count(
     right: &Run<'_>,
     context: &NativeExecutionContext<'_>,
 ) -> Result<u64> {
-    let mut merge = Merge::new(spec, left, right);
+    // Counting advances individual rows and never allocates an output block.
+    let mut merge = Merge::new(spec, left, right, 1);
     let mut rows = 0_u64;
     while merge.next_row(context)?.is_some() {
         rows = rows
             .checked_add(1)
-            .ok_or_else(|| failed("pivot merged row count overflow"))?;
+            .ok_or_else(|| failed("replacement merged row count overflow"))?;
     }
     merge.validate()?;
     Ok(rows)

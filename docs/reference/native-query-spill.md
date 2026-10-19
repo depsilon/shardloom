@@ -156,12 +156,22 @@ unadmitted stateful families retain their separate contracts.
 
 With an explicit spill policy, bounded native full-row membership spill is
 available for `UNION` (distinct), `INTERSECT` and `EXCEPT`, preserving their
-existing first-occurrence order. `UNION ALL` retains its streaming path. Unary
-membership/population and subquery membership/index state remain resident under
-their separate contracts. See the [native set membership spill contract](../architecture/native-set-membership-spill-2026-10-18.md)
-and [finite unary contract](../architecture/native-stream-unary-2026-10-15.md),
-which keeps existing DISTINCT, duplicate selection/masks, tail, sampling, scalar
-rewrites, melt, explode and rolling semantics while admitting finite producers.
+existing first-occurrence order. `UNION ALL` retains its streaming path. See the
+[native set membership spill contract](../architecture/native-set-membership-spill-2026-10-18.md).
+
+Current source builds also implement explicit native membership spill for
+relational `distinct()`, `drop_duplicates()` and `duplicated()`, including
+`keep="first"`, `keep="last"` and `keep=False`. Exact keys, selected payloads and
+source order retain their existing semantics; future-dependent duplicate masks
+can spill their requested row identities. Small state can remain resident even
+when this strategy is selected. The
+[unary membership contract](../architecture/native-unary-membership-spill-2026-10-18.md)
+records the finite scope and acceptance status. Sampling populations, subquery
+membership/index state and legacy standalone `PreparedVortexUnary` remain under
+their resident contracts. In the machine index, `unary_membership_spill` names
+this scoped capability; the broad `unary_state_spill` guarantee remains false.
+The [finite unary contract](../architecture/native-stream-unary-2026-10-15.md)
+continues to define tail, sampling, scalar rewrites, melt, explode and rolling.
 
 ```python
 import tempfile

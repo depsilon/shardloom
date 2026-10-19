@@ -383,6 +383,26 @@ impl std::borrow::Borrow<StatValue> for OwnedStat {
 }
 
 impl OwnedRow {
+    /// Batching weight only; the scalar lease and native owners already hold
+    /// their actual reservations in the shared pool.
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn retained_bytes(&self) -> Result<u64> {
+        let mut bytes = self.lease.bytes();
+        if let Some(native) = &self.native {
+            bytes = bytes
+                .checked_add(
+                    (native.values.capacity() * std::mem::size_of::<Option<ArrayRef>>()) as u64,
+                )
+                .ok_or_else(|| failed("retained row capacity overflow"))?;
+            for array in native.values.iter().flatten() {
+                bytes = bytes
+                    .checked_add(array.nbytes())
+                    .ok_or_else(|| failed("retained row payload overflow"))?;
+            }
+        }
+        Ok(bytes)
+    }
+
     pub(super) fn scalar(&self, column: usize) -> Result<&ScalarValue> {
         if self.native(column).is_some() {
             return Err(failed("nested retained value requires native selection"));

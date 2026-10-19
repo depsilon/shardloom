@@ -47,6 +47,7 @@ from native_streaming_unary_reference_cases import run as unary_reference_cases
 from native_streaming_unary_composition_cases import run as unary_composition_cases
 from native_streaming_unary_fault_cases import run as unary_fault_cases
 from native_streaming_unary_pressure_cases import run as unary_pressure_cases
+from native_streaming_unary_membership_cases import run as unary_membership_cases
 from native_streaming_subquery_cases import run as subquery_cases
 from native_streaming_subquery_composition_cases import run as subquery_composition_cases
 from native_streaming_subquery_fault_cases import run as subquery_fault_cases
@@ -69,7 +70,8 @@ FAMILIES = {"input": public_cases, "growth": growth_cases, "typed-input": typed_
             "sets": set_cases, "sets-pressure": set_pressure_cases,
             "unary": unary_cases, "unary-reference": unary_reference_cases,
             "unary-composition": unary_composition_cases, "unary-fault": unary_fault_cases,
-            "unary-pressure": unary_pressure_cases, "subqueries": subquery_cases,
+            "unary-pressure": unary_pressure_cases, "unary-membership": unary_membership_cases,
+            "subqueries": subquery_cases,
             "subqueries-composition": subquery_composition_cases,
             "subqueries-fault": subquery_fault_cases, "subqueries-pressure": subquery_pressure_cases,
             "dynamic-subqueries": dynamic_subquery_cases,
@@ -242,6 +244,7 @@ def main():
               Path(__file__).with_name("native_streaming_unary_composition_cases.py"),
               Path(__file__).with_name("native_streaming_unary_fault_cases.py"),
               Path(__file__).with_name("native_streaming_unary_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_unary_membership_cases.py"),
               Path(__file__).with_name("native_streaming_subquery_cases.py"),
               Path(__file__).with_name("native_streaming_subquery_composition_cases.py"),
               Path(__file__).with_name("native_streaming_subquery_fault_cases.py"),

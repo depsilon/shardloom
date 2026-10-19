@@ -30,6 +30,7 @@ pub(super) struct Results<'a> {
     pending: ReservedVec<ArrayRef>,
     pending_bytes: u64,
     row_metadata_bytes: u64,
+    copy_policy: native_payload::CopyPolicy,
 }
 
 impl<'a> Results<'a> {
@@ -49,6 +50,7 @@ impl<'a> Results<'a> {
             pending: ReservedVec::new(context.memory())?,
             pending_bytes: 0,
             row_metadata_bytes,
+            copy_policy: spec.copy_policy,
         })
     }
 
@@ -96,7 +98,13 @@ impl<'a> Results<'a> {
             .map_err(vortex_error)?
             .into_array();
         let indices = index_array(rows, false, context, |row| Ok(Some(row)))?;
-        let compact = native_payload::take_record(&chunked, &indices, &self.dtype, context)?;
+        let compact = native_payload::take_record_with_policy(
+            &chunked,
+            &indices,
+            &self.dtype,
+            self.copy_policy,
+            context,
+        )?;
         drop((chunked, ownership, indices));
         self.order.build(compact, context)
     }

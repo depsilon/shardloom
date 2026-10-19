@@ -9007,11 +9007,12 @@ def from_batches(
     spill cleanup must succeed before publication. Local multi-file publication
     is not group-atomic and retains existing partial-publication diagnostics.
     Limits drain and validate every source. Stateful work shares the query grant;
-    ordering, aggregation, joins, windows and pivot can use explicit spill.
-    Set membership and unary state remain resident under credits. Source or
-    result replay spill does not add spill support to that state. Fractional or
-    replacement sampling may retain the input population; future-dependent
-    duplicate masks retain row identities. Oversized state fails explicitly.
+    ordering, aggregation, joins, windows, pivot, distinct set membership and
+    relational distinct/deduplication/duplicate-mask state can use explicit
+    native spill. Future-dependent duplicate masks can spill row identities.
+    Fractional or replacement sampling populations and subquery membership/index
+    state remain resident under credits; source or result replay spill does not
+    extend those families. Oversized unsupported state fails explicitly.
     Unsupported operator families reject before consumption. A factory is still
     required for repeated executions.
     Results remain provisional until every producer ends and final validation

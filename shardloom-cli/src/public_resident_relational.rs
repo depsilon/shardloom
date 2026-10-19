@@ -612,6 +612,38 @@ pub(super) fn append_execution(
             result.ordered_set_output_rows.to_string(),
         ),
         (
+            "relational_spillable_unary_membership_stages".into(),
+            result.spillable_unary_membership_stages.to_string(),
+        ),
+        (
+            "relational_spillable_unary_input_rows".into(),
+            result.spillable_unary_input_rows.to_string(),
+        ),
+        (
+            "relational_spillable_unary_observed_rows".into(),
+            result.spillable_unary_observed_rows.to_string(),
+        ),
+        (
+            "relational_spillable_unary_groups".into(),
+            result.spillable_unary_groups.to_string(),
+        ),
+        (
+            "relational_spillable_unary_identity_rows".into(),
+            result.spillable_unary_identity_rows.to_string(),
+        ),
+        (
+            "relational_spillable_unary_output_rows".into(),
+            result.spillable_unary_output_rows.to_string(),
+        ),
+        (
+            "relational_spillable_unary_lookup_blocks".into(),
+            result.spillable_unary_lookup_blocks.to_string(),
+        ),
+        (
+            "relational_spillable_unary_reader_opens".into(),
+            result.spillable_unary_reader_opens.to_string(),
+        ),
+        (
             "relational_ordered_join_build_rows".into(),
             result.ordered_join_build_rows.to_string(),
         ),

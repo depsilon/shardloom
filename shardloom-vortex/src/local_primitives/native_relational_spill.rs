@@ -34,8 +34,8 @@ const READER_WORK_BYTES: u64 = 2 * 64 * 1024;
 mod stored;
 pub(super) use stored::{Replay, StoredBlock, StoredOrder};
 
-#[path = "native_relational_pivot_store.rs"]
-pub(super) mod pivot;
+#[path = "native_relational_replacement_store.rs"]
+pub(super) mod replacement;
 
 #[cfg(test)]
 type BeforeRunOpen = Box<dyn FnOnce(&Path)>;
@@ -253,9 +253,13 @@ impl<'p, 's> Ordering<'p, 's> {
                         break;
                     }
                     if end - start == 1 {
-                        return Err(failed(
-                            "one native ordering row exceeds the configured spill buffer threshold",
-                        ));
+                        // The batching threshold is not a record-size limit.
+                        // Compaction, sort ownership and native I/O must still
+                        // reserve under the actual grant; release this record
+                        // before admitting the next one.
+                        self.build_admitted(compact, bytes, context)?;
+                        self.flush(context)?;
+                        break;
                     }
                     end = start + (end - start) / 2;
                 }

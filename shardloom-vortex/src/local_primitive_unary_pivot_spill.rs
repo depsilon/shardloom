@@ -11,12 +11,14 @@ use crate::local_primitives::{
     native_capacity::ReservedVec,
     native_relational_spill::{
         State,
-        pivot::{self, Key},
+        replacement::{self as pivot, Key},
     },
     pivot_first_is_new,
 };
 use std::collections::BTreeMap;
 use vortex::array::{ArrayRef, dtype::DType};
+
+const BLOCK_ROWS: usize = 1024;
 
 #[path = "local_primitive_unary_pivot_records.rs"]
 mod records;
@@ -85,7 +87,7 @@ impl<'p, 's> Builder<'p, 's> {
     ) -> Result<Self> {
         Ok(Self {
             schema,
-            store: pivot::Store::new(&schema.spec, state, context)?,
+            store: pivot::Store::new(&schema.spec, state, BLOCK_ROWS, context)?,
             buffer: BTreeMap::new(),
             buffer_credit: context.memory().reserve(0)?,
             buffer_weight: 0,
@@ -125,7 +127,7 @@ impl<'p, 's> Builder<'p, 's> {
             .map(|first| (first, indices.next_back().unwrap_or(first)));
         let blocks = values
             .values
-            .chunks(pivot::BLOCK_ROWS)
+            .chunks(BLOCK_ROWS)
             .map(|rows| self.schema.build(rows, context));
         self.store.append(
             values.values.len(),

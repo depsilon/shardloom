@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Bounded unary state, resident-state refusal and explicitly spilled source replay."""
+"""Bounded unary state, spilled membership, resident sampling and source replay."""
 
 from __future__ import annotations
 
@@ -122,7 +122,8 @@ def run(harness):
     harness.json(harness.logs / "unary-pressure-predeclared.json", {
         "input_rows": ROWS, "batch_rows": BATCH_ROWS, "width": WIDTH, "grant": GRANT,
         "low_cardinality_key": "row_index % 3", "unique_key": "row_index",
-        "oracles": oracles, "spill": spill, "unary_state_spill": False,
+        "oracles": oracles, "spill": spill, "unary_membership_spill": True,
+        "sampling_population_spill": False,
         "source_replay_is_separate": True,
     })
     for kind in KINDS:
@@ -142,26 +143,63 @@ def run(harness):
         harness.case(name, bounded)
 
     stateful = [kind for kind in KINDS if kind == "distinct" or kind.startswith(("dedup-", "mask-"))]
-    for kind in (*stateful, "sample-fraction", "sample-replacement"):
+    for kind in stateful:
         for stored in (False, True):
-            name = f"unary-resident-state-denied-{kind}-spill-{stored}"
+            name = f"unary-membership-spill-{kind}" if stored else f"unary-resident-state-denied-{kind}-spill-{stored}"
 
-            def refuse(name=name, kind=kind, stored=stored):
+            def membership(name=name, kind=kind, stored=stored):
                 batch, trace = source(harness, unique=True)
                 if kind.startswith(("dedup-", "mask-")):
                     keep = kind.split("-", 1)[1]
                     method = batch.drop_duplicates if kind.startswith("dedup-") else batch.duplicated
                     query = method("s", keep=False if keep == "false" else keep)
-                elif kind == "sample-fraction":
-                    query = batch.sample(frac=0.5, random_state=7)
-                elif kind == "sample-replacement":
-                    query = batch.sample(3, random_state=7, replace=True)
                 else:
                     query = batch.distinct()
+                if not stored:
+                    denied(harness, name, query, trace, POLICY)
+                    assert BATCH_ROWS < trace["rows"] <= ROWS
+                    clean()
+                    return {"producer_trace": trace, "unary_membership_spill": False}
+
+                def reference():
+                    for index in range(ROWS):
+                        if kind.startswith("mask-"):
+                            yield {"duplicated": False}
+                        else:
+                            yield row(index, unique=True)
+
+                envelope, record = capture(
+                    harness, name,
+                    query.iter_batches(batch_rows=257, spill=spill, **POLICY), reference)
+                complete(harness, name, envelope, [trace], [True], grant=GRANT)
+                assert record["complete_rows"] == ROWS
+                assert envelope.field_int("relational_spillable_unary_membership_stages") == 1
+                for suffix in ("input_rows", "observed_rows", "groups", "output_rows"):
+                    assert envelope.field_int(f"relational_spillable_unary_{suffix}") == ROWS
+                identities = ROWS if kind in ("mask-last", "mask-false") else 0
+                assert envelope.field_int("relational_spillable_unary_identity_rows") == identities
+                assert envelope.field_int("relational_spill_runs_written") > 0
+                assert envelope.field_bool("relational_spill_owned_cleanup_completed") is True
+                assert envelope.field_int("relational_spill_peak_disk_bytes") <= spill["quota_bytes"]
+                assert envelope.field_int("native_input_replay_spilled_sources") == 0
+                clean()
+                return dict(record, unary_membership_spill=True)
+            harness.case(name, membership)
+
+    for kind in ("sample-fraction", "sample-replacement"):
+        for stored in (False, True):
+            name = f"unary-resident-state-denied-{kind}-spill-{stored}"
+
+            def refuse(name=name, kind=kind, stored=stored):
+                batch, trace = source(harness, unique=True)
+                if kind == "sample-fraction":
+                    query = batch.sample(frac=0.5, random_state=7)
+                else:
+                    query = batch.sample(3, random_state=7, replace=True)
                 denied(harness, name, query, trace, dict(POLICY, spill=spill) if stored else POLICY)
                 assert BATCH_ROWS < trace["rows"] <= ROWS
                 clean()
-                return {"producer_trace": trace, "unary_state_spill": False}
+                return {"producer_trace": trace, "sampling_population_spill": False}
             harness.case(name, refuse)
 
     future_masks(harness, spill, clean)
@@ -172,26 +210,40 @@ def future_masks(harness, spill, clean):
     count = 262_145
     for keep in ("first", "last", False):
         for grant in ((8 << 20,) if keep == "first" else (8 << 20, 32 << 20)):
-            name = f"unary-future-mask-{keep}-grant-{grant}"
+            for stored in (False, True):
+                name = f"unary-future-mask-{keep}-grant-{grant}-spill-{stored}"
 
-            def check(name=name, keep=keep, grant=grant):
-                batch, trace = source(harness, count=count, width=0, numbers=True)
-                query = batch.duplicated("n", keep=keep)
-                requested = dict(POLICY, memory_bytes=grant, spill=spill)
-                if keep != "first" and grant == 8 << 20:
-                    denied(harness, name, query, trace, requested, message="requested=8388608")
-                    assert trace["rows"] == count
-                    record = {"producer_trace": trace, "denied_population_identity_bytes": 8 << 20}
-                else:
-                    def reference():
-                        for index in range(count):
-                            yield {"duplicated": index >= 3 if keep == "first" else index + 3 < count if keep == "last" else True}
-                    envelope, record = capture(harness, name, query.iter_batches(batch_rows=257, **requested), reference)
-                    complete(harness, name, envelope, [trace], [True], grant=grant)
-                    assert record["complete_rows"] == count
-                clean()
-                return record
-            harness.case(name, check)
+                def check(name=name, keep=keep, grant=grant, stored=stored):
+                    batch, trace = source(harness, count=count, width=0, numbers=True)
+                    query = batch.duplicated("n", keep=keep)
+                    requested = dict(POLICY, memory_bytes=grant)
+                    if stored:
+                        requested["spill"] = spill
+                    if keep != "first" and grant == 8 << 20 and not stored:
+                        denied(harness, name, query, trace, requested, message="requested=8388608")
+                        assert trace["rows"] == count
+                        record = {"producer_trace": trace, "denied_population_identity_bytes": 8 << 20}
+                    else:
+                        def reference():
+                            for index in range(count):
+                                yield {"duplicated": index >= 3 if keep == "first" else index + 3 < count if keep == "last" else True}
+                        envelope, record = capture(harness, name, query.iter_batches(batch_rows=257, **requested), reference)
+                        complete(harness, name, envelope, [trace], [True], grant=grant)
+                        assert record["complete_rows"] == count
+                        if stored:
+                            assert envelope.field_int("relational_spillable_unary_membership_stages") == 1
+                            for suffix in ("input_rows", "observed_rows"):
+                                assert envelope.field_int(f"relational_spillable_unary_{suffix}") == count
+                            assert envelope.field_int("relational_spillable_unary_groups") == 3
+                            if keep != "first":
+                                assert envelope.field_int("relational_spillable_unary_identity_rows") == count
+                                assert envelope.field_int("relational_spill_runs_written") > 0
+                            assert envelope.field_int("native_input_replay_spilled_sources") == 0
+                            assert envelope.field_bool("relational_spill_owned_cleanup_completed") is True
+                            assert envelope.field_int("relational_spill_peak_disk_bytes") <= spill["quota_bytes"]
+                    clean()
+                    return dict(record, unary_membership_spill=stored)
+                harness.case(name, check)
 
 
 def replay(harness, workspace, spill, clean):

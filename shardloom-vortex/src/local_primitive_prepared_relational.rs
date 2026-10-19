@@ -123,6 +123,23 @@ pub struct ExecutedVortexRelational {
     /// Complete null-equal key groups across both source sides.
     pub ordered_set_groups: u64,
     pub ordered_set_output_rows: u64,
+    /// Unary membership nodes using a pressure-capable native strategy. Actual
+    /// file activity remains in `spill`; small instances can stay resident.
+    pub spillable_unary_membership_stages: u64,
+    /// Rows delivered to these nodes, including an unevaluated drained suffix.
+    pub spillable_unary_input_rows: u64,
+    /// Passing keys actually observed, excluding the drained prefix-limit suffix.
+    pub spillable_unary_observed_rows: u64,
+    /// Exact distinct keys among the observed rows, summed across these nodes.
+    pub spillable_unary_groups: u64,
+    /// Requested prefix identities retained for future-dependent duplicate masks.
+    pub spillable_unary_identity_rows: u64,
+    /// Rows emitted by these nodes before downstream consumption.
+    pub spillable_unary_output_rows: u64,
+    /// Replacement-state blocks loaded for lookup and final state traversal.
+    pub spillable_unary_lookup_blocks: u64,
+    /// Replacement-state readers opened; excludes identity/output ordering I/O.
+    pub spillable_unary_reader_opens: u64,
     /// Join nodes executed through the explicit ordered native spill strategy.
     pub ordered_join_stages: u64,
     pub ordered_join_build_rows: u64,
@@ -678,6 +695,14 @@ struct Metrics<'a> {
     ordered_set_input_rows: Cell<u64>,
     ordered_set_groups: Cell<u64>,
     ordered_set_output_rows: Cell<u64>,
+    spillable_unary_membership_stages: Cell<u64>,
+    spillable_unary_input_rows: Cell<u64>,
+    spillable_unary_observed_rows: Cell<u64>,
+    spillable_unary_groups: Cell<u64>,
+    spillable_unary_identity_rows: Cell<u64>,
+    spillable_unary_output_rows: Cell<u64>,
+    spillable_unary_lookup_blocks: Cell<u64>,
+    spillable_unary_reader_opens: Cell<u64>,
     ordered_join_stages: Cell<u64>,
     ordered_join_build_rows: Cell<u64>,
     ordered_join_probe_rows: Cell<u64>,
@@ -1155,6 +1180,14 @@ impl PreparedVortexRelational {
                 ordered_set_input_rows: metrics.ordered_set_input_rows.get(),
                 ordered_set_groups: metrics.ordered_set_groups.get(),
                 ordered_set_output_rows: metrics.ordered_set_output_rows.get(),
+                spillable_unary_membership_stages: metrics.spillable_unary_membership_stages.get(),
+                spillable_unary_input_rows: metrics.spillable_unary_input_rows.get(),
+                spillable_unary_observed_rows: metrics.spillable_unary_observed_rows.get(),
+                spillable_unary_groups: metrics.spillable_unary_groups.get(),
+                spillable_unary_identity_rows: metrics.spillable_unary_identity_rows.get(),
+                spillable_unary_output_rows: metrics.spillable_unary_output_rows.get(),
+                spillable_unary_lookup_blocks: metrics.spillable_unary_lookup_blocks.get(),
+                spillable_unary_reader_opens: metrics.spillable_unary_reader_opens.get(),
                 ordered_join_stages: metrics.ordered_join_stages.get(),
                 ordered_join_build_rows: metrics.ordered_join_build_rows.get(),
                 ordered_join_probe_rows: metrics.ordered_join_probe_rows.get(),
@@ -1215,6 +1248,27 @@ impl PreparedVortexRelational {
                 metrics.record_pivot_spill(report)
             }
             NodeKind::Unary { input, operation } => {
+                #[cfg(all(feature = "vortex-write", unix))]
+                if let Some(spill) = &metrics.spill
+                    && operation.membership_spill_supported()
+                {
+                    let (usage, report) = operation.consume_relation_membership(
+                        context,
+                        spill,
+                        batch_rows,
+                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                        consume,
+                    )?;
+                    metrics.record_unary(usage.items, usage.all_input_retained)?;
+                    add(&metrics.spillable_unary_membership_stages, 1)?;
+                    add(&metrics.spillable_unary_input_rows, report.input_rows)?;
+                    add(&metrics.spillable_unary_observed_rows, report.observed_rows)?;
+                    add(&metrics.spillable_unary_groups, report.groups)?;
+                    add(&metrics.spillable_unary_identity_rows, report.identity_rows)?;
+                    add(&metrics.spillable_unary_output_rows, report.output_rows)?;
+                    add(&metrics.spillable_unary_lookup_blocks, report.lookup_blocks)?;
+                    return add(&metrics.spillable_unary_reader_opens, report.reader_opens);
+                }
                 let usage = operation.consume_relation(
                     context,
                     input.upper_rows(&self.sources),

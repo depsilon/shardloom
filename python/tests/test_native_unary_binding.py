@@ -295,3 +295,152 @@ class NativeUnaryBindingTests(unittest.TestCase):
         client.close()
         for table, wanted in held:
             self.assertEqual(table.to_pylist(), wanted)
+
+    def test_native_unary_membership_spill_preserves_exact_rows_across_terminals(self):
+        import pyarrow as pa
+        import shardloom as sl
+
+        keys = (list(range(257)) + list(reversed(range(0, 257, 2))) +
+                list(range(257, 321)))
+        rows = [
+            {"n": ordinal, "s": f"{key:08d}" + "u" * (8192 - 8),
+             "items": [ordinal, None]}
+            for ordinal, key in enumerate(keys)
+        ]
+        kinds = ("distinct", "dedup-first", "dedup-last", "dedup-false",
+                 "mask-first", "mask-last", "mask-false")
+        input_batches = (len(rows) + 40) // 41
+
+        def expected(kind):
+            if kind == "distinct":
+                seen, result = set(), []
+                for value in rows:
+                    if value["s"] not in seen:
+                        seen.add(value["s"])
+                        result.append({"s": value["s"]})
+                return result
+            if kind.startswith(("dedup-", "mask-")):
+                keep = kind.split("-", 1)[1]
+                flags = []
+                for index, value in enumerate(rows):
+                    prior = any(other["s"] == value["s"] for other in rows[:index])
+                    later = any(other["s"] == value["s"] for other in rows[index + 1:])
+                    flags.append(prior if keep == "first" else
+                                 later if keep == "last" else prior or later)
+                if kind.startswith("mask-"):
+                    return [{"duplicated": flag} for flag in flags]
+                return [value for value, duplicate in zip(rows, flags, strict=True) if not duplicate]
+            raise AssertionError(kind)
+
+        def result_schema(kind):
+            if kind == "distinct":
+                return pa.schema([pa.field("s", pa.string())])
+            if kind.startswith("mask-"):
+                return pa.schema([pa.field("duplicated", pa.bool_(), nullable=False)])
+            return arrow_schema()
+
+        for kind in kinds:
+            wanted_rows = expected(kind)
+            wanted = pa.Table.from_pylist(wanted_rows, schema=result_schema(kind))
+            for columnar in (False, True):
+                for terminal in ("collect", "batches", "vortex", "fanout"):
+                    with self.subTest(kind=kind, columnar=columnar, terminal=terminal), \
+                         tempfile.TemporaryDirectory(prefix="shardloom-native-unary-membership-") as directory, \
+                         patch("subprocess.Popen", side_effect=AssertionError("child process")), \
+                         patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON input")):
+                        client, retained = self.client(), None
+                        root = Path(directory)
+                        workspace = root / "spill"
+                        workspace.mkdir()
+                        foreign = workspace / "foreign"
+                        foreign.write_bytes(b"preserve")
+                        spill = {"workspace": str(workspace), "quota_bytes": 128 << 20,
+                                 "buffer_bytes": 1 << 20}
+                        events = []
+
+                        def produce():
+                            events.append("opened")
+                            try:
+                                for start in range(0, len(rows), 41):
+                                    batch = rows[start:start + 41]
+                                    yield pa.Table.from_pylist(batch, schema=arrow_schema()) if columnar else batch
+                                events.append("ended")
+                            finally:
+                                events.append("closed")
+
+                        source = sl.from_batches(produce, schema=SCHEMA, streaming=True, client=client)
+                        if kind == "distinct":
+                            query = source.select("s").distinct()
+                        else:
+                            keep = kind.split("-", 1)[1]
+                            method = source.drop_duplicates if kind.startswith("dedup-") else source.duplicated
+                            query = method("s", keep=False if keep == "false" else keep)
+
+                        if terminal == "collect":
+                            result = query.collect(check=True, spill=spill)
+                            report = result
+                            retained = result.to_arrow()
+                        elif terminal == "batches":
+                            tables = []
+                            with query.iter_batches(batch_rows=17, spill=spill) as stream:
+                                for batch in stream:
+                                    self.assertIsNone(stream.report)
+                                    table = batch.to_arrow()
+                                    self.assertTrue(table.schema.equals(wanted.schema, check_metadata=True))
+                                    tables.append(table)
+                                report = stream.report
+                            retained = pa.concat_tables(tables)
+                        else:
+                            extensions = ("vortex",) if terminal == "vortex" else ("vortex", "parquet", "jsonl")
+                            targets = {extension: root / ("result." + extension) for extension in extensions}
+                            report = (query.fanout(targets, spill=spill) if terminal == "fanout" else
+                                      query.write_vortex(targets["vortex"], spill=spill))
+                            if terminal == "fanout":
+                                self.assertEqual(report.envelope.field_int(
+                                    "native_vortex_result_export_execution_count"), 1)
+                                self.assertEqual(report.envelope.field_int(
+                                    "native_vortex_result_export_target_count"), 3)
+                                self.assertEqual(report.envelope.field_int(
+                                    "native_vortex_result_export_replay_count"), 3)
+                            for extension, path in targets.items():
+                                if extension == "jsonl":
+                                    self.assertEqual(
+                                        [json.loads(line) for line in path.read_text().splitlines()],
+                                        wanted_rows,
+                                    )
+                                else:
+                                    reopened = getattr(sl, "read_" + extension)(path, client=client)
+                                    table = reopened.collect(check=True).to_arrow()
+                                    self.assertTrue(table.schema.equals(wanted.schema, check_metadata=True))
+                                    self.assertTrue(table.equals(wanted, check_metadata=True))
+                                    if extension == "vortex":
+                                        retained = table
+
+                        self.assertIsNotNone(retained)
+                        self.assertTrue(retained.schema.equals(wanted.schema, check_metadata=True))
+                        self.assertTrue(retained.equals(wanted, check_metadata=True), (kind, terminal))
+                        self.completed(report, events, input_batches=input_batches, input_rows=len(rows))
+                        envelope = report.envelope
+                        self.assertEqual(envelope.field_int(
+                            "relational_spillable_unary_membership_stages"), 1)
+                        self.assertEqual(envelope.field_int(
+                            "relational_spillable_unary_input_rows"), len(rows))
+                        self.assertEqual(envelope.field_int(
+                            "relational_spillable_unary_observed_rows"), len(rows))
+                        self.assertEqual(envelope.field_int(
+                            "relational_spillable_unary_groups"), 321)
+                        self.assertEqual(envelope.field_int(
+                            "relational_spillable_unary_output_rows"), len(wanted_rows))
+                        self.assertGreater(envelope.field_int("relational_spill_runs_written"), 0)
+                        self.assertTrue(envelope.field_bool("relational_spill_owned_cleanup_completed"))
+                        self.assertLessEqual(envelope.field_int("relational_spill_peak_disk_bytes"),
+                                             spill["quota_bytes"])
+                        self.assertLessEqual(envelope.field_int("resident_peak_reserved_buffer_bytes"),
+                                             32 << 20)
+                        self.assertEqual(envelope.field_int("native_input_replay_sources"), 0)
+                        self.assertEqual(envelope.field("local_primitive_native_io_certificate_status"),
+                                         "certified")
+                        self.assertEqual(list(workspace.iterdir()), [foreign])
+                        self.assertEqual(foreign.read_bytes(), b"preserve")
+                        client.close()
+                        self.assertTrue(retained.equals(wanted, check_metadata=True))

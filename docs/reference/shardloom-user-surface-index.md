@@ -39,7 +39,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Development source identity: `7d559c101381cbcf2d6f086a612ca59f412a6a58c048b5c6f86559f1b9bfb93c` (SHA-256 of the listed source inputs).
+Development source identity: `fdd3ee32bcaca2ed8ed1e7bbd7979180fa8cefd39b83f4b94542f2d5bc5436de` (SHA-256 of the listed source inputs).
 This API is unpublished; the package version is held independently of source changes.
 
 ### Python application exports
@@ -206,7 +206,8 @@ Existing focused references retain detailed contracts:
 [SQL binding](../architecture/sql-parser-binder-readiness.md), [resident owners](resident-native-results.md),
 [query spill](native-query-spill.md),
 [distinct-set spill](../architecture/native-set-membership-spill-2026-10-18.md)
-with [finite local acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md), and
+with [finite local acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md),
+[unary membership spill scope and acceptance status](../architecture/native-unary-membership-spill-2026-10-18.md), and
 [stream destinations](../architecture/native-stream-destinations-2026-10-15.md).
 They identify the behavior and source/release scope they cover.
 

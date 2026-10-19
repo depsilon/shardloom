@@ -218,6 +218,20 @@
         "rolling"
       ],
       "unary_state_spill": false,
+      "unary_state_spill_scope": "all_unary_state_families",
+      "unary_membership_spill": true,
+      "unary_membership_spill_reference": "docs/architecture/native-unary-membership-spill-2026-10-18.md",
+      "unary_membership_spill_operations": [
+        "distinct",
+        "dedup-first",
+        "dedup-last",
+        "dedup-false",
+        "mask-first",
+        "mask-last",
+        "mask-false"
+      ],
+      "unary_membership_spill_acceptance_status": "local_acceptance_in_progress",
+      "unary_sampling_population_spill": false,
       "subquery_reference": "docs/architecture/native-stream-subqueries-2026-10-15.md",
       "subquery_acceptance_reference": "docs/benchmarks/native-stream-subqueries-2026-10-15.md",
       "subquery_acceptance_status": "local_and_hosted_acceptance_complete",
@@ -1341,7 +1355,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "unpublished_source",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "7d559c101381cbcf2d6f086a612ca59f412a6a58c048b5c6f86559f1b9bfb93c",
+    "source_identity": "fdd3ee32bcaca2ed8ed1e7bbd7979180fa8cefd39b83f4b94542f2d5bc5436de",
     "source_inputs": {
       "python/src/shardloom/_batches.py": "fdffdf7583333a8acaa1d7cf1501378578af3c5967d90a2924c58d93d0991c82",
       "python/src/shardloom/_exports.py": "5cf3ff135caa2314cf8a5c4e69f8834cfe57715e8540ecf0b0d0f950c640d9b8",
@@ -1352,7 +1366,7 @@
       "python/src/shardloom/errors.py": "8409187140941c8552541c428b25b5a27c7a75d6c0fd15bbce92c0ef2413cbf5",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
-      "python/src/shardloom/query.py": "b456011a4cb42087618440ac7e6db84ae42d4f33cead9c36291e65671c24e06c",
+      "python/src/shardloom/query.py": "f09874e2c6556c5212bf303a3e3c0ab6859892ebf1441bef037b73f067cd2688",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "ee47447ff6b5bf719626ae20940167946de6733f9e3d78220446d4223e2b7d63",

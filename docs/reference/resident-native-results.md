@@ -89,9 +89,13 @@ remain charged. Ordering, aggregation, joins and analytic windows admit explicit
 native spill, as does relational pivot. With an explicit spill policy, bounded
 native full-row membership spill is available for `UNION` (distinct),
 `INTERSECT` and `EXCEPT`, preserving their existing first-occurrence order;
-`UNION ALL` retains its streaming path. Unary membership/population and subquery
-membership/index state remain resident under their separate contracts. See the
-[native set membership spill contract](../architecture/native-set-membership-spill-2026-10-18.md)
+`UNION ALL` retains its streaming path. Current source builds also implement
+explicit native spill for relational distinct, deduplication and duplicate masks
+with first, last and remove-all policies, including future-mask row identities.
+Sampling populations, subquery membership/index state and legacy standalone
+`PreparedVortexUnary` retain their resident contracts. See the
+[native set membership spill contract](../architecture/native-set-membership-spill-2026-10-18.md),
+[unary membership scope and acceptance status](../architecture/native-unary-membership-spill-2026-10-18.md)
 and [finite unary contract](../architecture/native-stream-unary-2026-10-15.md).
 Pivot consumes the producer once for
 execution-time domain discovery and retains the completed native pivot state;

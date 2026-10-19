@@ -307,6 +307,11 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         ("unary_acceptance_reference", "docs/benchmarks/native-stream-unary-2026-10-15.md"),
         ("unary_kinds", ["distinct", "dedup", "duplicate_mask", "tail", "sample", "expression", "melt", "explode", "rolling"]),
         ("unary_state_spill", False),
+        ("unary_state_spill_scope", "all_unary_state_families"),
+        ("unary_membership_spill", True),
+        ("unary_membership_spill_reference", "docs/architecture/native-unary-membership-spill-2026-10-18.md"),
+        ("unary_membership_spill_operations", ["distinct", "dedup-first", "dedup-last", "dedup-false", "mask-first", "mask-last", "mask-false"]),
+        ("unary_sampling_population_spill", False),
         ("set_reference", "docs/architecture/native-stream-set-operations-2026-10-15.md"),
         ("set_acceptance_reference", "docs/benchmarks/native-stream-sets-2026-10-15.md"),
         ("set_operations", ["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]),
@@ -340,6 +345,11 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
     ):
         if streaming.get(field) != value:
             blockers.append(f"{JSON_PATH}: streaming_input.{field} differs from its contract")
+
+    if streaming.get("unary_membership_spill_acceptance_status") not in (
+        "local_acceptance_in_progress", "locally_accepted_hosted_pending",
+    ):
+        blockers.append(f"{JSON_PATH}: unary membership spill must retain its finite local acceptance status")
 
     relational_spill = payload.get("native_relational_order_spill", {})
     for field in ("cleanup_required_before_publication", "stable_ties", "multiple_keys", "relational_fanout"):

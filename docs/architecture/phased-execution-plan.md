@@ -260,9 +260,10 @@ is measured and dropped: two projection regressions repeat under the frozen
 confirmation gate, and production is restored. Its corrected cost harness and
 evidence remain. The subsequent [distinct-set membership acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md)
 completes finite `UNION`/`INTERSECT`/`EXCEPT` pressure and cleanup under explicit
-spill. Unary membership/population, subquery indexes and broader recovery remain
-open. Resume the optimization/breadth sequence below without closing any broader
-owner or CPU investigation.
+spill. The [finite unary membership work](native-unary-membership-spill-2026-10-18.md)
+is implemented and undergoing local acceptance. Sampling populations, subquery
+indexes and broader recovery remain open. Resume the optimization/breadth
+sequence below without closing any broader owner or CPU investigation.
 
 1. The nullable-layout integration, cleanup, ship/drop readiness audit and fresh UAT are complete in the [October 18 packet](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md). PR #1575 integrates the reconciled queue. Keep the next version bump held for a separate maintainer decision.
 2. Continue the [six-package CPU intake](native-cpu-investigations-2026-10-18.md) from its recorded evidence. A production ordinal-allocation signal selected the contiguous-range A candidate, but its [corrected complete-operation comparison](native-compact-selection-2026-10-18.md) failed the frozen throughput gate and the runtime change was removed. A remains open for a materially different mechanism; do not rerun the unchanged candidate. B already reuses codec contexts within an operation; measure actual repeated preparation across the proposed ownership boundary before admitting another candidate. No benefit is assumed by queue intake.
