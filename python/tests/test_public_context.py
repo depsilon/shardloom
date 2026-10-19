@@ -387,6 +387,26 @@ class PublicNativeContextTests(unittest.TestCase):
 @unittest.skipUnless(os.environ.get("SHARDLOOM_TEST_INSTALLED_QUICKSTART") == "1",
                      "requires an explicitly selected clean installed package")
 class InstalledProcessResultTests(unittest.TestCase):
+    def test_sql_null_results_chain_with_exact_schema_across_transports(self):
+        for statement in ("SELECT NULL AS n", "SELECT NULL AS n WHERE FALSE",
+                          "SELECT NULL AS n, NULL AS other, 7 AS id"):
+            for source_transport in ("native", "subprocess"):
+                with sl.context(transport=source_transport, **GRANT) as source:
+                    result = source.sql(statement).collect()
+                for receiver_transport in ("native", "subprocess"):
+                    with self.subTest(statement=statement, source=source_transport,
+                                      receiver=receiver_transport):
+                        with sl.context(transport=receiver_transport, **GRANT) as receiver:
+                            chained = receiver.from_result(result).collect()
+                        self.assertEqual(chained.to_rows(), result.to_rows())
+                        self.assertEqual(chained.schema, result.schema)
+                        for name, dtype in chained.schema:
+                            if name != "id":
+                                self.assertEqual(dtype.name, "bool")
+                                self.assertTrue(dtype.nullable)
+                        self.assertFalse(chained.fallback_attempted)
+                        self.assertFalse(chained.external_engine_invoked)
+
     def test_process_result_chaining_preserves_empty_nested_nullable_and_exact_types(self):
         schema = {
             "id": "uint64", "items": {"type": "list", "item": "int64"},
