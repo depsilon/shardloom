@@ -289,6 +289,12 @@ class NativeSetBindingTests(unittest.TestCase):
         count, width, offset, grant = 8193, 2048, 4096, 16 << 20
         client = sl.ShardLoomClient(transport="native", memory_bytes=grant, max_parallelism=1)
         self.addCleanup(client.close)
+        # File readback has its own native scan/Arrow admission. Python's
+        # batch_rows slices the admitted producer batch; it does not shrink
+        # that file-reader allocation or alter the constrained set grant.
+        verification_client = sl.ShardLoomClient(
+            transport="native", memory_bytes=128 << 20, max_parallelism=1)
+        self.addCleanup(verification_client.close)
 
         def row(key):
             return {"n": key, "s": f"{key:08d}" + "p" * (width - 8)}
@@ -358,7 +364,8 @@ class NativeSetBindingTests(unittest.TestCase):
                             self.assertEqual(report.envelope.field_int("native_vortex_result_export_execution_count"), 1)
                             self.assertEqual(report.envelope.field_int("native_vortex_result_export_replay_count"), 3)
                             for name in ("vortex", "parquet"):
-                                checked_stream(getattr(sl, "read_" + name)(targets[name], client=client))
+                                checked_stream(getattr(sl, "read_" + name)(
+                                    targets[name], client=verification_client))
                             seen = 0
                             with targets["jsonl"].open() as stream:
                                 for line in stream:
@@ -380,6 +387,7 @@ class NativeSetBindingTests(unittest.TestCase):
                         del query, left, right, report
                         self.assertEqual(held.to_pylist(), [row(key) for key in keys[:held.num_rows]])
         client.close()
+        verification_client.close()
         self.assertEqual(held.to_pylist(), [row(key) for key in keys[:held.num_rows]])
 
     def test_native_set_rich_membership_spill_preserves_complete_nested_and_typed_rows(self):

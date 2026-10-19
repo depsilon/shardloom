@@ -59,6 +59,7 @@ impl Schema {
 
 pub(super) struct Recorder<'p, 's> {
     resident: ReservedVec<ArrayRef>,
+    copy_rows: usize,
     #[cfg(feature = "vortex-write")]
     ordering: Option<native_relational_spill::Ordering<'p, 's>>,
     _scope: std::marker::PhantomData<(&'p (), &'s ())>,
@@ -76,16 +77,30 @@ impl<'p, 's> Recorder<'p, 's> {
         metrics: &'s Metrics<'_>,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
+        Self::with_batch_rows(schema, metrics, context, COPY_ROWS)
+    }
+
+    pub(super) fn with_batch_rows(
+        schema: &'p Schema,
+        metrics: &'s Metrics<'_>,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+    ) -> Result<Self> {
+        if batch_rows == 0 {
+            return Err(failed("native replay requires a positive batch bound"));
+        }
+        let copy_rows = batch_rows.min(COPY_ROWS);
         #[cfg(not(feature = "vortex-write"))]
         let _ = (schema, metrics);
         Ok(Self {
             resident: ReservedVec::new(context.memory())?,
+            copy_rows,
             #[cfg(feature = "vortex-write")]
             ordering: metrics
                 .spill
                 .as_ref()
                 .map(|state| {
-                    native_relational_spill::Ordering::new(&schema.spec, state, COPY_ROWS, context)
+                    native_relational_spill::Ordering::new(&schema.spec, state, copy_rows, context)
                 })
                 .transpose()?,
             _scope: std::marker::PhantomData,
@@ -101,9 +116,9 @@ impl<'p, 's> Recorder<'p, 's> {
         // Retain only the supplied native relation. Input replay supplies its
         // full source schema; output replay supplies the completed query schema.
         // Bounded slices limit transient gather work for either producer.
-        for start in (0..array.len()).step_by(COPY_ROWS) {
+        for start in (0..array.len()).step_by(self.copy_rows) {
             context.check_cancelled()?;
-            let end = start.saturating_add(COPY_ROWS).min(array.len());
+            let end = start.saturating_add(self.copy_rows).min(array.len());
             let compact = native_payload::detach_with_policy(
                 &array.slice(start..end).map_err(vortex_error)?,
                 native_payload::CopyPolicy::PreserveUnobserved,

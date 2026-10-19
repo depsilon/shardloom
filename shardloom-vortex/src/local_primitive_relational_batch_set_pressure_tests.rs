@@ -9,6 +9,9 @@ mod fault_tests;
 #[path = "local_primitive_relational_batch_set_membership_fault_tests.rs"]
 mod membership_fault_tests;
 
+#[path = "local_primitive_relational_batch_set_membership_destination_tests.rs"]
+mod membership_destination_tests;
+
 const ROWS: usize = 8193;
 const WIDTH: usize = 2048;
 const INPUT_ROWS: usize = 251;

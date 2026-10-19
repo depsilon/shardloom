@@ -58,6 +58,15 @@ regression uses the default public batch route for successful fresh execution
 and consumer failure, rather than hiding that failure with a smaller requested
 output batch.
 
+Fanout adds a native output replay owner while the set's final ordered reader
+is still live. Direct-binding acceptance caught that replay merging enlarged
+256-row set batches into 1024-row run blocks before the writer's delivery clamp.
+Fanout now bounds both its producer handoff and replay storage blocks at 256
+rows. Source replay retains its existing independent bound. All eight output
+adapters must complete from one set execution under the original constrained
+grant; independent file readback and exported verification tables have their
+own resource admission and are not membership-pressure evidence.
+
 The no-spill resident path and `UNION ALL` remain existing algorithms. Permission
 selects the native pressure-capable strategy; its ordering buffer determines
 whether actual files are needed. Strategy counters and actual run counters are

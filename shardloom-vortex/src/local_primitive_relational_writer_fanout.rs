@@ -2,12 +2,17 @@
 
 use super::super::{DType, Nullability, ReservedVec, batch_input, replay};
 use super::{
-    ArrayRef, BATCH_ROWS, CancellationToken, ExecutedVortexRelational, NativeExecutionContext,
+    ArrayRef, CancellationToken, ExecutedVortexRelational, NativeExecutionContext,
     PreparedVortexRelational, Result, VortexLocalPrimitiveRowExportFormat,
     VortexLocalPrimitiveRowExportReport, failed, vortex_error,
 };
 use crate::local_primitives::{completed_result, output_fanout};
 use std::{cell::RefCell, path::PathBuf};
+
+// Replay merging overlaps the producing operator's final reader. Bound both
+// the producer handoff and stored replay blocks before that overlap, rather
+// than slicing a larger block only when an output adapter consumes it.
+const OUTPUT_REPLAY_ROWS: usize = 256;
 
 /// Native result retention used only when one execution feeds several writers.
 /// Buffer bytes count copied native buffers, not capacity, decoded bytes or RSS.
@@ -63,10 +68,12 @@ impl PreparedVortexRelational {
                         )?)?;
                     }
                     let schema = replay::Schema::new(&dtype, context)?;
-                    let recorder = RefCell::new(Some(replay::Recorder::new(&schema, metrics, context)?));
+                    let recorder = RefCell::new(Some(replay::Recorder::with_batch_rows(
+                        &schema, metrics, context, OUTPUT_REPLAY_ROWS,
+                    )?));
                     let copied = RefCell::new(replay::CopyStats::default());
                     self.consume_bound_with_completion(
-                        root, context, metrics, BATCH_ROWS,
+                        root, context, metrics, OUTPUT_REPLAY_ROWS,
                         &mut |array| {
                             recorder.try_borrow_mut().map_err(|_| failed("output replay is active"))?
                                 .as_mut().ok_or_else(|| failed("output replay is already complete"))?
