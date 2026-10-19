@@ -70,6 +70,47 @@ class ReleaseReportProducerContractsTests(unittest.TestCase):
         _, blockers = conformance._validate_matrix(matrix)
         self.assertEqual(blockers, [])
 
+    def test_current_docs_replay_reaches_conformance_and_readiness_consumers(self) -> None:
+        from python.tests.test_release_scripts import ReleaseScriptTests
+
+        docs, blockers = replay.validate_doc_markers(REPO_ROOT)
+        self.assertEqual(blockers, [])
+        self.assertEqual(docs["status"], "passed")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = conformance.ReportPaths()
+            ReleaseScriptTests()._write_v1_correctness_conformance_fixture_reports(conformance, root)
+            path = root / paths.example_replay
+            payload = json.loads(path.read_text())
+            payload.update(
+                docs_marker_source_count=docs["source_count"],
+                docs_marker_count=docs["marker_count"],
+                docs_marker_pass_count=docs["passed_marker_count"],
+                docs_marker_status=docs["status"],
+            )
+            path.write_text(json.dumps(payload))
+            report = conformance.build_report(root, paths)
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        checks = self._readiness_checks({
+            "v1-example-replay-report.json": payload,
+            "v1-correctness-conformance-report.json": report,
+        })
+        for gate in ("v1_example_replay_gate", "v1_correctness_conformance_gate"):
+            self.assertEqual(checks[gate]["blockers"], [])
+        for count in (None, docs["source_count"] - 1, docs["source_count"] + 1, 6):
+            with self.subTest(invalid_source_count=count):
+                changed = {**payload, "docs_marker_source_count": count}
+                _, blockers = conformance._validate_example_replay(changed)
+                self.assertTrue(any("docs_marker_source_count" in item for item in blockers))
+                checks = self._readiness_checks({"v1-example-replay-report.json": changed})
+                self.assertTrue(any("docs_marker_source_count" in item
+                                    for item in checks["v1_example_replay_gate"]["blockers"]))
+                changed_report = copy.deepcopy(report)
+                changed_report["summaries"]["example_replay"]["docs_marker_source_count"] = count
+                checks = self._readiness_checks({"v1-correctness-conformance-report.json": changed_report})
+                self.assertTrue(any("docs_marker_source_count" in item
+                                    for item in checks["v1_correctness_conformance_gate"]["blockers"]))
+
     def test_conformance_counts_cover_actual_admitted_fixture_inventory(self) -> None:
         cases = admitted.executable_cases()
         diagnostics = admitted.unsupported_cases()

@@ -195,3 +195,18 @@ stacks. The two corrected commands also pass through the public Python wrappers
 and the retained native CLI with the native Python extension absent, validating
 all committed values and no-fallback fields. This local reproducer does not claim
 a rebuilt installed-wheel pass; the new hosted package job supplies that evidence.
+
+The subsequent package and native-wheel jobs passed. The release-readiness job
+[118016969493](https://github.com/depsilon/shardloom/actions/runs/39235412363/job/118016969493)
+then reported one aggregate blocker: `example_replay: docs_marker_source_count=3`.
+The consolidated documentation producer correctly validates its three current
+sources, while the conformance matrix and two readiness consumers still expected
+six. Their expected count now matches the current source inventory; the hard
+readiness consumers share the conformance constant.
+
+A new producer-to-consumer test reproduces that exact blocker before the fix. It
+passes the real documentation-marker summary through the conformance and hard
+readiness gates, and rejects absent, incomplete, extra and stale counts. All 180
+release-script, conformance and producer-contract tests pass locally. This fixes
+source-evidence accounting and does not change runtime behavior or claim that
+the pending hosted release-readiness run has passed.
