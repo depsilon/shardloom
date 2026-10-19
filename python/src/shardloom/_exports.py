@@ -301,4 +301,3 @@ def resolve_export(name: str) -> object:
         raise AttributeError(f"module 'shardloom' has no attribute {name!r}") from error
     module = import_module(f".{module_name}", "shardloom")
     return getattr(module, name)
-
