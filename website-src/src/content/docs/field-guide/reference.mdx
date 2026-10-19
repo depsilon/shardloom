@@ -1,0 +1,26 @@
+---
+title: "Application reference"
+description: "Find exact Python, SQL, CLI, type, resource and error contracts."
+---
+
+import GuideVersion from '../../../components/GuideVersion.astro';
+
+<GuideVersion />
+
+| Reference | Use it for |
+| --- | --- |
+| [Python and DataFrames](/field-guide/python-surface) | Context, lazy plans, result schema/values, batches, reuse and conversions. |
+| [SQL](/field-guide/sql) | Statements, expressions, NULL/type semantics and installed-engine inspection. |
+| [CLI](/field-guide/cli) | Running, preparing and inspecting work with stable JSON envelopes. |
+| [Operations, types and formats](/field-guide/runtime-and-io) | Supported input and output boundaries and fidelity. |
+| [Resources](/field-guide/resources) | Explicit grants, parallelism, spill, lifetime and cancellation. |
+| [Errors and troubleshooting](/field-guide/troubleshooting) | Stable diagnostics and recovery actions. |
+| [Native/Rust integration](/field-guide/embedding) | Typed embedding and retained-owner contracts. |
+
+The [source API index](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md)
+and [machine-readable inventory](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.json)
+are generated from the development export and command authorities. They label
+their revision and audience; they do not redefine this release's availability.
+For the installed engine, `shardloom command-metadata --format json` exposes its
+machine-readable command inventory, and `shardloom help COMMAND` describes a
+specific command without executing it.

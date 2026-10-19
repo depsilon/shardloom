@@ -11,6 +11,8 @@ external query engines, or authorize production/performance claims.
 
 from __future__ import annotations
 
+from check_v1_docs_productization import validate_public_contract
+
 import argparse
 import os
 import subprocess
@@ -50,29 +52,12 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         "https://shardloom.io/field-guide/start-local-proof/",
         "https://shardloom.io/field-guide/python-surface/",
     ),
-    "python/README.md": (
-        "from shardloom import context",
-        "import shardloom as sl",
-        'ctx.read("target/orders.csv")',
-        "print(result.result_rows)",
-        "native_io_certificate_status",
-        ".filter(sl.col(\"amount\") >= 10)",
-        ".collect()",
-        "fallback_attempted",
-        "external_engine_invoked",
-    ),
     "docs/getting-started/examples.md": (
         "from shardloom import context",
         "import shardloom as sl",
         'ctx.read_csv("target/local-source-runtime.csv")',
         "fallback_attempted",
         "external_engine_invoked",
-    ),
-    "website-src/src/pages/start.astro": (
-        "python examples\\local-python-smoke\\run.py --repo-root .",
-        "import shardloom as sl",
-        'ctx.read("data/orders.csv")',
-        "print(result.fallback_attempted, result.external_engine_invoked)",
     ),
     "website-src/src/content/docs/field-guide/benchmark-methodology.mdx": (
         "https://benchmark.clickhouse.com/",
@@ -81,14 +66,6 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         "performance_claim_allowed=false",
         "External engines may supply benchmark baselines",
         "no-fallback evidence",
-    ),
-    "website-src/src/content/docs/field-guide/python-surface.mdx": (
-        "import shardloom as sl",
-        'ctx.read("data/orders.csv")',
-        "result.envelope.field_int",
-        "result.fallback_attempted, result.external_engine_invoked",
-        "docs/getting-started/examples.md",
-        "fallback execution",
     ),
 }
 
@@ -244,7 +221,8 @@ def ensure_binary(
 
 
 def validate_doc_markers(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
-    blockers: list[str] = []
+    # The public example has one executable owner; retain separate benchmark/smoke checks.
+    blockers: list[str] = validate_public_contract(repo_root)
     rows: list[dict[str, Any]] = []
     marker_count = 0
     passed_count = 0

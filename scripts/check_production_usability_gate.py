@@ -78,18 +78,14 @@ DRY_RUN_REQUIRED_STEPS = [
     "release_provenance_dry_run",
 ]
 
+# Canonical onboarding/snippet/release facts are checked by check_v1_docs_productization; this check owns contributor proof.
 REQUIRED_DOC_MARKERS = {
     "README.md": [
         "https://shardloom.io/field-guide/start-local-proof/",
         "https://shardloom.io/field-guide/python-surface/",
         "docs/release/public-status-matrix.md",
     ],
-    "docs/getting-started/install.md": [
-        "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1",
-        "pip --no-index",
-        "SHARDLOOM_BIN",
-    ],
-    "docs/getting-started/first-10-minutes.md": [
+    "docs/release/local-source-rehearsal.md": [
         "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1",
         "ctx.from_rows",
         "ctx.read",
@@ -120,10 +116,6 @@ REQUIRED_DOC_MARKERS = {
     "docs/release/known-unsupported-paths.md": [
         "fallback_attempted=false",
         "external_engine_invoked=false",
-    ],
-    "website-src/src/pages/start.astro": [
-        "release_dry_run_proof.py",
-        "check_production_usability_gate.py",
     ],
 }
 

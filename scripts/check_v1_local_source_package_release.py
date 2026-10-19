@@ -22,7 +22,6 @@ from release_channel_contract import (
     SELECTED_V0_1_0_FEASIBILITY_STATUS,
     SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
-    SELECTED_PACKAGE_CHANNEL_STATUS_MARKER,
 )
 from release_report_utils import (
     fail_closed_fields,
@@ -234,23 +233,15 @@ def build_report(
     if 'pyproject["project"]["version"]' in pypi_workflow:
         blockers.append("PyPI workflow must not read project.version for the dynamic package")
 
+    # Canonical onboarding/snippet/release facts are checked by check_v1_docs_productization; this check owns contributor proof.
     docs_to_markers = {
         "README.md": [
             "https://shardloom.io/field-guide/start-local-proof/",
             "docs/release/public-status-matrix.md",
         ],
-        "docs/getting-started/package-user-install.md": [
-            "selected_publication_channels=github_prerelease,testpypi,pypi,homebrew_tap",
-            f"package_channel_status={SELECTED_PACKAGE_CHANNEL_STATUS_MARKER}",
-            "brew install depsilon/tap/shardloom",
-        ],
         "docs/release/public-status-matrix.md": [
             "selected local/source/package v1 release track",
             "real production environment gates remain",
-        ],
-        "website-src/src/pages/start.astro": [
-            "selected local/source/package v1 release track",
-            "GitHub prerelease + TestPyPI/PyPI + Homebrew",
         ],
     }
     for relative, markers in docs_to_markers.items():

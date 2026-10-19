@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from website_links import check_site_links
+from check_website_readiness import HtmlRefs, validate_html_page
 
 
 class WebsiteLinkTests(unittest.TestCase):
@@ -61,6 +62,31 @@ class WebsiteLinkTests(unittest.TestCase):
         report = check_site_links(self.root)
         self.assertEqual(report["blockers"], [])
         self.assertEqual(report["external_links"], ["https://example.com/docs"])
+
+    def test_start_redirect_requires_canonical_destination_and_search_exclusion(self):
+        valid = ('<title>Redirecting</title><meta http-equiv="refresh" '
+                 'content="0;url=/field-guide/start-local-proof">'
+                 '<meta name="robots" content="noindex">'
+                 '<link rel="canonical" href="https://shardloom.io/field-guide/start-local-proof">')
+        for html, expected in (
+            (valid, None),
+            (valid.replace('0;url=/field-guide/start-local-proof', '0;url=/wrong'), "redirect to the canonical"),
+            (valid.replace('noindex', 'index,follow'), "outside search"),
+            (valid.replace('https://shardloom.io/field-guide/start-local-proof', 'https://example.com'), "canonicalize"),
+        ):
+            with self.subTest(expected=expected):
+                self.write("start.html", html)
+                blockers = []
+                validate_html_page(self.root / "start.html", self.root, self.root, blockers)
+                if expected is None:
+                    self.assertEqual(blockers, [])
+                else:
+                    self.assertTrue(any(expected in error for error in blockers))
+
+    def test_named_legacy_anchors_are_not_inert_links(self):
+        parser = HtmlRefs()
+        parser.feed('<a id="old-heading"></a><a name="older-heading"></a><a>Broken action</a>')
+        self.assertEqual(parser.anchor_without_href_count, 1)
 
 
 if __name__ == "__main__":

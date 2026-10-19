@@ -12,7 +12,6 @@ It does not publish packages or create releases.
 from __future__ import annotations
 
 import argparse
-import re
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +24,7 @@ from check_public_status_docs import SCHEMA_VERSION as PUBLIC_STATUS_DOCS_SCHEMA
 from check_public_status_docs import build_report as build_public_status_docs_report
 from check_v1_docs_productization import SCHEMA_VERSION as V1_DOCS_PRODUCTIZATION_SCHEMA_VERSION
 from check_v1_docs_productization import build_report as build_v1_docs_productization_report
+from check_v1_docs_productization import validate_generated_doc
 from check_v1_inclusion_scope import SCHEMA_VERSION as V1_INCLUSION_SCOPE_SCHEMA_VERSION
 from check_v1_inclusion_scope import build_report as build_v1_inclusion_scope_report
 from release_channel_contract import (
@@ -98,23 +98,6 @@ REQUIRED_DRY_RUN_TRUE_FIELDS = (
     "sbom_checksum_manifest_generated",
 )
 
-SUPPORT_DOC_HEADER_EXPECTED = {
-    "runs_today_schema_version": "shardloom.runs_today_support_matrix.v1",
-    "package_channel_schema_version": "shardloom.package_channel_readiness_matrix.v1",
-    "fallback_attempted": "false",
-    "external_engine_invoked": "false",
-    "performance_claim_allowed": "false",
-    "package_publication_allowed": "true",
-}
-
-PACKAGE_CHANNEL_BLOCK_EXPECTED = {
-    "package_install_commands_visible": "true",
-    "public_package_release_claim_allowed": "true",
-    "publication_attempted": "false",
-    "tag_created": "false",
-    "package_upload_attempted": "false",
-}
-
 PYPROJECT_REQUIRED_MARKERS = (
     'name = "shardloom"',
     "Pre-release Python client",
@@ -128,7 +111,7 @@ PKG_INFO_REQUIRED_MARKERS = (
     "Summary: Pre-release Python client",
     "Classifier: Development Status :: 2 - Pre-Alpha",
     "License-Expression: Apache-2.0",
-    "Public status is owned by `docs/release/public-status-matrix.md`",
+    "https://shardloom.io/field-guide/limitations",
 )
 
 FORBIDDEN_PACKAGE_METADATA_MARKERS = (
@@ -160,25 +143,6 @@ def parse_args() -> argparse.Namespace:
         default=PACKAGE_CHANNEL_REPORT,
     )
     return parser.parse_args()
-
-
-def first_text_block_kv(text: str) -> dict[str, str]:
-    match = re.search(r"```text\n(?P<body>.*?)\n```", text, re.DOTALL)
-    if match is None:
-        return {}
-    values: dict[str, str] = {}
-    for raw in match.group("body").splitlines():
-        if "=" not in raw:
-            continue
-        key, value = raw.split("=", 1)
-        values[key.strip()] = value.strip()
-    return values
-
-
-def text_block_after_heading(text: str, heading: str) -> dict[str, str]:
-    marker = f"## {heading}"
-    _, _, tail = text.partition(marker)
-    return first_text_block_kv(tail)
 
 
 def require_report_passed(
@@ -239,31 +203,14 @@ def validate_runs_today(matrix: dict[str, Any] | None) -> tuple[dict[str, Any], 
     return summary, blockers
 
 
-def validate_support_doc(text: str) -> tuple[dict[str, Any], list[str]]:
-    blockers: list[str] = []
-    header = first_text_block_kv(text)
-    package_block = text_block_after_heading(text, "Package Channels")
-    for key, expected in SUPPORT_DOC_HEADER_EXPECTED.items():
-        if header.get(key) != expected:
-            blockers.append(f"v1 supported doc header {key}={header.get(key, 'missing')}")
-    for key, expected in PACKAGE_CHANNEL_BLOCK_EXPECTED.items():
-        if package_block.get(key) != expected:
-            blockers.append(
-                f"v1 supported doc package block {key}={package_block.get(key, 'missing')}"
-            )
-    for marker in [
-        "unsupported_example_broad_sql",
-        "unsupported_example_object_store",
-        "unsupported_example_foundry",
-        "fallback_attempted=false",
-        "external_engine_invoked=false",
-    ]:
-        if marker not in text:
-            blockers.append(f"v1 supported doc missing marker {marker}")
+def validate_support_doc(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
+    # Safety fields are checked in their matrices, not duplicated in onboarding prose.
+    blockers = validate_generated_doc(repo_root)
     return {
         "status": "passed" if not blockers else "blocked",
-        "header": header,
-        "package_channels": package_block,
+        "source": V1_SUPPORTED_DOC.as_posix(),
+        "runtime_authority": RUNS_TODAY_MATRIX.as_posix(),
+        "package_authority": PACKAGE_CHANNEL_MATRIX.as_posix(),
     }, blockers
 
 
@@ -434,9 +381,7 @@ def build_report(
     package_report = load_json(resolve_path(repo_root, package_channel_report), missing_ok=True)
 
     runs_today_summary, runs_today_blockers = validate_runs_today(runs_today)
-    support_doc_summary, support_doc_blockers = validate_support_doc(
-        read_text(resolve_path(repo_root, V1_SUPPORTED_DOC))
-    )
+    support_doc_summary, support_doc_blockers = validate_support_doc(repo_root)
     package_metadata_summary, package_metadata_blockers = validate_package_metadata(repo_root)
     package_matrix_summary, package_matrix_blockers = validate_package_matrix(package_matrix)
     release_dry_run_summary, release_dry_run_blockers = validate_release_dry_run(dry_run)

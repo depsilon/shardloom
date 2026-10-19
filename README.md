@@ -21,6 +21,55 @@ capabilities under active development.
 
 **[Explore the website](https://shardloom.io/) · [Read the field guide](https://shardloom.io/field-guide/) · [Install and run](https://shardloom.io/field-guide/start-local-proof/)**
 
+## First query
+
+<!-- BEGIN SHARDLOOM RELEASE -->
+Published **0.6.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
+
+```sh
+python -m pip install shardloom==0.6.0
+```
+
+- macOS 26 or newer, Apple silicon; CPython 3.10 or newer; native or subprocess.
+
+- Linux x86_64, glibc 2.39 or newer; CPython 3.10 or newer; native or subprocess.
+
+- Windows x86_64; CPython 3.13; subprocess.
+
+The example selects native execution. Use `transport="subprocess"` for the Windows CLI-backed package.
+<!-- END SHARDLOOM RELEASE -->
+
+<!-- BEGIN SHARDLOOM QUICKSTART -->
+```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import shardloom as sl
+
+workspace = TemporaryDirectory(prefix="shardloom-orders-")
+orders = Path(workspace.name) / "orders.csv"
+orders.write_text("order_id,status\n1,paid\n2,pending\n3,paid\n", encoding="utf-8")
+
+# Illustrative caller choices: 256 MiB and two execution lanes.
+ctx = sl.context(transport="native", memory_bytes=256 << 20, max_parallelism=2)
+
+paid = ctx.read_csv(orders).filter(sl.col("status") == "paid").sort("order_id")
+result = paid.collect(check=True)
+print(result.python_objects)
+
+ctx.client.close()
+workspace.cleanup()
+```
+
+Expected values:
+
+```python
+({'order_id': 1, 'status': 'paid'}, {'order_id': 3, 'status': 'paid'})
+```
+<!-- END SHARDLOOM QUICKSTART -->
+
+These resources are illustrative caller choices. The example creates its own input and
+cleans its temporary directory. Continue with [SQL and write/reopen](https://shardloom.io/field-guide/start-local-proof).
+
 ## What Makes ShardLoom Different
 
 - **[Metadata-first work avoidance](https://shardloom.io/field-guide/execution-model/#avoid-work-first).**

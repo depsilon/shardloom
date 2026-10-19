@@ -57,7 +57,10 @@
       "shardloom run sql --input events.csv --input-format csv --sql \"SELECT * FROM events\" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json",
       "shardloom vortex-prepare examples/foundry-lightweight-transform/fixtures/staged_input.csv /tmp/shardloom-staged-input.vortex --allow-overwrite --memory-gb 16 --max-parallelism 8 --format json",
       "shardloom sqlite-local-import-export-smoke local.sqlite --table events --export-jsonl target/events-export.jsonl --roundtrip-db target/events-roundtrip.sqlite --memory-gb 16 --max-parallelism 8 --format json"
-    ]
+    ],
+    "application_command_count": 14,
+    "application_inventory_command": "shardloom command-metadata --audience application --format json",
+    "maintainer_inventory_command": "shardloom command-metadata --audience maintainer --format json"
   },
   "native_python_surface": {
     "reference": "docs/architecture/native-python-surface-2026-10-10.md",
@@ -73,7 +76,11 @@
     "retained_result_owners": true,
     "columnar_import_export": true,
     "native_ipc_reference": "docs/architecture/native-encoded-interchange-2026-10-12.md",
-    "native_ipc_helpers": ["sl.from_vortex_ipc", "ctx.from_vortex_ipc", "Session.from_vortex_ipc"],
+    "native_ipc_helpers": [
+      "sl.from_vortex_ipc",
+      "ctx.from_vortex_ipc",
+      "Session.from_vortex_ipc"
+    ],
     "native_ipc_provider_version": "0.85.0",
     "native_ipc_max_combined_message_bytes": 67108864,
     "native_ipc_wire_statistics_trusted": false,
@@ -88,7 +95,12 @@
     "required_feature": "vortex-local-primitives",
     "required_platform": "unix",
     "rust_memory_source": "shardloom_vortex::resident_memory_source::ResidentMemorySource",
-    "nullable_types": ["int64", "finite_float64", "bool", "utf8"],
+    "nullable_types": [
+      "int64",
+      "finite_float64",
+      "bool",
+      "utf8"
+    ],
     "native_result": "OwnedVortexResultBatch",
     "public_generated_collect_route": "native_vortex_query",
     "public_row_adapter": "ShardLoomContext.from_rows",
@@ -104,9 +116,20 @@
     "reference": "docs/architecture/native-bounded-adapters-2026-10-06.md",
     "availability": "accepted_source_merged",
     "accepted_combined_commit": "99e0a4b304c506a2b24f605eb5156859b356486a",
-    "input_functions": ["shardloom.from_batches", "ShardLoomContext.from_batches"],
-    "result_methods": ["LazyFrame.iter_batches", "SqlWorkflow.iter_batches"],
-    "input_nullable_types": ["int64", "finite_float64", "bool", "utf8"],
+    "input_functions": [
+      "shardloom.from_batches",
+      "ShardLoomContext.from_batches"
+    ],
+    "result_methods": [
+      "LazyFrame.iter_batches",
+      "SqlWorkflow.iter_batches"
+    ],
+    "input_nullable_types": [
+      "int64",
+      "finite_float64",
+      "bool",
+      "utf8"
+    ],
     "input_max_fields": null,
     "input_max_batches_per_source": null,
     "input_metadata_admission": "shared_query_memory_grant",
@@ -144,27 +167,61 @@
       "accepted_merged_commit": "9529bd780904d1d337e6f8cf3c23594c1a42b7b5",
       "availability": "current_source_merged",
       "default": false,
-      "supported_plan": ["Scan", "Filter", "Project", "Sort", "Limit", "Aggregate", "Join", "Window", "PivotRows", "Set", "Unary", "Subquery", "CorrelatedSubquery"],
+      "supported_plan": [
+        "Scan",
+        "Filter",
+        "Project",
+        "Sort",
+        "Limit",
+        "Aggregate",
+        "Join",
+        "Window",
+        "PivotRows",
+        "Set",
+        "Unary",
+        "Subquery",
+        "CorrelatedSubquery"
+      ],
       "set_reference": "docs/architecture/native-stream-set-operations-2026-10-15.md",
       "set_acceptance_reference": "docs/benchmarks/native-stream-sets-2026-10-15.md",
       "set_acceptance_status": "local_and_hosted_acceptance_complete",
       "set_hosted_acceptance_reference": "docs/benchmarks/evidence/native-stream-sets-hosted-2026-10-15.json",
       "set_accepted_merged_commit": "e859b3a8b9d323587cee9641f5ebacd21e7e799c",
-      "set_operations": ["UNION ALL", "UNION", "INTERSECT", "EXCEPT"],
+      "set_operations": [
+        "UNION ALL",
+        "UNION",
+        "INTERSECT",
+        "EXCEPT"
+      ],
       "set_membership_spill": false,
       "unary_reference": "docs/architecture/native-stream-unary-2026-10-15.md",
       "unary_acceptance_reference": "docs/benchmarks/native-stream-unary-2026-10-15.md",
       "unary_acceptance_status": "local_and_hosted_acceptance_complete",
       "unary_hosted_acceptance_reference": "docs/benchmarks/evidence/native-stream-unary-hosted-2026-10-15.json",
       "unary_accepted_merged_commit": "ff9aa27338ca9f1ff5581f5a57603400f5aec926",
-      "unary_kinds": ["distinct", "dedup", "duplicate_mask", "tail", "sample", "expression", "melt", "explode", "rolling"],
+      "unary_kinds": [
+        "distinct",
+        "dedup",
+        "duplicate_mask",
+        "tail",
+        "sample",
+        "expression",
+        "melt",
+        "explode",
+        "rolling"
+      ],
       "unary_state_spill": false,
       "subquery_reference": "docs/architecture/native-stream-subqueries-2026-10-15.md",
       "subquery_acceptance_reference": "docs/benchmarks/native-stream-subqueries-2026-10-15.md",
       "subquery_acceptance_status": "local_and_hosted_acceptance_complete",
       "subquery_hosted_acceptance_reference": "docs/benchmarks/evidence/native-stream-subqueries-hosted-2026-10-16.json",
       "subquery_accepted_merged_commit": "c30846afb0ab5abfff6fdb5d95ed20f1c10a9477",
-      "subquery_kinds": ["in", "exists", "quantified", "scalar"],
+      "subquery_kinds": [
+        "in",
+        "exists",
+        "quantified",
+        "scalar"
+      ],
       "subquery_inner_scope": "statically_declared_sources_and_schema;indexed_and_parameterized_correlation",
       "subquery_selected_branch_semantics_preserved": true,
       "subquery_nested_demand_requires_original_owner_release": true,
@@ -175,7 +232,11 @@
       "dynamic_subquery_reference": "docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md",
       "dynamic_subquery_acceptance_reference": "docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md",
       "dynamic_subquery_acceptance_status": "local_and_hosted_acceptance_complete",
-      "dynamic_subquery_kinds": ["in", "exists", "quantified"],
+      "dynamic_subquery_kinds": [
+        "in",
+        "exists",
+        "quantified"
+      ],
       "dynamic_subquery_inner_scope": "finite_declared_sources;parameter_specific_schema_discovery;restriction_before_demand",
       "dynamic_subquery_source_limit": 128,
       "dynamic_subquery_reference_lifetime": "execution_scoped_single_use;retained_metadata_credit",
@@ -200,16 +261,41 @@
       "end_of_input_required": true,
       "limits_drain_complete_input": true,
       "stateful_operators_share_query_grant": true,
-      "explicit_state_spill_families": ["native_ordering", "general_relational_aggregation", "native_relational_join", "native_relational_window", "native_relational_pivot"],
-      "output_modes": ["incremental_results", "bounded_small_collection", "single_local_destination", "multiple_local_destinations"],
-      "output_formats": ["vortex", "parquet", "arrow_ipc", "avro", "orc", "json", "jsonl", "csv"],
+      "explicit_state_spill_families": [
+        "native_ordering",
+        "general_relational_aggregation",
+        "native_relational_join",
+        "native_relational_window",
+        "native_relational_pivot"
+      ],
+      "output_modes": [
+        "incremental_results",
+        "bounded_small_collection",
+        "single_local_destination",
+        "multiple_local_destinations"
+      ],
+      "output_formats": [
+        "vortex",
+        "parquet",
+        "arrow_ipc",
+        "avro",
+        "orc",
+        "json",
+        "jsonl",
+        "csv"
+      ],
       "destination_reference": "docs/architecture/native-stream-destinations-2026-10-15.md",
       "destination_acceptance_status": "local_and_hosted_acceptance_complete",
       "destination_hosted_acceptance_reference": "docs/benchmarks/evidence/native-stream-destinations-hosted-2026-10-15.json",
       "output_execution_count": 1,
       "multiple_output_retention": "credited_native_result_replay",
       "result_replay_spill": "same_explicit_query_store_and_quota",
-      "publication_requires": ["all_inputs_ended", "all_adapters_completed", "owned_spill_cleanup_completed", "final_source_validation"],
+      "publication_requires": [
+        "all_inputs_ended",
+        "all_adapters_completed",
+        "owned_spill_cleanup_completed",
+        "final_source_validation"
+      ],
       "group_atomic_publication": false,
       "partial_publication": "preserve_completed_targets_with_recovery_diagnostic",
       "native_binding_multiple_producers": true,
@@ -228,17 +314,37 @@
   },
   "native_computed_result_stream": {
     "reference": "docs/architecture/native-workflow-streaming-2026-10-01.md",
-    "required_features": ["vortex-local-primitives"],
+    "required_features": [
+      "vortex-local-primitives"
+    ],
     "write_required_feature": "vortex-write",
     "required_platform": "unix",
-    "aggregate_methods": ["collect_jsonl", "for_each_batch", "write", "write_controlled"],
+    "aggregate_methods": [
+      "collect_jsonl",
+      "for_each_batch",
+      "write",
+      "write_controlled"
+    ],
     "aggregate_collection_reference": "docs/architecture/native-aggregate-ordering-2026-10-02.md",
     "aggregate_collection_and_writer_admission": "shared_flat_native_aggregate_admission",
-    "retained_aggregate_stages": ["filter", "group", "measure", "having", "order", "limit"],
-    "retained_source_contract": ["declared_schema", "resources"],
+    "retained_aggregate_stages": [
+      "filter",
+      "group",
+      "measure",
+      "having",
+      "order",
+      "limit"
+    ],
+    "retained_source_contract": [
+      "declared_schema",
+      "resources"
+    ],
     "explicit_null_order": {
       "independent_of_direction": true,
-      "python_sort_values": ["first", "last"]
+      "python_sort_values": [
+        "first",
+        "last"
+      ]
     },
     "small_jsonl_collection_max_rows": 65536,
     "small_jsonl_collection_max_bytes": 8388608,
@@ -259,9 +365,15 @@
   },
   "native_numeric_sort_spill": {
     "reference": "docs/reference/native-query-spill.md",
-    "required_features": ["vortex-local-primitives", "vortex-write"],
+    "required_features": [
+      "vortex-local-primitives",
+      "vortex-write"
+    ],
     "required_platform": "unix",
-    "sort_key_types": ["nonnullable_int64", "nonnullable_uint64"],
+    "sort_key_types": [
+      "nonnullable_int64",
+      "nonnullable_uint64"
+    ],
     "key_count": 1,
     "explicit_workspace_required": true,
     "explicit_output_bound_required": true,
@@ -273,10 +385,21 @@
   },
   "native_relational_order_spill": {
     "reference": "docs/architecture/native-relational-resources-2026-10-02.md",
-    "required_features": ["vortex-local-primitives", "vortex-write"],
+    "required_features": [
+      "vortex-local-primitives",
+      "vortex-write"
+    ],
     "required_platform": "unix",
-    "public_resource_arguments": ["memory_gb", "max_parallelism", "spill"],
-    "spill_fields": ["workspace", "quota_bytes", "buffer_bytes"],
+    "public_resource_arguments": [
+      "memory_gb",
+      "max_parallelism",
+      "spill"
+    ],
+    "spill_fields": [
+      "workspace",
+      "quota_bytes",
+      "buffer_bytes"
+    ],
     "minimum_buffer_bytes": 1048576,
     "minimum_quota_bytes": 32768,
     "buffer_semantics": "retained_order_input_flush_threshold_within_shared_query_grant",
@@ -301,10 +424,21 @@
   "native_relational_aggregate_spill": {
     "reference": "docs/architecture/native-aggregate-pressure-2026-10-07.md",
     "acceptance_reference": "docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md",
-    "required_features": ["vortex-local-primitives", "vortex-write"],
+    "required_features": [
+      "vortex-local-primitives",
+      "vortex-write"
+    ],
     "required_platform": "unix",
-    "public_resource_arguments": ["memory_gb", "max_parallelism", "spill"],
-    "spill_fields": ["workspace", "quota_bytes", "buffer_bytes"],
+    "public_resource_arguments": [
+      "memory_gb",
+      "max_parallelism",
+      "spill"
+    ],
+    "spill_fields": [
+      "workspace",
+      "quota_bytes",
+      "buffer_bytes"
+    ],
     "minimum_buffer_bytes": 1048576,
     "strategy": "native_stable_ordering_and_scalar_reduction",
     "group_order": "first_seen",
@@ -332,14 +466,33 @@
     "hosted_acceptance_complete": true,
     "accepted_merged_commit": "25906290b002d32225eed2957a26fa5c39fb561c",
     "hosted_acceptance_reference": "docs/benchmarks/evidence/native-join-hosted-2026-10-08.json",
-    "required_features": ["vortex-local-primitives", "vortex-write"],
+    "required_features": [
+      "vortex-local-primitives",
+      "vortex-write"
+    ],
     "required_platform": "unix",
-    "public_resource_arguments": ["memory_gb", "max_parallelism", "spill"],
-    "spill_fields": ["workspace", "quota_bytes", "buffer_bytes"],
+    "public_resource_arguments": [
+      "memory_gb",
+      "max_parallelism",
+      "spill"
+    ],
+    "spill_fields": [
+      "workspace",
+      "quota_bytes",
+      "buffer_bytes"
+    ],
     "minimum_buffer_bytes": 1048576,
     "minimum_quota_bytes": 32768,
     "strategy": "native_ordered_build_records_with_exact_bounded_candidate_lookup",
-    "join_kinds": ["inner", "left", "right", "full", "semi", "anti", "cross"],
+    "join_kinds": [
+      "inner",
+      "left",
+      "right",
+      "full",
+      "semi",
+      "anti",
+      "cross"
+    ],
     "type_scope": "admitted_native_typed_and_static_nested_join_contracts",
     "hash_collisions_require_exact_equality": true,
     "null_keys_match": false,
@@ -347,7 +500,15 @@
     "unmatched_right_order": "original_input_order",
     "shared_query_grant_and_disk_quota": true,
     "file_and_resident_scalar_writer_count": 8,
-    "typed_nested_writers": ["vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv"],
+    "typed_nested_writers": [
+      "vortex",
+      "json",
+      "jsonl",
+      "arrow_ipc",
+      "parquet",
+      "avro",
+      "csv"
+    ],
     "writer_fidelity": "format_representability_and_declared_translation_required;CSV_uses_quoted_JSON_text_cells_without_native_dtype_persistence",
     "streaming_input_writer": "existing_local_writers_with_credited_result_replay",
     "streaming_destination_reference": "docs/architecture/native-stream-destinations-2026-10-15.md",
@@ -369,23 +530,51 @@
     "hosted_acceptance_complete": true,
     "accepted_merged_commit": "a88ec5c997e3da1633b9647a9e0e439681c8b467",
     "hosted_acceptance_reference": "docs/benchmarks/evidence/native-window-hosted-2026-10-08.json",
-    "required_features": ["vortex-local-primitives", "vortex-write"],
+    "required_features": [
+      "vortex-local-primitives",
+      "vortex-write"
+    ],
     "required_platform": "unix",
     "runtime_acceptance_platform": "macos_arm64",
-    "public_resource_arguments": ["memory_gb", "max_parallelism", "spill"],
-    "spill_fields": ["workspace", "quota_bytes", "buffer_bytes"],
+    "public_resource_arguments": [
+      "memory_gb",
+      "max_parallelism",
+      "spill"
+    ],
+    "spill_fields": [
+      "workspace",
+      "quota_bytes",
+      "buffer_bytes"
+    ],
     "minimum_buffer_bytes": 1048576,
     "minimum_quota_bytes": 32768,
     "default_strategy": "resident",
     "explicit_strategy": "native_stored_windows_with_exact_distinct_intervals_and_extrema_summaries",
     "type_scope": "existing_analytic_frame_and_native_typed_nested_key_contracts",
-    "frame_units": ["rows", "groups", "range"],
-    "exclusions": ["no_others", "current_row", "group", "ties"],
+    "frame_units": [
+      "rows",
+      "groups",
+      "range"
+    ],
+    "exclusions": [
+      "no_others",
+      "current_row",
+      "group",
+      "ties"
+    ],
     "output_order": "input_order",
     "existing_observation_and_error_order_preserved": true,
     "shared_query_grant_and_disk_quota": true,
     "file_and_resident_scalar_writer_count": 8,
-    "typed_nested_writers": ["vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv"],
+    "typed_nested_writers": [
+      "vortex",
+      "json",
+      "jsonl",
+      "arrow_ipc",
+      "parquet",
+      "avro",
+      "csv"
+    ],
     "writer_fidelity": "format_representability_and_declared_translation_required;CSV_uses_quoted_JSON_text_cells_without_native_dtype_persistence",
     "streaming_input_writer": "existing_local_writers_with_credited_result_replay",
     "streaming_destination_reference": "docs/architecture/native-stream-destinations-2026-10-15.md",
@@ -409,23 +598,49 @@
     "hosted_acceptance_complete": true,
     "hosted_acceptance_reference": "https://github.com/depsilon/shardloom/pull/1534",
     "accepted_merged_commit": "d7898cb95818c4c455ad770713046dbdb5a86ad1",
-    "required_features": ["vortex-local-primitives", "vortex-write"],
+    "required_features": [
+      "vortex-local-primitives",
+      "vortex-write"
+    ],
     "required_platform": "unix",
-    "public_resource_arguments": ["memory_gb", "max_parallelism", "spill"],
-    "spill_fields": ["workspace", "quota_bytes", "buffer_bytes"],
+    "public_resource_arguments": [
+      "memory_gb",
+      "max_parallelism",
+      "spill"
+    ],
+    "spill_fields": [
+      "workspace",
+      "quota_bytes",
+      "buffer_bytes"
+    ],
     "minimum_buffer_bytes": 1048576,
     "minimum_quota_bytes": 32768,
     "default_strategy": "resident",
     "explicit_strategy": "native_sparse_latest_state_runs_with_bounded_exact_lookup",
-    "source_scope": ["file", "resident_memory", "finite_streaming_batches"],
+    "source_scope": [
+      "file",
+      "resident_memory",
+      "finite_streaming_batches"
+    ],
     "streaming_composition_reference": "docs/architecture/native-stream-input-composition-2026-10-13.md",
-    "historical_acceptance_source_scope": ["file", "resident_memory"],
+    "historical_acceptance_source_scope": [
+      "file",
+      "resident_memory"
+    ],
     "type_scope": "existing_scalar_typed_and_static_nested_pivot_contracts",
     "maximum_top_level_fields": 128,
     "existing_observation_and_error_order_preserved": true,
     "shared_query_grant_and_disk_quota": true,
     "file_and_resident_scalar_writer_count": 8,
-    "typed_nested_writers": ["vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv"],
+    "typed_nested_writers": [
+      "vortex",
+      "json",
+      "jsonl",
+      "arrow_ipc",
+      "parquet",
+      "avro",
+      "csv"
+    ],
     "writer_fidelity": "format_representability_and_declared_translation_required;CSV_uses_quoted_JSON_text_cells_without_native_dtype_persistence",
     "incremental_result_delivery": true,
     "direct_prepared_unary_spill": false,
@@ -443,19 +658,46 @@
     "reference": "docs/architecture/native-nested-composition-2026-10-02.md",
     "scope": "current_source_build_static_nested_payloads",
     "schema_limit_scope": "each_nested_value_below_the_top_level_record",
-    "payload_types": ["list", "fixed_size_list", "struct"],
-    "leaf_types": ["bool", "integer", "float32", "float64", "utf8", "binary", "decimal128", "date32", "timestamp_micros"],
+    "payload_types": [
+      "list",
+      "fixed_size_list",
+      "struct"
+    ],
+    "leaf_types": [
+      "bool",
+      "integer",
+      "float32",
+      "float64",
+      "utf8",
+      "binary",
+      "decimal128",
+      "date32",
+      "timestamp_micros"
+    ],
     "typed_leaf_contract": "docs/architecture/native-typed-payloads-2026-10-03.md",
     "maximum_schema_depth": 24,
     "maximum_schema_nodes": 4096,
     "maximum_schema_metadata_bytes": 8388608,
     "maximum_top_level_fields": null,
     "top_level_metadata_admission": "shared_query_memory_grant",
-    "typed_public_input_evidence": ["arrow_ipc", "prepared_vortex"],
+    "typed_public_input_evidence": [
+      "arrow_ipc",
+      "prepared_vortex"
+    ],
     "nested_text_schema_hints": false,
     "ordered_repeated_explode": true,
-    "nested_writers": ["vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv"],
-    "denied_nested_writers": ["orc"],
+    "nested_writers": [
+      "vortex",
+      "json",
+      "jsonl",
+      "arrow_ipc",
+      "parquet",
+      "avro",
+      "csv"
+    ],
+    "denied_nested_writers": [
+      "orc"
+    ],
     "writer_fidelity": "format_representability_and_declared_translation_required;CSV_uses_quoted_JSON_text_cells_without_native_dtype_persistence",
     "nested_keys": false,
     "general_nested_unary_state": false,
@@ -468,8 +710,16 @@
   "native_typed_payloads": {
     "reference": "docs/architecture/native-typed-payloads-2026-10-03.md",
     "scope": "current_source_build_payload_transport",
-    "types": ["binary", "decimal128", "date32", "timestamp_micros"],
-    "decimal_precision": [1, 38],
+    "types": [
+      "binary",
+      "decimal128",
+      "date32",
+      "timestamp_micros"
+    ],
+    "decimal_precision": [
+      1,
+      38
+    ],
     "decimal_scale": "0_to_precision",
     "timestamp_timezone": null,
     "nested_leaves": true,
@@ -479,7 +729,9 @@
     "temporal_text_encoding": "signed_integer_units",
     "binary_local_writer_count": 8,
     "decimal_temporal_local_writer_count": 7,
-    "denied_decimal_temporal_writers": ["orc"],
+    "denied_decimal_temporal_writers": [
+      "orc"
+    ],
     "total_rss_bound": false,
     "fallback_attempted": false,
     "external_engine_invoked": false
@@ -489,13 +741,37 @@
     "related_expression_contract": "docs/architecture/native-typed-expressions-2026-10-03.md",
     "related_unary_contract": "docs/architecture/native-typed-unary-2026-10-03.md",
     "scope": "current_source_build_flat_native_relational_keys",
-    "types": ["binary", "decimal128", "date32", "timestamp_micros"],
+    "types": [
+      "binary",
+      "decimal128",
+      "date32",
+      "timestamp_micros"
+    ],
     "binary_order": "unsigned_lexicographic_bytes",
     "decimal_comparison": "exact_i128_with_identical_precision_and_scale",
     "temporal_comparison": "exact_signed_storage_with_distinct_logical_types",
-    "operators": ["join", "set", "group", "sort", "window", "subquery"],
-    "aggregates": ["count", "count_distinct", "min", "max"],
-    "scalar_selection": ["comparison", "is_null", "is_not_null", "case", "coalesce", "nullif"],
+    "operators": [
+      "join",
+      "set",
+      "group",
+      "sort",
+      "window",
+      "subquery"
+    ],
+    "aggregates": [
+      "count",
+      "count_distinct",
+      "min",
+      "max"
+    ],
+    "scalar_selection": [
+      "comparison",
+      "is_null",
+      "is_not_null",
+      "case",
+      "coalesce",
+      "nullif"
+    ],
     "ordinary_sql_source_handoff": true,
     "inspection_side_effect_free": true,
     "native_sort_spill": "explicit_relational_sort_policy",
@@ -515,14 +791,33 @@
   "native_typed_unary": {
     "reference": "docs/architecture/native-typed-unary-2026-10-03.md",
     "scope": "current_source_build_flat_retained_unary_state",
-    "types": ["binary", "decimal128", "date32", "timestamp_micros"],
-    "operators": ["distinct", "drop_duplicates", "duplicate_mask", "tail", "sample", "scalar_rewrite", "melt", "rolling_count", "pivot"],
+    "types": [
+      "binary",
+      "decimal128",
+      "date32",
+      "timestamp_micros"
+    ],
+    "operators": [
+      "distinct",
+      "drop_duplicates",
+      "duplicate_mask",
+      "tail",
+      "sample",
+      "scalar_rewrite",
+      "melt",
+      "rolling_count",
+      "pivot"
+    ],
     "shared_direct_and_relational_state": true,
     "compact_selected_variable_payload": true,
     "declared_logical_types_preserved": true,
     "decimal_arithmetic": "same_scale_checked_native_kernel",
     "melt_conversion": "lossless_common_scalar_type",
-    "typed_pivot_aggregates": ["first", "first_unique", "count"],
+    "typed_pivot_aggregates": [
+      "first",
+      "first_unique",
+      "count"
+    ],
     "pivot_fill": "missing_cells_only",
     "legacy_predicate_domain": "primitive_boolean_utf8",
     "nested_state": false,
@@ -534,18 +829,40 @@
   "native_typed_reductions": {
     "reference": "docs/architecture/native-typed-reductions-2026-10-04.md",
     "scope": "current_source_build_computed_arguments_and_decimal_reductions",
-    "computed_aggregates": ["count", "count_distinct", "sum", "avg", "min", "max"],
+    "computed_aggregates": [
+      "count",
+      "count_distinct",
+      "sum",
+      "avg",
+      "min",
+      "max"
+    ],
     "argument_lowering": "shared_native_projection_then_aggregate",
-    "distinct_aggregates": ["count"],
-    "decimal_precision": [1, 38],
+    "distinct_aggregates": [
+      "count"
+    ],
+    "decimal_precision": [
+      1,
+      38
+    ],
     "decimal_scale": "0_to_precision",
     "decimal_sum_result": "decimal128(38,input_scale)",
     "decimal_mean_result": "decimal128(38,max(input_scale,6))",
     "decimal_extrema_result": "preserve_input_precision_and_scale",
     "decimal_average_policy": "exact_or_error",
     "decimal_overflow_policy": "checked_error",
-    "decimal_rolling": ["sum", "mean", "min", "max"],
-    "decimal_numeric_pivot": ["sum", "mean", "min", "max"],
+    "decimal_rolling": [
+      "sum",
+      "mean",
+      "min",
+      "max"
+    ],
+    "decimal_numeric_pivot": [
+      "sum",
+      "mean",
+      "min",
+      "max"
+    ],
     "numeric_pivot_nulls": "error",
     "pivot_margins": "merge_totals_and_counts_before_finalization",
     "untyped_null_projection": "nullable_boolean_carrier",
@@ -563,7 +880,11 @@
   "native_nested_keys_state": {
     "reference": "docs/architecture/native-nested-keys-state-2026-10-04.md",
     "scope": "current_source_build_static_nested_keys_and_retained_state",
-    "types": ["list", "fixed_size_list", "struct"],
+    "types": [
+      "list",
+      "fixed_size_list",
+      "struct"
+    ],
     "leaf_contract": "native_nested_composition",
     "key_schema": "same_recursive_logical_types_ignoring_nullability",
     "list_order": "lexicographic_children_then_length",
@@ -572,10 +893,38 @@
     "null_parent_hides_children": true,
     "relational_float_zero": "normalized",
     "unary_float_zero": "exact_bits",
-    "operators": ["join", "set", "group", "sort", "window", "subquery"],
-    "aggregates": ["count", "count_distinct", "min", "max"],
-    "scalar_selection": ["comparison", "is_null", "is_not_null", "case", "coalesce", "nullif"],
-    "retained_unary": ["distinct", "drop_duplicates", "duplicate_mask", "tail", "sample", "forward_fill", "melt", "rolling_count"],
+    "operators": [
+      "join",
+      "set",
+      "group",
+      "sort",
+      "window",
+      "subquery"
+    ],
+    "aggregates": [
+      "count",
+      "count_distinct",
+      "min",
+      "max"
+    ],
+    "scalar_selection": [
+      "comparison",
+      "is_null",
+      "is_not_null",
+      "case",
+      "coalesce",
+      "nullif"
+    ],
+    "retained_unary": [
+      "distinct",
+      "drop_duplicates",
+      "duplicate_mask",
+      "tail",
+      "sample",
+      "forward_fill",
+      "melt",
+      "rolling_count"
+    ],
     "forward_fill": "null_parent_only",
     "melt_conversion": "same_shape_and_declared_child_types",
     "shared_direct_and_relational_state": true,
@@ -610,7 +959,16 @@
     "maximum_top_level_fields": 128,
     "small_collection_maximum_rows": 65536,
     "small_collection_maximum_jsonl_bytes": 8388608,
-    "local_writers": ["vortex", "parquet", "arrow_ipc", "avro", "orc", "json", "jsonl", "csv"],
+    "local_writers": [
+      "vortex",
+      "parquet",
+      "arrow_ipc",
+      "avro",
+      "orc",
+      "json",
+      "jsonl",
+      "csv"
+    ],
     "writer_fidelity": "format_representability_and_declared_translation_required",
     "pivot_state_spill": true,
     "pivot_state_spill_contract": "native_relational_pivot_spill",
@@ -621,12 +979,26 @@
   "native_nested_pivot_state": {
     "reference": "docs/architecture/native-nested-pivot-state-2026-10-06.md",
     "scope": "post_v0_4_0_source_build_static_nested_pivot_state",
-    "types": ["list", "fixed_size_list", "struct"],
-    "roles": ["index", "domain", "value"],
+    "types": [
+      "list",
+      "fixed_size_list",
+      "struct"
+    ],
+    "roles": [
+      "index",
+      "domain",
+      "value"
+    ],
     "leaf_contract": "native_nested_composition",
     "identity": "unary_exact_keys_finite_float_bits",
     "domain_names": "sanitized_type_tagged_exact_key_with_collision_suffix",
-    "selected_cell_aggregates": ["first", "first_unique", "count", "min", "max"],
+    "selected_cell_aggregates": [
+      "first",
+      "first_unique",
+      "count",
+      "min",
+      "max"
+    ],
     "python_first_alias": "first_unique",
     "first_nulls": "retain_first_complete_value_including_null_parent",
     "extrema_nulls": "skip_null_parents_shared_recursive_child_order",
@@ -639,9 +1011,18 @@
     "shared_direct_and_relational_state": true,
     "compact_selected_payload": true,
     "maximum_top_level_fields": 128,
-    "nested_writers": ["vortex", "parquet", "arrow_ipc", "avro", "json", "jsonl"],
+    "nested_writers": [
+      "vortex",
+      "parquet",
+      "arrow_ipc",
+      "avro",
+      "json",
+      "jsonl"
+    ],
     "csv_nested_translation": "quoted_json_text_without_logical_dtype",
-    "denied_nested_writers": ["orc"],
+    "denied_nested_writers": [
+      "orc"
+    ],
     "local_acceptance_complete": true,
     "local_acceptance_report": "docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md",
     "hosted_acceptance_complete": true,
@@ -948,5 +1329,2856 @@
     "production_claim_allowed": false,
     "performance_claim_allowed": false,
     "broad_sql_dataframe_parity_claim_allowed": false
+  },
+  "application": {
+    "schema_version": "shardloom.application_reference.v1",
+    "availability": "unpublished_source",
+    "generator": "scripts/write_public_api_reference.py",
+    "source_identity": "0ffe814740dd6b2b9401e87df9b572aa80a773414db6971572862d5eb12a7622",
+    "source_inputs": {
+      "python/src/shardloom/_batches.py": "fdffdf7583333a8acaa1d7cf1501378578af3c5967d90a2924c58d93d0991c82",
+      "python/src/shardloom/_exports.py": "1e208f7c360a40986a6814fea2ed64526347dee73c160a950b8f47047045b014",
+      "python/src/shardloom/_result_schema.py": "a333496967e0a7a77c091194ccbe32b43c8be55d583ac9dbdc60019bae78f355",
+      "python/src/shardloom/_version.py": "846878f7d86e573aacc97e3efca93e6ac29870c84c7b436382c528ed2b733e3d",
+      "python/src/shardloom/client.py": "25459e107ef61dca2cbe1b25a5143f26a8962ac4d53195bb71a5a501b42b39a8",
+      "python/src/shardloom/context.py": "0393f7df9559928b818c9e68b102623ce62969babdb618a687039884a3b99dbf",
+      "python/src/shardloom/errors.py": "8409187140941c8552541c428b25b5a27c7a75d6c0fd15bbce92c0ef2413cbf5",
+      "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
+      "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
+      "python/src/shardloom/query.py": "b456011a4cb42087618440ac7e6db84ae42d4f33cead9c36291e65671c24e06c",
+      "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
+      "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
+      "python/src/shardloom/session.py": "ee47447ff6b5bf719626ae20940167946de6733f9e3d78220446d4223e2b7d63",
+      "shardloom-cli/src/command_registry.rs": "5528ce05f70e72a10865a633a3efd36ad603d182ecabd68af2369b73e8872156"
+    },
+    "python_symbols": [
+      {
+        "name": "CapabilityPosture",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(scope: 'str', command_status: 'str', support_status: 'str | None', claim_gate_status: 'str | None', claim_gate_statuses: 'tuple[str, ...]', severity: 'str | None', supported: 'bool', report_only: 'bool', unsupported: 'bool', claim_grade: 'bool', no_runtime: 'bool', runtime_execution: 'bool', data_read: 'bool', write_io: 'bool', object_store_io: 'bool', catalog_io: 'bool', no_effects: 'bool', fallback_attempted: 'bool', fallback_allowed: 'bool', no_fallback: 'bool', external_engine_invoked: 'bool', blocker_ids: 'tuple[str, ...]', required_evidence: 'tuple[str, ...]', required_gates: 'tuple[str, ...]', materialization_boundaries: 'tuple[str, ...]', suggested_next_action: 'str | None') -> None",
+        "summary": "Normalized support, claim, and effect posture for one capability view."
+      },
+      {
+        "name": "CapabilityView",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(scope: 'str', envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed convenience view over one capability-discovery envelope."
+      },
+      {
+        "name": "ClaimGateCloseoutReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the P7 claim-gate and release-readiness closeout report."
+      },
+      {
+        "name": "ClaimSummary",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(status: 'str', claim_gate_status: 'str | None', support_status: 'str | None', blocker_id: 'str | None', fallback_attempted: 'bool', external_engine_invoked: 'bool', public_performance_claim_allowed: 'bool') -> None",
+        "summary": "Compact user-facing summary of what may and may not be claimed."
+      },
+      {
+        "name": "ColumnExpression",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(sql: 'str', source_bindings: 'tuple[WorkflowSource, ...]' = (), resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "summary": "A scoped column expression for Python query-builder predicates."
+      },
+      {
+        "name": "CommandMetadataReport",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the side-effect-free CLI command registry metadata."
+      },
+      {
+        "name": "CompatibilitySourcePlan",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(source_name: 'str', dataset_uri: 'str', plan: 'OutputEnvelope') -> None",
+        "summary": "One report-only compatibility-source input plan."
+      },
+      {
+        "name": "CompatibilitySourceSmokeReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(input_adapters: 'OutputEnvelope', native_io_envelope: 'OutputEnvelope', sources: 'tuple[CompatibilitySourcePlan, ...]') -> None",
+        "summary": "Report-only compatibility-source planning smoke envelopes."
+      },
+      {
+        "name": "ComplexProjectionExpression",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(sql: 'str') -> None",
+        "summary": "A scoped ARRAY or STRUCT projection expression for local-source rows."
+      },
+      {
+        "name": "ComputeCapabilityMatrix",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the report-only compute capability coverage matrix."
+      },
+      {
+        "name": "ComputeCapabilityRow",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(row_id: 'str', surface: 'str', family: 'str', support_status: 'str', engine_mode: 'str', execution_mode: 'str', provider_kind: 'str', semantic_profile: 'str', materialization_decode_requirement: 'str', memory_spill_requirement: 'str', correctness_refs: 'tuple[str, ...]', benchmark_refs: 'tuple[str, ...]', execution_certificate_refs: 'tuple[str, ...]', native_io_refs: 'tuple[str, ...]', unsupported_diagnostic_code: 'str', blocker_id: 'str', required_future_evidence: 'tuple[str, ...]', claim_gate_status: 'str', vortex_native_claim_allowed: 'bool', fallback_attempted: 'bool', external_engine_invoked: 'bool') -> None",
+        "summary": "One row in the report-only compute capability matrix."
+      },
+      {
+        "name": "ContextCapabilities",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(status: 'OutputEnvelope', views: 'Mapping[str, CapabilityView]', input_adapters: 'OutputEnvelope | None' = None) -> None",
+        "summary": "Aggregated side-effect-free capability discovery results."
+      },
+      {
+        "name": "DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/client.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "DataFrameFutureContractClassification",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(blocker_id: 'str', affected_methods: 'tuple[str, ...]', classification: 'str', current_runtime_status: 'str', v1_resolution: 'str', next_action: 'str', fallback_attempted: 'bool', external_engine_invoked: 'bool') -> None",
+        "summary": "Classify a broad DataFrame/Python variant outside a scoped admitted method."
+      },
+      {
+        "name": "DataFrameFutureContractClassificationMatrix",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(rows: 'tuple[DataFrameFutureContractClassification, ...]') -> None",
+        "summary": "Machine-readable classifier for future-contract variants on admitted methods."
+      },
+      {
+        "name": "DataFrameMethodCapability",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(method: 'str', family: 'str', support_status: 'str', claim_gate_status: 'str', diagnostic_operation: 'str | None', blocker_id: 'str | None', future_contract_blocker_ids: 'tuple[str, ...]', required_evidence: 'tuple[str, ...]', runtime_execution: 'bool', data_read: 'bool', write_io: 'bool', materialization_required: 'bool', fallback_attempted: 'bool', external_engine_invoked: 'bool', claim_boundary: 'str') -> None",
+        "summary": "Support, evidence, and claim boundary for one Python DataFrame-style method."
+      },
+      {
+        "name": "DataFrameMethodCapabilityMatrix",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\", rows: 'tuple[DataFrameMethodCapability, ...]') -> None",
+        "summary": "Report-only Python DataFrame/query-builder method capability matrix."
+      },
+      {
+        "name": "DataFrameNotebookPackageReadinessReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Typed view over GAR-0010-B DataFrame/notebook/package readiness posture."
+      },
+      {
+        "name": "DataFrameNotebookPackageReadinessRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', family: 'str | None', surface: 'str | None', support_status: 'str | None', local_install_smoke: 'bool | None', package_publication_allowed: 'bool | None', dataframe_runtime_supported: 'bool | None', notebook_runtime_supported: 'bool | None', deterministic_diagnostic_code: 'str | None', blocker_id: 'str | None', required_evidence: 'tuple[str, ...]', claim_gate_status: 'str | None', fallback_attempted: 'bool | None', external_engine_invoked: 'bool | None', claim_boundary: 'str | None') -> None",
+        "summary": "One DataFrame/notebook/package readiness row."
+      },
+      {
+        "name": "DatabaseWarehouseBoundaryMatrix",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Compatibility scoreboard projection for database/warehouse boundaries."
+      },
+      {
+        "name": "DatabaseWarehouseBoundaryMatrixRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', endpoint_scope: 'str | None', endpoint_family: 'str | None', connector_type: 'str | None', support_status: 'str | None', credential_required: 'bool | None', network_required: 'bool | None', driver_dependency_required: 'bool | None', credential_resolution_performed: 'bool | None', network_probe_performed: 'bool | None', driver_loaded: 'bool | None', import_runtime_supported: 'bool | None', export_runtime_supported: 'bool | None', query_pushdown_supported: 'bool | None', external_baseline_only: 'bool | None', native_io_certificate_status: 'str | None', fallback_attempted: 'bool | None', external_engine_invoked: 'bool | None', blocker_id: 'str | None', required_evidence: 'tuple[str, ...]', claim_gate_status: 'str | None', claim_boundary: 'str | None') -> None",
+        "summary": "One database/warehouse import-export boundary matrix row."
+      },
+      {
+        "name": "Diagnostic",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(code: 'str', severity: 'str', category: 'str', message: 'str', feature: 'str | None', reason: 'str | None', suggested_next_step: 'str | None', fallback: 'FallbackStatus') -> None",
+        "summary": "Diagnostic entry copied from a ShardLoom output envelope."
+      },
+      {
+        "name": "ETLWorkflowCapabilityMatrix",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\", rows: 'tuple[ETLWorkflowCapabilityRow, ...]') -> None",
+        "summary": "Report-only ETL workflow matrix for user-facing local paths and blockers."
+      },
+      {
+        "name": "ETLWorkflowCapabilityRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(workflow_id: 'str', title: 'str', status: 'str', execution_mode: 'str', engine_mode: 'str', inputs: 'tuple[str, ...]', outputs: 'tuple[str, ...]', evidence_fields: 'tuple[str, ...]', blocker_id: 'str | None', claim_gate_status: 'str', runtime_execution: 'bool', data_read: 'bool', write_io: 'bool', object_store_io: 'bool', table_runtime: 'bool', production_claim_allowed: 'bool', fallback_attempted: 'bool', external_engine_invoked: 'bool', claim_boundary: 'str') -> None",
+        "summary": "Support, evidence, and claim boundary for one user-facing ETL workflow family."
+      },
+      {
+        "name": "ETL_INPUT_FORMATS",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "constant",
+        "source": "python/src/shardloom/client.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "EngineCapabilityMatrix",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed convenience view over the CG-22 engine capability matrix."
+      },
+      {
+        "name": "EngineSelectionPlan",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed convenience view over the CG-22 engine-selection report."
+      },
+      {
+        "name": "EvidenceAwareOptimizerTraceReport",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the report-only GAR-PERF-2B optimizer trace."
+      },
+      {
+        "name": "EvidenceSchemaRegistryReport",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the side-effect-free evidence field schema registry."
+      },
+      {
+        "name": "EvidenceSummary",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(command: 'str', status: 'str', execution_mode: 'str | None', engine_mode: 'str | None', source_format: 'str | None', output_path: 'str | None', output_row_count: 'int | None', source_io_performed: 'bool | None', output_io_performed: 'bool | None', generated_source_kind: 'str | None', generated_source_row_count: 'int | None', output_native_io_certificate_status: 'str | None', materialization_boundary: 'str | None', fallback_attempted: 'bool', external_engine_invoked: 'bool', claim_gate_status: 'str | None') -> None",
+        "summary": "Compact user-facing summary of what a ShardLoom command proved."
+      },
+      {
+        "name": "ExecutionEvidenceSlot",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(kind: 'str', status: 'str', refs: 'tuple[str, ...]', detail: 'str') -> None",
+        "summary": "One evidence-slot status from a typed execution-result envelope."
+      },
+      {
+        "name": "ExecutionResourceLimits",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/execution_resources.py",
+        "signature": "(memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None) -> None",
+        "summary": "Explicit deployment ceilings; this object does not authenticate their source."
+      },
+      {
+        "name": "ExecutionResources",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/execution_resources.py",
+        "signature": "(memory_bytes: 'int', max_parallelism: 'int', memory_origin: 'str' = 'execution_call', parallelism_origin: 'str' = 'execution_call', limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "summary": "Immutable exact-byte allocation, independent of reservation or measured use."
+      },
+      {
+        "name": "ExecutionResultEnvelopeView",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over an artifact-rich top-level execution result envelope."
+      },
+      {
+        "name": "FallbackStatus",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(attempted: 'bool', allowed: 'bool', engine: 'str | None', reason: 'str') -> None",
+        "summary": "Fallback status copied from a ShardLoom output envelope."
+      },
+      {
+        "name": "FieldEntry",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(key: 'str', value: 'str') -> None",
+        "summary": "Key/value field entry copied from a ShardLoom output envelope."
+      },
+      {
+        "name": "FoundryGeneratedOutputReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(output_ref: 'str', result_dataset_path: 'str', evidence_dataset_path: 'str', generated_report: 'Result', result_dataset_report: 'Mapping[str, object]', evidence_dataset_report: 'Mapping[str, object]') -> None",
+        "summary": "Typed view over the local Foundry-style generated-output dataset route."
+      },
+      {
+        "name": "FrontDoorParityMatrix",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(rows: 'tuple[FrontDoorParityRow, ...]') -> None",
+        "summary": "Report-only parity matrix for SQL, Python, and DataFrame front doors."
+      },
+      {
+        "name": "FrontDoorParityRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', workflow: 'str', support_status: 'str', runtime_gap_status: 'str', sql_surface: 'str', python_surface: 'str', dataframe_surface: 'str', shared_runtime_path: 'str', parity_status: 'str', performance_equivalence_status: 'str', runtime_execution: 'bool', data_read: 'bool', write_io: 'bool', materialization_required: 'bool', fallback_attempted: 'bool', external_engine_invoked: 'bool', blocker_id: 'str | None', required_evidence: 'tuple[str, ...]', claim_boundary: 'str') -> None",
+        "summary": "SQL/Python/DataFrame parity posture for one user-facing workflow family."
+      },
+      {
+        "name": "FrontDoorSemanticSurfaceMatrix",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(rows: 'tuple[FrontDoorSemanticSurfaceRow, ...]') -> None",
+        "summary": "Scoped semantic-surface matrix for Python/DataFrame-style and SQL claims."
+      },
+      {
+        "name": "FrontDoorSemanticSurfaceRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', surface: 'str', semantic_family: 'str', admitted_scope: 'str', unsupported_scope: 'str', deterministic_blockers: 'bool', fallback_attempted: 'bool', external_engine_invoked: 'bool', required_evidence: 'tuple[str, ...]', claim_boundary: 'str') -> None",
+        "summary": "Semantic-family claim row for Python/DataFrame-style and SQL front doors."
+      },
+      {
+        "name": "GeneratedObjectStoreOutputReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(target_uri: 'str', staging_path: 'str', output_format: 'str', provider_profile: 'str', generated_report: 'Result', object_store_report: 'OutputEnvelope', object_store_recovery_report: 'OutputEnvelope | None' = None) -> None",
+        "summary": "Typed view over generated rows staged into a local-emulator object-store write."
+      },
+      {
+        "name": "GeneratedPartitionedObjectStoreOutputReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(partition_root_uri: 'str', partition_values: 'Mapping[str, str]', partitioned_target_uri: 'str', generated_object_store_report: 'GeneratedObjectStoreOutputReport', partition_discovery_report: 'OutputEnvelope') -> None",
+        "summary": "Typed view over generated rows written to a partitioned local-emulator object-store path."
+      },
+      {
+        "name": "GeneratedSourceApiAdmissionMatrix",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Typed view over source-free SQL/DataFrame/Python/API admission rows."
+      },
+      {
+        "name": "GeneratedSourceApiAdmissionRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', support_status: 'str | None', runtime_execution: 'bool | None', data_read: 'bool | None', write_io: 'bool | None', source_io_performed: 'bool | None', generated_source_created: 'bool | None', blocker_id: 'str | None', required_evidence: 'tuple[str, ...]', claim_gate_status: 'str | None', fallback_attempted: 'bool | None', external_engine_invoked: 'bool | None', fallback_execution_allowed: 'bool | None') -> None",
+        "summary": "Support and evidence posture for one source-free generated-output API form."
+      },
+      {
+        "name": "GeneratedSourceCaseCapability",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(case: 'str', support_status: 'str | None', generated_source_certificate_status: 'str | None', generated_source_created: 'bool | None', output_io_performed: 'bool | None', blocker_id: 'str | None', claim_gate_status: 'str | None') -> None",
+        "summary": "Support and claim posture for one generated-source contract case."
+      },
+      {
+        "name": "GeneratedSourceCertificateContract",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Typed view over report-only GeneratedSourceCertificate contract fields."
+      },
+      {
+        "name": "GeneratedSourceEvidenceAlignmentReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Typed view over GAR-NOVEL-1A generated-source evidence alignment fields."
+      },
+      {
+        "name": "GeneratedSourceEvidenceAlignmentRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', support_status: 'str | None', source_free_case: 'str | None', runtime_execution: 'bool | None', generated_source_certificate_status: 'str | None', output_native_io_certificate_status: 'str | None', openlineage_facet_status: 'str | None', opentelemetry_span_status: 'str | None', bayesian_confidence_status: 'str | None', foundry_boundary_ref: 'str | None', blocker_id: 'str | None', required_evidence: 'tuple[str, ...]', claim_gate_status: 'str | None', fallback_attempted: 'bool | None', external_engine_invoked: 'bool | None') -> None",
+        "summary": "One generated-source cross-surface alignment row."
+      },
+      {
+        "name": "GroupedLazyFrame",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(workflow: 'LazyFrame | SqlWorkflow', columns: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "summary": "Grouped lazy workflow handle for scoped aggregation and blockers."
+      },
+      {
+        "name": "HybridOverlayRunReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed convenience view over the CG-22 hybrid overlay fixture run."
+      },
+      {
+        "name": "IntervalLiteral",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(value: 'int', unit: 'str') -> None",
+        "summary": "A scoped ANSI interval literal for admitted temporal helper functions."
+      },
+      {
+        "name": "LazyFrame",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(source: 'WorkflowSource', client: 'ShardLoomClient', operations: 'tuple[WorkflowOperation, ...]' = (), engine_mode: 'str' = 'auto', resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "summary": "A lazy ShardLoom workflow plan."
+      },
+      {
+        "name": "LiveChangeContractPlan",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed convenience view over the CG-22 live change contract."
+      },
+      {
+        "name": "LiveFixtureRunReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed convenience view over the CG-22 in-memory live fixture run."
+      },
+      {
+        "name": "LiveHybridDurableCheckpointReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the bounded live/hybrid local checkpoint fixture."
+      },
+      {
+        "name": "LiveHybridStateTransitionReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the bounded live/hybrid state-transition fixture."
+      },
+      {
+        "name": "LocalDistributedFixtureRunReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the scoped local distributed fixture run."
+      },
+      {
+        "name": "LocalFileFingerprint",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/session.py",
+        "signature": "(path: 'str', exists: 'bool', size_bytes: 'int | None', mtime_ns: 'int | None', content_digest: 'str | None', fingerprint_kind: 'str' = 'local_file_size_mtime', identity_source: 'str' = 'local_file_metadata', tree_walk_performed: 'bool' = False, files_walked: 'int' = 0, stats_performed: 'int' = 0) -> None",
+        "summary": "Evidence-safe local path fingerprint used for session reuse decisions."
+      },
+      {
+        "name": "LocalOutputSinkScopeReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(dataframe_methods: 'tuple[DataFrameMethodCapability, ...]', user_routes: 'UserRouteCapabilityReport') -> None",
+        "summary": "V1 local output and sink scope report."
+      },
+      {
+        "name": "LocalVortexPrimitiveRouteReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(rows: 'tuple[LocalVortexPrimitiveRouteRow, ...]') -> None",
+        "summary": "Side-effect-free operation map for local Vortex primitive user routes."
+      },
+      {
+        "name": "LocalVortexPrimitiveRouteRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(route_id: 'str', primitive: 'str', sql_surface: 'str', python_surface: 'str', dataframe_surface: 'str', context_surface: 'str', session_surface: 'str', cli_command: 'str', cli_args_template: 'str', start_state: 'str', vortex_normalization_point: 'str', execution_mode: 'str', output_route: 'str', evidence_route: 'str', materialization_decode_boundary: 'str', supports_source_order_limit: 'bool', route_runtime_status: 'str', fallback_attempted: 'bool', external_engine_invoked: 'bool', required_evidence: 'tuple[str, ...]', claim_gate_status: 'str', claim_boundary: 'str') -> None",
+        "summary": "Operation-level route row for scoped local Vortex primitive front doors."
+      },
+      {
+        "name": "LocalVortexPrimitiveSmokeReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(count: 'OutputEnvelope', count_where: 'OutputEnvelope', filter: 'OutputEnvelope', project: 'OutputEnvelope', filter_project: 'OutputEnvelope') -> None",
+        "summary": "Result of the explicit local Vortex primitive smoke workflow."
+      },
+      {
+        "name": "NativeUnsupportedCoverageRow",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(row_id: 'str', category: 'str', surface: 'str', support_status: 'str', unsupported_diagnostic_code: 'str', blocker_id: 'str', required_future_evidence: 'tuple[str, ...]', source_refs: 'tuple[str, ...]', claim_gate_status: 'str', execution_attempted: 'bool', fallback_attempted: 'bool', external_engine_invoked: 'bool') -> None",
+        "summary": "One deterministic unsupported native coverage row in the compute matrix."
+      },
+      {
+        "name": "NativeVortexAdmissionLane",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(lane_id: 'str', source_surface: 'str', operator_surface: 'str', sink_surface: 'str', admission_status: 'str', support_status: 'str', execution_mode: 'str', provider_kind: 'str', provider_api_surface: 'tuple[str, ...]', provider_crate: 'str', provider_version: 'str', feature_gate: 'str', shardloom_admission_policy: 'str', compute_row_ref: 'str', benchmark_ref: 'str', correctness_refs: 'tuple[str, ...]', execution_certificate_refs: 'tuple[str, ...]', native_io_refs: 'tuple[str, ...]', materialization_decode_refs: 'tuple[str, ...]', policy_refs: 'tuple[str, ...]', required_future_evidence: 'tuple[str, ...]', claim_gate_status: 'str', claim_boundary: 'str', residual_executor: 'str', vortex_native_claim_allowed: 'bool', fallback_attempted: 'bool', external_engine_invoked: 'bool', object_store_io: 'bool', write_io: 'bool') -> None",
+        "summary": "One scoped native Vortex provider-admission lane."
+      },
+      {
+        "name": "ObjectStoreAdmissionLadder",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Compatibility scoreboard projection for object-store runtime admission."
+      },
+      {
+        "name": "ObjectStoreAdmissionLadderRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', provider_scope: 'str | None', stage: 'str | None', support_status: 'str | None', credential_policy_status: 'str | None', credential_resolution_performed: 'bool | None', network_probe_allowed: 'bool | None', provider_probe_allowed: 'bool | None', byte_range_read_allowed: 'bool | None', full_file_read_allowed: 'bool | None', local_cache_allowed: 'bool | None', write_io_allowed: 'bool | None', commit_protocol_allowed: 'bool | None', object_store_io: 'bool | None', write_io: 'bool | None', native_io_certificate_status: 'str | None', fallback_attempted: 'bool | None', external_engine_invoked: 'bool | None', blocker_id: 'str | None', required_evidence: 'tuple[str, ...]', claim_gate_status: 'str | None', claim_boundary: 'str | None') -> None",
+        "summary": "One S3/GCS/ADLS object-store admission ladder row."
+      },
+      {
+        "name": "OpenLineageFacetMappingReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Typed view over GAR-NOVEL-1B OpenLineage facet mapping fields."
+      },
+      {
+        "name": "OpenLineageFacetMappingRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', facet_name: 'str | None', facet_key: 'str | None', openlineage_entity: 'str | None', shardloom_evidence_fields: 'tuple[str, ...]', schema_url_placeholder: 'str | None', schema_version: 'str | None', producer: 'str | None', facet_status: 'str | None', export_enabled: 'bool | None', event_emitted: 'bool | None', network_call_performed: 'bool | None', redaction_required: 'bool | None', retention_policy_required: 'bool | None', claim_gate_status: 'str | None', claim_boundary: 'str | None', fallback_attempted: 'bool | None', external_engine_invoked: 'bool | None') -> None",
+        "summary": "One report-only ShardLoom-owned OpenLineage custom facet mapping row."
+      },
+      {
+        "name": "OpenTelemetryTraceExportContractReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Typed view over GAR-NOVEL-1C OpenTelemetry trace-export contract fields."
+      },
+      {
+        "name": "OpenTelemetryTraceExportSpanRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', span_name: 'str | None', span_kind: 'str | None', timing_fields: 'tuple[str, ...]', shardloom_attribute_allowlist: 'tuple[str, ...]', redaction_policy: 'str | None', sensitive_fields: 'tuple[str, ...]', metric_refs: 'tuple[str, ...]', span_status: 'str | None', export_enabled: 'bool | None', span_emitted: 'bool | None', metric_emitted: 'bool | None', log_emitted: 'bool | None', network_exporter_enabled: 'bool | None', redaction_required: 'bool | None', retention_policy_required: 'bool | None', claim_gate_status: 'str | None', claim_boundary: 'str | None', fallback_attempted: 'bool | None', external_engine_invoked: 'bool | None') -> None",
+        "summary": "One report-only OpenTelemetry span mapping row."
+      },
+      {
+        "name": "OperatorFamilyCoverageRow",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(family_id: 'str', support_status: 'str', next_evidence: 'tuple[str, ...]') -> None",
+        "summary": "One operator-family coverage row in the compute matrix."
+      },
+      {
+        "name": "OutputEnvelope",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(schema_version: 'str', command: 'str', status: 'str', summary: 'str', human_text: 'str', fallback: 'FallbackStatus', diagnostics: 'tuple[Diagnostic, ...]', result: 'Mapping[str, Any]', result_refs: 'tuple[Mapping[str, Any], ...]', artifacts: 'tuple[Mapping[str, Any], ...]', artifact_refs: 'tuple[Mapping[str, Any], ...]', certificates: 'tuple[Mapping[str, Any], ...]', policy: 'Mapping[str, Any]', lifecycle: 'Mapping[str, Any]', capability_snapshot: 'Mapping[str, Any]', fields: 'tuple[FieldEntry, ...]', raw: 'Mapping[str, Any]') -> None",
+        "summary": "Parsed ShardLoom `OutputEnvelope` JSON payload."
+      },
+      {
+        "name": "PredicateDtypeCoverageRow",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(row_id: 'str', category: 'str', family: 'str', surface: 'str', support_status: 'str', runtime_surface: 'tuple[str, ...]', statistics_required: 'tuple[str, ...]', fixture_status: 'str', correctness_refs: 'tuple[str, ...]', benchmark_refs: 'tuple[str, ...]', execution_certificate_refs: 'tuple[str, ...]', native_io_refs: 'tuple[str, ...]', materialization_decode_refs: 'tuple[str, ...]', unsupported_diagnostic_code: 'str', blocker_id: 'str', required_future_evidence: 'tuple[str, ...]', claim_gate_status: 'str', claim_boundary: 'str', execution_attempted: 'bool', fallback_attempted: 'bool', external_engine_invoked: 'bool') -> None",
+        "summary": "One predicate/DType/null/nested coverage row in the compute matrix."
+      },
+      {
+        "name": "PredicateExpression",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(sql: 'str', source_bindings: 'tuple[WorkflowSource, ...]' = (), resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "summary": "A scoped SQL predicate expression for ShardLoom local-source smokes."
+      },
+      {
+        "name": "PreparedVortexScanPushdownRow",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(row_id: 'str', scenario: 'str', pushdown_status: 'str', filter_required: 'bool', projection_required: 'bool', limit_required: 'bool', filter_pushed_down: 'bool', projection_pushed_down: 'bool', limit_pushed_down: 'bool', filter_status: 'str', projection_status: 'str', limit_status: 'str', residual_limit_status: 'str', residual_limit_executor: 'str', filter_columns_read: 'tuple[str, ...]', output_columns_read: 'tuple[str, ...]', filter_only_columns_read: 'tuple[str, ...]', blocker_id: 'str', blocker_reason: 'str', benchmark_refs: 'tuple[str, ...]', claim_gate_status: 'str', claim_boundary: 'str', fallback_attempted: 'bool', external_engine_invoked: 'bool') -> None",
+        "summary": "One prepared/native Vortex Scan pushdown capability row."
+      },
+      {
+        "name": "ProductionUnsupportedDiagnosticRow",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(row_id: 'str', production_family: 'str', user_surface: 'tuple[str, ...]', entrypoint_kind: 'str', support_status: 'str', diagnostic_code: 'str', blocker_id: 'str', message: 'str', next_action: 'str', required_evidence: 'tuple[str, ...]', claim_gate_status: 'str', route_scope: 'str', fallback_attempted: 'bool', external_engine_invoked: 'bool', side_effects_performed: 'bool') -> None",
+        "summary": "One production-family unsupported diagnostic row from `runs-today`."
+      },
+      {
+        "name": "PublicWorkflowExecution",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over a public workflow run/prepare envelope with attached route metadata."
+      },
+      {
+        "name": "PublicWorkflowRoute",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the side-effect-free public workflow route envelope."
+      },
+      {
+        "name": "PythonClientSmokeReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(binary_command: 'tuple[str, ...]', python_package_version: 'str', platform: 'str', status: 'OutputEnvelope', python_capabilities: 'OutputEnvelope', deployment_capabilities: 'OutputEnvelope', input_adapters: 'OutputEnvelope') -> None",
+        "summary": "No-dataset Python client smoke-check envelopes."
+      },
+      {
+        "name": "QuickstartProofReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/quickstart.py",
+        "signature": "(smoke: 'PythonClientSmokeReport', capabilities: 'Mapping[str, OutputEnvelope]', workflow: 'LazyFrame', workflow_report: 'UnsupportedWorkflowReport', compatibility_sources: 'CompatibilitySourceSmokeReport', readiness: 'WorkflowReadinessSmokeReport', local_vortex: 'LocalVortexPrimitiveSmokeReport | None') -> None",
+        "summary": "Aggregated local quickstart proof envelopes."
+      },
+      {
+        "name": "RestApiContractPlan",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed convenience view over the CG-23 REST/OpenAPI contract report."
+      },
+      {
+        "name": "RestApiDataPlane",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the CG-23 data-plane and standards boundary contract."
+      },
+      {
+        "name": "RestApiDiscoveryContract",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over `serve --mode discovery` contract-only output."
+      },
+      {
+        "name": "RestApiEventStream",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the CG-23 live/hybrid event stream contract."
+      },
+      {
+        "name": "RestApiLocalLifecycle",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the CG-23 certified local lifecycle and result delivery bundle."
+      },
+      {
+        "name": "RestApiPlanPreview",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the CG-23 plan/explain/validate/certification preview."
+      },
+      {
+        "name": "RestApiSecurityGovernance",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the CG-23 security/governance/agent API contract."
+      },
+      {
+        "name": "Result",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(workflow: \"'LazyFrame'\", operation: 'str', envelope: 'OutputEnvelope') -> None",
+        "summary": "Completed data and its existing native owner, or a completed write receipt."
+      },
+      {
+        "name": "ResultBatch",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/_batches.py",
+        "signature": "(index: 'int', result_rows: 'tuple[Mapping[str, Any], ...]', result_schema: 'tuple[tuple[str, ResultType], ...]') -> None",
+        "summary": "One provisional batch; success is established by the iterator's final report."
+      },
+      {
+        "name": "ResultBatchIterator",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/_batches.py",
+        "signature": "(client, args, *, inputs=None, batch_rows=2048, stream_results=True, check=True)",
+        "summary": "One native transaction with explicit backpressure and deterministic close."
+      },
+      {
+        "name": "ResultType",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/_result_schema.py",
+        "signature": "(name: 'str', nullable: 'bool', parameters: 'tuple[Any, ...]' = ()) -> None",
+        "summary": "ResultType(name: 'str', nullable: 'bool', parameters: 'tuple[Any, ...]' = ())"
+      },
+      {
+        "name": "RunsTodaySupportMatrix",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the generated current-support matrix."
+      },
+      {
+        "name": "RunsTodaySupportRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(row_id: 'str', family: 'str', surface: 'tuple[str, ...]', support_state: 'str', feature_gate: 'str', evidence_refs: 'tuple[str, ...]', blocker_id: 'str', claim_gate_status: 'str', claim_boundary: 'str', runtime_execution: 'bool', data_read: 'bool', write_io: 'bool', fallback_attempted: 'bool', external_engine_invoked: 'bool') -> None",
+        "summary": "One current-support row from the `runs-today` matrix."
+      },
+      {
+        "name": "RuntimeActivationSummary",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(schema_version: 'str', command: 'str', status: 'str', runtime_execution: 'bool', route_id: 'str | None', route_runtime_status: 'str | None', route_support_status: 'str | None', execution_mode: 'str | None', native_vortex_status: 'str', native_vortex_enabled: 'bool', native_vortex_required_feature_gate: 'str | None', source_format: 'str | None', vortex_read_path: 'str | None', upstream_vortex_scan_called: 'bool | None', filter_pushdown: 'bool | None', projection_pushdown: 'bool | None', limit_pushdown: 'bool | None', pushdown_status: 'str | None', source_state_reuse_allowed: 'bool | None', source_state_reuse_hit: 'bool | None', source_state_reuse_reason: 'str | None', requested_parallelism: 'str | None', detected_parallelism: 'int | None', applied_parallelism: 'int | None', data_decoded: 'bool | None', data_materialized: 'bool | None', write_io: 'bool | None', sink_status: 'str | None', fallback_attempted: 'bool', external_engine_invoked: 'bool', claim_gate_status: 'str | None', blocker_id: 'str | None', blocker_reason: 'str | None', unsupported_diagnostics: 'tuple[Mapping[str, str | None], ...]') -> None",
+        "summary": "Compact user-facing summary of which runtime features were active."
+      },
+      {
+        "name": "RuntimeEnvelopeValidationIssue",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(code: 'str', field: 'str', message: 'str') -> None",
+        "summary": "One runtime-envelope validation blocker."
+      },
+      {
+        "name": "RuntimeEnvelopeValidationReport",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(schema_version: 'str', surface_id: 'str', command: 'str', status: 'str', runtime_expected: 'bool', execution_mode: 'str | None', claim_gate_status: 'str | None', fallback_attempted: 'bool', external_engine_invoked: 'bool', issues: 'tuple[RuntimeEnvelopeValidationIssue, ...]') -> None",
+        "summary": "Versioned validation result for a runtime-claim envelope."
+      },
+      {
+        "name": "SHARDLOOM_MAX_PARALLELISM_ENV",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/runtime_defaults.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "SHARDLOOM_MEMORY_BYTES_ENV",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/runtime_defaults.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "SHARDLOOM_MEMORY_GB_ENV",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/runtime_defaults.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "SemanticConformanceRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(row_id: 'str', dimension: 'str', operator_family: 'str', fixture_status: 'str', current_support: 'str', assertion: 'str', blocker_id: 'str', required_future_evidence: 'tuple[str, ...]', fixture_executed: 'bool', passed: 'bool', fallback_attempted: 'bool', external_oracle_used: 'bool') -> None",
+        "summary": "One semantic dimension row in the ShardLoomNative conformance suite."
+      },
+      {
+        "name": "SemanticConformanceSuite",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the P7.4 semantic conformance suite report."
+      },
+      {
+        "name": "SessionCacheSmokeReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over the scoped GAR-4L/5I CLI session-cache smoke."
+      },
+      {
+        "name": "SessionGroupedLazyFrame",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/session.py",
+        "signature": "(session: \"'ShardLoomSession'\", grouped: 'GroupedLazyFrame') -> None",
+        "summary": "A grouped lazy workflow bound to an explicit `ShardLoomSession`."
+      },
+      {
+        "name": "SessionLazyFrame",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/session.py",
+        "signature": "(session: \"'ShardLoomSession'\", frame: 'LazyFrame') -> None",
+        "summary": "A lazy workflow bound to an explicit `ShardLoomSession`."
+      },
+      {
+        "name": "SessionPreparedState",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/session.py",
+        "signature": "(session_id: 'str', report: 'VortexIngestSmokeReport', reuse_hit: 'bool', reuse_reason: 'str', source_fingerprint: 'LocalFileFingerprint', target_fingerprint: 'LocalFileFingerprint') -> None",
+        "summary": "Prepared-state handle returned by a `ShardLoomSession` prepare call."
+      },
+      {
+        "name": "SessionSqlResult",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/session.py",
+        "signature": "(session_id: 'str', report: 'Result', operation: 'str', reuse_hit: 'bool', reuse_reason: 'str') -> 'None'",
+        "summary": "Compatibility Result with session reuse details; it owns the same data."
+      },
+      {
+        "name": "SessionSqlWorkflow",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/session.py",
+        "signature": "(session: \"'ShardLoomSession'\", workflow: 'SqlWorkflow') -> None",
+        "summary": "A SQL workflow bound to an explicit `ShardLoomSession`."
+      },
+      {
+        "name": "ShardLoomBinaryNotFoundError",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/errors.py",
+        "signature": "(message: 'str', *, reason: 'str | None' = None, suggested_next_step: 'str | None' = None) -> 'None'",
+        "summary": "Raised when an explicit ShardLoom CLI command cannot resolve a binary."
+      },
+      {
+        "name": "ShardLoomClient",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(binary: 'Binary | None' = None, *, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str]' = ('release', 'debug'), timeout: 'float | None' = None, use_persistent_worker: 'bool | None' = None, transport: 'str' = 'subprocess', memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> 'None'",
+        "summary": "Thin client that invokes the ShardLoom CLI with `--format json`."
+      },
+      {
+        "name": "ShardLoomClosedError",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/errors.py",
+        "signature": "() -> 'None'",
+        "summary": "New work was requested after its caller-owned context was closed."
+      },
+      {
+        "name": "ShardLoomCommandError",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/errors.py",
+        "signature": "(command: 'Sequence[str]', returncode: 'int', envelope: 'OutputEnvelope', stderr: 'str') -> None",
+        "summary": "Raised when an explicit ShardLoom CLI command returns an error envelope."
+      },
+      {
+        "name": "ShardLoomContext",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(client: 'ShardLoomClient | None' = None, *, engine: 'str' = 'auto', transport: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> 'None'",
+        "summary": "High-level Python context for side-effect-free discovery and explicit work."
+      },
+      {
+        "name": "ShardLoomError",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/errors.py",
+        "signature": null,
+        "summary": "Common base for ShardLoom configuration, lifecycle and execution errors."
+      },
+      {
+        "name": "ShardLoomInstallationError",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/errors.py",
+        "signature": "(message: 'str') -> 'None'",
+        "summary": "The selected installation/backend cannot provide native execution."
+      },
+      {
+        "name": "ShardLoomProtocolError",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/errors.py",
+        "signature": "(message: 'str') -> 'None'",
+        "summary": "Raised when CLI output does not match the expected JSON protocol."
+      },
+      {
+        "name": "ShardLoomResourceConfigurationError",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/execution_resources.py",
+        "signature": "(message: 'str') -> 'None'",
+        "summary": "Invalid or incomplete allocation, rejected before any input is inspected."
+      },
+      {
+        "name": "ShardLoomSession",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/session.py",
+        "signature": "(client: 'ShardLoomClient', *, engine: 'str' = 'auto', session_id: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> 'None'",
+        "summary": "Explicit local session for scoped SourceState/VortexPreparedState reuse."
+      },
+      {
+        "name": "ShardLoomTimeoutError",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/errors.py",
+        "signature": "(command, timeout, output=None, stderr=None, *, message=None)",
+        "summary": "An execution deadline expired, preserving both historical timeout catches."
+      },
+      {
+        "name": "SourceFreeGeneratedOutputCompatibilityContract",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Compatibility scoreboard projection for source-free generated-output surfaces."
+      },
+      {
+        "name": "SourceFreeGeneratedOutputCompatibilityRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', user_visible_surface: 'str | None', surface_family: 'str | None', support_status: 'str | None', runtime_execution: 'bool | None', data_read: 'bool | None', write_io: 'bool | None', source_io_performed: 'bool | None', generated_source_created: 'bool | None', output_io_performed: 'bool | None', source_native_io_certificate_status: 'str | None', output_native_io_certificate_status: 'str | None', generated_source_certificate_status: 'str | None', fallback_attempted: 'bool | None', external_engine_invoked: 'bool | None', blocker_id: 'str | None', required_evidence: 'tuple[str, ...]', claim_gate_status: 'str | None', claim_boundary: 'str | None') -> None",
+        "summary": "One compatibility-level source-free generated-output admission row."
+      },
+      {
+        "name": "SourcePreparedStateScopeReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(user_routes: 'UserRouteCapabilityReport') -> None",
+        "summary": "Native source ownership and reuse requirements; discovery performs no I/O."
+      },
+      {
+        "name": "SqlWorkflow",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(statement: 'str', client: 'ShardLoomClient', input_uri: 'str | None' = None, input_format: 'str | None' = None, source_bindings: 'tuple[WorkflowSource, ...]' = (), resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "summary": "A scoped SQL workflow entry point over currently admitted ShardLoom SQL paths."
+      },
+      {
+        "name": "TableFormatBoundaryMatrix",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Compatibility scoreboard projection for Iceberg/Delta/Hudi boundaries."
+      },
+      {
+        "name": "TableFormatBoundaryMatrixRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', format_scope: 'str | None', behavior: 'str | None', support_status: 'str | None', local_metadata_smoke_related: 'bool | None', table_format_dependency_required: 'bool | None', catalog_io_allowed: 'bool | None', object_store_io_allowed: 'bool | None', table_metadata_read_allowed: 'bool | None', table_data_read_allowed: 'bool | None', delete_tombstone_runtime_allowed: 'bool | None', write_io_allowed: 'bool | None', commit_allowed: 'bool | None', rollback_allowed: 'bool | None', native_io_certificate_status: 'str | None', fallback_attempted: 'bool | None', external_engine_invoked: 'bool | None', blocker_id: 'str | None', required_evidence: 'tuple[str, ...]', claim_gate_status: 'str | None', claim_boundary: 'str | None') -> None",
+        "summary": "One Iceberg/Delta/Hudi table-format boundary matrix row."
+      },
+      {
+        "name": "UniversalCompatibilityRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(surface_id: 'str', surface: 'str | None', surface_family: 'str | None', direction: 'str | None', support_status: 'str | None', runtime_supported: 'bool | None', smoke_supported: 'bool | None', report_only: 'bool | None', credential_required: 'bool | None', network_required: 'bool | None', source_io_performed: 'bool | None', output_io_performed: 'bool | None', native_io_certificate_status: 'str | None', generated_source_certificate_status: 'str | None', fallback_attempted: 'bool | None', external_engine_invoked: 'bool | None', claim_gate_status: 'str | None', blocker_id: 'str | None', required_future_evidence: 'tuple[str, ...]', claim_boundary: 'str | None') -> None",
+        "summary": "One row from the universal source/sink compatibility scoreboard."
+      },
+      {
+        "name": "UniversalCompatibilityScoreboard",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(capability: \"'CapabilityView'\") -> None",
+        "summary": "Typed view over the universal source/sink compatibility scoreboard."
+      },
+      {
+        "name": "UnsupportedWorkflowOperationReport",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(workflow: \"'LazyFrame'\", operation: 'str', envelope: 'OutputEnvelope') -> None",
+        "summary": "Report-only unsupported diagnostic for a single workflow affordance."
+      },
+      {
+        "name": "UnsupportedWorkflowReport",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(workflow: \"'LazyFrame'\", input_plan: 'OutputEnvelope', explain: 'OutputEnvelope', estimate: 'OutputEnvelope', certification: 'WorkflowCertificationReport') -> None",
+        "summary": "Aggregated diagnostics for report-only lazy workflow inspection."
+      },
+      {
+        "name": "UserRouteCapabilityReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(rows: 'tuple[UserRouteCapabilityRow, ...]') -> None",
+        "summary": "Side-effect-free route-selection report for users and LLM agents."
+      },
+      {
+        "name": "UserRouteCapabilityRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(route_id: 'str', route_display_name: 'str', input_family: 'str', input_examples: 'tuple[str, ...]', front_doors: 'tuple[str, ...]', desired_outputs: 'tuple[str, ...]', recommended_user_surface: 'str', start_state: 'str', vortex_normalization_point: 'str', source_route: 'str', preparation_route: 'str', execution_mode: 'str', execution_route: 'str', output_route: 'str', evidence_route: 'str', materialization_decode_boundary: 'str', nearest_runnable_route: 'str', required_feature_gate: 'str', runtime_blocker_code: 'str', route_runtime_status: 'str', route_comparable_to_external_end_to_end: 'bool', fallback_attempted: 'bool', external_engine_invoked: 'bool', blocker_id: 'str | None', owner: 'str', required_evidence: 'tuple[str, ...]', claim_gate_status: 'str', performance_claim_allowed: 'bool', production_claim_allowed: 'bool', spark_replacement_claim_allowed: 'bool', claim_boundary: 'str') -> None",
+        "summary": "User/agent route-selection row for one input/output workflow family."
+      },
+      {
+        "name": "UserSurfaceGraduationMatrix",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(rows: 'tuple[UserSurfaceGraduationRow, ...]') -> None",
+        "summary": "Single-source user-surface graduation posture for context/client workflows."
+      },
+      {
+        "name": "UserSurfaceGraduationRow",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(row_id: 'str', surface_kind: 'str', surface: 'str', graduation_posture: 'str', support_state: 'str', cli_commands: 'tuple[str, ...]', context_methods: 'tuple[str, ...]', client_methods: 'tuple[str, ...]', runtime_route: 'str', promotion_criteria: 'str', evidence_refs: 'tuple[str, ...]', claim_boundary: 'str', fallback_attempted: 'bool' = False, external_engine_invoked: 'bool' = False) -> None",
+        "summary": "Graduation posture for one CLI/Python user-surface workflow family."
+      },
+      {
+        "name": "V1_LOCAL_OUTPUT_SINK_DEFAULT_OUTPUT_FORMATS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_LOCAL_OUTPUT_SINK_FEATURE_GATED_OUTPUT_FORMATS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_LOCAL_OUTPUT_SINK_GOLDEN_FIXTURE_PATHS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_LOCAL_OUTPUT_SINK_REQUIRED_RUNTIME_FIELDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_LOCAL_OUTPUT_SINK_ROUTE_IDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_LOCAL_OUTPUT_SINK_SCOPE_DOCUMENT",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_LOCAL_OUTPUT_SINK_SUPPORTED_OUTPUT_FORMATS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_LOCAL_OUTPUT_SINK_UNSUPPORTED_BOUNDARY_IDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_LOCAL_OUTPUT_SINK_USER_WRITE_METHODS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_LOCAL_OUTPUT_SINK_WRITE_POLICY_IDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_SOURCE_PREPARED_CANONICAL_ROUTE",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_SOURCE_PREPARED_GOLDEN_FIXTURE_PATHS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_SOURCE_PREPARED_INVALIDATION_CASE_IDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_SOURCE_PREPARED_REQUIRED_RUNTIME_FIELDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_SOURCE_PREPARED_ROUTE_IDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_SOURCE_PREPARED_STATE_SCOPE_DOCUMENT",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_SOURCE_PREPARED_SUPPORTED_INPUT_FORMATS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_SOURCE_PREPARED_UNSUPPORTED_BOUNDARY_IDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_VORTEX_FEATURE_PROFILE_DECISION",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_VORTEX_RUNTIME_SCOPE_DOCUMENT",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_VORTEX_SUPPORTED_STARTING_STATES",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "constant",
+        "source": "python/src/shardloom/context.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "VortexIngestSmokeReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over a scoped local `vortex_ingest` prepare-once smoke."
+      },
+      {
+        "name": "VortexWorkflowExecutionReport",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(workflow: \"'LazyFrame'\", operation: 'str', envelope: 'OutputEnvelope') -> None",
+        "summary": "Completed data and its existing native owner, or a completed write receipt."
+      },
+      {
+        "name": "WindowExpression",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(sql: 'str', source_bindings: 'tuple[WorkflowSource, ...]' = (), resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "summary": "A SQL window declaration submitted to the shared native engine."
+      },
+      {
+        "name": "WorkflowCertificationReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(workflow: \"'LazyFrame'\", execution_certificate_plan: 'OutputEnvelope', native_io_envelope_plan: 'OutputEnvelope', certification_capabilities: 'OutputEnvelope') -> None",
+        "summary": "Report-only certificate surfaces for a lazy workflow."
+      },
+      {
+        "name": "WorkflowColumnTransform",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(items: 'tuple[tuple[str, object], ...]') -> None",
+        "summary": "Caller-declared column transform accepted by scoped map/applymap/transform paths."
+      },
+      {
+        "name": "WorkflowDataQualityCheckResult",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(check: 'str', column: 'str', passed: 'bool', failing_row_count: 'int', message: 'str') -> None",
+        "summary": "Result for one bounded data-quality check."
+      },
+      {
+        "name": "WorkflowDataQualityReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(schema_report: 'WorkflowSchemaReport', checks: 'tuple[WorkflowDataQualityCheckResult, ...]' = ()) -> None",
+        "summary": "Bounded data-quality summary over an admitted local-source workflow."
+      },
+      {
+        "name": "WorkflowNotebookPreview",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(workflow: \"'LazyFrame'\", smoke_report: 'Result', limit: 'int') -> None",
+        "summary": "Bounded notebook/display preview with explicit materialization evidence."
+      },
+      {
+        "name": "WorkflowOperation",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(kind: 'str', values: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), right_statement: 'str | None' = None, projection_sql: 'tuple[str, ...] | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> None",
+        "summary": "A lazy query-builder operation."
+      },
+      {
+        "name": "WorkflowPlanTransform",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(name: 'str', function: 'object') -> None",
+        "summary": "Caller-declared plan transform accepted by `LazyFrame.pipe(...)`."
+      },
+      {
+        "name": "WorkflowProfileReport",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(workflow: \"'LazyFrame'\", smoke_report: 'Result', schema_report: 'WorkflowSchemaReport', limit: 'int') -> None",
+        "summary": "Bounded runtime profile over an admitted local-source workflow."
+      },
+      {
+        "name": "WorkflowQuarantineReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(workflow: \"'LazyFrame'\", quality_report: 'WorkflowDataQualityReport', checks: 'tuple[str, ...]', rows: 'tuple[Mapping[str, Any], ...]', limit: 'int', target_uri: 'str | None', output_format: 'str | None', sink_report: 'Result | None' = None) -> None",
+        "summary": "Bounded quarantine report over an admitted local-source workflow."
+      },
+      {
+        "name": "WorkflowReadinessPlan",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(name: 'str', envelope: 'OutputEnvelope') -> None",
+        "summary": "One named envelope in the no-write workflow readiness smoke."
+      },
+      {
+        "name": "WorkflowReadinessSmokeReport",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(output_commit: 'tuple[WorkflowReadinessPlan, ...]', table_remote: 'tuple[WorkflowReadinessPlan, ...]', evidence: 'tuple[WorkflowReadinessPlan, ...]') -> None",
+        "summary": "No-write planning smoke for output, remote, and evidence readiness."
+      },
+      {
+        "name": "WorkflowRowTransform",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(items: 'tuple[tuple[str, object], ...]') -> None",
+        "summary": "Caller-declared row transform accepted by scoped map_rows paths."
+      },
+      {
+        "name": "WorkflowSchemaField",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(name: 'str', dtype: 'str', nullable: 'bool', declared_dtype: 'str | None', observed_non_null_count: 'int', null_count: 'int') -> None",
+        "summary": "Observed schema field for a bounded ShardLoom local-source workflow."
+      },
+      {
+        "name": "WorkflowSchemaMismatch",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(field: 'str', expected_dtype: 'str', observed_dtype: 'str | None') -> None",
+        "summary": "One schema validation mismatch."
+      },
+      {
+        "name": "WorkflowSchemaReport",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(workflow: \"'LazyFrame'\", smoke_report: 'Result', fields: 'tuple[WorkflowSchemaField, ...]') -> None",
+        "summary": "Schema report backed by an admitted local-source runtime smoke."
+      },
+      {
+        "name": "WorkflowSchemaValidationReport",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(schema_report: 'WorkflowSchemaReport', expected_schema: 'tuple[tuple[str, str], ...]', missing_fields: 'tuple[str, ...]', unexpected_fields: 'tuple[str, ...]', dtype_mismatches: 'tuple[WorkflowSchemaMismatch, ...]') -> None",
+        "summary": "Validation report for an expected schema against observed ShardLoom rows."
+      },
+      {
+        "name": "WorkflowSource",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(source_format: 'str', uri: 'str', schema: 'tuple[tuple[str, str], ...]' = (), memory_input: 'tuple[tuple[str, object], ...]' = (), batch_input: 'object | None' = None, native_input: 'object | None' = None) -> None",
+        "summary": "A declared workflow source that is not read during construction."
+      },
+      {
+        "name": "WorkloadCertificationDossier",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "class",
+        "source": "python/src/shardloom/client.py",
+        "signature": "(envelope: 'OutputEnvelope') -> None",
+        "summary": "Typed view over a workload-scoped certification dossier."
+      },
+      {
+        "name": "__version__",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "constant",
+        "source": "python/src/shardloom/_version.py",
+        "signature": null,
+        "summary": "Package constant."
+      },
+      {
+        "name": "abs",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `ABS(column)` numeric absolute-value expression."
+      },
+      {
+        "name": "all_source",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column: 'object', comparison: 'object', source: 'object', source_column: 'object', *, source_alias: 'object | None' = None, where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded local-source `ALL (SELECT ...)` predicate."
+      },
+      {
+        "name": "any_source",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column: 'object', comparison: 'object', source: 'object', source_column: 'object', *, source_alias: 'object | None' = None, where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded local-source `ANY (SELECT ...)` predicate."
+      },
+      {
+        "name": "array",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*values: 'object') -> 'ComplexProjectionExpression'",
+        "summary": "Return a scoped `ARRAY[...]` projection over scalar SQL literals."
+      },
+      {
+        "name": "byte_length",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `BYTE_LENGTH(<binary-expression>)` byte-count expression."
+      },
+      {
+        "name": "calendar",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(start: 'str | date', end: 'str | date', *, column: 'str' = 'date', include_parts: 'bool' = True, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Create a scoped source-free calendar/date dimension for local output."
+      },
+      {
+        "name": "case_when",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(predicate: 'object', then_value: 'object', else_value: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped single-branch `CASE WHEN` computed-column expression."
+      },
+      {
+        "name": "ceil",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `CEIL(column)` numeric rounding expression."
+      },
+      {
+        "name": "col",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(name: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped column expression for local ShardLoom predicates."
+      },
+      {
+        "name": "column",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(name: 'object') -> 'ColumnExpression'",
+        "summary": "Alias for `col(...)`."
+      },
+      {
+        "name": "column_transform",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(columns: 'Mapping[str, object] | Sequence[tuple[object, object]] | None' = None, **named_expressions: 'object') -> 'WorkflowColumnTransform'",
+        "summary": "Declare scoped column rewrites for `map`, `applymap`, or `transform`."
+      },
+      {
+        "name": "concat",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*parts: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `CONCAT(column-or-string-literal, ...)` expression."
+      },
+      {
+        "name": "context",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(*, client: 'ShardLoomClient | None' = None, engine: 'str' = 'auto', transport: 'str | None' = None, binary: 'Binary | None' = None, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str] | None' = None, timeout: 'float | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> 'ShardLoomContext'",
+        "summary": "Return a side-effect-free ShardLoom context."
+      },
+      {
+        "name": "count_distinct",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object') -> 'str | ColumnExpression'",
+        "summary": "Declare COUNT DISTINCT, retaining owned query sources when present."
+      },
+      {
+        "name": "dataframe_generated_with_column",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(name: 'object', expression: 'object', *, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Create a scoped one-row generated DataFrame with one literal column."
+      },
+      {
+        "name": "dataframe_source_free_projection",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*expressions: 'object', client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Create a scoped one-row DataFrame-style literal projection."
+      },
+      {
+        "name": "dense_rank",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*, order_by: 'object', partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'dense_rank') -> 'WindowExpression'",
+        "summary": "Return a scoped `DENSE_RANK() OVER (...) AS alias` expression."
+      },
+      {
+        "name": "exists_source",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(source: 'object', *, source_alias: 'object | None' = None, select: 'object' = '*', where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped local-source `EXISTS (SELECT ... FROM ...)` predicate."
+      },
+      {
+        "name": "fixture_double_i64",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column: 'object') -> 'ColumnExpression'",
+        "summary": "Return the admitted `sl_fixture_double_i64` typed scalar UDF expression."
+      },
+      {
+        "name": "floor",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `FLOOR(column)` numeric rounding expression."
+      },
+      {
+        "name": "from_arrow_ipc",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(source: 'object', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', check: 'bool' = False, **client_config: 'object') -> 'LazyFrame | UnsupportedWorkflowOperationReport'",
+        "summary": "Create a scoped generated-row source from an Arrow IPC stream/file."
+      },
+      {
+        "name": "from_arrow_table",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(table: 'object', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', check: 'bool' = False, **client_config: 'object') -> 'LazyFrame | UnsupportedWorkflowOperationReport'",
+        "summary": "Create a source from an Arrow-compatible input or retained native result."
+      },
+      {
+        "name": "from_base64",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `FROM_BASE64(column)` binary helper projection expression."
+      },
+      {
+        "name": "from_batches",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(batches: 'object', *, schema: 'Mapping[str, object]', streaming: 'bool' = False, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare native input in batches of up to 2,048 rows."
+      },
+      {
+        "name": "from_pandas",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(dataframe: 'object', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', check: 'bool' = False, **client_config: 'object') -> 'LazyFrame | UnsupportedWorkflowOperationReport'",
+        "summary": "Create a scoped generated-row source from a pandas DataFrame-like object."
+      },
+      {
+        "name": "from_result",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(result: 'object', *, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Admit completed ShardLoom data without an Arrow or row round trip in process."
+      },
+      {
+        "name": "from_rows",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(rows: 'Sequence[Mapping[str, object]]', *, client: 'ShardLoomClient | None' = None, schema: 'Mapping[str, object] | None' = None, **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare native rows; use an explicit schema for rich types or empty columns."
+      },
+      {
+        "name": "from_vortex_ipc",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(array_message: 'bytes', *, dtype_message: 'bytes', client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Import one Vortex 0.85 IPC record using the native transport."
+      },
+      {
+        "name": "interval_days",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(value: 'object') -> 'IntervalLiteral'",
+        "summary": "Return a scoped `INTERVAL '<n>' DAY` literal."
+      },
+      {
+        "name": "interval_hours",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(value: 'object') -> 'IntervalLiteral'",
+        "summary": "Return a scoped `INTERVAL '<n>' HOUR` literal."
+      },
+      {
+        "name": "interval_minutes",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(value: 'object') -> 'IntervalLiteral'",
+        "summary": "Return a scoped `INTERVAL '<n>' MINUTE` literal."
+      },
+      {
+        "name": "interval_seconds",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(value: 'object') -> 'IntervalLiteral'",
+        "summary": "Return a scoped `INTERVAL '<n>' SECOND` literal."
+      },
+      {
+        "name": "left",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object', count: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `LEFT(column, count)` UTF-8 expression."
+      },
+      {
+        "name": "length",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `LENGTH(column)` UTF-8 length expression."
+      },
+      {
+        "name": "literal_table",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(rows: 'Sequence[Mapping[str, object]]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare a literal table for the shared native engine."
+      },
+      {
+        "name": "not_exists_source",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(source: 'object', *, source_alias: 'object | None' = None, select: 'object' = '*', where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped local-source `NOT EXISTS (SELECT ... FROM ...)` predicate."
+      },
+      {
+        "name": "null_if",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object', value: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `NULLIF(column, literal)` computed-column expression."
+      },
+      {
+        "name": "outer",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column: 'object') -> 'ColumnExpression'",
+        "summary": "Return the reserved outer-row column expression for correlated source predicates."
+      },
+      {
+        "name": "plan_transform",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(function: 'object | None' = None, *, name: 'object | None' = None) -> 'object'",
+        "summary": "Declare a workflow-level transform admitted by `LazyFrame.pipe(...)`."
+      },
+      {
+        "name": "quickstart_proof",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "function",
+        "source": "python/src/shardloom/quickstart.py",
+        "signature": "(client: 'ShardLoomClient', *, fixture: 'str | os.PathLike[str]' = PosixPath('shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex'), capability_scopes: 'Sequence[str]' = ('python', 'adapters', 'certification', 'migration'), predicate: 'str' = 'gte:value:3', columns: 'str | Sequence[str]' = ('metric',), run_local_vortex: 'bool' = False, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, resources: 'ExecutionResources | None' = None, max_parallelism: 'int | None' = None) -> 'QuickstartProofReport'",
+        "summary": "Run the repository quickstart proof through explicit ShardLoom CLI calls."
+      },
+      {
+        "name": "range",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(start: 'int', end: 'int', *, step: 'int' = 1, column: 'str' = 'value', client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare a native integer input with an exclusive end for the shared engine."
+      },
+      {
+        "name": "rank",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*, order_by: 'object', partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'rank') -> 'WindowExpression'",
+        "summary": "Return a scoped `RANK() OVER (...) AS alias` expression."
+      },
+      {
+        "name": "read",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare a lazy local source by inferring the adapter from the path extension."
+      },
+      {
+        "name": "read_arrow_ipc",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare a lazy Arrow IPC compatibility source."
+      },
+      {
+        "name": "read_avro",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare a lazy Avro compatibility source."
+      },
+      {
+        "name": "read_csv",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare a lazy CSV compatibility source."
+      },
+      {
+        "name": "read_json",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare a lazy flat JSON, JSONL, or NDJSON compatibility source."
+      },
+      {
+        "name": "read_orc",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare a lazy ORC compatibility source."
+      },
+      {
+        "name": "read_parquet",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare a lazy Parquet compatibility source."
+      },
+      {
+        "name": "read_vortex",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(uri: 'str | os.PathLike[str]', *, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Declare a lazy native Vortex source."
+      },
+      {
+        "name": "replace",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object', needle: 'object', replacement: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `REPLACE(column, needle, replacement)` expression."
+      },
+      {
+        "name": "right",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object', count: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `RIGHT(column, count)` UTF-8 expression."
+      },
+      {
+        "name": "round",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `ROUND(column)` numeric rounding expression."
+      },
+      {
+        "name": "row_in",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(columns: 'object', rows: 'object') -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded row-value `IN ((...),...)` predicate."
+      },
+      {
+        "name": "row_in_source",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(columns: 'object', source: 'object', source_columns: 'object', *, source_alias: 'object | None' = None, where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded row-value local-source `IN (SELECT ...)` predicate."
+      },
+      {
+        "name": "row_not_in",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(columns: 'object', rows: 'object') -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded row-value `NOT IN ((...),...)` predicate."
+      },
+      {
+        "name": "row_not_in_source",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(columns: 'object', source: 'object', source_columns: 'object', *, source_alias: 'object | None' = None, where: 'object | None' = None, group_by: 'object | None' = None, having: 'object | None' = None, order_by: 'object | None' = None, descending: 'bool' = False, limit: 'int | None' = None) -> 'PredicateExpression'",
+        "summary": "Return a scoped bounded row-value local-source `NOT IN (SELECT ...)` predicate."
+      },
+      {
+        "name": "row_number",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*, order_by: 'object', partition_by: 'object | None' = None, descending: 'bool' = False, alias: 'object' = 'row_number') -> 'WindowExpression'",
+        "summary": "Return a scoped `ROW_NUMBER() OVER (...) AS alias` expression."
+      },
+      {
+        "name": "row_transform",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(columns: 'Mapping[str, object] | Sequence[tuple[object, object]] | None' = None, **named_expressions: 'object') -> 'WorkflowRowTransform'",
+        "summary": "Declare scoped row-shaped rewrites for `map_rows`."
+      },
+      {
+        "name": "scalar_subquery",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(source: 'LazyFrame | SqlWorkflow') -> 'ColumnExpression'",
+        "summary": "Declare a scalar query expression without executing its source."
+      },
+      {
+        "name": "sequence",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(start: 'int', end: 'int', *, step: 'int' = 1, column: 'str' = 'value', client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'LazyFrame'",
+        "summary": "Alias for the native integer range, including its exclusive end."
+      },
+      {
+        "name": "session",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "function",
+        "source": "python/src/shardloom/context.py",
+        "signature": "(*, client: 'ShardLoomClient | None' = None, engine: 'str' = 'auto', transport: 'str | None' = None, binary: 'Binary | None' = None, env: 'Mapping[str, str] | None' = None, cwd: 'str | os.PathLike[str] | None' = None, repo_root: 'str | os.PathLike[str] | None' = None, profile_order: 'Sequence[str] | None' = None, timeout: 'float | None' = None, session_id: 'str | None' = None, memory_gb: 'int | None' = None, memory_bytes: 'int | None' = None, max_parallelism: 'int | None' = None, resources: 'ExecutionResources | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None) -> 'ShardLoomSession'",
+        "summary": "Return a caller-owned local ShardLoom session."
+      },
+      {
+        "name": "sql",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(statement: 'object', *, input: 'str | os.PathLike[str] | None' = None, input_format: 'str | None' = None, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'SqlWorkflow'",
+        "summary": "Create a scoped SQL workflow over currently admitted ShardLoom SQL paths."
+      },
+      {
+        "name": "sql_literal_select",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(expression: 'object', *, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'SqlWorkflow'",
+        "summary": "Declare a source-free SQL projection for the shared native engine."
+      },
+      {
+        "name": "sql_values",
+        "namespace": "shardloom.testing",
+        "audience": "testing",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(values_clause: 'object', *, client: 'ShardLoomClient | None' = None, **client_config: 'object') -> 'SqlWorkflow'",
+        "summary": "Declare SQL VALUES for the shared native engine."
+      },
+      {
+        "name": "struct",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(*columns: 'object') -> 'ComplexProjectionExpression'",
+        "summary": "Return a scoped `STRUCT(...)` projection over source columns."
+      },
+      {
+        "name": "substr",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object', start: 'object', length: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped 1-based `SUBSTR(column, start, length)` expression."
+      },
+      {
+        "name": "substring",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object', start: 'object', length: 'object') -> 'ColumnExpression'",
+        "summary": "Alias for `substr(...)`."
+      },
+      {
+        "name": "try_cast",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object', dtype: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `TRY_CAST(column AS dtype)` dirty-value expression."
+      },
+      {
+        "name": "typed_scalar_udf",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(udf_id: 'object', column: 'object') -> 'ColumnExpression'",
+        "summary": "Return an admitted typed deterministic scalar UDF expression."
+      },
+      {
+        "name": "unhex",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/query.py",
+        "signature": "(column_expression: 'object') -> 'ColumnExpression'",
+        "summary": "Return a scoped `UNHEX(column)` binary helper projection expression."
+      },
+      {
+        "name": "validate_runtime_execution_envelope",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "function",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(envelope: 'OutputEnvelope', *, surface_id: 'str' = 'runtime', runtime_expected: 'bool' = True, execution_mode: 'str | None' = None) -> 'RuntimeEnvelopeValidationReport'",
+        "summary": "Return a versioned no-fallback runtime evidence validation report."
+      },
+      {
+        "name": "validate_runtime_execution_fields",
+        "namespace": "shardloom.diagnostics",
+        "audience": "diagnostics",
+        "kind": "function",
+        "source": "python/src/shardloom/models.py",
+        "signature": "(fields: 'Mapping[str, Any]', *, command: 'str' = 'runtime-field-mapping', status: 'str' = 'success', surface_id: 'str' = 'runtime', runtime_expected: 'bool' = True, execution_mode: 'str | None' = None) -> 'RuntimeEnvelopeValidationReport'",
+        "summary": "Validate a flat runtime evidence mapping with the versioned envelope rules."
+      }
+    ],
+    "command_registry": {
+      "source": "shardloom-cli/src/command_registry.rs",
+      "source_sha256": "5528ce05f70e72a10865a633a3efd36ad603d182ecabd68af2369b73e8872156",
+      "metadata_command": "shardloom command-metadata --format json",
+      "registered_commands": [
+        "help",
+        "command-metadata",
+        "evidence-schema",
+        "route",
+        "run",
+        "prepare",
+        "spill-lifecycle",
+        "spill-reservation-plan",
+        "spill-payload-roundtrip",
+        "cleanup-synthetic-payload",
+        "status",
+        "runs-today",
+        "python-worker",
+        "release-plan",
+        "package-plan",
+        "ci-work-shaping-plan",
+        "api-compat-plan",
+        "rest-api-contract-plan",
+        "rest-api-plan-preview",
+        "rest-api-local-lifecycle",
+        "rest-api-event-stream",
+        "rest-api-security-governance",
+        "rest-api-data-plane",
+        "serve",
+        "agent-contract-pack",
+        "python-wrapper-plan",
+        "vortex-prepare",
+        "sqlite-local-import-export-smoke",
+        "workflow-unsupported-plan",
+        "workload-certification-dossier",
+        "claim-gate-closeout",
+        "global-architecture-gate",
+        "compute-capability-matrix",
+        "semantic-conformance-suite",
+        "input-adapters",
+        "input-plan",
+        "vortex-input-plan",
+        "vortex-read-plan",
+        "vortex-task-graph",
+        "schema-plan",
+        "catalog-plan",
+        "table-compat-plan",
+        "capabilities",
+        "extension-registry",
+        "extension-inspect",
+        "udf-registry",
+        "udf-runtime-plan",
+        "udf-local-scalar-fixture-smoke",
+        "embedding-vector-local-fixture-smoke",
+        "security-plan",
+        "security-governance-evidence-gate",
+        "effect-budget-plan",
+        "agent-safety-plan",
+        "redaction-plan",
+        "plan-ir",
+        "plan-import",
+        "plan-export",
+        "memory-plan",
+        "operator-memory-spill-declarations",
+        "pre-oom-memory-guard-smoke",
+        "cg14-memory-runtime-hardening-gate",
+        "spill-plan",
+        "correctness-plan",
+        "correctness-harness-plan",
+        "execution-certificate-plan",
+        "kernel-registry",
+        "recovery-plan",
+        "commit-execution-promotion-gate",
+        "fault-tolerance-promotion-gate",
+        "cancellation-plan",
+        "retry-plan",
+        "retry-gate-plan",
+        "cancellation-gate-plan",
+        "observability-plan",
+        "observability-schema-coverage",
+        "runtime-report",
+        "profile-plan",
+        "feature-footprint",
+        "doctor",
+        "support-bundle",
+        "explain",
+        "benchmark-plan",
+        "benchmark-constitution",
+        "benchmark-claim-evidence-plan",
+        "manifest-plan",
+        "layout-health-plan",
+        "compaction-plan",
+        "table-intelligence-plan",
+        "cg9-catalog-metadata-gate",
+        "local-table-metadata-read-smoke",
+        "iceberg-metadata-read-smoke",
+        "delta-log-metadata-read-smoke",
+        "hudi-timeline-metadata-read-smoke",
+        "local-delete-tombstone-read-smoke",
+        "local-append-only-cdc-overlay-smoke",
+        "local-table-append-commit-rehearsal-smoke",
+        "local-table-commit-recovery-smoke",
+        "object-store-request-plan",
+        "cg10-object-store-runtime-gate",
+        "object-store-range-plan",
+        "object-store-coalesce-plan",
+        "object-store-schedule-plan",
+        "object-store-checkpoint-retry-plan",
+        "object-store-commit-plan",
+        "object-store-read-smoke",
+        "object-store-write-smoke",
+        "object-store-write-recovery-smoke",
+        "object-store-partition-discovery-smoke",
+        "incremental-plan",
+        "stateful-reuse-plan",
+        "cg17-stateful-reuse-gate",
+        "universal-harness-plan",
+        "rfc-coverage-followthrough-plan",
+        "native-io-envelope-plan",
+        "world-class-sufficiency-plan",
+        "cg20-user-capability-gate",
+        "cg20-approx-sketch-gate",
+        "vortex-write-intent-plan",
+        "vortex-commit-intent-plan",
+        "vortex-manifest-finalization-plan",
+        "vortex-output-payload-plan",
+        "vortex-finalized-manifest-artifact-write",
+        "vortex-output-payload-artifact-write",
+        "vortex-native-count-payload-write",
+        "vortex-commit-marker-plan",
+        "vortex-commit-marker-write",
+        "vortex-commit-protocol-plan",
+        "vortex-local-commit-execute",
+        "vortex-local-commit-recovery-plan",
+        "vortex-local-commit-rollback-execute",
+        "vortex-staged-workspace-setup",
+        "vortex-staged-marker-write",
+        "vortex-staged-manifest-file-plan",
+        "vortex-staged-manifest-file-write",
+        "write-intent",
+        "scan-plan",
+        "engine-selection-plan",
+        "engine-capability-matrix",
+        "live-change-contract-plan",
+        "live-fixture-run",
+        "hybrid-overlay-run",
+        "live-hybrid-state-transition-smoke",
+        "live-hybrid-durable-checkpoint-smoke",
+        "distributed-local-fixture-run",
+        "session-cache-smoke",
+        "streaming-plan",
+        "streaming-batch-plan",
+        "backpressure-plan",
+        "runtime-plan",
+        "sizing-plan",
+        "sizing-feedback-plan",
+        "dynamic-work-shaping-plan",
+        "cg8-runtime-promotion-gate",
+        "task-plan",
+        "vortex-adaptive-sizing",
+        "vortex-memory-plan",
+        "vortex-schedule-plan",
+        "vortex-execution-readiness",
+        "vortex-encoded-path-selection-plan",
+        "vortex-generalized-encoded-primitive-gate",
+        "vortex-encoded-read-api",
+        "vortex-encoded-read-boundary",
+        "vortex-encoded-read-metadata-probe",
+        "vortex-encoded-read-readiness",
+        "vortex-encoded-read-probe",
+        "vortex-encoded-read-spike",
+        "vortex-encoded-read-execute",
+        "vortex-metadata-execute",
+        "vortex-dry-run",
+        "vortex-plan",
+        "translation-plan",
+        "vortex-output-plan",
+        "vortex-readiness",
+        "vortex-dtype-mapping",
+        "vortex-encoding-layout-mapping",
+        "vortex-statistics-mapping",
+        "vortex-file-metadata-open",
+        "vortex-metadata-summary",
+        "vortex-query-primitive-plan",
+        "vortex-metadata-physical-kernel-plan",
+        "vortex-count-readiness-plan",
+        "vortex-encoded-count-approval-plan",
+        "vortex-layout-driver-approval-plan",
+        "vortex-filtered-count-readiness-plan",
+        "vortex-projection-readiness-plan",
+        "vortex-count",
+        "vortex-count-benchmark",
+        "vortex-count-where",
+        "vortex-project",
+        "vortex-filter-project",
+        "vortex-filter",
+        "vortex-local-exec",
+        "vortex-bounded-local-exec",
+        "vortex-run",
+        "vortex-query-trace",
+        "vortex-metadata-plan",
+        "vortex-pruning-plan",
+        "vortex-metadata-probe",
+        "vortex-api-inventory",
+        "optimizer-plan",
+        "optimizer-adaptive-memory-plan",
+        "cpu-specialization-plan",
+        "estimate"
+      ],
+      "application_commands": [
+        "help",
+        "command-metadata",
+        "status",
+        "run",
+        "prepare",
+        "route",
+        "vortex-prepare",
+        "input-adapters",
+        "input-plan",
+        "capabilities",
+        "doctor",
+        "support-bundle",
+        "explain",
+        "estimate"
+      ],
+      "audiences": {
+        "help": "application",
+        "command-metadata": "application",
+        "evidence-schema": "maintainer",
+        "route": "application",
+        "run": "application",
+        "prepare": "application",
+        "spill-lifecycle": "maintainer",
+        "spill-reservation-plan": "maintainer",
+        "spill-payload-roundtrip": "maintainer",
+        "cleanup-synthetic-payload": "maintainer",
+        "status": "application",
+        "runs-today": "maintainer",
+        "python-worker": "maintainer",
+        "release-plan": "maintainer",
+        "package-plan": "maintainer",
+        "ci-work-shaping-plan": "maintainer",
+        "api-compat-plan": "maintainer",
+        "rest-api-contract-plan": "maintainer",
+        "rest-api-plan-preview": "maintainer",
+        "rest-api-local-lifecycle": "maintainer",
+        "rest-api-event-stream": "maintainer",
+        "rest-api-security-governance": "maintainer",
+        "rest-api-data-plane": "maintainer",
+        "serve": "maintainer",
+        "agent-contract-pack": "maintainer",
+        "python-wrapper-plan": "maintainer",
+        "vortex-prepare": "application",
+        "sqlite-local-import-export-smoke": "maintainer",
+        "workflow-unsupported-plan": "maintainer",
+        "workload-certification-dossier": "maintainer",
+        "claim-gate-closeout": "maintainer",
+        "global-architecture-gate": "maintainer",
+        "compute-capability-matrix": "maintainer",
+        "semantic-conformance-suite": "maintainer",
+        "input-adapters": "application",
+        "input-plan": "application",
+        "vortex-input-plan": "maintainer",
+        "vortex-read-plan": "maintainer",
+        "vortex-task-graph": "maintainer",
+        "schema-plan": "maintainer",
+        "catalog-plan": "maintainer",
+        "table-compat-plan": "maintainer",
+        "capabilities": "application",
+        "extension-registry": "maintainer",
+        "extension-inspect": "maintainer",
+        "udf-registry": "maintainer",
+        "udf-runtime-plan": "maintainer",
+        "udf-local-scalar-fixture-smoke": "maintainer",
+        "embedding-vector-local-fixture-smoke": "maintainer",
+        "security-plan": "maintainer",
+        "security-governance-evidence-gate": "maintainer",
+        "effect-budget-plan": "maintainer",
+        "agent-safety-plan": "maintainer",
+        "redaction-plan": "maintainer",
+        "plan-ir": "maintainer",
+        "plan-import": "maintainer",
+        "plan-export": "maintainer",
+        "memory-plan": "maintainer",
+        "operator-memory-spill-declarations": "maintainer",
+        "pre-oom-memory-guard-smoke": "maintainer",
+        "cg14-memory-runtime-hardening-gate": "maintainer",
+        "spill-plan": "maintainer",
+        "correctness-plan": "maintainer",
+        "correctness-harness-plan": "maintainer",
+        "execution-certificate-plan": "maintainer",
+        "kernel-registry": "maintainer",
+        "recovery-plan": "maintainer",
+        "commit-execution-promotion-gate": "maintainer",
+        "fault-tolerance-promotion-gate": "maintainer",
+        "cancellation-plan": "maintainer",
+        "retry-plan": "maintainer",
+        "retry-gate-plan": "maintainer",
+        "cancellation-gate-plan": "maintainer",
+        "observability-plan": "maintainer",
+        "observability-schema-coverage": "maintainer",
+        "runtime-report": "maintainer",
+        "profile-plan": "maintainer",
+        "feature-footprint": "maintainer",
+        "doctor": "application",
+        "support-bundle": "application",
+        "explain": "application",
+        "benchmark-plan": "maintainer",
+        "benchmark-constitution": "maintainer",
+        "benchmark-claim-evidence-plan": "maintainer",
+        "manifest-plan": "maintainer",
+        "layout-health-plan": "maintainer",
+        "compaction-plan": "maintainer",
+        "table-intelligence-plan": "maintainer",
+        "cg9-catalog-metadata-gate": "maintainer",
+        "local-table-metadata-read-smoke": "maintainer",
+        "iceberg-metadata-read-smoke": "maintainer",
+        "delta-log-metadata-read-smoke": "maintainer",
+        "hudi-timeline-metadata-read-smoke": "maintainer",
+        "local-delete-tombstone-read-smoke": "maintainer",
+        "local-append-only-cdc-overlay-smoke": "maintainer",
+        "local-table-append-commit-rehearsal-smoke": "maintainer",
+        "local-table-commit-recovery-smoke": "maintainer",
+        "object-store-request-plan": "maintainer",
+        "cg10-object-store-runtime-gate": "maintainer",
+        "object-store-range-plan": "maintainer",
+        "object-store-coalesce-plan": "maintainer",
+        "object-store-schedule-plan": "maintainer",
+        "object-store-checkpoint-retry-plan": "maintainer",
+        "object-store-commit-plan": "maintainer",
+        "object-store-read-smoke": "maintainer",
+        "object-store-write-smoke": "maintainer",
+        "object-store-write-recovery-smoke": "maintainer",
+        "object-store-partition-discovery-smoke": "maintainer",
+        "incremental-plan": "maintainer",
+        "stateful-reuse-plan": "maintainer",
+        "cg17-stateful-reuse-gate": "maintainer",
+        "universal-harness-plan": "maintainer",
+        "rfc-coverage-followthrough-plan": "maintainer",
+        "native-io-envelope-plan": "maintainer",
+        "world-class-sufficiency-plan": "maintainer",
+        "cg20-user-capability-gate": "maintainer",
+        "cg20-approx-sketch-gate": "maintainer",
+        "vortex-write-intent-plan": "maintainer",
+        "vortex-commit-intent-plan": "maintainer",
+        "vortex-manifest-finalization-plan": "maintainer",
+        "vortex-output-payload-plan": "maintainer",
+        "vortex-finalized-manifest-artifact-write": "maintainer",
+        "vortex-output-payload-artifact-write": "maintainer",
+        "vortex-native-count-payload-write": "maintainer",
+        "vortex-commit-marker-plan": "maintainer",
+        "vortex-commit-marker-write": "maintainer",
+        "vortex-commit-protocol-plan": "maintainer",
+        "vortex-local-commit-execute": "maintainer",
+        "vortex-local-commit-recovery-plan": "maintainer",
+        "vortex-local-commit-rollback-execute": "maintainer",
+        "vortex-staged-workspace-setup": "maintainer",
+        "vortex-staged-marker-write": "maintainer",
+        "vortex-staged-manifest-file-plan": "maintainer",
+        "vortex-staged-manifest-file-write": "maintainer",
+        "write-intent": "maintainer",
+        "scan-plan": "maintainer",
+        "engine-selection-plan": "maintainer",
+        "engine-capability-matrix": "maintainer",
+        "live-change-contract-plan": "maintainer",
+        "live-fixture-run": "maintainer",
+        "hybrid-overlay-run": "maintainer",
+        "live-hybrid-state-transition-smoke": "maintainer",
+        "live-hybrid-durable-checkpoint-smoke": "maintainer",
+        "distributed-local-fixture-run": "maintainer",
+        "session-cache-smoke": "maintainer",
+        "streaming-plan": "maintainer",
+        "streaming-batch-plan": "maintainer",
+        "backpressure-plan": "maintainer",
+        "runtime-plan": "maintainer",
+        "sizing-plan": "maintainer",
+        "sizing-feedback-plan": "maintainer",
+        "dynamic-work-shaping-plan": "maintainer",
+        "cg8-runtime-promotion-gate": "maintainer",
+        "task-plan": "maintainer",
+        "vortex-adaptive-sizing": "maintainer",
+        "vortex-memory-plan": "maintainer",
+        "vortex-schedule-plan": "maintainer",
+        "vortex-execution-readiness": "maintainer",
+        "vortex-encoded-path-selection-plan": "maintainer",
+        "vortex-generalized-encoded-primitive-gate": "maintainer",
+        "vortex-encoded-read-api": "maintainer",
+        "vortex-encoded-read-boundary": "maintainer",
+        "vortex-encoded-read-metadata-probe": "maintainer",
+        "vortex-encoded-read-readiness": "maintainer",
+        "vortex-encoded-read-probe": "maintainer",
+        "vortex-encoded-read-spike": "maintainer",
+        "vortex-encoded-read-execute": "maintainer",
+        "vortex-metadata-execute": "maintainer",
+        "vortex-dry-run": "maintainer",
+        "vortex-plan": "maintainer",
+        "translation-plan": "maintainer",
+        "vortex-output-plan": "maintainer",
+        "vortex-readiness": "maintainer",
+        "vortex-dtype-mapping": "maintainer",
+        "vortex-encoding-layout-mapping": "maintainer",
+        "vortex-statistics-mapping": "maintainer",
+        "vortex-file-metadata-open": "maintainer",
+        "vortex-metadata-summary": "maintainer",
+        "vortex-query-primitive-plan": "maintainer",
+        "vortex-metadata-physical-kernel-plan": "maintainer",
+        "vortex-count-readiness-plan": "maintainer",
+        "vortex-encoded-count-approval-plan": "maintainer",
+        "vortex-layout-driver-approval-plan": "maintainer",
+        "vortex-filtered-count-readiness-plan": "maintainer",
+        "vortex-projection-readiness-plan": "maintainer",
+        "vortex-count": "maintainer",
+        "vortex-count-benchmark": "maintainer",
+        "vortex-count-where": "maintainer",
+        "vortex-project": "maintainer",
+        "vortex-filter-project": "maintainer",
+        "vortex-filter": "maintainer",
+        "vortex-local-exec": "maintainer",
+        "vortex-bounded-local-exec": "maintainer",
+        "vortex-run": "maintainer",
+        "vortex-query-trace": "maintainer",
+        "vortex-metadata-plan": "maintainer",
+        "vortex-pruning-plan": "maintainer",
+        "vortex-metadata-probe": "maintainer",
+        "vortex-api-inventory": "maintainer",
+        "optimizer-plan": "maintainer",
+        "optimizer-adaptive-memory-plan": "maintainer",
+        "cpu-specialization-plan": "maintainer",
+        "estimate": "application"
+      },
+      "application_metadata": [
+        {
+          "name": "help",
+          "audience": "application",
+          "family": "status_capabilities",
+          "usage_fragment": "help [--audience application|maintainer|all] [command]",
+          "side_effect_level": "side_effect_free_metadata_or_report",
+          "input_contract": "registry_or_capability_scope_args",
+          "output_contract": "typed_envelope_metadata_report_only"
+        },
+        {
+          "name": "command-metadata",
+          "audience": "application",
+          "family": "status_capabilities",
+          "usage_fragment": "command-metadata [--audience application|maintainer|all] [--completion bash|zsh|fish] [command]",
+          "side_effect_level": "side_effect_free_metadata_or_report",
+          "input_contract": "registry_or_capability_scope_args",
+          "output_contract": "typed_envelope_metadata_report_only"
+        },
+        {
+          "name": "status",
+          "audience": "application",
+          "family": "status_capabilities",
+          "usage_fragment": "status",
+          "side_effect_level": "side_effect_free_metadata_or_report",
+          "input_contract": "registry_or_capability_scope_args",
+          "output_contract": "typed_envelope_metadata_report_only"
+        },
+        {
+          "name": "run",
+          "audience": "application",
+          "family": "workflow_planning",
+          "usage_fragment": "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl>] [--output <ref>] (--resources-from-env | (--memory-gb <GiB> | --memory-bytes <bytes>) --max-parallelism <n>)",
+          "side_effect_level": "local_runtime_or_local_artifact_effect_possible",
+          "input_contract": "declared_public_workflow_request_with_route_admission",
+          "output_contract": "typed_runtime_envelope_with_attached_public_workflow_route"
+        },
+        {
+          "name": "prepare",
+          "audience": "application",
+          "family": "workflow_planning",
+          "usage_fragment": "prepare <sql|python|dataframe|cli> --input <uri> [--input-format <format>] --output <target.vortex> (--resources-from-env | (--memory-gb <GiB> | --memory-bytes <bytes>) --max-parallelism <n>)",
+          "side_effect_level": "local_runtime_or_local_artifact_effect_possible",
+          "input_contract": "declared_public_workflow_request_with_route_admission",
+          "output_contract": "typed_runtime_envelope_with_attached_public_workflow_route"
+        },
+        {
+          "name": "route",
+          "audience": "application",
+          "family": "workflow_planning",
+          "usage_fragment": "route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_json|write_jsonl|explain|route|evidence>]",
+          "side_effect_level": "side_effect_free_metadata_or_report",
+          "input_contract": "declared_public_workflow_route_request",
+          "output_contract": "typed_public_workflow_route_envelope_no_execution"
+        },
+        {
+          "name": "vortex-prepare",
+          "audience": "application",
+          "family": "prepared_source_backed_execution",
+          "usage_fragment": "vortex-prepare <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc|vortex] (--resources-from-env | (--memory-gb <GiB> | --memory-bytes <bytes>) --max-parallelism <n>)",
+          "side_effect_level": "local_runtime_or_local_artifact_effect_possible",
+          "input_contract": "local_source_or_vortex_artifact_args",
+          "output_contract": "typed_envelope_plus_local_runtime_or_artifact_evidence"
+        },
+        {
+          "name": "input-adapters",
+          "audience": "application",
+          "family": "input_planning",
+          "usage_fragment": "input-adapters",
+          "side_effect_level": "diagnostic_or_metadata_only",
+          "input_contract": "declared_input_source_or_adapter_shape",
+          "output_contract": "typed_envelope_metadata_report_only"
+        },
+        {
+          "name": "input-plan",
+          "audience": "application",
+          "family": "input_planning",
+          "usage_fragment": "input-plan",
+          "side_effect_level": "side_effect_free_metadata_or_report",
+          "input_contract": "declared_input_source_or_adapter_shape",
+          "output_contract": "typed_envelope_metadata_report_only"
+        },
+        {
+          "name": "capabilities",
+          "audience": "application",
+          "family": "status_capabilities",
+          "usage_fragment": "capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance|engines|workflow|remote-api|cross-cg|compatibility]",
+          "side_effect_level": "side_effect_free_metadata_or_report",
+          "input_contract": "registry_or_capability_scope_args",
+          "output_contract": "typed_envelope_metadata_report_only"
+        },
+        {
+          "name": "doctor",
+          "audience": "application",
+          "family": "diagnostics",
+          "usage_fragment": "doctor",
+          "side_effect_level": "side_effect_free_metadata_or_report",
+          "input_contract": "diagnostic_or_estimate_args",
+          "output_contract": "typed_envelope_metadata_report_only"
+        },
+        {
+          "name": "support-bundle",
+          "audience": "application",
+          "family": "diagnostics",
+          "usage_fragment": "support-bundle [--note <redacted-text>] [--include-defaults]",
+          "side_effect_level": "side_effect_free_metadata_or_report",
+          "input_contract": "diagnostic_or_estimate_args",
+          "output_contract": "typed_envelope_metadata_report_only"
+        },
+        {
+          "name": "explain",
+          "audience": "application",
+          "family": "diagnostics",
+          "usage_fragment": "explain",
+          "side_effect_level": "diagnostic_or_metadata_only",
+          "input_contract": "diagnostic_or_estimate_args",
+          "output_contract": "typed_envelope_metadata_report_only"
+        },
+        {
+          "name": "estimate",
+          "audience": "application",
+          "family": "diagnostics",
+          "usage_fragment": "estimate",
+          "side_effect_level": "diagnostic_or_metadata_only",
+          "input_contract": "diagnostic_or_estimate_args",
+          "output_contract": "typed_envelope_metadata_report_only"
+        }
+      ]
+    }
   }
 }

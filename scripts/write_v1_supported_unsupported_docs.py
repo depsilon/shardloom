@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Generate the v1 supported/unsupported surface page from checked-in matrices."""
+"""Keep the legacy support URL linked to the version-scoped application guide.
+
+Runtime, smoke, claim and publication classifications remain in their original
+maintainer matrices. They are deliberately not rendered into onboarding.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
-from collections import defaultdict
 from pathlib import Path
 from typing import Any
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.v1_supported_unsupported_surface.v1"
@@ -36,261 +38,48 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def bool_text(value: Any) -> str:
-    if value is True:
-        return "true"
-    if value is False:
-        return "false"
-    return "unknown"
-
-
-def inverse_bool_text(value: Any) -> str:
-    if value is True:
-        return "false"
-    if value is False:
-        return "true"
-    return "unknown"
-
-
-def cell(value: Any) -> str:
-    text = ", ".join(str(item) for item in value) if isinstance(value, list) else str(value)
-    return text.replace("|", "\\|").replace("\n", " ").strip()
-
-
-def table(headers: tuple[str, ...], rows: list[tuple[Any, ...]]) -> list[str]:
-    lines = ["| " + " | ".join(headers) + " |"]
-    lines.append("| " + " | ".join("---" for _ in headers) + " |")
-    for row in rows:
-        lines.append("| " + " | ".join(cell(value) for value in row) + " |")
-    return lines
-
-
-def render_runs_today(runs_today: dict[str, Any]) -> list[str]:
-    rows = [row for row in runs_today.get("rows", []) if isinstance(row, dict)]
-    by_family: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        by_family[str(row.get("family", "unknown"))].append(row)
-
-    lines: list[str] = []
-    family_order = runs_today.get("family_order", [])
-    ordered_families = [str(family) for family in family_order if str(family) in by_family]
-    ordered_families.extend(sorted(set(by_family) - set(ordered_families)))
-    for family in ordered_families:
-        lines.append(f"## {family.replace('_', ' ').title()}")
-        lines.append("")
-        family_rows = sorted(by_family[family], key=lambda row: str(row.get("id", "")))
-        lines.extend(
-            table(
-                (
-                    "Surface",
-                    "State",
-                    "Feature gate",
-                    "Runtime",
-                    "Write",
-                    "Claim gate",
-                    "Boundary",
-                ),
-                [
-                    (
-                        row.get("surface", row.get("id", "")),
-                        row.get("support_state", "unknown"),
-                        row.get("feature_gate", "default"),
-                        bool_text(row.get("runtime_execution")),
-                        bool_text(row.get("write_io")),
-                        row.get("claim_gate_status", "not_claim_grade"),
-                        row.get("claim_boundary", ""),
-                    )
-                    for row in family_rows
-                ],
-            )
-        )
-        lines.append("")
-    return lines
-
-
-def render_package_channels(package_matrix: dict[str, Any]) -> list[str]:
-    channels = [row for row in package_matrix.get("channels", []) if isinstance(row, dict)]
-    ready_channels = [row for row in channels if row.get("ready") is True]
-    blocked_channels = [row for row in channels if row.get("ready") is not True]
-    selected_tag = str(package_matrix.get("selected_v0_1_0_release_tag") or "selected")
-    channel_text = (
-        f"Selected {selected_tag} package channels expose install commands. Future package channels remain "
-        "blocked until their channel-specific proof exists."
-        if ready_channels
-        else "Package install commands are intentionally withheld while channel status is blocked."
-    )
-    lines = [
-        "## Package Channels",
-        "",
-        "Package channel rows are generated from `docs/release/package-channel-readiness-matrix.json`.",
-        channel_text,
-        "",
-        "```text",
-        f"package_install_commands_visible={str(bool(ready_channels)).lower()}",
-        f"public_package_release_claim_allowed={bool_text(package_matrix.get('public_package_release_claim_allowed'))}",
-        f"publication_attempted={bool_text(package_matrix.get('publication_attempted'))}",
-        f"tag_created={bool_text(package_matrix.get('tag_created'))}",
-        f"package_upload_attempted={bool_text(package_matrix.get('package_channel_submission_attempted'))}",
-        "```",
-        "",
-    ]
-    if ready_channels:
-        lines.extend(
-            table(
-                ("Ready channel", "Install command", "Uninstall command"),
-                [
-                    (
-                        row.get("display_name", row.get("channel_id", "")),
-                        row.get("install_command", ""),
-                        row.get("uninstall_command", ""),
-                    )
-                    for row in ready_channels
-                ],
-            )
-        )
-        lines.append("")
-    lines.extend(
-        table(
-            ("Channel", "Status", "Ready", "Current blockers"),
-            [
-                (
-                    row.get("display_name", row.get("channel_id", "")),
-                    row.get("status", "unknown"),
-                    bool_text(row.get("ready")),
-                    row.get("current_blockers", []),
-                )
-                for row in [*ready_channels, *blocked_channels]
-            ],
-        )
-    )
-    lines.append("")
-    return lines
-
-
-def render_production_unsupported_diagnostics(runs_today: dict[str, Any]) -> list[str]:
-    diagnostics = [
-        row
-        for row in runs_today.get("production_unsupported_diagnostics", [])
-        if isinstance(row, dict)
-    ]
-    if not diagnostics:
-        return []
-    lines = [
-        "## Production Unsupported Diagnostics",
-        "",
-        "These rows are generated from the `runs-today` production diagnostic catalog and the "
-        "known unsupported paths release boundary. They are user-facing diagnostics for preview, "
-        "fixture, report-only, release-gate, and claim-gate entrypoints that must not execute "
-        "unsupported production work.",
-        "",
-        "```text",
-        "production_unsupported_diagnostic_schema_version="
-        f"{runs_today.get('production_unsupported_diagnostic_schema_version', 'missing')}",
-        "production_unsupported_diagnostic_row_count="
-        f"{runs_today.get('production_unsupported_diagnostic_row_count', 'missing')}",
-        "production_unsupported_diagnostic_fallback_attempted="
-        f"{inverse_bool_text(runs_today.get('production_unsupported_diagnostic_all_rows_fallback_attempted_false'))}",
-        "production_unsupported_diagnostic_external_engine_invoked="
-        f"{inverse_bool_text(runs_today.get('production_unsupported_diagnostic_all_rows_external_engine_invoked_false'))}",
-        "production_unsupported_diagnostic_side_effects_performed="
-        f"{inverse_bool_text(runs_today.get('production_unsupported_diagnostic_all_rows_side_effects_performed_false'))}",
-        "```",
-        "",
-    ]
-    lines.extend(
-        table(
-            (
-                "Family",
-                "Entrypoints",
-                "Status",
-                "Diagnostic code",
-                "Blocker",
-                "Next action",
-            ),
-            [
-                (
-                    row.get("production_family", row.get("id", "")),
-                    row.get("user_surface", []),
-                    row.get("support_status", "unknown"),
-                    row.get("diagnostic_code", ""),
-                    row.get("blocker_id", ""),
-                    row.get("next_action", ""),
-                )
-                for row in diagnostics
-            ],
-        )
-    )
-    lines.append("")
-    return lines
-
-
 def render(runs_today: dict[str, Any], package_matrix: dict[str, Any]) -> str:
-    lines = [
+    # Fail on missing authorities rather than generating an apparently current guide.
+    if not runs_today.get("schema_version") or not package_matrix.get("selected_v0_1_0_release_tag"):
+        raise ValueError("support documentation requires runtime and release authorities")
+    tag = package_matrix["selected_v0_1_0_release_tag"]
+    return "\n".join([
         "<!-- SPDX-License-Identifier: Apache-2.0 -->",
         "<!-- This file is generated by scripts/write_v1_supported_unsupported_docs.py. -->",
         "",
-        "# V1 Supported And Unsupported Surface",
+        "# Capabilities and support",
         "",
-        f"Schema marker: `{SCHEMA_VERSION}`.",
+        '<a id="v1-supported-and-unsupported-surface"></a>',
+        f"The public guide describes **{tag}**. Start with",
+        "[installation and the first data workflow](https://shardloom.io/field-guide/start-local-proof).",
+        "Use [version-scoped capabilities and known issues](https://shardloom.io/field-guide/limitations)",
+        "for operations, types, package/platform requirements and remaining restrictions.",
         "",
-        "Status: generated public support boundary from machine-readable matrices.",
+        "For exact contracts, see the [application reference](https://shardloom.io/field-guide/reference).",
+        "Feature availability, operational support and comparative performance are separate facts.",
         "",
-        "This page is generated from `docs/status/runs-today-support-matrix.json` and "
-        "`docs/release/package-channel-readiness-matrix.json`. Edit those source matrices or the "
-        "generator instead of hand-editing this file.",
+        "## Maintainer inventories",
         "",
-        "```text",
-        f"runs_today_schema_version={runs_today.get('schema_version', 'missing')}",
-        f"runs_today_row_count={runs_today.get('row_count', 'missing')}",
-        "production_unsupported_diagnostic_schema_version="
-        f"{runs_today.get('production_unsupported_diagnostic_schema_version', 'missing')}",
-        "production_unsupported_diagnostic_row_count="
-        f"{runs_today.get('production_unsupported_diagnostic_row_count', 'missing')}",
-        f"package_channel_schema_version={package_matrix.get('schema_version', 'missing')}",
-        f"fallback_attempted={inverse_bool_text(runs_today.get('all_rows_fallback_attempted_false'))}",
-        f"external_engine_invoked={inverse_bool_text(runs_today.get('all_rows_external_engine_invoked_false'))}",
-        f"performance_claim_allowed={bool_text(runs_today.get('performance_claim_allowed'))}",
-        f"package_publication_allowed={bool_text(runs_today.get('package_publication_allowed'))}",
-        "```",
+        '<a id="cli-command"></a><a id="python-api"></a>',
+        '<a id="input-format"></a><a id="output-format"></a>',
+        '<a id="execution-mode"></a><a id="claim-state"></a>',
+        '<a id="production-unsupported-diagnostics"></a><a id="package-channels"></a>',
+        '<a id="unsupported-example-boundaries"></a>',
         "",
-        "Use this page to decide what can be run locally today and what must return a deterministic "
-        "unsupported or blocked diagnostic. It is not a performance, production, package-publication, "
-        "or Spark-replacement claim.",
+        "The [runtime inventory](../status/runs-today-support-matrix.json) retains smoke,",
+        "inspection, execution and claim classifications. The",
+        "[package matrix](../release/package-channel-readiness-matrix.json) retains release",
+        "identity and channel proof. These inventories are contributor references, not an",
+        "onboarding checklist or alternate execution paths.",
         "",
-    ]
-    lines.extend(render_runs_today(runs_today))
-    lines.extend(render_production_unsupported_diagnostics(runs_today))
-    lines.extend(render_package_channels(package_matrix))
-    lines.extend(
-        [
-            "## Unsupported Example Boundaries",
-            "",
-            "The generated support rows above must be read with these fail-closed examples:",
-            "",
-            "- `unsupported_example_broad_sql`: arbitrary SQL outside admitted local-source/source-free shapes must return an unsupported diagnostic.",
-            "- `unsupported_example_unbounded_collect`: unbounded materialization helpers must expose a blocker instead of invoking another engine.",
-            "- `unsupported_example_object_store`: object-store read/write paths are not v1 local runtime support unless a future gate closes them.",
-            "- `unsupported_example_foundry`: Foundry platform use is not v1 production support or endorsement.",
-            "- `unsupported_example_udf_effect`: UDFs, API calls, LLM calls, embeddings, and other effectful operations require explicit admission before execution.",
-            "",
-            "Every unsupported example must preserve:",
-            "",
-            "```text",
-            "fallback_attempted=false",
-            "external_engine_invoked=false",
-            "```",
-            "",
-        ]
-    )
-    return "\n".join(lines)
+    ])
 
 
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
-    runs_today = load_json(resolve(repo_root, args.runs_today_matrix))
-    package_matrix = load_json(resolve(repo_root, args.package_channel_matrix))
-    expected = render(runs_today, package_matrix)
+    expected = render(load_json(resolve(repo_root, args.runs_today_matrix)),
+                      load_json(resolve(repo_root, args.package_channel_matrix)))
     output = resolve(repo_root, args.output)
     if args.check:
         actual = output.read_text(encoding="utf-8") if output.exists() else ""

@@ -12,7 +12,8 @@ PYTHON_SRC = REPO_ROOT / "python" / "src"
 if str(PYTHON_SRC) not in sys.path:
     sys.path.insert(0, str(PYTHON_SRC))
 
-from shardloom import Diagnostic, FallbackStatus, OutputEnvelope
+from shardloom import Diagnostic
+from shardloom.diagnostics import FallbackStatus, OutputEnvelope
 
 
 MATRIX_PATH = REPO_ROOT / "docs/release/v1-api-schema-stability-matrix.json"

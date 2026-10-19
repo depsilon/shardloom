@@ -1,0 +1,71 @@
+---
+title: "Development and migration"
+description: "Distinguish unpublished source changes, compatibility migration, and contributor tooling."
+pagefind: false
+---
+
+import GuideVersion from '../../../components/GuideVersion.astro';
+import { Code } from '@astrojs/starlight/components';
+import { developmentExample } from '../../../data/quickstart.mjs';
+
+<GuideVersion development />
+
+## Published versus source
+
+The default guide describes the named published package. Source work after that
+release does not change installed artifacts. For a reproducible source build,
+pin a commit and follow [source installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md).
+
+## API migration
+
+Development source adds one context lifecycle and one collected `Result` contract.
+The [migration reference](https://github.com/depsilon/shardloom/blob/main/docs/reference/python-api-migration.md)
+describes the deliberate changes and compatibility window.
+
+| Task | Development API |
+| --- | --- |
+| Own execution resources and lifetime | `with sl.context(...) as ctx:` |
+| Inspect the selected installation backend | `ctx.transport` |
+| Collect complete data and inspect values | `result.schema`, `result.to_rows()`, `result.details` |
+| Reuse completed native data | `ctx.from_result(result)` |
+| Stop current work or revoke future work | `ctx.cancel()`, `ctx.close()` |
+| Discover inspection or maintainer types | `sl.diagnostics`, `sl.testing` |
+
+Linux/macOS native installations select in-process execution by default;
+Windows and explicit CLI configurations select process isolation. Choose
+`transport="subprocess"` explicitly when needed. A failure never changes the
+selected backend. Memory and parallelism remain explicit caller choices.
+
+## Reuse completed data
+
+This maintained development example returns the same two rows after the original
+context closes. Native admission retains ShardLoom-owned data without an Arrow
+or Python-row export. A process-backed context uses typed payload conversion.
+
+<Code code={developmentExample} lang="python" title="context-result.py" />
+
+```text
+({'id': 1}, {'id': 3})
+```
+
+`to_rows()` allocates Python objects explicitly. Keep large delivery in batches
+or a writer. These convenience methods are source changes, not additions to
+the installed 0.6.0 package.
+
+## Source-only capabilities
+
+Finite-streaming composition and further native resource accounting have advanced
+after 0.6.0. Their exact revisions, restrictions and acceptance are retained in the
+[completed ledger](https://github.com/depsilon/shardloom/blob/main/docs/architecture/phased-execution-completed-ledger.md)
+and linked contracts. Query/provider optimization evidence remains in the
+[benchmark records](https://github.com/depsilon/shardloom/tree/main/docs/benchmarks).
+
+## Roadmap and contributor material
+
+- [Active phase plan](https://github.com/depsilon/shardloom/blob/main/docs/architecture/phased-execution-plan.md): existing runtime, native CPU, documentation, integration and release owners.
+- [Local source and release rehearsal](https://github.com/depsilon/shardloom/blob/main/docs/release/local-source-rehearsal.md): contributor builds and local verification.
+- [Status inventories](https://github.com/depsilon/shardloom/tree/main/docs/status): maintainer diagnostics and feature/claim classifications.
+- [Release evidence](https://github.com/depsilon/shardloom/tree/main/docs/release): package provenance and publication checks.
+- [RFCs](https://github.com/depsilon/shardloom/tree/main/docs/rfcs): future REST, Flight, cloud and optional Foundry direction. Designs are not runnable installation choices.
+
+Contributor and raw evidence pages remain intentionally outside product search.

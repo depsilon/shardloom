@@ -9,7 +9,8 @@ from types import SimpleNamespace
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext, from_arrow_table, from_pandas
+from shardloom import LazyFrame, ShardLoomContext, from_arrow_table, from_pandas
+from shardloom.diagnostics import ShardLoomClient
 
 
 class NativeMemoryInputTests(unittest.TestCase):

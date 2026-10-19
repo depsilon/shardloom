@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from typing import Any, Sequence
 
 from ._compat import dataclass
@@ -18,11 +19,65 @@ NO_FALLBACK_REASON = (
 )
 
 
-class ShardLoomProtocolError(RuntimeError):
+class ShardLoomError(Exception):
+    """Common base for ShardLoom configuration, lifecycle and execution errors."""
+
+
+class ShardLoomProtocolError(ShardLoomError, RuntimeError):
     """Raised when CLI output does not match the expected JSON protocol."""
 
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.diagnostics = (_configuration_diagnostic("SL_PROTOCOL_ERROR", message,
+            "Check that the Python package and CLI versions match. Inspect any output before retrying."),)
 
-class ShardLoomBinaryNotFoundError(RuntimeError):
+
+class ShardLoomInstallationError(ShardLoomError, ImportError):
+    """The selected installation/backend cannot provide native execution."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.diagnostics = (_configuration_diagnostic("SL_NATIVE_UNAVAILABLE", message,
+            "Install a native ShardLoom build for this platform, or explicitly select transport='subprocess' with a supported CLI installation."),)
+
+
+class ShardLoomClosedError(ShardLoomError, RuntimeError):
+    """New work was requested after its caller-owned context was closed."""
+
+    def __init__(self) -> None:
+        message = "ShardLoom context/client is closed; retained completed results remain valid"
+        super().__init__(message)
+        self.diagnostics = (_configuration_diagnostic("SL_CONTEXT_CLOSED", message,
+            "Create a new context with explicit execution resources."),)
+
+
+class ShardLoomTimeoutError(ShardLoomError, subprocess.TimeoutExpired, TimeoutError):
+    """An execution deadline expired, preserving both historical timeout catches."""
+
+    def __init__(self, command, timeout, output=None, stderr=None, *, message=None):
+        subprocess.TimeoutExpired.__init__(self, command, timeout, output, stderr)
+        self.message = message
+        self.diagnostics = (_configuration_diagnostic(
+            "SL_EXECUTION_TIMEOUT", str(self),
+            "Inspect output destinations before explicitly retrying with a suitable deadline.",
+            category="execution",
+        ),)
+
+    def __str__(self) -> str:
+        return self.message or subprocess.TimeoutExpired.__str__(self)
+
+
+def _configuration_diagnostic(
+    code: str, message: str, next_step: str, *, category: str = "configuration",
+) -> Diagnostic:
+    return Diagnostic(
+        code=code, severity="error", category=category, message=message,
+        feature="python_context", reason=message, suggested_next_step=next_step,
+        fallback=FallbackStatus(attempted=False, allowed=False, engine=None, reason=NO_FALLBACK_REASON),
+    )
+
+
+class ShardLoomBinaryNotFoundError(ShardLoomError, RuntimeError):
     """Raised when an explicit ShardLoom CLI command cannot resolve a binary."""
 
     def __init__(
@@ -94,13 +149,17 @@ class ShardLoomBinaryNotFoundError(RuntimeError):
 
 
 @dataclass(slots=True)
-class ShardLoomCommandError(RuntimeError):
+class ShardLoomCommandError(ShardLoomError, RuntimeError):
     """Raised when an explicit ShardLoom CLI command returns an error envelope."""
 
     command: Sequence[str]
     returncode: int
     envelope: OutputEnvelope
     stderr: str
+
+    @property
+    def diagnostics(self) -> tuple[Diagnostic, ...]:
+        return self.envelope.diagnostics
 
     def __str__(self) -> str:
         fallback = self.envelope.fallback
@@ -118,6 +177,21 @@ def _fallback_payload(fallback: FallbackStatus) -> dict[str, Any]:
         "engine": fallback.engine,
         "reason": fallback.reason,
     }
+
+
+def _cancelled_error(command: Sequence[str], *, forced: bool) -> ShardLoomCommandError:
+    message = "ShardLoom execution was cancelled; no request was replayed."
+    if forced:
+        message += " Process termination means output publication and staged cleanup cannot be confirmed."
+    envelope = OutputEnvelope.from_field_mapping(
+        {"cancellation_requested": "true", "process_termination_forced": str(forced).lower()},
+        command=command[0] if command else "run", status="error", summary=message, human_text=message,
+    )
+    raw = dict(envelope.raw)
+    diagnostic = _configuration_diagnostic("SL_EXECUTION_CANCELLED", message,
+        "Inspect any output destinations before explicitly retrying the operation.", category="execution")
+    raw["diagnostics"] = [_diagnostic_payload(diagnostic)]
+    return ShardLoomCommandError(command, 2, OutputEnvelope.from_json(raw), "")
 
 
 def _diagnostic_payload(diagnostic: Diagnostic) -> dict[str, Any]:

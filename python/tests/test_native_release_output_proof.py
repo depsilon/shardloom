@@ -35,8 +35,11 @@ class NativeReleaseOutputProofTests(unittest.TestCase):
             frame = SimpleNamespace(write=write_output)
             context = SimpleNamespace(from_rows=Mock(return_value=frame), range=Mock(return_value=frame))
             output = io.StringIO()
-            with patch("shardloom.context", return_value=context), contextlib.redirect_stdout(output):
+            with patch("shardloom.context", return_value=context) as create_context, contextlib.redirect_stdout(output):
                 exec(factory(target), {})
+            create_context.assert_called_once_with(
+                memory_gb=4, max_parallelism=2, transport="subprocess",
+            )
             return output.getvalue()
 
     def test_user_rows_and_range_validate_complete_committed_files(self):

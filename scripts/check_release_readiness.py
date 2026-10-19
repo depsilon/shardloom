@@ -35,6 +35,7 @@ from check_v1_correctness_conformance import (
     EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
     EXPECTED_ADMITTED_VALIDATOR_CASES,
     EXPECTED_EXECUTABLE_FIXTURES,
+    EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,
     EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
     MATRIX_EXPECTED_COUNTS,
 )
@@ -1783,7 +1784,7 @@ def main() -> int:
                 v1_example_replay.get("blockers", ["v1 example replay report blocked"])
             )
         for field, expected in [
-            ("docs_marker_source_count", 6),
+            ("docs_marker_source_count", EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES),
             ("runtime_command_count", 3),
             ("golden_workflow_replay_verified_count", 3),
             ("benchmark_scenario_count", 9),
@@ -2006,7 +2007,7 @@ def main() -> int:
                     "python_user_surface",
                     "required_operation_method_rows_present",
                 ): 13,
-                ("example_replay", "docs_marker_source_count"): 6,
+                ("example_replay", "docs_marker_source_count"): EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,
                 ("example_replay", "runtime_command_count"): 3,
                 ("example_replay", "golden_workflow_replay_verified_count"): 3,
                 ("example_replay", "benchmark_scenario_count"): 9,

@@ -100,7 +100,7 @@ REQUIRED_SOURCE_MARKERS = {'python/src/shardloom/context.py': ['class FrontDoorP
                                    'source_alias: object | None = None',
                                    'def _normalize_sort_nulls(',
                                    'def _sql_local_subquery_source(',
-                                   'class VortexWorkflowExecutionReport',
+                                   'class Result',
                                    'def result_schema(',
                                    'def python_objects('],
  'python/tests/test_query_builder.py': ['test_workflow_route_uses_shared_cli_contract_for_sql_and_dataframe',
@@ -336,13 +336,11 @@ def load_dataframe_method_matrix(repo_root: Path) -> Any:
     src = repo_root / "python" / "src"
     if str(src) not in sys.path:
         sys.path.insert(0, str(src))
-    from shardloom import ShardLoomBinaryNotFoundError, ShardLoomContext
     from shardloom.context import DATAFRAME_METHOD_CAPABILITY_ROWS
 
-    try:
-        return ShardLoomContext(client=None).dataframe_method_matrix()
-    except ShardLoomBinaryNotFoundError:
-        return SimpleNamespace(rows=DATAFRAME_METHOD_CAPABILITY_ROWS)
+    # This source contract checks static rows, not installed backend availability.
+    # The runtime matrix uses these same rows with an execution capability envelope.
+    return SimpleNamespace(rows=DATAFRAME_METHOD_CAPABILITY_ROWS)
 
 
 def load_dataframe_future_contract_matrix(repo_root: Path) -> Any:

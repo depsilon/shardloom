@@ -10,7 +10,7 @@ from shardloom import ResultBatch
 from shardloom._result_schema import arrow_table, python_rows, schema_fields
 from shardloom.errors import ShardLoomProtocolError
 from shardloom.models import OutputEnvelope
-from shardloom.query import VortexWorkflowExecutionReport
+from shardloom.query import Result
 
 
 FORMAT = "vortex.dtype.serde.v1"
@@ -65,7 +65,7 @@ class TemporalResultDeliveryTests(unittest.TestCase):
         for payload in ({"result_values_json": json.dumps(raw)},
                         {"result_jsonl": "".join(json.dumps(row) + "\n" for row in raw)}):
             with self.subTest(payload=next(iter(payload))):
-                report = VortexWorkflowExecutionReport(None, "collect", OutputEnvelope.from_field_mapping({
+                report = Result(None, "collect", OutputEnvelope.from_field_mapping({
                     **payload, "result_schema_json": wire, "result_schema_format": FORMAT,
                 }))
                 self.assert_exact_objects(report.python_objects, tuple(expected))

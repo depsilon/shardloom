@@ -131,12 +131,8 @@ PUBLIC_DOC_MARKERS = {
         "https://shardloom.io/field-guide/python-surface/",
         "https://shardloom.io/field-guide/runtime-and-io/",
     ),
-    "python/README.md": (
-        DOC_PATH.as_posix(),
-        "front_door_parity_matrix",
-        "front_door_semantic_surface_matrix",
-        "performance_equivalence_claim_allowed",
-    ),
+    # Application docs/snippet/release facts are validated by check_v1_docs_productization.
+    # Detailed scope remains in DOC_PATH and the source/evidence checks below.
     "docs/release/public-status-matrix.md": (
         DOC_PATH.as_posix(),
         "Scoped local CSV, JSON/JSONL/NDJSON, generated rows, local Vortex",

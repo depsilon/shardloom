@@ -47,7 +47,13 @@ class UserSurfaceRuntimeGapInventoryTests(unittest.TestCase):
         )
 
         self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertGreaterEqual(report["inventory_row_count"], 20)
+        self.assertGreater(report["inventory_row_count"], 0)
+        self.assertEqual(report["published_guide_contract"]["status"], "passed")
+        self.assertEqual(report["published_guide_contract"]["blockers"], [])
+        self.assertEqual(
+            report["published_guide_contract"]["authority"],
+            "docs/release/package-channel-readiness-matrix.json#user_guide",
+        )
         self.assertTrue(report["acceptance_summary"]["all_inventory_rows_classified"])
         self.assertTrue(
             report["acceptance_summary"]["all_inventory_rows_no_fallback_no_external_engine"]

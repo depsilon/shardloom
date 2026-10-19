@@ -59,11 +59,7 @@ PUBLIC_DOC_MARKERS = {
     "README.md": (
         "https://shardloom.io/field-guide/runtime-and-io/",
     ),
-    "python/README.md": (
-        DOC_PATH.as_posix(),
-        "local_output_sink_scope_report",
-        "write_vortex",
-    ),
+    # Application docs/snippet/release facts are validated by check_v1_docs_productization.
     "docs/release/public-status-matrix.md": (
         DOC_PATH.as_posix(),
         "local output/sink scope",

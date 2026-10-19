@@ -9,8 +9,11 @@ from __future__ import annotations
 import importlib
 import json
 import math
+import os
+import sys
 import threading
 import time
+import weakref
 from collections.abc import Mapping
 
 from .execution_resources import ExecutionResources
@@ -21,6 +24,32 @@ def normalize_transport(value: object) -> str:
     if value not in ("subprocess", "native"):
         raise ValueError("transport must be 'subprocess' or 'native'")
     return value
+
+
+def application_transport(transport=None, *, binary=None, repo_root=None, env=None):
+    """Choose once from installation configuration, never from execution success.
+
+    Native Linux/macOS packages are the ordinary path. Windows and explicitly
+    configured CLI/source installations use process isolation. This function
+    does not load the extension, inspect datasets, or select any resources.
+    """
+    if transport is not None:
+        return normalize_transport(transport)
+    environment = dict(os.environ)
+    if env is not None:
+        environment.update(env)
+    if (binary is not None or repo_root is not None
+            or environment.get("SHARDLOOM_BIN") or environment.get("SHARDLOOM_REPO_ROOT")):
+        return "subprocess"
+    if sys.platform in {"linux", "darwin"}:
+        return "native"
+    if sys.platform == "win32":
+        return "subprocess"
+    from .errors import ShardLoomInstallationError
+    raise ShardLoomInstallationError(
+        f"No default ShardLoom installation contract exists for platform {sys.platform!r}. "
+        "Select an explicitly supported native build or CLI installation."
+    )
 
 
 def validate_timeout(value):
@@ -44,10 +73,9 @@ def _remaining(deadline):
 def load_native():
     try:
         return importlib.import_module("shardloom._native")
-    except ModuleNotFoundError as error:
-        if error.name != "shardloom._native":
-            raise
-        raise ImportError(
+    except ImportError as error:
+        from .errors import ShardLoomInstallationError
+        raise ShardLoomInstallationError(
             "transport='native' requires the optional shardloom._native extension; "
             "install a package containing that extension or explicitly select "
             "transport='subprocess'. No alternate transport was started."
@@ -114,10 +142,19 @@ def _failure(error, *, check):
     return envelope
 
 
+def _checked_native_call(function, *args, **kwargs):
+    try:
+        return function(*args, **kwargs)
+    except Exception as error:
+        return _failure(error, check=True)
+
+
 class NativeBackend:
     def __init__(self, allocation: ExecutionResources | None, limits, timeout=None):
         self.module = load_native()
         self.timeout = validate_timeout(timeout)
+        self._plans = weakref.WeakSet()
+        self._plans_lock = threading.Lock()
         # A shared client's administrator policy persists. Per-context/per-call
         # ceilings accompany every operation but cannot change the client policy.
         self.session = self.module.Session(
@@ -127,7 +164,7 @@ class NativeBackend:
         )
 
     def command(self, args):
-        return self.session.command(args, timeout=self.timeout)
+        return _checked_native_call(self.session.command, args, timeout=self.timeout)
 
     def close(self):
         self.session.close()
@@ -135,16 +172,27 @@ class NativeBackend:
     def cancel(self):
         self.session.cancel()
 
+    def release_prepared(self):
+        """Release native plan preparation without closing source/result owners."""
+        with self._plans_lock:
+            states = list(self._plans)
+        for state in states:
+            with state.lock:
+                if state.plan is not None:
+                    _checked_native_call(state.plan.release_prepared)
+                state.key, state.plan = None, None
+
     def from_arrow(self, producer, allocation):
-        from .query import VortexWorkflowExecutionReport
+        from .query import Result
+        from .session import SessionSqlResult
 
         # Only our exact wrappers have a trusted retained-owner accessor. Do not
         # inspect arbitrary producer attributes before native resource admission.
         producer_type = type(producer)
         retained = (producer.native_result
-                    if producer_type is VortexWorkflowExecutionReport or producer_type is NativeResultBatch
+                    if any(producer_type is candidate for candidate in (Result, NativeResultBatch, SessionSqlResult))
                     else None)
-        return self.session.from_arrow(
+        return _checked_native_call(self.session.from_arrow,
             producer if retained is None else retained,
             resources=native_resources(self.module, allocation),
             timeout=self.timeout,
@@ -154,13 +202,13 @@ class NativeBackend:
         from ._input_schema import normalize_schema
 
         fields = None if schema is None else _native_fields(normalize_schema(schema))
-        return self.session.from_rows(
+        return _checked_native_call(self.session.from_rows,
             rows, fields=fields, resources=native_resources(self.module, allocation),
             timeout=self.timeout,
         )
 
     def from_vortex_ipc(self, array_message, dtype_message, allocation):
-        return self.session.from_vortex_ipc(
+        return _checked_native_call(self.session.from_vortex_ipc,
             array_message, dtype_message=dtype_message,
             resources=native_resources(self.module, allocation), timeout=self.timeout,
         )
@@ -224,6 +272,8 @@ class NativeBackend:
                 files.append((reference, format_name, schema))
                 declarations.append((reference, format_name, schema))
         state = request.get("_native_plan") or NativePlanState()
+        with self._plans_lock:
+            self._plans.add(state)
         key = (id(self), statement, tuple(declarations), spill)
         with state.lock:
             if state.key == key:
@@ -295,6 +345,8 @@ class NativeBackend:
             resources=allocation, spill=request.get("spill"),
         )
         state = request.get("_native_plan") or NativePlanState()
+        with self._plans_lock:
+            self._plans.add(state)
         key = (id(self), "workflow", tuple(args))
         with state.lock:
             if state.key == key:
@@ -372,6 +424,14 @@ class NativeResultBatch:
         self.index = index
 
     @property
+    def schema(self):
+        return self.result_schema
+
+    def to_rows(self):
+        """Explicitly convert this provisional native batch to Python values."""
+        return self.python_objects
+
+    @property
     def result_schema(self):
         return _batch_schema(self.native_result.schema)
 
@@ -417,15 +477,38 @@ class NativeBatchIterator:
         self._index = 0
         self._closed = False
         self._deadline = None
+        self._client = None
+        self._cancelled = threading.Event()
+        self._iteration_lock = threading.RLock()
+        self._pulling = False
         self.report = None
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self._closed:
+        with self._iteration_lock:
+            self._pulling = True
+            try:
+                return self._next_batch()
+            finally:
+                self._pulling = False
+
+    def _raise_if_cancelled(self):
+        # Cancellation is a failed execution, including when it closed a paused
+        # iterator. Report it once before the ordinary closed-stream sentinel.
+        if self._cancelled.is_set():
+            self._cancelled.clear()
+            from .errors import _cancelled_error
+            raise _cancelled_error(("run",), forced=False)
+
+    def _next_batch(self):
+        if self._closed and not self._cancelled.is_set():
             raise StopIteration
         try:
+            self._raise_if_cancelled()
+            if self._client is not None:
+                self._client._ensure_open()
             if self._stream is None:
                 if self._backend.timeout is not None:
                     self._deadline = time.monotonic() + self._backend.timeout
@@ -435,11 +518,16 @@ class NativeBatchIterator:
                     timeout=_remaining(self._deadline),
                 )
             if self._deadline is not None and time.monotonic() >= self._deadline:
-                raise TimeoutError("native execution deadline exceeded; no fallback execution was attempted")
+                from .errors import ShardLoomTimeoutError
+                raise ShardLoomTimeoutError(
+                    ("shardloom._native", "run"), self._backend.timeout,
+                    message="native execution deadline exceeded; no fallback execution was attempted",
+                )
             if self._pending is None:
                 try:
                     self._pending = next(self._stream)
                 except StopIteration:
+                    self._raise_if_cancelled()
                     from .client import PublicWorkflowExecution
                     fields = self._stream.report
                     if fields is None:
@@ -448,6 +536,7 @@ class NativeBatchIterator:
                     self.close()
                     raise
                 self._offset = 0
+            self._raise_if_cancelled()
             length = min(self._batch_rows, self._pending.row_count - self._offset)
             batch = self._pending.slice(self._offset, length)
             self._offset += length
@@ -467,11 +556,30 @@ class NativeBatchIterator:
             raise
 
     def close(self):
-        if not self._closed:
-            self._closed = True
-            self._pending = None
-            if self._stream is not None:
-                self._stream.close()
+        with self._iteration_lock:
+            if not self._closed:
+                self._closed = True
+                self._pending = None
+                try:
+                    if self._stream is not None:
+                        self._stream.close()
+                finally:
+                    if self._client is not None:
+                        with self._client._native_backend_lock:
+                            self._client._batch_streams.discard(self)
+
+    def cancel(self):
+        """Cancel demand without blocking a running producer callback."""
+        if self._closed:
+            return
+        self._cancelled.set()
+        if self._pulling:
+            return
+        if self._iteration_lock.acquire(blocking=False):
+            try:
+                self.close()
+            finally:
+                self._iteration_lock.release()
 
     def __enter__(self):
         return self

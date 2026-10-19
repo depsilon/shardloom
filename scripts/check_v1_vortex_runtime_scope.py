@@ -64,11 +64,7 @@ PUBLIC_DOC_MARKERS = {
     "README.md": (
         "https://shardloom.io/field-guide/runtime-and-io/",
     ),
-    "python/README.md": (
-        DOC_PATH.as_posix(),
-        "local_vortex_primitive_route_report",
-        "v1 Vortex runtime scope",
-    ),
+    # Application docs/snippet/release facts are validated by check_v1_docs_productization.
     "docs/release/public-status-matrix.md": (
         DOC_PATH.as_posix(),
         "Scoped local Vortex primitives",

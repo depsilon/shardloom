@@ -7,7 +7,7 @@ import sys
 from typing import Mapping
 
 from ._compat import dataclass
-from .errors import NO_FALLBACK_REASON
+from .errors import NO_FALLBACK_REASON, ShardLoomError
 from .models import Diagnostic, FallbackStatus
 
 BYTES_PER_GIB = 1 << 30
@@ -16,7 +16,7 @@ MAX_EXECUTION_LANES = sys.maxsize * 2 + 1
 RESOURCE_ORIGINS = frozenset({"execution_call", "context", "session", "environment", "platform"})
 
 
-class ShardLoomResourceConfigurationError(ValueError):
+class ShardLoomResourceConfigurationError(ShardLoomError, ValueError):
     """Invalid or incomplete allocation, rejected before any input is inspected."""
 
     def __init__(self, message: str) -> None:

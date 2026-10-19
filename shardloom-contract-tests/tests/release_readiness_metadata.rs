@@ -150,8 +150,19 @@ fn python_package_metadata_is_discoverable_without_runtime_dependencies() {
 
     let readme = read_repo_file("python/README.md");
     assert!(readme.contains("Vortex-native"));
-    assert!(readme.contains("no-fallback"));
-    assert!(readme.contains("evidence-certified local compute engine"));
+    for required in [
+        "https://shardloom.io/field-guide/",
+        "https://shardloom.io/field-guide/reference",
+        "<!-- BEGIN SHARDLOOM RELEASE -->",
+        "<!-- END SHARDLOOM RELEASE -->",
+        "<!-- BEGIN SHARDLOOM QUICKSTART -->",
+        "<!-- END SHARDLOOM QUICKSTART -->",
+    ] {
+        assert!(
+            readme.contains(required),
+            "missing Python README marker or link {required}"
+        );
+    }
 }
 
 #[test]
@@ -866,7 +877,7 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(snapshot.contains("provenance_dry_run_performed: true"));
     assert!(snapshot.contains("sbom_checksum_manifest_generated: true"));
 
-    let first_ten = read_repo_file("docs/getting-started/first-10-minutes.md");
+    let first_ten = read_repo_file("docs/release/local-source-rehearsal.md");
     assert!(first_ten.contains("scripts\\release_dry_run_proof.py"));
     assert!(first_ten.contains("target/release-dry-run-proof/transcript.json"));
     assert!(first_ten.contains(".from_rows([{'id': 1, 'label': 'alpha'}])"));
@@ -1104,36 +1115,6 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         assert!(
             doc.contains(required),
             "missing universal compatibility scoreboard doc field {required}"
-        );
-    }
-
-    let python_readme = read_repo_file("python/README.md");
-    for required in [
-        "ctx.compatibility_scoreboard()",
-        "object_store_s3_gcs_adls",
-        "runtime-supported",
-        "smoke-supported",
-        "report-only",
-        "blocked",
-        "It is a capability map only",
-        "source_free_generated_output_contract",
-        "local_output_only_generated_source_posture",
-        "object_store_admission_ladder",
-        "byte_range_read",
-        "authenticated_read",
-        "table_format_boundary_matrix",
-        "table_metadata_read",
-        "snapshot/time-travel",
-        "object-store coupling",
-        "database_warehouse_boundary_matrix",
-        "sqlite_file",
-        "jdbc_odbc",
-        "databricks_sql",
-        "performance, SQL/DataFrame, object-store/lakehouse, Foundry, or package claim",
-    ] {
-        assert!(
-            python_readme.contains(required),
-            "missing Python compatibility scoreboard field {required}"
         );
     }
 
@@ -2420,13 +2401,9 @@ fn gar_runtime_4s_5q_production_usability_gate_is_local_and_claim_safe() {
         );
     }
 
-    let start_page = read_repo_file("website-src/src/pages/start.astro");
-    assert!(start_page.contains("release_dry_run_proof.py"));
-    assert!(start_page.contains("check_production_usability_gate.py"));
-
-    let install = read_repo_file("docs/getting-started/install.md");
-    assert!(install.contains("target/production-usability-gate.json"));
-    assert!(install.contains("public_release_claim_allowed=false"));
+    let rehearsal = read_repo_file("docs/release/local-source-rehearsal.md");
+    assert!(rehearsal.contains("scripts\\release_dry_run_proof.py"));
+    assert!(rehearsal.contains("scripts\\check_production_usability_gate.py"));
 
     let package_use_case = read_repo_file("docs/use-cases/use-case-index.yml");
     assert!(package_use_case.contains("production_usability_gate_status"));
@@ -3419,16 +3396,6 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         );
     }
 
-    let python_readme = read_repo_file("python/README.md");
-    assert!(python_readme.contains("generated_source_contract"));
-    assert!(python_readme.contains("generated_source_api_admission"));
-    assert!(python_readme.contains("generated_source_evidence_alignment"));
-    assert!(python_readme.contains("openlineage_facet_mapping"));
-    assert!(python_readme.contains("ctx.from_rows("));
-    assert!(python_readme.contains("ctx.range("));
-    assert!(python_readme.contains("ctx.sequence("));
-    assert!(python_readme.contains("no_dataset_smoke_separate_from_generated_output"));
-
     let python_context = read_repo_file("python/src/shardloom/context.py");
     assert!(python_context.contains("GeneratedSourceCertificateContract"));
     assert!(python_context.contains("GeneratedSourceApiAdmissionMatrix"));
@@ -4014,13 +3981,14 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
 
     let website_python_surface = read_repo_file("website/field-guide/python-surface/index.html");
     for required in [
-        "Python",
+        "/field-guide/start-local-proof",
+        "/field-guide/runtime-and-io",
+        "/field-guide/resources",
+        "/field-guide/development",
         "sl.context",
         "ctx.read",
         "result.envelope",
-        "fallback_attempted",
-        "external_engine_invoked",
-        "fallback execution",
+        "result.python_objects",
     ] {
         assert!(
             website_python_surface.contains(required),
@@ -4094,7 +4062,7 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
 }
 
 #[test]
-fn field_guide_cleanup_remains_generated_and_claim_safe() {
+fn field_guide_ownership_and_generated_facts_remain_claim_safe() {
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1A"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1B"));
@@ -4164,15 +4132,31 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
         "field-guide.json",
         "docsUseCaseGeneratedRoot",
         "parseYaml",
-        "durableDocsPages",
-        "Read data, transform or query it, and deliver the result through one Vortex-native pipeline.",
-        "no-fallback",
+        "projectRelease",
+        "projectExamples",
+        "examples/paid-orders/quickstart.py",
+        "examples/paid-orders/context-result.py",
+        "public-guide.json",
     ] {
         assert!(
             content_sync.contains(required),
             "missing Astro content sync field {required}"
         );
     }
+    for retired_template in ["durableDocsPages", "function docsPage("] {
+        assert!(
+            !content_sync.contains(retired_template),
+            "content sync must not restore narrative template {retired_template}"
+        );
+    }
+    let authored_guide = read_repo_file("website-src/src/content/docs/field-guide/index.mdx");
+    assert!(authored_guide.contains("<GuideVersion />"));
+    assert!(authored_guide.contains("/field-guide/compute-flow"));
+    assert!(authored_guide.contains("/field-guide/execution-routes"));
+    let development_guide =
+        read_repo_file("website-src/src/content/docs/field-guide/development.mdx");
+    assert!(development_guide.contains("import { developmentExample }"));
+    assert!(development_guide.contains("<Code code={developmentExample}"));
     for required in [
         "https://benchmark.clickhouse.com/",
         "does not present a public ranking.",
@@ -4223,7 +4207,9 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
         "Get started",
         "Execution model",
         "Data lifecycle",
-        "Read the evidence",
+        "id=\"read-the-evidence\"",
+        "/field-guide/reference",
+        "/field-guide/start-local-proof",
     ] {
         assert!(
             field_guide.contains(required),
@@ -4232,11 +4218,12 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
     }
     for required in [
         "Python",
-        "ctx = sl.context",
+        "sl.context",
         "ctx.read",
         "result.envelope",
-        "fallback_attempted",
-        "external_engine_invoked",
+        "result.python_objects",
+        "/field-guide/start-local-proof",
+        "/field-guide/development",
     ] {
         assert!(
             python_surface.contains(required),
@@ -4244,9 +4231,13 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "Support and limitations",
-        "production support",
-        "Spark displacement",
+        "Capabilities and known issues",
+        "id=\"platforms-and-packages\"",
+        "id=\"runtime-limits\"",
+        "id=\"known-issues\"",
+        "/field-guide/start-local-proof#install",
+        "/field-guide/troubleshooting",
+        "/field-guide/benchmark-methodology",
         "fallback engine",
     ] {
         assert!(
@@ -4539,7 +4530,32 @@ fn field_guide_cleanup_remains_generated_and_claim_safe() {
 
     let pagefind_entry = read_repo_file("website/pagefind/pagefind-entry.json");
     assert!(pagefind_entry.contains("\"version\":\"1.5.2\""));
-    assert!(pagefind_entry.contains("\"page_count\":9"));
+    let guide_sources = repo_root().join("website-src/src/content/docs/field-guide");
+    let mut searchable_pages = 0;
+    for entry in fs::read_dir(guide_sources).expect("authored guide directory") {
+        let path = entry.expect("guide entry").path();
+        if path.extension().is_some_and(|extension| extension == "mdx") {
+            let source = fs::read_to_string(&path).expect("authored guide source");
+            let included = !source.lines().any(|line| line.trim() == "pagefind: false");
+            let slug = path
+                .file_stem()
+                .expect("guide slug")
+                .to_str()
+                .expect("UTF-8 slug");
+            let output = if slug == "index" {
+                "website/field-guide/index.html".to_string()
+            } else {
+                format!("website/field-guide/{slug}/index.html")
+            };
+            assert_eq!(
+                read_repo_file(output).contains("data-pagefind-body"),
+                included
+            );
+            searchable_pages += usize::from(included);
+        }
+    }
+    assert!(searchable_pages > 0);
+    assert!(pagefind_entry.contains(&format!("\"page_count\":{searchable_pages}")));
 
     let headers = read_repo_file("website/_headers");
     for required in [
@@ -4707,11 +4723,6 @@ fn gar_0033_a_etl_workflow_capability_matrix_remains_claim_safe() {
         );
     }
 
-    let python_readme = read_repo_file("python/README.md");
-    assert!(python_readme.contains("ctx.etl_workflow_matrix()"));
-    assert!(python_readme.contains("object_store_runtime"));
-    assert!(python_readme.contains("does not run production"));
-
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0033-A"));
 
@@ -4846,11 +4857,6 @@ fn gar_0034_a_live_hybrid_fabric_gate_remains_claim_safe() {
         );
     }
 
-    let python_readme = read_repo_file("python/README.md");
-    assert!(python_readme.contains("live_hybrid_fabric_gate_rows"));
-    assert!(python_readme.contains("GAR-0034-A live/hybrid fabric"));
-    assert!(python_readme.contains("claim_gate_status=not_claim_grade"));
-
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0034-A"));
 
@@ -4981,10 +4987,6 @@ fn gar_0035_a_rest_runtime_unsupported_contract_remains_claim_safe() {
         );
     }
 
-    let python_readme = read_repo_file("python/README.md");
-    assert!(python_readme.contains("rest_runtime_unsupported_rows"));
-    assert!(python_readme.contains("GAR-0035-A REST runtime unsupported gate"));
-
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0035-A"));
 
@@ -5097,12 +5099,6 @@ fn gar_0037_a_wrapper_connector_registry_remains_claim_safe() {
             "missing Python wrapper registry accessor {required}"
         );
     }
-
-    let python_readme = read_repo_file("python/README.md");
-    assert!(python_readme.contains("GAR-0037-A"));
-    assert!(python_readme.contains("ctx.wrapper_connector_registry()"));
-    assert!(python_readme.contains("SQLAlchemy"));
-    assert!(python_readme.contains("claim_gate_status=not_claim_grade"));
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0037-A"));

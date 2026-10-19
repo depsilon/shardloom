@@ -289,6 +289,11 @@ impl PreparedNativeOperation {
         input: Option<NativeArrowInput<'_>>,
         reused: bool,
     ) -> Result<Vec<(String, String)>> {
+        let targets = [workflow::NativeVortexPrimitiveRowExportTarget {
+            role: "primary",
+            path: path.to_path_buf(),
+            format,
+        }];
         match &self.kind {
             PreparedKind::Relational(operation) => {
                 let written = if let Some(input) = input {
@@ -301,12 +306,24 @@ impl PreparedNativeOperation {
                 } else {
                     operation.write_controlled(path, format, overwrite, cancellation)?
                 };
-                Ok(super::written_fields(&written, reused))
+                let mut fields = super::written_fields(&written, reused);
+                workflow::append_native_vortex_primitive_row_export_target_fields(
+                    &mut fields,
+                    &targets,
+                    std::slice::from_ref(&written.output),
+                );
+                Ok(fields)
             }
             PreparedKind::Primitive(operation) => {
                 no_streaming_input(input.is_some())?;
                 let report = operation.write(path, format, overwrite, cancellation)?;
-                Ok(operation.written_fields(&report, self.resources, reused))
+                let mut fields = operation.written_fields(&report, self.resources, reused);
+                workflow::append_native_vortex_primitive_row_export_target_fields(
+                    &mut fields,
+                    &targets,
+                    std::slice::from_ref(&report),
+                );
+                Ok(fields)
             }
         }
     }

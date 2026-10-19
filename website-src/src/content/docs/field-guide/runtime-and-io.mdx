@@ -1,471 +1,94 @@
 ---
-title: "Runtime and I/O"
-description: "Shipped native execution, preparation reuse, format support, and result limits."
-sidebar: {"label":"Runtime and I/O","order":3}
+title: "Operations, types and formats"
+description: "Choose an input or writer and understand its exact type and publication boundary."
+sidebar: {label: "Reading and writing"}
 ---
 
+import GuideVersion from '../../../components/GuideVersion.astro';
 
-Python, SQL, DataFrame-style calls, and the CLI lower admitted work into the same
-ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
-writers around that middle; they do not select a different query engine.
+<GuideVersion />
 
-Current capabilities, reviewed October 17, 2026.
+Python, SQL and the CLI describe work for the same native engine. File formats
+are readers and writers around that engine. Start with the
+[write-and-reopen example](/field-guide/start-local-proof#write-and-reopen).
 
-## Native Execution
+## Native execution
 
-Supported operations use exact metadata, segment pruning, encoded reductions, weighted dictionary
-aggregation, exact DISTINCT, and late payload gathering. Sparse dictionary selections decode only
-referenced values. Coverage depends on the operation, type, and physical layout.
+Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, ordering,
+joins, sets, windows and subqueries use native operators. Exact metadata,
+segment pruning and encoded kernels avoid work where the data and expression
+permit it. Coverage depends on types and options, not just an operator's name.
 
-Admitted text grouping retains input-backed dictionary strings, uses compact exact-count state,
-and shares partial construction between serial and bounded workers. Transformed text grouping
-can overlap bounded dictionary preparation with native input progress and ordered consumption.
-See the [implementation and measured tradeoffs](https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md).
+| Task | Scope and semantic detail |
+| --- | --- |
+| Filter, project, group, join, order | Shared typed binding and NULL semantics. SQL `NULLS FIRST`/`NULLS LAST` and Python `sort(..., nulls="first"/"last")` place nulls independently of ascending order. |
+| DISTINCT, duplicate selection/masks, tail, sampling, replacement, melt, rolling | Admitted scalar and static nested shapes compose with relational stages. Sampling weights, casts, rolling aggregates and nested arithmetic have operation-specific restrictions. |
+| Pivot and pivot table | Output columns bind from observed values during execution. `pivot()` and `pivot_table(aggfunc="first")` use first-unique semantics and reject conflicting cells; SQL's explicit first selects the first row, including NULL. |
+| Nested keys | List, FixedSizeList and Struct keys require matching recursive schemas, field names/order, widths and logical metadata, except nullability. |
+| Typed expressions | Explicit casts, scoped binary/calendar functions and exact decimal arithmetic. Decimal key precision/scale must match; explicit downscaling requires zero discarded digits. |
 
-The source-only [shared text aggregation batch](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-aggregation-2026-10-17.md)
-defers independent extrema ownership until adoption, accelerates domain delimiter search,
-reuses native dictionary lookups, narrows exact partial counts when their domains fit,
-and routes admitted typed compound keys with one complete-key buffer. Larger counts
-and other native key shapes keep their existing representations. Five focused comparisons,
-all 4,827 public cases, fresh ingestion, all 43 queries and 18 format/workflow
-cohorts pass local acceptance. PR #1566 also passes all 44 hosted checks,
-installed-wheel checks and served-page verification. Its matched whole-workload
-follow-up measures a 0.46% improvement, so the five focused gains do not establish
-a material combined speedup. No new user settings are required.
-
-The subsequent source-only [native text reconstruction and validation change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-reconstruction-2026-10-17.md)
-shares checked UTF-8 validity between native decoding and its consumers. Its matched
-43-query comparison decreases the sum of per-query two-run means from 67.454 to
-58.139 seconds of engine execution (13.81%), with all 172 results and schemas
-matching. Both paired totals improve and no query crosses the predefined material
-regression threshold. This is a bounded comparison, not a single-pass Full43 result;
-the complete report retains slower observations and the earlier getter-only
-attempt that missed its retention gate. All 100 direct binding checks, 4,827 public
-cases and 18 format/workflow cohorts pass local acceptance, including 704 native
-and 704 independent oracle records. Published 0.6.0 packages remain unchanged.
-
-The next source-only [shared numeric and dictionary changes](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-shared-execution-2026-10-17.md)
-bind native integer access once, compact complete numeric-pair records, and reduce
-admitted dictionary measures in bounded workers. Their matched 43-query sum of
-per-query two-run means decreases from 57.310 to 54.899 engine seconds (4.21%),
-with both paired totals improved and all complete results and schemas matching.
-The original 5% gate remains recorded as failed; the maintainer subsequently
-accepted improvements greater than 3%. Failed resource-efficiency experiments
-are excluded, and published 0.6.0 packages remain unchanged.
-
-The subsequent source-only [native text filter/projection change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-scan-reuse-2026-10-18.md)
-reuses an already decoded text range within the same query. Its matched all-43
-sum of per-query two-run means decreases from 57.399 to 55.346 engine seconds
-(3.58%), passing the prospectively declared greater-than-3% gate. Both paired
-totals improve, all 172 complete results and schemas match, and no query crosses
-the predefined material-regression rule. All 4,827 public cases, 100 direct
-binding methods and 18 format/workflow cohorts pass local acceptance. The
-report preserves the rejected mixed-key experiment and all slower observations.
-The existing input and published 0.6.0 packages remain unchanged.
-
-Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
-provider-backed join workflows execute today. The 0.6.0 packages compose eight admitted
-flat-scalar unary families—DISTINCT, duplicate removal and masks, tail, sampling, scalar
-rewrites, melt, and rolling—with native relational stages and all eight local writers.
-Operations consume the preceding stage's rows and column names while retaining source
-declarations and the operation's CPU/memory allocation. See the
-[composition scope and complete-result evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-unary-composition-2026-10-02.md).
-The 0.6.0 packages also carry bounded static list/struct payloads through admitted
-relational stages and ordered/repeated explode. Vortex, JSON, JSONL, Arrow IPC, Parquet
-and Avro accept representable nested output. CSV translates nested values to
-quoted JSON text cells; it does not preserve their logical dtype. ORC denies
-nested output before publication. See the
-[nested composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-composition-2026-10-02.md).
-Scalar pivot and pivot-table stages also compose through the same native plan.
-Their observed columns bind during execution, including independent domains for
-correlated inner rows; inspection remains inert. All eight local writers accept
-representable scalar results within the existing field and state budgets. See the
-[dynamic pivot contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-dynamic-pivot-composition-2026-10-03.md).
-The published engine admits static List, FixedSizeList and Struct pivot index,
-domain and selected-value roles. Nested
-cells support first, first_unique, count, min and max; first_unique accepts
-repeated equal complete values and rejects conflicts. Nested extrema skip NULL
-parents and use the shared child-NULL ordering. Python pivot() and
-pivot_table(aggfunc="first") retain their first_unique alias, while SQL's
-explicit first selects the first row, including NULL. Nested SUM/MEAN,
-nested-index margins remain unsupported; nested MIN/MAX
-margins require a UTF8 index. Nested cells accept absent or NULL fill only.
-Representable nested results use Vortex, Parquet,
-Arrow IPC, Avro, JSON and JSONL; CSV translates nested values to quoted JSON
-text, and ORC rejects nested output. Existing 128-field, collection and memory
-limits apply. Complete local workflow/regression acceptance and all 39 hosted
-checks passed before PR #1525 merged.
-See the [nested pivot state contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-pivot-state-2026-10-06.md).
-Relational file/resident-memory pivots also implement an explicit
-[native spill strategy](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state).
-Sparse state, exact lookups, native runs and bounded output share the query grant
-and disk quota while preserving existing scalar, typed and nested semantics.
-Complete local acceptance and independent packet inspection
-[pass](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-pivot-pressure-2026-10-08.md).
-PR #1534 merged after all 39 hosted checks passed, with actual preview/production
-search and guide verification. The direct prepared unary API remains resident.
-The 0.6.0 packages admit finite streaming pivot input through the later
-[composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md).
-Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
-microsecond timestamps can travel as payloads, including nested leaves. Their
-flat equality, hashing and ordering are admitted through relational joins, sets,
-groups, windows and subqueries, with COUNT/COUNT DISTINCT/MIN/MAX and scoped
-comparisons and expressions; Decimal key precision and scale must match.
-Nested keys follow the subsequent contract below. The 0.6.0
-packages admit typed literals, explicit CAST/TRY_CAST, exact decimal
-arithmetic/rounding and scoped binary/calendar functions through the shared
-native expression binder. Decimal arithmetic output metadata binds before
-execution; explicit decimal downscaling requires zero discarded digits. Key
-compatibility still requires matching decimal precision/scale and preserves
-distinct temporal types. Wider analytic-window semantics, broader adapters
-and state spill remain separate. See the [typed expression contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-expressions-2026-10-03.md).
-Flat typed values retain exact logical types through duplicate selection and
-masks, tail/sample, replacement/forward-fill, lossless melt, rolling COUNT and
-scoped pivot first/first-unique/COUNT. Exact Python literals lower into the same
-native declarations. Primitive predicate and numeric sampling-weight limits
-remain; see the [typed unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-unary-2026-10-03.md).
-See the [typed key contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md).
-Binary supports all eight writers; ORC rejects decimal and temporal payloads.
-Text output uses explicit typed encodings and does not preserve native logical
-types. See the [typed payload contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-payloads-2026-10-03.md).
-The [nested key and retained-state contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-keys-state-2026-10-04.md)
-extends static List/FixedSizeList/Struct equality, hashing and ordering through
-the existing relational kernels, with COUNT/COUNT DISTINCT/MIN/MAX and scoped
-comparisons, NULL tests and CASE/COALESCE/NULLIF selection. Exact recursive key
-schemas must match except for nullability. Retained nested values support
-DISTINCT/duplicate selection and masks, tail, sampling, parent forward fill,
-lossless same-shape melt and rolling COUNT. These finite nested/typed units are
-merged with complete local and hosted check evidence. General Variant/extensions,
-nested arithmetic and wider operator state spill remain separate boundaries.
-The subsequent nested pivot scope is described above.
-The 0.6.0 packages also admit computed aggregate arguments and exact decimal
-SUM/AVG/MIN/MAX through existing aggregate, rolling and scalar pivot state.
-Decimal totals remain exact; inexact averages and final overflow fail explicitly.
-Native ARRAY/STRUCT constructors preserve admitted logical children. File,
-typed-memory and source-free inputs reach the same Vortex-native engine, while
-Python conversions consume its typed results only at the requested output boundary.
-Analytic aggregates and FIRST_VALUE/LAST_VALUE/NTH_VALUE admit explicit ROWS,
-GROUPS and RANGE frames and exclusions through the same native window state.
-Bounded RANGE requires one compatible ordering key; named windows, variable
-offsets, calendar-month intervals and IGNORE NULLS
-remain outside the [frame contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-analytic-frames-2026-10-05.md).
-The [window pressure contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-window-pressure-2026-10-08.md)
-adds explicit native spill for the existing analytic functions and frames, plus
-one finite single-use batch source. Complete local and hosted acceptance passed
-before [PR #1533](https://github.com/depsilon/shardloom/pull/1533) merged.
-The [analytic-frame acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md)
-records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
-executions. The [fresh release UAT](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-09.md)
-adds complete input/output workflow comparisons. These suites overlap and do
-not establish a comparative speedup.
-General joins, set operations, analytic windows and broader subquery shapes still have native coverage
-gaps. See the [front-door contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md)
-and [remaining family inventory](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory).
+For exact option and type contracts, see the [SQL reference](/field-guide/sql),
+[typed expressions](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-typed-expressions-2026-10-03.md),
+[unary composition](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-unary-composition-2026-10-02.md),
+and [nested pivot semantics](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-nested-pivot-state-2026-10-06.md).
+Nested SUM/MEAN and nested-index margins are unsupported; nested MIN/MAX margins
+require a UTF8 index, and nested cells accept absent or NULL fill only.
 
 ## Scalar subqueries
 
-The published engine admits scalar-value subqueries through
-SQL `(SELECT ...)` and Python `sl.scalar_subquery(...)`. Use them to put one query result into an expression:
+Scalar subqueries, membership, EXISTS and quantified predicates have explicit
+cardinality and NULL contracts. Inspection does not execute a dynamic expression
+to discover its output. See the [published scalar-subquery contract](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-scalar-subqueries-2026-10-05.md).
+Later finite-streaming extensions are described only in [development](/field-guide/development).
 
-```sql
-SELECT value, (SELECT outer.value + 10 AS adjusted) AS adjusted
-FROM range(1, 4)
-```
+## Local formats
 
-This returns values 1, 2 and 3 with adjusted values 11, 12 and 13. The inner
-query must bind one static output column. Zero rows return a typed NULL, one
-row returns its value, and multiple rows raise a cardinality error even when
-their values are equal. Correlation uses explicit `outer.<column>` references.
-CASE/COALESCE execute only selected branches; every branch still requires syntax,
-source, type and schema admission. Dynamic-pivot-dependent scalar schemas and
-lateral relations remain unsupported. Existing dtype, writer and resource limits
-apply. See the [Python example](https://github.com/depsilon/shardloom/blob/main/python/README.md),
-[scalar-subquery contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-scalar-subqueries-2026-10-05.md)
-and [acceptance evidence](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-scalar-subqueries-full43-2026-10-05.md).
+`ctx.read(path)` infers the adapter; named helpers make the format explicit.
+Published release builds include the listed local readers. Source builds need
+their matching features. Network and catalog protocols are not implicit readers.
 
-## Local Formats
-
-| Format | Input | Output |
+| Boundary | Formats or types | Practical restriction |
 | --- | --- | --- |
-| Vortex | Native files; admitted local manifests and partitions | Highest-fidelity native persistence |
-| Parquet | Feature-gated local reader | Feature-gated typed writer |
-| Arrow IPC / Feather | Feature-gated local reader | Feature-gated Arrow IPC writer |
-| Avro | Feature-gated local reader | Feature-gated writer; type restrictions apply |
-| ORC | Feature-gated local reader | Feature-gated writer; nested and unrepresentable unsigned values remain unsupported |
-| CSV | Local inference or declared schema; quoted multiline records | Text output with explicit materialization |
-| JSON | Local JSON input with declared ingestion semantics | One top-level JSON array |
-| JSONL / NDJSON | Local line-delimited JSON | JSONL text output |
+| Native files | Vortex | Highest-fidelity input and persistence; file/schema validation still applies. |
+| Text input | CSV, JSON, JSONL/NDJSON | Parsing and schema rules apply; compatibility input prepares a native representation. |
+| Columnar/structured files | Parquet, Arrow IPC/Feather, Avro, ORC | The file's schema must be representable by the adapter. |
+| Typed memory | Exact-width integers, finite Float32/64, Boolean, UTF8, binary, Decimal128, Date32, timezone-free microsecond timestamps | Use explicit schemas for rich types; Decimal128 precision is 1–38 and scale is 0–precision. |
+| Nested values | Static List, FixedSizeList and ordered Struct | Recursive field and child-buffer admission applies. General Variant/extension types and nested arithmetic are not implied. |
 
-Method availability does not imply every operator can feed every sink. Consult the
-[input surface](https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md)
-and [output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md)
-for enabled features, schema support, and write policy. Compatibility outputs expose metadata
-loss; text formats do not preserve Vortex layouts or static types.
+## Write results
 
-## Preparation And Result Handoffs
+Choose `write_vortex` for native persistence. The same plan can use
+`write_parquet`, `write_arrow_ipc`, `write_avro`, `write_orc`, `write_csv`,
+`write_json` or `write_jsonl` when its schema is representable. Complete writers
+can deliver admitted results larger than small-result collection using native
+batches; they do not require a Python row tuple.
 
-Automatic compatibility-input preparation can reuse a local Vortex artifact when the source,
-declared schema, and artifact identities match. Generation checks span reuse and execution;
-detected changes fail explicitly. This is local preparation reuse, not a global query-result cache.
+| Writer | Fidelity boundary |
+| --- | --- |
+| Vortex | Preserves admitted native arrays, dtype and validity; derives output statistics from the actual result. |
+| Parquet, Arrow IPC, Avro | Preserve representable logical schemas; exact adapter restrictions apply. |
+| JSON and JSONL | Use explicit encodings for binary, decimal and temporal values; native metadata is not preserved. |
+| CSV | Nested values become quoted JSON text cells; logical dtype and native metadata are not preserved. |
+| ORC | Rejects nested, decimal and temporal output; admitted binary/scalar types retain their writer contract. |
 
-Native Vortex preparation preserves the existing layout. The shared all-I/O physical-layout
-optimization policy remains follow-up work. Reading Vortex does not make parsing, computation,
-encoding, or result delivery instantaneous.
+Use a new destination. Do not assume overwrite or atomic publication across
+multiple files. A failed write must not be reported as a completed output; retain
+the structured diagnostic for cleanup/recovery. Reopening the saved file performs
+normal source validation. See the [published output contract](https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/v1-local-output-sink-scope.md)
+and [known native wrapper issue](/field-guide/limitations#known-issues).
 
-Supported owned results retain Vortex arrays, validity, and memory credits. The 0.6.0 packages
-stream admitted flat aggregate, ordered, unary, and relational results through all eight local
-writers without rerunning the query or reparsing serialized JSON for binary export. This includes
-admitted native ordering spill. Small computed-result collection remains bounded to
-**65,536 rows and 8 MiB**; top-level schema metadata uses the shared grant in 0.6.0
-packages. Complete writers use bounded native batches and
-can exceed the collection row and byte limits. Type, resource, and write-policy admission still
-apply. Nested and extension results have separate coverage limits. See the
-[output contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md).
-The [input growth contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md)
-is included in 0.6.0; historical 0.5.1 artifacts retain
-their release-time limits.
-The [complete growth acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md)
-binds the exact source and complete values across admitted destinations.
+## Preparation and result handoffs
 
-The 0.6.0 packages preserve the full signed Int64 domain of timezone-free
-microsecond timestamps through native compression, available file statistics
-and reopening. The
-[timestamp acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-timestamp-provider-2026-10-11.md)
-records complete local and fresh-UAT checks, measured write/read tradeoffs and
-hosted integration status. Other temporal units and external unpatched readers
-retain their own limits.
+Prepared files are reused only after identity checks. Saved results can be
+reopened by another process; result statistics describe the result's values,
+not metadata blindly copied from the old source. Native in-process results keep
+their array owners and credits through admitted chaining and output.
+See [keeping results native](/field-guide/python-surface#keep-results-native) and
+the [data lifecycle](/field-guide/execution-routes).
 
-A saved native result can be reopened by a later process for another computation.
-Existing native-file admission avoids repeating external-format ingestion.
-The 0.6.0 packages derive supported file statistics from the result's actual
-values while preserving dtype, validity and admitted serializable native arrays.
-Later jobs can answer supported aggregates from exact footer statistics or
-prune disjoint ranges after the producing process ends. Source layout and
-derived metadata are not blindly copied into a changed result. The
-[persisted-output acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-persisted-reuse-2026-10-11.md)
-records complete write/reopen workflows, resource and cost gates, and hosted
-integration status. Published 0.5.1 artifacts retain their release-time behavior.
+## Resources and recovery
 
-The [October 12 query revisit](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-revisit-2026-10-12.md)
-records separate paired decisions for prepared-sort provider drivers, scan
-granularity and exact decimal accumulation, plus a dropped reservation change.
-It reports complete-operation timings, CPU and memory costs, controls and final
-acceptance status. These source changes do not establish a new general benchmark
-headline or change published packages.
-
-Flat aggregate collection and writes use the same native admission, carrying the complete
-filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.
-Explicit SQL `NULLS FIRST`/`NULLS LAST` and Python `sort(..., nulls="first")` or
-`nulls="last"` place nulls independently of ascending or descending values.
-JSON collection reports the final materialization boundary and metadata loss; exceeding its
-row or serialized-byte limit fails without returning a successful prefix.
-
-## Resources And Recovery
-
-The published engine accounts for reviewed FSST/Zstd payload,
-view and validity buffers through the shared native memory owner. Retained
-clones and slices keep their allocation credits. It also adds
-[Python batch input and results](/field-guide/python-surface#consume-results-in-batches).
-These additions merged in PR #1526 after complete local and hosted checks. Source implementation also admits the actual
-one-shot Zstd decoder and by-reference prepared-dictionary workspaces before
-allocation, releasing them after each decode. See the
-[workspace acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-codec-workspaces-2026-10-07.md)
-for its separate local and hosted evidence. The
-[builder resource acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-builder-resources-2026-10-07.md)
-also covers native primitive/Boolean/decimal Chunked output, nullable bitmaps and
-numeric/string builder finalization buffers. Local source and complete workflow
-checks pass; PR #1529 merged after all 39 hosted checks passed, with the accepted
-runtime unchanged. The 0.6.0 packages also include
-[reviewed fixed-width child-decoder admission](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-admitted-context-2026-10-14.md).
-
-The subsequent source-only
-[compression resource correction](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-compression-resources-2026-10-15.md)
-admits named Zstd preparation/output buffers and audited compressor/default-trainer
-heap storage. Complete local ownership, cost, public-workflow and single-pass
-Full43 checks pass. PR #1555 merged after all 44 checks passed, including native
-and installed-wheel acceptance; production documentation is verified. This change
-follows the immutable 0.6.0 packages. Its original scope excludes structural
-frame metadata; the extension below has separate acceptance. Other codecs and
-unreviewed provider trees remain separate. These resource corrections
-make no speedup claim, and a query grant still does not bound total process RSS.
-
-The source-only
-[Zstd frame metadata extension](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-zstd-metadata-resources-2026-10-16.md)
-admits frame-handle and metadata vectors before allocation. Clones, slices and
-nullability casts share their owner; native transfer receives fresh credits
-without duplicate vector charges. Six Rust gates, 67 provider tests, 100 direct
-methods, 4,827 public cases, all 18 lifecycle cells and one Full43 pass succeed.
-Independent inspection verifies 13,728 evidence members. PR #1562 merged after
-all 44 checks passed; the
-[hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-zstd-metadata-hosted-2026-10-16.json)
-verifies three installed-wheel lanes, accepted sources and preview/production
-responses and navigation. Raw caller-owned APIs, fixed allocator/Arc overhead and process
-RSS stay outside this claim; published 0.6.0 packages are unchanged.
-
-The source-only
-[variable-binary buffer-table extension](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-varbin-metadata-review-2026-10-16.md)
-shares table credit through text/binary selections and admits new tables in
-reviewed constructors, codecs, the Chunked builder and receiving sessions.
-Safe construction/replacement checks host-readable contents and reuses validated
-native bytes. Six fresh Rust gates, 3,587 standalone provider tests, 100 direct
-methods, 4,827 public cases and one Full43 pass succeed. All 32 lifecycle cells
-pass the unchanged rule across both comparison orders; independent inspection
-verifies 19,538 evidence members. PR #1563 merged after all 44 checks passed;
-the [hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-varbin-metadata-hosted-2026-10-16.json)
-verifies three installed-wheel lanes, accepted sources and preview/production
-responses and navigation.
-Raw caller-owned exports, general builder/compaction scratch, fixed allocator/Arc
-overhead and process RSS stay outside this claim. Published 0.6.0 packages are unchanged.
-
-The source-only
-[file metadata ownership correction](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-file-metadata-buffers-2026-10-17.md)
-admits copied footer, schema/layout, cached and in-memory segment realignment and
-requested metadata buffers through the native session allocator. Unrequested
-optional metadata and discarded in-memory tail caches are skipped. Retained schemas, layouts
-and buffer clones keep their credits until their final owner drops. Complete
-local acceptance includes fresh ingestion, all 18 format/workflow cohorts and
-all 43 query results. All twenty focused ownership tests and a clean 2,924-test
-native run pass. PR #1565 is merged after all 44 checks, three installed-wheel
-lanes and preview/production verification pass.
-Structural metadata collections, writer scratch and process RSS retain their
-separate boundaries. Published 0.6.0 packages are unchanged.
-
-The subsequent source-only
-[selected text view change](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md)
-constructs views only for selected rows inside sparse native Zstd filtering.
-Complete local checks and its bounded paired comparison pass. PR #1556 merged
-after all 44 checks and three installed-wheel lanes passed. Preview and
-production responses match the merged source, and the completed production
-deployment is verified. The report preserves and corrects the earlier stale
-notification observation. It retains the slower control cases
-and all 43 acceptance timings. The same frames are decoded, and this result
-makes no general speedup or zero-decode claim.
-
-Opt-in `from_batches(..., streaming=True)` retains at most one original native input
-batch. The 0.6.0 packages admit distinct finite producers, declared repeated-source
-replay and dynamic pivots through the
-[shared composition contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md).
-These extend scan/filter/project, sorting, aggregation, joins, analytic windows
-and draining limits alongside ordinary file/resident sources. The earlier
-[local resource and correctness acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
-proves constrained native ordering and general aggregate spill with complete
-output. The [join acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-join-pressure-2026-10-08.md)
-adds all seven admitted join kinds, one-shot input on either side and owned
-cleanup/restart. Complete local pressure/workflow/regression checks and independent
-packet inspection pass; join integration completed in PR #1532 after all 39
-hosted checks and actual preview/production verification. The
-[window acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-window-pressure-2026-10-08.md)
-adds existing analytic functions/frames with exact DISTINCT and extrema under
-native spill. File-backed and streamed 24,013-row controls both complete at
-16 MiB with exact values, safe resident denial and owned cleanup/restart.
-Complete public and regression acceptance passes; hosted window integration
-completed in PR #1533 after all 39 checks and actual preview/production verification.
-The subsequent
-[pivot acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-pivot-pressure-2026-10-08.md)
-completes local file/resident-memory relational pivot pressure and independent
-packet inspection. Two native 16-MiB executions each return all 6,145 wide-key
-results, with constrained resident denial and a 512-MiB ample control.
-The public portfolio contains 32,497 checks, including 3,626 pivot pressure
-checks and 133 incremental proofs; all 129 Full43 comparisons pass. Pivot hosted
-integration completed in PR #1534 after all 39 checks and actual preview/production
-verification. The 0.6.0 packages extend this to finite streaming pivot input;
-the composition contract records that separate acceptance.
-All operator stages share one memory grant and spill quota. Output
-compaction prevents retained results from pinning input; native sink metadata
-and retained output still consume credits. Limits drain the complete source,
-and late failure prevents completion and incomplete file publication.
-The runtime also rejects malformed FSST row lengths before decoder allocation.
-The subsequent source implementation admits finite single-use input through
-all eight existing local writers and one-execution fanout. A single destination
-streams directly; several destinations share credited native result replay and
-explicit spill. Input completion, adapter completion and owned cleanup precede
-publication; multi-file publication remains non-atomic. The
-[destination acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md)
-records complete local runtime and query checks. PR #1557 merged after all 44
-checks passed, with three installed-wheel lanes and preview/production verification.
-The current-source [set-operation contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md)
-also admits all four existing set operations over finite producers, including
-repeated sources and surrounding native operators. Set membership remains resident
-under the grant; source/output replay spill does not spill that state. Complete
-local acceptance and hosted integration pass in PR #1558 after all 44 checks,
-three installed-wheel lanes and preview/production verification.
-The current-source [finite unary contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md)
-also admits DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites,
-melt, explode and rolling over finite producers with complete source validation.
-Unary membership and population state remain resident under the shared grant;
-replay spill does not spill those states. Local runtime acceptance passes with
-91 direct methods and 2,601 public cases. PR #1559 merged after all 44 checks
-passed, with three installed-wheel lanes and preview/production verification.
-Existing option/type limits and dynamic pivot's separate schema path
-remain in force.
-The current-source [finite subquery contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-subqueries-2026-10-15.md)
-extends IN/NOT IN, row membership, EXISTS/NOT EXISTS, quantified ANY/ALL and scalar
-subqueries to finite producers with statically declared inner sources and schemas.
-Indexed and parameterized correlation preserve existing selected-branch semantics.
-Nested reads release the original outer input owner first; shared sources complete
-native replay before query consumption. Unused inner producers still undergo raw
-validation without evaluating skipped expressions or scalar cardinality. Subquery
-membership/index state remains resident under the grant; replay spill does not
-spill it. Opaque dynamically declared inner sources remain unsupported. The
-[acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-subqueries-2026-10-15.md)
-records 96 direct methods, 3,724 public cases, all six Rust gates and all 43
-regression queries passing locally. PR #1560 merged after all 44 checks passed,
-three installed-wheel lanes passing 96 methods each, and preview/production
-verification. These source changes preserve the immutable 0.6.0 package boundary.
-Unadmitted state/recovery and remaining allocation coverage stay open.
-
-The [declared dynamic predicate extension](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md)
-allows each parameter's inner pivot to discover its own schema while retaining
-a finite declared source set. Restrictions are installed before discovery can
-demand input, and nested declarations stay within their parent's set. Metadata,
-detached input, replay and per-parameter state share the existing query grant.
-Unused producers still complete through raw validation without evaluating skipped
-expressions. The [acceptance report](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
-records 100 direct methods, 4,827 public cases, all six Rust gates and all 43
-regression queries passing locally. PR #1561 merged after all 44 checks passed;
-three installed-wheel lanes each pass 100 methods without skips. The
-[147-member hosted packet](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json)
-verifies preview/production source and navigation. Opaque
-undeclared callbacks and dynamic scalar output-schema inference remain unsupported.
-Subquery membership/index state remains resident; replay spill does not spill that
-state. Published 0.6.0 packages retain their release-time behavior.
-
-Prepared sessions retain source handles and supported lowering while calls create fresh execution
-state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
-explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.
-Native file operations drain admitted I/O and reader ownership before completion. Metadata-only
-aggregates avoid payload and worker admission, including when no spare payload credit is available.
-
-The 0.6.0 packages require explicit memory and parallelism limits before every execution, data inspection, and preparation through Rust, the CLI, or Python. In Python, configure `memory_gb` (GiB) and `max_parallelism` on a context/session or terminal call; lazy declarations and inert discovery need no allocation. Upgrading from 0.5.1 requires declaring both allocations; the previous implicit defaults no longer apply. The [required-resource contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/required-execution-resources-2026-10-10.md) defines exact bytes, inheritance, authorization ceilings and reports that separate declared allocation from admitted resources and observed use.
-The [complete local acceptance](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/required-execution-resources-2026-10-10.md) checks rejection before input demand, shared ownership, complete workflows and every retained resource report. Unmeasured usage remains unavailable; a declared budget is neither a measured peak nor a whole-process memory limit.
-Required-resource and native Python ownership integration completed together in
-[PR #1541](https://github.com/depsilon/shardloom/pull/1541), with all 44 hosted
-checks and the three installed native-wheel lanes recorded in the
-[hosted receipt](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-python-surface-hosted-2026-10-11.json).
-The runtime selects concurrency within the supplied maximum and the CPU capacity available
-to the process; an explicit one-CPU allocation stays one. Streaming ingestion shares this
-grant across ready source, conversion, statistics, and writer tasks. Full bounded queues
-yield their drivers, while memory admission can narrow unfinished work. Allocations can
-vary well beyond P4/P6/P8. I/O and serial work may limit useful concurrency; these controls
-do not guarantee full CPU utilization or a total-process RSS ceiling. See the
-[ingest scheduling contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/adaptive-ingest-budget-2026-10-02.md).
-
-The 0.6.0 packages carry the same `memory_gb` and `max_parallelism` request through SQL and
-DataFrame collection and local writers. Optional `spill` declares an existing local workspace,
-`quota_bytes`, and `buffer_bytes`. Nullable multi-key relational ordering can flush typed
-Vortex runs and merge them under the same query grant and disk quota, including composed inputs.
-This includes flat typed keys in the [typed key contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md).
-The buffer is a flush threshold; it is not a second memory grant or a whole-process RSS ceiling.
-Verified cleanup must finish before an execution or writer reports success.
-
-COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies.
-General relational aggregation, all seven admitted join kinds, existing analytic
-windows and file/resident-memory relational pivots have their own strategies
-under the common explicit spill policy. Set state retains a separate pressure contract;
-unadmitted key types and broader resource accounting remain separate work. See
-[COUNT/DISTINCT contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md),
-[native spill contracts](https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md),
-and [serving evidence](https://github.com/depsilon/shardloom/blob/main/docs/architecture/concurrent-native-serving-2026-09-20.md).
-
-Every admitted execution preserves `fallback_attempted=false` and
-`external_engine_invoked=false`. Unsupported work returns deterministic diagnostics.
+Memory, parallelism and authorized spill are caller policies. Follow
+[resources and cancellation](/field-guide/resources) for allocation, lifetime,
+spill ownership and failure handling. Adding a writer or batch interface does
+not make all operator state spillable or bound the whole Python process.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import textwrap
@@ -13,9 +14,11 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import shardloom as sl
-from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext
+from shardloom import LazyFrame, ShardLoomContext
+from shardloom.diagnostics import ShardLoomClient
 from shardloom.models import OutputEnvelope
 from shardloom.query import (
+    Result,
     WorkflowOperation,
     _embedded_vortex_input_uri,
     _normalize_local_output_format,
@@ -60,6 +63,12 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 class LazyWorkflowBuilderTests(unittest.TestCase):
 
     def fake_cli(self, body: str) -> list[str]:
+        worker_env_patch = mock.patch.dict(
+            os.environ,
+            {"SHARDLOOM_PERSISTENT_WORKER": "0"},
+        )
+        worker_env_patch.start()
+        self.addCleanup(worker_env_patch.stop)
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         path = Path(tempdir.name) / "fake_shardloom.py"
@@ -1607,7 +1616,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .write_csv("target/out-public.csv", allow_overwrite=True)
         )
 
-        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertIsInstance(report, Result)
         self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_csv")
         self.assertEqual(report.output_path, "target/out-public.csv")
         self.assertEqual(report.output_format, "csv")
@@ -1681,7 +1690,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 )
                 ctx = ShardLoomContext(ShardLoomClient(binary=binary, memory_gb=4, max_parallelism=2))
                 report = writer()
-                self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+                self.assertIsInstance(report, Result)
                 self.assertEqual(
                     report.envelope.field("public_workflow_requested_output"),
                     requested_output,
@@ -1715,7 +1724,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 .write_parquet("target/nested.parquet", allow_overwrite=True)
         )
 
-        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertIsInstance(report, Result)
         self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_parquet")
         self.assertEqual(report.output_path, "target/nested.parquet")
         self.assertEqual(report.output_format, "parquet")
@@ -1739,7 +1748,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .write_vortex("target/out.vortex", allow_overwrite=True)
         )
 
-        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertIsInstance(report, Result)
         self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_vortex")
         self.assertEqual(report.output_path, "target/out.vortex")
         self.assertEqual(report.output_format, "vortex")

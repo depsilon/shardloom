@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-vdxcvpsm"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Runtime and I/O | ShardLoom</title><link rel="canonical" href="https://shardloom.io/field-guide/runtime-and-io"/><link rel="sitemap" href="/sitemap-index.xml"/><script>try{if(!localStorage.getItem('starlight-theme'))localStorage.setItem('starlight-theme','dark')}catch{}</script><link rel="shortcut icon" href="/assets/logo/shardloom-mark.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.2.9"/><meta name="generator" content="Starlight v0.41.10"/><meta property="og:title" content="Runtime and I/O"/><meta property="og:type" content="article"/><meta property="og:url" content="https://shardloom.io/field-guide/runtime-and-io"/><meta property="og:locale" content="en"/><meta property="og:description" content="Shipped native execution, preparation reuse, format support, and result limits."/><meta property="og:site_name" content="ShardLoom"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Shipped native execution, preparation reuse, format support, and result limits."/><meta name="robots" content="index,follow"/><script>
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-hg2g4jth"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Operations, types and formats | ShardLoom</title><link rel="canonical" href="https://shardloom.io/field-guide/runtime-and-io"/><link rel="sitemap" href="/sitemap-index.xml"/><script>try{if(!localStorage.getItem('starlight-theme'))localStorage.setItem('starlight-theme','dark')}catch{}</script><link rel="shortcut icon" href="/assets/logo/shardloom-mark.svg" type="image/svg+xml"/><meta name="generator" content="Astro v7.2.9"/><meta name="generator" content="Starlight v0.41.10"/><meta property="og:title" content="Operations, types and formats"/><meta property="og:type" content="article"/><meta property="og:url" content="https://shardloom.io/field-guide/runtime-and-io"/><meta property="og:locale" content="en"/><meta property="og:description" content="Choose an input or writer and understand its exact type and publication boundary."/><meta property="og:site_name" content="ShardLoom"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Choose an input or writer and understand its exact type and publication boundary."/><meta name="robots" content="index,follow"/><script>
 	window.StarlightThemeProvider = (() => {
 		const storedTheme =
 			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
@@ -24,8 +24,9 @@
 			},
 		};
 	})();
-</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.BUYbcTgA.css"><style>.shardloom-brand:where(.astro-6bctqxxv){color:#edf4f9;letter-spacing:-.055em;white-space:nowrap;align-items:center;gap:11px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;font-size:21px;font-weight:630;line-height:1;text-decoration:none;display:inline-flex}svg:where(.astro-6bctqxxv){flex:none;width:23px;height:28px;display:block}sup:where(.astro-6bctqxxv){vertical-align:top;color:#badcff;margin-left:2px;font-size:12px}a:where(.astro-6bctqxxv):hover{color:#badcff}a:where(.astro-6bctqxxv):focus-visible{outline-offset:5px;outline:2px solid #badcff}
-</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-vdxcvpsm"><a class="sl-skip-link astro-vxeigawq" href="#_top">Skip to content</a><div class="page sl-flex astro-gqpr5s5a"><header class="header astro-gqpr5s5a"><div class="header astro-nczgtkxc"><div class="title-wrapper sl-flex astro-nczgtkxc"><a class="shardloom-brand astro-6bctqxxv" href="/" aria-label="ShardLoom home"><svg viewBox="0 0 24 30" width="24" height="30" aria-hidden="true" class="astro-6bctqxxv"><path d="M12 1 23 14 12 29 1 14Z" fill="none" stroke="#c6e5fd" stroke-width=".9" class="astro-6bctqxxv"></path><path d="m12 1-4 13 4 15 5-15Zm-11 13h22M8 14l9 0" fill="none" stroke="#94badb" stroke-width=".7" class="astro-6bctqxxv"></path><path d="m12 1 5 13-9 0Z" fill="#d0eaff" opacity=".25" class="astro-6bctqxxv"></path></svg><span class="astro-6bctqxxv">ShardLoom<sup class="astro-6bctqxxv">°</sup></span></a></div><div class="sl-flex print:hidden astro-nczgtkxc"><site-search class="astro-nczgtkxc astro-r5ar4xm7" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}" data-strip-trailing-slash><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-r5ar4xm7"><svg aria-hidden="true" class="astro-r5ar4xm7 astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-r5ar4xm7" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-r5ar4xm7" style="display: none;"><kbd class="astro-r5ar4xm7">Ctrl</kbd><kbd class="astro-r5ar4xm7">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-r5ar4xm7"><div class="dialog-frame sl-flex astro-r5ar4xm7"><button data-close-modal class="sl-flex md:sl-hidden astro-r5ar4xm7">Cancel</button><div class="search-container astro-r5ar4xm7"><div id="starlight__search" class="astro-r5ar4xm7"></div></div></div></dialog></site-search><script>
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/common.D7ce-Rxf.css"><style>.shardloom-brand:where(.astro-6bctqxxv){color:#edf4f9;letter-spacing:-.055em;white-space:nowrap;align-items:center;gap:11px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;font-size:21px;font-weight:630;line-height:1;text-decoration:none;display:inline-flex}svg:where(.astro-6bctqxxv){flex:none;width:23px;height:28px;display:block}sup:where(.astro-6bctqxxv){vertical-align:top;color:#badcff;margin-left:2px;font-size:12px}a:where(.astro-6bctqxxv):hover{color:#badcff}a:where(.astro-6bctqxxv):focus-visible{outline-offset:5px;outline:2px solid #badcff}
+</style><script type="module" src="/_astro/page.Dwipeu-R.js"></script><style>.guide-version:where(.astro-sisnqshu){border:1px solid var(--sl-color-gray-5);border-radius:.5rem;flex-wrap:wrap;gap:.3rem 1rem;padding:.8rem 1rem;font-size:.85rem;display:flex}.guide-version:where(.astro-sisnqshu) span:where(.astro-sisnqshu){color:var(--sl-color-gray-2)}
+</style></head><body class="astro-hg2g4jth"><a class="sl-skip-link astro-wgna37wh" href="#_top">Skip to content</a><div class="page sl-flex astro-te4poo67"><header class="header astro-te4poo67"><div class="header astro-yr4r7iol"><div class="title-wrapper sl-flex astro-yr4r7iol"><a class="shardloom-brand astro-6bctqxxv" href="/" aria-label="ShardLoom home"><svg viewBox="0 0 24 30" width="24" height="30" aria-hidden="true" class="astro-6bctqxxv"><path d="M12 1 23 14 12 29 1 14Z" fill="none" stroke="#c6e5fd" stroke-width=".9" class="astro-6bctqxxv"></path><path d="m12 1-4 13 4 15 5-15Zm-11 13h22M8 14l9 0" fill="none" stroke="#94badb" stroke-width=".7" class="astro-6bctqxxv"></path><path d="m12 1 5 13-9 0Z" fill="#d0eaff" opacity=".25" class="astro-6bctqxxv"></path></svg><span class="astro-6bctqxxv">ShardLoom<sup class="astro-6bctqxxv">°</sup></span></a></div><div class="sl-flex print:hidden astro-yr4r7iol"><site-search class="astro-yr4r7iol astro-huhe5ar4" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}" data-strip-trailing-slash><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-huhe5ar4"><svg aria-hidden="true" class="astro-huhe5ar4 astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-huhe5ar4" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-huhe5ar4" style="display: none;"><kbd class="astro-huhe5ar4">Ctrl</kbd><kbd class="astro-huhe5ar4">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-huhe5ar4"><div class="dialog-frame sl-flex astro-huhe5ar4"><button data-close-modal class="sl-flex md:sl-hidden astro-huhe5ar4">Cancel</button><div class="search-container astro-huhe5ar4"><div id="starlight__search" class="astro-huhe5ar4"></div></div></div></dialog></site-search><script>
 	(() => {
 		const openBtn = document.querySelector('button[data-open-modal]');
 		const shortcut = openBtn?.querySelector('kbd');
@@ -37,9 +38,9 @@
 		}
 		shortcut.style.display = '';
 	})();
-</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.B-Vh4ymV.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-nczgtkxc"><div class="sl-flex social-icons astro-nczgtkxc"><a href="https://github.com/depsilon/shardloom" rel="me" class="sl-flex astro-cg55etiy"><span class="sr-only astro-cg55etiy">GitHub</span><svg aria-hidden="true" class="astro-cg55etiy astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 6.25em" class="astro-r2p65idu"><span class="sr-only astro-r2p65idu">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-r2p65idu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-r2p65idu"><option value="dark" class="astro-r2p65idu">Dark</option><option value="light" class="astro-r2p65idu">Light</option><option value="auto" selected class="astro-r2p65idu">Auto</option></select><svg aria-hidden="true" class="icon caret astro-r2p65idu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.B-Vh4ymV.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-yr4r7iol"><div class="sl-flex social-icons astro-yr4r7iol"><a href="https://github.com/depsilon/shardloom" rel="me" class="sl-flex astro-wy7sv3bx"><span class="sr-only astro-wy7sv3bx">GitHub</span><svg aria-hidden="true" class="astro-wy7sv3bx astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 6.25em" class="astro-bh6h77p4"><span class="sr-only astro-bh6h77p4">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-bh6h77p4 astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-bh6h77p4"><option value="dark" class="astro-bh6h77p4">Dark</option><option value="light" class="astro-bh6h77p4">Light</option><option value="auto" selected class="astro-bh6h77p4">Auto</option></select><svg aria-hidden="true" class="icon caret astro-bh6h77p4 astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>
 	StarlightThemeProvider.updatePickers();
-</script><script type="module">var e=`starlight-theme`,t=e=>e===`auto`||e===`dark`||e===`light`?e:`auto`,n=()=>t(typeof localStorage<`u`&&localStorage.getItem(e));function r(t){typeof localStorage<`u`&&localStorage.setItem(e,t===`light`||t===`dark`?t:``)}var i=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`;function a(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e===`auto`?i():e,r(e)}matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{n()===`auto`&&a(`auto`)});var o=class extends HTMLElement{constructor(){super(),a(n()),this.querySelector(`select`)?.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&a(t(e.currentTarget.value))})}};customElements.define(`starlight-theme-select`,o);</script><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script></div></div></header><nav class="sidebar print:hidden astro-gqpr5s5a" aria-label="Main"><starlight-menu-button class="print:hidden astro-vvx7mffu"><button aria-expanded="false" aria-label="Menu" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-vvx7mffu"><svg aria-hidden="true" class="open-menu astro-vvx7mffu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-vvx7mffu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg></button></starlight-menu-button><script type="module">var e=class extends HTMLElement{btn=this.querySelector(`button`);constructor(){super(),this.btn.addEventListener(`click`,()=>this.toggleExpanded());let e=this.closest(`nav`);e&&e.addEventListener(`keyup`,e=>this.closeOnEscape(e)),matchMedia(`(min-width: 50em)`).addEventListener(`change`,()=>this.setExpanded(!1))}setExpanded(e){this.setAttribute(`aria-expanded`,String(e)),document.body.toggleAttribute(`data-mobile-menu-expanded`,e),document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}toggleExpanded(){this.setExpanded(this.getAttribute(`aria-expanded`)!==`true`)}closeOnEscape(e){e.code===`Escape`&&(this.setExpanded(!1),this.btn.focus())}};customElements.define(`starlight-menu-button`,e);</script><script type="module">var e=document.querySelector(`starlight-menu-button`),t=e?.querySelector(`button`);if(e&&t){let n=()=>{t.setAttribute(`aria-expanded`,String(e.getAttribute(`aria-expanded`)===`true`))};new MutationObserver(n).observe(e,{attributes:!0,attributeFilter:[`aria-expanded`]}),n()}</script><div id="starlight__sidebar" class="sidebar-pane astro-gqpr5s5a"><div class="sidebar-content sl-flex astro-gqpr5s5a"><sl-sidebar-state-persist data-hash="07xlo4t" class="astro-f5yvicm7"><script aria-hidden="true">
+</script><script type="module">var e=`starlight-theme`,t=e=>e===`auto`||e===`dark`||e===`light`?e:`auto`,n=()=>t(typeof localStorage<`u`&&localStorage.getItem(e));function r(t){typeof localStorage<`u`&&localStorage.setItem(e,t===`light`||t===`dark`?t:``)}var i=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`;function a(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e===`auto`?i():e,r(e)}matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{n()===`auto`&&a(`auto`)});var o=class extends HTMLElement{constructor(){super(),a(n()),this.querySelector(`select`)?.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&a(t(e.currentTarget.value))})}};customElements.define(`starlight-theme-select`,o);</script><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script></div></div></header><nav class="sidebar print:hidden astro-te4poo67" aria-label="Main"><starlight-menu-button class="print:hidden astro-gkoh72ct"><button aria-expanded="false" aria-label="Menu" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-gkoh72ct"><svg aria-hidden="true" class="open-menu astro-gkoh72ct astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-gkoh72ct astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg></button></starlight-menu-button><script type="module">var e=class extends HTMLElement{btn=this.querySelector(`button`);constructor(){super(),this.btn.addEventListener(`click`,()=>this.toggleExpanded());let e=this.closest(`nav`);e&&e.addEventListener(`keyup`,e=>this.closeOnEscape(e)),matchMedia(`(min-width: 50em)`).addEventListener(`change`,()=>this.setExpanded(!1))}setExpanded(e){this.setAttribute(`aria-expanded`,String(e)),document.body.toggleAttribute(`data-mobile-menu-expanded`,e),document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}toggleExpanded(){this.setExpanded(this.getAttribute(`aria-expanded`)!==`true`)}closeOnEscape(e){e.code===`Escape`&&(this.setExpanded(!1),this.btn.focus())}};customElements.define(`starlight-menu-button`,e);</script><script type="module">var e=document.querySelector(`starlight-menu-button`),t=e?.querySelector(`button`);if(e&&t){let n=()=>{t.setAttribute(`aria-expanded`,String(e.getAttribute(`aria-expanded`)===`true`))};new MutationObserver(n).observe(e,{attributes:!0,attributeFilter:[`aria-expanded`]}),n()}</script><div id="starlight__sidebar" class="sidebar-pane astro-te4poo67"><div class="sidebar-content sl-flex astro-te4poo67"><sl-sidebar-state-persist data-hash="10vxjl1" class="astro-zmelaryk"><script aria-hidden="true">
 		(() => {
 			try {
 				if (!matchMedia('(min-width: 50em)').matches) return;
@@ -62,476 +63,155 @@
 				);
 			} catch {}
 		})();
-	</script><ul class="top-level astro-ojxuodky"><li class="astro-ojxuodky"><details open class="astro-ojxuodky"><summary class="astro-ojxuodky"><span class="group-label astro-ojxuodky"><span class="large astro-ojxuodky">Start here</span></span><svg aria-hidden="true" class="caret astro-ojxuodky astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-ojxuodky"><li class="astro-ojxuodky"><a href="/field-guide" class="astro-ojxuodky"><span class="astro-ojxuodky">Overview</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/start-local-proof" class="astro-ojxuodky"><span class="astro-ojxuodky">Install and run</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/python-surface" class="astro-ojxuodky"><span class="astro-ojxuodky">Python</span></a></li></ul></details></li><li class="astro-ojxuodky"><details open class="astro-ojxuodky"><summary class="astro-ojxuodky"><span class="group-label astro-ojxuodky"><span class="large astro-ojxuodky">Understand the engine</span></span><svg aria-hidden="true" class="caret astro-ojxuodky astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-ojxuodky"><li class="astro-ojxuodky"><a href="/field-guide/execution-model" class="astro-ojxuodky"><span class="astro-ojxuodky">Execution model</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/compute-flow" class="astro-ojxuodky"><span class="astro-ojxuodky">Compute flow</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/execution-routes" class="astro-ojxuodky"><span class="astro-ojxuodky">Data lifecycle</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/runtime-and-io" aria-current="page" class="astro-ojxuodky"><span class="astro-ojxuodky">Runtime and I/O</span></a></li></ul></details></li><li class="astro-ojxuodky"><details open class="astro-ojxuodky"><summary class="astro-ojxuodky"><span class="group-label astro-ojxuodky"><span class="large astro-ojxuodky">Evidence and limits</span></span><svg aria-hidden="true" class="caret astro-ojxuodky astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-ojxuodky"><li class="astro-ojxuodky"><a href="/field-guide/benchmark-methodology" class="astro-ojxuodky"><span class="astro-ojxuodky">Benchmarks</span></a></li><li class="astro-ojxuodky"><a href="/field-guide/limitations" class="astro-ojxuodky"><span class="astro-ojxuodky">Support and limitations</span></a></li></ul></details></li><li class="astro-ojxuodky"><details open class="astro-ojxuodky"><summary class="astro-ojxuodky"><span class="group-label astro-ojxuodky"><span class="large astro-ojxuodky">Explore</span></span><svg aria-hidden="true" class="caret astro-ojxuodky astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-ojxuodky"><li class="astro-ojxuodky"><a href="/" class="astro-ojxuodky"><span class="astro-ojxuodky">Website home</span></a></li></ul></details></li></ul><script aria-hidden="true">
+	</script><ul class="top-level astro-tf73a34a"><li class="astro-tf73a34a"><details open class="astro-tf73a34a"><summary class="astro-tf73a34a"><span class="group-label astro-tf73a34a"><span class="large astro-tf73a34a">Start</span></span><svg aria-hidden="true" class="caret astro-tf73a34a astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-tf73a34a"><li class="astro-tf73a34a"><a href="/field-guide" class="astro-tf73a34a"><span class="astro-tf73a34a">Overview</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/start-local-proof" class="astro-tf73a34a"><span class="astro-tf73a34a">Install and run</span></a></li></ul></details></li><li class="astro-tf73a34a"><details open class="astro-tf73a34a"><summary class="astro-tf73a34a"><span class="group-label astro-tf73a34a"><span class="large astro-tf73a34a">Work with data</span></span><svg aria-hidden="true" class="caret astro-tf73a34a astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-tf73a34a"><li class="astro-tf73a34a"><a href="/field-guide/python-surface" class="astro-tf73a34a"><span class="astro-tf73a34a">Python and DataFrames</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/sql" class="astro-tf73a34a"><span class="astro-tf73a34a">SQL</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/cli" class="astro-tf73a34a"><span class="astro-tf73a34a">CLI</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/runtime-and-io" aria-current="page" class="astro-tf73a34a"><span class="astro-tf73a34a">Reading and writing</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/resources" class="astro-tf73a34a"><span class="astro-tf73a34a">Resources, spill and cancellation</span></a></li></ul></details></li><li class="astro-tf73a34a"><details open class="astro-tf73a34a"><summary class="astro-tf73a34a"><span class="group-label astro-tf73a34a"><span class="large astro-tf73a34a">Understand the engine</span></span><svg aria-hidden="true" class="caret astro-tf73a34a astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-tf73a34a"><li class="astro-tf73a34a"><a href="/field-guide/execution-model" class="astro-tf73a34a"><span class="astro-tf73a34a">Execution model</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/compute-flow" class="astro-tf73a34a"><span class="astro-tf73a34a">Compute flow</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/execution-routes" class="astro-tf73a34a"><span class="astro-tf73a34a">Data lifecycle</span></a></li></ul></details></li><li class="astro-tf73a34a"><details open class="astro-tf73a34a"><summary class="astro-tf73a34a"><span class="group-label astro-tf73a34a"><span class="large astro-tf73a34a">Reference</span></span><svg aria-hidden="true" class="caret astro-tf73a34a astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-tf73a34a"><li class="astro-tf73a34a"><a href="/field-guide/reference" class="astro-tf73a34a"><span class="astro-tf73a34a">Application reference</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/embedding" class="astro-tf73a34a"><span class="astro-tf73a34a">Native and Rust embedding</span></a></li></ul></details></li><li class="astro-tf73a34a"><details open class="astro-tf73a34a"><summary class="astro-tf73a34a"><span class="group-label astro-tf73a34a"><span class="large astro-tf73a34a">Versions and help</span></span><svg aria-hidden="true" class="caret astro-tf73a34a astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-tf73a34a"><li class="astro-tf73a34a"><a href="/field-guide/limitations" class="astro-tf73a34a"><span class="astro-tf73a34a">Capabilities and known issues</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/troubleshooting" class="astro-tf73a34a"><span class="astro-tf73a34a">Troubleshooting</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/development" class="astro-tf73a34a"><span class="astro-tf73a34a">Development and migration</span></a></li><li class="astro-tf73a34a"><a href="/field-guide/benchmark-methodology" class="astro-tf73a34a"><span class="astro-tf73a34a">Benchmarks</span></a></li></ul></details></li><li class="astro-tf73a34a"><details open class="astro-tf73a34a"><summary class="astro-tf73a34a"><span class="group-label astro-tf73a34a"><span class="large astro-tf73a34a">Explore</span></span><svg aria-hidden="true" class="caret astro-tf73a34a astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul class="astro-tf73a34a"><li class="astro-tf73a34a"><a href="/" class="astro-tf73a34a"><span class="astro-tf73a34a">Website home</span></a></li></ul></details></li></ul><script aria-hidden="true">
 		(() => {
 			const scroller = document.getElementById('starlight__sidebar');
 			if (!window._starlightScrollRestore || !scroller) return;
 			scroller.scrollTop = window._starlightScrollRestore;
 			delete window._starlightScrollRestore;
 		})();
-	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-b5gddk54"><div class="social-icons astro-b5gddk54"><a href="https://github.com/depsilon/shardloom" rel="me" class="sl-flex astro-cg55etiy"><span class="sr-only astro-cg55etiy">GitHub</span><svg aria-hidden="true" class="astro-cg55etiy astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 6.25em" class="astro-r2p65idu"><span class="sr-only astro-r2p65idu">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-r2p65idu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-r2p65idu"><option value="dark" class="astro-r2p65idu">Dark</option><option value="light" class="astro-r2p65idu">Light</option><option value="auto" selected class="astro-r2p65idu">Auto</option></select><svg aria-hidden="true" class="icon caret astro-r2p65idu astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-kppvou63"><div class="social-icons astro-kppvou63"><a href="https://github.com/depsilon/shardloom" rel="me" class="sl-flex astro-wy7sv3bx"><span class="sr-only astro-wy7sv3bx">GitHub</span><svg aria-hidden="true" class="astro-wy7sv3bx astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a></div><starlight-theme-select><label style="--sl-select-width: 6.25em" class="astro-bh6h77p4"><span class="sr-only astro-bh6h77p4">Select theme</span><svg aria-hidden="true" class="icon label-icon astro-bh6h77p4 astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg><select autocomplete="off" class="astro-bh6h77p4"><option value="dark" class="astro-bh6h77p4">Dark</option><option value="light" class="astro-bh6h77p4">Light</option><option value="auto" selected class="astro-bh6h77p4">Auto</option></select><svg aria-hidden="true" class="icon caret astro-bh6h77p4 astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg></label></starlight-theme-select><script>
 	StarlightThemeProvider.updatePickers();
-</script></div></div></div></div></nav><div class="main-frame astro-gqpr5s5a"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-abfeecmu"><aside class="right-sidebar-container print:hidden astro-abfeecmu"><div class="right-sidebar astro-abfeecmu"><div class="lg:sl-hidden astro-q5mffni3"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-5ulgm6bh"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-5ulgm6bh"><details id="starlight__mobile-toc" class="astro-5ulgm6bh"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-5ulgm6bh"><span class="toggle sl-flex astro-5ulgm6bh">On this page<svg aria-hidden="true" class="caret astro-5ulgm6bh astro-n5k4ipy7" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-5ulgm6bh"></span></summary><div class="dropdown astro-5ulgm6bh"><ul class="isMobile astro-cxyftcne" style="--depth: 0;"><li style="--depth: 0;" class="astro-cxyftcne"><a href="#_top" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Overview</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#native-execution" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Native Execution</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#scalar-subqueries" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Scalar subqueries</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#local-formats" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Local Formats</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#preparation-and-result-handoffs" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Preparation And Result Handoffs</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#resources-and-recovery" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Resources And Recovery</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.BcSo_yiZ.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-q5mffni3"><div class="sl-container astro-q5mffni3"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-cxyftcne" style="--depth: 0;"><li style="--depth: 0;" class="astro-cxyftcne"><a href="#_top" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Overview</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#native-execution" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Native Execution</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#scalar-subqueries" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Scalar subqueries</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#local-formats" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Local Formats</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#preparation-and-result-handoffs" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Preparation And Result Handoffs</span></a></li><li style="--depth: 0;" class="astro-cxyftcne"><a href="#resources-and-recovery" style="--depth: 0;" class="astro-cxyftcne"><span style="--depth: 0;" class="astro-cxyftcne">Resources And Recovery</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.Csloo1VZ.js"></script></div></div></div></aside><div class="main-pane astro-abfeecmu"><main data-pagefind-body class="astro-vdxcvpsm" lang="en" dir="ltr"><div class="content-panel astro-oil7k7jf"><div class="sl-container astro-oil7k7jf"><h1 id="_top" class="astro-2sm4b3ln">Runtime and I/O</h1></div></div><div class="content-panel astro-oil7k7jf"><div class="sl-container astro-oil7k7jf"><div class="sl-markdown-content"><p>Python, SQL, DataFrame-style calls, and the CLI lower admitted work into the same
-ShardLoom-native and Vortex-native execution families. Compatibility formats are adapters and
-writers around that middle; they do not select a different query engine.</p>
-<p>Current capabilities, reviewed October 17, 2026.</p>
-<div class="sl-heading-wrapper level-h2"><h2 id="native-execution">Native Execution</h2><a class="sl-anchor-link" href="#native-execution"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Native Execution”</span></a></div>
-<p>Supported operations use exact metadata, segment pruning, encoded reductions, weighted dictionary
-aggregation, exact DISTINCT, and late payload gathering. Sparse dictionary selections decode only
-referenced values. Coverage depends on the operation, type, and physical layout.</p>
-<p>Admitted text grouping retains input-backed dictionary strings, uses compact exact-count state,
-and shares partial construction between serial and bounded workers. Transformed text grouping
-can overlap bounded dictionary preparation with native input progress and ordered consumption.
-See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/dictionary-preparation-screen-2026-09-30.md">implementation and measured tradeoffs</a>.</p>
-<p>The source-only <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-aggregation-2026-10-17.md">shared text aggregation batch</a>
-defers independent extrema ownership until adoption, accelerates domain delimiter search,
-reuses native dictionary lookups, narrows exact partial counts when their domains fit,
-and routes admitted typed compound keys with one complete-key buffer. Larger counts
-and other native key shapes keep their existing representations. Five focused comparisons,
-all 4,827 public cases, fresh ingestion, all 43 queries and 18 format/workflow
-cohorts pass local acceptance. PR #1566 also passes all 44 hosted checks,
-installed-wheel checks and served-page verification. Its matched whole-workload
-follow-up measures a 0.46% improvement, so the five focused gains do not establish
-a material combined speedup. No new user settings are required.</p>
-<p>The subsequent source-only <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-reconstruction-2026-10-17.md">native text reconstruction and validation change</a>
-shares checked UTF-8 validity between native decoding and its consumers. Its matched
-43-query comparison decreases the sum of per-query two-run means from 67.454 to
-58.139 seconds of engine execution (13.81%), with all 172 results and schemas
-matching. Both paired totals improve and no query crosses the predefined material
-regression threshold. This is a bounded comparison, not a single-pass Full43 result;
-the complete report retains slower observations and the earlier getter-only
-attempt that missed its retention gate. All 100 direct binding checks, 4,827 public
-cases and 18 format/workflow cohorts pass local acceptance, including 704 native
-and 704 independent oracle records. Published 0.6.0 packages remain unchanged.</p>
-<p>The next source-only <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-shared-execution-2026-10-17.md">shared numeric and dictionary changes</a>
-bind native integer access once, compact complete numeric-pair records, and reduce
-admitted dictionary measures in bounded workers. Their matched 43-query sum of
-per-query two-run means decreases from 57.310 to 54.899 engine seconds (4.21%),
-with both paired totals improved and all complete results and schemas matching.
-The original 5% gate remains recorded as failed; the maintainer subsequently
-accepted improvements greater than 3%. Failed resource-efficiency experiments
-are excluded, and published 0.6.0 packages remain unchanged.</p>
-<p>The subsequent source-only <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-text-scan-reuse-2026-10-18.md">native text filter/projection change</a>
-reuses an already decoded text range within the same query. Its matched all-43
-sum of per-query two-run means decreases from 57.399 to 55.346 engine seconds
-(3.58%), passing the prospectively declared greater-than-3% gate. Both paired
-totals improve, all 172 complete results and schemas match, and no query crosses
-the predefined material-regression rule. All 4,827 public cases, 100 direct
-binding methods and 18 format/workflow cohorts pass local acceptance. The
-report preserves the rejected mixed-key experiment and all slower observations.
-The existing input and published 0.6.0 packages remain unchanged.</p>
-<p>Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, sort/Top-K, and selected
-provider-backed join workflows execute today. The 0.6.0 packages compose eight admitted
-flat-scalar unary families—DISTINCT, duplicate removal and masks, tail, sampling, scalar
-rewrites, melt, and rolling—with native relational stages and all eight local writers.
-Operations consume the preceding stage’s rows and column names while retaining source
-declarations and the operation’s CPU/memory allocation. See the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-unary-composition-2026-10-02.md">composition scope and complete-result evidence</a>.
-The 0.6.0 packages also carry bounded static list/struct payloads through admitted
-relational stages and ordered/repeated explode. Vortex, JSON, JSONL, Arrow IPC, Parquet
-and Avro accept representable nested output. CSV translates nested values to
-quoted JSON text cells; it does not preserve their logical dtype. ORC denies
-nested output before publication. See the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-composition-2026-10-02.md">nested composition contract</a>.
-Scalar pivot and pivot-table stages also compose through the same native plan.
-Their observed columns bind during execution, including independent domains for
-correlated inner rows; inspection remains inert. All eight local writers accept
-representable scalar results within the existing field and state budgets. See the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-dynamic-pivot-composition-2026-10-03.md">dynamic pivot contract</a>.
-The published engine admits static List, FixedSizeList and Struct pivot index,
-domain and selected-value roles. Nested
-cells support first, first_unique, count, min and max; first_unique accepts
-repeated equal complete values and rejects conflicts. Nested extrema skip NULL
-parents and use the shared child-NULL ordering. Python pivot() and
-pivot_table(aggfunc=“first”) retain their first_unique alias, while SQL’s
-explicit first selects the first row, including NULL. Nested SUM/MEAN,
-nested-index margins remain unsupported; nested MIN/MAX
-margins require a UTF8 index. Nested cells accept absent or NULL fill only.
-Representable nested results use Vortex, Parquet,
-Arrow IPC, Avro, JSON and JSONL; CSV translates nested values to quoted JSON
-text, and ORC rejects nested output. Existing 128-field, collection and memory
-limits apply. Complete local workflow/regression acceptance and all 39 hosted
-checks passed before PR #1525 merged.
-See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-pivot-state-2026-10-06.md">nested pivot state contract</a>.
-Relational file/resident-memory pivots also implement an explicit
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md#sparse-pivot-state">native spill strategy</a>.
-Sparse state, exact lookups, native runs and bounded output share the query grant
-and disk quota while preserving existing scalar, typed and nested semantics.
-Complete local acceptance and independent packet inspection
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-pivot-pressure-2026-10-08.md">pass</a>.
-PR #1534 merged after all 39 hosted checks passed, with actual preview/production
-search and guide verification. The direct prepared unary API remains resident.
-The 0.6.0 packages admit finite streaming pivot input through the later
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md">composition contract</a>.
-Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
-microsecond timestamps can travel as payloads, including nested leaves. Their
-flat equality, hashing and ordering are admitted through relational joins, sets,
-groups, windows and subqueries, with COUNT/COUNT DISTINCT/MIN/MAX and scoped
-comparisons and expressions; Decimal key precision and scale must match.
-Nested keys follow the subsequent contract below. The 0.6.0
-packages admit typed literals, explicit CAST/TRY_CAST, exact decimal
-arithmetic/rounding and scoped binary/calendar functions through the shared
-native expression binder. Decimal arithmetic output metadata binds before
-execution; explicit decimal downscaling requires zero discarded digits. Key
-compatibility still requires matching decimal precision/scale and preserves
-distinct temporal types. Wider analytic-window semantics, broader adapters
-and state spill remain separate. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-expressions-2026-10-03.md">typed expression contract</a>.
-Flat typed values retain exact logical types through duplicate selection and
-masks, tail/sample, replacement/forward-fill, lossless melt, rolling COUNT and
-scoped pivot first/first-unique/COUNT. Exact Python literals lower into the same
-native declarations. Primitive predicate and numeric sampling-weight limits
-remain; see the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-unary-2026-10-03.md">typed unary contract</a>.
-See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md">typed key contract</a>.
-Binary supports all eight writers; ORC rejects decimal and temporal payloads.
-Text output uses explicit typed encodings and does not preserve native logical
-types. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-payloads-2026-10-03.md">typed payload contract</a>.
-The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-nested-keys-state-2026-10-04.md">nested key and retained-state contract</a>
-extends static List/FixedSizeList/Struct equality, hashing and ordering through
-the existing relational kernels, with COUNT/COUNT DISTINCT/MIN/MAX and scoped
-comparisons, NULL tests and CASE/COALESCE/NULLIF selection. Exact recursive key
-schemas must match except for nullability. Retained nested values support
-DISTINCT/duplicate selection and masks, tail, sampling, parent forward fill,
-lossless same-shape melt and rolling COUNT. These finite nested/typed units are
-merged with complete local and hosted check evidence. General Variant/extensions,
-nested arithmetic and wider operator state spill remain separate boundaries.
-The subsequent nested pivot scope is described above.
-The 0.6.0 packages also admit computed aggregate arguments and exact decimal
-SUM/AVG/MIN/MAX through existing aggregate, rolling and scalar pivot state.
-Decimal totals remain exact; inexact averages and final overflow fail explicitly.
-Native ARRAY/STRUCT constructors preserve admitted logical children. File,
-typed-memory and source-free inputs reach the same Vortex-native engine, while
-Python conversions consume its typed results only at the requested output boundary.
-Analytic aggregates and FIRST_VALUE/LAST_VALUE/NTH_VALUE admit explicit ROWS,
-GROUPS and RANGE frames and exclusions through the same native window state.
-Bounded RANGE requires one compatible ordering key; named windows, variable
-offsets, calendar-month intervals and IGNORE NULLS
-remain outside the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-analytic-frames-2026-10-05.md">frame contract</a>.
-The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-window-pressure-2026-10-08.md">window pressure contract</a>
-adds explicit native spill for the existing analytic functions and frames, plus
-one finite single-use batch source. Complete local and hosted acceptance passed
-before <a href="https://github.com/depsilon/shardloom/pull/1533">PR #1533</a> merged.
-The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-analytic-frames-full43-2026-10-05.md">analytic-frame acceptance</a>
-records 22,658 public checks, including 2,213 frame checks, and all 129 Full43
-executions. The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/release-candidate-fresh-uat-2026-10-09.md">fresh release UAT</a>
-adds complete input/output workflow comparisons. These suites overlap and do
-not establish a comparative speedup.
-General joins, set operations, analytic windows and broader subquery shapes still have native coverage
-gaps. See the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-front-door-runtime-scope.md">front-door contract</a>
-and <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-runtime-completion-2026-09-20.md#finite-availability-inventory">remaining family inventory</a>.</p>
-<div class="sl-heading-wrapper level-h2"><h2 id="scalar-subqueries">Scalar subqueries</h2><a class="sl-anchor-link" href="#scalar-subqueries"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Scalar subqueries”</span></a></div>
-<p>The published engine admits scalar-value subqueries through
-SQL <code dir="auto">(SELECT ...)</code> and Python <code dir="auto">sl.scalar_subquery(...)</code>. Use them to put one query result into an expression:</p>
-<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.w36nc.css"/><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="sql"><code><div class="ec-line"><div class="code"><span style="--0:#C792EA;--1:#8844AE">SELECT</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">value</span><span style="--0:#D6DEEB;--1:#403F53">, (</span><span style="--0:#C792EA;--1:#8844AE">SELECT</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">outer</span><span style="--0:#D6DEEB;--1:#403F53">.</span><span style="--0:#82AAFF;--1:#3B61B0">value</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#7FDBCA;--1:#096E72">+</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#F78C6C;--1:#AA0982">10</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">AS</span><span style="--0:#D6DEEB;--1:#403F53"> adjusted) </span><span style="--0:#C792EA;--1:#8844AE">AS</span><span style="--0:#D6DEEB;--1:#403F53"> adjusted</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C792EA;--1:#8844AE">FROM</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#C792EA;--1:#8844AE">range</span><span style="--0:#D6DEEB;--1:#403F53">(</span><span style="--0:#F78C6C;--1:#AA0982">1</span><span style="--0:#D6DEEB;--1:#403F53">, </span><span style="--0:#F78C6C;--1:#AA0982">4</span><span style="--0:#D6DEEB;--1:#403F53">)</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="SELECT value, (SELECT outer.value + 10 AS adjusted) AS adjustedFROM range(1, 4)"><div></div></button></div></figure></div>
-<p>This returns values 1, 2 and 3 with adjusted values 11, 12 and 13. The inner
-query must bind one static output column. Zero rows return a typed NULL, one
-row returns its value, and multiple rows raise a cardinality error even when
-their values are equal. Correlation uses explicit <code dir="auto">outer.&lt;column&gt;</code> references.
-CASE/COALESCE execute only selected branches; every branch still requires syntax,
-source, type and schema admission. Dynamic-pivot-dependent scalar schemas and
-lateral relations remain unsupported. Existing dtype, writer and resource limits
-apply. See the <a href="https://github.com/depsilon/shardloom/blob/main/python/README.md">Python example</a>,
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-scalar-subqueries-2026-10-05.md">scalar-subquery contract</a>
-and <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-scalar-subqueries-full43-2026-10-05.md">acceptance evidence</a>.</p>
-<div class="sl-heading-wrapper level-h2"><h2 id="local-formats">Local Formats</h2><a class="sl-anchor-link" href="#local-formats"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Local Formats”</span></a></div>
+</script></div></div></div></div></nav><div class="main-frame astro-te4poo67"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex astro-2qhr55hr"><aside class="right-sidebar-container print:hidden astro-2qhr55hr"><div class="right-sidebar astro-2qhr55hr"><div class="lg:sl-hidden astro-ebqxlgtk"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-vx36mzxj"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-vx36mzxj"><details id="starlight__mobile-toc" class="astro-vx36mzxj"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-vx36mzxj"><span class="toggle sl-flex astro-vx36mzxj">On this page<svg aria-hidden="true" class="caret astro-vx36mzxj astro-pugqof7a" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-vx36mzxj"></span></summary><div class="dropdown astro-vx36mzxj"><ul class="isMobile astro-4zlcmxz5" style="--depth: 0;"><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#_top" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Overview</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#native-execution" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Native execution</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#scalar-subqueries" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Scalar subqueries</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#local-formats" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Local formats</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#write-results" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Write results</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#preparation-and-result-handoffs" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Preparation and result handoffs</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#resources-and-recovery" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Resources and recovery</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.BcSo_yiZ.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-ebqxlgtk"><div class="sl-container astro-ebqxlgtk"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-4zlcmxz5" style="--depth: 0;"><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#_top" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Overview</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#native-execution" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Native execution</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#scalar-subqueries" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Scalar subqueries</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#local-formats" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Local formats</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#write-results" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Write results</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#preparation-and-result-handoffs" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Preparation and result handoffs</span></a></li><li style="--depth: 0;" class="astro-4zlcmxz5"><a href="#resources-and-recovery" style="--depth: 0;" class="astro-4zlcmxz5"><span style="--depth: 0;" class="astro-4zlcmxz5">Resources and recovery</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.Csloo1VZ.js"></script></div></div></div></aside><div class="main-pane astro-2qhr55hr"><main data-pagefind-body class="astro-hg2g4jth" lang="en" dir="ltr"><div class="content-panel astro-6sysxg5x"><div class="sl-container astro-6sysxg5x"><h1 id="_top" class="astro-je6tfpea">Operations, types and formats</h1></div></div><div class="content-panel astro-6sysxg5x"><div class="sl-container astro-6sysxg5x"><div class="sl-markdown-content"><aside class="guide-version astro-sisnqshu" aria-label="Documentation version" data-pagefind-ignore><strong class="astro-sisnqshu">Published 0.6.0</strong><span class="astro-sisnqshu">Examples and availability refer to this package.</span><a href="/field-guide/development" class="astro-sisnqshu">Development and migration</a></aside>
+<p>Python, SQL and the CLI describe work for the same native engine. File formats
+are readers and writers around that engine. Start with the
+<a href="/field-guide/start-local-proof#write-and-reopen">write-and-reopen example</a>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="native-execution">Native execution</h2><a class="sl-anchor-link" href="#native-execution"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Native execution”</span></a></div>
+<p>Admitted filters, projections, COUNT/SUM/AVG/MIN/MAX, exact DISTINCT, ordering,
+joins, sets, windows and subqueries use native operators. Exact metadata,
+segment pruning and encoded kernels avoid work where the data and expression
+permit it. Coverage depends on types and options, not just an operator’s name.</p>
 <table>
 <thead>
 <tr>
-<th>Format</th>
-<th>Input</th>
-<th>Output</th>
+<th>Task</th>
+<th>Scope and semantic detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Filter, project, group, join, order</td>
+<td>Shared typed binding and NULL semantics. SQL <code dir="auto">NULLS FIRST</code>/<code dir="auto">NULLS LAST</code> and Python <code dir="auto">sort(..., nulls=&quot;first&quot;/&quot;last&quot;)</code> place nulls independently of ascending order.</td>
+</tr>
+<tr>
+<td>DISTINCT, duplicate selection/masks, tail, sampling, replacement, melt, rolling</td>
+<td>Admitted scalar and static nested shapes compose with relational stages. Sampling weights, casts, rolling aggregates and nested arithmetic have operation-specific restrictions.</td>
+</tr>
+<tr>
+<td>Pivot and pivot table</td>
+<td>Output columns bind from observed values during execution. <code dir="auto">pivot()</code> and <code dir="auto">pivot_table(aggfunc=&quot;first&quot;)</code> use first-unique semantics and reject conflicting cells; SQL’s explicit first selects the first row, including NULL.</td>
+</tr>
+<tr>
+<td>Nested keys</td>
+<td>List, FixedSizeList and Struct keys require matching recursive schemas, field names/order, widths and logical metadata, except nullability.</td>
+</tr>
+<tr>
+<td>Typed expressions</td>
+<td>Explicit casts, scoped binary/calendar functions and exact decimal arithmetic. Decimal key precision/scale must match; explicit downscaling requires zero discarded digits.</td>
+</tr>
+</tbody>
+</table>
+<p>For exact option and type contracts, see the <a href="/field-guide/sql">SQL reference</a>,
+<a href="https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-typed-expressions-2026-10-03.md">typed expressions</a>,
+<a href="https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-unary-composition-2026-10-02.md">unary composition</a>,
+and <a href="https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-nested-pivot-state-2026-10-06.md">nested pivot semantics</a>.
+Nested SUM/MEAN and nested-index margins are unsupported; nested MIN/MAX margins
+require a UTF8 index, and nested cells accept absent or NULL fill only.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="scalar-subqueries">Scalar subqueries</h2><a class="sl-anchor-link" href="#scalar-subqueries"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Scalar subqueries”</span></a></div>
+<p>Scalar subqueries, membership, EXISTS and quantified predicates have explicit
+cardinality and NULL contracts. Inspection does not execute a dynamic expression
+to discover its output. See the <a href="https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/native-scalar-subqueries-2026-10-05.md">published scalar-subquery contract</a>.
+Later finite-streaming extensions are described only in <a href="/field-guide/development">development</a>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="local-formats">Local formats</h2><a class="sl-anchor-link" href="#local-formats"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Local formats”</span></a></div>
+<p><code dir="auto">ctx.read(path)</code> infers the adapter; named helpers make the format explicit.
+Published release builds include the listed local readers. Source builds need
+their matching features. Network and catalog protocols are not implicit readers.</p>
+<table>
+<thead>
+<tr>
+<th>Boundary</th>
+<th>Formats or types</th>
+<th>Practical restriction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Native files</td>
+<td>Vortex</td>
+<td>Highest-fidelity input and persistence; file/schema validation still applies.</td>
+</tr>
+<tr>
+<td>Text input</td>
+<td>CSV, JSON, JSONL/NDJSON</td>
+<td>Parsing and schema rules apply; compatibility input prepares a native representation.</td>
+</tr>
+<tr>
+<td>Columnar/structured files</td>
+<td>Parquet, Arrow IPC/Feather, Avro, ORC</td>
+<td>The file’s schema must be representable by the adapter.</td>
+</tr>
+<tr>
+<td>Typed memory</td>
+<td>Exact-width integers, finite Float32/64, Boolean, UTF8, binary, Decimal128, Date32, timezone-free microsecond timestamps</td>
+<td>Use explicit schemas for rich types; Decimal128 precision is 1–38 and scale is 0–precision.</td>
+</tr>
+<tr>
+<td>Nested values</td>
+<td>Static List, FixedSizeList and ordered Struct</td>
+<td>Recursive field and child-buffer admission applies. General Variant/extension types and nested arithmetic are not implied.</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="write-results">Write results</h2><a class="sl-anchor-link" href="#write-results"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Write results”</span></a></div>
+<p>Choose <code dir="auto">write_vortex</code> for native persistence. The same plan can use
+<code dir="auto">write_parquet</code>, <code dir="auto">write_arrow_ipc</code>, <code dir="auto">write_avro</code>, <code dir="auto">write_orc</code>, <code dir="auto">write_csv</code>,
+<code dir="auto">write_json</code> or <code dir="auto">write_jsonl</code> when its schema is representable. Complete writers
+can deliver admitted results larger than small-result collection using native
+batches; they do not require a Python row tuple.</p>
+<table>
+<thead>
+<tr>
+<th>Writer</th>
+<th>Fidelity boundary</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Vortex</td>
-<td>Native files; admitted local manifests and partitions</td>
-<td>Highest-fidelity native persistence</td>
+<td>Preserves admitted native arrays, dtype and validity; derives output statistics from the actual result.</td>
 </tr>
 <tr>
-<td>Parquet</td>
-<td>Feature-gated local reader</td>
-<td>Feature-gated typed writer</td>
+<td>Parquet, Arrow IPC, Avro</td>
+<td>Preserve representable logical schemas; exact adapter restrictions apply.</td>
 </tr>
 <tr>
-<td>Arrow IPC / Feather</td>
-<td>Feature-gated local reader</td>
-<td>Feature-gated Arrow IPC writer</td>
-</tr>
-<tr>
-<td>Avro</td>
-<td>Feature-gated local reader</td>
-<td>Feature-gated writer; type restrictions apply</td>
-</tr>
-<tr>
-<td>ORC</td>
-<td>Feature-gated local reader</td>
-<td>Feature-gated writer; nested and unrepresentable unsigned values remain unsupported</td>
+<td>JSON and JSONL</td>
+<td>Use explicit encodings for binary, decimal and temporal values; native metadata is not preserved.</td>
 </tr>
 <tr>
 <td>CSV</td>
-<td>Local inference or declared schema; quoted multiline records</td>
-<td>Text output with explicit materialization</td>
+<td>Nested values become quoted JSON text cells; logical dtype and native metadata are not preserved.</td>
 </tr>
 <tr>
-<td>JSON</td>
-<td>Local JSON input with declared ingestion semantics</td>
-<td>One top-level JSON array</td>
-</tr>
-<tr>
-<td>JSONL / NDJSON</td>
-<td>Local line-delimited JSON</td>
-<td>JSONL text output</td>
+<td>ORC</td>
+<td>Rejects nested, decimal and temporal output; admitted binary/scalar types retain their writer contract.</td>
 </tr>
 </tbody>
 </table>
-<p>Method availability does not imply every operator can feed every sink. Consult the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/shardloom-user-surface-index.md">input surface</a>
-and <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md">output contract</a>
-for enabled features, schema support, and write policy. Compatibility outputs expose metadata
-loss; text formats do not preserve Vortex layouts or static types.</p>
-<div class="sl-heading-wrapper level-h2"><h2 id="preparation-and-result-handoffs">Preparation And Result Handoffs</h2><a class="sl-anchor-link" href="#preparation-and-result-handoffs"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Preparation And Result Handoffs”</span></a></div>
-<p>Automatic compatibility-input preparation can reuse a local Vortex artifact when the source,
-declared schema, and artifact identities match. Generation checks span reuse and execution;
-detected changes fail explicitly. This is local preparation reuse, not a global query-result cache.</p>
-<p>Native Vortex preparation preserves the existing layout. The shared all-I/O physical-layout
-optimization policy remains follow-up work. Reading Vortex does not make parsing, computation,
-encoding, or result delivery instantaneous.</p>
-<p>Supported owned results retain Vortex arrays, validity, and memory credits. The 0.6.0 packages
-stream admitted flat aggregate, ordered, unary, and relational results through all eight local
-writers without rerunning the query or reparsing serialized JSON for binary export. This includes
-admitted native ordering spill. Small computed-result collection remains bounded to
-<strong>65,536 rows and 8 MiB</strong>; top-level schema metadata uses the shared grant in 0.6.0
-packages. Complete writers use bounded native batches and
-can exceed the collection row and byte limits. Type, resource, and write-policy admission still
-apply. Nested and extension results have separate coverage limits. See the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/v1-local-output-sink-scope.md">output contract</a>.
-The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-input-growth-2026-10-09.md">input growth contract</a>
-is included in 0.6.0; historical 0.5.1 artifacts retain
-their release-time limits.
-The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-input-growth-2026-10-09.md">complete growth acceptance</a>
-binds the exact source and complete values across admitted destinations.</p>
-<p>The 0.6.0 packages preserve the full signed Int64 domain of timezone-free
-microsecond timestamps through native compression, available file statistics
-and reopening. The
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-timestamp-provider-2026-10-11.md">timestamp acceptance report</a>
-records complete local and fresh-UAT checks, measured write/read tradeoffs and
-hosted integration status. Other temporal units and external unpatched readers
-retain their own limits.</p>
-<p>A saved native result can be reopened by a later process for another computation.
-Existing native-file admission avoids repeating external-format ingestion.
-The 0.6.0 packages derive supported file statistics from the result’s actual
-values while preserving dtype, validity and admitted serializable native arrays.
-Later jobs can answer supported aggregates from exact footer statistics or
-prune disjoint ranges after the producing process ends. Source layout and
-derived metadata are not blindly copied into a changed result. The
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-persisted-reuse-2026-10-11.md">persisted-output acceptance</a>
-records complete write/reopen workflows, resource and cost gates, and hosted
-integration status. Published 0.5.1 artifacts retain their release-time behavior.</p>
-<p>The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-query-revisit-2026-10-12.md">October 12 query revisit</a>
-records separate paired decisions for prepared-sort provider drivers, scan
-granularity and exact decimal accumulation, plus a dropped reservation change.
-It reports complete-operation timings, CPU and memory costs, controls and final
-acceptance status. These source changes do not establish a new general benchmark
-headline or change published packages.</p>
-<p>Flat aggregate collection and writes use the same native admission, carrying the complete
-filter, group, measure, HAVING, order, and limit chain with declared schemas and resources.
-Explicit SQL <code dir="auto">NULLS FIRST</code>/<code dir="auto">NULLS LAST</code> and Python <code dir="auto">sort(..., nulls=&quot;first&quot;)</code> or
-<code dir="auto">nulls=&quot;last&quot;</code> place nulls independently of ascending or descending values.
-JSON collection reports the final materialization boundary and metadata loss; exceeding its
-row or serialized-byte limit fails without returning a successful prefix.</p>
-<div class="sl-heading-wrapper level-h2"><h2 id="resources-and-recovery">Resources And Recovery</h2><a class="sl-anchor-link" href="#resources-and-recovery"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Resources And Recovery”</span></a></div>
-<p>The published engine accounts for reviewed FSST/Zstd payload,
-view and validity buffers through the shared native memory owner. Retained
-clones and slices keep their allocation credits. It also adds
-<a href="/field-guide/python-surface#consume-results-in-batches">Python batch input and results</a>.
-These additions merged in PR #1526 after complete local and hosted checks. Source implementation also admits the actual
-one-shot Zstd decoder and by-reference prepared-dictionary workspaces before
-allocation, releasing them after each decode. See the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-codec-workspaces-2026-10-07.md">workspace acceptance</a>
-for its separate local and hosted evidence. The
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-builder-resources-2026-10-07.md">builder resource acceptance</a>
-also covers native primitive/Boolean/decimal Chunked output, nullable bitmaps and
-numeric/string builder finalization buffers. Local source and complete workflow
-checks pass; PR #1529 merged after all 39 hosted checks passed, with the accepted
-runtime unchanged. The 0.6.0 packages also include
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-admitted-context-2026-10-14.md">reviewed fixed-width child-decoder admission</a>.</p>
-<p>The subsequent source-only
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-compression-resources-2026-10-15.md">compression resource correction</a>
-admits named Zstd preparation/output buffers and audited compressor/default-trainer
-heap storage. Complete local ownership, cost, public-workflow and single-pass
-Full43 checks pass. PR #1555 merged after all 44 checks passed, including native
-and installed-wheel acceptance; production documentation is verified. This change
-follows the immutable 0.6.0 packages. Its original scope excludes structural
-frame metadata; the extension below has separate acceptance. Other codecs and
-unreviewed provider trees remain separate. These resource corrections
-make no speedup claim, and a query grant still does not bound total process RSS.</p>
-<p>The source-only
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-zstd-metadata-resources-2026-10-16.md">Zstd frame metadata extension</a>
-admits frame-handle and metadata vectors before allocation. Clones, slices and
-nullability casts share their owner; native transfer receives fresh credits
-without duplicate vector charges. Six Rust gates, 67 provider tests, 100 direct
-methods, 4,827 public cases, all 18 lifecycle cells and one Full43 pass succeed.
-Independent inspection verifies 13,728 evidence members. PR #1562 merged after
-all 44 checks passed; the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-zstd-metadata-hosted-2026-10-16.json">hosted packet</a>
-verifies three installed-wheel lanes, accepted sources and preview/production
-responses and navigation. Raw caller-owned APIs, fixed allocator/Arc overhead and process
-RSS stay outside this claim; published 0.6.0 packages are unchanged.</p>
-<p>The source-only
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-varbin-metadata-review-2026-10-16.md">variable-binary buffer-table extension</a>
-shares table credit through text/binary selections and admits new tables in
-reviewed constructors, codecs, the Chunked builder and receiving sessions.
-Safe construction/replacement checks host-readable contents and reuses validated
-native bytes. Six fresh Rust gates, 3,587 standalone provider tests, 100 direct
-methods, 4,827 public cases and one Full43 pass succeed. All 32 lifecycle cells
-pass the unchanged rule across both comparison orders; independent inspection
-verifies 19,538 evidence members. PR #1563 merged after all 44 checks passed;
-the <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-varbin-metadata-hosted-2026-10-16.json">hosted packet</a>
-verifies three installed-wheel lanes, accepted sources and preview/production
-responses and navigation.
-Raw caller-owned exports, general builder/compaction scratch, fixed allocator/Arc
-overhead and process RSS stay outside this claim. Published 0.6.0 packages are unchanged.</p>
-<p>The source-only
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-file-metadata-buffers-2026-10-17.md">file metadata ownership correction</a>
-admits copied footer, schema/layout, cached and in-memory segment realignment and
-requested metadata buffers through the native session allocator. Unrequested
-optional metadata and discarded in-memory tail caches are skipped. Retained schemas, layouts
-and buffer clones keep their credits until their final owner drops. Complete
-local acceptance includes fresh ingestion, all 18 format/workflow cohorts and
-all 43 query results. All twenty focused ownership tests and a clean 2,924-test
-native run pass. PR #1565 is merged after all 44 checks, three installed-wheel
-lanes and preview/production verification pass.
-Structural metadata collections, writer scratch and process RSS retain their
-separate boundaries. Published 0.6.0 packages are unchanged.</p>
-<p>The subsequent source-only
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-selected-text-views-2026-10-15.md">selected text view change</a>
-constructs views only for selected rows inside sparse native Zstd filtering.
-Complete local checks and its bounded paired comparison pass. PR #1556 merged
-after all 44 checks and three installed-wheel lanes passed. Preview and
-production responses match the merged source, and the completed production
-deployment is verified. The report preserves and corrects the earlier stale
-notification observation. It retains the slower control cases
-and all 43 acceptance timings. The same frames are decoded, and this result
-makes no general speedup or zero-decode claim.</p>
-<p>Opt-in <code dir="auto">from_batches(..., streaming=True)</code> retains at most one original native input
-batch. The 0.6.0 packages admit distinct finite producers, declared repeated-source
-replay and dynamic pivots through the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-input-composition-2026-10-13.md">shared composition contract</a>.
-These extend scan/filter/project, sorting, aggregation, joins, analytic windows
-and draining limits alongside ordinary file/resident sources. The earlier
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md">local resource and correctness acceptance</a>
-proves constrained native ordering and general aggregate spill with complete
-output. The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-join-pressure-2026-10-08.md">join acceptance</a>
-adds all seven admitted join kinds, one-shot input on either side and owned
-cleanup/restart. Complete local pressure/workflow/regression checks and independent
-packet inspection pass; join integration completed in PR #1532 after all 39
-hosted checks and actual preview/production verification. The
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-window-pressure-2026-10-08.md">window acceptance</a>
-adds existing analytic functions/frames with exact DISTINCT and extrema under
-native spill. File-backed and streamed 24,013-row controls both complete at
-16 MiB with exact values, safe resident denial and owned cleanup/restart.
-Complete public and regression acceptance passes; hosted window integration
-completed in PR #1533 after all 39 checks and actual preview/production verification.
-The subsequent
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-pivot-pressure-2026-10-08.md">pivot acceptance</a>
-completes local file/resident-memory relational pivot pressure and independent
-packet inspection. Two native 16-MiB executions each return all 6,145 wide-key
-results, with constrained resident denial and a 512-MiB ample control.
-The public portfolio contains 32,497 checks, including 3,626 pivot pressure
-checks and 133 incremental proofs; all 129 Full43 comparisons pass. Pivot hosted
-integration completed in PR #1534 after all 39 checks and actual preview/production
-verification. The 0.6.0 packages extend this to finite streaming pivot input;
-the composition contract records that separate acceptance.
-All operator stages share one memory grant and spill quota. Output
-compaction prevents retained results from pinning input; native sink metadata
-and retained output still consume credits. Limits drain the complete source,
-and late failure prevents completion and incomplete file publication.
-The runtime also rejects malformed FSST row lengths before decoder allocation.
-The subsequent source implementation admits finite single-use input through
-all eight existing local writers and one-execution fanout. A single destination
-streams directly; several destinations share credited native result replay and
-explicit spill. Input completion, adapter completion and owned cleanup precede
-publication; multi-file publication remains non-atomic. The
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-destinations-2026-10-15.md">destination acceptance</a>
-records complete local runtime and query checks. PR #1557 merged after all 44
-checks passed, with three installed-wheel lanes and preview/production verification.
-The current-source <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-set-operations-2026-10-15.md">set-operation contract</a>
-also admits all four existing set operations over finite producers, including
-repeated sources and surrounding native operators. Set membership remains resident
-under the grant; source/output replay spill does not spill that state. Complete
-local acceptance and hosted integration pass in PR #1558 after all 44 checks,
-three installed-wheel lanes and preview/production verification.
-The current-source <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-unary-2026-10-15.md">finite unary contract</a>
-also admits DISTINCT, duplicate removal/masks, tail, sampling, scalar rewrites,
-melt, explode and rolling over finite producers with complete source validation.
-Unary membership and population state remain resident under the shared grant;
-replay spill does not spill those states. Local runtime acceptance passes with
-91 direct methods and 2,601 public cases. PR #1559 merged after all 44 checks
-passed, with three installed-wheel lanes and preview/production verification.
-Existing option/type limits and dynamic pivot’s separate schema path
-remain in force.
-The current-source <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-subqueries-2026-10-15.md">finite subquery contract</a>
-extends IN/NOT IN, row membership, EXISTS/NOT EXISTS, quantified ANY/ALL and scalar
-subqueries to finite producers with statically declared inner sources and schemas.
-Indexed and parameterized correlation preserve existing selected-branch semantics.
-Nested reads release the original outer input owner first; shared sources complete
-native replay before query consumption. Unused inner producers still undergo raw
-validation without evaluating skipped expressions or scalar cardinality. Subquery
-membership/index state remains resident under the grant; replay spill does not
-spill it. Opaque dynamically declared inner sources remain unsupported. The
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-subqueries-2026-10-15.md">acceptance report</a>
-records 96 direct methods, 3,724 public cases, all six Rust gates and all 43
-regression queries passing locally. PR #1560 merged after all 44 checks passed,
-three installed-wheel lanes passing 96 methods each, and preview/production
-verification. These source changes preserve the immutable 0.6.0 package boundary.
-Unadmitted state/recovery and remaining allocation coverage stay open.</p>
-<p>The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md">declared dynamic predicate extension</a>
-allows each parameter’s inner pivot to discover its own schema while retaining
-a finite declared source set. Restrictions are installed before discovery can
-demand input, and nested declarations stay within their parent’s set. Metadata,
-detached input, replay and per-parameter state share the existing query grant.
-Unused producers still complete through raw validation without evaluating skipped
-expressions. The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md">acceptance report</a>
-records 100 direct methods, 4,827 public cases, all six Rust gates and all 43
-regression queries passing locally. PR #1561 merged after all 44 checks passed;
-three installed-wheel lanes each pass 100 methods without skips. The
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json">147-member hosted packet</a>
-verifies preview/production source and navigation. Opaque
-undeclared callbacks and dynamic scalar output-schema inference remain unsupported.
-Subquery membership/index state remains resident; replay spill does not spill that
-state. Published 0.6.0 packages retain their release-time behavior.</p>
-<p>Prepared sessions retain source handles and supported lowering while calls create fresh execution
-state. Resident serving can bound concurrent calls, CPU grants, and positional I/O, with an
-explicit reserved metadata lane. This does not establish production-scale fairness or an RSS ceiling.
-Native file operations drain admitted I/O and reader ownership before completion. Metadata-only
-aggregates avoid payload and worker admission, including when no spare payload credit is available.</p>
-<p>The 0.6.0 packages require explicit memory and parallelism limits before every execution, data inspection, and preparation through Rust, the CLI, or Python. In Python, configure <code dir="auto">memory_gb</code> (GiB) and <code dir="auto">max_parallelism</code> on a context/session or terminal call; lazy declarations and inert discovery need no allocation. Upgrading from 0.5.1 requires declaring both allocations; the previous implicit defaults no longer apply. The <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/required-execution-resources-2026-10-10.md">required-resource contract</a> defines exact bytes, inheritance, authorization ceilings and reports that separate declared allocation from admitted resources and observed use.
-The <a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/required-execution-resources-2026-10-10.md">complete local acceptance</a> checks rejection before input demand, shared ownership, complete workflows and every retained resource report. Unmeasured usage remains unavailable; a declared budget is neither a measured peak nor a whole-process memory limit.
-Required-resource and native Python ownership integration completed together in
-<a href="https://github.com/depsilon/shardloom/pull/1541">PR #1541</a>, with all 44 hosted
-checks and the three installed native-wheel lanes recorded in the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/evidence/native-python-surface-hosted-2026-10-11.json">hosted receipt</a>.
-The runtime selects concurrency within the supplied maximum and the CPU capacity available
-to the process; an explicit one-CPU allocation stays one. Streaming ingestion shares this
-grant across ready source, conversion, statistics, and writer tasks. Full bounded queues
-yield their drivers, while memory admission can narrow unfinished work. Allocations can
-vary well beyond P4/P6/P8. I/O and serial work may limit useful concurrency; these controls
-do not guarantee full CPU utilization or a total-process RSS ceiling. See the
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/adaptive-ingest-budget-2026-10-02.md">ingest scheduling contract</a>.</p>
-<p>The 0.6.0 packages carry the same <code dir="auto">memory_gb</code> and <code dir="auto">max_parallelism</code> request through SQL and
-DataFrame collection and local writers. Optional <code dir="auto">spill</code> declares an existing local workspace,
-<code dir="auto">quota_bytes</code>, and <code dir="auto">buffer_bytes</code>. Nullable multi-key relational ordering can flush typed
-Vortex runs and merge them under the same query grant and disk quota, including composed inputs.
-This includes flat typed keys in the <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-typed-keys-2026-10-03.md">typed key contract</a>.
-The buffer is a flush threshold; it is not a second memory grant or a whole-process RSS ceiling.
-Verified cleanup must finish before an execution or writer reports success.</p>
-<p>COUNT/DISTINCT and selected numeric sort retain their existing specialized strategies.
-General relational aggregation, all seven admitted join kinds, existing analytic
-windows and file/resident-memory relational pivots have their own strategies
-under the common explicit spill policy. Set state retains a separate pressure contract;
-unadmitted key types and broader resource accounting remain separate work. See
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/resident-native-results.md">COUNT/DISTINCT contracts</a>,
-<a href="https://github.com/depsilon/shardloom/blob/main/docs/reference/native-query-spill.md">native spill contracts</a>,
-and <a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/concurrent-native-serving-2026-09-20.md">serving evidence</a>.</p>
-<p>Every admitted execution preserves <code dir="auto">fallback_attempted=false</code> and
-<code dir="auto">external_engine_invoked=false</code>. Unsupported work returns deterministic diagnostics.</p></div><footer class="sl-flex astro-xhxjzfa7"><div class="meta sl-flex astro-xhxjzfa7"></div><div class="pagination-links print:hidden astro-jgq3vlii" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>
+<p>Use a new destination. Do not assume overwrite or atomic publication across
+multiple files. A failed write must not be reported as a completed output; retain
+the structured diagnostic for cleanup/recovery. Reopening the saved file performs
+normal source validation. See the <a href="https://github.com/depsilon/shardloom/blob/v0.6.0/docs/architecture/v1-local-output-sink-scope.md">published output contract</a>
+and <a href="/field-guide/limitations#known-issues">known native wrapper issue</a>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="preparation-and-result-handoffs">Preparation and result handoffs</h2><a class="sl-anchor-link" href="#preparation-and-result-handoffs"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Preparation and result handoffs”</span></a></div>
+<p>Prepared files are reused only after identity checks. Saved results can be
+reopened by another process; result statistics describe the result’s values,
+not metadata blindly copied from the old source. Native in-process results keep
+their array owners and credits through admitted chaining and output.
+See <a href="/field-guide/python-surface#keep-results-native">keeping results native</a> and
+the <a href="/field-guide/execution-routes">data lifecycle</a>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="resources-and-recovery">Resources and recovery</h2><a class="sl-anchor-link" href="#resources-and-recovery"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Resources and recovery”</span></a></div>
+<p>Memory, parallelism and authorized spill are caller policies. Follow
+<a href="/field-guide/resources">resources and cancellation</a> for allocation, lifetime,
+spill ownership and failure handling. Adding a writer or batch interface does
+not make all operator state spillable or bound the whole Python process.</p></div><footer class="sl-flex astro-rqemzwhu"><div class="meta sl-flex astro-rqemzwhu"></div><div class="pagination-links print:hidden astro-gttwoc7r" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>

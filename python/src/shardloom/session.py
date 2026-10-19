@@ -6,7 +6,7 @@ import hashlib
 import os
 import uuid
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Literal, Mapping, Sequence, overload
 
 from ._compat import dataclass
 from .client import (
@@ -24,7 +24,7 @@ from .query import (
     LazyFrame,
     SqlWorkflow,
     UnsupportedWorkflowOperationReport,
-    VortexWorkflowExecutionReport,
+    Result,
     _normalize_fanout_outputs,
     _normalize_local_output_format,
     read as read_source,
@@ -197,15 +197,27 @@ class SessionPreparedState:
         }
 
 
-@dataclass(frozen=True, slots=True)
-class SessionSqlResult:
-    """SQL/query-builder result handle returned by a `ShardLoomSession`."""
+@dataclass(frozen=True, slots=True, init=False)
+class SessionSqlResult(Result):
+    """Compatibility Result with session reuse details; it owns the same data.
+
+    New callers can consume schema, values and details directly. ``report`` and
+    the original constructor remain available for existing session callers.
+    """
 
     session_id: str
-    report: VortexWorkflowExecutionReport
+    report: Result
     operation: str
     reuse_hit: bool
     reuse_reason: str
+
+    def __init__(self, session_id: str, report: Result, operation: str,
+                 reuse_hit: bool, reuse_reason: str) -> None:
+        Result.__init__(self, report.workflow, operation, report.envelope)
+        object.__setattr__(self, "session_id", session_id)
+        object.__setattr__(self, "report", report)
+        object.__setattr__(self, "reuse_hit", reuse_hit)
+        object.__setattr__(self, "reuse_reason", reuse_reason)
 
     @property
     def session_state_scope(self) -> str:
@@ -395,12 +407,12 @@ class SessionLazyFrame:
         *,
         limit: int | None = None,
         reuse: bool = True,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
-    ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> SessionSqlResult:
         """Collect rows through this session's scoped local-source reuse cache."""
 
         frame = (
@@ -421,12 +433,12 @@ class SessionLazyFrame:
         self,
         *,
         reuse: bool = True,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
-    ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
         """Return a scoped row-count report through the session cache when admitted."""
 
         if self.frame.source_format == "vortex":
@@ -691,7 +703,7 @@ class SessionLazyFrame:
         self,
         *,
         reuse: bool = True,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         max_parallelism: int | None = None,
@@ -705,7 +717,7 @@ class SessionLazyFrame:
             max_parallelism=max_parallelism, resources=resources,
         )
         if isinstance(result, SessionSqlResult):
-            return result.report.result_rows
+            return result.to_rows()
         return result
 
     def join(
@@ -812,14 +824,12 @@ class SessionSqlWorkflow:
         *,
         limit: int | None = None,
         reuse: bool = True,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
-    ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
-    ):
+    ) -> SessionSqlResult:
         """Collect local-source SQL rows through this session when admitted."""
 
         self.session._ensure_open()
@@ -861,7 +871,7 @@ class SessionSqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
     ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        SessionSqlResult | UnsupportedWorkflowOperationReport
     ):
         """Write SQL rows through this session when the statement is local-source."""
 
@@ -892,7 +902,7 @@ class SessionSqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
     ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        SessionSqlResult | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="jsonl")`."""
 
@@ -918,7 +928,7 @@ class SessionSqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
     ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        SessionSqlResult | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="json")` (one JSON array)."""
 
@@ -944,7 +954,7 @@ class SessionSqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
     ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        SessionSqlResult | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="csv")`."""
 
@@ -970,7 +980,7 @@ class SessionSqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
     ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        SessionSqlResult | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="parquet")`."""
 
@@ -996,7 +1006,7 @@ class SessionSqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
     ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        SessionSqlResult | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="arrow-ipc")`."""
 
@@ -1022,7 +1032,7 @@ class SessionSqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
     ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        SessionSqlResult | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="avro")`."""
 
@@ -1048,7 +1058,7 @@ class SessionSqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
     ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        SessionSqlResult | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="orc")`."""
 
@@ -1074,7 +1084,7 @@ class SessionSqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
     ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        SessionSqlResult | UnsupportedWorkflowOperationReport
     ):
         """Alias for `write(..., output_format="vortex")`."""
 
@@ -1100,7 +1110,7 @@ class SessionSqlWorkflow:
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
     ) -> (
-        SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport
+        SessionSqlResult | UnsupportedWorkflowOperationReport
     ):
         """Write SQL rows to fanout sinks through this session when admitted."""
 
@@ -1199,7 +1209,7 @@ class ShardLoomSession:
     def closed(self) -> bool:
         """Whether this session has been explicitly closed."""
 
-        return self._closed
+        return self._closed or self.client.closed
 
     @property
     def cache_hit_count(self) -> int:
@@ -1504,12 +1514,12 @@ class ShardLoomSession:
         frame: LazyFrame,
         *,
         reuse: bool = True,
-        check: bool = False,
+        check: bool = True,
         memory_gb: int | None = None,
         memory_bytes: int | None = None,
         resources: ExecutionResources | None = None,
         max_parallelism: int | None = None,
-    ) -> SessionSqlResult | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+    ) -> SessionSqlResult:
         """Collect rows for an admitted local query-builder workflow with session reuse."""
 
         self._ensure_open()
@@ -1607,6 +1617,11 @@ class ShardLoomSession:
             self._closed = True
         return self.evidence()
 
+    def cancel(self) -> None:
+        """Cancel current work through this session's shared context owner."""
+        self._ensure_open()
+        self.client.cancel()
+
     def evidence(self) -> dict[str, Any]:
         """Return session lifecycle and reuse evidence."""
 
@@ -1624,7 +1639,7 @@ class ShardLoomSession:
             "result_replay_reuse_count": self._result_replay_reuse_count,
             "last_reuse_reason": self._last_reuse_reason,
             "last_invalidation_reason": self._last_invalidation_reason,
-            "session_closed": self._closed,
+            "session_closed": self.closed,
             "fallback_attempted": False,
             "external_engine_invoked": False,
             "claim_gate_status": "not_claim_grade",
@@ -1642,8 +1657,15 @@ class ShardLoomSession:
         self.close()
 
     def _ensure_open(self) -> None:
-        if self._closed:
-            raise RuntimeError("ShardLoomSession is closed")
+        from .errors import ShardLoomClosedError
+        if self.closed:
+            raise ShardLoomClosedError()
+
+    @overload
+    def _sql_result(self, *, operation: Literal["collect"], execute: Any, reuse: bool) -> SessionSqlResult: ...
+
+    @overload
+    def _sql_result(self, *, operation: str, execute: Any, reuse: bool) -> SessionSqlResult | UnsupportedWorkflowOperationReport: ...
 
     def _sql_result(
         self,
@@ -1655,10 +1677,12 @@ class ShardLoomSession:
         # The client owns the native worker and its prepared operations. Every
         # terminal call executes there; Python never caches a completed answer.
         if not reuse:
-            self.client.close()
+            self.client.release_prepared()
         report = execute()
         if isinstance(report, UnsupportedWorkflowOperationReport):
-            return report
+            if operation != "collect":
+                return report
+            report = Result(report.workflow, operation, report.envelope)
         reused = report.envelope.status == "success" and any(
             report.envelope.field_bool(field, False) is True
             for field in (

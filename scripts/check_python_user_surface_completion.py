@@ -285,18 +285,11 @@ REQUIRED_FUTURE_CONTRACT_BLOCKERS = {
     "fanout": {"cg21.workflow.fanout.multi_sink_atomicity_contract_missing"},
 }
 
+# Canonical onboarding/snippet/release facts are checked by check_v1_docs_productization; this check owns contributor proof.
 REQUIRED_DOC_MARKERS = {
     "README.md": [
         "https://shardloom.io/field-guide/python-surface/",
         "docs/reference/shardloom-user-surface-index.md",
-    ],
-    "python/README.md": [
-        "DataFrame-style surface",
-        "ctx.session",
-        "sql_result = ctx.sql(",
-        "docs/reference/shardloom-user-surface-index.md",
-        "blocked.required_evidence",
-        "matrix.all_no_fallback_no_external_engine",
     ],
     "docs/reference/shardloom-user-surface-index.md": [
         "shardloom.user_surface_index.v1",
@@ -306,19 +299,12 @@ REQUIRED_DOC_MARKERS = {
         "fallback_attempted=false",
         "external_engine_invoked=false",
     ],
-    "docs/getting-started/first-10-minutes.md": [
+    "docs/release/local-source-rehearsal.md": [
         "python examples\\local-python-smoke\\run.py --repo-root .",
         "memory-row write through the shared native",
         "quickstart_local_file_blocker_id",
         "quickstart_generated_output_row_count",
         "quickstart_unsupported_blocker_id",
-    ],
-    "website-src/src/pages/start.astro": [
-        "examples\\local-python-smoke\\run.py --repo-root .",
-        "ctx.read(\"data/orders.csv\")",
-        "sl.col(\"status\") == \"paid\"",
-        "print(result.envelope.human_text)",
-        "check_python_user_surface_completion.py",
     ],
 }
 
@@ -1619,13 +1605,13 @@ def build_report(
             [
                 "python/src/shardloom/session.py",
                 "python/tests/test_cli_client.py",
-                "python/README.md",
+                "website-src/src/content/docs/field-guide/python-surface.mdx",
             ],
             status_when_passed="session_surface_documented_and_tested",
         ),
         _row(
             "docs_website_claim_boundary",
-            "README, Python docs, first-10-minutes, and website claim boundary",
+            "Application guide and contributor proof boundary",
             docs_blockers,
             list(REQUIRED_DOC_MARKERS.keys()),
             status_when_passed="claim_boundary_documented",

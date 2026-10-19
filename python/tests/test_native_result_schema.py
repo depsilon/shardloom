@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from shardloom._result_schema import arrow_table, python_rows, schema_fields
 from shardloom.errors import ShardLoomProtocolError
 from shardloom.models import OutputEnvelope
-from shardloom.query import VortexWorkflowExecutionReport
+from shardloom.query import Result
 
 
 FORMAT = "vortex.dtype.serde.v1"
@@ -33,7 +33,7 @@ class NativeResultSchemaTests(unittest.TestCase):
         declarations = {"n,λ": {"Primitive": ["i64", True]},
                         "t\"ext": {"Utf8": False}, "flag": {"Bool": True}}
         for payload in [{"result_jsonl": ""}, {"result_values_json": "[]"}]:
-            report = VortexWorkflowExecutionReport(None, "collect", OutputEnvelope.from_field_mapping({
+            report = Result(None, "collect", OutputEnvelope.from_field_mapping({
                 **payload, "result_schema_json": json.dumps(schema(declarations)),
                 "result_schema_format": FORMAT,
             }))

@@ -102,10 +102,12 @@ The proof retains the wheel under `proof/dist` and its report and logs under
 `proof`. It verifies wheel RECORD hashes, legal notices, the actual extension
 and CLI imports, every native integration test, and complete package uninstall.
 A skipped native test fails this proof. Its temporary `proof/venv` no longer
-contains ShardLoom afterward. To try the
-[native API example](../../python/README.md#native-python-api), install the
-retained wheel in a separate environment. The example uses optional PyArrow
-for Arrow interchange; ShardLoom owns execution. The proof publishes nothing
+contains ShardLoom afterward. To try the maintained
+[context/result example](../../examples/paid-orders/context-result.py), install the
+retained wheel in a separate environment. This development example uses native
+execution and retained ShardLoom results without optional Arrow dependencies.
+The [embedding guide](https://shardloom.io/field-guide/embedding/) covers direct
+typed native integration. The proof publishes nothing
 and does not change the caller's existing Python environment.
 
 Local Linux wheels built by the command above retain their host-specific tag.

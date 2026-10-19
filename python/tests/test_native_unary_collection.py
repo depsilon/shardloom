@@ -10,8 +10,10 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from shardloom import ShardLoomClient, ShardLoomContext, VortexWorkflowExecutionReport
+from shardloom import ShardLoomContext
+from shardloom.diagnostics import ShardLoomClient
 from shardloom.models import OutputEnvelope
+from shardloom.query import Result
 
 
 class NativeUnaryCollectionTests(unittest.TestCase):
@@ -58,7 +60,7 @@ class NativeUnaryCollectionTests(unittest.TestCase):
                 self.client, "public_workflow_run", return_value=self.reply(rows)
             ) as run:
                 report = frame.collect(check=True)
-                self.assertIsInstance(report, VortexWorkflowExecutionReport)
+                self.assertIsInstance(report, Result)
                 self.assertEqual(report.result_rows, tuple(rows))
                 self.assertFalse(report.fallback_attempted)
                 self.assertFalse(report.external_engine_invoked)
@@ -113,14 +115,14 @@ class NativeUnaryCollectionTests(unittest.TestCase):
         from shardloom.errors import ShardLoomProtocolError
 
         for fields in [{"output_row_count": "0"}, {"result_jsonl": "[1,2]\n"}, {"result_jsonl": "{broken\n"}]:
-            report = VortexWorkflowExecutionReport(
+            report = Result(
                 self.frame, "collect", OutputEnvelope.from_field_mapping(fields),
             )
             with self.subTest(fields=fields), self.assertRaises(ShardLoomProtocolError):
                 _ = report.result_rows
 
     def test_to_python_objects_preserves_native_failure_without_another_call(self) -> None:
-        from shardloom import UnsupportedWorkflowOperationReport
+        from shardloom.diagnostics import UnsupportedWorkflowOperationReport
 
         failed = OutputEnvelope.from_field_mapping(
             {"reason": "collect exceeds 65,536 rows; use an explicit streaming export"},
@@ -151,7 +153,7 @@ class NativeUnaryCollectionTests(unittest.TestCase):
             self.assertEqual(run.call_args.kwargs["materialization_policy"], "bounded")
 
     def test_materialization_terminals_keep_native_failure_and_execute_once(self) -> None:
-        from shardloom import UnsupportedWorkflowOperationReport
+        from shardloom.diagnostics import UnsupportedWorkflowOperationReport
 
         context = ShardLoomContext(self.client)
         workflows = [

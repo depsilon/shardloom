@@ -2,734 +2,241 @@
 
 # ShardLoom User Surface Index
 
-Status: canonical agent-facing v0.1.x user-surface reference.
-
 Schema marker: `shardloom.user_surface_index.v1`.
 
-This file is the durable starting point for agents and humans that need to know which ShardLoom
-commands, Python helpers, SQL forms, local inputs, local outputs, and diagnostics exist. It is an
-index, not a runtime claim. Runtime support still depends on the command registry, capability
-reports, execution certificates, feature gates, and no-fallback evidence.
-
-All ShardLoom user surfaces must preserve:
-
-```text
-fallback_attempted=false
-external_engine_invoked=false
-```
+This is the **development-source application reference**. The
+[published guide](https://shardloom.io/field-guide/start-local-proof/) names the
+artifact it describes. Source additions below are not changes to published 0.6.0.
+For deliberate behavior changes, read the [Python migration guide](python-api-migration.md).
 
 ## Source Of Truth Order
 
-Use this order before executing or documenting a workflow:
-
-1. Read this file for the stable user-surface map.
-2. Read `docs/reference/shardloom-user-surface-index.json` for machine-readable surface groups.
-3. Run `shardloom command-metadata --format json` for the exhaustive CLI command inventory.
-4. Run `shardloom command-metadata <command> --format json` or
-   `shardloom help <command> --format json` for one CLI command.
-5. Run `shardloom agent-contract-pack --format json` for report-order and safety defaults.
-6. Use `ctx.capabilities()` / `ShardLoomClient.capabilities(...)` for Python capability posture.
-7. Use `ctx.user_surface_graduation_matrix()`, `ctx.front_door_parity_matrix()`, and
-   `ctx.front_door_semantic_surface_matrix()` before treating a Python, SQL, DataFrame-style, or
-   CLI surface as promoted user workflow support.
-
-The CLI command list is intentionally not hand-copied here. The exhaustive registry has 214 rows
-and lives in `shardloom-cli/src/command_registry.rs`; the side-effect-free command
-`shardloom command-metadata --format json` renders those rows for agents without scraping Rust
-source or human text.
-
-## Semantic Claim Surface
-
-ShardLoom does not claim broad pandas, Polars, DataFrame, or SQL-standard/ANSI-style compatibility
-labels. The supported claim is narrower: ShardLoom exposes a familiar
-Python/DataFrame-style front door and a SQL-standard-inspired SELECT-query subset that lower
-admitted operations into ShardLoom-native/Vortex-native routes. Unsupported pandas/Polars-style or
-SQL behavior must return deterministic diagnostics with:
-
-```text
-fallback_attempted=false
-external_engine_invoked=false
-```
-
-Use `ctx.front_door_semantic_surface_matrix()` for the agent-facing semantic matrix. It covers the
-documented DataFrame-style families (construction/read APIs, projection, filtering, type system,
-casts, missing data, aggregation, joins, ordering/window-ish behavior, reshaping, materialization,
-index semantics, expression/callable APIs, determinism, errors, and fallback boundary) and SQL
-families (parser scope, binder/name resolution, type system, casts, NULL semantics, relational
-semantics, operators, aggregates, joins, subqueries, windows, ordering/collation, errors, and
-fallback boundary).
+Start with the [task guides](https://shardloom.io/field-guide/). This index projects
+Python names from `python/src/shardloom/_exports.py` and command facts from the
+executable registry. The [JSON reference](shardloom-user-surface-index.json)
+records their source identities, audiences and exact callable signatures.
+Use `shardloom --version` to identify an installed engine and
+`shardloom help COMMAND` for its operation contract.
 
 ## Normal Python Entry Points
 
-Normal application code starts with:
+Use `sl.context(...)` with explicit resources, then `ctx.read(path)` or
+`ctx.sql("SELECT ...")`. Constructing a context or a fluent file plan does not
+execute the query. Native input admission such as `from_rows` can validate and
+allocate the declared source; execution starts at collect, batch demand or write.
 
-```python
-import shardloom as sl
+The context chooses its backend once. Native Linux/macOS installations select
+in-process execution; Windows and explicit CLI configuration select process
+isolation. `transport="subprocess"` remains an explicit choice. Resource grants
+are independent of that choice. Execution failure never changes the backend.
 
-ctx = sl.context()
-```
+`collect()` returns `Result`: inspect `schema`, explicitly allocate Python
+values with `to_rows()`, or inspect its typed `details`. Use
+`ctx.from_result(result)` to chain retained native data without an Arrow or
+Python-row conversion. `iter_batches()` supports close/cancel and reports final
+completion only after full drain. Writes return the actual writer receipt.
 
-`sl.context(...)` and `sl.session(...)` construct clients only. They do not read data, probe object
-stores, touch catalogs, execute SQL, invoke external engines, or create hidden global state.
+## Generated application reference
 
-Use `repo_root`, `profile_order`, `SHARDLOOM_BIN`, or `SHARDLOOM_REPO_ROOT` only when a source
-checkout, CI job, managed environment, or benchmark reproduction needs explicit CLI resolution.
-Normal resolved clients use a private local `python-worker` transport when available to amortize
-CLI process startup across repeated calls. This is not a separate execution route: every response is
-still the command's normal typed envelope with `fallback_attempted=false` and
-`external_engine_invoked=false` evidence from the underlying ShardLoom/Vortex route. Set
-`SHARDLOOM_PERSISTENT_WORKER=0` to force one-shot subprocess transport for diagnostics.
+<!-- BEGIN GENERATED APPLICATION REFERENCE -->
+Development source identity: `0ffe814740dd6b2b9401e87df9b572aa80a773414db6971572862d5eb12a7622` (SHA-256 of the listed source inputs).
+This API is unpublished; the package version is held independently of source changes.
 
-## Optional Native Python Surface
+### Python application exports
 
-Current source builds additionally expose `shardloom.native`: `Session`,
-`Expression`, `Relation`, `WindowExpression`, prepared `Plan` and retained `Result`
-owners. The public client selects embedding explicitly with `transport="native"`;
-its default remains `subprocess`. SQL and typed declarations converge on shared
-native planning, providers, resources and cancellation. Completed results can
-outlive session close, feed further native operations, write through existing
-sinks and export columnar data without compulsory Python rows. Explicit
-`row_export()` constructs Python objects. Foreign columnar input can require a
-charged copy into native ownership.
+Names and signatures below come from the actual lazy export authority.
+Method contracts are available on the linked classes; normal use starts with `context`.
 
-See the [contract](../architecture/native-python-surface-2026-10-10.md),
-[source build/install guide](../getting-started/source-checkout-install.md#optional-native-python-binding)
-and [local acceptance](../benchmarks/native-python-surface-2026-10-11.md).
-The installed local wheel and complete workflows are accepted. PR #1541 also
-completed all 44 hosted checks and all 75 installed native methods on each of
-the Linux Python 3.10/3.13 and macOS arm64 Python 3.13 lanes; the
-[hosted receipt](../benchmarks/evidence/native-python-surface-hosted-2026-10-11.json)
-records their exact scope. Published 0.5.1 packages do not include this
-extension. Broader platform/workload acceptance retains its own requirements.
-The source-only `sl.from_vortex_ipc(array_message, dtype_message=...)`,
-`ctx.from_vortex_ipc(...)` and native `Session.from_vortex_ipc(...)` accept
-complete public Vortex 0.85 messages under an explicit receiving allocation.
-The combined message limit is 64 MiB; the native transport validates the schema
-and encoding registry, discards wire statistics and retains supported encodings
-while copying their buffers. One accepted source can feed later queries.
-The [encoded transfer contract](../architecture/native-encoded-interchange-2026-10-12.md)
-records supported encodings, validation bounds and remaining acceptance gates.
-The older resident and batch adapter entries below describe their
-original Rust/CLI transport contracts, separately from this optional binding.
+| Export | Kind | Contract |
+| --- | --- | --- |
+| [`ColumnExpression`](../../python/src/shardloom/query.py) | class | A scoped column expression for Python query-builder predicates. |
+| [`ComplexProjectionExpression`](../../python/src/shardloom/query.py) | class | A scoped ARRAY or STRUCT projection expression for local-source rows. |
+| [`Diagnostic`](../../python/src/shardloom/models.py) | class | Diagnostic entry copied from a ShardLoom output envelope. |
+| [`ExecutionResourceLimits`](../../python/src/shardloom/execution_resources.py) | class | Explicit deployment ceilings; this object does not authenticate their source. |
+| [`ExecutionResources`](../../python/src/shardloom/execution_resources.py) | class | Immutable exact-byte allocation, independent of reservation or measured use. |
+| [`GroupedLazyFrame`](../../python/src/shardloom/query.py) | class | Grouped lazy workflow handle for scoped aggregation and blockers. |
+| [`IntervalLiteral`](../../python/src/shardloom/query.py) | class | A scoped ANSI interval literal for admitted temporal helper functions. |
+| [`LazyFrame`](../../python/src/shardloom/query.py) | class | A lazy ShardLoom workflow plan. |
+| [`PredicateExpression`](../../python/src/shardloom/query.py) | class | A scoped SQL predicate expression for ShardLoom local-source smokes. |
+| [`Result`](../../python/src/shardloom/query.py) | class | Completed data and its existing native owner, or a completed write receipt. |
+| [`ResultBatch`](../../python/src/shardloom/_batches.py) | class | One provisional batch; success is established by the iterator's final report. |
+| [`ResultBatchIterator`](../../python/src/shardloom/_batches.py) | class | One native transaction with explicit backpressure and deterministic close. |
+| [`ResultType`](../../python/src/shardloom/_result_schema.py) | class | ResultType(name: 'str', nullable: 'bool', parameters: 'tuple[Any, ...]' = ()) |
+| [`ShardLoomBinaryNotFoundError`](../../python/src/shardloom/errors.py) | class | Raised when an explicit ShardLoom CLI command cannot resolve a binary. |
+| [`ShardLoomClosedError`](../../python/src/shardloom/errors.py) | class | New work was requested after its caller-owned context was closed. |
+| [`ShardLoomCommandError`](../../python/src/shardloom/errors.py) | class | Raised when an explicit ShardLoom CLI command returns an error envelope. |
+| [`ShardLoomContext`](../../python/src/shardloom/context.py) | class | High-level Python context for side-effect-free discovery and explicit work. |
+| [`ShardLoomError`](../../python/src/shardloom/errors.py) | class | Common base for ShardLoom configuration, lifecycle and execution errors. |
+| [`ShardLoomInstallationError`](../../python/src/shardloom/errors.py) | class | The selected installation/backend cannot provide native execution. |
+| [`ShardLoomProtocolError`](../../python/src/shardloom/errors.py) | class | Raised when CLI output does not match the expected JSON protocol. |
+| [`ShardLoomResourceConfigurationError`](../../python/src/shardloom/execution_resources.py) | class | Invalid or incomplete allocation, rejected before any input is inspected. |
+| [`ShardLoomTimeoutError`](../../python/src/shardloom/errors.py) | class | An execution deadline expired, preserving both historical timeout catches. |
+| [`SqlWorkflow`](../../python/src/shardloom/query.py) | class | A scoped SQL workflow entry point over currently admitted ShardLoom SQL paths. |
+| [`WindowExpression`](../../python/src/shardloom/query.py) | class | A SQL window declaration submitted to the shared native engine. |
+| [`__version__`](../../python/src/shardloom/_version.py) | constant | Package constant. |
+| [`abs`](../../python/src/shardloom/query.py) | function | Return a scoped `ABS(column)` numeric absolute-value expression. |
+| [`all_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded local-source `ALL (SELECT ...)` predicate. |
+| [`any_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded local-source `ANY (SELECT ...)` predicate. |
+| [`array`](../../python/src/shardloom/query.py) | function | Return a scoped `ARRAY[...]` projection over scalar SQL literals. |
+| [`byte_length`](../../python/src/shardloom/query.py) | function | Return a scoped `BYTE_LENGTH(<binary-expression>)` byte-count expression. |
+| [`calendar`](../../python/src/shardloom/query.py) | function | Create a scoped source-free calendar/date dimension for local output. |
+| [`case_when`](../../python/src/shardloom/query.py) | function | Return a scoped single-branch `CASE WHEN` computed-column expression. |
+| [`ceil`](../../python/src/shardloom/query.py) | function | Return a scoped `CEIL(column)` numeric rounding expression. |
+| [`col`](../../python/src/shardloom/query.py) | function | Return a scoped column expression for local ShardLoom predicates. |
+| [`column`](../../python/src/shardloom/query.py) | function | Alias for `col(...)`. |
+| [`column_transform`](../../python/src/shardloom/query.py) | function | Declare scoped column rewrites for `map`, `applymap`, or `transform`. |
+| [`concat`](../../python/src/shardloom/query.py) | function | Return a scoped `CONCAT(column-or-string-literal, ...)` expression. |
+| [`context`](../../python/src/shardloom/context.py) | function | Return a side-effect-free ShardLoom context. |
+| [`count_distinct`](../../python/src/shardloom/query.py) | function | Declare COUNT DISTINCT, retaining owned query sources when present. |
+| [`dense_rank`](../../python/src/shardloom/query.py) | function | Return a scoped `DENSE_RANK() OVER (...) AS alias` expression. |
+| [`exists_source`](../../python/src/shardloom/query.py) | function | Return a scoped local-source `EXISTS (SELECT ... FROM ...)` predicate. |
+| [`floor`](../../python/src/shardloom/query.py) | function | Return a scoped `FLOOR(column)` numeric rounding expression. |
+| [`from_arrow_ipc`](../../python/src/shardloom/query.py) | function | Create a scoped generated-row source from an Arrow IPC stream/file. |
+| [`from_arrow_table`](../../python/src/shardloom/query.py) | function | Create a source from an Arrow-compatible input or retained native result. |
+| [`from_base64`](../../python/src/shardloom/query.py) | function | Return a scoped `FROM_BASE64(column)` binary helper projection expression. |
+| [`from_batches`](../../python/src/shardloom/query.py) | function | Declare native input in batches of up to 2,048 rows. |
+| [`from_pandas`](../../python/src/shardloom/query.py) | function | Create a scoped generated-row source from a pandas DataFrame-like object. |
+| [`from_result`](../../python/src/shardloom/query.py) | function | Admit completed ShardLoom data without an Arrow or row round trip in process. |
+| [`from_rows`](../../python/src/shardloom/query.py) | function | Declare native rows; use an explicit schema for rich types or empty columns. |
+| [`from_vortex_ipc`](../../python/src/shardloom/query.py) | function | Import one Vortex 0.85 IPC record using the native transport. |
+| [`interval_days`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' DAY` literal. |
+| [`interval_hours`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' HOUR` literal. |
+| [`interval_minutes`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' MINUTE` literal. |
+| [`interval_seconds`](../../python/src/shardloom/query.py) | function | Return a scoped `INTERVAL '<n>' SECOND` literal. |
+| [`left`](../../python/src/shardloom/query.py) | function | Return a scoped `LEFT(column, count)` UTF-8 expression. |
+| [`length`](../../python/src/shardloom/query.py) | function | Return a scoped `LENGTH(column)` UTF-8 length expression. |
+| [`literal_table`](../../python/src/shardloom/query.py) | function | Declare a literal table for the shared native engine. |
+| [`not_exists_source`](../../python/src/shardloom/query.py) | function | Return a scoped local-source `NOT EXISTS (SELECT ... FROM ...)` predicate. |
+| [`null_if`](../../python/src/shardloom/query.py) | function | Return a scoped `NULLIF(column, literal)` computed-column expression. |
+| [`outer`](../../python/src/shardloom/query.py) | function | Return the reserved outer-row column expression for correlated source predicates. |
+| [`plan_transform`](../../python/src/shardloom/query.py) | function | Declare a workflow-level transform admitted by `LazyFrame.pipe(...)`. |
+| [`range`](../../python/src/shardloom/query.py) | function | Declare a native integer input with an exclusive end for the shared engine. |
+| [`rank`](../../python/src/shardloom/query.py) | function | Return a scoped `RANK() OVER (...) AS alias` expression. |
+| [`read`](../../python/src/shardloom/query.py) | function | Declare a lazy local source by inferring the adapter from the path extension. |
+| [`read_arrow_ipc`](../../python/src/shardloom/query.py) | function | Declare a lazy Arrow IPC compatibility source. |
+| [`read_avro`](../../python/src/shardloom/query.py) | function | Declare a lazy Avro compatibility source. |
+| [`read_csv`](../../python/src/shardloom/query.py) | function | Declare a lazy CSV compatibility source. |
+| [`read_json`](../../python/src/shardloom/query.py) | function | Declare a lazy flat JSON, JSONL, or NDJSON compatibility source. |
+| [`read_orc`](../../python/src/shardloom/query.py) | function | Declare a lazy ORC compatibility source. |
+| [`read_parquet`](../../python/src/shardloom/query.py) | function | Declare a lazy Parquet compatibility source. |
+| [`read_vortex`](../../python/src/shardloom/query.py) | function | Declare a lazy native Vortex source. |
+| [`replace`](../../python/src/shardloom/query.py) | function | Return a scoped `REPLACE(column, needle, replacement)` expression. |
+| [`right`](../../python/src/shardloom/query.py) | function | Return a scoped `RIGHT(column, count)` UTF-8 expression. |
+| [`round`](../../python/src/shardloom/query.py) | function | Return a scoped `ROUND(column)` numeric rounding expression. |
+| [`row_in`](../../python/src/shardloom/query.py) | function | Return a scoped bounded row-value `IN ((...),...)` predicate. |
+| [`row_in_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded row-value local-source `IN (SELECT ...)` predicate. |
+| [`row_not_in`](../../python/src/shardloom/query.py) | function | Return a scoped bounded row-value `NOT IN ((...),...)` predicate. |
+| [`row_not_in_source`](../../python/src/shardloom/query.py) | function | Return a scoped bounded row-value local-source `NOT IN (SELECT ...)` predicate. |
+| [`row_number`](../../python/src/shardloom/query.py) | function | Return a scoped `ROW_NUMBER() OVER (...) AS alias` expression. |
+| [`row_transform`](../../python/src/shardloom/query.py) | function | Declare scoped row-shaped rewrites for `map_rows`. |
+| [`scalar_subquery`](../../python/src/shardloom/query.py) | function | Declare a scalar query expression without executing its source. |
+| [`sequence`](../../python/src/shardloom/query.py) | function | Alias for the native integer range, including its exclusive end. |
+| [`sql`](../../python/src/shardloom/query.py) | function | Create a scoped SQL workflow over currently admitted ShardLoom SQL paths. |
+| [`struct`](../../python/src/shardloom/query.py) | function | Return a scoped `STRUCT(...)` projection over source columns. |
+| [`substr`](../../python/src/shardloom/query.py) | function | Return a scoped 1-based `SUBSTR(column, start, length)` expression. |
+| [`substring`](../../python/src/shardloom/query.py) | function | Alias for `substr(...)`. |
+| [`try_cast`](../../python/src/shardloom/query.py) | function | Return a scoped `TRY_CAST(column AS dtype)` dirty-value expression. |
+| [`typed_scalar_udf`](../../python/src/shardloom/query.py) | function | Return an admitted typed deterministic scalar UDF expression. |
+| [`unhex`](../../python/src/shardloom/query.py) | function | Return a scoped `UNHEX(column)` binary helper projection expression. |
 
-## Resident Native Results
+Exact callable signatures are generated in the [JSON reference](shardloom-user-surface-index.json)
+and package type stubs. `shardloom.diagnostics` contains runtime inspection and compatibility
+types; `shardloom.testing` contains maintainer fixtures and rehearsal reports.
 
-The Unix `vortex-local-primitives` build supports typed immutable memory intake
-through `ResidentMemorySource`, caller-owned prepared native arrays and bounded
-JSON, and source-free SQL collection through `shardloom run sql --sql "SELECT 1 AS value"
---request collect --bounded true --format json`. Declared local files use the same
-public run command with `--input <path> --input-format <format>`. Direct single-file count/projection/filter
-collect calls can retain prepared operations in the existing public worker.
-See [Resident Native Results](resident-native-results.md) for exact types, bounds,
-ownership, source-change behavior, and examples. That original bounded native
-Rust/CLI-backed transport contract predates the optional binding above and does
-not itself establish performance claims.
+### CLI application commands
 
-`ShardLoomContext.from_rows` declares typed native rows, including the scalar
-and nested values admitted by the current source input contract; `range` declares
-compact native Int64 input. See the [typed native input contract](../architecture/native-typed-input-2026-10-10.md)
-for exact types and schema rules. The [input growth contract](../architecture/native-input-growth-2026-10-09.md)
-admits top-level schemas, cumulative batch input and generated range lengths
-through shared resources and checked arithmetic rather than fixed total counts.
-It applies to source builds after the 0.5.1 release; published 0.5.1 artifacts
-retain their release-time limits. Row/frame/collection bounds and the remaining
-recursive and operator-specific limits are explicit in that contract.
+The executable registry contains 203 commands:
+14 application commands and 189 maintainer commands.
+These counts describe discovery, not the number of implemented SQL operations.
 
-Current source also exposes `shardloom.from_batches` and
-`ShardLoomContext.from_batches` for explicitly typed resident input, plus
-`LazyFrame.iter_batches` and `SqlWorkflow.iter_batches` for acknowledged
-incremental results. Those adapters merged in PR #1526 after local and hosted
-checks; published v0.4.0 predates them. The [batch API contract](../architecture/native-bounded-adapters-2026-10-06.md)
-records row/frame/schema limits, one-shot versus factory inputs, final-report
-completion and early-close cleanup. Default resident input must fit the shared native grant;
-batch-shaped output does not make all operator state spillable.
+| Command | Input contract | Output contract |
+| --- | --- | --- |
+| `help` | registry_or_capability_scope_args | typed_envelope_metadata_report_only |
+| `command-metadata` | registry_or_capability_scope_args | typed_envelope_metadata_report_only |
+| `status` | registry_or_capability_scope_args | typed_envelope_metadata_report_only |
+| `run` | declared_public_workflow_request_with_route_admission | typed_runtime_envelope_with_attached_public_workflow_route |
+| `prepare` | declared_public_workflow_request_with_route_admission | typed_runtime_envelope_with_attached_public_workflow_route |
+| `route` | declared_public_workflow_route_request | typed_public_workflow_route_envelope_no_execution |
+| `vortex-prepare` | local_source_or_vortex_artifact_args | typed_envelope_plus_local_runtime_or_artifact_evidence |
+| `input-adapters` | declared_input_source_or_adapter_shape | typed_envelope_metadata_report_only |
+| `input-plan` | declared_input_source_or_adapter_shape | typed_envelope_metadata_report_only |
+| `capabilities` | registry_or_capability_scope_args | typed_envelope_metadata_report_only |
+| `doctor` | diagnostic_or_estimate_args | typed_envelope_metadata_report_only |
+| `support-bundle` | diagnostic_or_estimate_args | typed_envelope_metadata_report_only |
+| `explain` | diagnostic_or_estimate_args | typed_envelope_metadata_report_only |
+| `estimate` | diagnostic_or_estimate_args | typed_envelope_metadata_report_only |
 
-The [completion-aware ordering](../architecture/native-streamed-ordering-2026-10-07.md)
-and [general aggregate](../architecture/native-aggregate-pressure-2026-10-07.md)
-contracts, extended by the [join contract](../architecture/native-join-pressure-2026-10-08.md)
-and [window contract](../architecture/native-window-pressure-2026-10-08.md),
-admit `streaming=True` for finite batch sources used once each through
-Scan/Filter/Project/Sort/Limit/Aggregate/Join/Window/PivotRows/Set/Unary/Subquery/CorrelatedSubquery alongside ordinary file/resident
-sources, with incremental results, bounded small collection and all eight existing
-local writers: Vortex, Parquet, Arrow IPC, Avro, ORC, JSON, JSONL and CSV. Each
-writer retains its existing format, type, fidelity and feature admissions. A
-single output streams directly; multiple destinations consume each producer once
-and execute the relational plan once, then replay credited native results under
-the same grant and explicit query spill store/quota. Native and subprocess input
-routes support multiple producers without adding public Python methods or a new
-transport. It retains at most one native input batch, permitting cumulative input
-above the shared grant while each frame remains bounded.
-Typed intake and output compaction remain charged; result and sink reservations
-remain separate. Unsupported plans reject before producer consumption, and success
-requires every input to end, all writers and owned spill cleanup to succeed, and
-final source validation to complete before publication. Limits, including zero,
-drain and validate the complete input. Local multi-file publication is not
-group-atomic and preserves already completed targets with a recovery diagnostic
-if a later commit fails. Ordering, general aggregation, joins and analytic windows
-share the grant and can use an explicit native spill policy. Ordering/aggregate
-[local acceptance](../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md)
-and hosted integration pass in [PR #1531](https://github.com/depsilon/shardloom/pull/1531).
-The [join local acceptance](../benchmarks/native-join-pressure-2026-10-08.md)
-also passes complete pressure, workflow and regression checks plus independent
-packet inspection. Hosted integration completed in
-[PR #1532](https://github.com/depsilon/shardloom/pull/1532), with all 39 checks
-passing and the accepted runtime unchanged. The
-[window acceptance](../benchmarks/native-window-pressure-2026-10-08.md) passes
-complete constrained native spill, 442 streaming checks and 28,871 public
-regressions, including 1,498 added spill-frame checks. Hosted integration completed
-in [PR #1533](https://github.com/depsilon/shardloom/pull/1533), with all 39 checks
-passing and the accepted runtime unchanged. Resident input remains
-the default. The [composition contract](../architecture/native-stream-input-composition-2026-10-13.md)
-extends that runtime to multiple producers, controlled compatibility preparation,
-dynamic pivot and repeated-source replay. Each producer is consumed once per
-execution; repeated scans use credited complete-schema native copies, with the
-existing query-run store available under explicit spill policy. Replay preserves
-source order and releases its owners before completion. Separate
-`native_input_replay_*` counters expose that copy/pass/spill boundary. Ordinary
-one-pass pivots use completed pivot state without retaining a source replay cache.
-Compatibility writers follow their existing format/type/fidelity admissions; a
-process-RSS bound remains outside this contract. See the
-[streaming destination contract](../architecture/native-stream-destinations-2026-10-15.md).
-The [local acceptance report](../benchmarks/native-stream-destinations-2026-10-15.md)
-records 84 direct Python tests, including 24 composition combinations and eight
-multi-source lifecycle modes, 777 public cases across 20 families, all six Rust
-gates and one complete Full43 pass. [PR #1557](https://github.com/depsilon/shardloom/pull/1557)
-completed hosted integration after all 44 checks passed. Three installed-wheel
-lanes each passed 84 native tests, and preview/production content and navigation
-were verified in the [hosted packet](../benchmarks/evidence/native-stream-destinations-hosted-2026-10-15.json).
-
-The subsequent [set-operation contract](../architecture/native-stream-set-operations-2026-10-15.md)
-admits `UNION ALL`, `UNION`, `INTERSECT` and `EXCEPT` over those finite producers,
-including independent and repeated inputs, surrounding operators and existing
-destinations. Both branches retain complete admission and source-count checks.
-Set membership remains resident under the shared grant and refuses excess growth
-even when source/output replay spill is enabled. The [local acceptance report](../benchmarks/native-stream-sets-2026-10-15.md)
-records 4,241 native tests, 87 direct binding tests, 1,121 public cases across 22
-families and one complete Full43 pass. [PR #1558](https://github.com/depsilon/shardloom/pull/1558)
-completed all 44 checks; three installed-wheel lanes each passed all 87 native
-tests. The [107-member hosted packet](../benchmarks/evidence/native-stream-sets-hosted-2026-10-15.json)
-verifies merged source, eight preview/eight production responses, successful
-production deployment and browser navigation.
-These source additions do not change the immutable 0.6.0 packages.
-
-The [finite unary contract](../architecture/native-stream-unary-2026-10-15.md)
-connects the nine existing static families: DISTINCT, duplicate removal,
-duplicate masks, tail, sampling, scalar rewrites, melt, explode and rolling.
-Existing option/type rules and dynamic pivot's separate schema path remain.
-Stages consume their preceding schema and rows; every producer completes even
-after an output stop condition. Unary membership/population state remains
-resident under the shared grant; replay spill does not spill it. The
-[acceptance report](../benchmarks/native-stream-unary-2026-10-15.md) records
-4,249 native tests, 91 direct methods, 2,601 public cases and all 43 regression
-queries passing locally. [PR #1559](https://github.com/depsilon/shardloom/pull/1559)
-completed all 44 checks and three installed-wheel lanes. The
-[273-member hosted packet](../benchmarks/evidence/native-stream-unary-hosted-2026-10-15.json)
-verifies preview/production source and navigation. This source addition does not
-change the published 0.6.0 packages.
-
-The [finite subquery contract](../architecture/native-stream-subqueries-2026-10-15.md)
-connects existing IN/NOT IN, row membership, EXISTS/NOT EXISTS, quantified ANY/ALL
-and scalar subqueries to finite producers. Inner sources and schemas must be
-statically declared; indexed correlation and parameterized `Outer` plans share
-that boundary. Original outer input owners are released before nested demand.
-A source used by both outer and inner relations completes native replay before
-query reads. Conditional branches keep their evaluation rules; unused producers
-undergo raw input validation without evaluating skipped expressions or scalar
-cardinality. All producers still require valid completion before final success.
-Subquery membership/index state remains resident under the grant; replay spill
-does not spill it. Opaque `DeferredSubquery` inner-source declarations remain
-unsupported for streaming. The [acceptance report](../benchmarks/native-stream-subqueries-2026-10-15.md)
-records 96 direct methods, 3,724 public cases, all six Rust gates and a complete
-43-query pass, including source ownership, selected branches, pressure, cleanup
-and publication. PR #1560 merged after all 44 checks passed. Three installed-wheel
-lanes each pass 96 methods without skips, and the
-[150-member hosted packet](../benchmarks/evidence/native-stream-subqueries-hosted-2026-10-16.json)
-verifies preview/production source and navigation. The immutable 0.6.0 packages
-retain their scope.
-
-The [dynamic predicate extension](../architecture/native-stream-dynamic-subqueries-2026-10-15.md)
-admits finite streaming inputs to existing IN/NOT IN, row membership,
-EXISTS/NOT EXISTS and quantified ANY/ALL subqueries whose inner pivot schema
-depends on the outer parameter. SQL and Python derive the finite source set
-from their declarations. Native callers use `defer_subquery_with_sources`;
-the declaration permits at most 128 source identities and remains execution-scoped
-and single-use. Restrictions apply before schema discovery can request input,
-and nested declarations must stay within the parent's set. Unused producers
-still require valid completion without skipped expression evaluation.
-The [acceptance report](../benchmarks/native-stream-dynamic-subqueries-2026-10-16.md)
-records 100 direct methods, 4,827 public cases, all six Rust gates and all
-43 regression queries passing locally. PR #1561 merged after all 44 checks
-passed; three installed-wheel lanes each pass 100 methods without skips. The
-[147-member hosted packet](../benchmarks/evidence/native-stream-dynamic-subqueries-hosted-2026-10-16.json)
-verifies preview/production source and navigation.
-Opaque undeclared callbacks and dynamic scalar output-schema inference remain
-unsupported. Membership/index state remains resident; replay spill does not
-spill that state. Published 0.6.0 packages retain their release-time behavior.
-
-Prepared aggregates expose bounded `collect_jsonl` and synchronous `for_each_batch`
-with `vortex-local-primitives`. File delivery additionally requires `vortex-write`:
-`write` and cancellable `write_controlled`. Computed aggregate and ordered file
-outputs use bounded native batches through all eight admitted local formats,
-including existing COUNT/DISTINCT/numeric-sort spill families. These file writes
-can exceed the independent small-collection limits; they still require admitted
-flat types, resource grants and a new destination. Flat aggregate collection and
-all eight local writers share native aggregate admission, retaining complete
-filter/group/measure/HAVING/order/limit stages plus declared source schemas and
-resources. Explicit `NULLS FIRST` and `NULLS LAST` apply independently of sort
-direction; Python `sort(..., nulls="first")` and `sort(..., nulls="last")` carry that policy
-through. Small JSONL collection returns the complete result only within 65,536
-rows and 8 MiB; larger results use streaming writers or, in the accepted local
-source branch, the incremental Python consumer above. See the
-[computed-result streaming contract](../architecture/native-workflow-streaming-2026-10-01.md).
-
-Single-file sorting can use explicitly admitted temporary Vortex runs, including
-the flat typed keys scoped by the [typed key contract](../architecture/native-typed-keys-2026-10-03.md).
-See [Native Query Spill](native-query-spill.md) for supported keys, bounded
-output, workspace quotas, cancellation, and recovery. The same opt-in policy now
-also admits the documented general relational aggregate, join, analytic-window
-and file/resident-memory pivot strategies. The
-[pivot pressure contract](../architecture/native-pivot-pressure-2026-10-08.md)
-preserves the existing scalar/typed/nested semantics; complete local acceptance
-passes in the [acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md).
-[PR #1534](https://github.com/depsilon/shardloom/pull/1534) completes hosted
-integration, with all 39 checks and actual preview/production verification.
-Set state retains a separate pressure contract.
-
-## Python Reads
-
-Use `ctx.read(path)` for ordinary local input. It infers:
-
-- `.csv` -> CSV compatibility source.
-- `.json`, `.jsonl`, `.ndjson` -> flat JSON/JSONL/NDJSON compatibility source.
-- `.parquet` -> Parquet compatibility source when the matching feature-gated build is present.
-- `.arrow`, `.ipc`, `.feather` -> Arrow IPC compatibility source when feature-gated.
-- `.avro` -> Avro compatibility source when feature-gated.
-- `.orc` -> ORC compatibility source when feature-gated.
-- `.vortex` -> native Vortex source.
-- `.vortex-manifest` -> native Vortex manifest source; manifest `inputs`/`paths` entries bind as
-  local Vortex parts.
-- local directories of `.vortex` files -> native Vortex partitioned source when the route requests
-  native Vortex input.
-
-Explicit helpers remain available when an agent needs a pinned adapter:
-
-- `ctx.read_csv(...)`
-- `ctx.read_json(...)`
-- `ctx.read_parquet(...)`
-- `ctx.read_arrow_ipc(...)`
-- `ctx.read_avro(...)`
-- `ctx.read_orc(...)`
-- `ctx.read_vortex(...)`
-
-Feature-gated readers return deterministic adapter blockers when unavailable. They must not invoke
-another engine as a fallback.
-
-Every normal Python execution or route result exposes `activation_summary`. Use it before scraping
-raw envelopes when checking route ID/status, execution mode, native Vortex activation, required
-feature gate, parallelism, scan/pushdown signals, source-state reuse, decode/materialization,
-sink/write status, fallback/external-engine flags, claim gate, and unsupported diagnostics.
-
-For direct `.vortex`, `.vortex-manifest`, or local `.vortex` directory inputs, scoped primitive
-routes cover
-count/filter/project/limit, no-argument row-level distinct, bounded source-order tail, and
-deterministic row-count
-`sample(n=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)` or
-fractional
-`sample(frac|fraction=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)`, and scoped
-`melt(id_vars=..., value_vars=...)` over heterogeneous scalar value columns plus scoped
-single-column and same-length multi-column `explode(...)` over declared list/fixed-size-list
-columns with scalar, nullable, list, or struct element values. These routes remain scoped evidence,
-not broad arbitrary Vortex SQL/DataFrame parity or performance claims.
-
-## Python Query Builder
-
-Admitted local-source and generated-source workflows use `LazyFrame` and related source
-objects. Common admitted methods include:
-
-- Filters and predicates: `filter(...)`, `where(...)`, `query(...)` without unsupported keyword
-  arguments, `having(...)` after an aggregate.
-- Projection and schema rewrites: `select(...)`, `project(...)`, `rename(...)`,
-  `rename_columns(...)`, `drop(...)`, `drop_columns(...)`, `astype(...)`.
-- Row bounds: `limit(...)`, `head(...)`, `take(...)`, admitted `tail(...)`, and deterministic
-  `sample(n=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)` or
-  fractional
-  `sample(frac|fraction=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)`.
-- Aggregation: `group_by(...).agg(...)`, `groupby(...).agg(...)`, scalar `agg(...)`,
-  `aggregate(...)`, `nunique(...)`, `value_counts(...)`.
-- Joins and set operations: admitted `join(...)`, `merge(...)` when it lowers to the same join,
-  `concat(...)` when it lowers to `UNION ALL`, `union(...)`, `union_all(...)`,
-  `intersect(...)`, `except_rows(...)`, `subtract(...)`.
-- Ordering and top N: `sort(...)`, `order_by(...)`, `sort_by(...)`, `sort_values(...)`,
-  admitted index metadata `set_index(..., drop=False)`, source-order-preserving
-  `reset_index(drop=True)`/`sort_index(ascending=True)`, `nlargest(...)`, `nsmallest(...)`.
-- Windows: admitted fixed-row `rolling(...).sum(...)`, `mean(...)`, `count(...)`, `min(...)`, and
-  `max(...)` use source order, valid-observation `min_periods`, and ShardLoom-native window state.
-- Null and duplicate helpers: `dropna(...)`, `fillna(...)`, `fill_null(...)`, `isna(...)`,
-  `isnull(...)`, `notna(...)`, `notnull(...)`, `distinct()`, `drop_duplicates()`, `unique()`,
-  admitted `drop_duplicates(subset=..., keep="first"|"last"|False)` retained-row deduplication,
-  admitted `duplicated(subset=..., keep="first"|"last"|False)` duplicate masks, and
-  schema-declared scalar/per-column literal `fillna`/`fill_null` projection rewrites for
-  `axis=0`/`index` or projection-equivalent `axis=1`/`columns` spellings, plus admitted
-  source-order `fillna(method="ffill", limit=<optional positive int>)`/`fill_null(...)`
-  forward-fill rewrites.
-- Reshape: admitted `melt(id_vars=..., value_vars=..., var_name=..., value_name=...)` for explicit
-  flat scalar id columns and heterogeneous scalar value columns through the native/prepared Vortex
-  melt primitive; `ignore_index=False` adds an explicit source-order row-number column rather than
-  relying on hidden pandas index state. Admitted `explode("list_column")` and same-length
-  multi-column list/fixed-size-list `explode("a", "b", ...)` lower through the native/prepared
-  Vortex explode primitive with scalar, nullable, list, or struct element values, cardinality
-  evidence, and null-shape evidence; admitted `explode("items.field")` projects one field from
-  list-of-struct elements. Current source builds carry bounded static nested
-  payloads through admitted relational stages and ordered/repeated explode; see
-  the [nested composition contract](../architecture/native-nested-composition-2026-10-02.md).
-  Vortex, JSON, JSONL, Arrow IPC, Parquet and Avro accept representable nested
-  output. The [shared native workflow](../architecture/native-typed-reductions-2026-10-04.md)
-  additionally streams nested CSV values as quoted JSON text cells, with NULL parents
-  represented by empty cells; CSV does not persist nested dtypes. The pinned ORC
-  writer rejects nested output. The subsequent [native nested keys
-  and retained state contract](../architecture/native-nested-keys-state-2026-10-04.md)
-  admits static List/FixedSizeList/Struct relational keys and finite selected
-  nested-value unary operations. Its `native_nested_keys_state` section records
-  that subsequent contract; older payload/key section flags continue to
-  describe their original unit scope. The new contract has
-  [local acceptance](../benchmarks/native-nested-keys-state-full43-2026-10-04.md)
-  with independently verified complete results and ownership evidence, followed
-  by hosted integration. General Variant/extension operations,
-  nested arithmetic/string operations, broader aggregate/window
-  behavior, adapters and general state spill remain separate boundaries.
-  Binary, Decimal128 (precision 1–38, scale 0–precision), Date32 and timezone-free
-  microsecond timestamps are admitted payloads, including nested leaves. The
-  [typed key contract](../architecture/native-typed-keys-2026-10-03.md) admits
-  flat equality, hashing and ordering for these types through joins, sets, groups,
-  windows and subqueries, plus COUNT/COUNT DISTINCT/MIN/MAX and scoped comparisons
-  and expressions; Decimal key metadata must match. The
-  [typed expression contract](../architecture/native-typed-expressions-2026-10-03.md)
-  separately admits explicit casts and scoped exact decimal/binary/calendar
-  operations. Flat retained state follows the
-  [typed unary contract](../architecture/native-typed-unary-2026-10-03.md). The
-  subsequent nested contract extends equality, hashing and ordering for static
-  List/FixedSizeList/Struct keys through the existing join, set, group, sort,
-  window and subquery kernels, with COUNT/COUNT DISTINCT/MIN/MAX and comparisons,
-  NULL tests and selected CASE/COALESCE/NULLIF results. Exact compatible
-  recursive schemas require matching field names/order, list identity and fixed
-  widths, leaf widths, decimal precision/scale and temporal identity; recursive
-  nullability is ignored. It also admits selected nested DISTINCT/duplicate
-  selection and masks, tail, sampling, parent forward-fill, lossless same-shape
-  melt and rolling COUNT. Do not infer broader key coercion or unary state from
-  those operations.
-  The earlier [typed unary acceptance report](../benchmarks/native-typed-unary-full43-2026-10-03.md)
-  records 2,700 new unary checks within the complete 9,300-check public cohort;
-  hosted acceptance and the inconclusive Q9 performance observation remain explicit.
-  Binary supports
-  all eight writers; ORC rejects decimal and temporal payloads. Text output uses
-  explicit typed encodings; see the [typed payload contract](../architecture/native-typed-payloads-2026-10-03.md).
-  In the JSON index, `native_typed_keys` and `native_typed_unary` record their
-  individual capabilities and link related contracts. Older payload/key flags
-  retain the scope of their original contracts; the combined
-  `typed_keys_arithmetic_and_unary_state` flag does not grant unrestricted typed
-  composition. Use the separate contracts for admitted operation/type pairs.
-  The [typed key acceptance report](../benchmarks/native-typed-keys-full43-2026-10-03.md)
-  records local verification; hosted integration is recorded in the
-  [completed phase ledger](../architecture/phased-execution-completed-ledger.md).
-  Admitted `pivot(...)` / `pivot_table(...)` over one
-  index column, one pivot column, and one value column lower through the native/prepared Vortex
-  pivot primitive. `pivot_table` admits one aggregate from `first`, `sum`, `count`, `mean`, `min`, or `max`
-  plus admitted `fill_value`, `dropna`, `margins`, and `margins_name` output policy; multi-level
-  nested-field accessor explode, multi-index/multi-value pivot, custom pivot aggregates,
-  hidden index-state reshape, and broad reshape parity remain deterministic blockers.
-  Current source builds compose scalar pivot stages with preceding and following
-  native operators, including successive pivot/melt stages and correlated inner
-  queries. SQL spells the stage as `PIVOT((SELECT ...), '<options JSON>')`.
-  Actual domains bind during execution; inspection and preparation stay inert.
-  Empty input retains the index field and any declared margins field; an absent
-  named domain fails explicitly. Representable scalar output can use all eight local
-  writers within the existing 128-field and memory limits; decimal output retains
-  the explicit ORC denial. An explicit relational spill policy permits native
-  sparse state runs under the shared query grant and quota. Cross-call answer
-  reuse is unsupported. See the
-  [dynamic pivot ownership contract](../architecture/native-dynamic-pivot-composition-2026-10-03.md).
-  Source builds after published v0.4.0 also admit static List, FixedSizeList and Struct
-  index, domain and selected-value roles. Nested cells support `first`, `first_unique`,
-  `count`, `min` and `max`; `first_unique` accepts repeated equal complete values
-  and rejects conflicts. Nested extrema skip NULL parents and use the shared child-NULL
-  ordering. Python `pivot()` and `pivot_table(aggfunc="first")` retain their
-  `first_unique` alias, while SQL's explicit `first` selects the first row, including NULL.
-  Nested SUM/MEAN and nested-index margins remain unsupported;
-  nested MIN/MAX margins require a UTF-8 index. Nested cells accept absent or NULL
-  fill only. Representable nested results use Vortex, Parquet, Arrow IPC, Avro,
-  JSON and JSONL; CSV translates nested values to quoted JSON text and ORC rejects nested
-  output. The 128-field, collection and memory limits still apply. Complete local
-  workflow, resource and regression acceptance [passes](../benchmarks/native-nested-pivot-state-full43-2026-10-06.md),
-  and [hosted integration](../benchmarks/evidence/native-nested-pivot-state-hosted-2026-10-06.json)
-  is complete in PR #1525. Published v0.4.0
-  packages predate this source support. See the [nested pivot state contract](../architecture/native-nested-pivot-state-2026-10-06.md).
-  Relational file/resident-memory pivots have a separate
-  [spill contract](../architecture/native-pivot-pressure-2026-10-08.md), with
-  shared typed transitions, bounded exact lookups, incremental result delivery
-  and existing representable writers. Complete local acceptance passes in the
-  [acceptance report](../benchmarks/native-pivot-pressure-2026-10-08.md); hosted
-  acceptance completed in PR #1534 after all 39 checks passed, with exact source
-  and production verification in the
-  [hosted receipt](../benchmarks/evidence/native-pivot-hosted-2026-10-08.json).
-  Direct prepared unary pivots remain resident. Current source builds also admit
-  finite streaming input through one-pass native discovery and completed pivot
-  state, with incremental results, bounded collection and the existing local
-  writers and fanout under the [destination contract](../architecture/native-stream-destinations-2026-10-15.md).
-  The [streaming composition contract](../architecture/native-stream-input-composition-2026-10-13.md)
-  records the input extension. Spill does not expand
-  aggregate, type, margin or 128-field admission.
-- Windows: admitted `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
-  primitive; `sum`/`mean`/`min`/`max` require numeric inputs, `count` admits scalar rows, centered windows
-  use bounded lookahead evidence, and time/calendar windows, custom frames, callbacks, and broad pandas rolling parity remain deterministic
-  blockers.
-- Conditional and value rewrites: admitted typed scalar/null `mask(predicate, scalar-or-null)`,
-  `replace(old, scalar-or-null)`/column-mapped full-cell scalar/null replacement, admitted UTF-8
-  `replace(pattern, replacement, regex=True)`, and in-place UTF-8
-  `with_column("col", col("col").replace(...))` string replacement when the schema and projection
-  admit the native Vortex expression-project primitive; broad pandas alignment, callable,
-  method/limit, nested operations outside the finite [nested key and retained-state
-  contract](../architecture/native-nested-keys-state-2026-10-04.md), or mixed-dtype
-  variants remain deterministic blockers.
-  Flat binary, Decimal128, Date32 and timestamp-microsecond payloads also retain
-  their declared types through duplicate selection/masks, tail/sample,
-  replacement/forward-fill, lossless melt, rolling COUNT and scoped pivot
-  first/first-unique/COUNT. Python bytes, Decimal, date and datetime literals
-  lower to exact native declarations. Legacy primitive predicates and typed
-  sampling-weight restrictions still apply; see the
-  [typed unary contract](../architecture/native-typed-unary-2026-10-03.md).
-- Exact reductions: the [typed reduction contract](../architecture/native-typed-reductions-2026-10-04.md)
-  adds computed arguments to COUNT, COUNT DISTINCT, SUM, AVG, MIN and MAX through
-  the shared native projection and aggregate. Decimal SUM returns
-  `decimal128(38,input_scale)`; AVG returns `decimal128(38,max(input_scale,6))`
-  and rejects inexact division. MIN/MAX preserve the input decimal type.
-  The same policies apply to source-order rolling sum/mean/min/max and numeric
-  pivot cells/margins. Grouped reductions skip NULLs; numeric pivot NULLs still
-  fail. Centered rolling uses bounded lookahead and stops before unused
-  end-of-input frames once its limit is reached. Fully untyped NULL projections
-  use a nullable boolean carrier; explicitly typed NULLs retain their type.
-  Complete public workflow and Full43 regression acceptance is recorded in the
-  [revised engine report](../benchmarks/native-typed-reductions-full43-2026-10-05.md),
-  with hosted integration in PR #1518 and no speedup claim. The JSON index records
-  this unit separately as `native_typed_reductions`; older unit flags retain their
-  original scope. [Analytic frames](../architecture/native-analytic-frames-2026-10-05.md)
-  have a separate completed scope; general state spill remains open.
-- Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
-  lowers to the admitted ShardLoom expression surface.
-- Scoped expression runtime: `eval("amount = amount + 5")`-style in-place numeric scalar
-  assignment and `transform({"amount": sl.col("amount") + 5})` mapping-style in-place numeric
-  assignment through the native/prepared Vortex expression-project primitive. `map(...)` and
-  `applymap(...)` admit explicit `sl.column_transform(...)` wrappers, and `map_rows(...)` admits
-  explicit `sl.row_transform(...)` wrappers for the same declarative rewrite route. Python/numexpr
-  engines, arbitrary expression trees, shape-changing transforms, cell/element/row callables, and
-  row UDFs remain deterministic blockers.
-- Plan composition: `apply(sl.plan_transform(...))` and `pipe(sl.plan_transform(...))` when the
-  transform returns a ShardLoom
-  `LazyFrame`; unwrapped Python callables and data UDFs remain deterministic blockers.
-- Local execution and writes: bounded `collect(...)`, `run(...)`, `route(...)`, `prepare(...)`,
-  `write(...)`, `write_json(...)` (one JSON array), `write_jsonl(...)`, `write_csv(...)`,
-  feature-gated `write_parquet(...)`,
-  `write_arrow_ipc(...)`, `write_avro(...)`, `write_orc(...)`, `write_vortex(...)`, and
-  `fanout(...)`. JSON and JSONL text sinks do not preserve static type or Vortex layout metadata.
-  Local JSONL/CSV fanout uses staged multi-target commit and exposes
-  target-level commit, cleanup, and no-fallback evidence.
-- Bounded inspection: `schema(...)`, `describe_schema(...)`, `validate_schema(...)`,
-  `schema_contract(...)`, `data_quality_check(...)`, `data_quality(...)`,
-  `data_quality_summary(...)`, admitted `describe(...)`, `profile(...)`, `preview(...)`, `display(...)`,
-  `to_python_objects(...)`, optional bounded `to_pandas(...)`, `to_arrow(...)`,
-  `to_arrow_table(...)`, `to_arrow_ipc(...)`, and `to_numpy(...)`.
-
-The optional pandas, PyArrow, and NumPy materialization helpers are decoded result containers, not
-execution engines.
-
-## Python Expressions
-
-Expression helpers are admitted SQL/Python front-door builders:
-
-- Column references: `sl.col(...)`, `sl.column(...)`, `sl.outer(...)`.
-- Comparison and boolean composition through Python operators, `&`, `|`, and `~`.
-- Null and membership: `is_null()`, `is_not_null()`, `is_distinct_from(...)`,
-  `is_not_distinct_from(...)`, `isin(...)`, `not_in(...)`, `between(...)`.
-- Source subqueries: `isin_source(...)`, `not_in_source(...)`, `any_source(...)`,
-  `all_source(...)`, `exists_source(...)`, `not_exists_source(...)`, `row_in(...)`,
-  `row_not_in(...)`, `row_in_source(...)`, `row_not_in_source(...)`.
-- Scalar values: `sl.scalar_subquery(frame_or_sql_workflow)` preserves the inner
-  query's input declarations through expression composition. Current source
-  builds after v0.4.0 admit one static output column, typed NULL for zero rows,
-  the value for one row and a cardinality error for multiple rows. Explicit
-  `outer.<column>` correlation and selected CASE/COALESCE evaluation follow the
-  [scalar-subquery contract](../architecture/native-scalar-subqueries-2026-10-05.md).
-  Published v0.4.0 packages predate this addition; dynamic-pivot-dependent scalar
-  schemas and lateral relations remain unsupported.
-- Strings and binary helpers: `contains(...)`, `startswith(...)`, `endswith(...)`,
-  `like(...)`, `rlike(...)`, `lower()`, `upper()`, `trim()`, `length()`, `concat(...)`,
-  `substr(...)`, `substring(...)`, `left(...)`, `right(...)`, `replace(...)`, `unhex(...)`,
-  `from_base64(...)`, `byte_length(...)`.
-- Numeric, temporal, and casts: `abs(...)`, `floor(...)`, `ceil(...)`, `round(...)`,
-  `cast(...)`, `try_cast(...)`, `interval_days(...)`, `interval_hours(...)`,
-  `interval_minutes(...)`, `interval_seconds(...)`, date and timestamp add/diff/extract helpers.
-- Projection helpers: `case_when(...)`, `count_distinct(...)`, `null_if(...)`, `array(...)`,
-  `struct(...)`.
-- Scoped ranking windows: `row_number(...)`, `rank(...)`, `dense_rank(...)`.
-
-Unsupported expression forms must return deterministic blockers or raise local validation errors
-before execution.
-
-## Generated And Source-Free Inputs
-
-Source-free helpers are ShardLoom-generated inputs, not external-engine shortcuts:
-
-- `ctx.from_rows(...)` / `sl.from_rows(...)`
-- `ctx.literal_table(...)` / `sl.literal_table(...)`
-- `ctx.range(...)` / `sl.range(...)`
-- `ctx.sequence(...)` / `sl.sequence(...)`
-- `ctx.calendar(...)` / `sl.calendar(...)`
-- `ctx.sql_values(...)` / `sl.sql_values(...)`
-- `ctx.sql_literal_select(...)` / `sl.sql_literal_select(...)`
-- `sl.dataframe_source_free_projection(...)`
-- `sl.dataframe_generated_with_column(...)`
-
-They can write local JSON arrays, JSONL, or CSV by default and feature-gated structured outputs when
-the build admits the sink. They do not read an input dataset.
-
-## SQL Surface
-
-SQL is a frontend into ShardLoom planning and execution. It is not DataFusion, DuckDB, Spark,
-pandas, Polars, or another external execution engine.
-
-Entry points:
-
-- `ctx.sql("SELECT ...")`
-- `ctx.sql("SELECT ... FROM hits ...", input="hits.vortex")` for a declared Vortex input when
-  SQL uses a logical table name.
-- `sl.sql("SELECT ...")`
-- `shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json`
-  for source-free SQL collection.
-- `shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json`
-  for a declared local-file input.
-
-Admitted forms include local-source `SELECT` over local file references, declared Vortex
-inputs bound to logical table names, admitted projection, filter, group-by, having, order, limit,
-joins, set operations, bounded subquery predicates, source-free `VALUES`, source-free literal
-`SELECT`, and generated range forms such as `generate_series` or `range` where the local runtime
-admits them.
-
-The [native relational contract](../architecture/native-relational-workflows-2026-10-01.md)
-records complete collection and local writes for admitted joins, UNION/INTERSECT/EXCEPT,
-analytic ranking/navigation/distribution windows and scoped predicate subqueries.
-SQL, DataFrame and CLI calls share retained native execution, all-source generation
-checks and declared adapter/schema propagation. Use `route(..., bounded=True)` to
-inspect a shape without source I/O. The
-[composition contract](../architecture/native-relational-composition-2026-10-02.md)
-extends that same tree with derived SELECT/set inputs, ordered supported DataFrame
-stages, transformed join/subquery operands and post-set transformations. Computed
-column replacement preserves column position and binds against the preceding stage;
-undeclared schemas use the explicit ShardLoom `SELECT * REPLACE OR ADD (...)`
-modifier. These frontend wrappers add no format-specific execution engine.
-The [resource contract](../architecture/native-relational-resources-2026-10-02.md)
-carries `memory_gb`, `max_parallelism` and optional `spill` through collection,
-route/run and local writer aliases. Composed ordering can flush and merge stable
-multi-key native rows with shared query memory/quota and verified cleanup.
-Specialized sort/aggregate providers keep their existing strategies and admission.
-Flat aggregates share admission across complete collection and the eight local
-writers, retaining filter/group/measure/HAVING/order/limit stages and declared
-source schemas/resources. Explicit null placement is independent of direction;
-Python's `sort` forwards the requested `nulls` policy. Small JSONL collection remains
-bounded to a complete 65,536-row/8-MiB result, while larger results use streaming
-writers.
-The [analytic-frame contract](../architecture/native-analytic-frames-2026-10-05.md)
-admits explicit ROWS/GROUPS/RANGE frames. Current source builds after v0.4.0 also
-admit [scalar-value subqueries](../architecture/native-scalar-subqueries-2026-10-05.md)
-with one static output column and explicit correlation; published v0.4.0 packages
-predate that addition. Unadmitted operator/type combinations, lateral relations,
-dynamic-pivot-dependent scalar schemas, named windows, variable frame offsets,
-and set state spill remain explicit boundaries. Relational fanout uses the shared
-[streaming destination contract](../architecture/native-stream-destinations-2026-10-15.md),
-with per-target execution for repeatable inputs and one execution plus credited
-result replay for finite producers.
-General aggregation, joins, analytic windows and file/resident-memory pivots have their own
-[spill strategies](native-query-spill.md).
-
-Not claimed by the technical preview: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary
-subqueries, broad optimizer parity, SQL UDFs, catalog-backed SQL, object-store/table SQL, JDBC/ODBC,
-Flight SQL, or SQL execution delegated to another engine.
-
-## CLI Surface
-
-The CLI is scriptable and agent-readable. Use JSON whenever automation is involved.
-
-Primary discovery commands:
-
-```sh
-shardloom --version
+```bash
+shardloom help
+shardloom command-metadata --audience application --format json
+shardloom command-metadata --audience maintainer --format json
 shardloom command-metadata --format json
-shardloom command-metadata <command> --format json
-shardloom help <command> --format json
-shardloom agent-contract-pack --format json
-shardloom capabilities api-surfaces --format json
+shardloom command-metadata run --format json
+shardloom command-metadata --completion bash
 ```
 
-High-level public workflow facade commands:
+Completion also supports `zsh` and `fish`; its default vocabulary is application commands.
+Existing JSON envelopes and the unfiltered metadata inventory remain available.
+<!-- END GENERATED APPLICATION REFERENCE -->
 
-```sh
-shardloom route <sql|python|dataframe|cli> --format json
-shardloom run <sql|python|dataframe|cli> --format json
-shardloom prepare <sql|python|dataframe|cli> --format json
-```
+<a id="python-reads"></a>
+<a id="python-query-builder"></a>
+<a id="python-expressions"></a>
+<a id="generated-and-source-free-inputs"></a>
 
-Common report and safety commands:
+## DataFrame and SQL contracts
 
-```sh
-shardloom --version --format json
-shardloom status --format json
-shardloom runs-today --format json
-shardloom doctor --format json
-shardloom support-bundle --format json
-shardloom explain <operation> --format json
-shardloom estimate <operation> --format json
-shardloom workflow-unsupported-plan <operation> --format json
-```
+[Python/DataFrames](https://shardloom.io/field-guide/python-surface/) explains
+readers, expressions, plan transformations and result consumption.
+[SQL](https://shardloom.io/field-guide/sql/) explains the implemented query
+language. The [types and formats guide](https://shardloom.io/field-guide/runtime-and-io/)
+keeps exact input/output restrictions near their operations. These guides state
+their applicable version.
 
-Common executable local proof commands:
+<a id="optional-native-python-surface"></a>
+<a id="resident-native-results"></a>
+<a id="sql-surface"></a>
+<a id="cli-surface"></a>
 
-```sh
-shardloom run sql --sql "SELECT 1 AS value" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
-shardloom run sql --input events.csv --input-format csv --sql "SELECT * FROM events" --request collect --bounded true --memory-gb 16 --max-parallelism 8 --format json
-shardloom vortex-prepare examples/foundry-lightweight-transform/fixtures/staged_input.csv /tmp/shardloom-staged-input.vortex --allow-overwrite --memory-gb 16 --max-parallelism 8 --format json
-shardloom sqlite-local-import-export-smoke local.sqlite --table events --export-jsonl target/events-export.jsonl --roundtrip-db target/events-roundtrip.sqlite --memory-gb 16 --max-parallelism 8 --format json
-```
+## Advanced integration and exact semantics
 
-These execution examples use illustrative caller-declared limits of 16 GiB and 8 lanes, not defaults or recommendations. They show current source-build syntax; published v0.5.1 packages retain their release-time API and resource behavior. The Vortex preparation example uses the checked-in CSV fixture and requires the `vortex-write` feature. The SQLite example assumes `local.sqlite` contains a table named `events`.
+Direct `shardloom.native` and Rust embedding remain available through the
+[integration guide](https://shardloom.io/field-guide/embedding/).
+Existing focused references retain detailed contracts:
+[SQL binding](../architecture/sql-parser-binder-readiness.md), [resident owners](resident-native-results.md),
+[query spill](native-query-spill.md), and
+[stream destinations](../architecture/native-stream-destinations-2026-10-15.md).
+They identify the behavior and source/release scope they cover.
 
-The exhaustive command inventory, support state, side-effect level, input/output contract, feature
-gate status, owning phase item, and claim/fallback boundary are generated by
-`shardloom command-metadata --format json`.
+<a id="semantic-claim-surface"></a>
+<a id="explicit-blockers-and-non-claims"></a>
 
-## Explicit Blockers And Non-Claims
+## Availability and diagnostics
 
-These surfaces can be visible in Python or CLI metadata but remain blocked, report-only, or
-future-gated unless the dynamic capability row says otherwise:
-
-- Broad pandas/Polars/PySpark/DataFrame parity.
-- Broad SQL grammar or arbitrary SQL execution.
-- Hidden fallback execution in DuckDB, DataFusion, Spark, Polars, pandas, Velox, or another engine.
-- Unbounded materialization as a convenience path.
-- Duplicate and duplicate-mask variants outside admitted scalar-subset `keep="first"|"last"|False`
-  semantics with nullable scalar equality, including nested/list/struct equality and hidden-index
-  duplicate semantics.
-- Object-store, lakehouse/table, catalog, remote API, Foundry, live/hybrid, distributed, and
-  production workflows without the matching evidence gate.
-- Effectful external writes, credentials, network calls, UDFs, plugins, LLM/API calls, embeddings,
-  vector search, media/OCR extraction, or arbitrary database connectors without explicit effect
-  admission and certificates.
+Unsupported operations fail with structured diagnostics; no external engine
+executes the residual work. Execution evidence preserves
+`fallback_attempted=false` and `external_engine_invoked=false`.
+Use [known issues](https://shardloom.io/field-guide/limitations/) for concrete
+version restrictions and [troubleshooting](https://shardloom.io/field-guide/troubleshooting/)
+for recovery. Operation availability, correctness coverage, operational support
+and comparative performance are separate facts.
 
 ## Related References
 
-- `docs/architecture/agent-contract-pack.md`
-- `docs/architecture/v1-front-door-runtime-scope.md`
-- `docs/architecture/v1-source-prepared-state-scope.md`
-- `docs/architecture/v1-local-output-sink-scope.md`
-- `docs/architecture/v1-vortex-runtime-scope.md`
-- `docs/status/cli-command-registry.md`
-- `docs/getting-started/examples.md`
-- `python/README.md`
-- `README.md`
+Contributor fixtures and release controls use `shardloom.testing` and the
+maintainer CLI audience. Runtime inspection and compatibility types use
+`shardloom.diagnostics`. The JSON inventory preserves older semantic/evidence
+sections for existing tools; its `application` object is the generated current
+discovery surface. Historical acceptance fields retain their original scope and
+do not set the published guide's availability.
+
+- [CLI registry status](../status/cli-command-registry.md)
+- [Maintainer agent contract](../architecture/agent-contract-pack.md)
+- [Release and source rehearsal](../release/local-source-rehearsal.md)
+- [Current phase plan](../architecture/phased-execution-plan.md)
+
+Regenerate reference facts with
+`python scripts/write_public_api_reference.py --binary /absolute/path/to/shardloom`
+using this source's freshly built CLI. Check freshness with the same command plus
+`--check`; without `--binary`, the check verifies recorded registry identity
+and all Python sources/signatures.

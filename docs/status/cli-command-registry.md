@@ -6,7 +6,15 @@ Source: `shardloom-cli/src/command_registry.rs`
 
 Report id: `review-p1-1.command_registry`
 
+<!-- BEGIN GENERATED COMMAND COUNTS -->
 Registered command count: 203
+
+Application command count: 14
+
+Maintainer command count: 189
+
+Registry source SHA-256: `5528ce05f70e72a10865a633a3efd36ad603d182ecabd68af2369b73e8872156`
+<!-- END GENERATED COMMAND COUNTS -->
 
 Support-state vocabulary: executable, feature_gated, diagnostic_only, report_only, blocked, future
 
@@ -14,6 +22,11 @@ User-surface graduation posture vocabulary: high_level_context, public_runtime, 
 diagnostic_only, feature_gated, not_user_facing
 
 Agent metadata command: `shardloom command-metadata [command] --format json`
+
+Application discovery: `shardloom command-metadata --audience application --format json`.
+Maintainer discovery: `shardloom command-metadata --audience maintainer --format json`.
+Human help and `shardloom command-metadata --completion bash|zsh|fish` foreground
+application commands. Unfiltered JSON metadata keeps the complete inventory.
 
 Command-specific help command: `shardloom help [command] --format json`
 
