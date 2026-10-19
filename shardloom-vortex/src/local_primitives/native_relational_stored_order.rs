@@ -129,6 +129,10 @@ impl<'s> Ordering<'_, 's> {
 }
 
 impl StoredOrder<'_> {
+    pub(in crate::local_primitives) fn is_spilled(&self) -> bool {
+        matches!(self.source, Source::Run { .. })
+    }
+
     pub(in crate::local_primitives) fn into_replay(
         self,
         context: &NativeExecutionContext<'_>,

@@ -135,7 +135,10 @@ existing binder, not a second request to the producer. Completion still checks
 every declared streaming source independently. Discovery may consume an input
 before a downstream schema-dependent error becomes knowable; that error must
 abort the transaction without a final success report or published destination.
-Unsupported stateful/subquery families remain explicit refusals.
+Other unsupported stateful/subquery families remain explicit refusals. The
+finite [subquery predicate contract](native-subquery-membership-spill-2026-10-19.md)
+separately admits scoped non-scalar membership-state spill under explicit native
+policy; source replay and inner pivot state retain separate contracts.
 
 The focused dynamic implementation now passes 19 discovery/lifecycle tests and
 24 native pivot-spill tests, including a streaming pressure fixture with 24,580

@@ -193,7 +193,14 @@
         "INTERSECT",
         "EXCEPT"
       ],
-      "set_membership_spill": false,
+      "set_membership_spill": true,
+      "set_membership_spill_reference": "docs/architecture/native-set-membership-spill-2026-10-18.md",
+      "set_membership_spill_operations": [
+        "UNION",
+        "INTERSECT",
+        "EXCEPT"
+      ],
+      "set_membership_spill_acceptance_status": "locally_accepted_hosted_pending",
       "unary_reference": "docs/architecture/native-stream-unary-2026-10-15.md",
       "unary_acceptance_reference": "docs/benchmarks/native-stream-unary-2026-10-15.md",
       "unary_acceptance_status": "local_and_hosted_acceptance_complete",
@@ -211,6 +218,34 @@
         "rolling"
       ],
       "unary_state_spill": false,
+      "unary_state_spill_scope": "all_unary_state_families",
+      "unary_membership_spill": true,
+      "unary_membership_spill_reference": "docs/architecture/native-unary-membership-spill-2026-10-18.md",
+      "unary_membership_spill_operations": [
+        "distinct",
+        "dedup-first",
+        "dedup-last",
+        "dedup-false",
+        "mask-first",
+        "mask-last",
+        "mask-false"
+      ],
+      "unary_membership_spill_acceptance_status": "locally_accepted_hosted_pending",
+      "unary_sampling_population_spill": true,
+      "unary_sampling_population_spill_reference": "docs/architecture/native-sampling-population-spill-2026-10-19.md",
+      "unary_sampling_population_spill_acceptance_reference": "docs/benchmarks/native-sampling-population-spill-2026-10-19.md",
+      "unary_sampling_population_spill_operations": [
+        "fraction-unweighted",
+        "replacement-unweighted",
+        "fraction-replacement-unweighted",
+        "fraction-weighted",
+        "replacement-weighted",
+        "fraction-replacement-weighted"
+      ],
+      "unary_sampling_population_spill_acceptance_status": "locally_accepted_hosted_pending",
+      "unary_sampling_population_spill_scope": "shared_relational_unary;explicit_native_query_spill;vortex_write_unix",
+      "unary_sampling_fraction_without_replacement_scope": "unknown_input_row_upper_bound_only",
+      "unary_sampling_replacement_scope": "fixed_count_or_fraction_with_known_or_unknown_input_row_upper_bound",
       "subquery_reference": "docs/architecture/native-stream-subqueries-2026-10-15.md",
       "subquery_acceptance_reference": "docs/benchmarks/native-stream-subqueries-2026-10-15.md",
       "subquery_acceptance_status": "local_and_hosted_acceptance_complete",
@@ -227,7 +262,19 @@
       "subquery_nested_demand_requires_original_owner_release": true,
       "subquery_shared_source_replay_completed_before_query": true,
       "subquery_unused_producers": "raw_validation_without_skipped_expression_or_cardinality_evaluation",
-      "subquery_state_spill": false,
+      "subquery_state_spill": true,
+      "subquery_state_spill_scope": "shared_relational_non_scalar_predicates;explicit_native_query_spill;vortex_write_unix",
+      "subquery_state_spill_reference": "docs/architecture/native-subquery-membership-spill-2026-10-19.md",
+      "subquery_state_spill_acceptance_reference": "docs/benchmarks/native-subquery-membership-spill-2026-10-19.md",
+      "subquery_state_spill_operations": [
+        "in",
+        "exists",
+        "quantified-any",
+        "quantified-all"
+      ],
+      "subquery_state_spill_inner_scope": "statically_bound_or_declared_parameter_specific_schema",
+      "subquery_state_spill_acceptance_status": "locally_accepted_hosted_pending",
+      "scalar_subquery_state": "resident_zero_or_one_selected_row;cardinality_error_preserved",
       "opaque_deferred_subquery_streaming": false,
       "dynamic_subquery_reference": "docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md",
       "dynamic_subquery_acceptance_reference": "docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md",
@@ -266,7 +313,11 @@
         "general_relational_aggregation",
         "native_relational_join",
         "native_relational_window",
-        "native_relational_pivot"
+        "native_relational_pivot",
+        "native_relational_set_membership",
+        "native_relational_unary_membership",
+        "native_relational_sampling_population",
+        "native_relational_subquery_predicates"
       ],
       "output_modes": [
         "incremental_results",
@@ -1334,7 +1385,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "unpublished_source",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "0ffe814740dd6b2b9401e87df9b572aa80a773414db6971572862d5eb12a7622",
+    "source_identity": "984d7fd5e3176a47d512e4b8bab105224cd72826a04e3d12737f66ef28a33be0",
     "source_inputs": {
       "python/src/shardloom/_batches.py": "fdffdf7583333a8acaa1d7cf1501378578af3c5967d90a2924c58d93d0991c82",
       "python/src/shardloom/_exports.py": "1e208f7c360a40986a6814fea2ed64526347dee73c160a950b8f47047045b014",
@@ -1345,7 +1396,7 @@
       "python/src/shardloom/errors.py": "8409187140941c8552541c428b25b5a27c7a75d6c0fd15bbce92c0ef2413cbf5",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
-      "python/src/shardloom/query.py": "b456011a4cb42087618440ac7e6db84ae42d4f33cead9c36291e65671c24e06c",
+      "python/src/shardloom/query.py": "55b3a61f5c0071fa8ddf61fb1d1a55149f386d3ff39accb737a6407144e3960a",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "ee47447ff6b5bf719626ae20940167946de6733f9e3d78220446d4223e2b7d63",

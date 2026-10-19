@@ -45,8 +45,12 @@ mod nested_tests;
 mod pivot_spill_tests;
 #[path = "local_primitive_relational_scalar_tests.rs"]
 mod scalar_tests;
+#[path = "local_primitive_relational_selection_cost_tests.rs"]
+mod selection_cost_tests;
 #[path = "local_primitive_relational_selection_tests.rs"]
 mod selection_tests;
+#[path = "local_primitive_relational_set_spill_tests.rs"]
+mod set_spill_tests;
 #[path = "local_primitive_relational_spill_tests.rs"]
 mod spill_tests;
 #[path = "local_primitive_relational_subquery_tests.rs"]

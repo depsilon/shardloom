@@ -82,11 +82,17 @@ execution-local source owners, cursors, caches and counters must not leak.
 ## Resources, completion and reports
 
 Outer detachment, retained inner batches, membership/index state, scalar values,
-replay and output share the admitted query grant. Source replay spill does not
-spill subquery membership or other retained operator state. Such state remains
-resident and must fail deterministically when its credited capacity is exceeded.
-An outer copy can require temporary source-plus-copy capacity; denial must leave
-no retained input, replay workspace or published output.
+replay and output share the admitted query grant. At this unit's original
+acceptance, source replay spill did not spill subquery membership or other
+retained operator state; predicate state remained resident and failed
+deterministically when credited capacity was exceeded. The later finite
+[subquery predicate contract](native-subquery-membership-spill-2026-10-19.md)
+admits explicit native spill for shared-relational `IN`, `EXISTS` and quantified
+`ANY`/`ALL`, including negation, indexed and parameterized predicates, and
+declared-schema inner inputs. Source replay, inner pivot/order and predicate
+state remain separate owners. An outer copy can require temporary source-plus-copy
+capacity; denial must leave no retained input, replay workspace or published
+output.
 
 Count outer-boundary detachment, retained subquery build detachment,
 validation-only batches and completed-before-query replay separately from
@@ -116,9 +122,11 @@ failure, output retention, staging cleanup and immutable completion reports.
 4. Distinguish raw completion from query evaluation: empty outer and false/null
    guards skip divide-by-zero and multirow-scalar evaluation, while late failure,
    invalid schema/session/bounds and missing completion still prevent success.
-5. Test bounded inner aggregation beyond cumulative grant, credited resident
-   state denial with and without replay spill, copy denial, cancellation,
-   consumer failure, failed publication and cleanup followed by a fresh run.
+5. The original acceptance tested bounded inner aggregation beyond cumulative
+   grant, credited resident-state denial with and without replay spill, copy
+   denial, cancellation, consumer failure, failed publication and cleanup
+   followed by a fresh run. The later predicate-spill contract has its own
+   pressure and failure matrix.
 6. Run focused checks, all required workspace and native gates, direct/public
    acceptance and one complete Full43 pass. Routine timings report engine time
    only. Preserve full raw diagnostic evidence without inferring a speedup from
@@ -135,9 +143,11 @@ must admit that family; this is a sequencing boundary, not a permanent ban or
 permission to preload all possible inputs. Keep that work visible under the
 existing breadth owners.
 
-No new subquery algorithm, state spill, external-engine fallback, transport,
-package release, broad SQL parity or production-readiness claim follows from
-this finite composition work.
+This finite composition work added no subquery algorithm or state spill. The
+later finite [predicate contract](native-subquery-membership-spill-2026-10-19.md)
+admits only its explicit native spill scope. No external-engine fallback,
+transport, package release, broad SQL parity or production-readiness claim
+follows from this finite composition work.
 
 ## Local acceptance
 
@@ -158,6 +168,8 @@ complete saved values, schemas, clocks and failure history.
 Shared and nested replay, selected evaluation, validation-only producers, native
 ownership release, credited copy/state denial, cancellation and publication failure
 have explicit tests. A bounded inner aggregate consumes cumulative input beyond
-its grant without retaining source replay. Source replay spill remains distinct
-from resident subquery state. Hosted integration and installed-wheel verification
-remain pending; the immutable 0.6.0 packages are unchanged.
+its grant without retaining source replay. At this unit's acceptance, source
+replay spill remained distinct from resident predicate state; the later finite
+[predicate-spill acceptance](../benchmarks/native-subquery-membership-spill-2026-10-19.md)
+covers its separately admitted scope. Hosted integration and installed-wheel
+verification remain pending; the immutable 0.6.0 packages are unchanged.

@@ -47,10 +47,13 @@ from native_streaming_unary_reference_cases import run as unary_reference_cases
 from native_streaming_unary_composition_cases import run as unary_composition_cases
 from native_streaming_unary_fault_cases import run as unary_fault_cases
 from native_streaming_unary_pressure_cases import run as unary_pressure_cases
+from native_streaming_unary_membership_cases import run as unary_membership_cases
+from native_streaming_sampling_population_cases import run as sampling_population_cases
 from native_streaming_subquery_cases import run as subquery_cases
 from native_streaming_subquery_composition_cases import run as subquery_composition_cases
 from native_streaming_subquery_fault_cases import run as subquery_fault_cases
 from native_streaming_subquery_pressure_cases import run as subquery_pressure_cases
+from native_streaming_subquery_membership_cases import run as subquery_membership_cases
 from native_streaming_dynamic_subquery_cases import run as dynamic_subquery_cases
 from native_streaming_dynamic_subquery_reference_cases import run as dynamic_subquery_reference_cases
 from native_streaming_dynamic_subquery_composition_cases import run as dynamic_subquery_composition_cases
@@ -69,9 +72,12 @@ FAMILIES = {"input": public_cases, "growth": growth_cases, "typed-input": typed_
             "sets": set_cases, "sets-pressure": set_pressure_cases,
             "unary": unary_cases, "unary-reference": unary_reference_cases,
             "unary-composition": unary_composition_cases, "unary-fault": unary_fault_cases,
-            "unary-pressure": unary_pressure_cases, "subqueries": subquery_cases,
+            "unary-pressure": unary_pressure_cases, "unary-membership": unary_membership_cases,
+            "sampling-population": sampling_population_cases,
+            "subqueries": subquery_cases,
             "subqueries-composition": subquery_composition_cases,
             "subqueries-fault": subquery_fault_cases, "subqueries-pressure": subquery_pressure_cases,
+            "subquery-membership": subquery_membership_cases,
             "dynamic-subqueries": dynamic_subquery_cases,
             "dynamic-subqueries-reference": dynamic_subquery_reference_cases,
             "dynamic-subqueries-composition": dynamic_subquery_composition_cases,
@@ -236,15 +242,21 @@ def main():
               Path(__file__).with_name("native_streaming_set_composition_cases.py"),
               Path(__file__).with_name("native_streaming_set_boundary_cases.py"),
               Path(__file__).with_name("native_streaming_set_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_set_spill_cases.py"),
               Path(__file__).with_name("native_streaming_unary_cases.py"),
               Path(__file__).with_name("native_streaming_unary_reference_cases.py"),
               Path(__file__).with_name("native_streaming_unary_composition_cases.py"),
               Path(__file__).with_name("native_streaming_unary_fault_cases.py"),
               Path(__file__).with_name("native_streaming_unary_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_unary_membership_cases.py"),
+              Path(__file__).with_name("native_streaming_sampling_population_cases.py"),
+              Path(__file__).with_name("generate_native_sampling_population_reference.py"),
+              Path(__file__).resolve().parents[1] / "shardloom-vortex/tests/fixtures/native_sampling_population_reference.json",
               Path(__file__).with_name("native_streaming_subquery_cases.py"),
               Path(__file__).with_name("native_streaming_subquery_composition_cases.py"),
               Path(__file__).with_name("native_streaming_subquery_fault_cases.py"),
               Path(__file__).with_name("native_streaming_subquery_pressure_cases.py"),
+              Path(__file__).with_name("native_streaming_subquery_membership_cases.py"),
               Path(__file__).with_name("native_streaming_dynamic_subquery_cases.py"),
               Path(__file__).with_name("native_streaming_dynamic_subquery_reference_cases.py"),
               Path(__file__).with_name("native_streaming_dynamic_subquery_composition_cases.py"),

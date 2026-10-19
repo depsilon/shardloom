@@ -3,6 +3,9 @@
 use super::*;
 use crate::relational_query::VortexRelationalSpillPolicy;
 
+#[path = "local_primitive_relational_sampling_population_pressure_tests.rs"]
+mod sampling_tests;
+
 const TOTAL: usize = 8193;
 const INPUT_WIDTH: usize = 251;
 const GRANT: u64 = 16 << 20;
@@ -115,7 +118,7 @@ impl WideInput {
     }
 }
 
-fn workspace() -> (Fixture, PathBuf) {
+pub(super) fn workspace() -> (Fixture, PathBuf) {
     let fixture = Fixture::new(keyed(&[Some(0)], &[0]), 1);
     let directory = fixture.0.join("unary-runs");
     fs::create_dir(&directory).unwrap();
@@ -123,7 +126,7 @@ fn workspace() -> (Fixture, PathBuf) {
     (fixture, directory)
 }
 
-fn with_spill(
+pub(super) fn with_spill(
     prepared: PreparedVortexRelational,
     directory: &std::path::Path,
 ) -> PreparedVortexRelational {
@@ -132,7 +135,7 @@ fn with_spill(
         .unwrap()
 }
 
-fn clean(directory: &std::path::Path) {
+pub(super) fn clean(directory: &std::path::Path) {
     assert_eq!(fs::read(directory.join("foreign")).unwrap(), b"preserve");
     assert_eq!(fs::read_dir(directory).unwrap().count(), 1);
 }
@@ -231,8 +234,8 @@ fn streaming_unary_bounded_state_completes_input_larger_than_its_grant() {
 }
 
 #[test]
-fn streaming_unary_resident_keys_and_sample_population_refuse_excess_even_with_replay_spill() {
-    let mut requests = cases(&ROWS)
+fn streaming_unary_membership_spills_at_the_original_grant() {
+    let requests = cases(&ROWS)
         .into_iter()
         .filter(|(name, _, _)| {
             name == "distinct" || name.starts_with("dedup-") || name.starts_with("mask-")
@@ -250,16 +253,7 @@ fn streaming_unary_resident_keys_and_sample_population_refuse_excess_even_with_r
             (name, request, expected)
         })
         .collect::<Vec<_>>();
-    let mut fraction = request(Kind::SampleRows, &["n", "s", "items"]);
-    fraction.sample_fraction = Some(0.5);
-    fraction.sample_seed = Some(7);
-    requests.push(("sample-fraction".into(), fraction, vec![]));
-    let mut replacement = request(Kind::SampleRows, &["n", "s", "items"]);
-    replacement.source_order_limit = Some(3);
-    replacement.sample_seed = Some(7);
-    replacement.sample_with_replacement = true;
-    requests.push(("sample-replacement".into(), replacement, vec![]));
-    assert_eq!(requests.len(), 9);
+    assert_eq!(requests.len(), 7);
     for (name, request, _) in requests {
         for spill in [false, true] {
             let (_fixture, directory) = workspace();
@@ -269,24 +263,55 @@ fn streaming_unary_resident_keys_and_sample_population_refuse_excess_even_with_r
             }
             let baseline = prepared.snapshot().memory.reserved_bytes;
             let mut input = WideInput::new(TOTAL, 2048, true);
-            let error = prepared
+            let mut delivered = 0;
+            let result = prepared
                 .with_batch_inputs(&mut |_, ordinal, session| input.next(ordinal, session))
                 .unwrap()
-                .for_each_batch(&CancellationToken::default(), |_, _| Ok(()))
-                .err()
-                .expect("resident unary state exceeds grant");
-            assert!(
-                error.to_string().contains("reservation denied"),
-                "{name}/{spill}: {error}"
-            );
-            assert!(!input.ended && input.position > INPUT_WIDTH);
+                .for_each_batch(&CancellationToken::default(), |array, context| {
+                    for row in values(&array, context)? {
+                        let expected = if request.kind == Kind::DuplicateMaskRows {
+                            json!({"duplicated": false})
+                        } else {
+                            expected_row(delivered, 2048, true)
+                        };
+                        assert_eq!(row, expected, "{name}/{spill}/{delivered}");
+                        delivered += 1;
+                    }
+                    Ok(())
+                });
+            if spill {
+                let report = result.unwrap_or_else(|error| panic!("{name}: {error}"));
+                assert!(input.ended);
+                assert_eq!(delivered, TOTAL);
+                assert_eq!(report.spillable_unary_membership_stages, 1);
+                assert_eq!(report.spillable_unary_input_rows, TOTAL as u64);
+                assert_eq!(report.spillable_unary_observed_rows, TOTAL as u64);
+                assert_eq!(report.spillable_unary_groups, TOTAL as u64);
+                assert_eq!(report.spillable_unary_output_rows, TOTAL as u64);
+                assert!(report.spill.as_ref().unwrap().runs_written > 0);
+                assert!(report.runtime.memory.peak_reserved_bytes <= GRANT);
+                assert!(report.native_io_certificate.is_certified());
+                assert!(report.input.as_ref().unwrap().end_of_input_observed);
+                assert_eq!(report.input.as_ref().unwrap().replay_sources, 0);
+                assert_eq!(prepared.snapshot().completed_executions, 1);
+                drop(report);
+            } else {
+                let error = result
+                    .err()
+                    .expect("unadmitted resident state exceeds grant");
+                assert!(
+                    error.to_string().contains("reservation denied"),
+                    "{name}/{spill}: {error}"
+                );
+                assert!(!input.ended && input.position > INPUT_WIDTH);
+                assert_eq!(prepared.snapshot().completed_executions, 0);
+            }
             assert!(
                 input
                     .prior
                     .as_ref()
                     .is_none_or(|owner| owner.strong_count() == 0)
             );
-            assert_eq!(prepared.snapshot().completed_executions, 0);
             assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
             clean(&directory);
         }
@@ -304,60 +329,68 @@ fn streaming_future_duplicate_masks_charge_population_identities_separately_from
             if keep == Keep::First && grant != SMALL {
                 continue;
             }
-            let (_fixture, directory) = workspace();
-            let prepared = with_spill(
-                prepare_unary(&unary(scan(), req.clone()), grant).unwrap(),
-                &directory,
-            );
-            let baseline = prepared.snapshot().memory.reserved_bytes;
-            let mut input = WideInput::new(COUNT, 0, false);
-            let mut delivered = 0;
-            let result = prepared
-                .with_batch_inputs(&mut |_, ordinal, session| input.next(ordinal, session))
-                .unwrap()
-                .for_each_batch(&CancellationToken::default(), |array, context| {
-                    for row in values(&array, context)? {
-                        let duplicate = match keep {
-                            Keep::First => delivered >= 3,
-                            Keep::Last => delivered + 3 < COUNT,
-                            Keep::AllDuplicates => true,
-                        };
-                        assert_eq!(row, json!({"duplicated":duplicate}));
-                        delivered += 1;
+            for spill in [false, true] {
+                let (_fixture, directory) = workspace();
+                let mut prepared = prepare_unary(&unary(scan(), req.clone()), grant).unwrap();
+                if spill {
+                    prepared = with_spill(prepared, &directory);
+                }
+                let baseline = prepared.snapshot().memory.reserved_bytes;
+                let mut input = WideInput::new(COUNT, 0, false);
+                let mut delivered = 0;
+                let result = prepared
+                    .with_batch_inputs(&mut |_, ordinal, session| input.next(ordinal, session))
+                    .unwrap()
+                    .for_each_batch(&CancellationToken::default(), |array, context| {
+                        for row in values(&array, context)? {
+                            let duplicate = match keep {
+                                Keep::First => delivered >= 3,
+                                Keep::Last => delivered + 3 < COUNT,
+                                Keep::AllDuplicates => true,
+                            };
+                            assert_eq!(row, json!({"duplicated":duplicate}));
+                            delivered += 1;
+                        }
+                        Ok(())
+                    });
+                if grant == SMALL && keep != Keep::First && !spill {
+                    let error = result
+                        .err()
+                        .expect("future mask population capacity exceeds small grant");
+                    // Three narrow keys are fixed after row three. The denied request is the
+                    // 524,288-entry replacement for the (ordinal,key-index) identity vector.
+                    assert!(
+                        error.to_string().contains("requested=8388608"),
+                        "{keep:?}: {error}"
+                    );
+                    assert!(!input.ended && input.position == COUNT);
+                    assert_eq!(delivered, 0);
+                    assert_eq!(prepared.snapshot().completed_executions, 0);
+                } else {
+                    let report = result.unwrap();
+                    assert!(input.ended);
+                    assert_eq!(delivered, COUNT);
+                    assert!(report.input.as_ref().unwrap().end_of_input_observed);
+                    assert!(report.runtime.memory.peak_reserved_bytes <= grant);
+                    assert!(report.native_io_certificate.is_certified());
+                    assert_eq!(report.input.as_ref().unwrap().replay_sources, 0);
+                    assert_eq!(report.spillable_unary_membership_stages, u64::from(spill));
+                    if spill && keep != Keep::First {
+                        assert!(report.spill.as_ref().unwrap().runs_written > 0);
+                        assert_eq!(report.spillable_unary_groups, 3);
+                        assert_eq!(report.spillable_unary_identity_rows, COUNT as u64);
                     }
-                    Ok(())
-                });
-            if grant == SMALL && keep != Keep::First {
-                let error = result
-                    .err()
-                    .expect("future mask population capacity exceeds small grant");
-                // Three narrow keys are fixed after row three. The denied request is the
-                // 524,288-entry replacement for the (ordinal,key-index) identity vector.
+                    drop(report);
+                }
                 assert!(
-                    error.to_string().contains("requested=8388608"),
-                    "{keep:?}: {error}"
+                    input
+                        .prior
+                        .as_ref()
+                        .is_none_or(|owner| owner.strong_count() == 0)
                 );
-                assert!(!input.ended && input.position == COUNT);
-                assert_eq!(delivered, 0);
-                assert_eq!(prepared.snapshot().completed_executions, 0);
-            } else {
-                let report = result.unwrap();
-                assert!(input.ended);
-                assert_eq!(delivered, COUNT);
-                assert!(report.input.as_ref().unwrap().end_of_input_observed);
-                assert!(report.runtime.memory.peak_reserved_bytes <= grant);
-                assert!(report.native_io_certificate.is_certified());
-                assert_eq!(report.input.as_ref().unwrap().replay_sources, 0);
-                drop(report);
+                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                clean(&directory);
             }
-            assert!(
-                input
-                    .prior
-                    .as_ref()
-                    .is_none_or(|owner| owner.strong_count() == 0)
-            );
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
-            clean(&directory);
         }
     }
 }

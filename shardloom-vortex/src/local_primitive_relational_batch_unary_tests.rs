@@ -7,6 +7,9 @@ mod fault_tests;
 
 #[path = "local_primitive_relational_batch_unary_pressure_tests.rs"]
 mod pressure_tests;
+
+#[path = "local_primitive_relational_unary_membership_tests.rs"]
+pub(in crate::local_primitives) mod membership_tests;
 use crate::query_primitive::{
     VortexDuplicateKeepPolicy as Keep, VortexExplodeProjectionRequest,
     VortexExpressionProjectionRequest, VortexExpressionRewrite as Rewrite,
@@ -303,9 +306,14 @@ fn retained_case(
     name: &str,
     req: VortexQueryPrimitiveRequest,
     expected: &[Value],
+    spill: bool,
 ) {
     let plan = unary(scan(), req);
-    let prepared = prepare_unary(&plan, 8 << 20).unwrap();
+    let (_fixture, directory) = pressure_tests::workspace();
+    let mut prepared = prepare_unary(&plan, 8 << 20).unwrap();
+    if spill {
+        prepared = pressure_tests::with_spill(prepared, &directory);
+    }
     let output_dtype = prepared.output_dtype().unwrap();
     let memory = prepared.session.memory().clone();
     let mut input = Input::new(rows, width);
@@ -362,6 +370,7 @@ fn retained_case(
     assert_eq!(retained, expected, "retained {name}/width-{width}");
     drop(held);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
+    pressure_tests::clean(&directory);
 }
 
 #[test]
@@ -370,7 +379,7 @@ fn streaming_unary_families_preserve_exact_values_batch_boundaries_and_output_ow
     for rows in [&ROWS[..], &[][..], &nulls[..]] {
         for width in [1, 3, 8] {
             for (name, req, expected) in cases(rows) {
-                retained_case(rows, width, &name, req, &expected);
+                retained_case(rows, width, &name, req, &expected, false);
             }
         }
     }

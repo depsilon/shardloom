@@ -24,6 +24,12 @@ use vortex::array::{
     validity::Validity,
 };
 
+#[path = "native_relational_subquery_ready.rs"]
+mod ready;
+#[cfg(all(test, feature = "vortex-write"))]
+pub(crate) use ready::spill::BEFORE_CACHE_HIT;
+pub(super) use ready::{Ready, Report};
+
 pub(super) enum Kind {
     In,
     Quantified {
@@ -326,13 +332,7 @@ impl<'a> Subquery<'a> {
     }
 
     fn empty(&self) -> bool {
-        matches!(
-            self.spec.kind,
-            Kind::Quantified {
-                quantifier: Quantifier::All,
-                ..
-            }
-        )
+        self.spec.empty()
     }
 
     fn reduce(
@@ -362,29 +362,48 @@ impl<'a> Subquery<'a> {
     }
 
     fn compare(&self, left: &Batch, row: usize, right: usize) -> Result<Option<bool>> {
-        let mut unknown = false;
-        for key in self.spec.correlation..self.spec.left_keys.len() {
+        self.spec.compare(|key| {
             if left.key_is_null(row, key)? || self.right.key_is_null(right, key)? {
-                unknown = true;
-                continue;
+                return Ok(None);
             }
-            let order = self
-                .right
-                .compare_batch_key(right, left, row, key)?
-                .reverse();
-            let comparison = match self.spec.kind {
-                Kind::Quantified { comparison, .. } => comparison,
-                _ => ComparisonOp::Eq,
-            };
-            if !compare(order, comparison) {
-                return Ok(Some(false));
-            }
-        }
-        Ok(if unknown { None } else { Some(true) })
+            self.right
+                .compare_batch_key(right, left, row, key)
+                .map(|order| Some(order.reverse()))
+        })
     }
 }
 
 impl Spec {
+    fn empty(&self) -> bool {
+        matches!(
+            self.kind,
+            Kind::Quantified {
+                quantifier: Quantifier::All,
+                ..
+            }
+        )
+    }
+
+    /// Shared three-valued row comparison for resident and native-run keys.
+    fn compare(
+        &self,
+        mut key_order: impl FnMut(usize) -> Result<Option<Ordering>>,
+    ) -> Result<Option<bool>> {
+        let comparison = match self.kind {
+            Kind::Quantified { comparison, .. } => comparison,
+            _ => ComparisonOp::Eq,
+        };
+        let mut unknown = false;
+        for key in self.correlation..self.left_keys.len() {
+            match key_order(key)? {
+                None => unknown = true,
+                Some(order) if !compare(order, comparison) => return Ok(Some(false)),
+                Some(_) => {}
+            }
+        }
+        Ok(if unknown { None } else { Some(true) })
+    }
+
     pub(super) fn selected_rows(
         &self,
         array: &ArrayRef,

@@ -1,7 +1,7 @@
 //! Dead-owner cleanup restarts the full pivot; it never resumes partial state.
 
 use super::*;
-use crate::local_primitives::native_relational_spill::pivot::AFTER_COUNT_PASS;
+use crate::local_primitives::native_relational_spill::replacement::AFTER_COUNT_PASS;
 use std::{
     cell::Cell,
     io::Read as _,

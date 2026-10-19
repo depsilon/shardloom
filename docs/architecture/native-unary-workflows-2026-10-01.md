@@ -63,6 +63,11 @@ must not silently allocate an unbounded result table. This unit does not claim a
 total RSS ceiling or invent spill support for unary state; native spill is a separate
 admitted operator contract under PERF-06.
 
+Later [relational membership](native-unary-membership-spill-2026-10-18.md) and
+[sampling population](native-sampling-population-spill-2026-10-19.md) contracts
+admit finite native spill strategies through the shared relational route. The
+direct prepared unary API described here remains resident.
+
 Fixed-schema computed operations carry an explicit dtype through empty and all-null
 results. Pivot discovers its output domain while executing once, then hands completed
 state and its schema to the writer; it must not rerun the query to infer schema.
@@ -113,8 +118,9 @@ standalone tail and duplicate-mask requests reject a source predicate. The
 [October 2 composition unit](native-unary-composition-2026-10-02.md) now carries
 preceding filters and downstream consumers through eight admitted flat-scalar
 unary families in the shared relational execution. General nested/extension
-results, dynamic pivot and unary state spill remain separate work. Current
-source-build composition also carries statically declared List/FixedSizeList/Struct
+results, dynamic pivot and unary state spill have separate contracts; the later
+membership and sampling scopes above do not grant spill to every unary family.
+Current source-build composition also carries statically declared List/FixedSizeList/Struct
 payloads through admitted relational stages and ordered/repeated explode; see the
 [nested payload contract](native-nested-composition-2026-10-02.md). General nested
 unary state and Variant/extension payloads remain outside that scope. Heterogeneous

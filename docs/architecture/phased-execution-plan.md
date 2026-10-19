@@ -255,11 +255,35 @@ The October 18 [public documentation and API consolidation](public-documentation
 is implemented and locally validated under PERF-10/07/11/12 with PERF-03 resource
 admission preserved. Its development API remains unpublished; hosted/platform
 acceptance and the release hold remain explicit. The completed scope is in the
-ledger. Resume the optimization/breadth sequence below without closing any broader
-owner or CPU investigation.
+ledger. The subsequent [compact-selection experiment](native-compact-selection-2026-10-18.md)
+is measured and dropped: two projection regressions repeat under the frozen
+confirmation gate, and production is restored. Its corrected cost harness and
+evidence remain. The subsequent [distinct-set membership acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md)
+completes finite `UNION`/`INTERSECT`/`EXCEPT` pressure and cleanup under explicit
+spill. The [finite unary membership acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md)
+also completes distinct, first/last/all deduplication and duplicate masks under
+their original operator-pressure grants. The [finite sampling population acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md)
+now completes the six admitted weighted/unweighted population variants at their
+original 16-MiB pressure grant. The [finite subquery predicate acceptance](../benchmarks/native-subquery-membership-spill-2026-10-19.md)
+also completes shared relational `IN`, `EXISTS` and quantified `ANY`/`ALL`
+state with original 4-MiB native and 8-MiB public pressure controls. Other
+sampling strategies, legacy standalone unary state and broader recovery remain
+open. Resume the
+optimization/breadth sequence below without closing any broader owner or CPU
+investigation.
+
+Next, extend fixed-count and known-bound fractional sampling without replacement
+through the existing native run store. Preserve exact scores, oldest-first ties,
+passing ordinals, final source order and payload observation for every initial
+candidate and transient winner, without observing later losing payloads. Keep
+bounded candidate retention separate from replay and full-population sampling.
+Freeze its pressure and failure contract before implementation. The completed
+[sampling contract](native-sampling-population-spill-2026-10-19.md) admits only
+unknown-bound fractional samples without replacement and fixed/fractional samples
+with replacement through the shared relational route.
 
 1. The nullable-layout integration, cleanup, ship/drop readiness audit and fresh UAT are complete in the [October 18 packet](../benchmarks/native-roadmap-fresh-uat-2026-10-18.md). PR #1575 integrates the reconciled queue. Keep the next version bump held for a separate maintainer decision.
-2. Begin the [six-package CPU intake](native-cpu-investigations-2026-10-18.md) with a short production-cost assessment of compact selections/descriptors (A, PERF-10) and reusable codec preparation (B, PERF-03). Select the stronger actual signal before implementing a candidate; no timing or benefit is assumed by queue intake.
+2. Continue the [six-package CPU intake](native-cpu-investigations-2026-10-18.md) from its recorded evidence. A production ordinal-allocation signal selected the contiguous-range A candidate, but its [corrected complete-operation comparison](native-compact-selection-2026-10-18.md) failed the frozen throughput gate and the runtime change was removed. A remains open for a materially different mechanism; do not rerun the unchanged candidate. B already reuses codec contexts within an operation; measure actual repeated preparation across the proposed ownership boundary before admitting another candidate. No benefit is assumed by queue intake.
 3. Continue required breadth through the existing owners: remaining PERF-03 resources, PERF-06 membership/population pressure and recovery, PERF-07 generation-conditional publication, and PERF-02/10/11 source/type/operator compositions. E and F extend these owners; required capabilities do not depend on a Full43 speed gain. PERF-01 attribution and PERF-12 acceptance accompany each coherent unit.
 4. Treat original-payload structural encoding (C) and first-use summaries/exact exclusion (D) as independent scoped work with their actual provider/resource prerequisites. Extend PERF-04 reductions within accepted jobs when justified; new region/topology work first passes PERF-03 admission. None of A–F requires all the others to finish first.
 5. Preserve recorded drops and paused large format/text experiments. The twelve named investigations retain distinct prerequisites and frozen gates; no unchanged sweep or unimplemented candidate is waiting only for a final timing run. C investigates a different original-payload mechanism rather than repeating rejected codec profiles.
@@ -313,7 +337,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
 - [ ] `PERF-06` finish native pressure transitions and recovery.
   - V1 scope classification: `required_for_v1`.
   - Source: RFCs 0014/0017/0044; native-local-completion-scope-2026-10-07.md; native-state-structure-campaign-2026-10-07.md.
-  - Current state: General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. Resident membership/population state and broader recovery remain; replay spill alone does not spill consuming state.
+  - Current state: General aggregate, join, analytic-window and pivot pressure, input replay and finite operator cleanup are accepted. [Finite distinct-set membership](../benchmarks/native-set-membership-spill-2026-10-18.md), [seven relational unary membership/mask variants](../benchmarks/native-unary-membership-spill-2026-10-18.md), [six sampling population variants](../benchmarks/native-sampling-population-spill-2026-10-19.md) and [shared relational subquery predicates](../benchmarks/native-subquery-membership-spill-2026-10-19.md) are locally accepted under explicit spill. Fixed-count and known-bound fractional nonreplacement, legacy standalone unary state and broader recovery remain; replay spill alone does not spill consuming state.
   - Dependencies: After the relevant PERF-03 owner; before broader streaming/type compositions and output recovery depend on it.
   - Implementation scope: Native membership/population consumers, query-run store, operator pressure strategies and owned cleanup/recovery.
   - ShardLoom technique review: apply the common contract above to these shared owners; retain actual activation, resource and avoided-work evidence.
@@ -344,7 +368,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
 - [ ] `PERF-10` extend shared physical planning and avoided work.
   - V1 scope classification: `required_for_v1`.
   - Source: RFCs 0016/0021/0022/0044; universal-workflow-completion-2026-10-01.md; performance-plan-exhaustion-2026-09-12.md; native-state-structure-campaign-2026-10-07.md.
-  - Current state: Typed native operators, owned results, exact reductions and several fused/encoded paths exist. Typed metadata and conservative pruning foundations are real; richer summaries and consumer-wide proof remain. Total-node admission is implemented, while recursive traversal depth remains bounded.
+  - Current state: Typed native operators, owned results, exact reductions and several fused/encoded paths exist. Typed metadata and conservative pruning foundations are real; richer summaries and consumer-wide proof remain. Total-node admission is implemented, while recursive traversal depth remains bounded. The contiguous-range selection candidate was measured and dropped after repeated projection regressions; the corrected cost harness remains, and production selection behavior is restored.
   - Dependencies: PERF-03 for regions/resources; PERF-04 for local reduction before region-local ordered candidates. Semantics and ownership precede cost-based selection.
   - Implementation scope: Shared native plan/binder, metadata pruning, typed kernel selection and aggregate/order/join/window strategies.
   - ShardLoom technique review: apply the common contract above to these shared owners; retain actual activation, resource and avoided-work evidence.
@@ -359,7 +383,7 @@ The [reconciliation](native-roadmap-reconciliation-2026-10-18.md) maps all 19 pr
     - [ ] `PERF-10.traversal` Replace fixed recursive plan/expression and nested-schema traversal ceilings with scalable credited traversal/lowering. Prove wide/deep compositions, cancellation and deterministic resource denial without stack exhaustion; total-node admission alone does not close depth.
     - [ ] `PERF-10.multiway_joins` **Conditional.** Conditional investigation: compare a native compatible-domain multiway strategy with existing binary joins, including first-use preparation and exact multiplicity/NULL/order semantics. Use an independently specified workload and ordinary-join controls before production selection.
     - [ ] `PERF-10.learned_indexes` **Conditional.** Conditional investigation: identify a large ordered structure with repeated search cost, then certify bounded-error prediction plus exact correction against ordinary search. Include construction, memory, distribution shifts and nonbenefiting controls.
-    - [ ] `PERF-10.compact_selections` **Conditional.** Conditional investigation: find a production selection/descriptor expansion cost, then preserve compact membership or ordered-gather representations through real count and projection consumers. Preserve duplicate/order semantics, checked wide global positions, sliced bases, validity and retained owners; charge construction/conversion/iteration and complete-operation cost. Follow [CPU package A](native-cpu-investigations-2026-10-18.md#a--compact-selections-and-execution-descriptors).
+    - [ ] `PERF-10.compact_selections` **Conditional.** Conditional investigation: find a production selection/descriptor expansion cost, then preserve compact membership or ordered-gather representations through real count and projection consumers. Preserve duplicate/order semantics, checked wide global positions, sliced bases, validity and retained owners; charge construction/conversion/iteration and complete-operation cost. Follow [CPU package A](native-cpu-investigations-2026-10-18.md#a--compact-selections-and-execution-descriptors). The [contiguous-range experiment](native-compact-selection-2026-10-18.md) passed memory targets but failed repeated projection throughput controls and was removed. A materially different mechanism and new frozen protocol are required; this conditional substep remains open.
     - [ ] `PERF-10.predicate_exclusion` **Conditional.** Conditional investigation: reuse exact whole-region evidence that a fully identified predicate has no TRUE result across related operations. Bind complete coverage, immutable region/source, expression/type/NULL/collation/timezone/deletion/access semantics; reject partial/cancelled/failed observations and unsafe negation. Measure construction, use and invalidation separately from first-use summaries under [CPU package D](native-cpu-investigations-2026-10-18.md#d--first-use-summaries-and-exact-predicate-exclusion-reuse).
   - Next outcome: Concrete missing operator/type contracts and exact work avoidance through existing native providers.
   - Acceptance/verification: the common contract and [PERF-10 commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#perf-10); preserve the family/protocol controls above and original experiment gates in the reconciliation.

@@ -23,6 +23,20 @@ use memory::ReservedVec;
 pub(super) use pivot::{CompletedPivot, SpillReport as PivotSpillReport};
 use values::NativeBatch;
 
+#[cfg(all(feature = "vortex-write", unix))]
+#[path = "local_primitive_unary_membership_spill.rs"]
+mod membership_spill;
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) use membership_spill::Report as MembershipSpillReport;
+
+#[cfg(all(feature = "vortex-write", unix))]
+#[path = "local_primitive_unary_sampling_spill.rs"]
+mod sampling_spill;
+#[cfg(all(test, feature = "vortex-write", unix))]
+pub(super) use sampling_spill::BEFORE_POPULATION_CACHE_HIT;
+#[cfg(all(feature = "vortex-write", unix))]
+pub(super) use sampling_spill::Report as SamplingSpillReport;
+
 #[path = "local_primitive_unary_explode.rs"]
 mod explode;
 #[path = "local_primitive_unary_expression.rs"]
@@ -466,6 +480,41 @@ impl BoundUnary {
     }
 
     /// Drive the existing operation states inside a caller's admitted execution.
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn membership_spill_supported(&self) -> bool {
+        membership_spill::admitted(self.request.kind)
+    }
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn consume_relation_membership(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        state: &super::native_relational_spill::State,
+        batch_rows: usize,
+        produce: impl FnOnce(&mut dyn FnMut(ArrayRef) -> Result<()>) -> Result<()>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<(report::StateUsage, MembershipSpillReport)> {
+        membership_spill::run(self, state, context, batch_rows, produce, consume)
+    }
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn sampling_spill_supported(&self, input_rows: Option<u64>) -> bool {
+        sampling_spill::admitted(self, input_rows)
+    }
+
+    #[cfg(all(feature = "vortex-write", unix))]
+    pub(super) fn consume_relation_sampling(
+        &self,
+        context: &NativeExecutionContext<'_>,
+        state: &super::native_relational_spill::State,
+        batch_rows: usize,
+        produce: impl FnOnce(&mut dyn FnMut(ArrayRef) -> Result<()>) -> Result<()>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<(report::StateUsage, SamplingSpillReport)> {
+        sampling_spill::run(self, state, context, batch_rows, produce, consume)
+    }
+
+    /// Drive the existing resident states inside a caller's admitted execution.
     pub(super) fn consume_relation(
         &self,
         context: &NativeExecutionContext<'_>,

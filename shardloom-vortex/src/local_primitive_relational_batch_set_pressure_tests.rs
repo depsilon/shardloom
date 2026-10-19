@@ -1,10 +1,16 @@
-//! Distinct state remains resident; declared source replay may use native runs.
+//! Distinct membership and declared source replay use the same admitted run store.
 
 use super::*;
 use crate::relational_query::VortexRelationalSpillPolicy;
 
 #[path = "local_primitive_relational_batch_set_fault_tests.rs"]
 mod fault_tests;
+
+#[path = "local_primitive_relational_batch_set_membership_fault_tests.rs"]
+mod membership_fault_tests;
+
+#[path = "local_primitive_relational_batch_set_membership_destination_tests.rs"]
+mod membership_destination_tests;
 
 const ROWS: usize = 8193;
 const WIDTH: usize = 2048;
@@ -25,6 +31,8 @@ struct WideInputs {
     ended: [bool; 2],
     prior: Option<Weak<MemoryLease>>,
     unique: bool,
+    right_offset: usize,
+    single_key: bool,
 }
 
 impl WideInputs {
@@ -35,6 +43,8 @@ impl WideInputs {
             ended: [false; 2],
             prior: None,
             unique,
+            right_offset: 0,
+            single_key: false,
         }
     }
 
@@ -62,11 +72,18 @@ impl WideInputs {
         }
         let start = self.positions[side];
         let end = (start + INPUT_ROWS).min(ROWS);
+        let row_key = |row| {
+            if self.single_key {
+                0
+            } else {
+                key(side, row, self.unique) + side * self.right_offset
+            }
+        };
         let numbers = (start..end)
-            .map(|row| Some(i64::try_from(key(side, row, self.unique)).unwrap()))
+            .map(|row| Some(i64::try_from(row_key(row)).unwrap()))
             .collect::<Vec<_>>();
         let strings = (start..end)
-            .map(|row| text(key(side, row, self.unique)))
+            .map(|row| text(row_key(row)))
             .collect::<Vec<_>>();
         let refs = strings
             .iter()
@@ -102,8 +119,14 @@ fn check_row(row: &Value, expected: usize) {
 
 #[test]
 fn streaming_sets_release_duplicate_payload_when_cumulative_input_exceeds_grant() {
-    for kind in KINDS {
-        let prepared = prepared_set(&set(input_scan(0), input_scan(1), kind), 2, GRANT);
+    for (spill, kind) in [false, true]
+        .into_iter()
+        .flat_map(|spill| KINDS.map(|kind| (spill, kind)))
+    {
+        let (prepared, fixture) = optional_spill(
+            prepared_set(&set(input_scan(0), input_scan(1), kind), 2, GRANT),
+            spill,
+        );
         let baseline = prepared.snapshot().memory.reserved_bytes;
         let mut inputs = WideInputs::new(false);
         let mut delivered = 0;
@@ -150,50 +173,140 @@ fn streaming_sets_release_duplicate_payload_when_cumulative_input_exceeds_grant(
             json!({"family":"streamed_set_duplicate_pressure", "kind":format!("{kind:?}"),
             "input_rows":input.rows,"input_logical_bytes":input.input_logical_bytes,"grant":GRANT,
             "peak_reserved_bytes":result.runtime.memory.peak_reserved_bytes,"output_rows":result.output_rows,
-            "membership_spill":false,"replay_sources":input.replay_sources})
+            "membership_spill_strategy":spill && kind != SetKind::UnionAll,"replay_sources":input.replay_sources})
         );
+        drop(result);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(fs::read_dir(fixture.0.join("set-runs")).unwrap().count(), 0);
+    }
+}
+
+#[test]
+fn streaming_set_membership_spill_keeps_a_single_hot_key_bounded() {
+    for kind in [SetKind::UnionDistinct, SetKind::Intersect, SetKind::Except] {
+        let (_fixture, directory) = workspace();
+        let prepared = with_spill(
+            prepared_set(&set(input_scan(0), input_scan(1), kind), 2, GRANT),
+            &directory,
+            128 << 20,
+        );
+        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let mut inputs = WideInputs::new(false);
+        inputs.single_key = true;
+        let result = prepared
+            .with_batch_inputs(&mut |uri, ordinal, session| inputs.next(uri, ordinal, session))
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        let expected = if kind == SetKind::Except {
+            vec![]
+        } else {
+            vec![json!({"n":0,"s":text(0)})]
+        };
+        assert_eq!(json_rows(&result), expected);
+        assert_eq!(inputs.ended, [true; 2]);
+        assert_eq!(result.execution.ordered_set_groups, 1);
+        assert_eq!(result.execution.ordered_set_input_rows, (2 * ROWS) as u64);
+        let spill = result.execution.spill.as_ref().unwrap();
+        assert!(spill.runs_written > 3 && spill.merge_passes > 1);
+        assert!(spill.owned_cleanup_completed);
+        assert!(result.execution.runtime.memory.peak_reserved_bytes <= GRANT);
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
         drop(result);
         assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     }
 }
 
 #[test]
-fn streaming_set_membership_growth_is_denied_with_or_without_replay_spill_permission() {
+fn streaming_set_membership_growth_is_denied_without_spill_permission() {
     for kind in [SetKind::UnionDistinct, SetKind::Intersect, SetKind::Except] {
-        for spill in [false, true] {
-            let (_fixture, directory) = workspace();
-            let prepared = prepared_set(&set(input_scan(0), input_scan(1), kind), 2, GRANT);
-            let prepared = if spill {
-                with_spill(prepared, &directory, 128 << 20)
-            } else {
-                prepared
-            };
-            let baseline = prepared.snapshot().memory.reserved_bytes;
-            let mut inputs = WideInputs::new(true);
-            let error = prepared
-                .with_batch_inputs(&mut |uri, ordinal, session| inputs.next(uri, ordinal, session))
-                .unwrap()
-                .for_each_batch(&CancellationToken::default(), |_, _| Ok(()))
-                .err()
-                .expect("unbounded distinct membership must not be admitted");
-            assert!(
-                error.to_string().contains("reservation denied"),
-                "{kind:?}/{spill}: {error}"
-            );
-            assert!(inputs.positions.iter().sum::<usize>() < ROWS * 2);
-            assert!(
-                inputs
-                    .prior
-                    .as_ref()
-                    .is_none_or(|owner| owner.strong_count() == 0)
-            );
-            let snapshot = prepared.snapshot();
-            assert_eq!(snapshot.completed_executions, 0);
-            assert!(snapshot.memory.denied_reservations > 0);
-            assert!(snapshot.memory.peak_reserved_bytes <= GRANT);
-            assert_eq!(snapshot.memory.reserved_bytes, baseline);
-            assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
-        }
+        let (_fixture, directory) = workspace();
+        let prepared = prepared_set(&set(input_scan(0), input_scan(1), kind), 2, GRANT);
+        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let mut inputs = WideInputs::new(true);
+        let error = prepared
+            .with_batch_inputs(&mut |uri, ordinal, session| inputs.next(uri, ordinal, session))
+            .unwrap()
+            .for_each_batch(&CancellationToken::default(), |_, _| Ok(()))
+            .err()
+            .expect("unbounded distinct membership must not be admitted");
+        assert!(
+            error.to_string().contains("reservation denied"),
+            "{kind:?}: {error}"
+        );
+        assert!(inputs.positions.iter().sum::<usize>() < ROWS * 2);
+        assert!(
+            inputs
+                .prior
+                .as_ref()
+                .is_none_or(|owner| owner.strong_count() == 0)
+        );
+        let snapshot = prepared.snapshot();
+        assert_eq!(snapshot.completed_executions, 0);
+        assert!(snapshot.memory.denied_reservations > 0);
+        assert!(snapshot.memory.peak_reserved_bytes <= GRANT);
+        assert_eq!(snapshot.memory.reserved_bytes, baseline);
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
+    }
+}
+
+#[test]
+fn streaming_set_membership_spill_completes_exact_values_beyond_the_resident_grant() {
+    for kind in [SetKind::UnionDistinct, SetKind::Intersect, SetKind::Except] {
+        let (_fixture, directory) = workspace();
+        let prepared = with_spill(
+            prepared_set(&set(input_scan(0), input_scan(1), kind), 2, GRANT),
+            &directory,
+            128 << 20,
+        );
+        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let mut inputs = WideInputs::new(true);
+        let mut delivered = 0;
+        let report = prepared
+            .with_batch_inputs(&mut |uri, ordinal, session| inputs.next(uri, ordinal, session))
+            .unwrap()
+            .for_each_json_batch(&CancellationToken::default(), 257, 1 << 20, |batch| {
+                for row in serde_json::from_str::<Vec<Value>>(batch.values_json.value()).unwrap() {
+                    check_row(&row, delivered);
+                    delivered += 1;
+                }
+                Ok(())
+            })
+            .unwrap();
+        let expected = if kind == SetKind::Except { 0 } else { ROWS };
+        assert_eq!(delivered, expected, "{kind:?}");
+        assert_eq!(report.output_rows, expected as u64);
+        assert_eq!(report.ordered_set_stages, 1);
+        assert_eq!(report.ordered_set_input_rows, (2 * ROWS) as u64);
+        assert_eq!(report.ordered_set_groups, ROWS as u64);
+        assert_eq!(report.ordered_set_output_rows, expected as u64);
+        assert_eq!(inputs.ended, [true; 2]);
+        assert_eq!(inputs.positions, [ROWS; 2]);
+        assert_eq!(inputs.calls, [ROWS.div_ceil(INPUT_ROWS) as u64 + 1; 2]);
+        let input = report.input.as_ref().unwrap();
+        assert!(input.input_logical_bytes > GRANT * 2);
+        assert_eq!(input.replay_sources, 0);
+        assert_eq!(input.replay_spilled_sources, 0);
+        assert!(input.end_of_input_observed && input.output_ownership_detached);
+        assert!(report.runtime.memory.peak_reserved_bytes <= GRANT);
+        assert!(report.native_io_certificate.is_certified());
+        assert!(!report.native_io_certificate.side_effects.fallback_attempted);
+        let spill = report.spill.as_ref().unwrap();
+        assert!(spill.runs_written > 3 && spill.merge_passes > 1);
+        assert!(spill.owned_cleanup_completed && spill.peak_disk_bytes <= spill.quota_bytes);
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
+        eprintln!(
+            "{}",
+            json!({"family":"ordered_set_membership_pressure", "kind":format!("{kind:?}"),
+            "input_rows":input.rows, "input_logical_bytes":input.input_logical_bytes, "grant":GRANT,
+            "peak_reserved_bytes":report.runtime.memory.peak_reserved_bytes,
+            "output_rows":report.output_rows, "groups":report.ordered_set_groups,
+            "runs_written":spill.runs_written, "merge_passes":spill.merge_passes,
+            "peak_disk_bytes":spill.peak_disk_bytes, "source_replay_spill":false,
+            "owned_cleanup_completed":spill.owned_cleanup_completed})
+        );
+        drop(report);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     }
 }
 

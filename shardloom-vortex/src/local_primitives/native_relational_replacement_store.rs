@@ -1,4 +1,4 @@
-//! Immutable, chronological replacement runs for sparse native pivot state.
+//! Immutable, chronological replacement runs for native pivot and unary state.
 //! This is private operator state, not a general key/value store or checkpoint.
 
 use super::{
@@ -10,10 +10,9 @@ use crate::local_primitives::{
 };
 use std::cmp::Ordering;
 
-#[path = "native_relational_pivot_merge.rs"]
+#[path = "native_relational_replacement_merge.rs"]
 mod merge;
 
-pub(in crate::local_primitives) const BLOCK_ROWS: usize = 1024;
 pub(in crate::local_primitives) const INDEX: &str = "index_key";
 pub(in crate::local_primitives) const KIND: &str = "record_kind";
 pub(in crate::local_primitives) const DOMAIN: &str = "domain_key";
@@ -63,17 +62,17 @@ impl Bounds {
                 .checked_add(key.domain.len() as u64)
                 .and_then(|length| length.checked_mul(2))
                 .and_then(|length| bytes.checked_add(length))
-                .ok_or_else(|| failed("pivot run bounds capacity overflow"))
+                .ok_or_else(|| failed("replacement run bounds capacity overflow"))
         })?;
         let metadata = context.memory().reserve(bytes)?;
         let owned = |key: KeyRef<'_>| -> Result<Key> {
             Ok(Key {
                 index: std::str::from_utf8(key.index)
-                    .map_err(|_| failed("pivot index key is not UTF8"))?
+                    .map_err(|_| failed("replacement index key is not UTF8"))?
                     .to_owned(),
                 kind: key.kind,
                 domain: std::str::from_utf8(key.domain)
-                    .map_err(|_| failed("pivot domain key is not UTF8"))?
+                    .map_err(|_| failed("replacement domain key is not UTF8"))?
                     .to_owned(),
             })
         };
@@ -91,7 +90,7 @@ impl Bounds {
     ) -> Result<Self> {
         let index = next.index()?;
         let KeyCell::Utf8(domain) = next.held.batch.raw_cell(next.row, 2)? else {
-            return Err(failed("pivot domain key changed its native type"));
+            return Err(failed("replacement domain key changed its native type"));
         };
         Self::from_refs(
             first,
@@ -128,17 +127,19 @@ impl Row {
 
     pub(in crate::local_primitives) fn kind(&self) -> Result<u64> {
         let KeyCell::NonnegativeInteger(kind) = self.held.batch.raw_cell(self.row, 1)? else {
-            return Err(failed("pivot record kind changed its native type"));
+            return Err(failed("replacement record kind changed its native type"));
         };
         if kind > 1 {
-            return Err(failed("pivot record kind is outside its private domain"));
+            return Err(failed(
+                "replacement record kind is outside its private domain",
+            ));
         }
         Ok(kind)
     }
 
     pub(in crate::local_primitives) fn index(&self) -> Result<vortex::buffer::ByteBuffer> {
         let KeyCell::Utf8(index) = self.held.batch.raw_cell(self.row, 0)? else {
-            return Err(failed("pivot index key changed its native type"));
+            return Err(failed("replacement index key changed its native type"));
         };
         Ok(index)
     }
@@ -153,7 +154,7 @@ impl Row {
             return Ok(order);
         }
         let KeyCell::Utf8(domain) = self.held.batch.raw_cell(self.row, 2)? else {
-            return Err(failed("pivot domain key changed its native type"));
+            return Err(failed("replacement domain key changed its native type"));
         };
         Ok(domain.as_ref().cmp(key.domain))
     }
@@ -184,7 +185,7 @@ fn load(
         .reserve((std::mem::size_of::<Held>() + 128) as u64)?;
     let block = reader
         .read_block_at(start, context.runtime())?
-        .ok_or_else(|| failed("pivot run block is absent"))?;
+        .ok_or_else(|| failed("replacement run block is absent"))?;
     let batch = Batch::new(block.array().clone(), &spec.names, context)?;
     Ok(Arc::new(Held {
         batch,
@@ -250,7 +251,7 @@ impl Cache {
         // A cached payload is never permission to reuse a changed file generation.
         reader.validate()?;
         if position >= native.rows {
-            return Err(failed("pivot lookup exceeds its run"));
+            return Err(failed("replacement lookup exceeds its run"));
         }
         let slot = if let Some(slot) = slot {
             slot
@@ -262,18 +263,18 @@ impl Cache {
             self.blocks = self
                 .blocks
                 .checked_add(1)
-                .ok_or_else(|| failed("pivot lookup block count overflow"))?;
+                .ok_or_else(|| failed("replacement lookup block count overflow"))?;
             slot
         };
         self.next = (slot + 1) % self.held.len();
         let held = &self.held[slot]
             .as_ref()
-            .ok_or_else(|| failed("pivot cache slot is absent"))?
+            .ok_or_else(|| failed("replacement cache slot is absent"))?
             .1;
         Ok(Row {
             held: Arc::clone(held),
             row: usize::try_from(position - start)
-                .map_err(|_| failed("pivot lookup row offset exceeds addressable memory"))?,
+                .map_err(|_| failed("replacement lookup row offset exceeds addressable memory"))?,
         })
     }
 
@@ -305,7 +306,7 @@ impl Cache {
             let end = start
                 .checked_add(held.batch.array.len() as u64)
                 .filter(|end| *end > start && *end <= native.rows)
-                .ok_or_else(|| failed("pivot cached block has invalid bounds"))?;
+                .ok_or_else(|| failed("replacement cached block has invalid bounds"))?;
             let first = self.row(id, native, reader, start, spec, context)?;
             if first.compare(key)? == Ordering::Greater {
                 continue;
@@ -358,16 +359,20 @@ pub(in crate::local_primitives) struct Store<'p, 's> {
     cache: Cache,
     work: Arc<MemoryLease>,
     opens: u64,
+    block_rows: usize,
 }
 
 impl<'p, 's> Store<'p, 's> {
     pub(in crate::local_primitives) fn new(
         spec: &'p Spec,
         state: &'s State,
+        block_rows: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        if spec.names != [INDEX, KIND, DOMAIN] {
-            return Err(failed("pivot run keys differ from their private schema"));
+        if spec.names != [INDEX, KIND, DOMAIN] || !(1..=1024).contains(&block_rows) {
+            return Err(failed(
+                "replacement run keys or block size differ from their private contract",
+            ));
         }
         Ok(Self {
             spec,
@@ -376,7 +381,16 @@ impl<'p, 's> Store<'p, 's> {
             cache: Cache::new(context)?,
             work: Arc::new(context.memory().reserve(READER_WORK_BYTES)?),
             opens: 0,
+            block_rows,
         })
+    }
+
+    pub(in crate::local_primitives) fn has_runs(&self) -> bool {
+        !self.runs.values.is_empty()
+    }
+
+    pub(in crate::local_primitives) fn observations(&self) -> (u64, u64) {
+        (self.cache.blocks, self.opens)
     }
 
     pub(in crate::local_primitives) fn buffer_bytes(&self) -> u64 {
@@ -435,14 +449,14 @@ impl<'p, 's> Store<'p, 's> {
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         if rows == 0 || first > last {
-            return Err(failed("pivot flush has invalid key bounds"));
+            return Err(failed("replacement flush has invalid key bounds"));
         }
         let bounds = Bounds::new(first, last, context)?;
         let index_bounds = indices
             .map(|(first, last)| Bounds::new(first, last, context))
             .transpose()?;
         self.runs.reserve_one()?;
-        let spec = run_spec(self.spec, rows as u64, BLOCK_ROWS)?;
+        let spec = run_spec(self.spec, rows as u64, self.block_rows)?;
         let native = self.state.with_store(context, |store| {
             store.write_arrays(
                 &spec,
@@ -454,7 +468,7 @@ impl<'p, 's> Store<'p, 's> {
         })?;
         self.state
             .max_block_rows
-            .set(self.state.max_block_rows.get().max(BLOCK_ROWS));
+            .set(self.state.max_block_rows.get().max(self.block_rows));
         self.push(native, bounds, index_bounds, 0, context)
     }
 
@@ -470,7 +484,7 @@ impl<'p, 's> Store<'p, 's> {
         self.opens = self
             .opens
             .checked_add(1)
-            .ok_or_else(|| failed("pivot reader count overflow"))?;
+            .ok_or_else(|| failed("replacement reader count overflow"))?;
         self.runs.push(Run {
             native,
             reader,
@@ -502,12 +516,12 @@ impl<'p, 's> Store<'p, 's> {
             .runs
             .values
             .pop()
-            .ok_or_else(|| failed("newer pivot run is absent"))?;
+            .ok_or_else(|| failed("newer replacement run is absent"))?;
         let left = self
             .runs
             .values
             .pop()
-            .ok_or_else(|| failed("older pivot run is absent"))?;
+            .ok_or_else(|| failed("older replacement run is absent"))?;
         let bounds = Bounds::new(
             std::cmp::min(&left.bounds.first, &right.bounds.first),
             std::cmp::max(&left.bounds.last, &right.bounds.last),
@@ -530,7 +544,7 @@ impl<'p, 's> Store<'p, 's> {
             .level
             .max(right.level)
             .checked_add(1)
-            .ok_or_else(|| failed("pivot merge level overflow"))?;
+            .ok_or_else(|| failed("replacement merge level overflow"))?;
         let rows = merge::count(self.spec, &left, &right, context)?;
         #[cfg(test)]
         if let Some(hook) = AFTER_COUNT_PASS.with(|slot| slot.borrow_mut().take()) {
@@ -538,8 +552,8 @@ impl<'p, 's> Store<'p, 's> {
         }
         left.reader.validate()?;
         right.reader.validate()?;
-        let mut merge = merge::Merge::new(self.spec, &left, &right);
-        let spec = run_spec(self.spec, rows, BLOCK_ROWS)?;
+        let mut merge = merge::Merge::new(self.spec, &left, &right, self.block_rows);
+        let spec = run_spec(self.spec, rows, self.block_rows)?;
         let blocks = std::iter::from_fn(|| merge.next(context).transpose());
         let native = self.state.with_store(context, |store| {
             store.write_arrays(
@@ -572,7 +586,7 @@ impl<'p, 's> Store<'p, 's> {
                 .merge_passes
                 .get()
                 .checked_add(1)
-                .ok_or_else(|| failed("pivot merge count overflow"))?,
+                .ok_or_else(|| failed("replacement merge count overflow"))?,
         );
         self.push(native, bounds, index_bounds, level, context)
     }

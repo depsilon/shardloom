@@ -117,6 +117,55 @@ pub struct ExecutedVortexRelational {
     pub ordered_aggregate_input_rows: u64,
     /// Additional nonnull distinct records, with duplicate measure aliases shared.
     pub ordered_aggregate_distinct_rows: u64,
+    /// Distinct set nodes using the bounded native ordering strategy.
+    pub ordered_set_stages: u64,
+    pub ordered_set_input_rows: u64,
+    /// Complete null-equal key groups across both source sides.
+    pub ordered_set_groups: u64,
+    pub ordered_set_output_rows: u64,
+    /// Unary membership nodes using a pressure-capable native strategy. Actual
+    /// file activity remains in `spill`; small instances can stay resident.
+    pub spillable_unary_membership_stages: u64,
+    /// Rows delivered to these nodes, including an unevaluated drained suffix.
+    pub spillable_unary_input_rows: u64,
+    /// Passing keys actually observed, excluding the drained prefix-limit suffix.
+    pub spillable_unary_observed_rows: u64,
+    /// Exact distinct keys among the observed rows, summed across these nodes.
+    pub spillable_unary_groups: u64,
+    /// Requested prefix identities retained for future-dependent duplicate masks.
+    pub spillable_unary_identity_rows: u64,
+    /// Rows emitted by these nodes before downstream consumption.
+    pub spillable_unary_output_rows: u64,
+    /// Replacement-state blocks loaded for lookup and final state traversal.
+    pub spillable_unary_lookup_blocks: u64,
+    /// Replacement-state readers opened; excludes identity/output ordering I/O.
+    pub spillable_unary_reader_opens: u64,
+    /// Sampling nodes admitted to the finite native population strategy.
+    /// Actual file activity remains in `spill`; small populations stay resident.
+    pub spillable_sampling_stages: u64,
+    pub spillable_sampling_input_rows: u64,
+    /// Passing rows retained logically across resident buffers and native runs.
+    pub spillable_sampling_population_rows: u64,
+    pub spillable_sampling_output_rows: u64,
+    /// Replacement draws, including repeated selected rows.
+    pub spillable_sampling_replacement_draws: u64,
+    /// Positional blocks loaded for replacement; excludes ordering merge scans.
+    pub spillable_sampling_lookup_blocks: u64,
+    /// Completed predicate inner builds using the native spill-capable strategy.
+    /// Each selected parameter can build one instance; small key sets stay resident.
+    pub spillable_subquery_stages: u64,
+    /// Completed predicate inner populations retained in an actual native run.
+    /// Excludes source replay, inner operators and output replay spill.
+    pub spilled_subquery_stages: u64,
+    pub spillable_subquery_input_rows: u64,
+    /// Rows retained after complete key validation and null-correlation exclusion.
+    pub spillable_subquery_indexed_rows: u64,
+    /// Selected outer rows evaluated against those completed inner builds.
+    pub spillable_subquery_probe_rows: u64,
+    /// Exact-correlation candidate visits, including complete-key hash collisions.
+    pub spillable_subquery_candidate_rows: u64,
+    /// Positional blocks loaded; excludes source replay and ordering merge scans.
+    pub spillable_subquery_lookup_blocks: u64,
     /// Join nodes executed through the explicit ordered native spill strategy.
     pub ordered_join_stages: u64,
     pub ordered_join_build_rows: u64,
@@ -668,6 +717,31 @@ struct Metrics<'a> {
     ordered_aggregate_stages: Cell<u64>,
     ordered_aggregate_input_rows: Cell<u64>,
     ordered_aggregate_distinct_rows: Cell<u64>,
+    ordered_set_stages: Cell<u64>,
+    ordered_set_input_rows: Cell<u64>,
+    ordered_set_groups: Cell<u64>,
+    ordered_set_output_rows: Cell<u64>,
+    spillable_unary_membership_stages: Cell<u64>,
+    spillable_unary_input_rows: Cell<u64>,
+    spillable_unary_observed_rows: Cell<u64>,
+    spillable_unary_groups: Cell<u64>,
+    spillable_unary_identity_rows: Cell<u64>,
+    spillable_unary_output_rows: Cell<u64>,
+    spillable_unary_lookup_blocks: Cell<u64>,
+    spillable_unary_reader_opens: Cell<u64>,
+    spillable_sampling_stages: Cell<u64>,
+    spillable_sampling_input_rows: Cell<u64>,
+    spillable_sampling_population_rows: Cell<u64>,
+    spillable_sampling_output_rows: Cell<u64>,
+    spillable_sampling_replacement_draws: Cell<u64>,
+    spillable_sampling_lookup_blocks: Cell<u64>,
+    spillable_subquery_stages: Cell<u64>,
+    spilled_subquery_stages: Cell<u64>,
+    spillable_subquery_input_rows: Cell<u64>,
+    spillable_subquery_indexed_rows: Cell<u64>,
+    spillable_subquery_probe_rows: Cell<u64>,
+    spillable_subquery_candidate_rows: Cell<u64>,
+    spillable_subquery_lookup_blocks: Cell<u64>,
     ordered_join_stages: Cell<u64>,
     ordered_join_build_rows: Cell<u64>,
     ordered_join_probe_rows: Cell<u64>,
@@ -696,6 +770,19 @@ struct Metrics<'a> {
 }
 
 impl Metrics<'_> {
+    fn record_subquery(&self, report: &super::native_relational_subquery::Report) -> Result<()> {
+        add(&self.spillable_subquery_stages, report.stages)?;
+        add(&self.spilled_subquery_stages, report.spilled_stages)?;
+        add(&self.spillable_subquery_input_rows, report.input_rows)?;
+        add(&self.spillable_subquery_indexed_rows, report.indexed_rows)?;
+        add(&self.spillable_subquery_probe_rows, report.probe_rows)?;
+        add(
+            &self.spillable_subquery_candidate_rows,
+            report.candidate_rows,
+        )?;
+        add(&self.spillable_subquery_lookup_blocks, report.lookup_blocks)
+    }
+
     fn detach_subquery_build(
         &self,
         array: ArrayRef,
@@ -709,9 +796,16 @@ impl Metrics<'_> {
             super::native_payload::CopyPolicy::PreserveUnobserved,
             context,
         )?;
-        add(&self.subquery_build_batches_detached, 1)?;
-        add(&self.subquery_build_rows_detached, array.len() as u64)?;
+        self.record_detached_subquery_build(array.len())?;
         Ok(detached)
+    }
+
+    fn record_detached_subquery_build(&self, rows: usize) -> Result<()> {
+        if self.input.is_some() && rows != 0 {
+            add(&self.subquery_build_batches_detached, 1)?;
+            add(&self.subquery_build_rows_detached, rows as u64)?;
+        }
+        Ok(())
     }
 
     fn record_pivot_spill(&self, report: PivotSpillReport) -> Result<()> {
@@ -1141,6 +1235,35 @@ impl PreparedVortexRelational {
                 ordered_aggregate_stages: metrics.ordered_aggregate_stages.get(),
                 ordered_aggregate_input_rows: metrics.ordered_aggregate_input_rows.get(),
                 ordered_aggregate_distinct_rows: metrics.ordered_aggregate_distinct_rows.get(),
+                ordered_set_stages: metrics.ordered_set_stages.get(),
+                ordered_set_input_rows: metrics.ordered_set_input_rows.get(),
+                ordered_set_groups: metrics.ordered_set_groups.get(),
+                ordered_set_output_rows: metrics.ordered_set_output_rows.get(),
+                spillable_unary_membership_stages: metrics.spillable_unary_membership_stages.get(),
+                spillable_unary_input_rows: metrics.spillable_unary_input_rows.get(),
+                spillable_unary_observed_rows: metrics.spillable_unary_observed_rows.get(),
+                spillable_unary_groups: metrics.spillable_unary_groups.get(),
+                spillable_unary_identity_rows: metrics.spillable_unary_identity_rows.get(),
+                spillable_unary_output_rows: metrics.spillable_unary_output_rows.get(),
+                spillable_unary_lookup_blocks: metrics.spillable_unary_lookup_blocks.get(),
+                spillable_unary_reader_opens: metrics.spillable_unary_reader_opens.get(),
+                spillable_sampling_stages: metrics.spillable_sampling_stages.get(),
+                spillable_sampling_input_rows: metrics.spillable_sampling_input_rows.get(),
+                spillable_sampling_population_rows: metrics
+                    .spillable_sampling_population_rows
+                    .get(),
+                spillable_sampling_output_rows: metrics.spillable_sampling_output_rows.get(),
+                spillable_sampling_replacement_draws: metrics
+                    .spillable_sampling_replacement_draws
+                    .get(),
+                spillable_sampling_lookup_blocks: metrics.spillable_sampling_lookup_blocks.get(),
+                spillable_subquery_stages: metrics.spillable_subquery_stages.get(),
+                spilled_subquery_stages: metrics.spilled_subquery_stages.get(),
+                spillable_subquery_input_rows: metrics.spillable_subquery_input_rows.get(),
+                spillable_subquery_indexed_rows: metrics.spillable_subquery_indexed_rows.get(),
+                spillable_subquery_probe_rows: metrics.spillable_subquery_probe_rows.get(),
+                spillable_subquery_candidate_rows: metrics.spillable_subquery_candidate_rows.get(),
+                spillable_subquery_lookup_blocks: metrics.spillable_subquery_lookup_blocks.get(),
                 ordered_join_stages: metrics.ordered_join_stages.get(),
                 ordered_join_build_rows: metrics.ordered_join_build_rows.get(),
                 ordered_join_probe_rows: metrics.ordered_join_probe_rows.get(),
@@ -1201,6 +1324,55 @@ impl PreparedVortexRelational {
                 metrics.record_pivot_spill(report)
             }
             NodeKind::Unary { input, operation } => {
+                #[cfg(all(feature = "vortex-write", unix))]
+                if let Some(spill) = &metrics.spill
+                    && operation.sampling_spill_supported(input.upper_rows(&self.sources))
+                {
+                    let (usage, report) = operation.consume_relation_sampling(
+                        context,
+                        spill,
+                        batch_rows,
+                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                        consume,
+                    )?;
+                    metrics.record_unary(usage.items, usage.all_input_retained)?;
+                    add(&metrics.spillable_sampling_stages, 1)?;
+                    add(&metrics.spillable_sampling_input_rows, report.input_rows)?;
+                    add(
+                        &metrics.spillable_sampling_population_rows,
+                        report.population_rows,
+                    )?;
+                    add(&metrics.spillable_sampling_output_rows, report.output_rows)?;
+                    add(
+                        &metrics.spillable_sampling_replacement_draws,
+                        report.replacement_draws,
+                    )?;
+                    return add(
+                        &metrics.spillable_sampling_lookup_blocks,
+                        report.lookup_blocks,
+                    );
+                }
+                #[cfg(all(feature = "vortex-write", unix))]
+                if let Some(spill) = &metrics.spill
+                    && operation.membership_spill_supported()
+                {
+                    let (usage, report) = operation.consume_relation_membership(
+                        context,
+                        spill,
+                        batch_rows,
+                        |accept| self.run(input, context, metrics, batch_rows, parameter, accept),
+                        consume,
+                    )?;
+                    metrics.record_unary(usage.items, usage.all_input_retained)?;
+                    add(&metrics.spillable_unary_membership_stages, 1)?;
+                    add(&metrics.spillable_unary_input_rows, report.input_rows)?;
+                    add(&metrics.spillable_unary_observed_rows, report.observed_rows)?;
+                    add(&metrics.spillable_unary_groups, report.groups)?;
+                    add(&metrics.spillable_unary_identity_rows, report.identity_rows)?;
+                    add(&metrics.spillable_unary_output_rows, report.output_rows)?;
+                    add(&metrics.spillable_unary_lookup_blocks, report.lookup_blocks)?;
+                    return add(&metrics.spillable_unary_reader_opens, report.reader_opens);
+                }
                 let usage = operation.consume_relation(
                     context,
                     input.upper_rows(&self.sources),
@@ -1387,6 +1559,7 @@ impl PreparedVortexRelational {
         }
     }
 
+    #[allow(clippy::too_many_lines)] // Keep streaming, authorized spill and resident membership under the same alignment boundary.
     fn run_set(
         &self,
         node: &Node,
@@ -1416,6 +1589,35 @@ impl PreparedVortexRelational {
                     &mut |array| consume(cast_batch(&array, &input.fields, &node.fields, context)?),
                 )?;
             }
+            return Ok(());
+        }
+        #[cfg(feature = "vortex-write")]
+        if let Some(spill) = &metrics.spill {
+            let report = super::native_relational_set_spill::run(
+                *kind,
+                &node.fields,
+                spill,
+                context,
+                batch_rows,
+                |is_left, accept| {
+                    let input = if is_left { left } else { right };
+                    self.run(
+                        input,
+                        context,
+                        metrics,
+                        batch_rows,
+                        parameter,
+                        &mut |array| {
+                            accept(cast_batch(&array, &input.fields, &node.fields, context)?)
+                        },
+                    )
+                },
+                consume,
+            )?;
+            add(&metrics.ordered_set_stages, 1)?;
+            add(&metrics.ordered_set_input_rows, report.input_rows)?;
+            add(&metrics.ordered_set_groups, report.groups)?;
+            add(&metrics.ordered_set_output_rows, report.output_rows)?;
             return Ok(());
         }
         let mut output = RowSet::new(&node.fields, names, context.memory())?;

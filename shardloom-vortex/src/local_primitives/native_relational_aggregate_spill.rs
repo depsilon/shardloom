@@ -7,6 +7,7 @@ use super::{
     native_relational_batch::{Batch, failed, index_array, take_batch},
     native_relational_expression::keys,
     native_relational_keys::{Cell, KeyColumn},
+    native_relational_record_output::Results,
     native_relational_spill::{Ordering, State},
     vortex_error,
 };
@@ -17,9 +18,6 @@ use vortex::array::{ArrayRef, dtype::DType};
 #[path = "native_relational_aggregate_records.rs"]
 mod records;
 use records::{Layout, ORDINAL};
-#[path = "native_relational_aggregate_output.rs"]
-mod output;
-use output::Results;
 
 #[derive(Default)]
 pub(super) struct Report {

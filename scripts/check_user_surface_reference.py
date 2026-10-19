@@ -293,7 +293,13 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         ("subquery_nested_demand_requires_original_owner_release", True),
         ("subquery_shared_source_replay_completed_before_query", True),
         ("subquery_unused_producers", "raw_validation_without_skipped_expression_or_cardinality_evaluation"),
-        ("subquery_state_spill", False),
+        ("subquery_state_spill", True),
+        ("subquery_state_spill_scope", "shared_relational_non_scalar_predicates;explicit_native_query_spill;vortex_write_unix"),
+        ("subquery_state_spill_reference", "docs/architecture/native-subquery-membership-spill-2026-10-19.md"),
+        ("subquery_state_spill_acceptance_reference", "docs/benchmarks/native-subquery-membership-spill-2026-10-19.md"),
+        ("subquery_state_spill_operations", ["in", "exists", "quantified-any", "quantified-all"]),
+        ("subquery_state_spill_inner_scope", "statically_bound_or_declared_parameter_specific_schema"),
+        ("scalar_subquery_state", "resident_zero_or_one_selected_row;cardinality_error_preserved"),
         ("opaque_deferred_subquery_streaming", False),
         ("dynamic_subquery_reference", "docs/architecture/native-stream-dynamic-subqueries-2026-10-15.md"),
         ("dynamic_subquery_acceptance_reference", "docs/benchmarks/native-stream-dynamic-subqueries-2026-10-16.md"),
@@ -307,10 +313,25 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         ("unary_acceptance_reference", "docs/benchmarks/native-stream-unary-2026-10-15.md"),
         ("unary_kinds", ["distinct", "dedup", "duplicate_mask", "tail", "sample", "expression", "melt", "explode", "rolling"]),
         ("unary_state_spill", False),
+        ("unary_state_spill_scope", "all_unary_state_families"),
+        ("unary_membership_spill", True),
+        ("unary_membership_spill_reference", "docs/architecture/native-unary-membership-spill-2026-10-18.md"),
+        ("unary_membership_spill_operations", ["distinct", "dedup-first", "dedup-last", "dedup-false", "mask-first", "mask-last", "mask-false"]),
+        ("unary_sampling_population_spill", True),
+        ("unary_sampling_population_spill_reference", "docs/architecture/native-sampling-population-spill-2026-10-19.md"),
+        ("unary_sampling_population_spill_acceptance_reference", "docs/benchmarks/native-sampling-population-spill-2026-10-19.md"),
+        ("unary_sampling_population_spill_operations", ["fraction-unweighted", "replacement-unweighted", "fraction-replacement-unweighted", "fraction-weighted", "replacement-weighted", "fraction-replacement-weighted"]),
+        ("unary_sampling_population_spill_acceptance_status", "locally_accepted_hosted_pending"),
+        ("unary_sampling_population_spill_scope", "shared_relational_unary;explicit_native_query_spill;vortex_write_unix"),
+        ("unary_sampling_fraction_without_replacement_scope", "unknown_input_row_upper_bound_only"),
+        ("unary_sampling_replacement_scope", "fixed_count_or_fraction_with_known_or_unknown_input_row_upper_bound"),
         ("set_reference", "docs/architecture/native-stream-set-operations-2026-10-15.md"),
         ("set_acceptance_reference", "docs/benchmarks/native-stream-sets-2026-10-15.md"),
         ("set_operations", ["UNION ALL", "UNION", "INTERSECT", "EXCEPT"]),
-        ("set_membership_spill", False),
+        ("set_membership_spill", True),
+        ("set_membership_spill_reference", "docs/architecture/native-set-membership-spill-2026-10-18.md"),
+        ("set_membership_spill_operations", ["UNION", "INTERSECT", "EXCEPT"]),
+        ("set_membership_spill_acceptance_status", "locally_accepted_hosted_pending"),
         ("single_source_single_use", False),
         ("multiple_batch_producers", True),
         ("each_streaming_source_single_use", True),
@@ -337,6 +358,14 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
     ):
         if streaming.get(field) != value:
             blockers.append(f"{JSON_PATH}: streaming_input.{field} differs from its contract")
+
+    if streaming.get("unary_membership_spill_acceptance_status") not in (
+        "local_acceptance_in_progress", "locally_accepted_hosted_pending",
+    ):
+        blockers.append(f"{JSON_PATH}: unary membership spill must retain its finite local acceptance status")
+
+    if streaming.get("subquery_state_spill_acceptance_status") != "locally_accepted_hosted_pending":
+        blockers.append(f"{JSON_PATH}: subquery predicate spill must retain its finite local acceptance status")
 
     relational_spill = payload.get("native_relational_order_spill", {})
     for field in ("cleanup_required_before_publication", "stable_ties", "multiple_keys", "relational_fanout"):

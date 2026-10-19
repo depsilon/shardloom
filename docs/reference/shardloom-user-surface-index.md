@@ -39,7 +39,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Development source identity: `0ffe814740dd6b2b9401e87df9b572aa80a773414db6971572862d5eb12a7622` (SHA-256 of the listed source inputs).
+Development source identity: `984d7fd5e3176a47d512e4b8bab105224cd72826a04e3d12737f66ef28a33be0` (SHA-256 of the listed source inputs).
 This API is unpublished; the package version is held independently of source changes.
 
 ### Python application exports
@@ -204,7 +204,16 @@ Direct `shardloom.native` and Rust embedding remain available through the
 [integration guide](https://shardloom.io/field-guide/embedding/).
 Existing focused references retain detailed contracts:
 [SQL binding](../architecture/sql-parser-binder-readiness.md), [resident owners](resident-native-results.md),
-[query spill](native-query-spill.md), and
+[query spill](native-query-spill.md),
+[distinct-set spill](../architecture/native-set-membership-spill-2026-10-18.md)
+with [finite local acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md),
+[unary membership spill scope](../architecture/native-unary-membership-spill-2026-10-18.md)
+with [finite local acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md),
+[sampling population spill scope](../architecture/native-sampling-population-spill-2026-10-19.md)
+with [finite local acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md),
+[subquery predicate spill scope](../architecture/native-subquery-membership-spill-2026-10-19.md)
+with [finite local acceptance](../benchmarks/native-subquery-membership-spill-2026-10-19.md)
+(hosted, installed-package and other-platform proof remain separate), and
 [stream destinations](../architecture/native-stream-destinations-2026-10-15.md).
 They identify the behavior and source/release scope they cover.
 

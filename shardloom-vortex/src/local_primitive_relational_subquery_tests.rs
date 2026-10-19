@@ -5,6 +5,9 @@ use crate::relational_query::{
 };
 use shardloom_core::ComparisonOp;
 
+#[path = "local_primitive_relational_subquery_observation_tests.rs"]
+mod observation_tests;
+
 fn key(left: &str, right: &str) -> VortexRelationalJoinKey {
     VortexRelationalJoinKey {
         left: ColumnRef::new(left).unwrap(),
@@ -37,6 +40,39 @@ fn predicates(plan: &VortexRelationalPlan) -> Vec<serde_json::Value> {
             .collect_jsonl(&CancellationToken::default())
             .unwrap(),
     );
+    let directory = std::env::temp_dir().join(format!(
+        "shardloom-subquery-semantics-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed),
+    ));
+    fs::create_dir(&directory).unwrap();
+    let prepared = prepared
+        .with_spill(
+            crate::relational_query::VortexRelationalSpillPolicy::new(
+                &directory,
+                64 << 20,
+                1 << 20,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let result = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(json_rows(&result), rows);
+    assert_eq!(result.execution.spillable_subquery_stages, 1);
+    assert!(
+        result
+            .execution
+            .spill
+            .as_ref()
+            .unwrap()
+            .owned_cleanup_completed
+    );
+    drop(result);
+    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    fs::remove_dir(&directory).unwrap();
     rows.into_iter()
         .map(|row| row["predicate"].clone())
         .collect()

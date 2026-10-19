@@ -395,13 +395,12 @@ fn native_nested_keys_joins_and_sets_keep_parent_null_policies() {
             right: right.clone(),
             kind,
         }));
-        assert_eq!(
-            collect(&plan),
-            values
-                .into_iter()
-                .map(|value| json!({"items":value}))
-                .collect::<Vec<_>>()
-        );
+        let rows = values
+            .into_iter()
+            .map(|value| json!({"items":value}))
+            .collect::<Vec<_>>();
+        assert_eq!(collect(&plan), rows);
+        super::super::set_spill_tests::assert_ordered(&fixture, &plan, &rows);
     }
 }
 

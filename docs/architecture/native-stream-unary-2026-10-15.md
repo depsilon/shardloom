@@ -70,8 +70,10 @@ current capillary/PulseWeave/resource mechanisms keep their existing callers.
 - Tail over produced input retains the requested suffix in source order. A
   downstream limit may not move before that selection.
 - Fixed-count sampling without replacement keeps its existing bounded candidate
-  strategy. Unknown fractional populations and replacement may retain population
-  state under the shared grant; expose deterministic denial when it cannot fit.
+  strategy. Unknown fractional populations and replacement retained resident
+  population state at this unit's original acceptance. Current source admits
+  explicit spill through the [sampling population contract](native-sampling-population-spill-2026-10-19.md);
+  without permission, preserve shared-grant denial when that population cannot fit.
   Preserve seed, weight, tied-score, null/invalid-weight and source-order rules.
   Do not silently replace the current sampling algorithm with a different one.
 - Rolling keeps existing null, minimum-period, centered/lookahead and output
@@ -79,10 +81,12 @@ current capillary/PulseWeave/resource mechanisms keep their existing callers.
   ordinal and forward-fill state across batches. Melt and explode preserve
   expansion order, null/empty behavior and their admitted schemas.
 - Every operation shares the admitted source, state, output and replay grant.
-  Unary membership/population state remains resident; no new spill algorithm is
-  proposed. Long input can pass only when its retained state fits. Explicit
-  spill permission must not turn an oversized unary state into hidden resident
-  intake or external execution.
+  This original unit kept unary membership/population resident. Later finite
+  [membership](native-unary-membership-spill-2026-10-18.md) and
+  [sampling population](native-sampling-population-spill-2026-10-19.md) contracts
+  admit specific native spill strategies. Other state must fit its grant or
+  fail explicitly; spill permission must not cause hidden resident intake or
+  external execution.
 
 ## Acceptance
 
@@ -109,12 +113,14 @@ current capillary/PulseWeave/resource mechanisms keep their existing callers.
    producer/plan/client teardown, final-owner credits and reusable clean session
    state after failures. Add native release-witness assertions, not only Python
    generator event checks.
-6. Use cumulative input larger than the grant for bounded-state shapes. Add
-   deterministic denial for high-cardinality selectors, future-dependent mask
-   identities and unknown sample population state, with and without replay spill
-   permission. Check native allocation peaks and cleanup without claiming an RSS
-   ceiling. If a fixture does not reach its intended owner, revise the fixture
-   with evidence rather than relabeling a different refusal.
+6. Use cumulative input larger than the grant for bounded-state shapes. Original
+   acceptance proved denial for high-cardinality selectors, future-dependent
+   mask identities and unknown sample populations, with and without replay spill.
+   The later membership and sampling contracts replace enabled controls with
+   exact completion at the original grants and retain no-spill denial. Check
+   native allocation peaks and cleanup without claiming an RSS ceiling. If a
+   fixture does not reach its intended owner, revise the fixture with evidence
+   rather than relabeling a different refusal.
 7. Complete focused tests, six established Rust gates, direct native binding and
    full public matrices, one complete Full43 pass, portable source-bound evidence,
    generated docs/site and hosted/platform review. Preserve failed observations.

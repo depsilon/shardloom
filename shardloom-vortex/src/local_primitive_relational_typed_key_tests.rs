@@ -184,14 +184,13 @@ fn native_typed_keys_order_and_set_semantics_preserve_full_values() {
             right: fixture.scan(),
             kind,
         }));
-        assert_eq!(
-            collect(&plan),
-            if kind == SetKind::Except {
-                vec![]
-            } else {
-                expected.clone()
-            }
-        );
+        let rows = if kind == SetKind::Except {
+            vec![]
+        } else {
+            expected.clone()
+        };
+        assert_eq!(collect(&plan), rows);
+        super::super::set_spill_tests::assert_ordered(&fixture, &plan, &rows);
     }
 }
 

@@ -86,9 +86,32 @@ explicit spill policy. Result replay is distinct from repeated-source replay.
 Cumulative input may exceed the query grant while each batch/frame stays bounded;
 typed intake, retained operator state, output compaction and result/sink owners
 remain charged. Ordering, aggregation, joins and analytic windows admit explicit
-native spill, as does relational pivot. Set membership and unary retained state
-remain resident; replay spill does not spill those states. See the
-[finite unary contract](../architecture/native-stream-unary-2026-10-15.md).
+native spill, as does relational pivot. With an explicit spill policy, bounded
+native full-row membership spill is available for `UNION` (distinct),
+`INTERSECT` and `EXCEPT`, preserving their existing first-occurrence order;
+`UNION ALL` retains its streaming path. Current source builds also implement
+explicit native spill for relational distinct, deduplication and duplicate masks
+with first, last and remove-all policies, including future-mask row identities.
+The shared relational route also admits explicit population spill for
+unknown-bound fractional sampling without replacement and fixed/fractional
+sampling with replacement, weighted or unweighted. Fixed-count and known-bound
+fractional sampling without replacement keep their bounded resident top-k path.
+Non-scalar subquery predicates also implement explicit native spill for their
+projected membership and correlation keys, including declared parameter-specific
+schemas. Scalar subqueries keep their zero/one-row resident state, and legacy
+standalone `PreparedVortexUnary` retains its resident contract. See the
+[native set membership spill contract](../architecture/native-set-membership-spill-2026-10-18.md),
+[unary membership scope](../architecture/native-unary-membership-spill-2026-10-18.md)
+with [finite local acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md),
+[sampling population scope](../architecture/native-sampling-population-spill-2026-10-19.md)
+with [finite local acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md),
+[subquery predicate scope](../architecture/native-subquery-membership-spill-2026-10-19.md)
+with [finite local acceptance](../benchmarks/native-subquery-membership-spill-2026-10-19.md).
+Hosted, installed-package and other-platform proof remain separate. Scalar
+subqueries retain their zero/one-row state and cardinality error; opaque deferred
+subquery streaming remains unsupported. The
+[finite unary contract](../architecture/native-stream-unary-2026-10-15.md) also
+retains the legacy standalone unary resident boundary.
 Pivot consumes the producer once for
 execution-time domain discovery and retains the completed native pivot state;
 downstream output uses that state without requesting the source again. A later
@@ -123,7 +146,10 @@ boundaries.
 delivers admitted typed/nested results with acknowledged backpressure. Consume
 inside a `with` block, especially when stopping early. Each batch is provisional
 until the iterator is exhausted and its final `report` is present after source
-validation. Retaining Python objects is outside the native grant. Current source
+validation. `batch_rows` bounds Python delivery slices; native file-reader and
+Arrow admission have separate batch and allocation boundaries. A smaller delivery
+slice does not guarantee that the file producer fits a smaller grant. Retaining
+Python objects is outside the native grant. Current source
 builds prepare admitted compatibility inputs to Vortex using this transaction's
 cancellation token and native allocation. See the
 [composition contract](../architecture/native-stream-input-composition-2026-10-13.md).

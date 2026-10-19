@@ -82,14 +82,41 @@ Deliver `perf-05-acceptance.json` with decoded-reference comparisons for new nul
 
 ## PERF-06
 
-Protect existing external-memory ordering and the explicit boundary between replay spill and resident membership:
+Protect existing external-memory ordering, distinct-set membership, finite
+relational unary membership, admitted sampling populations and shared relational
+subquery predicates with explicit spill permission, and resident refusal without
+that permission:
 
 ```sh
 cargo test -p shardloom-vortex --features release-user-surfaces --lib native_relational_spill_stable_multikey_complete_values_and_repeated_cleanup -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-spill.log" 2>&1
-cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_growth_is_denied_with_or_without_replay_spill_permission -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-boundary.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_growth_is_denied_without_spill_permission -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-disabled.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_spill_completes_exact_values_beyond_the_resident_grant -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-enabled.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_spill_keeps_a_single_hot_key_bounded -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-skew.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_fanout_keeps_native_replay_blocks_bounded -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-fanout.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_faults_cannot_complete_or_publish_partial_output -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-faults.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_writes_reject_existing_targets_before_input -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-existing-output.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_set_membership_recovery_preserves_live_and_unknown_owners_then_restarts_exactly -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-membership-recovery.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_unary_membership_spills_at_the_original_grant -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-pressure.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_future_duplicate_masks_charge_population_identities_separately_from_keys -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-identities.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_spilled_typed_and_dictionary_keys_preserve_values_and_null_parents -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-typed.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_private_payload_movement_preserves_unobserved_float_values -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-payload.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_validates_open_cache_gap_and_both_merge_generations -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-generations.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_quota_grant_and_cancelled_merge_release_owned_state -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-quota.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_late_producer_schema_consumer_and_cancellation_never_complete -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-failures.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_recovery_preserves_live_unknown_and_foreign_owners_then_restarts -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-recovery.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib unary_membership_native_file_generation_failure_cleans_then_fresh_preparation_completes -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-unary-source-generation.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib sampling_ -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-sampling-family.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib sampling_population_spills_at_original_grant_with_exact_rank_and_draw_outputs -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-sampling-pressure.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib sampling_population_validates_open_cached_and_both_merge_generations -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-sampling-generations.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib sampling_population_recovery_preserves_live_unknown_and_foreign_owners_then_restarts -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-sampling-recovery.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib subquery_membership_ -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-subquery-family.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_subqueries_membership_original_pressure_completes_only_with_native_strategy -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-subquery-pressure.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces --lib streaming_dynamic_subqueries_membership_original_pressure_spills_and_releases_each_parameter -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-06-subquery-parameter-pressure.log" 2>&1
 ```
 
-Deliver `perf-06-acceptance.json` proving exact completion when newly supported logical state exceeds its grant, including quota, skew, truncation/corruption, cancellation, crash/restart or actual resume, and owned cleanup. When the membership boundary changes, update that refusal regression and add explicit enabled/disabled external-memory cases; passing today's refusal test does not complete membership spill. Freeze separate reconstruction/merge protocols for conditional experiments.
+Deliver `perf-06-acceptance.json` proving exact completion when newly supported logical state exceeds its grant, including quota, skew, truncation/corruption, cancellation, crash/restart or actual resume, and owned cleanup. The [distinct-set contract](native-set-membership-spill-2026-10-18.md) covers `UNION`, `INTERSECT` and `EXCEPT`; the [unary membership contract](native-unary-membership-spill-2026-10-18.md) covers distinct and three deduplication/mask policies. The [sampling population contract](native-sampling-population-spill-2026-10-19.md) covers unknown-bound fractional nonreplacement and fixed/fractional replacement, weighted or unweighted. The [subquery predicate contract](native-subquery-membership-spill-2026-10-19.md) covers shared relational `IN`, `EXISTS` and quantified `ANY`/`ALL`, including negation and indexed/parameterized/declared-schema inner execution. Fixed-count and known-bound fractional nonreplacement and legacy standalone unary retain their separate resident boundaries. Scalar subqueries retain zero/one-row state and cardinality errors. These process-death routes clean owned abandoned runs and execute fresh queries; they do not resume interrupted execution. Enabled/disabled regressions replace the corresponding prior combined refusal selectors.
+
+The [distinct-set acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md) records 4,911 public cases. Subsequent [unary acceptance](../benchmarks/native-unary-membership-spill-2026-10-18.md) records 5,126 public cases, 274 independently reopened unary value archives, complete Full43 results and 704 native format workflows. Both bind the actual compiled source to their corrected test harnesses by exact source equality and preserve all failed observations. The later [sampling acceptance](../benchmarks/native-sampling-population-spill-2026-10-19.md) uses one frozen compiled/harness source, passes 5,492 public cases and independently reopens 406 sampling value archives, complete Full43 results and 704 native format workflows. The [subquery acceptance](../benchmarks/native-subquery-membership-spill-2026-10-19.md) uses frozen source `a6108842`, passes 5,930 public cases and independently reopens 483 subquery value archives with 1,701 complete rows, Full43 and 704 native format workflows. Separate writer/readback grants do not replace the original 16/8-MiB unary, 16-MiB sampling or 4/8-MiB subquery pressure controls. None of these finite acceptances closes a broader PERF-06 substep. Freeze separate reconstruction/merge protocols for conditional experiments.
 
 ## PERF-07
 
@@ -135,6 +162,24 @@ cargo test -p shardloom-cli --features release-user-surfaces --test public_workf
 ```
 
 Deliver `perf-10-acceptance.json` with complete native/reference parity, negative pruning controls, changed plan/type boundaries, actual avoided rows/bytes and public-surface agreement. New summary, join, index or fusion strategies need their own exact semantics and matched workload controls.
+
+The [compact-selection experiment](native-compact-selection-2026-10-18.md)
+retains the exact ignored selector `native_selection_complete_cost_screen`.
+It covers seven shapes, native projection/count consumers, both projected fields,
+certificate checks and complete reservation cleanup. Execute it only through a
+frozen, serial, guarded release comparison:
+
+```sh
+cargo test --release -p shardloom-vortex --features release-user-surfaces --lib native_selection_complete_cost_screen -- --ignored --nocapture --test-threads=1
+```
+
+The command alone does not establish an optimization. Preserve byte-identical
+measurement source, source/binary/protocol identities, every sample and the
+predeclared retain/drop gates. The October 18 contiguous-range candidate was
+dropped after its permitted confirmation repeated projection regressions;
+production and the existing regression selectors above are restored. The
+candidate-specific range tests are archived with the rejected source. Do not
+rerun that unchanged candidate or treat its correctness passes as retention.
 
 ## PERF-11
 

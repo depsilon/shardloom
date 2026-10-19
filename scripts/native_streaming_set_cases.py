@@ -88,7 +88,7 @@ def run(harness):
     harness.json(harness.logs / "set-fixtures.json", {
         "schema": SCHEMA, "left": LEFT, "right": RIGHT, "policy": POLICY,
         "oracles": {kind: oracle(LEFT, RIGHT, kind) for kind in KINDS},
-        "membership_state": "credited resident state; replay spill does not spill set membership",
+        "membership_state": "credited resident state by default; explicit spill admits bounded native distinct-set ordering",
     })
     for kind in KINDS:
         for surface in ("dataframe", "sql"):

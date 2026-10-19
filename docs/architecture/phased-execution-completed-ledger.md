@@ -17,6 +17,190 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-06 subquery predicates` — finite local acceptance completes shared
+  relational `IN`, `EXISTS` and quantified `ANY`/`ALL` state with explicit native
+  spill, including negation, indexed correlation and parameter-specific inner
+  schemas. The [acceptance report](../benchmarks/native-subquery-membership-spill-2026-10-19.md)
+  and [evidence index](../benchmarks/evidence/native-subquery-membership-spill-2026-10-19.json)
+  retain complete values, exact sources and failed observations.
+  - Projected native keys, full ordinals and collision-safe lookup preserve
+    complete selected-key validation, three-valued row comparisons, guarded
+    demand and outer order. Scalar zero/one-row state and cardinality errors
+    remain unchanged. Predicate state, source replay and inner pivot/order have
+    distinct counters; actual predicate spill is separately recorded.
+  - Original native pressure passes at 4 MiB and public wide-key pressure at
+    8 MiB. Deferred public pivot/replay retains its established 32-MiB grant;
+    independent direct native-file readback uses 128 MiB. All eight writers
+    and fanout preserve complete values. Managed reservations are not an RSS cap.
+  - All 5,930 public cases across 39 families pass, including 438 new predicate
+    cases and two replaced pressure controls. Independent verification reopens
+    483 subquery value archives and all 1,701 rows. The 24 failure/preservation
+    cases comprise 18 incomplete executions and six existing-target refusals;
+    every case checks a fresh successful execution afterward.
+  - Full43 passes all 43 queries once and all 381 result rows and schemas,
+    with 51.811495794 seconds of engine time. All 18 modular cohorts match
+    704 native workflows to 704 fresh independent oracle workflows. This single
+    regression observation makes no speed improvement or competitive claim.
+  - Formatting and strict workspace/native lint pass, with 3,235 workspace,
+    3,022 native, 1,087 CLI, 105 binding and 17 context tests passing. Fourteen
+    required native selectors, all 60 subquery regressions and 48 new binding
+    subcases pass. The native suite retains 29 opt-in ignores, and one context
+    test requires a separately selected clean installed package. Suites overlap.
+  - Source and both compiled artifacts are frozen at `a6108842`. Acceptance
+    verifies all 2,208 source entries; the closeout bridge changes only the
+    machine-reference claim validator. Runtime, Python and harness sources stay
+    byte-identical. Pressure overlap, lowering expectations, a deferred fixture
+    grant, diagnostic text and a verifier lookup were corrected with all failed
+    observations retained. Frozen acceptance needed no source or verifier repair.
+  - Other sampling strategies, legacy standalone unary and broader recovery
+    remain open. Process-death coverage proves exact owned cleanup and fresh
+    restart, not interrupted-query resume. All 14 owners, 58 substeps (37 required
+    and 21 conditional), and CG-1 through CG-23 retain their gates. Hosted,
+    installed-package and other-platform proof remain separate; the release hold
+    and published v0.6.0 are unchanged.
+
+- [x] `PERF-06 sampling populations` — finite local acceptance completes
+  unknown-bound fractional sampling without replacement and fixed/fractional
+  sampling with replacement, weighted or unweighted, through shared relational
+  execution with explicit native spill. The
+  [acceptance report](../benchmarks/native-sampling-population-spill-2026-10-19.md)
+  and [evidence index](../benchmarks/evidence/native-sampling-population-spill-2026-10-19.json)
+  retain exact sources, complete values and failed observations.
+  - Native rank/ordinal runs preserve deterministic scores, ties, fractional
+    targets, sequential cumulative weights, first-equal weighted lookup and
+    replacement draw order. Predicate and payload observation remain unchanged.
+    Every positional access validates the stored generation, including cache hits.
+    Fixed-count and known-bound fractional nonreplacement retain bounded top-k.
+  - All six variants complete the 8,193-wide-row fixture at its unchanged
+    16-MiB operator grant. No-spill denial and bounded controls pass. Direct
+    binding and wide publication use 32 MiB; independent native-file readback
+    uses a separate 128-MiB grant. Managed reservations are not an RSS ceiling.
+  - All 5,492 public cases across 38 families pass, including 358 population
+    cases and 59 unary pressure cases. Independent verification reopens 406
+    sampling value archives and all 11,518 rows, plus prior membership/set
+    archives. The 66 failure/preservation cases comprise 54 execution faults
+    and 12 existing-destination refusals before producer demand.
+  - Full43 passes 43 queries once and all 381 result rows and schemas, with
+    50.415902622 seconds of engine time. All 18 modular cohorts match 704 native
+    workflows to 704 fresh independent oracle workflows. No speed improvement
+    or competitive claim follows from this single regression observation.
+  - Formatting, strict workspace/native lint and 3,235 workspace, 3,010 native,
+    1,087 CLI, 104 direct-binding and 17 context tests pass. All 18 new native
+    selectors and 17 membership regressions pass. The native suite retains 29
+    ignored opt-in screens; one context test requires a separately selected
+    clean installed package and remains skipped. Suites overlap.
+  - Source and both compiled artifacts are frozen at `f363f289`. Acceptance
+    verifies all 2,195 source entries. The closeout bridge permits only the
+    machine-reference claim validator to change; runtime, Python and harness
+    sources remain byte-identical. The packet preserves the earlier strict-lint
+    and path-alias recovery-test failures and their corrections.
+  - Only this finite scope was complete at that acceptance. Subquery indexes
+    were subsequently accepted in the predicate unit above; other sampling
+    strategies, legacy standalone unary state and broader recovery remain open.
+    Recovery cleans owned abandoned runs and starts fresh; it does not resume
+    interrupted execution. All 14 owners, 58 substeps (37 required and 21
+    conditional), and CG-1 through CG-23 retain their gates. Hosted/platform
+    proofs and the release hold remain; published v0.6.0 is unchanged.
+
+- [x] `PERF-06 unary membership` — finite local acceptance completes distinct,
+  first/last/all-duplicates deduplication and duplicate masks under explicit
+  native spill. The [acceptance report](../benchmarks/native-unary-membership-spill-2026-10-18.md)
+  and [evidence index](../benchmarks/evidence/native-unary-membership-spill-2026-10-18.json)
+  retain exact sources, complete values and failed observations.
+  - Chronological replacement runs preserve exact unary keys and payload
+    observation. Future deduplication restores selected source order; future
+    masks retain bounded prefix identities. All seven variants pass the
+    unchanged 16-MiB key fixture, and future masks pass the unchanged 8-MiB
+    identity fixture. Wide destination/direct-binding workflows use 32 MiB;
+    independent native-file verification uses a separate 128-MiB grant.
+  - All 5,126 public cases across 37 families pass, including 210 membership
+    and 51 pressure checks. Independent verification reopens 274 unary value
+    archives with 2,183,578 rows and all 74 earlier set-value archives. The
+    family covers 63 public publication failures, native generation/quota/grant
+    and cancellation faults, and seven real process-death cleanup/fresh restarts.
+  - Full43 passes all 43 queries once, with all 381 result rows and schemas;
+    engine time is 50.027328742 seconds. All 18 modular cohorts pass, matching
+    704 native workflows to 704 fresh independent oracle workflows. No speed
+    improvement or competitive claim follows from this single observation.
+  - Formatting and strict lint pass; 3,235 workspace, 2,992 native, 1,087 CLI,
+    103 direct-binding and 17 public-context tests pass. The native suite retains
+    29 ignored opt-in screens; one context test requires a separately selected
+    clean installed package and remains skipped. Suites overlap.
+  - Compiled source `a31bd774` is linked to acceptance source `cafa2ae7` by exact
+    equality of 2,179 unchanged frozen sources and the two identified harness
+    corrections. Fresh binding/public/Full43/modular proofs use that identity.
+    A final-verifier correction distinguishes declared modular progress streams
+    from JSON receipts, preserving the original plan, verifier and failed check.
+  - At that acceptance, sampling populations, subquery indexes, legacy
+    standalone unary state and broader recovery/strategy remained open. The
+    later finite sampling and predicate acceptances are recorded above.
+    Recovery starts a fresh execution
+    after cleanup; interrupted-query resume is not established. All 58 substeps,
+    37 required and 21 conditional, and CG-1 through CG-23 retain their gates.
+    Hosted/platform proofs and the release hold remain; published v0.6.0 is
+    unchanged.
+
+- [x] `PERF-06 distinct-set membership` — finite local acceptance completes
+  `UNION` (distinct), `INTERSECT` and `EXCEPT` under explicit native spill. The
+  [acceptance report](../benchmarks/native-set-membership-spill-2026-10-18.md) and
+  [evidence index](../benchmarks/evidence/native-set-membership-spill-2026-10-18.json)
+  retain complete values, exact sources and every failed attempt.
+  - Native full-key/ordinal ordering, group reduction and final source ordering
+    extend the existing Vortex run store. Set and fanout replay blocks remain
+    within 256 rows, under the original 16-MiB producer grant. No-spill resident
+    execution and `UNION ALL` retain their prior paths; no fallback is added.
+  - All 4,911 public cases across 36 families pass. The 83 new membership checks
+    plus four early-close controls retain 74 independently reopened value
+    archives with 450,606 rows. All eight writer formats complete from one
+    execution per native set fanout. Independent file verification has its own
+    admission and is not evidence of a smaller producer grant.
+  - All 43 Full43 queries pass once, including all 381 result rows and schemas;
+    engine time is 49.583021628 seconds. All 18 modular cohorts pass, with 704
+    native workflows matching 704 fresh independent oracle workflows. These
+    establish regression and capability evidence, not a speed claim.
+  - Required formatting/lint and 3,235 workspace tests pass. The native suite
+    has 2,978 passes and 29 ignored opt-in screens; 1,087 selected CLI tests,
+    102 direct binding tests and 17 public-context tests pass. One context test
+    requires a separately selected clean installed package and remains skipped.
+    The focused family includes 75 fault combinations, six existing-output
+    controls and three real process-death cleanup/fresh-restart cases.
+  - Compiled source is `7a55bc7f`; acceptance source `7831657a` changes only the
+    early-close test harness. Exact equality for all other frozen sources,
+    artifact hashes and original clean gate receipts supports runtime reuse.
+    Public, Full43 and modular acceptance are fresh after the harness correction.
+  - At that acceptance, the broader membership/population, recovery and strategy
+    owners remained open, including unary keys/masks, sampling and subquery
+    indexes. Their later finite acceptances are recorded above. Recovery
+    restarts after owned cleanup; it does not resume interrupted execution.
+    All 58 substeps, 37 required and 21 conditional, and CG-1 through CG-23
+    retain their independent obligations. Hosted/platform proofs and the
+    release hold remain; published v0.6.0 is unchanged.
+
+- [x] `PERF-10.compact_selections experiment` — the October 18 contiguous-range
+  candidate is measured and **dropped**, with production restored at `1acca085`.
+  The [experiment record](native-compact-selection-2026-10-18.md) and
+  [portable evidence](../benchmarks/evidence/native-compact-selection-2026-10-18.json)
+  preserve the frozen protocol, every sample and the exact restoration.
+  - The corrected cost screen verifies both projected fields, counts and complete
+    cleanup. All 168 corrected operations pass correctness, and both all-pass
+    consumers exceed the memory target. Unfiltered and contiguous-band projection
+    regressions repeat in the single allowed reversed-order confirmation, so the
+    throughput gate rejects the runtime change. Preliminary observations that
+    omitted the second field remain superseded evidence.
+  - The candidate passed 4,827 public checks, 100 direct binding tests, Full43
+    complete values/schemas and 704 native format workflows against 704 independent
+    oracle workflows. These remain candidate correctness evidence; no retained
+    runtime improvement or whole-engine speedup is claimed.
+  - All production source returns to the prior accepted base. The final Rust
+    changes are the corrected ignored measurement test and its module registration.
+    Fresh restored checks pass formatting, strict workspace/native-feature lint,
+    3,235 workspace tests and 2,969 native tests; 29 opt-in screens remain ignored
+    in the full native suite.
+  - Only this experiment is closed. `PERF-10.compact_selections` remains open
+    for a different mechanism; B and the broader PERF/CG owners remain open.
+    The active queue stays at 58 substeps, 37 required and 21 conditional.
+    Version 0.6.0, no-fallback boundaries and the release hold are unchanged.
+
 - [x] `PERF-10/07/11/12 public documentation and API consolidation` — locally
   completed at `dba85f1c43aeb83a2640c81654ac2b9ce8b15d98`, following merged
   PR #1575 and preserving the six CPU investigations. The
@@ -328,8 +512,10 @@ The October 18 [CPU investigation intake](native-cpu-investigations-2026-10-18.m
     and 11 skipped tests. All 16 preview/production responses preserve source;
     production version `785c4ca6-95bc-4b1b-94f7-8408af584d2e` completes.
     Actual browser guide, search and navigation observations are retained.
-  - Set membership stays resident under credits. Replay spill does not spill
-    membership state. Native Vortex remains highest fidelity; writer type/loss
+  - This October 15 unit retained resident set membership under credits; replay
+    spill did not spill membership state. The separate
+    [October 18 membership acceptance](../benchmarks/native-set-membership-spill-2026-10-18.md)
+    subsequently admits native spill for the three distinct variants. Native Vortex remains highest fidelity; writer type/loss
     limits and non-atomic fanout publication remain. The single Full43 timing
     is descriptive regression evidence. The next unit is `NATIVE-STREAM-UNARY`;
     broader allocation/state/recovery, all six areas/eight investigations and

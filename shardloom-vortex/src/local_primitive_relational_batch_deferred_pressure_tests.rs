@@ -1,4 +1,4 @@
-//! Source replay, completed pivot state and resident membership keep separate budgets.
+//! Source replay, completed pivot state and predicate membership have separate owners.
 
 use super::*;
 use crate::relational_query::VortexRelationalAggregate;
@@ -292,7 +292,7 @@ fn streaming_dynamic_subqueries_replay_and_pivot_spill_report_distinct_state_and
 }
 
 #[test]
-fn streaming_dynamic_subqueries_resident_membership_denial_survives_replay_spill_and_recovers() {
+fn streaming_dynamic_subqueries_membership_original_pressure_spills_and_releases_each_parameter() {
     let fixture = fixture();
     let directory = fixture.0.join("deferred-membership");
     fs::create_dir(&directory).unwrap();
@@ -302,19 +302,32 @@ fn streaming_dynamic_subqueries_resident_membership_denial_survives_replay_spill
         let baseline = prepared.snapshot().memory.reserved_bytes;
         let mut producer = Producer::new(4097, 2048);
         let mut saw_spill = false;
-        let error = prepared
+        let result = prepared
             .with_batch_inputs(&mut |uri, ordinal, session| {
                 saw_spill |= !live_runs(&directory).is_empty();
                 producer.next(uri, ordinal, session)
             })
             .unwrap()
-            .collect_jsonl(&CancellationToken::default())
-            .err()
-            .unwrap()
-            .to_string();
-        assert!(error.contains("reservation denied"), "{error}");
-        assert_eq!(producer.calls[0], 1);
-        assert!(producer.calls[1] > 1 && producer.calls[1] < 4097_usize.div_ceil(BATCH) as u64);
+            .collect_jsonl(&CancellationToken::default());
+        if spilling {
+            let result = result.unwrap();
+            assert_eq!(json_rows(&result), expected(4097, false));
+            assert_eq!(producer.calls, [2, (4097_usize.div_ceil(BATCH) + 1) as u64]);
+            assert_eq!(result.execution.spillable_subquery_stages, 2);
+            assert_eq!(result.execution.spillable_subquery_input_rows, 2 * 4097);
+            assert_eq!(result.execution.spillable_subquery_probe_rows, 2);
+            assert_eq!(result.execution.input.as_ref().unwrap().replay_sources, 1);
+            assert_eq!(result.execution.input.as_ref().unwrap().replay_passes, 1);
+            let spill = result.execution.spill.as_ref().unwrap();
+            assert!(spill.runs_written > 2 && spill.merge_passes > 0);
+            assert!(spill.owned_cleanup_completed);
+            assert!(result.execution.runtime.memory.peak_reserved_bytes <= 4 << 20);
+        } else {
+            let error = result.err().unwrap().to_string();
+            assert!(error.contains("reservation denied"), "{error}");
+            assert_eq!(producer.calls[0], 1);
+            assert!(producer.calls[1] > 1 && producer.calls[1] < 4097_usize.div_ceil(BATCH) as u64);
+        }
         assert_eq!(saw_spill, spilling);
         assert!(
             producer
@@ -322,7 +335,10 @@ fn streaming_dynamic_subqueries_resident_membership_denial_survives_replay_spill
                 .as_ref()
                 .is_none_or(|owner| owner.strong_count() == 0)
         );
-        assert_eq!(prepared.snapshot().completed_executions, 0);
+        assert_eq!(
+            prepared.snapshot().completed_executions,
+            u64::from(spilling)
+        );
         assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
         assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
         assert_eq!(fs::read(directory.join("foreign")).unwrap(), b"keep");
@@ -333,7 +349,10 @@ fn streaming_dynamic_subqueries_resident_membership_denial_survives_replay_spill
             .collect_jsonl(&CancellationToken::default())
             .unwrap();
         assert_eq!(json_rows(&result), expected(2, false));
-        assert_eq!(result.execution.runtime.completed_executions, 1);
+        assert_eq!(
+            result.execution.runtime.completed_executions,
+            1 + u64::from(spilling)
+        );
         drop(result);
         assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     }
