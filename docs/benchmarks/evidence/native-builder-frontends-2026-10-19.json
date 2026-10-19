@@ -1,0 +1,76 @@
+{
+  "acceptance": "../../architecture/native-builder-frontends-2026-10-19.md",
+  "all_members_reopened": true,
+  "archive": {
+    "bytes": 238232,
+    "file": "native-builder-frontends-2026-10-19.tar.xz",
+    "sha256": "b01114ee7aaecf786a3bcee81bb5e0de753257b64d101517335f759ad705d7ba"
+  },
+  "base_head": "030e615ef38bdfc2bb558698c20b5736d66547c4",
+  "broader_owners_closed": [],
+  "candidate_result": {
+    "aggregate_gate_passed": false,
+    "candidate_to_remove": false,
+    "cohort_typed_over_sql": [
+      "395079205/399837874",
+      "794600133/800517560"
+    ],
+    "cohorts": [
+      "a",
+      "b"
+    ],
+    "complete_semantic_witnesses_verified": true,
+    "production_routing_changes": false,
+    "required_max_ratio": "97/100",
+    "shared_material_cells_passed": true,
+    "typed_api_changes": false
+  },
+  "completed_substeps": [],
+  "decision": "reject_existing_typed_builder_substitution_under_frozen_aggregate_gates",
+  "engine_or_full43_claim": false,
+  "extra_sources": "evidence/physical-retention-final-758-extra-sources",
+  "failed_preflights_preserved": [
+    "builder-validation-757.json",
+    "builder-validation-758.json"
+  ],
+  "frozen_admission_hashes_verified": {
+    "builder_preflight_inputs": 11,
+    "source_freeze_sources": 1902,
+    "timing_admission_inputs": 12,
+    "timing_admission_sources": 1923
+  },
+  "frozen_native_module_omitted": {
+    "bytes": 76160192,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/public-758/_native.abi3.so",
+    "reason": "large frozen local executable is retained locally; portable source patch and build receipts are archived",
+    "sha256": "8178f19d7822ee36aaf63f155ea9d5f0123364ee6ac7366bf8c88198f1bfe148"
+  },
+  "historical_harnesses": [
+    {
+      "path": "evidence/builder-preflight-original-757.py",
+      "sha256": "a61c88267b864c9610e4427242c62d673441f7ab81ccb70fe3505200cc3685e1"
+    },
+    {
+      "path": "evidence/builder-preflight-before-limits-758.py",
+      "sha256": "e7d9a536b3412adcbb5200fe5a982eabcfae0207de8f859440e9fb910c3526d4"
+    }
+  ],
+  "installed_wheel_claim": false,
+  "investigated_substeps": [
+    "PERF-02.builder"
+  ],
+  "investigation_remains_open": true,
+  "manifest": {
+    "bytes": 2876,
+    "file": "native-builder-frontends-2026-10-19.manifest.json.xz",
+    "sha256": "cdefb5b276de11f7b2f30ce2d6a37cfac81f2cb0fa96fb28a544b8f892301a3d"
+  },
+  "member_count": 51,
+  "platform_scope": "local macOS arm64",
+  "replay": "Start from base_head, apply the included tracked patch, then add the included extra source tree; the resulting source identity is recorded in source_freeze.",
+  "schema_version": "shardloom.native_builder_frontends_investigation.v1",
+  "source_freeze": "evidence/physical-retention-final-758-source-freeze.json",
+  "status": "completed_drop",
+  "tracked_patch": "evidence/physical-retention-final-758-tracked.patch",
+  "uncompressed_bytes": 7983494
+}

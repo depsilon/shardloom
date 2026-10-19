@@ -1,0 +1,238 @@
+{
+  "all_members_reopened": true,
+  "archive": {
+    "bytes": 1604700,
+    "file": "native-physical-retention-2026-10-19.tar.xz",
+    "sha256": "74feb358ddaa09268fc5a16ada1fc316abca89e4a2b7a7da769a9661ebf1ab5a"
+  },
+  "authoritative_final_decision": {
+    "bytes": 7370,
+    "path": "evidence/physical-retention-final-decision-759.json",
+    "sha256": "855cf5d420963317053c65012fe07f88aebd80d38b4352099a25730ad503fe45"
+  },
+  "broader_acceptance_claim": false,
+  "broader_owners_closed": [],
+  "broader_owners_open": true,
+  "build_identity_inventory_cross_checks": {
+    "physical-retention-final-build-identity-753.json": {
+      "artifact": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-final-shardloom-vortex-753",
+      "bytes": 94872928,
+      "identity_record": "physical-retention-final-build-identity-753.json",
+      "inventory_match": true,
+      "sha256": "e2a522bc048af3499de8a3488971797004c8b1f070621f40411dc2048ff0bc5c"
+    },
+    "physical-retention-final-build-identity-758.json": {
+      "artifact": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-final-shardloom-vortex-758",
+      "bytes": 94839680,
+      "identity_record": "physical-retention-final-build-identity-758.json",
+      "inventory_match": true,
+      "sha256": "bfcb01a53883ecfc73a45cb56562a2f88073395247bc93492472ccb76d163039"
+    }
+  },
+  "causal_speed_claim": false,
+  "completed_substeps": [],
+  "conditional_substep_remains_open": true,
+  "decision": "reject_one_and_lru16_policies_after_frozen_controls; candidate removed",
+  "fallback_execution": false,
+  "finite_investigation_complete": true,
+  "fixture_directories_copied": [],
+  "history": {
+    "final_one_policy_758": {
+      "decision": "rejected",
+      "selected_one_policy_still_passes": false,
+      "two_one_call_controls_cohort_b": true
+    },
+    "lru16_revived": false,
+    "original_lru16_753": {
+      "passes_primary_gates": false,
+      "rejection_remains_binding": true
+    },
+    "preliminary_one_policy_753": {
+      "final_acceptance": false,
+      "interpretation": "preliminary result only; superseded by later controls",
+      "passes_primary_gates": true
+    }
+  },
+  "investigated_substeps": [
+    "PERF-02.physical_cache"
+  ],
+  "manifest": {
+    "bytes": 14792,
+    "file": "native-physical-retention-2026-10-19.manifest.json.xz",
+    "sha256": "478c68e2998cecd620e5cde7c51c9fdb530e7afb141a3ffff75b17aaab77815e"
+  },
+  "member_count": 328,
+  "omitted_artifact_inventory": [
+    {
+      "bytes": 76158928,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/public-initial-757/lib_native.dylib",
+      "reason": "compiled artifact excluded; exact local identity retained",
+      "sha256": "2603d5ae95bcb0f792eaef648912d954481863d0f5ef9040c1b88a4659ef1dc5"
+    },
+    {
+      "bytes": 76312496,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/public-initial-757/shardloom",
+      "reason": "compiled artifact excluded; exact local identity retained",
+      "sha256": "154e4ed86c2ed21252730587eafa295e6444db06dd123c4272624fb4e11328cc"
+    },
+    {
+      "bytes": 76160192,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/public-757/_native.abi3.so",
+      "reason": "compiled artifact excluded; exact local identity retained",
+      "sha256": "8178f19d7822ee36aaf63f155ea9d5f0123364ee6ac7366bf8c88198f1bfe148"
+    },
+    {
+      "bytes": 76160192,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/public-758/_native.abi3.so",
+      "reason": "compiled artifact excluded; exact local identity retained",
+      "sha256": "8178f19d7822ee36aaf63f155ea9d5f0123364ee6ac7366bf8c88198f1bfe148"
+    },
+    {
+      "bytes": 94728016,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-reconstruction-shardloom_vortex-751",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "9d814a101d59920ddbb961e498407b217194fb0a3f5ee949bb9f58932ed758eb"
+    },
+    {
+      "bytes": 94823200,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-cleanup-shardloom-vortex-756",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "581002a3e940c20e1769f0f5f722fcaf044fe8a3e66060ae5a56364c6b16a4bc"
+    },
+    {
+      "bytes": 94872928,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-final-shardloom-vortex-753",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "e2a522bc048af3499de8a3488971797004c8b1f070621f40411dc2048ff0bc5c"
+    },
+    {
+      "bytes": 94839680,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-final-shardloom-vortex-758",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "bfcb01a53883ecfc73a45cb56562a2f88073395247bc93492472ccb76d163039"
+    },
+    {
+      "bytes": 94741760,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-first-shardloom_vortex-752",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "ec7b62b5f3c4952b3f83ff8e8b3ca15808dbaccab45517a88cfd8e092295abbb"
+    },
+    {
+      "bytes": 94806368,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-integration-shardloom-vortex-755",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "3220b3c4dc83fb370f8f4d970c38a86a4ce437f2bf5a8d17f70f7976658ed86b"
+    },
+    {
+      "bytes": 94823200,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-ownership-shardloom-vortex-756",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "0f54bd60deb163c303d013603bcabb51733091ff0f81f3fc700357fcf579b7b4"
+    },
+    {
+      "bytes": 94835744,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-safety-shardloom-vortex-753",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "f2fe937746638ace1787d92aaf77af2f71c41c4f23c2b51aeddce0041c60a456"
+    },
+    {
+      "bytes": 94853408,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-workflow-shardloom-vortex-753",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "fb388b5e0613dca4c6f3daf81fa804d75f12db6ef0a05d2bc6f72d3bfcb2a8c7"
+    }
+  ],
+  "physical_native_executable_inventory": [
+    {
+      "bytes": 94728016,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-reconstruction-shardloom_vortex-751",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "9d814a101d59920ddbb961e498407b217194fb0a3f5ee949bb9f58932ed758eb"
+    },
+    {
+      "bytes": 94823200,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-cleanup-shardloom-vortex-756",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "581002a3e940c20e1769f0f5f722fcaf044fe8a3e66060ae5a56364c6b16a4bc"
+    },
+    {
+      "bytes": 94872928,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-final-shardloom-vortex-753",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "e2a522bc048af3499de8a3488971797004c8b1f070621f40411dc2048ff0bc5c"
+    },
+    {
+      "bytes": 94839680,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-final-shardloom-vortex-758",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "bfcb01a53883ecfc73a45cb56562a2f88073395247bc93492472ccb76d163039"
+    },
+    {
+      "bytes": 94741760,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-first-shardloom_vortex-752",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "ec7b62b5f3c4952b3f83ff8e8b3ca15808dbaccab45517a88cfd8e092295abbb"
+    },
+    {
+      "bytes": 94806368,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-integration-shardloom-vortex-755",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "3220b3c4dc83fb370f8f4d970c38a86a4ce437f2bf5a8d17f70f7976658ed86b"
+    },
+    {
+      "bytes": 94823200,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-ownership-shardloom-vortex-756",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "0f54bd60deb163c303d013603bcabb51733091ff0f81f3fc700357fcf579b7b4"
+    },
+    {
+      "bytes": 94835744,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-safety-shardloom-vortex-753",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "f2fe937746638ace1787d92aaf77af2f71c41c4f23c2b51aeddce0041c60a456"
+    },
+    {
+      "bytes": 94853408,
+      "copied": false,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/physical-retention-workflow-shardloom-vortex-753",
+      "reason": "measured native executable excluded; exact local identity retained",
+      "sha256": "fb388b5e0613dca4c6f3daf81fa804d75f12db6ef0a05d2bc6f72d3bfcb2a8c7"
+    }
+  ],
+  "physical_payloads_or_build_binaries_copied": false,
+  "rejected_candidate_snapshot": "evidence/physical-retention-rejected-snapshot-759.json",
+  "removal_receipt": "evidence/physical-retention-removal-759.json",
+  "restored_workspace_checks": {
+    "format": "passed",
+    "strict_clippy": "passed",
+    "workspace_tests": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 3235
+    }
+  },
+  "schema_version": "shardloom.native_physical_retention_investigation.v1",
+  "status": "finite_candidate_rejected",
+  "uncompressed_bytes": 43597297
+}

@@ -2,14 +2,16 @@
 
 # Conditional investigation sequence — October 19, 2026
 
-Status: active conditional-first pass; one finite candidate evaluated and rejected,
-20 rows awaiting their first decision in this pass. No broader owner is closed.
+Status: active conditional-first pass; three finite investigations completed with
+rejected mechanisms, 18 rows awaiting their first completed decision in this pass.
+No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
 rest of the queue, after the PR boundary. Public API/guide work is in
 [PR #1577](https://github.com/depsilon/shardloom/pull/1577); finite native spill
-work is in [PR #1578](https://github.com/depsilon/shardloom/pull/1578), stacked on
-that API branch. Hosted failures remain part of PR ownership. No merge, release
-or version bump is authorized by the sequencing decision.
+work is in [PR #1578](https://github.com/depsilon/shardloom/pull/1578). Both have
+merged after their checks, under the maintainer's subsequent merge instruction.
+Hosted failures remain part of PR ownership. No release or version bump is
+authorized by the sequencing decision.
 
 The [phase plan](phased-execution-plan.md) remains the execution authority. This
 table orders its existing IDs; it adds no phase, owner or obligation. There are
@@ -77,10 +79,13 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | Existing conditional ID | Finite result | Remaining boundary |
 | --- | --- | --- |
 | `PERF-03.codec_preparation` | [One idle prepared-dictionary candidate rejected](native-codec-preparation-2026-10-19.md). Both complete-workload cohorts missed the frozen benefit threshold, and one control failed its regression bound. All experimental code was archived and removed. | Further retention requires a materially different mechanism and a new protocol. Broader physical-reader caching and all other PERF-03 obligations remain open. |
+| `PERF-02.physical_cache` | [Physical-array retention rejected](native-physical-retention-2026-10-19.md). The one-entry policy passed the initial comparison but failed two frozen one-call controls after integration corrections. The original sixteen-entry rejection remains binding. All candidate changes were archived and removed. | A materially different mechanism needs a new design and protocol. Positive reconstruction attribution and correctness checks do not establish an accepted cache. |
+| `PERF-02.builder` | [Existing typed frontend substitution rejected](native-builder-frontends-2026-10-19.md). All 1,684 workflows passed exact semantics and cleanup; both cohorts passed controls but missed the frozen aggregate benefit threshold. | Public routing and the typed API are unchanged. A materially different high-level bridge/lowering mechanism needs its own design and frozen protocol. |
 
-This is one evaluated mechanism, not closure of an entire conditional substep.
+These are finite evaluated mechanisms, not closure of entire conditional substeps.
 The phase checklist therefore retains its 58 substeps, including 21 conditional
-rows. The next investigation is `PERF-02.physical_cache`.
+rows. The physical-cache and builder decisions are complete for their frozen
+scopes. The next unstarted cost investigation is `PERF-05.nested_identity`.
 
 ## Deferred required work
 
