@@ -1,0 +1,299 @@
+{
+  "schema_version": "shardloom.changed_source_closeout.v1",
+  "status": "passed",
+  "outcome": "reject_finite_unconditional_adapter",
+  "runtime_source_restored": {
+    "status": "passed",
+    "base_commit": "656e9508974358f9b3f532b249841c1e7b4df0f6",
+    "remaining_rust_cargo_files": 1895,
+    "only_remaining_source_delta": [
+      "shardloom-cli/src/public_io_route_tests.rs"
+    ],
+    "removed_modules": [
+      "shardloom-cli/src/public_io_changed_source_baseline.rs",
+      "shardloom-cli/src/public_io_changed_source_comparison.rs",
+      "shardloom-vortex/src/changed_source_comparison_workflow.rs",
+      "shardloom-vortex/src/vortex_ingest_changed_source_comparison.rs",
+      "shardloom-vortex/src/vortex_ingest_changed_source_lifecycle.rs",
+      "shardloom-vortex/src/vortex_ingest_changed_source_probe.rs",
+      "shardloom-vortex/src/vortex_ingest_changed_source_regions.rs",
+      "shardloom-vortex/src/vortex_ingest_changed_source_writer.rs"
+    ],
+    "runtime_source_matches_base": true,
+    "retained_test_sha256": "8cfbc5dba31eb4c8ab3b714019c66eb3f0c6243deca96a13db478c332dc9559c"
+  },
+  "workspace_tests_passed": 3235,
+  "native_public_partition_regression": "passed for Parquet and Arrow IPC",
+  "checks": [
+    {
+      "name": "changed-source-restored-fmt-816",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "receipt_sha256": "17f0426efda944102553f36e586f4774ccd2dfdb224bb35decfc68f1590aeba7",
+      "host_sample_count": 0
+    },
+    {
+      "name": "changed-source-restored-clippy-816",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--offline",
+        "--locked",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "receipt_sha256": "799495948d70ebdf3c8e5d3854b4fda70449ae798eba368116ebe9f1be0765d2",
+      "host_sample_count": 6
+    },
+    {
+      "name": "changed-source-restored-tests-816",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--all-targets",
+        "--offline",
+        "--locked"
+      ],
+      "receipt_sha256": "b6c32e93d354e4214f65bc02d33542ae7f882062766644b0fb8efeb65f24ed80",
+      "host_sample_count": 15
+    },
+    {
+      "name": "changed-source-public-regression-release-816",
+      "status": "passed",
+      "command": [
+        "/Users/dylan/.cache/shardloom/cargo-target/release/deps/shardloom_runtime-eb3bac656888a3ca",
+        "sql_local_source_runtime::public_io_route_tests::public_io_columnar_partition_preparation_preserves_order_values_and_generation",
+        "--exact",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "receipt_sha256": "c146b85cf874a7fa207e80a5e0940abcee5ecd0ed1af7498e468d01c40b3ded8",
+      "host_sample_count": 0
+    },
+    {
+      "name": "changed-source-after-retirement-check-816",
+      "status": "passed",
+      "command": [
+        "/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "docs/benchmarks/evidence/verify_changed_source_packet_816.py",
+        "--packet",
+        "docs/benchmarks/evidence/changed-source-results-816.json.xz",
+        "--repository",
+        ".",
+        "--scratch",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-after-retirement-verification-816.json"
+      ],
+      "receipt_sha256": "612c34b5ea339047375054487b8666b3931c2fb59b41bd8999e721ce41a07fc7",
+      "host_sample_count": 7
+    }
+  ],
+  "retirement": {
+    "status": "passed",
+    "record_files": 510,
+    "executables": 6,
+    "retired_bytes": 1124178600,
+    "packet_sha256": "a3f257a567fc218a347d91a93e6d52295894591ea3351e5ab0642313bb70e0d2",
+    "plan_sha256": "8ad5893d2fe3e5f8981c36828a77715bdd47d2a457af885e36ee4af14c3d5d9b",
+    "all_original_members_verified": true,
+    "all_selected_paths_closed_and_removed": true,
+    "no_executable_backup_created": true,
+    "preserved": []
+  },
+  "post_retirement_replay": {
+    "status": "passed",
+    "packet_sha256": "a3f257a567fc218a347d91a93e6d52295894591ea3351e5ab0642313bb70e0d2",
+    "members": 517,
+    "source_reconstruction": {
+      "files": 1910,
+      "changed_tracked": 3,
+      "added_sources_and_designs": 11,
+      "unchanged_git_blobs": 1896
+    },
+    "counts": {
+      "workflows": 84,
+      "timed_queries": 336,
+      "validation_queries": 1596,
+      "validated_rows": 12160512
+    },
+    "gate_decisions": [
+      {
+        "cohort": "A",
+        "case": "high-change1",
+        "gates": {
+          "complete": true,
+          "initial": false,
+          "engine": false,
+          "storage": true,
+          "refresh": true
+        }
+      },
+      {
+        "cohort": "A",
+        "case": "mixed",
+        "gates": {
+          "complete": true,
+          "initial": false,
+          "engine": false,
+          "storage": true,
+          "refresh": true
+        }
+      },
+      {
+        "cohort": "A",
+        "case": "moderate",
+        "gates": {
+          "complete": false,
+          "initial": false,
+          "engine": false,
+          "storage": true,
+          "refresh": true
+        }
+      },
+      {
+        "cohort": "A",
+        "case": "all-changed",
+        "gates": {
+          "complete": false,
+          "initial": false,
+          "engine": true,
+          "storage": true
+        }
+      },
+      {
+        "cohort": "A",
+        "case": "small",
+        "gates": {
+          "complete": false,
+          "initial": false,
+          "engine": true,
+          "storage": true
+        }
+      },
+      {
+        "cohort": "A",
+        "case": "single",
+        "gates": {
+          "complete": false,
+          "initial": false,
+          "engine": true,
+          "storage": true
+        }
+      },
+      {
+        "cohort": "B",
+        "case": "high-change1",
+        "gates": {
+          "complete": true,
+          "initial": false,
+          "engine": false,
+          "storage": true,
+          "refresh": true
+        }
+      },
+      {
+        "cohort": "B",
+        "case": "mixed",
+        "gates": {
+          "complete": true,
+          "initial": false,
+          "engine": false,
+          "storage": true,
+          "refresh": true
+        }
+      },
+      {
+        "cohort": "B",
+        "case": "moderate",
+        "gates": {
+          "complete": false,
+          "initial": false,
+          "engine": false,
+          "storage": true,
+          "refresh": true
+        }
+      },
+      {
+        "cohort": "B",
+        "case": "all-changed",
+        "gates": {
+          "complete": false,
+          "initial": false,
+          "engine": true,
+          "storage": true
+        }
+      },
+      {
+        "cohort": "B",
+        "case": "small",
+        "gates": {
+          "complete": false,
+          "initial": false,
+          "engine": true,
+          "storage": true
+        }
+      },
+      {
+        "cohort": "B",
+        "case": "single",
+        "gates": {
+          "complete": false,
+          "initial": false,
+          "engine": true,
+          "storage": true
+        }
+      }
+    ],
+    "outcome": "reject_finite_unconditional_adapter",
+    "lifecycle_processes": 4,
+    "lifecycle_queries": 36,
+    "failed_attempts_preserved": [
+      "changed-source-baseline-clippy-813.json",
+      "changed-source-baseline-clippy-813b.json",
+      "changed-source-baseline-debug-813b.json",
+      "changed-source-baseline-run-813.json",
+      "changed-source-cli-prerequisite-test-812.json",
+      "changed-source-prerequisite-cli-clippy-812.json",
+      "changed-source-probe-clippy-811.json",
+      "changed-source-probe-clippy-811b.json",
+      "changed-source-probe-run-811.json",
+      "changed-source-probe-run-812.json",
+      "changed-source-recipe-test-815.json",
+      "changed-source-regions-clippy-813.json",
+      "changed-source-writer-clippy-814.json",
+      "changed-source-writer-clippy-814b.json",
+      "changed-source-writer-clippy-814c.json",
+      "changed-source-writer-test-814d.json",
+      "changed-source-writer-test-815.json"
+    ],
+    "physical_payloads_reopened": false,
+    "limitations": [
+      "No host-load or per-process CPU/RSS samples were recorded by this guard; no attribution to exclusive CPU work or ambient host stability is claimed.",
+      "Native peak credits are not an RSS ceiling or full Parquet allocator coverage."
+    ]
+  },
+  "future_runner_sha256": "68ec416e4fa11cb2d40d48a5f108eb2808f886148e478e8543027837df186be4",
+  "future_guard_sha256": "ce56dd25bd4e55c8c7b8929140c2f2228f27f42d79ceea5645d50db320407b76",
+  "original_guard_and_observation_limitations_preserved": true,
+  "packet": {
+    "name": "changed-source-closeout-816.json.xz",
+    "bytes": 152976,
+    "sha256": "0fecda7d37cceed4a8ff784af0039b60ee0ad8f2481b8fde136aba431e37ffa1"
+  },
+  "members": 25,
+  "member_bytes": 795454
+}

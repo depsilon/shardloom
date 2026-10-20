@@ -1,0 +1,172 @@
+{
+  "status": "passed",
+  "packet_sha256": "a3f257a567fc218a347d91a93e6d52295894591ea3351e5ab0642313bb70e0d2",
+  "members": 517,
+  "source_reconstruction": {
+    "files": 1910,
+    "changed_tracked": 3,
+    "added_sources_and_designs": 11,
+    "unchanged_git_blobs": 1896
+  },
+  "counts": {
+    "workflows": 84,
+    "timed_queries": 336,
+    "validation_queries": 1596,
+    "validated_rows": 12160512
+  },
+  "gate_decisions": [
+    {
+      "cohort": "A",
+      "case": "high-change1",
+      "gates": {
+        "complete": true,
+        "initial": false,
+        "engine": false,
+        "storage": true,
+        "refresh": true
+      }
+    },
+    {
+      "cohort": "A",
+      "case": "mixed",
+      "gates": {
+        "complete": true,
+        "initial": false,
+        "engine": false,
+        "storage": true,
+        "refresh": true
+      }
+    },
+    {
+      "cohort": "A",
+      "case": "moderate",
+      "gates": {
+        "complete": false,
+        "initial": false,
+        "engine": false,
+        "storage": true,
+        "refresh": true
+      }
+    },
+    {
+      "cohort": "A",
+      "case": "all-changed",
+      "gates": {
+        "complete": false,
+        "initial": false,
+        "engine": true,
+        "storage": true
+      }
+    },
+    {
+      "cohort": "A",
+      "case": "small",
+      "gates": {
+        "complete": false,
+        "initial": false,
+        "engine": true,
+        "storage": true
+      }
+    },
+    {
+      "cohort": "A",
+      "case": "single",
+      "gates": {
+        "complete": false,
+        "initial": false,
+        "engine": true,
+        "storage": true
+      }
+    },
+    {
+      "cohort": "B",
+      "case": "high-change1",
+      "gates": {
+        "complete": true,
+        "initial": false,
+        "engine": false,
+        "storage": true,
+        "refresh": true
+      }
+    },
+    {
+      "cohort": "B",
+      "case": "mixed",
+      "gates": {
+        "complete": true,
+        "initial": false,
+        "engine": false,
+        "storage": true,
+        "refresh": true
+      }
+    },
+    {
+      "cohort": "B",
+      "case": "moderate",
+      "gates": {
+        "complete": false,
+        "initial": false,
+        "engine": false,
+        "storage": true,
+        "refresh": true
+      }
+    },
+    {
+      "cohort": "B",
+      "case": "all-changed",
+      "gates": {
+        "complete": false,
+        "initial": false,
+        "engine": true,
+        "storage": true
+      }
+    },
+    {
+      "cohort": "B",
+      "case": "small",
+      "gates": {
+        "complete": false,
+        "initial": false,
+        "engine": true,
+        "storage": true
+      }
+    },
+    {
+      "cohort": "B",
+      "case": "single",
+      "gates": {
+        "complete": false,
+        "initial": false,
+        "engine": true,
+        "storage": true
+      }
+    }
+  ],
+  "outcome": "reject_finite_unconditional_adapter",
+  "lifecycle_processes": 4,
+  "lifecycle_queries": 36,
+  "failed_attempts_preserved": [
+    "changed-source-baseline-clippy-813.json",
+    "changed-source-baseline-clippy-813b.json",
+    "changed-source-baseline-debug-813b.json",
+    "changed-source-baseline-run-813.json",
+    "changed-source-cli-prerequisite-test-812.json",
+    "changed-source-prerequisite-cli-clippy-812.json",
+    "changed-source-probe-clippy-811.json",
+    "changed-source-probe-clippy-811b.json",
+    "changed-source-probe-run-811.json",
+    "changed-source-probe-run-812.json",
+    "changed-source-recipe-test-815.json",
+    "changed-source-regions-clippy-813.json",
+    "changed-source-writer-clippy-814.json",
+    "changed-source-writer-clippy-814b.json",
+    "changed-source-writer-clippy-814c.json",
+    "changed-source-writer-test-814d.json",
+    "changed-source-writer-test-815.json"
+  ],
+  "physical_payloads_reopened": false,
+  "limitations": [
+    "No host-load or per-process CPU/RSS samples were recorded by this guard; no attribution to exclusive CPU work or ambient host stability is claimed.",
+    "Native peak credits are not an RSS ceiling or full Parquet allocator coverage."
+  ]
+}

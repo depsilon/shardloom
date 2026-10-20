@@ -1,0 +1,2612 @@
+{
+  "schema_version": "shardloom.changed_source_results.v1",
+  "base_commit": "656e9508974358f9b3f532b249841c1e7b4df0f6",
+  "outcome": "reject_finite_unconditional_adapter",
+  "production_admitted": false,
+  "counts": {
+    "workflows": 84,
+    "timed_queries": 336,
+    "validation_queries": 1596,
+    "validated_rows": 12160512
+  },
+  "limitations": [
+    "No host-load or per-process CPU/RSS samples were recorded by this guard; no attribution to exclusive CPU work or ambient host stability is claimed.",
+    "Native peak credits are not an RSS ceiling or full Parquet allocator coverage."
+  ],
+  "packet": {
+    "name": "changed-source-results-816.json.xz",
+    "bytes": 1240480,
+    "sha256": "a3f257a567fc218a347d91a93e6d52295894591ea3351e5ab0642313bb70e0d2"
+  },
+  "members": 517,
+  "member_bytes": 34219733,
+  "decision_sha256": "fe2e6a802766546ee684f51b32b17eb463b4cf54b89bc76e7c86e73344554db0",
+  "source_manifest_files": 1910,
+  "member_manifest": [
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-changed-source-comparison-design-2026-10-20.md",
+      "bytes": 8290,
+      "sha256": "586ccd6e767fb971cf1519b1d31da71a31b7c2857aed5c3c1d772e2ae772329e"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-changed-source-region-proof-design-2026-10-20.md",
+      "bytes": 11017,
+      "sha256": "017af791968f31ef366a1de630b0acfcee52aa830d296867e4a6b11ac02a1656"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/docs/architecture/native-changed-source-reuse-intake-2026-10-20.md",
+      "bytes": 13419,
+      "sha256": "0302b6f66975d7ab1b2daffab51017c50289187ed6452c5a6caa93e98e3dcab5"
+    },
+    {
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/scripts/local_uat_storage.py",
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/bind_changed_source_comparison_816.py",
+      "bytes": 3238,
+      "sha256": "62c954dec184e9eca52730044e2e5d288073976952100b0b6a14fda1a28a5a7c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-and-multiway-inventory-771.md",
+      "bytes": 11868,
+      "sha256": "90d541630ed4c23165b50d3a26e3359e8f5131ce1f748ba9df838e8aa6d96d1d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-artifact-trust-inventory-814.md",
+      "bytes": 6911,
+      "sha256": "0d1e391cb7ee0ebda28588c27718278cfb1f6e4b11e722ed6d1e40ad3fcb6a4e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-813-a1/input.json",
+      "bytes": 5330,
+      "sha256": "5492ebf29ff4d2a35720189c28d44b3de36713d9348f9526f21ed0875436d7cb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-813-a1-retirement-813.json",
+      "bytes": 7837,
+      "sha256": "1a96ca5121d5cd9976c5c3288afece94f1089a2674f33975c0c14794d47d647e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-813d-a1/completed-workflows.json",
+      "bytes": 664324,
+      "sha256": "ee84bcc70d274244adfab6eb6d36655eefe5e64d78380280ab62ec64add8cc9c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-813d-a1/input.json",
+      "bytes": 5330,
+      "sha256": "54edd8c168a222f3284aadb6ec34c9ead29197850b63c5bf7403de829e071fe3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-813d-a1/result.json",
+      "bytes": 675898,
+      "sha256": "87c10a46df267997c2c0032688f8a6f2d72702fde3c02a4724131fc8ff423b0b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-build-813.json",
+      "bytes": 2033,
+      "sha256": "71bea2582710054f5d077b3feded015f7f41458191fcd0e7d906187985b7bdca"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-build-813.log",
+      "bytes": 561,
+      "sha256": "67bde3bcf3bb27050184fed7e8564817ccb2e9908250b531a7dcdd4c5d1e6cfa"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-build-813d.json",
+      "bytes": 2034,
+      "sha256": "5abb32ba1ed44da0fa688dea76f97625b54d42e9ec9b8f30c871e1955c1ef9c3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-build-813d.log",
+      "bytes": 307,
+      "sha256": "0a3e64c64fc35a59b2d79af36489839ed220ba8558018be0be3a2385b90bdad9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-build-binding-813.json",
+      "bytes": 442,
+      "sha256": "560b6a286d39ebf503b1a40485f6c4e71b5aef4fe046fac0746e838869fdc913"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-build-binding-813d.json",
+      "bytes": 442,
+      "sha256": "863f452a6c644fc6814ad22c38c2b25a50a55bd518cb2372f207048d86141847"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-clippy-813.json",
+      "bytes": 2057,
+      "sha256": "02f5f74748a6df2bda6d09ddb64330b461d2fdf7608f6acadcfb638d789f9d2e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-clippy-813.log",
+      "bytes": 3233,
+      "sha256": "8a155708a736142c3083dda6c293be7dd3b57e141de14c176ddf134f5b33895c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-clippy-813b.json",
+      "bytes": 2056,
+      "sha256": "c68f37e546ce22a3c9a840483f6df74acf7e551539dcbd4bc8c92bce0b285bbe"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-clippy-813b.log",
+      "bytes": 1112,
+      "sha256": "ea5c6544e1cafc0031bbd9802da4c484e5d9989f41bbce651601a16818c359a5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-clippy-813c.json",
+      "bytes": 2054,
+      "sha256": "5c08c4e047ecec6aac396a93c69b98f017075053f7f4759eecc5e7b86d3e90b9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-clippy-813c.log",
+      "bytes": 177,
+      "sha256": "00d69617ec2af2678ef475b3a49ba3c966136b61bbd0b09ba8c1e7d1f680dbc3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-clippy-813d.json",
+      "bytes": 2052,
+      "sha256": "a10efa1539ecaeab1e07d42d23e372003cef500924f551f86f18346edac50e28"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-clippy-813d.log",
+      "bytes": 177,
+      "sha256": "af6ef090548c60c3e931a74107c2c7dc6de16d97df6f0f3617537529bbbd71ca"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-cost-inventory-811.md",
+      "bytes": 9185,
+      "sha256": "40c03307396be3686e2a48117fd218a758e9c2231c9eac78bb689ce7b7e3a47d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-813b/input.json",
+      "bytes": 5318,
+      "sha256": "c67827a3fbfe1079f9cef752325381528f2db4d6d55db5b4e0f9cb70eba7500b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-813b-retirement-813.json",
+      "bytes": 7912,
+      "sha256": "dbba14077be1e8e0bb660d5fd3ebdc81a9242ca0b650de6872a66505c17d4413"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-813b.json",
+      "bytes": 2290,
+      "sha256": "8ab13414eebafa3e159e24dba0017a92da44b06c8ccd53d7ea73bec1c3eb3c92"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-813b.log",
+      "bytes": 1504,
+      "sha256": "cdc864c689a68084f1ed47e25e555575b756de97ca82037800a6bafdcb290f94"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-813c/completed-workflows.json",
+      "bytes": 664562,
+      "sha256": "b867dab691e94586fcbdb2c4ce9902758d4238e26c3035103ff7f1e7acb97f43"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-813c/input.json",
+      "bytes": 5320,
+      "sha256": "ec41e55b46b2fe2a3beade90a6c641576ed378cdde64d059487d2eeacb64d645"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-813c/result.json",
+      "bytes": 676126,
+      "sha256": "6155b2b3a2c1fb989a5e6397531b123f19509ba11c937501b00e4f6a907ab361"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-813c.json",
+      "bytes": 2287,
+      "sha256": "d4673e48a1bc22b5a3663847c9cc0e96ef762fe68b265d4a3228f6f5728f3a96"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-813c.log",
+      "bytes": 973,
+      "sha256": "4b10c32cd548631bedf4dd356b8289542ddf40c91a1902be1d235cd2da17b6b0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-binding-813b.json",
+      "bytes": 760,
+      "sha256": "a48f4055afefa75099f0f55b529e3d2d1e86c8593322eb8f8c3f92c94af60853"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-debug-binding-813c.json",
+      "bytes": 759,
+      "sha256": "579f77f88b949bc93dd89d5c6296e66be2301ff63bcb59b8e7c4dec4c53cdeb4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-fmt-813.json",
+      "bytes": 1885,
+      "sha256": "8519baf35b617daed170d2367d43d70562299c0b109b80ff2912e2b200f46425"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-fmt-813.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-fmt-813b.json",
+      "bytes": 1885,
+      "sha256": "8321136bc6a97502aa161a7953ce24cc01b72242a4681ae55a16d96c83b9b3da"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-fmt-813b.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-fmt-813d.json",
+      "bytes": 1886,
+      "sha256": "9c5c93108a69a01f847da81482274914cb4a67ddb953fde68a42104e1e64b7c8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-fmt-813d.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-input-813.json",
+      "bytes": 244689,
+      "sha256": "176752ce542710aef5f99e6f82fb33d464ad96c9a5231173bf48d1fc76d1edef"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-input-813c.json",
+      "bytes": 244689,
+      "sha256": "a21e4019fdee1a2afee9ccc14047a8fea9ca7b81e11c76cfc36a7cece2bbb768"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-input-813d.json",
+      "bytes": 244689,
+      "sha256": "680f2337612eb308d4ffb3ab0e011b6e49a8711cef1e54ca191842ac0489d40d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-run-813.json",
+      "bytes": 2301,
+      "sha256": "d9ea40fb70a40f6ad9876ed705974613ef74b3c0dc2b1f2acd3dff00eccc967d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-run-813.log",
+      "bytes": 1114,
+      "sha256": "257291730247c104b59e6b8d7fa2af8f8bf8cab95f0e4ced9feed20984f2ee23"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-run-813d.json",
+      "bytes": 2299,
+      "sha256": "e6baed71d47fd059fa07d1b27bc6ed8e813c8eddee85ec7b0b2b683e5d58dce7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-run-813d.log",
+      "bytes": 379,
+      "sha256": "7dea6a18c33181f78d267fb413301baacd2f2bb1fdebc636e8294b0632a0d57b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-source-813.json.xz",
+      "bytes": 16532,
+      "sha256": "a41987dd4d24de306bbde204abb3dff2154026e46e78a7a8b42f2fbd7e3739f4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-source-813c.json.xz",
+      "bytes": 16672,
+      "sha256": "95a0267dd8319a9cb8a40e6b95738a09397eb20cd75747bce2304720c1111789"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-baseline-source-813d.json.xz",
+      "bytes": 16664,
+      "sha256": "2ea47234ea6b8ba1a9b63d073e1e209be0cf4498210242269fccea9788573565"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-caller-inventory-808.md",
+      "bytes": 5129,
+      "sha256": "9d2e29f584e1b6603b399f404a5f4f88e4484e4c6eeb611717c559b42eef9abb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-caller-inventory-810.md",
+      "bytes": 4633,
+      "sha256": "ed5e09c31509defbb45fe898ccfa3b93e2083aeb67affb914fd2205e0359162a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-cli-prerequisite-build-binding-812.json",
+      "bytes": 555,
+      "sha256": "e20da305467631fde7577ea5c0935b4cc5e401ed3ddbd89af2632de6b0270c85"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-cli-prerequisite-build-binding-813.json",
+      "bytes": 898,
+      "sha256": "c29d5a54b17344e43c29f4c9aa8e31f0248a08a255363552461b8270df44e77e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-cli-prerequisite-input-812.json",
+      "bytes": 244559,
+      "sha256": "eea44b7655da8dd231a995ed2473c9aec562ba2aca23f44ed0cf85706f34e9e4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-cli-prerequisite-input-813.json",
+      "bytes": 244559,
+      "sha256": "6946be465de7263ea3f9e2673684ade52f83b86eed21969f0995792d3a45374e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-cli-prerequisite-source-812.json.xz",
+      "bytes": 13624,
+      "sha256": "a6961130a389da640e0a98d9f0cae98f4c87c9682b54c61a20c709fe2d393440"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-cli-prerequisite-source-813.json.xz",
+      "bytes": 13564,
+      "sha256": "4f283ec7e66c730006605c51ebbb3a023328b449127cbf6819ce7740f560ef7a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-cli-prerequisite-test-812.json",
+      "bytes": 2033,
+      "sha256": "2233cd1a8bd8751571df2ed6725868d62b83c3e9cb805828fb0b6900c5c37b9a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-cli-prerequisite-test-812.log",
+      "bytes": 9153,
+      "sha256": "d12c08e1a9952002d7a2e78621e85812ab1d40cbaea3ab2749bbf50e347b1e32"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-cli-prerequisite-test-813.json",
+      "bytes": 2030,
+      "sha256": "edc000b04f3c8920c32b97cbd8ec323e39ca619301e002c55a7b700a8203d28c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-cli-prerequisite-test-813.log",
+      "bytes": 845,
+      "sha256": "73399097cf0f51f95f2bd9160e5b60ac27c7ba582a4cb74a1e173a4de4cb8ad8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-clippy-816.json",
+      "bytes": 2587,
+      "sha256": "11dcd1840fb10f784e94d897d2579246e138b18ec87d0420acfa6b18874d0b47"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-clippy-816.log",
+      "bytes": 301,
+      "sha256": "b8853fd56dc53da33b5c1d67a670c8bcc3a71055886e012064ad883cebdaf626"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-debug-816-input.json",
+      "bytes": 245694,
+      "sha256": "0c966d967bc41ddbeeca8374d19857fb76d21b923ccadb5c80d828e375f51908"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-debug-816-source.json.xz",
+      "bytes": 37348,
+      "sha256": "fdc397df8c924f43f8177965016f5129b334dcd5c1ebde4ac4363d3f4986a181"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-field-map-816.json",
+      "bytes": 9730,
+      "sha256": "8c4bfda9d6a2aa4be2194003d47bfb73b89210576721f8200f69307f355274ef"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/000-A-high-change1-0-ordinary/result.json",
+      "bytes": 471905,
+      "sha256": "c05845abc166cd94b7d6593123b6b81a41af9f65eb4a6505fbf6dd2229e04303"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/001-A-high-change1-0-candidate/result.json",
+      "bytes": 378968,
+      "sha256": "2c00058fc7f0db341d3dcd6ec5c6b397a708757ce4cc501d11065efae2f80c87"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/002-A-high-change1-1-candidate/result.json",
+      "bytes": 378963,
+      "sha256": "9c01e6f0e21da9ef37f557e16414346e4676b5eecfa404941117328fa7294ab3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/003-A-high-change1-1-ordinary/result.json",
+      "bytes": 471917,
+      "sha256": "a0f55b92661d7d32861af2783f80bd93354789e6cd0d9be1f65ba8e6eaf23c9e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/004-A-high-change1-2-ordinary/result.json",
+      "bytes": 471906,
+      "sha256": "405296f3e733e79137dd42cb659914065787675ab0034f1e2032ebf9b0d9ba9b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/005-A-high-change1-2-candidate/result.json",
+      "bytes": 378980,
+      "sha256": "f81e9d3b5e81786ab5f7b5e1f60055e81198cc21687ab8dddcb4d4bd55bc9783"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/006-A-mixed-0-candidate/result.json",
+      "bytes": 378950,
+      "sha256": "d88f01344f1d18abffa9586d8341e10d6513b5528f16b49dee6758ad403709e2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/007-A-mixed-0-ordinary/result.json",
+      "bytes": 471860,
+      "sha256": "cae0b178e7e963c311acb88f1b74164ee80b41828c9c1b2715d48e41970f0027"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/008-A-mixed-1-ordinary/result.json",
+      "bytes": 471843,
+      "sha256": "403c7291492d1787c688dc4e6e379c198d999b01950dafd46feb94dfa10d5435"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/009-A-mixed-1-candidate/result.json",
+      "bytes": 378944,
+      "sha256": "4ee5574e436f756c69b32c82577ac64f3daa3ea6775dd82167bb994259219f59"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/010-A-mixed-2-candidate/result.json",
+      "bytes": 378932,
+      "sha256": "6de2345a529e0f47777849e8a0b0c9f0f18c81e117184fc1aa1fd1ebb9987bd7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/011-A-mixed-2-ordinary/result.json",
+      "bytes": 471737,
+      "sha256": "3a8c8cb47dd526273372276fc5aa6d5208a5f20732838b50acb57e5c2bd1dce8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/012-A-moderate-0-ordinary/result.json",
+      "bytes": 230702,
+      "sha256": "e6eafc4b8fd8cb7ed245f66c0615419c378809bbaef36ddc1252ded0875c2405"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/013-A-moderate-0-candidate/result.json",
+      "bytes": 130309,
+      "sha256": "e624278529d7c09facba4b752bfdb865ac934d89e0b364028d9b36b1ae2edf43"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/014-A-moderate-1-candidate/result.json",
+      "bytes": 130296,
+      "sha256": "6f60dbab88a97580fdddcc14d7cb4548a15cc1510c90d18bfbc27e03e20914a3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/015-A-moderate-1-ordinary/result.json",
+      "bytes": 230736,
+      "sha256": "8803dc4bc165a25edc57d2eeb70e462ac0f91728244b70d97f4be1e62c8c69af"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/016-A-moderate-2-ordinary/result.json",
+      "bytes": 230730,
+      "sha256": "a5b7bef85f4d2a1101a8758dc68358d7ac5d4acf772b7c8cb3e4d203edaf2913"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/017-A-moderate-2-candidate/result.json",
+      "bytes": 130289,
+      "sha256": "e4686df450f7dc4f54ac719eefca7e4bed0a6053fc2f8ce60c24823a6d6c36df"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/018-A-all-changed-0-candidate/result.json",
+      "bytes": 378985,
+      "sha256": "b296bef0167dede7681cb16a6660e43feb13b1ccba81d020913d5809580b06a2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/019-A-all-changed-0-ordinary/result.json",
+      "bytes": 471922,
+      "sha256": "b196a9906ba20f8ca5873188bc7df35aa13047919b8543dafbed1d284375c821"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/020-A-all-changed-1-ordinary/result.json",
+      "bytes": 471934,
+      "sha256": "654e5a48fedfdb478663594c9a7f343e4d32adb90e0e9c71a4f9e839fa5aadde"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/021-A-all-changed-1-candidate/result.json",
+      "bytes": 378985,
+      "sha256": "1ed9a015be797d03d3059b5006df6b1ec41f08e8162c39ca9fdbcb45521f8e90"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/022-A-all-changed-2-candidate/result.json",
+      "bytes": 378983,
+      "sha256": "1409ad2044de1a5851f43c0ccc254030212ad4f986055ad1ab87b0aa07690920"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/023-A-all-changed-2-ordinary/result.json",
+      "bytes": 471936,
+      "sha256": "6d07f719c0fbcce6ec3987920e0f2340474e81878ba86529d549df4f9486c418"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/024-A-small-0-ordinary/result.json",
+      "bytes": 230302,
+      "sha256": "3829eba125656d7934b6f40c43d3d50643be29667d10674cd24b9408b4ea1c45"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/025-A-small-0-candidate/result.json",
+      "bytes": 129974,
+      "sha256": "85c7893238dc06a2fe9da9eceeff73a90613ae0691bfbb91d82df25d201ff37f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/026-A-small-1-candidate/result.json",
+      "bytes": 129938,
+      "sha256": "e208399c9bd3292b5a547f3690c70076e2f039aec1765281968d25f339689458"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/027-A-small-1-ordinary/result.json",
+      "bytes": 230313,
+      "sha256": "de8b03796f1747f1b3f702597f6deb3b60b7a20beb86844b95c57764d49c1b2c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/028-A-small-2-ordinary/result.json",
+      "bytes": 230297,
+      "sha256": "3add66ab48e9cfea1322769a91e8b711f9c3426df111ca2e34cd460dadd73fcb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/029-A-small-2-candidate/result.json",
+      "bytes": 129976,
+      "sha256": "ee901eae0848a91762844a563a6882191f65380fd596daf74992f36dec69c000"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/030-A-single-0-candidate/result.json",
+      "bytes": 68121,
+      "sha256": "1f5c544f870f463ff76ababb4676e122c991b2b5a53988e451c6a470a1a94258"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/031-A-single-0-ordinary/result.json",
+      "bytes": 170373,
+      "sha256": "b6bfef225370228c0b478cf8f0b2146c8ef1e245201f19ccc93b7b9f24846e82"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/032-A-single-1-ordinary/result.json",
+      "bytes": 170384,
+      "sha256": "121be0c35e40ae721e4a7ac3e68b9c40ff66a0404e298e59827c0550a63ec9cb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/033-A-single-1-candidate/result.json",
+      "bytes": 68105,
+      "sha256": "c7a480b012543848cf9bb2797b7edc08a4966351ebc3b1432783332609285414"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/034-A-single-2-candidate/result.json",
+      "bytes": 68114,
+      "sha256": "c81cb845bb7f489ce658a991aea9517daf054cffed0b32e3f43c2cfd206c14f8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/035-A-single-2-ordinary/result.json",
+      "bytes": 170398,
+      "sha256": "98f56378b39762c17bf9deefe89d496723547c926f7ef7cd88a45d1a63d54339"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/036-B-high-change1-0-candidate/result.json",
+      "bytes": 378962,
+      "sha256": "9dea202632dd1906713ce719e38c42f65ade304d5cb5470a35065f3d164024c7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/037-B-high-change1-0-ordinary/result.json",
+      "bytes": 471919,
+      "sha256": "eac83974c5039ec3c3924dcda4327578e18d8ad22b5307fe04ff478a755d2220"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/038-B-high-change1-1-ordinary/result.json",
+      "bytes": 471900,
+      "sha256": "c3941e09aba32e68c3f6f8f4cd23b06536d8808a5f25c928e38f54365cae9a6e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/039-B-high-change1-1-candidate/result.json",
+      "bytes": 378982,
+      "sha256": "3cdbeb166d57d936f680664bb947ba15ca2afe77ffc45ca7163486cbef4bba4d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/040-B-high-change1-2-candidate/result.json",
+      "bytes": 378963,
+      "sha256": "8e6df471e055cf5ada7e0c165143fff338175c0be2149598253185d596f4682a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/041-B-high-change1-2-ordinary/result.json",
+      "bytes": 471780,
+      "sha256": "358afedf873b7d5d59e52a9837433a681df296009ea0ffbc62b9c8a2a7a06970"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/042-B-mixed-0-ordinary/result.json",
+      "bytes": 471669,
+      "sha256": "cf2ba0a58d14129a57319b25a7cd3a5a85d48c1eb09ee0d75a92ea2504b4a873"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/043-B-mixed-0-candidate/result.json",
+      "bytes": 378925,
+      "sha256": "5e2870711ab330f9bfbf7a25cd01a33ee58eed1d308e2fcccd143bc55b3637ea"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/044-B-mixed-1-candidate/result.json",
+      "bytes": 378928,
+      "sha256": "66fd459e3b81d635a1b29467354f3f24307bb5b2395ae5992e7b45b1a18603b1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/045-B-mixed-1-ordinary/result.json",
+      "bytes": 471840,
+      "sha256": "2d56b459d6c2fd78c413046f4e9ee63673fc816df208e5b8b6ab588eccaf63b1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/046-B-mixed-2-ordinary/result.json",
+      "bytes": 471853,
+      "sha256": "69d1aae3f5c2a64ed972adfd28aa5d7179fe3ccfba7ff4ca0e38c8869dfade69"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/047-B-mixed-2-candidate/result.json",
+      "bytes": 378940,
+      "sha256": "5534e8a2bdcb0c57171d726de4a0b24a985a81bc6601f68cc833d8bbcd9686f0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/048-B-moderate-0-candidate/result.json",
+      "bytes": 130291,
+      "sha256": "23a77576489f3cb89ed957ab5cdf47ca7b975dea7a98af943b591dcd0fa1273c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/049-B-moderate-0-ordinary/result.json",
+      "bytes": 230752,
+      "sha256": "8fa56e3dc6db330097a09bf731e25246bfa204a4cd432678f163a32981d15af1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/050-B-moderate-1-ordinary/result.json",
+      "bytes": 230745,
+      "sha256": "7f6bc96c9ed38ccd58a6bfb90b87a1a560ea0dde9ff58b95b1f0c7609bf6b859"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/051-B-moderate-1-candidate/result.json",
+      "bytes": 130290,
+      "sha256": "c887176ded39589db4069548a8cec7058cfc3b7078eaa3e0ae113380833b35d3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/052-B-moderate-2-candidate/result.json",
+      "bytes": 130292,
+      "sha256": "3e61b246b8c7b4862e6e521b52d52e6282eedb4465a3540c2f6efd634e1ff2d0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/053-B-moderate-2-ordinary/result.json",
+      "bytes": 230726,
+      "sha256": "0e56814d7a369fac5f3a14a3c9b680ddab4f0873b46b96a5c66c8904012c5d0c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/054-B-all-changed-0-ordinary/result.json",
+      "bytes": 471877,
+      "sha256": "f58c2b7a6d7fc48ff3118d26ad4c12e8ec2d883d09ca0892c3482e46b806484c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/055-B-all-changed-0-candidate/result.json",
+      "bytes": 378903,
+      "sha256": "6b935438e5b3f53b42c31d20ac1ded37d953d0051c583a9d67165f36c0cd4167"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/056-B-all-changed-1-candidate/result.json",
+      "bytes": 378999,
+      "sha256": "af52c76e57fc43634a3ad61cd9308579f4ead85c29ccca0097dd5ba9afa15cfc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/057-B-all-changed-1-ordinary/result.json",
+      "bytes": 471917,
+      "sha256": "ec8223ea605502861fc71444d74001571263d7127977c67d2103e360b3c960b7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/058-B-all-changed-2-ordinary/result.json",
+      "bytes": 471863,
+      "sha256": "bc05c0e508ee9a0eaf33a50d48b25204eb022900d5a26687dd0cfac29415124a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/059-B-all-changed-2-candidate/result.json",
+      "bytes": 378947,
+      "sha256": "18856d49f80d9c8d9b2b73e3206682a358ebde7d0a39ecc0582e7c55c3e467d8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/060-B-small-0-candidate/result.json",
+      "bytes": 129964,
+      "sha256": "d51b5ec02f9d9d1918e47d5a652b41316ee0de679d69c278ee7847be9e4d81e7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/061-B-small-0-ordinary/result.json",
+      "bytes": 230304,
+      "sha256": "79bdb7dd868f1ae2515b8092541bb340b181549475e32d28a18e300147413949"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/062-B-small-1-ordinary/result.json",
+      "bytes": 230317,
+      "sha256": "f918323c8d8a0b715f931af2e3d24cf08b00541dd258d584af996286b233cd80"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/063-B-small-1-candidate/result.json",
+      "bytes": 129909,
+      "sha256": "3e30635708761b4d6b5f802ec3f2681f2794b36a9d8fcd57c297c416329f7b1d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/064-B-small-2-candidate/result.json",
+      "bytes": 129946,
+      "sha256": "2e249e453ab8f44e9db298b1dafbcd8d29f16aa55034f3984766740e9322e79a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/065-B-small-2-ordinary/result.json",
+      "bytes": 230303,
+      "sha256": "243405625b6ed28dab91363e97db52c7245b5bc77a2d5f89555afd90d4b96c25"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/066-B-single-0-ordinary/result.json",
+      "bytes": 170400,
+      "sha256": "bc92022b6036c78f605ce9eb3e95b1b412f6682b294b29a059fe7249105c541f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/067-B-single-0-candidate/result.json",
+      "bytes": 68106,
+      "sha256": "e039c57960fb233b2f31a6090fcc94fb1bacb7dd172183673660f7aca8060164"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/068-B-single-1-candidate/result.json",
+      "bytes": 68138,
+      "sha256": "83c35af065993518ab3e142ec51c8886344c516a4d4aee63cb2f16f9690efd0d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/069-B-single-1-ordinary/result.json",
+      "bytes": 170388,
+      "sha256": "4c2ae1162543e1c28889f8521982d6f763cd792a5a22623f7175ebdb214a3bb3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/070-B-single-2-ordinary/result.json",
+      "bytes": 170411,
+      "sha256": "c01d58e73c8dea0ba4fd0d315782857b08e8d839d313c947e2ccf3fa7f187bac"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/071-B-single-2-candidate/result.json",
+      "bytes": 68122,
+      "sha256": "5ca30660b35234b549c3551af034b3f2425e1dcd2c8fddfcea5220c4291dcfc0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/run.json",
+      "bytes": 39473,
+      "sha256": "2e50b92cbcedef8f7a3590bb70d2200262bbc99e4f8e5a52ed626192e7fd4fbd"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1/verified.json",
+      "bytes": 24240,
+      "sha256": "fe2e6a802766546ee684f51b32b17eb463b4cf54b89bc76e7c86e73344554db0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-000-A-high-change1-0-ordinary.json",
+      "bytes": 3008,
+      "sha256": "996ce6fe97d825626eaa64daaa352acbdfa6d6747ba190053552edb76796ad31"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-000-A-high-change1-0-ordinary.log",
+      "bytes": 410,
+      "sha256": "94cccad5f97060ee880a217ec44c25203420dc5da2deebfcf1beac08a4a95feb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-001-A-high-change1-0-candidate.json",
+      "bytes": 3012,
+      "sha256": "656c158b780945d88c604305df5c08c30ad2cba8883837228e864c7396389c52"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-001-A-high-change1-0-candidate.log",
+      "bytes": 416,
+      "sha256": "e3ef3d37e141b36e9008c4e2baee27c377bfaa16521d691da848a0def6be3fc0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-002-A-high-change1-1-candidate.json",
+      "bytes": 3011,
+      "sha256": "f30ed273799779f4be08ae32b148faa837c68de7b01e33226b91f7647dade501"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-002-A-high-change1-1-candidate.log",
+      "bytes": 416,
+      "sha256": "fd3715d53d338b88d70c1dcfc34013bea957e2b2dce3027ec8128a3b69740619"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-003-A-high-change1-1-ordinary.json",
+      "bytes": 3005,
+      "sha256": "3cac7b8414dcfdda1bd3abbd06b9c68e894e45b3d181c1b03325866a9600d7ac"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-003-A-high-change1-1-ordinary.log",
+      "bytes": 410,
+      "sha256": "27fa1eced8cd4c077ce0768be27a0e236236da1174a3959c6bd3efc028f016cc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-004-A-high-change1-2-ordinary.json",
+      "bytes": 3008,
+      "sha256": "feeb982afcddc2256db2945532880b134ba66090baa961c5e13eec076c52b536"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-004-A-high-change1-2-ordinary.log",
+      "bytes": 410,
+      "sha256": "d25b65f7a572bb5c4ddedf6ab15cae592e9d97fe95f2c17e14552fbfed90b7aa"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-005-A-high-change1-2-candidate.json",
+      "bytes": 3011,
+      "sha256": "24393220d92819b55eda865d96e1bab5e4edc9497ac355be9928f07916a8ce7c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-005-A-high-change1-2-candidate.log",
+      "bytes": 416,
+      "sha256": "c0f039edc5d90cdd6cc53ae485fa81b7713674e0d137d7a0197ea53360161af9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-006-A-mixed-0-candidate.json",
+      "bytes": 2998,
+      "sha256": "f81df72595a4e2646e9b00a75d03477fb5d1e96dae3e9823effefeddf595a950"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-006-A-mixed-0-candidate.log",
+      "bytes": 409,
+      "sha256": "befabab801f412728cf687d43111797e3ab2fb7782e012e1d6f77645b18ab704"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-007-A-mixed-0-ordinary.json",
+      "bytes": 2994,
+      "sha256": "1221bdb66f6ad36b9d065b4642a392abc1066251ca9244a837c304db33a1689f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-007-A-mixed-0-ordinary.log",
+      "bytes": 403,
+      "sha256": "3c2786b9259cb7e105c78701dda0e03c6095b78ca7f5f85bab6d9bd0f0ba6299"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-008-A-mixed-1-ordinary.json",
+      "bytes": 2993,
+      "sha256": "f4d1a32ffd1befbe13092d98eeaaa5517cda0ac1e637a48709d6c36de1a286d0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-008-A-mixed-1-ordinary.log",
+      "bytes": 403,
+      "sha256": "02dc8c3aaa05060d2178d2503678fe074862458dc443d6769028b2364c4e29f0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-009-A-mixed-1-candidate.json",
+      "bytes": 2998,
+      "sha256": "a4c2fe8d7f5dbf74b80a2d419515a64a44e919707d7cf32fa3985ab82b009b38"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-009-A-mixed-1-candidate.log",
+      "bytes": 409,
+      "sha256": "715c91fe9914fb3d15890e17e681ea670996cd597feb091f5e69a9806699d913"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-010-A-mixed-2-candidate.json",
+      "bytes": 2997,
+      "sha256": "963f54d7a971a35f3b99dd5069370074bc58fdb6196988d2f662dc1d74849efa"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-010-A-mixed-2-candidate.log",
+      "bytes": 409,
+      "sha256": "f2eea6908d88b181db48c6fd6a64131a121986921e5bf0fec9a670e7853c2b22"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-011-A-mixed-2-ordinary.json",
+      "bytes": 2993,
+      "sha256": "755e40dd289f1472c8d8f49f2db06c170451d4c00b7a318ed38bedb4e4bd709b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-011-A-mixed-2-ordinary.log",
+      "bytes": 403,
+      "sha256": "ebe06a5d349888696a46001da3d158854190c129b33634357b42b70efb4774b8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-012-A-moderate-0-ordinary.json",
+      "bytes": 3000,
+      "sha256": "28ed0b6cc67438e0e0aed35eeebd4d9acd439b934bd69365e62bf17d84622282"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-012-A-moderate-0-ordinary.log",
+      "bytes": 406,
+      "sha256": "bca4c13face2962bbf16ee45192ab64acf4874c12d5681cd201768641a062420"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-013-A-moderate-0-candidate.json",
+      "bytes": 3004,
+      "sha256": "5087f12e3bf7ef8ccb0844a9a213a67d3ef027b6909ade86ca9f35cd4faa797f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-013-A-moderate-0-candidate.log",
+      "bytes": 412,
+      "sha256": "9287abfa029e45449a94cdd98d7addaae8ba573d50d73422ef3c0fe9c5e825a3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-014-A-moderate-1-candidate.json",
+      "bytes": 3004,
+      "sha256": "d5ae15658a6f940217c2c6d42345f3224738b3b5b318e00b17c1212378f16dab"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-014-A-moderate-1-candidate.log",
+      "bytes": 412,
+      "sha256": "05edc90272158e3c351177ce5efa206d773edc071e921a7151e4f759794c0980"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-015-A-moderate-1-ordinary.json",
+      "bytes": 3000,
+      "sha256": "fe4807daaa5ee0ed26ee5a0f52c354ef047ac86011ac88df7aa1da668d422143"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-015-A-moderate-1-ordinary.log",
+      "bytes": 406,
+      "sha256": "ac092fb0e3c19ff0e471915c86be7f36f121d94ef27ced5c1de49db693b21235"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-016-A-moderate-2-ordinary.json",
+      "bytes": 3000,
+      "sha256": "ec9e9bec936066339ff0e61629be2b770290759fad3a5a3a98a5d43aa8a5f7d2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-016-A-moderate-2-ordinary.log",
+      "bytes": 406,
+      "sha256": "1d1c32a02ea19ba6df3d2017ecceea4f8521564ea4f1227c129e57944c5f9f95"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-017-A-moderate-2-candidate.json",
+      "bytes": 3003,
+      "sha256": "297076c4a735442eb3765488a3d93f61407d57ee41f8b49f73a7d47eb594a28f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-017-A-moderate-2-candidate.log",
+      "bytes": 412,
+      "sha256": "d4db954448ab08cfb5c5f40c23adecc5f52c8bbf8c042fc73e263ff899cd5b0f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-018-A-all-changed-0-candidate.json",
+      "bytes": 3009,
+      "sha256": "d82e867d361dcf100ed343f685c12d08be7554d2be08addf28c575f6c73076d3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-018-A-all-changed-0-candidate.log",
+      "bytes": 415,
+      "sha256": "a75f453c19bcdeb1452ec6952e9bd12d5c1809d7bc1a468245435e428b8253b8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-019-A-all-changed-0-ordinary.json",
+      "bytes": 3005,
+      "sha256": "dac7d34a0f6d8fbccf68decaaea92200d3eeedcc48b77743875dacf9ee2be70a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-019-A-all-changed-0-ordinary.log",
+      "bytes": 409,
+      "sha256": "d3bf5c509c3da38e1d58f4ec73eb6a5efabbad542548812687fffc0b88f9e826"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-020-A-all-changed-1-ordinary.json",
+      "bytes": 3005,
+      "sha256": "450b6484b90919ba9cdca1476bd6d288313d4e50bdf4b433035dd3e7a222f404"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-020-A-all-changed-1-ordinary.log",
+      "bytes": 409,
+      "sha256": "9fa332f944301d195813b3f16141b72113d364e8b430d2606200135985de4ba4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-021-A-all-changed-1-candidate.json",
+      "bytes": 3009,
+      "sha256": "59d713f548416610a7871893186c2e842bf6e2aff2bab7d4362673af6e2c0f50"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-021-A-all-changed-1-candidate.log",
+      "bytes": 415,
+      "sha256": "499983651e1d1d10632ccdcddf4509e7690208420978358742f898f43d037108"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-022-A-all-changed-2-candidate.json",
+      "bytes": 3009,
+      "sha256": "edde05bda2b8dfd5996b1d91f783c0a4a7100234e37c23f2cbb72d3c1fc4bca6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-022-A-all-changed-2-candidate.log",
+      "bytes": 415,
+      "sha256": "275a4f27546efc7643c9974d93f4befb33c5d55a95d2593e27f4f0c64394c063"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-023-A-all-changed-2-ordinary.json",
+      "bytes": 3006,
+      "sha256": "b32bc4712bda40ff1939aac84f9b49357b86b2f032fff7f5166d19ba5381911a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-023-A-all-changed-2-ordinary.log",
+      "bytes": 409,
+      "sha256": "e04789913d9cc411e99a0e5b23b2f2bd12709c6afa4ade948df4ce1653ea91f2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-024-A-small-0-ordinary.json",
+      "bytes": 2994,
+      "sha256": "2b8266afac3f2cecd3e7548175d0b9582d066f88a1d90da1f1df429b7281612f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-024-A-small-0-ordinary.log",
+      "bytes": 403,
+      "sha256": "5441bb6a781ee1bfa9a529fd95b11b18590fce427d2f9f0c7aa0e2de7d5795e4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-025-A-small-0-candidate.json",
+      "bytes": 2998,
+      "sha256": "01a9228d2476bcc84bc4ed467c65fd4d1f587fc0e01e649ad0185e1c77995a37"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-025-A-small-0-candidate.log",
+      "bytes": 409,
+      "sha256": "4330e44df11b6e48173903b3d6f3cefefee055474174098e81857e40a9eb5216"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-026-A-small-1-candidate.json",
+      "bytes": 2998,
+      "sha256": "50ada82b3b0db889c0114488a98c76e7c2f8e63fdf98c3777cacc1c476b2eb81"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-026-A-small-1-candidate.log",
+      "bytes": 409,
+      "sha256": "33ae172945a81e36776de5232ef03973902f5a07f56370e21a82e8aa97c4c1c7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-027-A-small-1-ordinary.json",
+      "bytes": 2993,
+      "sha256": "09b216af7118a2f8c5a11fefb345c323aa77b929e86cb232fe2a886bc57f3a66"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-027-A-small-1-ordinary.log",
+      "bytes": 403,
+      "sha256": "89eaed9608114cadc0c0ee8f4f558df1ecdb995778d1e2f73849449efbd8e93e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-028-A-small-2-ordinary.json",
+      "bytes": 2993,
+      "sha256": "6289778d110045a78b11edde9e52e9d06bb2cb4368ce88191d952f0dbaee61ee"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-028-A-small-2-ordinary.log",
+      "bytes": 403,
+      "sha256": "f83ebb09c194e75d59462e7db1af353fbf5b57ce49d61f938cf83b80ccb8b96c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-029-A-small-2-candidate.json",
+      "bytes": 2998,
+      "sha256": "0c765b71a24ee30809c5112fbd650bdcf096635275ccc27942df2a07d542b953"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-029-A-small-2-candidate.log",
+      "bytes": 409,
+      "sha256": "b01849f828c5a75e20e745ca61a6f145bdd79eda7ed17188420c486a0c15464e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-030-A-single-0-candidate.json",
+      "bytes": 3001,
+      "sha256": "c560b3261a20301c536feea867dbd6fc13a66652452d0b3f984b441f865758e2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-030-A-single-0-candidate.log",
+      "bytes": 410,
+      "sha256": "9c4868f9f0010f27c021ca385df46804961447dd719c7164d480928760b2ae8f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-031-A-single-0-ordinary.json",
+      "bytes": 2996,
+      "sha256": "d832275c40d3cfced16621fe2a8c9fe7eb62bfac426485941a91a9c7630a73a4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-031-A-single-0-ordinary.log",
+      "bytes": 404,
+      "sha256": "95dee33c6776a918f1a1ef14df785cc3ef0ba8fa50b67498fe19d9024f496fc2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-032-A-single-1-ordinary.json",
+      "bytes": 2996,
+      "sha256": "c01f511c7ec84ad5d5e785e802746f918497a2d3768407d86d33dab17c65f1ed"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-032-A-single-1-ordinary.log",
+      "bytes": 404,
+      "sha256": "c0bfdf142e7cd9d69f6e62071c4783a49aa6c12138bcf2795da82541a52aa6b5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-033-A-single-1-candidate.json",
+      "bytes": 3000,
+      "sha256": "aa32b5b8d9ce556b8c011c462358ab5f882b5d917cdf3bd7b37f37b3d8ee722c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-033-A-single-1-candidate.log",
+      "bytes": 410,
+      "sha256": "44b40c605c1ea7b15d43ad3b032a6fd9630a3e997977d4457f65f58a51bed42c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-034-A-single-2-candidate.json",
+      "bytes": 3001,
+      "sha256": "3b7157ce39f96b4bc0138719bd17545fba67c7cf2020a48b00806bcbc0155b50"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-034-A-single-2-candidate.log",
+      "bytes": 410,
+      "sha256": "4853610bacdc2782b248e1c483b28dd400d1881963dda0634557d9952296f7b9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-035-A-single-2-ordinary.json",
+      "bytes": 2996,
+      "sha256": "f82b94d97c4ddb0b459e2abde32f2b1468b1319cb84c0b36f0b6048584e4f3eb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-035-A-single-2-ordinary.log",
+      "bytes": 404,
+      "sha256": "1acd38c2c7ee02f16030bf9df7f9afe4a937fcbd7eb25d226fcacc67fffefd2e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-036-B-high-change1-0-candidate.json",
+      "bytes": 3011,
+      "sha256": "b530b8cbb238e069f04a1a74c1e0ed6cdbd6323bad200814340f61152bd06b72"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-036-B-high-change1-0-candidate.log",
+      "bytes": 416,
+      "sha256": "c56e5335c237777fa733e1340bc0724bfa6b97f26af3ff849f2989ca5dcda247"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-037-B-high-change1-0-ordinary.json",
+      "bytes": 3008,
+      "sha256": "f9ed918c085c3f10f6dfffd13d87c823f2a52cd0402e7adb5d9c6606d9f394b7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-037-B-high-change1-0-ordinary.log",
+      "bytes": 410,
+      "sha256": "265b97ab9a22c473f6d3911e3476ced6ff74583166e1b1d57df4a930dc61031c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-038-B-high-change1-1-ordinary.json",
+      "bytes": 3007,
+      "sha256": "8d0151668960fb37b0c65bdfcf95f618b4228366007fd8457b8d20f8209fda95"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-038-B-high-change1-1-ordinary.log",
+      "bytes": 410,
+      "sha256": "ecc529e2886038ccd48948ffcd537285f9ef9e739a9e1599e403f90145b4c9a1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-039-B-high-change1-1-candidate.json",
+      "bytes": 3012,
+      "sha256": "e257baecde4402ea248656e3a50aef6d2f25376fdd0ed58ba891f792143f0396"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-039-B-high-change1-1-candidate.log",
+      "bytes": 416,
+      "sha256": "f710bb2632f031135fa598eac27cd380300a418efdd04f474e27bf840fe51a29"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-040-B-high-change1-2-candidate.json",
+      "bytes": 3011,
+      "sha256": "9f5d8b33b09ec48c3ce760dd1c9f458d886b459a3cfb902409b3962323f1bfc2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-040-B-high-change1-2-candidate.log",
+      "bytes": 416,
+      "sha256": "2d426e8106b8cc155cfc96e29078aa67d58f905e97198ebaf950f93f77bf63f0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-041-B-high-change1-2-ordinary.json",
+      "bytes": 3007,
+      "sha256": "ea000bbcb426e18e15b1e6e87fb6fcc3cea427193fdcc7687f16009cf135f417"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-041-B-high-change1-2-ordinary.log",
+      "bytes": 410,
+      "sha256": "d766188c530f508a59b86e252a982fcb6a5c7f4c4381ea77e9176c0a5ecc8bd4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-042-B-mixed-0-ordinary.json",
+      "bytes": 2994,
+      "sha256": "5f6e365f20e21d90abbdb50419877d6f5d200be1a341fa0c1d3451702a4149d5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-042-B-mixed-0-ordinary.log",
+      "bytes": 403,
+      "sha256": "98034276b869f1b455ba9e4f0feb0ca3164c839d6a8e8192bf73e94f6802be89"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-043-B-mixed-0-candidate.json",
+      "bytes": 2997,
+      "sha256": "4a94369f4fc5b6b2a3a8ef9e2c46746bdbf2d31f030cbb98e0da01a26e9cb844"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-043-B-mixed-0-candidate.log",
+      "bytes": 409,
+      "sha256": "d99d179c24ffba4913d8fb4e1412d93e138b1514f88d19d55a7b12d3e64982dc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-044-B-mixed-1-candidate.json",
+      "bytes": 2998,
+      "sha256": "3eca4ca69a5d9209b2d0ce859fd2c71d28d5b8630b9a4fd49b772e422f94a91d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-044-B-mixed-1-candidate.log",
+      "bytes": 409,
+      "sha256": "1846b49b53e46507cd49742d2a8bb25d885595d4677aa3370c24dc2d553eef4a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-045-B-mixed-1-ordinary.json",
+      "bytes": 2993,
+      "sha256": "83612931e2d4c77495f92416e63221fed094e5e4a4e9d8bcdc139203ece338f6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-045-B-mixed-1-ordinary.log",
+      "bytes": 403,
+      "sha256": "1921003f07ce185c9a29ea7a21d0bf6b429fffab805f280ecd301a98dbde9ffb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-046-B-mixed-2-ordinary.json",
+      "bytes": 2993,
+      "sha256": "2d0661bc97e0f447e485f04ff67a8811bd76e7553513cda94400f4df0ddd0049"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-046-B-mixed-2-ordinary.log",
+      "bytes": 403,
+      "sha256": "93b56fc07bb314380fb2d46c36d78a36bc92db531a966caed24ba08c986d3489"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-047-B-mixed-2-candidate.json",
+      "bytes": 2997,
+      "sha256": "23faf31a1d099b521fed2d22deafb625fc4420f4239abaa9f916414c4151f37d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-047-B-mixed-2-candidate.log",
+      "bytes": 409,
+      "sha256": "271d01ef5f28b8c67592013d3d27300593b72f02f492b606d22d7d3a6a791661"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-048-B-moderate-0-candidate.json",
+      "bytes": 3003,
+      "sha256": "577a5c741d1cb164b6369ab8c490dce39b3fba3f715724a426c7c55f46268734"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-048-B-moderate-0-candidate.log",
+      "bytes": 412,
+      "sha256": "ea06cd7567f48f484566cda518f596bfd81981614ad59368fc22f699ec0654c1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-049-B-moderate-0-ordinary.json",
+      "bytes": 3000,
+      "sha256": "a52ee857526d7cddd20f5fc23c7c1e75919c60d0b715b92ed951619700dd3f2a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-049-B-moderate-0-ordinary.log",
+      "bytes": 406,
+      "sha256": "ef6888bcc7d53ef946400f7eb9b837a86b75eb31d1aa3ce7207dd4389047dddf"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-050-B-moderate-1-ordinary.json",
+      "bytes": 3000,
+      "sha256": "0c11a25eedd172d10d676e0dfb199e2fb24a96c50a0e29f8f191198ab95b19da"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-050-B-moderate-1-ordinary.log",
+      "bytes": 406,
+      "sha256": "86e0776980d6af62a6896e87d07c6679234be2df8b9ca968097c7609ec74e1a2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-051-B-moderate-1-candidate.json",
+      "bytes": 3004,
+      "sha256": "92c222b29f5efc3476160517d635193321525977ccdf2f6aaba849f22c408781"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-051-B-moderate-1-candidate.log",
+      "bytes": 412,
+      "sha256": "a478c50c0ce1d20966361c49cb9e2e331484c2d95aef0503bed798a80f82fb3b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-052-B-moderate-2-candidate.json",
+      "bytes": 3004,
+      "sha256": "a16923777bdb64304bf1a70dc2678da3cfb3fc8880846b576772011f3e1d530d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-052-B-moderate-2-candidate.log",
+      "bytes": 412,
+      "sha256": "5ca82f2a71243c64a06dd657397c799c6ff3b2fa3632907787a8ad1c16011d51"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-053-B-moderate-2-ordinary.json",
+      "bytes": 2999,
+      "sha256": "4671c5e09d6262eeb46411d91ceda4e5e6bcf6e074e34d9933768a12d78b5041"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-053-B-moderate-2-ordinary.log",
+      "bytes": 406,
+      "sha256": "e76fe44037d53e820e358d5a2e103b5f14c24dffbd884c86a459ab42ab486a45"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-054-B-all-changed-0-ordinary.json",
+      "bytes": 3005,
+      "sha256": "078fd7f699e4a26479fb0d24f933050326c68cc97f4fd7a9f6af5c122162184b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-054-B-all-changed-0-ordinary.log",
+      "bytes": 409,
+      "sha256": "4eba1fc6c1b03d24051edeb9058b5bbfa93674e1381521f3424474abe064a4e3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-055-B-all-changed-0-candidate.json",
+      "bytes": 3010,
+      "sha256": "06b6fc38ad7aba866502789b6065aa18eda93107003a14a255f0fcb78d43ec06"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-055-B-all-changed-0-candidate.log",
+      "bytes": 415,
+      "sha256": "6afeb35590652156b2c4420ec2d3854c0980c46dc280747282cfc1353ab8bc88"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-056-B-all-changed-1-candidate.json",
+      "bytes": 3009,
+      "sha256": "66ee6dbd7a48c337b83cc34aad8b1001d0ab180c95f0a716344af174f2c054d0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-056-B-all-changed-1-candidate.log",
+      "bytes": 415,
+      "sha256": "b70ad297319d70dd7345e0e9d83272f989e8aaf43cd5fcd608916ee84825a444"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-057-B-all-changed-1-ordinary.json",
+      "bytes": 3005,
+      "sha256": "7792ad43846b2183c3b1b5c3ebf5f5895933d8db133491ebf424e3a43631a116"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-057-B-all-changed-1-ordinary.log",
+      "bytes": 409,
+      "sha256": "cd4d74f8fab0bbee87c602fe453e79087954b097ec451b24f77fe42ac7ac9534"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-058-B-all-changed-2-ordinary.json",
+      "bytes": 3006,
+      "sha256": "091866ffe863815393d4f81756b13e17db1dcdbdcfef74381cb1ddff1e945e7e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-058-B-all-changed-2-ordinary.log",
+      "bytes": 409,
+      "sha256": "0534d807dc71956d858bd2e55a32196ef6dbf62bf74ade735d3d207b215ec623"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-059-B-all-changed-2-candidate.json",
+      "bytes": 3010,
+      "sha256": "9b786e80f9f18140cf8806fa89d7df929e56d4720343447c7d6ccda6c308ef01"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-059-B-all-changed-2-candidate.log",
+      "bytes": 415,
+      "sha256": "e876bd7f94f2c3c5029ec5cca248dcd68fcce6571e8b737810a544772b583d3f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-060-B-small-0-candidate.json",
+      "bytes": 2998,
+      "sha256": "86c9161a69332d0b0e0fae9392173a674fb9dd160e50a36036d80fb72a99c9cf"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-060-B-small-0-candidate.log",
+      "bytes": 409,
+      "sha256": "7039844b6afa6540b8169bd210bf62ae6c18b0ca1714d832645a9d0c01ac519f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-061-B-small-0-ordinary.json",
+      "bytes": 2995,
+      "sha256": "d036c68e2b88c04dc5b56e9857e1f9b8d83b040479d50da75591787ddc86b7da"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-061-B-small-0-ordinary.log",
+      "bytes": 403,
+      "sha256": "ef63d787f87f3cfdba4435d1d67f81c25b12a956d7415192539bd3db9a0f5681"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-062-B-small-1-ordinary.json",
+      "bytes": 2995,
+      "sha256": "f91ca988541bec43a1e8dc1743a73f3d43f33018338cd6f9613bb3f23dfba908"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-062-B-small-1-ordinary.log",
+      "bytes": 403,
+      "sha256": "10633d365b157af6ca5a68b3f3e766cda6550cb029caa2c2d37dee1a12446495"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-063-B-small-1-candidate.json",
+      "bytes": 2998,
+      "sha256": "9881e8c423412f92b309a99b86a4300a32b576d5fc7dcbb0b83a41b8aeeca376"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-063-B-small-1-candidate.log",
+      "bytes": 409,
+      "sha256": "9e791a36ad144ac069965a2216146b31f76347216fc9a7f39edee383e961af9a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-064-B-small-2-candidate.json",
+      "bytes": 2998,
+      "sha256": "8d63f5f7c0986b635e29ecce9e4283ca47a4f9e7cf99d1760eab866bf124c9d9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-064-B-small-2-candidate.log",
+      "bytes": 409,
+      "sha256": "4a4d0a323712493b254ffe8cadb662ca0f7c5b873e2b0c28d1597785cd1c653e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-065-B-small-2-ordinary.json",
+      "bytes": 2994,
+      "sha256": "b4b2fc223bab3557dc3aec05beeda3af883465f229db9bc802593b09d935f1f6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-065-B-small-2-ordinary.log",
+      "bytes": 403,
+      "sha256": "9654c785114c9ca53191d4a6e2d8cdc5116e8ae591248b1b011f2ceeef66bb99"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-066-B-single-0-ordinary.json",
+      "bytes": 2996,
+      "sha256": "997124363a3552a2fb5574e5522c86acec1a1097b9fa97598e359c89aacec859"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-066-B-single-0-ordinary.log",
+      "bytes": 404,
+      "sha256": "352c016d40b163454af365e6ad51ab1a30e5b675e6cdbd8b258d0b84874828a2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-067-B-single-0-candidate.json",
+      "bytes": 3001,
+      "sha256": "68345f20057f8fa92864b39882211c71bfed78022406a525a2b690403923cb41"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-067-B-single-0-candidate.log",
+      "bytes": 410,
+      "sha256": "3dc56ff91d5f492227562dff8587bfdcad776c5561d0de8d76a79107bbff3490"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-068-B-single-1-candidate.json",
+      "bytes": 3000,
+      "sha256": "3df9d92f2798a29679ff0ebfa4e764277afeff3e087279f630d2a65dc79047ff"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-068-B-single-1-candidate.log",
+      "bytes": 410,
+      "sha256": "3131f43c3f4f8fa11800100974f4f4d67d9583043ca99ab169c08abecdbd3303"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-069-B-single-1-ordinary.json",
+      "bytes": 2996,
+      "sha256": "f10b736b92dcc0e3b04dfcb8a6bd6cf6fb9fe229c665fd739746520470d61f95"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-069-B-single-1-ordinary.log",
+      "bytes": 404,
+      "sha256": "96332c549a8ed6a17bc030362935e78175c232cd46fa0e89bba4fbc6906e7462"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-070-B-single-2-ordinary.json",
+      "bytes": 2995,
+      "sha256": "7d1a209ddf62dcbe46f8a7cb189a3c4125bdb9588e9275d69cb430c7411b1934"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-070-B-single-2-ordinary.log",
+      "bytes": 404,
+      "sha256": "2d12f0d7c5403bfb74b588f82868e209337d1d5271bdae8bfbce4b0f7a250c76"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-071-B-single-2-candidate.json",
+      "bytes": 3001,
+      "sha256": "713f1baa9d7df38de8778eef0568a528b638d367cbbdbab4d4149a464de2b991"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-measured-816-a1-071-B-single-2-candidate.log",
+      "bytes": 410,
+      "sha256": "6d1f521bced6562fb88c0c492b2c9869b86db7987e8046885626ec0670ba0203"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/000-preflight-high-change1-0-ordinary/result.json",
+      "bytes": 472036,
+      "sha256": "2b251af847f3b5c55996288091e1892406e1e4ee81ea1e4bc4a72ba77b9460f7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/001-preflight-high-change1-0-candidate/result.json",
+      "bytes": 378982,
+      "sha256": "1bb79f7381828eebd039a3c7447de2343f2c554579ae8e692f1531b8c4508cc1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/002-preflight-mixed-0-ordinary/result.json",
+      "bytes": 471771,
+      "sha256": "9d0e5e83c00e812fc6cd5868ed5e861fee4ec876501239c607023279634baa3a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/003-preflight-mixed-0-candidate/result.json",
+      "bytes": 378768,
+      "sha256": "47fd9db25697d7b38380119438d90aa13bce64aa76226a1cc345cdc06e8d591d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/004-preflight-moderate-0-ordinary/result.json",
+      "bytes": 230810,
+      "sha256": "48d3cba4f223836eb18fdd7d823315df64f1907bc2d18566303c6f13e0c38429"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/005-preflight-moderate-0-candidate/result.json",
+      "bytes": 130302,
+      "sha256": "e2df64985a1546d0418f1cf78bf43cfa63e5c09704788fa30ef48a07a1e82692"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/006-preflight-all-changed-0-ordinary/result.json",
+      "bytes": 471992,
+      "sha256": "7d22482b0d417ab82b45c0910257d573202ca0698622e0fc0f6c16b457f7631f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/007-preflight-all-changed-0-candidate/result.json",
+      "bytes": 379013,
+      "sha256": "2510c273d910b62ece98b3601ef312bf5215a7a0f2ea3d9dfff83e94d17c8809"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/008-preflight-small-0-ordinary/result.json",
+      "bytes": 230374,
+      "sha256": "3ef270e01f2ceceb084a2a3a7818ed3ac0faaf41f1dab0f4eb750336ddaa4e7f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/009-preflight-small-0-candidate/result.json",
+      "bytes": 129994,
+      "sha256": "4c7bb80c042c9642e1178184299342b84feaa50a94937b75c798c38db782a342"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/010-preflight-single-0-ordinary/result.json",
+      "bytes": 170469,
+      "sha256": "3fec976adac10d9e9d558676f527de1bb6052e6d2680bc907928fbbf73c12aca"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/011-preflight-single-0-candidate/result.json",
+      "bytes": 68135,
+      "sha256": "d92f6c14cd170a42353f668d2f169098fece0aade50392f4c75aabea65fdfe38"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/run.json",
+      "bytes": 9027,
+      "sha256": "42c0d68c74ed617d2a89ef795eb868ae051eb5422919ddcd80e0418239fdfddb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1/verified.json",
+      "bytes": 204,
+      "sha256": "bc1e7948fdf9f9eaf963201724d6c8cc8ce0cb21359cb48a9e9fbf8ecc4867ad"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-000-preflight-high-change1-0-ordinary.json",
+      "bytes": 3018,
+      "sha256": "a0d62aa4a83165b7de32bfcf75b884794814277db343a22136a55d495c13b53a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-000-preflight-high-change1-0-ordinary.log",
+      "bytes": 419,
+      "sha256": "66cebd907d6a9b48502deaccd71ac30f79c03087dd1590270a9c1b1b5aa21377"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-001-preflight-high-change1-0-candidate.json",
+      "bytes": 3022,
+      "sha256": "b514d91625196cccab32d1cc91b5564392f74d3d5c40fa14aeb14af5bec9e5c3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-001-preflight-high-change1-0-candidate.log",
+      "bytes": 425,
+      "sha256": "9e5c280aaed4b6e4e47fb3e581d46ee9b5b1505850f988d8c0421ee7fd77f21b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-002-preflight-mixed-0-ordinary.json",
+      "bytes": 3005,
+      "sha256": "8cb10d43533876b3411d3783f5342a9cd7a31c138c20070a06e3525f8c37814d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-002-preflight-mixed-0-ordinary.log",
+      "bytes": 412,
+      "sha256": "8ad4f525b9c4a172b2a076441a5d2ed58d5c30b2c926180bff6cd198fd129f86"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-003-preflight-mixed-0-candidate.json",
+      "bytes": 3009,
+      "sha256": "b1c30a58ab4cf6a4ca770433014d2f4a9b64f7232417575761429f9e5ef8fc2f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-003-preflight-mixed-0-candidate.log",
+      "bytes": 418,
+      "sha256": "9693e6c0a2d750620448af7c94409f0d9e465093220c4076716a3f60036786f8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-004-preflight-moderate-0-ordinary.json",
+      "bytes": 3011,
+      "sha256": "a029f8a8e562553f5ae9281c48bdeab1070c296b5df461d5c2a4b9d3bb513609"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-004-preflight-moderate-0-ordinary.log",
+      "bytes": 415,
+      "sha256": "009212e02eb488ecf565e461d7bf07d2b93b4b09aa2425dd44cdb499c7f026e9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-005-preflight-moderate-0-candidate.json",
+      "bytes": 3015,
+      "sha256": "bb415681e3d7f16a9fdc003a5fc8bf877707d3b39fe674d6b1f7703ea1e330f2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-005-preflight-moderate-0-candidate.log",
+      "bytes": 421,
+      "sha256": "044e28a1bab6167269fea4119924deaef1fd8d36a8f598c70de4cf8c1558795b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-006-preflight-all-changed-0-ordinary.json",
+      "bytes": 3016,
+      "sha256": "3ca2a5d91ddacba7d7cfcd06bea95a2991ca6a19a6aa74ac5bf397a4b664e9ef"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-006-preflight-all-changed-0-ordinary.log",
+      "bytes": 418,
+      "sha256": "035dda3bab4812b746ae393a45c2ac269eb872ce856bf0e0c026e4f4e681ebb9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-007-preflight-all-changed-0-candidate.json",
+      "bytes": 3021,
+      "sha256": "ea193cf3ca8d37c7cebfa2e54c57914ce2d2989d10337d9c32f1e8a15ec2144a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-007-preflight-all-changed-0-candidate.log",
+      "bytes": 424,
+      "sha256": "ddbe97b7f0b24bdc049e7e94210a7da8d3170262f8954c39b8bffb0ac6724e3f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-008-preflight-small-0-ordinary.json",
+      "bytes": 3005,
+      "sha256": "8f6cb6a08c798f73e54283dba59a9b962ebdc283baeeacd75b0a11f7a7119833"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-008-preflight-small-0-ordinary.log",
+      "bytes": 412,
+      "sha256": "f452f87ba65ba36c2a80cee849c28ab869f8526a3c46f10f8234d185b4e1eff5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-009-preflight-small-0-candidate.json",
+      "bytes": 3009,
+      "sha256": "6fef862e34605b166374b0ba749bb65c4434f33f85fe59e8ce058da481048136"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-009-preflight-small-0-candidate.log",
+      "bytes": 418,
+      "sha256": "65e64d5db5bce6f4108412db44f655781acfa42af8f64bcc761e0f0290f92ff7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-010-preflight-single-0-ordinary.json",
+      "bytes": 3007,
+      "sha256": "9e52a6fc50c5640fa791483aa41bf7bf6e0307bd4e9a2b225be2aa32e0c2e929"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-010-preflight-single-0-ordinary.log",
+      "bytes": 413,
+      "sha256": "a5cb840ed5b42e71e4ce8d15a79525e9fc3d5a2d51b0765551bec7a870f48fc0"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-011-preflight-single-0-candidate.json",
+      "bytes": 3011,
+      "sha256": "aca8e3044d6a391bebd38437937410eb0c342b6bd545a0f32dbea0fb1198ade8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-816-a1-011-preflight-single-0-candidate.log",
+      "bytes": 419,
+      "sha256": "806ee0eda0541cd64160f49b434706931a9e220db8013713cf54fc13684c4064"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-preflight-acceptance-816.json",
+      "bytes": 747,
+      "sha256": "af888fcabdd61b62aae7800518f5a2dad11bc751cd3aade546de1428d5b2cf9d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-primary-verification-816.json",
+      "bytes": 1266,
+      "sha256": "3c62b43e4c03dba9efb0e65f24306384395acb0bcf9970fd5738104222708650"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-release-816-binding.json",
+      "bytes": 2252,
+      "sha256": "1e06a716b23fbe84d71a9d5a168de5a7c9799abb2e4af79fd99e65de42b65529"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-release-build-816.json",
+      "bytes": 2617,
+      "sha256": "c030ef6882d52f87ab25a5e40591a3a0815e8ca2f3ab1b96e9567d0e8e7a4591"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-release-build-816.log",
+      "bytes": 326607,
+      "sha256": "7812a0efe1ed08c9fd813a8836108b94af4b03d7530a82db1544e5f8468d39f3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-release-tests-816.json",
+      "bytes": 2511,
+      "sha256": "fbf1e24ae7ebff4eca375b58c3ac1519d6de0da2d00ee8ec952fb3b9818d8b50"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-comparison-release-tests-816.log",
+      "bytes": 1863,
+      "sha256": "b71e6b45ec1d64847f1a42bfa82afbd816367f53e9a92deb4753de48ab900d55"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-consumer-inventory-812.md",
+      "bytes": 7190,
+      "sha256": "a1a329a6f36cf6102b4e647d1c0499b2b958ca956cf3b9d8427755455d89f6ed"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-identity-metadata-inventory-812.md",
+      "bytes": 9313,
+      "sha256": "fb8e3002292f8baa978c97728247a50579a47827f16b748d42d062f166234749"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-inventory-800.md",
+      "bytes": 9126,
+      "sha256": "ba2bd5889555f556e77531c5f3093f16844ee48f6f3e719a10644ebe10cf4957"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1/consume-rewrite.json",
+      "bytes": 172638,
+      "sha256": "a90faa1948e9e92d174b15632468591d2231f6b75c181510f9983d62d6f4c133"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1/lifecycle-result.json",
+      "bytes": 42458,
+      "sha256": "25e2a3c6485573de927cc3e9db4a5c448a6e91a61f5bbafb1abcbed95122c596"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1/produce.json",
+      "bytes": 6075,
+      "sha256": "f61f36fa2ee6612acb34482a4175e96a37e3bbc2c8a55ba7a20c22effcbaa142"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1/refresh.json",
+      "bytes": 6080,
+      "sha256": "ddf38d7fe741ae0956d1618a2dde7fecea0bda32f3b3322a69187d5726dcf0b1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1/verify.json",
+      "bytes": 172623,
+      "sha256": "7dff66296d304158947f21cfcd905485ef6895e49424b47ec5b94f510a167e9f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1-consume-rewrite.json",
+      "bytes": 2669,
+      "sha256": "f81ee63d5ffb13ac8d91d3e660d676c99eb4e4b684c748373cdddf334decce33"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1-consume-rewrite.log",
+      "bytes": 231,
+      "sha256": "f04eecc161ddc8049d7dd121a6822f47eafc2006b5937d22c863d6d3fe417184"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1-produce.json",
+      "bytes": 2662,
+      "sha256": "bbc91d0287c3e5c957aaefc6104e21f769e22136b58e2742072d4eee727646e4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1-produce.log",
+      "bytes": 231,
+      "sha256": "8f2eea253b062a8d0f9f7ca8498856990c04053979d7d1174a3d613cc2f0511a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1-refresh.json",
+      "bytes": 2662,
+      "sha256": "2b7bb965b3dcf260dc8ad33f0545a3dd6779292c5693def5ccf2a95bff18c70c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1-refresh.log",
+      "bytes": 231,
+      "sha256": "46f17a15f3259f1dd857598095537cfcaf4a41b614c01e957c47fc536b9fbcd1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1-verify.json",
+      "bytes": 2661,
+      "sha256": "87e4b2f688b1eb0517ff044f0f088f3939c508160f9d7de9cab6361dc5686b1c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-a1-verify.log",
+      "bytes": 231,
+      "sha256": "589089dd91a940dbf52dac4d08819af58a7cfd795cdf7aff78810f547d57b288"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1/consume-rewrite.json",
+      "bytes": 173123,
+      "sha256": "7e064364173755d9f195ad8f7beee82547dabb49ac75f4c91982c414ea70e04e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1/lifecycle-result.json",
+      "bytes": 42458,
+      "sha256": "b34ff71ae5fff15c55857330ce7c352f1875182d379f13ee9e40f7f29decab26"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1/produce.json",
+      "bytes": 6564,
+      "sha256": "42ef17cc842a398c9402facf5c7dbb69a70598598e98373754a364ecb4061307"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1/refresh.json",
+      "bytes": 6569,
+      "sha256": "12cd378e7cb9fc353dfc8b6b10991b8aa82caede6d71d6dbd1c1f3bc00978be9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1/verify.json",
+      "bytes": 173112,
+      "sha256": "e32389efb9d84e30c7a02111207b541a6b4c3eb6b7997b5cdf3bfd65fe65c639"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1-consume-rewrite.json",
+      "bytes": 2670,
+      "sha256": "0db5d847ef47d72d1b4215339c886bb3e2eb2bd005ec89dbce91ab7c1b6805fd"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1-consume-rewrite.log",
+      "bytes": 231,
+      "sha256": "9016177e3c7473e715ee1ed9945cc7852a354a0940304d47f32354e46d44eb32"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1-produce.json",
+      "bytes": 2662,
+      "sha256": "86aea56aeb5b828e334297ecb93936a4053f9179c695583d75b4a6325d162d3f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1-produce.log",
+      "bytes": 231,
+      "sha256": "7913331fb49b6852dfb93e9ba53a06fee4a2ccb296e71e1529138c5ecd1eb07b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1-refresh.json",
+      "bytes": 2662,
+      "sha256": "e992cf6bbfb3bde63482a52156a94d909aa0de33dbffb5f3e8cfe8b069a0340b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1-refresh.log",
+      "bytes": 231,
+      "sha256": "46f17a15f3259f1dd857598095537cfcaf4a41b614c01e957c47fc536b9fbcd1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1-verify.json",
+      "bytes": 2660,
+      "sha256": "3f446fd9299e0d53feda92c6cbf2484dce6028ba4fda328f22477f1b5ae1936e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-815-b1-verify.log",
+      "bytes": 231,
+      "sha256": "9dd8b391b288dac4bc38476e6ac847b43998587ddd89f30cdc845204eced50e3"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-binding-815.json",
+      "bytes": 509,
+      "sha256": "bd3fb092282256c77e53dad9d1c7e6e2df86604173d027cab89730812a88d09d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-clippy-815.json",
+      "bytes": 2287,
+      "sha256": "a93deaa4a30462159c499f89a530b8ace5a284d4b2f40ebe9216a3c13186edc7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-clippy-815.log",
+      "bytes": 184,
+      "sha256": "ffc5efbeca8ac96700f8fb1ce0be4c528f91ad5c37aafc1b4a74e249a9b9e5ab"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-fmt-815.json",
+      "bytes": 2082,
+      "sha256": "d27e3cd65e539df81a720010483197ef90f1ced5069a9ddfe8a2e264b671fe75"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-fmt-815.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-input-815.json",
+      "bytes": 245098,
+      "sha256": "0d3f17efad7fd9ce6c76174a15f59f1069afee3d01a2ad379c03a17e82380a95"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-original-driver-815.py.xz",
+      "bytes": 2624,
+      "sha256": "d194d438a57179259f95547702ed895c4082e3e7dc9c8e63b5d7615b0678c7eb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-source-815.json.xz",
+      "bytes": 30016,
+      "sha256": "7b4078a0f318e2d348726d6284b4811183c0424592f82901e7ae98399b2a2cd4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-test-815.json",
+      "bytes": 2341,
+      "sha256": "0f1c1817c73670eb6dea55a0296042a5f62def3e27dc943ee624d09418382da6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-lifecycle-test-815.log",
+      "bytes": 2263,
+      "sha256": "f79da97b5c6c4ebdb906fd4668dc7ae1a4f407a137e6ac673e3bf1613ecbf139"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-mixed-writer-inventory-813.md",
+      "bytes": 13778,
+      "sha256": "e071c319417cb4eedbfa9a83dee85739664569f2124272230bf4771047a9026f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-native-consumer-inventory-814.md",
+      "bytes": 7747,
+      "sha256": "ab8f04a7e08113ea3c2a1dc8e16ce27c3818999419bed9f1130a7af5465478df"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-normal-prepare-inventory-812.md",
+      "bytes": 8496,
+      "sha256": "ea427513fe4d06f4f257ea71a738515b240de4fff74d52f662fbf1ed0ffdafd8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-ordinary-strategy-inventory-815.md",
+      "bytes": 17752,
+      "sha256": "f24dae449d8e7e6ed747648af7db4f7adeb6bc688dd79b079d126aab3ba0294a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-prerequisite-cli-clippy-812.json",
+      "bytes": 1964,
+      "sha256": "e2068ce33839d62f23c0a367bc2236a363dcfcbca24d472ac7c6901d984be872"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-prerequisite-cli-clippy-812.log",
+      "bytes": 1394,
+      "sha256": "2ca9d3bc8f94498af3cbd9953cd526e46b6f6375879acd9da1ce7e9ad61232de"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-prerequisite-cli-clippy-812b.json",
+      "bytes": 1943,
+      "sha256": "d49c6255a0d1f6aacde7300098cad96764a61c3238e7420db7068ab368f84514"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-prerequisite-cli-clippy-812b.log",
+      "bytes": 177,
+      "sha256": "9794cef16e899b54b520cb630781d8cff853f7400d4144d300d7365a9cbcea00"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-prerequisite-fmt-812.json",
+      "bytes": 1777,
+      "sha256": "c092e153ea92e0865dff4887562106655f7d8c190a3a4c723e9e970966bb064c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-prerequisite-fmt-812.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-812b-a1/completed-cases.json",
+      "bytes": 16624,
+      "sha256": "003049676b3e90069aaf4ceb2574298484b67397efab23f4a116d66530587cb7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-812b-a1/result.json",
+      "bytes": 22849,
+      "sha256": "9cfe03a44c1da882ef0d24ba4fae0309d7c4122cdb17726f3061270314076d0d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-811.json",
+      "bytes": 1831,
+      "sha256": "74f11b6c0deb8dcd40c743eb613297d576f233d162cc46c56680eb2eb4e90cd1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-811.log",
+      "bytes": 312,
+      "sha256": "f454ac37ac1d87cd2b4a0c067ba4e548777b2ad2d00bbf4a323207f395caa051"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-812.json",
+      "bytes": 1830,
+      "sha256": "bb39ac10cae799f3f1e5a7f58afc9776932509f78d7f069af446a5acd36d1c15"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-812.log",
+      "bytes": 312,
+      "sha256": "e8b93bf2f69cc23cd0d97dae98907bbca2a9f462fc07d688c770a9d5bff4ea1d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-812b.json",
+      "bytes": 1830,
+      "sha256": "6d687e65714505e0806901f4db7d1bd02a8993a3abe685ad4e6e071668855857"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-812b.log",
+      "bytes": 312,
+      "sha256": "b81b02f646172355839a437c0dd4227d5c28e3aca761e9bec86dcf1a1296f13f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-binding-811.json",
+      "bytes": 412,
+      "sha256": "d9049062eca1e71cb8deff0f5d808c3a1a3e57e5291a3cb47b65bb1a78bc63ab"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-binding-812.json",
+      "bytes": 441,
+      "sha256": "98d0c347c53eb92604eaca1bfb13197fe69e3908d767f03b9093e31103a3b43f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-binding-812b.json",
+      "bytes": 441,
+      "sha256": "7cc8a39bab36fe3681f98789f557bd435330958a6974b898386a7151d15294d9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-input-811.json",
+      "bytes": 244167,
+      "sha256": "d60bbb9e047a920a5acb9e5735d802bedba8c4f69a92cccdd3ab9863305e11cc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-input-812.json",
+      "bytes": 244410,
+      "sha256": "70a0e111e17efff056708f144feee3b4af4763b131939075b25339125bc9bf1b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-build-input-812b.json",
+      "bytes": 244410,
+      "sha256": "de50901d0fe454183854a6fe505cfcbffca49ece08b3c4bd73a408f1b382f47f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-clippy-811.json",
+      "bytes": 1826,
+      "sha256": "de448128552eb088ad97a729a69be1a95d82fab59b932cabb1e4b163deb6e0c6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-clippy-811.log",
+      "bytes": 1421,
+      "sha256": "331b4efe2b3a7efd3b044bd7e2ac4afd2ab838178313af23ed77d7f7b471d5bf"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-clippy-811b.json",
+      "bytes": 1826,
+      "sha256": "7197e65e99eefa39951cc3a065eccba4d50f1d198fb42c252381532b5a65111d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-clippy-811b.log",
+      "bytes": 2105,
+      "sha256": "5ec7d363c1d4dccfcb81dcebfbc12c2b5604dbb99a9f35666dea113d0a6f6525"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-clippy-811c.json",
+      "bytes": 1823,
+      "sha256": "f3b69d730b0b4319c02992f42aeeba3f9a8141e47c58ccba73ed0093b4bd815d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-clippy-811c.log",
+      "bytes": 184,
+      "sha256": "88bc509ebfa16ddf26c11278c7ee433a89a8da2ff6b63fcd204d43c2521144a4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-clippy-812.json",
+      "bytes": 1822,
+      "sha256": "d606edf7b01e9c1b7ff0b863a981bdf1750668c4b09f366857ed20a5bc6c5b01"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-clippy-812.log",
+      "bytes": 184,
+      "sha256": "aeab7b0372e887bff46aeb28dec9983524d5164d850c8aaa52be1854b91699a4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-clippy-812b.json",
+      "bytes": 1822,
+      "sha256": "94f79be3d684402cf8ad51ab78f58ee5f6bbc59a68d86e71a42b9371ca8d0863"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-clippy-812b.log",
+      "bytes": 184,
+      "sha256": "ebd129f8471338a830dae72825cbfd63b5def2d4a2d172b9514a146d68f7b6ee"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-failure-retirement-812.json",
+      "bytes": 798,
+      "sha256": "b3035c218d07678264d5ae5c31287f165ebba1289ded05722bf98bd872e398bf"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-fmt-811.json",
+      "bytes": 1651,
+      "sha256": "f12faa98fe1ff2a9770e1e6ac451eb771de12ae98e12e6e2f58011a86e6d6a2b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-fmt-811.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-fmt-811b.json",
+      "bytes": 1651,
+      "sha256": "655652c1b6e3d2e679103bf9b053a695351f70d15c08cf9c1bf62c18fd36b6bc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-fmt-811b.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-fmt-811c.json",
+      "bytes": 1652,
+      "sha256": "b403d5a50c9db81d0eaa574692477d3282bed4cedd94daea44db05c3d9ab8655"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-fmt-811c.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-fmt-811d.json",
+      "bytes": 1651,
+      "sha256": "4f800d61fbd9762c5e149e5027a71d1fd0f29d18d3eaf2feb47fa1d608a930b1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-fmt-811d.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-fmt-812.json",
+      "bytes": 1651,
+      "sha256": "ec1070456689d3ee575a67ee9ca74587991c6b3971113270cf570080135ce468"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-fmt-812.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-run-811.json",
+      "bytes": 2043,
+      "sha256": "b96e182acb088c2ca96009d1fcf36299862966ac95def4b00b02ada827e65f91"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-run-811.log",
+      "bytes": 832,
+      "sha256": "b95860d2cba48c2c7009a52190d3495a2cbd5c36d4d89922828c89eaeb19fe3f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-run-812.json",
+      "bytes": 2045,
+      "sha256": "083e0a82cc2f266bae2101e5eabfb3da8c86b67f6bded960ac5bb4aec99433a9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-run-812.log",
+      "bytes": 5786,
+      "sha256": "4268b6261b75a39b09729993282309ea3f32c6c1e8a05239f76dd51065044b99"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-run-812b.json",
+      "bytes": 2123,
+      "sha256": "e812d927669b2eabe9e69138803541a090183ec942c26c3a0cee2a6330d48d33"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-run-812b.log",
+      "bytes": 14886,
+      "sha256": "9872df64cc4676748608e0c7b527a9f4403109acc9dda88798da3771bd60ceb2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-slice-failure-retirement-812.json",
+      "bytes": 1733,
+      "sha256": "e15e2804f17673ad710bbbfaa22060cd2f2b30f6890bc6c93a1fa7417475e5ed"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-source-811.json.xz",
+      "bytes": 7164,
+      "sha256": "56e88c8d7e65442bd7bba39819b1bf1fdb83c3dd8c6ed588074e829b77efb3a5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-source-812.json.xz",
+      "bytes": 8796,
+      "sha256": "1a9e8376df22baac70413f8d76652a6a317251076c792d0266c17aec20fad6fc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-source-812b.json.xz",
+      "bytes": 9420,
+      "sha256": "baed8e298b99e4e50fb916ce09688feced4fc4c75cabbc30f85c66c2d50fd7b7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-units-812.json",
+      "bytes": 1786,
+      "sha256": "c6e4d293f81fd8e9e9dbfa1c3e097a2d1c2786cbd2b6e881209f38769b1f0173"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-units-812.log",
+      "bytes": 1150,
+      "sha256": "2085131d9b79ddb968c62df84eb963cbb9d4421d365bb26c7fcbec2f534a5462"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-units-812b.json",
+      "bytes": 1863,
+      "sha256": "351a64bfa0e3de6e53fe59ec61c139cd6a296d5e25534176f081d40252d10a8c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-probe-units-812b.log",
+      "bytes": 537,
+      "sha256": "ea9dca84c0e4e79accedc951f678e868f97d6f9affd9f7f7e4c996e114418e78"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-provider-inventory-810-corrected.md",
+      "bytes": 4942,
+      "sha256": "dcf3de30b8640e511c7216897355bdb82170a95fda7461718b0bcccc744f5466"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-provider-inventory-810.md",
+      "bytes": 5724,
+      "sha256": "666ffc60386789c4a7ffd61f4af5686c86b7daf856bbc5519a591252c67553f2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-read-provider-inventory-811-corrected.md",
+      "bytes": 5641,
+      "sha256": "97dd685f068c8b13707dd8ae460a5584ebbf2f41ba446789ad69d47216927837"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-read-provider-inventory-811.md",
+      "bytes": 6889,
+      "sha256": "83de75239c968556bcb4ecb665794e1b37cd06f23a89b41f1ffe289051eccc59"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-815-binding.json",
+      "bytes": 644,
+      "sha256": "b4a0f3865044e916f484ae175312450694075f914d954229ae5b394223f3c0ec"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-815-input.json",
+      "bytes": 245098,
+      "sha256": "adf14ab2ef152db67af3816be4e11fd58d2471b0267fa6b7c7e702445993aca9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-815-source.json.xz",
+      "bytes": 31360,
+      "sha256": "f7f978c8924203d95f50bdc7dd136207dd918abbc5d307864d17d90723097eb5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-815b-binding.json",
+      "bytes": 509,
+      "sha256": "b44b8714085771587b4112f0f6563c6eb1fed30d51c2cdc4d0c2f2048dfd1c53"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-815b-input.json",
+      "bytes": 245098,
+      "sha256": "3388ca4aae2a7a8023030cc1808fc101c99bb2e899c1e808b4ba2632dc4a3e10"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-815b-source.json.xz",
+      "bytes": 31448,
+      "sha256": "256bc93e0a9d6dc273280abac5d7fdbaa3ec013b6d8b515af39163f3d7cca131"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-clippy-815.json",
+      "bytes": 2287,
+      "sha256": "831d58eca2ba7c4eac6a568d4a426d8a69fc2289e3540f9bbafaecdd01017bdc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-clippy-815.log",
+      "bytes": 184,
+      "sha256": "ebd129f8471338a830dae72825cbfd63b5def2d4a2d172b9514a146d68f7b6ee"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-fmt-815.json",
+      "bytes": 2081,
+      "sha256": "b4e89b5be32149b84d092c76e299f2a82c7b20126e011f8053c7246504c967d9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-fmt-815.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-fmt-815b.json",
+      "bytes": 2082,
+      "sha256": "bf85411bc054f98cbc62b0f143170aa8973db3922cb03ddb3c80794f5cde02eb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-fmt-815b.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-fmtcheck-815.json",
+      "bytes": 2107,
+      "sha256": "7b3729edb8790cf0e984d55247450d48e5b066ace35f2cf7c7388a0c4d90af9c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-fmtcheck-815.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-prerequisite-815.json",
+      "bytes": 1160,
+      "sha256": "385f3d166266c51be2fa2dcdf0c08794b29019b21290871606d0ede0e51c5d6d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-test-815.json",
+      "bytes": 2343,
+      "sha256": "e7685e9bbe7968a810ff4f76df1ce691ca764b72eb14416121809d5d9493c824"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-test-815.log",
+      "bytes": 5372,
+      "sha256": "f0a4a063a5c9d2e608ccf32065b0329bcaf024c094ef4f8849d3bf08f159c40c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-test-815b.json",
+      "bytes": 2341,
+      "sha256": "2a7b1090cd8837ba888e17813ae5a2d68b4df0e764a73b1fdf16e9e22fae12f1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-recipe-test-815b.log",
+      "bytes": 2263,
+      "sha256": "74dfd6ae8ca59d6f4c52c13176412273446ffa605af5b697e42737d23bcd0887"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-refusal-test-inventory-809.md",
+      "bytes": 6226,
+      "sha256": "ea74d15bdc31f08218d0285401156fbd3be8ac331c36e6d944a5208f166f0a8e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-build-binding-814.json",
+      "bytes": 460,
+      "sha256": "063f1153872d9a79ef0f11d90c0a74fc3472eaef49ad83eaa65417b4cc0dd8af"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-clippy-813.json",
+      "bytes": 2159,
+      "sha256": "181a97594e828dc04216a433d539abe3ff22c2dd02bb88eed7699bb5387f2fba"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-clippy-813.log",
+      "bytes": 2125,
+      "sha256": "930e254a4752f52ce08e7da715dd656c78264dad9aa0f4d04085e007d78afd83"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-clippy-813b.json",
+      "bytes": 2157,
+      "sha256": "8f04c27212301b74bf91f7372186ad1cb5dff3abd9100037d3fed7d6822f3750"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-clippy-813b.log",
+      "bytes": 184,
+      "sha256": "07a998889350512da3fd8d8e053a4c5d6c074541d437891abd89db2daa967830"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-fmt-813.json",
+      "bytes": 1951,
+      "sha256": "99d1d57e9365c866d11580a6164046ad2c323c5bc79fdf33876c9e8ab486befb"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-fmt-813.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-input-813.json",
+      "bytes": 244825,
+      "sha256": "41b7ea42950910877b9d3a618c8d9bc90d35f0dfa423eb0aa6f2754822a63736"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-source-813.json.xz",
+      "bytes": 22008,
+      "sha256": "a2570bf3f231b07917fb192240af621a5ab03a6781eab357b2b1bd92b8cde899"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-test-813.json",
+      "bytes": 2218,
+      "sha256": "d0b5bedcc5052b0556dfb1bd117c2989ca17238e30ffe836e709c8cab7fb1143"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-regions-test-813.log",
+      "bytes": 1119,
+      "sha256": "628e4f29cbee60af5b4779dacccaa37cb97e4bbfcd009f5bb6b23c1b216acad1"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-binding-814d.json",
+      "bytes": 498,
+      "sha256": "3666ce26cbcc3c0e31e26da94c65c5cd35d08342c5e6e97a32f6ba69a24753cc"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-binding-814e.json",
+      "bytes": 458,
+      "sha256": "d8d723b224a36cfd3e529ccbad41ac6938b2555a6493e3f079ccb3749913ad6a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-binding-815.json",
+      "bytes": 679,
+      "sha256": "c2307086c60490700af2377a1c91565b2336c0b6ef69a081404a8db10233ae4a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-clippy-814.json",
+      "bytes": 2222,
+      "sha256": "780135f40cf10251c02ae7cb9debab8d4ecdbe8a4c4ccff0e44e0862334fc8b7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-clippy-814.log",
+      "bytes": 1076,
+      "sha256": "1ccadcda000e9c5decdd5c5f1b7f406ab0269e789a8c7a41358b0d4e99efbfa8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-clippy-814b.json",
+      "bytes": 2222,
+      "sha256": "6b4b5c3e1c7b10612b10c1f384e50e819c59826375881b51cec9c2a3e13a1ea6"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-clippy-814b.log",
+      "bytes": 6146,
+      "sha256": "771bf45c8bc079567dcb65c712096c06102921b879773c284fae1ba6dd55d076"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-clippy-814c.json",
+      "bytes": 2222,
+      "sha256": "8678c1c0f2622b5e97a7878e4433a923fdb68346dcee3165a7787f2ae3e71e4d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-clippy-814c.log",
+      "bytes": 1254,
+      "sha256": "d30329f80af786b165e2cd6fc6847cee4122085e0567f8a63577daeb08508782"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-clippy-814d.json",
+      "bytes": 2219,
+      "sha256": "980374be468a07f793b5a8347793b42ab430ce7b17a0befd5bfc4a4003528e28"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-clippy-814d.log",
+      "bytes": 184,
+      "sha256": "25ebc4147908ea3b10d6a1bb517f9d577c9b8d1bcecce72fa7079849120ee94b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-clippy-814f.json",
+      "bytes": 2218,
+      "sha256": "0bd3ebc4aef7dfd2fa1d678590c91af7fb07bfcc3adcefdb99f981ac25b88613"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-clippy-814f.log",
+      "bytes": 184,
+      "sha256": "e3acbfe836ccb87b1cd641d9a981a2f9cbab7be43e7b1ec108ce01704b629a8c"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-fmt-814.json",
+      "bytes": 2014,
+      "sha256": "aab9dc39849a34db95ab9418beeeccb6140562393a13473258d5aa5d54d86cb2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-fmt-814.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-fmt-814c.json",
+      "bytes": 2013,
+      "sha256": "4975d475f434fe0f91650bf44982f0dc5c807b94dc9fcf4e55e31ea4a89b5932"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-fmt-814c.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-fmt-814d.json",
+      "bytes": 2014,
+      "sha256": "8375b1622bf9e2ba783a9378a4943f1e103deb70cdd63d38ecc6983396323e6f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-fmt-814d.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-fmt-814e.json",
+      "bytes": 2014,
+      "sha256": "6eff84672793458d8492b271e7ec14a2f096ecacf821e1b9efba7e9384afd7c7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-fmt-814e.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-fmt-814f.json",
+      "bytes": 2013,
+      "sha256": "a67f415090e92061738dc109e531ba7e94372c003778b81a04118f8ea149f9df"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-fmt-814f.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-input-814.json",
+      "bytes": 244960,
+      "sha256": "657a65802862d94d73ba55ef0e79afcf479cfb4d35837a63fc79f193496ab0d9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-input-814c.json",
+      "bytes": 244960,
+      "sha256": "de179c228568236c855a5fb410648fbd86ffdb9ade2fab95b2c6af0c78d200f7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-input-814d.json",
+      "bytes": 244960,
+      "sha256": "631aa1d72d1e87396b4997064e9d47b513e841ecd369998ac3d3a7856e8fbcfd"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-input-814e.json",
+      "bytes": 244960,
+      "sha256": "6e0c39c1a65ed71ad509718bb307749343c9fd61b2e69473c2924d7fb74e9093"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-input-814f.json",
+      "bytes": 244960,
+      "sha256": "46c1e9733331f1505fff7c739ffcbe5a1859b9aee665c6dd5be41ce561b105d2"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-source-814.json.xz",
+      "bytes": 26640,
+      "sha256": "7f9bd814621d3ce06294814620fb69a3352c38928f31a79c7a8d7ae64b17db18"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-source-814c.json.xz",
+      "bytes": 27324,
+      "sha256": "bf70317c355f3aa8f6d581446eb8545bc247cd5a513ef65f04d3262feb6ed460"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-source-814d.json.xz",
+      "bytes": 27384,
+      "sha256": "e9de3fc2cf36075c60eeef50c0280ac1f3c4a292aafaef915630237df401d044"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-source-814e.json.xz",
+      "bytes": 27424,
+      "sha256": "2bb95ea85fe7eb819ed76fa6a7101a22e6451149ab6f35c4dd3cc7ccd5464e05"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-source-814f.json.xz",
+      "bytes": 28088,
+      "sha256": "ef8f1e5c4c0923cc9b370a22e7b1fac03562d465ad18ccdfb97cae697a4df7de"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-stall-814d.sample.txt",
+      "bytes": 85131,
+      "sha256": "9e93aa4311775f2fe64d689fbe61284d12d592a13df18e93822646762142053f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-stall-fixture-814d.json.xz",
+      "bytes": 2968,
+      "sha256": "23e7175637065a31d0b76511dba736a16bfcf90380f17be2a2a4599b3150d856"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-stall-retirement-814d.json",
+      "bytes": 876,
+      "sha256": "54b75a7a7f7048093964ec4f4eb64a9933f1f807f39e50152420bb301db16f72"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-test-814d.json",
+      "bytes": 2452,
+      "sha256": "f3afa600d6f5e13296cb985443eca75b6aadef81ed641493859c6234ddcb140d"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-test-814d.log",
+      "bytes": 735,
+      "sha256": "1c38d2678c5a6c60c27c5ee7c173edfffabc4eb11eb36bc419eeb5a228ba0368"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-test-814e.json",
+      "bytes": 2290,
+      "sha256": "76e6c8528ed446278082e54a176a34897c38f8e8c680c8897b7efd9c10fc0622"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-test-814e.log",
+      "bytes": 1382,
+      "sha256": "c39312835d6bccf834ef3d85854753311f20edd524dd598916bd4639ac39ac38"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-test-815.json",
+      "bytes": 2277,
+      "sha256": "f38e54c7f35255393b13d4ec6d1737e09737cc7aeb9a88011af10b404c47ee98"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/changed-source-writer-test-815.log",
+      "bytes": 3790,
+      "sha256": "c01faef1d0c73a23737cf14fe53d43e6930d186c52bd0bce581f9c613b20a83b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/freeze_changed_source_816.py",
+      "bytes": 1919,
+      "sha256": "be3e0924b7ed8bc617e7c4804e9fca6fafbb93f680d1187350d5bb6c7eb27071"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_changed_source_816.py",
+      "bytes": 4154,
+      "sha256": "dbcbf34e5a02d78358fd4ec2e63cb599daa7363a301b9c2d4a471e78e5b96666"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_changed_source_comparison_816.py",
+      "bytes": 5133,
+      "sha256": "82756d1af6150af73c233f4ab7b253942fd0c3ea03155a17e75026e664ef1740"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_changed_source_lifecycle_815.py",
+      "bytes": 7904,
+      "sha256": "a37385c145cab25d5b23a5adb7ec00c91b5d963ad29a0b1b34d991831296acde"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_guarded.py",
+      "bytes": 4266,
+      "sha256": "69a1c9c559694bdeeec545510705a7146e4798275cf13c01f0c5271905a3908e"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_changed_source_comparison_816.py",
+      "bytes": 16224,
+      "sha256": "45ec996c876593a2582e5fe34813f4baf288e2684861534edac2e061c6c708df"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+      "bytes": 8431,
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/release_validation_guard.py",
+      "bytes": 1675,
+      "sha256": "5e8298a7b8bec17f7f2ebf9e48d1b14bed23660989feb92c5794ea047a2e2f48"
+    }
+  ]
+}

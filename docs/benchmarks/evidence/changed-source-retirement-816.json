@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "record_files": 510,
+  "executables": 6,
+  "retired_bytes": 1124178600,
+  "packet_sha256": "a3f257a567fc218a347d91a93e6d52295894591ea3351e5ab0642313bb70e0d2",
+  "plan_sha256": "8ad5893d2fe3e5f8981c36828a77715bdd47d2a457af885e36ee4af14c3d5d9b",
+  "all_original_members_verified": true,
+  "all_selected_paths_closed_and_removed": true,
+  "no_executable_backup_created": true,
+  "preserved": []
+}
