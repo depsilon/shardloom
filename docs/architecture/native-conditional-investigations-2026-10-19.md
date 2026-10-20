@@ -2,10 +2,10 @@
 
 # Conditional investigation sequence — October 19, 2026
 
-Status: active conditional-first pass; ten finite investigations completed with
-seven rejected mechanisms, two retained mechanisms and one no-signal attribution,
+Status: active conditional-first pass; eleven finite investigations completed with
+eight rejected mechanisms, two retained mechanisms and one no-signal attribution,
 one further investigation has an inconclusive observation and a specific missing
-measurement prerequisite, and ten rows await their first investigation result.
+measurement prerequisite, and nine rows await their first investigation result.
 No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
 rest of the queue, after the PR boundary. Public API/guide work is in
@@ -91,6 +91,7 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | `PERF-07.output_windows` | [Finite two-batch native output window retained](native-output-window-integration-2026-10-19.md). Both frozen cohorts pass the complete-workflow target and all ten cells' controls; full workspace/native, isolated installed Python, Public39, Full43 and modular acceptance pass. | The explicit 4-MiB option admits only the frozen immutable memory scan/single-projection shape. Engine medians do not improve; no CLI transport window or broader producer/publication claim follows. General output-window obligations remain open. |
 | `PERF-09.overlap` | [Attribution remains inconclusive](native-ingest-overlap-attribution-2026-10-20.md). The corrected observer and its bounded-event revision each complete both frozen cohorts with exact values, activation and cleanup, but each fails the mandatory overhead gate. Temporary instrumentation is removed; no scheduling candidate is admitted. | Eligible recoverable-idle attribution is still missing. This is a prerequisite record, not a no-signal result, rejected scheduling mechanism or completed conditional substep. Revisit a materially different measurement mechanism during this pass; do not repeat unchanged cohorts or relax the gate. |
 | `PERF-09.portfolio` | [Reduced numeric profile rejected](native-numeric-portfolio-2026-10-20.md). All 42 workflows/3,234 native files pass exact checks and both cohorts pass every aggregate gate, but one individual write-control regression repeats in both. Experimental sources are restored and the compact packet reconstructs the complete source and decision. | This finite per-column screen does not establish complete ingestion behavior or rule out all costed portfolios. A materially different mechanism needs its own design and protocol; no favorable-column promotion or full-workflow claim follows. |
+| `PERF-09.structural_payload` | [Finite OnPair structural profile rejected](native-structural-payload-2026-10-20.md). All 42 workflows/2,352 original and rewritten native files pass exactness, activation and lifecycle checks. Both cohorts fail the storage and original-write aggregate controls; thirteen individual write regressions repeat. Experimental sources are restored and the compact packet reconstructs the complete source and decision. | The finite original-text screen does not establish full-ingestion behavior or rule out all structural representations. A materially different design needs new evidence; production allocator/untrusted-input admission and full-artifact lifecycle gates remain open. |
 
 These are finite evaluated mechanisms, not closure of entire conditional substeps.
 The phase checklist therefore retains its 58 substeps, including 21 conditional
@@ -100,9 +101,10 @@ the bounded local-width mechanism has completed local acceptance. Exact
 predicate exclusion and private projection regeneration have completed finite
 comparison rejections, and final-tail merge attribution has a completed no-signal
 decision. The finite two-batch output window has completed integrated local
-acceptance. The reduced numeric portfolio has a completed finite rejection.
+acceptance. The reduced numeric portfolio and original-text OnPair profile have
+completed finite rejections.
 `PERF-09.overlap` remains pending an eligible measurement after two
-inconclusive observer implementations. Continue with `PERF-09.structural_payload` while
+inconclusive observer implementations. Continue with `PERF-02.changed_source` while
 carrying that prerequisite forward for review before required breadth resumes.
 
 ## Deferred required work

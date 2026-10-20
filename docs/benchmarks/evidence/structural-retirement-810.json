@@ -1,0 +1,13 @@
+{
+  "free_after": 162300051456,
+  "free_before": 162171482112,
+  "no_executable_or_payload_backup": true,
+  "plan_sha256": "08df897915aecc0e8c9670d7970668c435df8b46206dae341f37d292d5265a42",
+  "replacement_packet_sha256": "9991f1cd88919533ca2f78260db2b93eeb51eec53e8b2f5f75ef0dee46339103",
+  "retired_allocated_bytes": 128380928,
+  "retired_bytes": 127234037,
+  "retired_executables": 1,
+  "retired_files": 337,
+  "retired_result_files": 336,
+  "status": "passed"
+}

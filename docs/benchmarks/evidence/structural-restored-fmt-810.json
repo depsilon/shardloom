@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "command": [
+    "cargo",
+    "fmt",
+    "--all",
+    "--",
+    "--check"
+  ],
+  "cwd": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo",
+  "head": "ec2b27f121ff7e5e8f740c999dca7f433737fbc7",
+  "working_tree": "?? docs/architecture/native-structural-payload-design-2026-10-20.md\n?? docs/benchmarks/evidence/structural-results-810.json\n?? docs/benchmarks/evidence/structural-results-810.json.xz\n",
+  "environment": {
+    "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+  "storage_last_observation": {
+    "output": {
+      "workspace_bytes": 2313396224,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 162172452864,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    },
+    "cargo": {
+      "workspace_bytes": 3371905024,
+      "log_bytes": 0,
+      "max_log_bytes": 201326592,
+      "free_bytes": 162172485632,
+      "reserved_candidate_bytes": 134217728,
+      "reserved_log_bytes": 0
+    }
+  },
+  "timeout_seconds": 1800,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 11024,
+  "output_bytes": 0,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 3.0627360839862376,
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

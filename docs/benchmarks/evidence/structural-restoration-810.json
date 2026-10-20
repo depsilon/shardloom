@@ -1,0 +1,129 @@
+{
+  "base_commit": "ec2b27f121ff7e5e8f740c999dca7f433737fbc7",
+  "check_scope": "Existing required workspace and native checks reused only after all 1903 Rust/Cargo sources match their exact recorded hashes; these are not fresh executions.",
+  "every_rust_cargo_source_equal_to_base_and_prior_checks": true,
+  "packet_sha256": "9991f1cd88919533ca2f78260db2b93eeb51eec53e8b2f5f75ef0dee46339103",
+  "portable_verifier_sha256": "430d744e62e34aeb431d55ee3166a2d53665bfff5c8caee88b9a259d1727b915",
+  "removed_test_sources": [
+    "shardloom-vortex/src/vortex_ingest_structural_intake.rs",
+    "shardloom-vortex/src/vortex_ingest_structural_payload.rs",
+    "shardloom-vortex/src/vortex_ingest_structural_payload_tests.rs",
+    "shardloom-vortex/src/vortex_ingest_structural_screen.rs",
+    "shardloom-vortex/src/vortex_ingest_structural_screen_tests.rs",
+    "shardloom-vortex/src/vortex_ingest_structural_verify.rs"
+  ],
+  "reused_checks": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "ingest-restored-fmt-804",
+      "receipt_sha256": "dc8a8eedf7348d4fb4e8df81fc9aa5ced976eea5c9895602fe883df39e4a8866",
+      "result_groups": 0,
+      "status": "passed",
+      "tests_passed": 0,
+      "zero_test_groups": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "vortex-write,universal-format-io,vortex-local-primitives",
+        "credit_window::tests",
+        "--",
+        "--test-threads=2"
+      ],
+      "log_sha256": "840de07141b99a68d962ceac00c782141514956c2f687c87464d01c710c78727",
+      "name": "ingest-restored-credit-default-804",
+      "receipt_sha256": "382de8d735a3067e01f4bc40ee0b4517ddb64d149126466bfc5dd09cb1dfe1ca",
+      "result_groups": 1,
+      "status": "passed",
+      "tests_passed": 9,
+      "zero_test_groups": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "vortex-write,universal-format-io,vortex-local-primitives,output-window-observation",
+        "credit_window::tests",
+        "--",
+        "--test-threads=2"
+      ],
+      "log_sha256": "e6a92ca046e157d8cb380765a3b5a497ed8934ba80b863a32a82e5e6f7c3bd70",
+      "name": "ingest-restored-credit-observed-804",
+      "receipt_sha256": "a18cc3c07b451dc3eeaab0d7ca36edcb15f45232807c0df810b152eeeefa6c58",
+      "result_groups": 1,
+      "status": "passed",
+      "tests_passed": 9,
+      "zero_test_groups": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log_sha256": "e4372895071e3dd5344eb8e357d2eeeffdc7f0862e95c827354845085df7cebb",
+      "name": "ingest-restored-workspace-clippy-804",
+      "receipt_sha256": "c0ae7eddd77605e80fab62ed1c9775b8ef77eccd8c32286f8d86b7ce300c1fe2",
+      "result_groups": 0,
+      "status": "passed",
+      "tests_passed": 0,
+      "zero_test_groups": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "--test-threads=2"
+      ],
+      "log_sha256": "e6100ecc5980a6eff168e6a14197c22331863d2a7b876e31c5e78b447db05b3c",
+      "name": "ingest-restored-workspace-tests-804",
+      "receipt_sha256": "d85129eae99828042d86db7dd54e34be4ee985ef41e5f205f3c39d4439c6fe92",
+      "result_groups": 107,
+      "status": "passed",
+      "tests_passed": 3235,
+      "zero_test_groups": 8
+    }
+  ],
+  "reused_checks_packet": {
+    "bytes": 222116,
+    "name": "ingest-restored-checks-805.json.xz",
+    "sha256": "12cc134488622ba40f97a4fcd7abba0b15db074cc607568d93231cf68fee8c3b"
+  },
+  "source_count": 1903,
+  "source_identity_sha256": "1949632f22b142ceada150913556d0e3019693e8d7e855ddf82579de92c1fb03",
+  "status": "passed",
+  "structural_profile_retained": false
+}
