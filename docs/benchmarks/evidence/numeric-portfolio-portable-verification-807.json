@@ -1,0 +1,90 @@
+{
+  "complete_decision_recomputed": true,
+  "current_outcome": "rejected",
+  "exact_threshold_checks_passed": true,
+  "measured_workflows": 36,
+  "members_verified": 323,
+  "native_file_records_verified": 3234,
+  "old_executable_required": false,
+  "original_member_files_required": false,
+  "original_working_tree_changes_required": false,
+  "packet_sha256": "49b5834d666e8899b3d36f75b84466fa7bf428a4682ba260dbf6c02d64762ccf",
+  "physical_artifacts_reopened": false,
+  "preflight_workflows": 6,
+  "production_admitted": false,
+  "setup_checks": [
+    {
+      "name": "numeric-portfolio-clippy-806",
+      "returncode": 101,
+      "status": "failed"
+    },
+    {
+      "name": "numeric-portfolio-clippy-806b",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "numeric-portfolio-fmt-805",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "numeric-portfolio-fmt-806",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "numeric-portfolio-fmt-806b",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "numeric-portfolio-fmt-806c",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "numeric-portfolio-fmt-check-806",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "numeric-portfolio-oracle-806",
+      "returncode": 0,
+      "status": "passed"
+    },
+    {
+      "name": "numeric-portfolio-tests-805",
+      "returncode": 101,
+      "status": "failed"
+    },
+    {
+      "name": "numeric-portfolio-tests-806",
+      "returncode": 101,
+      "status": "failed"
+    },
+    {
+      "name": "numeric-portfolio-tests-806b",
+      "returncode": 101,
+      "status": "failed"
+    },
+    {
+      "name": "numeric-portfolio-tests-806c",
+      "returncode": 101,
+      "status": "failed"
+    },
+    {
+      "name": "numeric-portfolio-tests-806d",
+      "returncode": 0,
+      "status": "passed"
+    }
+  ],
+  "source_reconstruction": {
+    "changed_tracked": 4,
+    "extra": 5,
+    "total": 1908,
+    "unchanged_git_blobs": 1899
+  },
+  "source_values_compared_during_original_runs": 105971712,
+  "status": "passed"
+}
