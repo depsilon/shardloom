@@ -7,7 +7,8 @@ ten rejected mechanisms, two unretained mechanisms, two retained mechanisms and
 one no-signal attribution,
 one further investigation has an inconclusive observation and a specific missing
 measurement prerequisite, four have source-reviewed missing-prerequisite records,
-and one row awaits its first investigation result.
+and native exchange has a scoped protocol/provider review with its transport
+experiment still unexecuted.
 No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
 rest of the queue, after the PR boundary. Public API/guide work is in
@@ -102,6 +103,7 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | `PERF-09.design` | [Prerequisite reviewed after row 16](native-region-dependent-prerequisites-2026-10-20.md): the rejected request-deferral mechanism supplies no accepted runtime geometry/pruning/reduction/merge cost basis for joint preparation. | Runtime region acceptance precedes the varied preparation controls. No writer change or joint-cost comparison is admitted; the substep stays open. |
 | `PERF-12.topology` | [Prerequisite reviewed after row 16](native-region-dependent-prerequisites-2026-10-20.md): no newly admitted topology replaces the rejected grouping/coalescing or request-deferral attempts. | No unchanged 129-call rerun. A materially different admitted mechanism precedes the preserved immutable-input comparison; the substep stays open. |
 | `PERF-13.pgo` | [Current dispatch attribution is missing](native-pgo-prerequisite-decision-2026-10-20.md). All 36 historical Q3/Q23/Q29 raw counter records and twelve median cells are verified; absolute counts exist but cover whole old processes. Both required orchestration regressions pass. | New training is not admitted from these records. Current attributed cost, representative/held-out training, complete workflow/package and break-even gates remain. The historical tested-profile rejection stands; the conditional substep stays open. |
+| `NATIVE-ENCODED-EXCHANGE.experiment` | [Scoped protocol/provider review recorded](native-encoded-exchange-protocol.md). The two local foundation selectors and scope check pass. An isolated 161-package Flight/TLS graph passes policy checks after the first TLS pin is rejected on four advisories; both results are retained. Concrete transport and client test targets are registered. | No transport or comparison has executed. Freeze the extension schema, independent fixtures, encoder controls and numerical/resource gates, then implement and run the registered two-process tests. Local transfer and dependency checks do not close the experiment or any protocol/ownership/client substep. |
 
 These are finite evaluated mechanisms, not closure of entire conditional substeps.
 The phase checklist therefore retains its 58 substeps, including 21 conditional
@@ -124,7 +126,9 @@ preserved in replayable evidence.
 inconclusive observer implementations. The three region-dependent rows have
 been revisited against row 16's negative result, and PGO has an evidenced current
 attribution gap. These four prerequisite records complete neither an experiment
-nor a substep. Continue with native encoded exchange and revisit the outstanding
+nor a substep. Native exchange now has its scoped design/provider prerequisite
+record, with actual transport, matched comparisons and client evidence still
+pending. Continue those registered prerequisites and revisit the outstanding
 measurement prerequisites before required breadth resumes.
 
 ## Deferred required work

@@ -294,3 +294,14 @@ python3 scripts/check_v1_inclusion_scope.py --output "$SHARDLOOM_ROADMAP_EVIDENC
 ```
 
 Deliver `native-encoded-exchange-protocol.md` and `native-encoded-exchange-acceptance.json` with pinned provider/license/security decisions, negotiated representation/identity rules, queue/receiver/dictionary grants and deterministic unsupported boundaries. No current two-process transport or independent Flight SQL client test exists. The protocol slice must register the concrete test targets, exact commands and `native-encoded-exchange-two-process.json` / `native-encoded-exchange-client-interop.json` outputs before admitting the implementation experiment. Keep experiment/client substeps unchecked until those tests execute real downstream native operations and prove malformed input, isolation, cancellation/truncation/reconnect, lifetime and complete matched-control results. Local transfer success is not transport acceptance.
+
+The [October 20 protocol prerequisite](native-encoded-exchange-protocol.md)
+registers those prospective targets and exact commands. Its
+[acceptance record](../benchmarks/evidence/native-exchange-prerequisites-2026-10-20/native-encoded-exchange-acceptance.json)
+binds the two passing local foundation selectors, scope check, reviewed candidate
+dependency graph and preserved rejected TLS pin. Its portable replay does not
+execute a transport:
+
+```sh
+python3 docs/benchmarks/evidence/native-exchange-prerequisites-2026-10-20/verify_native_exchange_833.py --repository . --acceptance docs/benchmarks/evidence/native-exchange-prerequisites-2026-10-20/native-encoded-exchange-acceptance.json
+```

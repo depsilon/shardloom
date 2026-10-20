@@ -17,6 +17,27 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Native exchange scoped protocol/provider prerequisite review` — record
+  the [finite transport contract](native-encoded-exchange-protocol.md) and its
+  replayable source, dependency and local-foundation evidence. No runtime,
+  experiment, client, protocol/ownership substep or broad owner is closed.
+  - Define explicit native selection, exact pinned representation/identity,
+    mandatory mutual TLS and per-request authorization, bounded receiving and
+    queue ownership, clean completion, cancellation, truncation and replay
+    refusal. Register actual two-process and ordinary Flight SQL client test
+    targets and their evidence outputs before implementation.
+  - Resolve an isolated 161-package candidate graph. Preserve the failed
+    Rustls 0.23.45 intake with four advisories; the 0.23.46 graph passes advisory,
+    license, source and bans policy with the existing `paste` warning retained.
+    No new policy exception or workspace dependency is added. This graph is
+    source-reviewed, not compiled or integrated.
+  - Both focused local foundation tests pass with positive discovery counts;
+    the inclusion-scope check passes. Replay verifies all 3,027 compiled-source
+    bindings and 160 registry-package identities, with the original native
+    build linked explicitly. These are local ownership and prerequisite checks,
+    not transport, client interoperability or performance acceptance. Required
+    breadth has not resumed.
+
 - [x] `Conditional rows 17–20 prerequisite review` — record the
   [three region-dependent gaps](native-region-dependent-prerequisites-2026-10-20.md)
   after row 16's rejection and the
