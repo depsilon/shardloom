@@ -1,0 +1,177 @@
+{
+  "schema_version": "shardloom.conditional_checkpoint.v1",
+  "status": "passed",
+  "base_commit": "ac08d39198cfe3922e0f5f560376edbb0e8517f8",
+  "unchanged_tree_from_completed_eight": "f95490279ce06a91b27d0dc44a3b9ecf41b1d0d6",
+  "accepted_source_count": 2217,
+  "changes_since_original_acceptance": [
+    "Cargo.lock",
+    "python/THIRD_PARTY_LICENSES/manifest.json",
+    "python/tests/test_release_scripts.py",
+    "scripts/check_pre_5j_dependency_freshness.py"
+  ],
+  "source_changes_after_fresh_native_gates": [
+    "python/tests/test_release_scripts.py",
+    "scripts/check_pre_5j_dependency_freshness.py"
+  ],
+  "retained_runtime_matches_original_acceptance": true,
+  "current_source": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-final-source-784.json",
+    "bytes": 284248,
+    "sha256": "606d6439c4e849c183af4407226625ec4d4769f146dd9aab0d6d055dcc6c89da"
+  },
+  "native_gate_source": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-source-freeze-783.json",
+    "bytes": 282011,
+    "sha256": "4873c5582a2181e6680e36eceb4e1ab541841c88f9b89ac33545d21704d848eb"
+  },
+  "native_gate_completion": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-sequence-completion-783.json",
+    "bytes": 5053,
+    "sha256": "639d79e275644a592136939bf39a15be24ec1c9dce1afb906d2861216fb7da64"
+  },
+  "native_gate_receipts": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-license-783.json",
+      "bytes": 3433,
+      "sha256": "b1952316e156e16009026a217bb6d7303fba2f2b724b4d22fe126b0a54cbbd96"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-license-tests-783.json",
+      "bytes": 3455,
+      "sha256": "8ebd3077ce52e03311ddc5e720e9c1af691c0b13066d06c3d015d0f2c2f2cfe9"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-format-783.json",
+      "bytes": 4591,
+      "sha256": "8b93953d88937060986b793a6ef0937ad2cd7a0adcadc3f3869ae2839045b8e7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-workspace-lint-783.json",
+      "bytes": 11514,
+      "sha256": "9a03d5520ae229f6cb102074941e1e8dc9650767f7f734c235d29b32696bc4dd"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-workspace-tests-783.json",
+      "bytes": 24220,
+      "sha256": "a81b2bb6c76d566f7d3564a44874cc53dd2a22d8576385ccfba955f4336a4fe5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-native-lint-783.json",
+      "bytes": 22723,
+      "sha256": "59b3ce61b82b3f6e1941b5e35f85e97ae78746b2e5c9b0ddfd3dfa080469470f"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-native-tests-783.json",
+      "bytes": 867956,
+      "sha256": "0c62e3c99b857d050569900f4603aecf05394f40a69e294783fc8ae98a89ba29"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-native-cli-tests-783.json",
+      "bytes": 31299,
+      "sha256": "4bb0df5d34da1fd59233dd6343844473204ca33b95ff6d7957fe412672e488f8"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-user-surface-reference-783.json",
+      "bytes": 3499,
+      "sha256": "3faf89f3e45df2fb391c8b779cbc9706f9a13b312d60768a4ea29747a131fc6a"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-golden-workflows-783.json",
+      "bytes": 4666,
+      "sha256": "dab2e865926f97f55a4cf1da9e74f0e8f8118b335a9d496de503545724f469b7"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-public-status-783.json",
+      "bytes": 3493,
+      "sha256": "9c0446dae2d47dc257325432af66bc642e2ff1c8c309e5483bf5a11327ee1b52"
+    }
+  ],
+  "test_counts": {
+    "workspace-tests": {
+      "targets": 107,
+      "passed": 3235,
+      "failed": 0,
+      "ignored": 0
+    },
+    "native-tests": {
+      "targets": 1,
+      "passed": 3030,
+      "failed": 0,
+      "ignored": 30
+    },
+    "native-cli-tests": {
+      "targets": 6,
+      "passed": 1087,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "python_release_tests": {
+    "command": "python scripts/run_python_test_shard.py --shard release_scripts",
+    "elapsed_seconds": 2.879,
+    "error_count": 0,
+    "external_engine_invoked": false,
+    "failure_count": 0,
+    "fallback_attempted": false,
+    "module_count": 1,
+    "modules": [
+      "python.tests.test_release_scripts"
+    ],
+    "schema_version": "shardloom.python_test_shard_evidence.v1",
+    "shard_id": "release_scripts",
+    "skipped_count": 0,
+    "status": "passed",
+    "test_count": 168
+  },
+  "installed_binding_tests": 105,
+  "installed_context_tests": 19,
+  "clean_install_and_uninstall_verified": true,
+  "dependency_provenance": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-dependency-provenance-784.json",
+    "bytes": 2937,
+    "sha256": "d10eaf9ae1feb7889f47a36ba5a2dde38bed58f95fc121e02c2e40468c4a0ac3"
+  },
+  "build": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-build-784.json",
+    "bytes": 3949,
+    "sha256": "b29e5e943902d21e360a3544e79b71fd0fdedb43f9efd999af96206b111d56d6"
+  },
+  "omitted_built_artifacts": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/checkpoint-784/shardloom",
+      "bytes": 76286848,
+      "sha256": "69ba6b4c0d6a74834cb03a82ec029303c37999997fff3fdf5c4baeb7eb352fee"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/artifacts/checkpoint-784/_native.abi3.so",
+      "bytes": 76121952,
+      "sha256": "f4601622c937b05060543ddd4a7ddb1f24c904476f0f11d5c32a8492f39d043b"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/checkpoint-installed-python-784/dist/shardloom-0.6.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "bytes": 49729385,
+      "sha256": "662ab48ffbd077332b40763a4d89cab243fe12b51e6fb3fc91526bcc0e9da3cb"
+    }
+  ],
+  "benchmark_scope": "Earlier compact-index, Public39, Full43 and modular records retain their original compiled dependency graph. No benchmark was rerun or relabeled for this patch intake.",
+  "performance_claim": false,
+  "package_publication_attempted": false,
+  "member_count": 109,
+  "archive": {
+    "file": "conditional-checkpoint-2026-10-19.tar.xz",
+    "bytes": 539560,
+    "sha256": "f68bc53968fa61fb60e0e37b0620720c52efd8596d20eb69c9f76de5fe261fd9"
+  },
+  "manifest": {
+    "file": "conditional-checkpoint-2026-10-19.manifest.json.xz",
+    "bytes": 6260,
+    "sha256": "978527ed228a8776fb8073acff0b4b935dcbc097565702c7d0686991641c1950"
+  },
+  "all_members_and_originals_reopened": true,
+  "generator": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_checkpoint_784.py",
+    "bytes": 9827,
+    "sha256": "52d6f13a7d3b2109006d797644a9e4b56eb592c8639fe535accee18d61932f7a"
+  }
+}

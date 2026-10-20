@@ -15,6 +15,10 @@ merged after their checks, under the maintainer's subsequent merge instruction.
 Hosted failures remain part of PR ownership. No release or version bump is
 authorized by the sequencing decision.
 
+The [completed-eight checkpoint](native-conditional-checkpoint-2026-10-19.md)
+records the integration boundary and reviewed dependency patch intake separately
+from each investigation's original measurements.
+
 The [phase plan](phased-execution-plan.md) remains the execution authority. This
 table orders its existing IDs; it adds no phase, owner or obligation. There are
 14 broad owners and 58 substeps: 37 required and 21 conditional. All CG-1 through
