@@ -17,6 +17,30 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-03.regions finite projection-request deferral` — reject the
+  [provider candidate before timing](native-region-projection-decision-2026-10-20.md).
+  Only one of four sparse targets passes the frozen actual-read gate. All 32
+  intake calls, 64 comparison calls and 32 ordered-value calls pass exactness
+  and ownership checks. The planned timing cohorts are not run.
+  - Copied executable names were outside the guard's recognized naming rule;
+    serial orchestration and owned drain do not prove exclusive-workload
+    isolation. This limits attribution and precludes a positive admission claim.
+    Frozen records, failed setup attempts and all source versions are preserved.
+  - Restore provider/runtime bytes and remove four temporary Rust modules.
+    A fresh native suite exposes a test-fixture filename collision before
+    execution. Retain its failure and fix the test-only fixture with a process
+    sequence plus fixed-timestamp regression. Formatting, strict workspace/native
+    Clippy, 3,235 workspace tests and 3,042 native tests pass; 30 existing native
+    manual/opt-in ignores remain. Suites overlap. Public binaries are unchanged,
+    with the one test-only source difference recorded explicitly.
+  - Portable comparison and restoration replay verify all captured results,
+    source/compiler bindings and 477 scoped retirements, including eight
+    temporary native inputs and two comparison binaries. No fresh public package
+    or Full43 claim is made. Fifteen finite decisions are complete: ten rejected,
+    two unretained, two retained and one no-signal. Five first decisions and the
+    inconclusive overlap measurement remain before required breadth; broader
+    region/topology owners and all 58 substeps/CG-1 through CG-23 keep their gates.
+
 - [x] `PERF-10.learned_indexes finite weighted-search experiment` — do not retain
   the [bounded predictor](native-learned-index-decision-2026-10-20.md). Both large
   targets improve engine time by the required 2% in both cohorts, but few-draw

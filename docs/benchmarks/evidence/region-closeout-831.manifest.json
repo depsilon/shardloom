@@ -1,0 +1,243 @@
+{
+  "all_checks_replayed": true,
+  "comparison_calls": 64,
+  "eligible_for_timings": false,
+  "intake_calls": 32,
+  "members": {
+    "multiway-restored-public-build-823.json": {
+      "bytes": 4305,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-public-build-823.json",
+      "sha256": "427692cdf87edb660ad0dcedb1377849bd892c36f9f78a0e296c3aabfe7f1803"
+    },
+    "multiway-restored-source-823.json": {
+      "bytes": 384844,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/multiway-restored-source-823.json",
+      "sha256": "7d7152c52d30792840ba30fb918e2dc29af6e10f694a9c1b5e0051cfc4795ccd"
+    },
+    "package_region_closeout_831.py": {
+      "bytes": 14668,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_region_closeout_831.py",
+      "sha256": "e98d5655e28958c99282b55fff7d0eb81b61c5c4ec6a073d86cfdbad362e07b5"
+    },
+    "package_region_projection_831.py": {
+      "bytes": 23719,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_region_projection_831.py",
+      "sha256": "ab0a8c1a1c5cd2e0e6caea4fbf2d15f267cac9abefaa0ae64af4f8bcf6730654"
+    },
+    "region-projection-package-831-a1.json": {
+      "bytes": 5257,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-package-831-a1.json",
+      "sha256": "76bacad3c8a4529eab6660ebd178430eafa2ff7b3c858a144bc2469708ec6715"
+    },
+    "region-projection-package-831-a1.log": {
+      "bytes": 2176,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-package-831-a1.log",
+      "sha256": "46079c0a0fca3025d1124a40f4e2d71b45154441cedc21dc0059e46cebc85d34"
+    },
+    "region-projection-retire-831-a1.json": {
+      "bytes": 6807,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-retire-831-a1.json",
+      "sha256": "f9396b4c2b1e8a48f39789c31ccc458e538c30146db74ce0e8214907fef85f45"
+    },
+    "region-projection-retire-831-a1.log": {
+      "bytes": 142,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-projection-retire-831-a1.log",
+      "sha256": "718eeb7cc92925874417c58a6124114ea565f987633c9d30417c9744684108b8"
+    },
+    "region-restoration-831-failed-native-qualified.json": {
+      "bytes": 2689,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restoration-831-failed-native-qualified.json",
+      "sha256": "9fc35378a796057336e84b775c95d42f039368c682315dd39c475839a7178477"
+    },
+    "region-restoration-831-source.json": {
+      "bytes": 969780,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restoration-831-source.json",
+      "sha256": "6124943740a08f95291d4aa9acd11c3307c4c8ad38f1c556d4c01488f34b8f46"
+    },
+    "region-restoration-831b-source.json": {
+      "bytes": 972554,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restoration-831b-source.json",
+      "sha256": "5261fe666eba3250657fd8a0efce8903a3eee2809fdb2852fd281f080e50c304"
+    },
+    "region-restoration-831b-verified.json": {
+      "bytes": 6898,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restoration-831b-verified.json",
+      "sha256": "62bf78181180accaf9fc75f2568d234a61e00c513aec675f2c497c5ecdbf2912"
+    },
+    "region-restored-fmt-831.json": {
+      "bytes": 3673,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-fmt-831.json",
+      "sha256": "48d66f14e07a601601a0b2254fdac805c1b87d24bad77d17ae7d821a9fa6c48d"
+    },
+    "region-restored-fmt-831.log": {
+      "bytes": 0,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-fmt-831.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "region-restored-fmt-831b.json": {
+      "bytes": 3731,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-fmt-831b.json",
+      "sha256": "2b7b97597956f013ed882c1b282dd88c936457742a55e5caafe74cf0282f9fae"
+    },
+    "region-restored-fmt-831b.log": {
+      "bytes": 0,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-fmt-831b.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "region-restored-native-clippy-831.json": {
+      "bytes": 11159,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-native-clippy-831.json",
+      "sha256": "3ab14a9be1c0a714bb8a41c5cb83b5a2382cfbb92bcef138ec008a86525ae7b1"
+    },
+    "region-restored-native-clippy-831.log": {
+      "bytes": 458,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-native-clippy-831.log",
+      "sha256": "3b382fed4b601ebfba42782ab4bbd3520816d7d63a09fd2ab515b76e34886142"
+    },
+    "region-restored-native-clippy-831b.json": {
+      "bytes": 9285,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-native-clippy-831b.json",
+      "sha256": "2ad8b993c181277380aaec95e84d91a48bb23c5a5ee8436100fa0f53bc38e616"
+    },
+    "region-restored-native-clippy-831b.log": {
+      "bytes": 184,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-native-clippy-831b.log",
+      "sha256": "9de57511d18b13cfbcfbeabb3d5f7618224c987376f23bd6bb1869844817f0c1"
+    },
+    "region-restored-native-tests-831.json": {
+      "bytes": 154140,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-native-tests-831.json",
+      "sha256": "fc9947b2dd94f225a4ace0c087c70e4e6816d66c75bcab04f42ec6904868123c"
+    },
+    "region-restored-native-tests-831.log": {
+      "bytes": 692076,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-native-tests-831.log",
+      "sha256": "081ff02850bd7e884c250d9843259b2262b7cdc4fb635501ba8bb326d540bc20"
+    },
+    "region-restored-native-tests-831b.json": {
+      "bytes": 149114,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-native-tests-831b.json",
+      "sha256": "a9dff858318bf3952a56210a24215d48095e002d5ace1101f9b8225b3552a5c1"
+    },
+    "region-restored-native-tests-831b.log": {
+      "bytes": 691221,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-native-tests-831b.log",
+      "sha256": "c4767d96b2c5b935ecf3fc2faad67f9e6e137f1d67bd6d14b08ce523d806ae41"
+    },
+    "region-restored-public-bridge-831.json": {
+      "bytes": 1287,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-public-bridge-831.json",
+      "sha256": "e19ba23cfa6554af50a018c7517fd3191376a589b1ac382dff5b68a110e1a698"
+    },
+    "region-restored-public-bridge-831b.json": {
+      "bytes": 2498,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-public-bridge-831b.json",
+      "sha256": "7de9523cf76a3d645c5c39d51d693a3ea6e0c04a71d9161f5c9615e57a890ab8"
+    },
+    "region-restored-workspace-clippy-831.json": {
+      "bytes": 6339,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-workspace-clippy-831.json",
+      "sha256": "7190a397e8a37f24c55974e0fcbb26fd5f5d260d73ebcba17c19cc2951c6b0bf"
+    },
+    "region-restored-workspace-clippy-831.log": {
+      "bytes": 439,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-workspace-clippy-831.log",
+      "sha256": "c567f70160fa1efcbd624b5b38d80bf23c05fb3098f6027c9ed972440e37fb10"
+    },
+    "region-restored-workspace-clippy-831b.json": {
+      "bytes": 3170,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-workspace-clippy-831b.json",
+      "sha256": "765f88b570e972b8be0f9ebe5b88a623e75c98899863b05764e161a2780b40ac"
+    },
+    "region-restored-workspace-clippy-831b.log": {
+      "bytes": 60,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-workspace-clippy-831b.log",
+      "sha256": "2634d6bec047c4b96747f1a3f5477692a2fcb9c070b23938b5095ce219b2e697"
+    },
+    "region-restored-workspace-tests-831.json": {
+      "bytes": 14227,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-workspace-tests-831.json",
+      "sha256": "7d84661b2a8cc275d67e3a00ba8cf458960cb468601571df9017235dfda8f658"
+    },
+    "region-restored-workspace-tests-831.log": {
+      "bytes": 462280,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-workspace-tests-831.log",
+      "sha256": "7ed1c39ee5f93dc14dd78ea04b2c406e7308b500ed8dfa6293f966fe3d4e9a0f"
+    },
+    "region-restored-workspace-tests-831b.json": {
+      "bytes": 4243,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-workspace-tests-831b.json",
+      "sha256": "f48229c99eb4d9ada6fa971641bf8076325c61f6086f8f592497a202ac6dec53"
+    },
+    "region-restored-workspace-tests-831b.log": {
+      "bytes": 461900,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-restored-workspace-tests-831b.log",
+      "sha256": "ef605dabc3fbc417963fae69cddf4d299932389b78cbc1a6221ea3d0d3550a3e"
+    },
+    "region-retirement-831-plan.json": {
+      "bytes": 257305,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-retirement-831-plan.json",
+      "sha256": "b038213eeec3f008db893a0f26107189729ea39aa9ea17593d6a4897a60f190e"
+    },
+    "region-retirement-831.json": {
+      "bytes": 259658,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-retirement-831.json",
+      "sha256": "33ad30e8c8496659f788a2528079f189d016d9ed7827262f03ef1bc323f084c9"
+    },
+    "retire_region_projection_831.py": {
+      "bytes": 5808,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/retire_region_projection_831.py",
+      "sha256": "baa26ba8d039e4eaeb7ffd36762a75359e8d9f9060f81e83c2689181618794f6"
+    },
+    "run_region_restoration_831.py": {
+      "bytes": 5261,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_region_restoration_831.py",
+      "sha256": "d320731caab082b26c084a597f2d1e20f606a0440eab36f416161bffa8e925f1"
+    },
+    "run_region_restoration_831b.py": {
+      "bytes": 5852,
+      "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/run_region_restoration_831b.py",
+      "sha256": "cd5f575ac4dbf210c5bcbea7e8fd3b0de182281477618fdf9b959bf49a3929c5"
+    },
+    "source/test_fixture.rs": {
+      "bytes": 12191,
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitive_numeric_partition_native_tests.rs",
+      "sha256": "a6f0655888a5ff89834c4e8ba57d7b02ea33dc36e4101c354d6605b5b3ff9f35"
+    },
+    "source/test_module_container.rs": {
+      "bytes": 2879511,
+      "path": "/Users/dylan/.codex/worktrees/public-docs-api/shardloom-local-repo/shardloom-vortex/src/local_primitives.rs",
+      "sha256": "8e420f269af1ead22c8d5a68b65c5caddb96ab1b0f5ff7feb18772ffd0f5ade1"
+    }
+  },
+  "original_native_failure_preserved": true,
+  "packager": {
+    "bytes": 14668,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/package_region_closeout_831.py",
+    "sha256": "e98d5655e28958c99282b55fff7d0eb81b61c5c4ec6a073d86cfdbad362e07b5"
+  },
+  "packet": {
+    "bytes": 559100,
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/region-closeout-831.json.xz",
+    "sha256": "1f293cb96ade31d6c4c5b4fbcb38983cf59c1fe29038d12fdf516309ed8a0c26"
+  },
+  "public_source_bridge_unchanged_files": 2221,
+  "restoration_gates": 5,
+  "retired_bytes": 242507137,
+  "retired_files": 477,
+  "runtime_source_files_checked": 3038,
+  "status": "passed",
+  "test_only_fixture_change": "shardloom-vortex/src/local_primitive_numeric_partition_native_tests.rs",
+  "tests": {
+    "native-tests": {
+      "failed": 0,
+      "ignored": 30,
+      "passed": 3042
+    },
+    "workspace-tests": {
+      "failed": 0,
+      "ignored": 0,
+      "passed": 3235
+    }
+  }
+}

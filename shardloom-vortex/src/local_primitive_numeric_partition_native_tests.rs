@@ -13,7 +13,11 @@ use crate::{
     resident_session::ResidentVortexSession,
 };
 use shardloom_core::{ColumnRef, DatasetUri};
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::PathBuf,
+    sync::atomic::{AtomicU64, Ordering},
+};
 use vortex::{
     VortexSessionDefault as _,
     array::{
@@ -42,13 +46,20 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
-        let path = std::env::temp_dir().join(format!(
-            "shardloom-numeric-partition-{}-{}.vortex",
-            std::process::id(),
+        Self::new_at_timestamp(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+        )
+    }
+
+    fn new_at_timestamp(timestamp: u128) -> Self {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-numeric-partition-{}-{timestamp}-{}.vortex",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         let runtime = SingleThreadRuntime::default();
         let session = VortexSession::default().with_handle(runtime.handle());
@@ -214,6 +225,21 @@ fn policy(parallelism: usize) -> VortexLocalPrimitiveExecutionPolicy {
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap();
     policy.resource_envelope.memory_budget_bytes = BUDGET;
     policy
+}
+
+#[test]
+fn native_numeric_partition_fixtures_with_equal_timestamps_are_independent() {
+    let first = Fixture::new_at_timestamp(0);
+    let second = Fixture::new_at_timestamp(0);
+    assert_ne!(first.path, second.path);
+    assert_eq!(first.expected, second.expected);
+    let first_path = first.path.clone();
+    let second_path = second.path.clone();
+    drop(first);
+    assert!(!first_path.exists());
+    assert!(second_path.exists());
+    drop(second);
+    assert!(!second_path.exists());
 }
 
 #[test]

@@ -2,11 +2,11 @@
 
 # Conditional investigation sequence — October 19, 2026
 
-Status: active conditional-first pass; fourteen finite investigations completed with
-nine rejected mechanisms, two unretained mechanisms, two retained mechanisms and
+Status: active conditional-first pass; fifteen finite investigations completed with
+ten rejected mechanisms, two unretained mechanisms, two retained mechanisms and
 one no-signal attribution,
 one further investigation has an inconclusive observation and a specific missing
-measurement prerequisite, and six rows await their first investigation result.
+measurement prerequisite, and five rows await their first investigation result.
 No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
 rest of the queue, after the PR boundary. Public API/guide work is in
@@ -96,6 +96,7 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | `PERF-02.changed_source` | [Unconditional whole-file refresh adapter rejected](native-changed-source-reuse-2026-10-20.md). All 84 workflows pass exactness, activation and cleanup. Both cohorts fail all six initial-preparation controls, all three complete-workflow controls and every reuse target's engine control; moderate reuse also misses the complete-workflow target. Experimental code is removed; the ordinary public partition regression remains. | Complete refresh gains do not override controls. Missing host samples and legacy concurrency-guard coverage are explicit; no positive admission or CPU-isolation claim follows. A different admission/reuse mechanism requires a new protocol. General partial regions and generation-conditional publication remain separate. |
 | `PERF-10.multiway_joins` | [Three-input constraint probe not retained](native-multiway-join-2026-10-20.md). Prototype and initial integration pass both cohorts; final public-projection integration misses the one-call star control in A while B passes. All 2,080 queries and 16,160,040 ordered rows pass exact checks. Production is restored, ordinary join regressions remain and fresh workspace/native/installed-Python checks pass. | Both cohorts had to pass. This is not a repeated-regression finding, and positive targets do not override controls. A materially different mechanism needs a new protocol; broader multiway planning stays open. |
 | `PERF-10.learned_indexes` | [Bounded weighted-search predictor not retained](native-learned-index-decision-2026-10-20.md). Both large targets pass both cohorts, but few-draw and tiny engine controls fail in A while B passes. All 544 preflight/comparison calls pass exactness and ownership checks; preflight separately verifies activation. Experimental code is removed and fresh workspace/native checks pass. | Both cohorts had to pass; this does not establish a repeated regression or isolate the control changes' cause. Construction and complete-workflow controls remain binding. Broader learned-index opportunities require a materially different mechanism and new protocol. |
+| `PERF-03.regions` | [Finite projection-request deferral rejected before timing](native-region-projection-decision-2026-10-20.md). Only one of four sparse targets meets the frozen actual-read gate. All 32 intake, 64 comparison and 32 ordered-value calls pass exactness and ownership checks. Experimental code is removed; fresh workspace/native acceptance passes after a test-only fixture collision repair. | Copied-binary naming limited concurrency-guard coverage, so no exclusive-workload or positive causal claim follows. No timing cohort ran. New topology, region-local reduction and dependent preparation/ordered-candidate gates remain unproved; a materially different mechanism needs a new protocol. |
 
 These are finite evaluated mechanisms, not closure of entire conditional substeps.
 The phase checklist therefore retains its 58 substeps, including 21 conditional
@@ -111,8 +112,13 @@ three-input join attempt has a completed not-retained decision with restored
 runtime and fresh regression/package checks. The bounded weighted-search predictor
 also has a completed not-retained decision with exact restoration and fresh
 workspace/native checks.
+The finite projection-request deferral has a completed pre-timing rejection,
+with its guard limitation, exact restoration, fixture correction and fresh checks
+preserved in replayable evidence.
 `PERF-09.overlap` remains pending an eligible measurement after two
-inconclusive observer implementations. Continue with `PERF-03.regions` while
+inconclusive observer implementations. Continue with the region-dependent
+`PERF-10.ordered_candidates`, `PERF-09.design` and `PERF-12.topology` prerequisites,
+then `PERF-13.pgo` and native encoded exchange, while
 carrying that prerequisite forward for review before required breadth resumes.
 
 ## Deferred required work
