@@ -17,6 +17,25 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Conditional rows 17–20 prerequisite review` — record the
+  [three region-dependent gaps](native-region-dependent-prerequisites-2026-10-20.md)
+  after row 16's rejection and the
+  [current PGO attribution gap](native-pgo-prerequisite-decision-2026-10-20.md).
+  This completed review closes no experiment, conditional substep or broad owner.
+  - Current array-fed workers and ordering consumers do not establish the
+    independently admitted region/local-reduction prerequisites. The rejected
+    projection deferral admits no replacement topology or joint preparation
+    basis. No unchanged large topology comparison is run.
+  - PGO raw review confirms absolute instruction/cycle counts in all 36 target
+    historical calls and verifies twelve median cells. Whole-process counters
+    from the earlier source do not isolate current dispatch cost. Both required
+    mocked orchestration regressions pass; compiler/tool version identities are
+    captured without a new training run or compatibility/benefit claim.
+  - Source and raw-counter replay are provided with the acceptance records.
+    Fifteen finite decisions remain complete; four additional rows now have
+    specific prerequisite records, overlap remains inconclusive and native
+    exchange still needs its first result. Required breadth has not resumed.
+
 - [x] `PERF-03.regions finite projection-request deferral` — reject the
   [provider candidate before timing](native-region-projection-decision-2026-10-20.md).
   Only one of four sparse targets passes the frozen actual-read gate. All 32
