@@ -763,6 +763,27 @@ impl VortexRelationalBatchInput<'_, '_> {
             .for_each_arrow_batch_with_input(cancellation, Some(self.input), consume)
     }
 
+    /// Preserve ordinary source demand when an output window was requested.
+    /// Actual batch sources are excluded by the prepared-plan policy.
+    /// # Errors
+    /// Propagates input, policy, consumer, cancellation and resource failures.
+    pub fn for_each_arrow_batch_with_output_window(
+        self,
+        cancellation: &CancellationToken,
+        requested: impl FnOnce() -> bool,
+        initialize: impl FnOnce(Option<super::OutputCreditWindow>) -> Result<()>,
+        consume: impl FnMut(arrow_array::RecordBatch) -> Result<()>,
+    ) -> Result<super::ExecutedVortexArrowRelational> {
+        self.prepared
+            .for_each_arrow_batch_with_input_and_output_window(
+                cancellation,
+                Some(self.input),
+                requested,
+                initialize,
+                consume,
+            )
+    }
+
     /// Deliver independently owned native batches; success requires source end.
     /// # Errors
     /// Propagates input, consumer, cancellation, schema and resource failures.

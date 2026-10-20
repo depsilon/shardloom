@@ -17,6 +17,42 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `PERF-07.output_windows finite native delivery` — retain the explicit
+  two-batch window for the frozen immutable-memory scan/single-projection shape.
+  The [decision and acceptance](native-output-window-integration-2026-10-19.md)
+  and [portable packet](../benchmarks/evidence/output-window-accepted-791.json)
+  preserve all sources, complete results, protocols and failed observations.
+  - Both frozen cohorts pass the complete-workflow target and every control
+    across ten cells. Engine medians do not improve. The unchanged 4-MiB logical
+    window, original memory grant, two slots, FIFO acknowledgment and final
+    completion barrier retain independent native payload lifetime accounting.
+  - Normal native Python and public SQL/DataFrame batch iterators accept the
+    explicit option, defaulting to ordinary demand. Invalid arguments precede
+    source demand; actual-plan admission excludes lazy producers, files and
+    broader operators. Subprocess transport rejects a nonzero request. Diagnostic
+    instrumentation remains opt-in and absent from normal packages.
+  - Formatting, strict workspace/native lint and static surface gates pass.
+    Workspace/native/CLI tests pass 3,235/3,056/1,087 respectively, with 30 native
+    opt-in/manual ignores. Source Python runs 729 tests with 21 optional-class
+    skips; normal release binding passes 68 and diagnostic binding passes 13
+    without skips. Isolated installed Python passes 111 without skips and verifies
+    uninstall. These suites overlap.
+  - Public39 passes all 5,930 cases across 39 families, reopening 8,151 no-fallback
+    envelopes and all 16,389 stored logs. Full43 passes 43 queries once and all
+    381 rows/schemas, with 50.102590495 seconds engine time. All 18 modular cohorts
+    match 704 native workflows to 704 fresh independent oracle workflows.
+  - Independent archive verification reopens 20,059 members plus the embedded
+    original 3,213-member comparison packet, reconstructs four integration source
+    versions and binds all 2,890 accepted files. The source bridge changes only
+    five decision/roadmap documents. Earlier test expectations, a debug-suite
+    interruption and a post-build metadata-binding failure remain preserved with
+    their repairs; no failed run receives acceptance credit.
+  - This is the ninth finite decision: two retained mechanisms, six rejected
+    mechanisms and one no-signal attribution, with 12 first decisions remaining.
+    All 58 substeps and CG-1 through CG-23 retain their gates; broader output,
+    publication, hosted/platform proof and release authorization remain separate.
+    Continue with recoverable idle-time attribution under `PERF-09.overlap`.
+
 - [x] `PERF-06.rematerialization private projection experiment` — reject bounded
   private projection regeneration at the resident sort boundary. The
   [decision](native-rematerialization-2026-10-19.md) and

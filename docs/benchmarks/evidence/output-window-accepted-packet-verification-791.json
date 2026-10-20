@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "archive": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-window-accepted-portable-791/output-window-accepted-791.tar.xz",
+    "bytes": 67119920,
+    "sha256": "d831568d8e6ed50035857637c42634ce68df65db9a4e5b8e639c5da92f80db10"
+  },
+  "manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/output-window-accepted-portable-791/output-window-accepted-791-manifest.json.xz",
+    "bytes": 693588,
+    "sha256": "6dbc1c8a66e985b6b3f91e3c6eb828e0cd21f2cf777947cd8da1cb9bf3b22541"
+  },
+  "member_count": 20059,
+  "embedded_comparison_members": 3213,
+  "integrated_source_versions": {
+    "output-credit-window-integrated-789-a1": 2887,
+    "output-credit-window-integrated-789-a2": 2887,
+    "output-credit-window-integrated-789-a3": 2887,
+    "output-credit-window-integrated-790-a4": 2887
+  },
+  "accepted_source_files": 2890,
+  "frozen_helper_versions_verified": 83,
+  "guard_receipts_verified": 39,
+  "public_compressed_logs_verified": 16389,
+  "all_original_and_archived_bytes_verified": true,
+  "failures_and_interruptions_preserved": true,
+  "all_source_versions_reconstructible_without_checkout": true,
+  "production_accepted": true,
+  "decision": "finite_two_batch_output_window_retained",
+  "cpu_speedup_claim": false,
+  "publication_attempted": false,
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/conditional-investigations-20261019/verify_output_window_packet_791.py",
+    "bytes": 8839,
+    "sha256": "d98d54c08d934fcce0cef90b8d548b8234c0648d2fb2c23abb343dc4033bd606"
+  }
+}

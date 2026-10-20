@@ -138,6 +138,28 @@ cargo test -p shardloom-vortex --features release-user-surfaces --lib corrupt_or
 
 Deliver `perf-07-acceptance.json` with complete write/reopen values, source/result drop and slice lifetime, copy/decode counters, late failure/cancel cleanup, competing-writer and generation-conditional replacement cases. Distinguish single-file visibility/durability from multi-output recovery or group atomicity. Existing new-target publication does not prove replacement.
 
+The [finite two-batch output-window acceptance](native-output-window-integration-2026-10-19.md)
+retains only the explicit native Python option and frozen actual-plan admission.
+Preserve its ledger and opt-in observer selectors:
+
+```sh
+cargo test -p shardloom-vortex --features release-user-surfaces --lib credit_window::tests -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-07-output-credit.log" 2>&1
+cargo test -p shardloom-vortex --features release-user-surfaces,output-window-observation --lib output_window_observation::tests -- --nocapture > "$SHARDLOOM_ROADMAP_EVIDENCE_ROOT/perf-07-output-observation.log" 2>&1
+```
+
+Run `python/tests/test_native_output_window_binding.py` against the normal native
+extension: all six tests must run without skips, including public SQL/DataFrame
+slicing, lazy producer exclusion, actual-plan admission and final-report timing.
+Run all 13 tests in `python/tests/test_native_output_window_observation.py` against
+the separately built diagnostic extension, with no skips. The normal extension
+must lack diagnostic getters. The frozen acceptance also passes 111 isolated
+installed native binding tests without skips and verifies package uninstall.
+See the CI native-wheel gate for artifact selection and strict no-skip execution.
+The [evidence packet](../benchmarks/evidence/output-window-accepted-791.json)
+preserves complete cohort results, both feature builds, final source continuity,
+Public39/Full43/modular checks and failures. This finite result does not satisfy
+generation-conditional publication, general producer overlap or CLI transport.
+
 ## PERF-08
 
 Protect exact nullable text ingestion and conservative payload avoidance:

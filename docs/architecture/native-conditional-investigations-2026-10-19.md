@@ -2,9 +2,9 @@
 
 # Conditional investigation sequence — October 19, 2026
 
-Status: active conditional-first pass; eight finite investigations completed with
-six rejected mechanisms, one retained mechanism and one no-signal attribution,
-13 rows awaiting their first
+Status: active conditional-first pass; nine finite investigations completed with
+six rejected mechanisms, two retained mechanisms and one no-signal attribution,
+12 rows awaiting their first
 completed decision in this pass.
 No broader owner is closed.
 The maintainer requested all 21 remaining conditional investigations before the
@@ -88,6 +88,7 @@ Dependency changes may reorder rows within this pass, never silently remove one.
 | `PERF-10.predicate_exclusion` | [One exact fact per immutable source rejected](native-predicate-exclusion-2026-10-19.md). All three repeated-use targets pass both frozen cohorts, but two single-call controls fail. All 1,828 workflows/4,260 operations and 16 lifecycle tests pass correctness, activation and cleanup; experimental code is archived and removed. | Positive attribution and target gains do not override controls. A materially different mechanism requires a new design and protocol; first-use summaries and broader predicate-exclusion obligations remain open. |
 | `PERF-06.merge_cost` | [No eligible final-tail signal](native-merge-tail-2026-10-19.md). All 236 release workflows pass exact output, source, trace and cleanup checks. The 84 observed measured spill workflows leave one or two final runs, so estimated adjacent-order savings are zero. No candidate is implemented; temporary observer code is archived and removed. | This frozen workload does not establish general merge optimality. A new final-tail protocol must first establish an actual choice among at least three remaining runs and material tail work. Broader merge-cost and pressure obligations remain open. |
 | `PERF-06.rematerialization` | [Private projection regeneration rejected](native-rematerialization-2026-10-19.md). All 357 release workflows pass exact semantics, source, activation and ownership checks. All four memory targets pass both cohorts, but wide-dependency/all-null controls fail in both and the one-output control fails in A. Candidate code is archived and removed. | Target memory savings do not override throughput controls. A materially different mechanism requires a new design and protocol; broader retention, regeneration, pressure and recovery remain open. |
+| `PERF-07.output_windows` | [Finite two-batch native output window retained](native-output-window-integration-2026-10-19.md). Both frozen cohorts pass the complete-workflow target and all ten cells' controls; full workspace/native, isolated installed Python, Public39, Full43 and modular acceptance pass. | The explicit 4-MiB option admits only the frozen immutable memory scan/single-projection shape. Engine medians do not improve; no CLI transport window or broader producer/publication claim follows. General output-window obligations remain open. |
 
 These are finite evaluated mechanisms, not closure of entire conditional substeps.
 The phase checklist therefore retains its 58 substeps, including 21 conditional
@@ -96,7 +97,9 @@ scopes. The nested identity candidate has a completed preflight rejection, and
 the bounded local-width mechanism has completed local acceptance. Exact
 predicate exclusion and private projection regeneration have completed finite
 comparison rejections, and final-tail merge attribution has a completed no-signal
-decision. The next investigation is `PERF-07.output_windows`.
+decision. The finite two-batch output window has completed integrated local
+acceptance. The next investigation is `PERF-09.overlap`, beginning with current
+recoverable idle-time attribution before extending pre-writer overlap.
 
 ## Deferred required work
 

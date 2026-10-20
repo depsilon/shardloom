@@ -253,6 +253,70 @@ impl PreparedNativeOperation {
         }
     }
 
+    /// Select the finite output-window policy through the actual native plan.
+    /// Primitive and effectful input paths keep ordinary consumer demand.
+    /// # Errors
+    /// Propagates native policy, source, resource, input and consumer failures.
+    pub fn for_each_arrow_batch_with_output_window(
+        &self,
+        cancellation: &CancellationToken,
+        input: Option<NativeArrowInput<'_>>,
+        requested: impl FnOnce() -> bool,
+        initialize: impl FnOnce(
+            Option<shardloom_vortex::local_primitives::prepared_relational::OutputCreditWindow>,
+        ) -> Result<()>,
+        consume: impl FnMut(RecordBatch) -> Result<()>,
+    ) -> Result<ExecutedArrowNativeOperation> {
+        match &self.kind {
+            PreparedKind::Relational(operation) => {
+                let completed = if let Some(input) = input {
+                    input
+                        .bind(operation)?
+                        .for_each_arrow_batch_with_output_window(
+                            cancellation,
+                            requested,
+                            initialize,
+                            consume,
+                        )?
+                } else {
+                    operation.for_each_arrow_batch_with_output_window(
+                        cancellation,
+                        requested,
+                        initialize,
+                        consume,
+                    )?
+                };
+                Ok(ExecutedArrowNativeOperation {
+                    execution: self.relational_execution(completed.execution),
+                    export: completed.export,
+                })
+            }
+            PreparedKind::Primitive(operation) => {
+                no_streaming_input(input.is_some())?;
+                if let PrimitiveProvider::Relational(relational) = &operation.provider {
+                    // File-backed primitive declarations can share the native
+                    // relational producer. Initialize their ordinary policy
+                    // inside that producer's existing execution clock.
+                    let completed = relational.for_each_arrow_batch_with_output_window(
+                        cancellation,
+                        || false,
+                        initialize,
+                        consume,
+                    )?;
+                    return Ok(ExecutedArrowNativeOperation {
+                        execution: self.primitive_execution(
+                            operation,
+                            PrimitiveExecution::Relational(Box::new(completed.execution)),
+                        ),
+                        export: completed.export,
+                    });
+                }
+                initialize(None)?;
+                self.for_each_arrow_batch_with_inputs(cancellation, input, consume)
+            }
+        }
+    }
+
     /// Execute and publish through the provider's existing native writer.
     /// # Errors
     /// Propagates validation, provider and publication errors without replay.

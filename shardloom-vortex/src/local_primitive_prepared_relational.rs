@@ -81,6 +81,11 @@ pub use writer::{
 mod arrow;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 pub use arrow::ExecutedVortexArrowRelational;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "local_primitive_relational_credit_window.rs"]
+mod credit_window;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub use credit_window::OutputCreditWindow;
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "local_primitives/native_local_selection_observation.rs"]
 mod selection_observation;
@@ -1000,9 +1005,34 @@ impl PreparedVortexRelational {
         batch_rows: usize,
         file_scan_batching: FileScanBatching,
         input: Option<batch_input::Provider<'_>>,
+        consume: impl FnMut(ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
+    ) -> Result<ExecutedVortexRelational> {
+        self.for_each_batch_with_input_and_initialize(
+            cancellation,
+            batch_rows,
+            file_scan_batching,
+            input,
+            || Ok(()),
+            consume,
+        )
+    }
+
+    /// Policy initialization belongs to the complete native call, before any
+    /// source or output demand. Ordinary callers have no additional policy.
+    fn for_each_batch_with_input_and_initialize(
+        &self,
+        cancellation: &CancellationToken,
+        batch_rows: usize,
+        file_scan_batching: FileScanBatching,
+        input: Option<batch_input::Provider<'_>>,
+        initialize: impl FnOnce() -> Result<()>,
         mut consume: impl FnMut(ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
     ) -> Result<ExecutedVortexRelational> {
+        #[cfg(feature = "output-window-observation")]
+        let mut observed_engine = crate::output_window_observation::engine_scope();
+        cancellation.check()?;
         self.validate_batch_provider(input.is_some())?;
+        initialize()?;
         let mut execution =
             self.session
                 .with_sources_execution(&self.sources, cancellation, |context| {
@@ -1011,10 +1041,22 @@ impl PreparedVortexRelational {
                         batch_rows,
                         file_scan_batching,
                         input,
-                        &mut |array| consume(array, context),
+                        &mut |array| {
+                            #[cfg(feature = "output-window-observation")]
+                            let mut observed_sink =
+                                crate::output_window_observation::sink_scope(array.len());
+                            let result = consume(array, context);
+                            #[cfg(feature = "output-window-observation")]
+                            if result.is_ok() {
+                                observed_sink.complete();
+                            }
+                            result
+                        },
                     )
                 })?;
         execution.runtime = self.snapshot();
+        #[cfg(feature = "output-window-observation")]
+        observed_engine.complete();
         Ok(execution)
     }
 

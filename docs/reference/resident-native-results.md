@@ -142,7 +142,7 @@ and actual preview/production verification.
 The [spill guide](native-query-spill.md) gives current examples and recovery
 boundaries.
 
-`iter_batches(batch_rows=2048, memory_gb=..., max_parallelism=..., spill=...)`
+`iter_batches(batch_rows=2048, memory_gb=..., max_parallelism=..., spill=..., output_window_bytes=0)`
 delivers admitted typed/nested results with acknowledged backpressure. Consume
 inside a `with` block, especially when stopping early. Each batch is provisional
 until the iterator is exhausted and its final `report` is present after source
@@ -153,6 +153,18 @@ Python objects is outside the native grant. Current source
 builds prepare admitted compatibility inputs to Vortex using this transaction's
 cancellation token and native allocation. See the
 [composition contract](../architecture/native-stream-input-composition-2026-10-13.md).
+
+Current source builds accept `output_window_bytes=4194304` on native SQL and
+DataFrame iterators for an explicit two-batch output window. Admission requires
+an actual immutable memory scan or one projection, at most 65,536 rows and
+1–64 Int64 output fields. A composed DataFrame projection can lower to a nested
+plan and remain ineligible. Other plans retain ordinary demand and report
+`columnar_output_window_selected_policy=ordinary_ineligible`; zero keeps ordinary
+demand without requesting the policy. Other values and a nonzero subprocess
+request fail before input demand. Logical acknowledgments never release retained
+payload leases or certify a provisional prefix. See the
+[integration contract](../architecture/native-output-window-integration-2026-10-19.md)
+for source, lifetime and completion boundaries. This is not a package-release claim.
 
 The native `with_batch_inputs` callback receives the source URI and its batch
 ordinal, starting at zero independently for each source. The existing

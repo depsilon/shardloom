@@ -18,6 +18,8 @@ workspace = true
 
 [features]
 default = []
+# Opt-in bounded output-delivery diagnostics; absent from release groups.
+output-window-observation = ["vortex-local-primitives"]
 release-user-surfaces = [
     "universal-format-io",
     "vortex-write",

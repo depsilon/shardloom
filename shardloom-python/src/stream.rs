@@ -3,13 +3,14 @@
 use super::{capsules::observation_dict, native_error, plan::PlanCore, session::failed};
 use arrow_array::{RecordBatch, RecordBatchIterator, ffi_stream::FFI_ArrowArrayStream};
 use pyo3::{
-    exceptions::PyRuntimeError,
+    exceptions::{PyRuntimeError, PyTypeError, PyValueError},
     prelude::*,
-    types::{PyCapsule, PyDict, PyList},
+    types::{PyBool, PyCapsule, PyDict, PyInt, PyList},
 };
 use shardloom_core::{ExecutionResources, Result};
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_runtime::native::ExecutedArrowNativeOperation;
+use shardloom_vortex::local_primitives::prepared_relational::OutputCreditWindow;
 use std::{
     sync::{
         Arc, Mutex,
@@ -21,14 +22,36 @@ use std::{
 };
 
 enum Event {
-    Batch(RecordBatch),
-    Finished(Box<PyResult<(ExecutedArrowNativeOperation, bool)>>),
+    Batch { ordinal: usize, batch: RecordBatch },
+    Finished(Box<PyResult<Completed>>),
+}
+
+struct Completed {
+    operation: ExecutedArrowNativeOperation,
+    reused: bool,
+    output_window_policy: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Demand {
+    Start,
+    Acknowledge(usize),
 }
 
 struct Running {
-    demand: Sender<()>,
+    demand: Sender<Demand>,
     events: Option<Receiver<Event>>,
     worker: Option<JoinHandle<()>>,
+}
+
+#[cfg(feature = "output-window-observation")]
+#[derive(Default)]
+struct StreamObservation {
+    report: Mutex<Option<String>>,
+    // Bounded caller diagnostics, outside native memory accounting just like
+    // Capture. Tests synchronize on actual sends instead of sleeping and
+    // assuming that the native producer has reached a full window.
+    sent_batches: std::sync::atomic::AtomicUsize,
 }
 
 struct State {
@@ -37,8 +60,12 @@ struct State {
     cancellation: CancellationToken,
     timeout: Option<Duration>,
     running: Option<Running>,
-    completed: Option<(ExecutedArrowNativeOperation, bool)>,
+    completed: Option<Completed>,
     closed: bool,
+    next_ordinal: usize,
+    output_window: bool,
+    #[cfg(feature = "output-window-observation")]
+    observation: Arc<StreamObservation>,
 }
 
 #[pyclass(name = "ExecutionStream", module = "shardloom._native", frozen)]
@@ -60,6 +87,7 @@ impl NativeExecutionStream {
         resources: ExecutionResources,
         parent: &CancellationToken,
         timeout: Option<Duration>,
+        output_window: bool,
     ) -> Self {
         let cancellation = CancellationToken::from_shared_flag_with_parent(
             Arc::new(AtomicBool::new(false)),
@@ -74,6 +102,10 @@ impl NativeExecutionStream {
                 running: None,
                 completed: None,
                 closed: false,
+                next_ordinal: 0,
+                output_window,
+                #[cfg(feature = "output-window-observation")]
+                observation: Arc::new(StreamObservation::default()),
             }),
             cancellation,
         }
@@ -81,14 +113,25 @@ impl NativeExecutionStream {
 }
 
 impl State {
+    #[allow(clippy::too_many_lines)] // One worker owns policy, delivery, cancellation and final evidence.
     fn start(&mut self) -> Result<()> {
+        let output_window = self.output_window;
+        #[cfg(feature = "output-window-observation")]
+        let observation_mode = match std::env::var("SHARDLOOM_OUTPUT_WINDOW_OBSERVATION") {
+            Ok(mode) if mode == "clock" => Some(false),
+            Ok(mode) if mode == "trace" => Some(true),
+            Err(std::env::VarError::NotPresent) => None,
+            _ => return Err(failed("output-window observation requires clock or trace")),
+        };
+        #[cfg(feature = "output-window-observation")]
+        let observation = Arc::clone(&self.observation);
         // Declaration is lazy. The deadline starts at the first demand and
         // remains active across subsequent producer and consumer waits.
         self.cancellation =
             super::session::operation_cancellation(self.cancellation.clone(), self.timeout)?;
         let (demand, requested) = mpsc::channel();
-        // At most one converted batch is queued; the producer then waits for
-        // the consumer to acknowledge it by requesting its successor.
+        // Keep one queued event. The optional policy separately bounds all
+        // sent, unacknowledged batches, including the one held by the consumer.
         let (outgoing, events) = mpsc::sync_channel(1);
         let plan = Arc::clone(&self.plan);
         let resources = self.resources;
@@ -96,36 +139,119 @@ impl State {
         let worker = std::thread::Builder::new()
             .name("shardloom-python-stream".into())
             .spawn(move || {
-                let outcome = demand_next(&requested, &cancellation)
+                let outcome = demand_next(&requested, &cancellation, Demand::Start)
                     .map_err(native_error)
                     .and_then(|()| {
                         let controller = plan
                             .controller(resources, &cancellation)
                             .map_err(native_error)?;
                         plan.with_prepared(resources, &cancellation, |operation, reused, input| {
-                            let consume = |batch| {
+                            #[cfg(feature = "output-window-observation")]
+                            let capture = observation_mode.map(|detailed| {
+                                shardloom_vortex::output_window_observation::Capture::begin_window(
+                                    detailed, output_window,
+                                )
+                            }).transpose()?;
+                            let window = std::cell::RefCell::new(None::<OutputCreditWindow>);
+                            let initialize = |admission: Option<OutputCreditWindow>| {
+                                #[cfg(feature = "output-window-observation")]
+                                shardloom_vortex::output_window_observation::window_policy(
+                                    admission.as_ref().map(OutputCreditWindow::expected_rows),
+                                    admission.as_ref().map_or(0, OutputCreditWindow::metadata_bytes),
+                                );
+                                *window.borrow_mut() = admission;
+                                Ok(())
+                            };
+                            let mut ordinal = 0;
+                            let consume = |batch: RecordBatch| {
+                                #[cfg(feature = "output-window-observation")]
+                                shardloom_vortex::output_window_observation::converted(
+                                    batch.num_rows(),
+                                    batch.get_array_memory_size(),
+                                );
+                                if let Some(window) = window.borrow_mut().as_mut()
+                                    && window.enqueue(batch.num_rows(), batch.get_array_memory_size())? != ordinal {
+                                    return Err(failed("output window batch ordinal differs from producer"));
+                                }
                                 controller.with_consumer_wait(|| {
+                                    cancellation.check()?;
                                     outgoing
-                                        .send(Event::Batch(batch))
+                                        .send(Event::Batch { ordinal, batch })
                                         .map_err(|_| failed("columnar consumer closed"))?;
-                                    demand_next(&requested, &cancellation)
-                                })
+                                    #[cfg(feature = "output-window-observation")]
+                                    shardloom_vortex::output_window_observation::sent();
+                                    #[cfg(feature = "output-window-observation")]
+                                    if observation_mode.is_some() {
+                                        observation.sent_batches.store(
+                                            ordinal + 1,
+                                            std::sync::atomic::Ordering::Release,
+                                        );
+                                    }
+                                    if let Some(window) = window.borrow_mut().as_mut() {
+                                        while window.requires_acknowledgment() {
+                                            let expected = window.oldest_ordinal()
+                                                .ok_or_else(|| failed("output window barrier lacks an ordinal"))?;
+                                            demand_next(&requested, &cancellation, Demand::Acknowledge(expected))?;
+                                            window.acknowledge(expected)?;
+                                            #[cfg(feature = "output-window-observation")]
+                                            shardloom_vortex::output_window_observation::acknowledged_ordinal(expected);
+                                        }
+                                    } else {
+                                        demand_next(&requested, &cancellation, Demand::Acknowledge(ordinal))?;
+                                        #[cfg(feature = "output-window-observation")]
+                                        shardloom_vortex::output_window_observation::acknowledged_ordinal(ordinal);
+                                    }
+                                    Ok(())
+                                })?;
+                                ordinal = ordinal.checked_add(1)
+                                    .ok_or_else(|| failed("columnar batch ordinal overflowed"))?;
+                                Ok(())
                             };
                             let executed = if let Some(input) = input {
                                 let mut next = |uri: &shardloom_core::DatasetUri, ordinal| {
                                     input.next(uri, ordinal)
                                 };
-                                operation.for_each_arrow_batch_with_inputs(
+                                operation.for_each_arrow_batch_with_output_window(
                                     &cancellation,
-                                    Some(shardloom_runtime::native::NativeArrowInput::Sources(
-                                        &mut next,
-                                    )),
-                                    consume,
-                                )?
+                                    Some(shardloom_runtime::native::NativeArrowInput::Sources(&mut next)),
+                                    || output_window && plan.output_window_source_allowed(), initialize, consume,
+                                )
                             } else {
-                                operation.for_each_arrow_batch(&cancellation, None, consume)?
+                                operation.for_each_arrow_batch_with_output_window(
+                                    &cancellation, None,
+                                    || output_window && plan.output_window_source_allowed(), initialize, consume,
+                                )
                             };
-                            Ok((executed, reused))
+                            let window_active = window.borrow().is_some();
+                            let executed = {
+                                let executed = executed.and_then(|execution| {
+                                    if let Some(window) = window.borrow().as_ref() { window.finish()?; }
+                                    Ok(execution)
+                                });
+                                drop(window.into_inner());
+                                #[cfg(feature = "output-window-observation")]
+                                shardloom_vortex::output_window_observation::window_released();
+                                executed
+                            };
+                            #[cfg(feature = "output-window-observation")]
+                            if let Some(capture) = capture {
+                                *observation
+                                    .report
+                                    .lock()
+                                    .map_err(|_| failed("output-window observation poisoned"))? =
+                                    Some(capture.finish(executed.is_ok()));
+                            }
+                            Ok(Completed {
+                                operation: executed?,
+                                reused,
+                                output_window_policy: if window_active {
+                                    "two_batch_window"
+                                } else if output_window {
+                                    "ordinary_ineligible"
+                                } else {
+                                    "ordinary_not_requested"
+                                },
+                            })
                         })
                     });
                 // A closed receiver deliberately discards provisional work and
@@ -151,7 +277,11 @@ impl State {
         let running = self.running.as_ref().expect("started native stream");
         // If the worker already failed before first demand, its terminal event
         // remains authoritative even when the command receiver has dropped.
-        let _ = running.demand.send(());
+        let demand = self
+            .next_ordinal
+            .checked_sub(1)
+            .map_or(Demand::Start, Demand::Acknowledge);
+        let _ = running.demand.send(demand);
         loop {
             let outcome = running
                 .events
@@ -159,7 +289,27 @@ impl State {
                 .expect("open event receiver")
                 .recv_timeout(Duration::from_millis(25));
             match outcome {
-                Ok(Event::Batch(batch)) => return Ok(Some(NativeColumnarBatch { batch })),
+                Ok(Event::Batch { ordinal, batch }) => {
+                    let checked = if ordinal != self.next_ordinal {
+                        Err(failed(
+                            "columnar batch ordinal is duplicate or out of order",
+                        ))
+                    } else if self.output_window {
+                        self.cancellation.check()
+                    } else {
+                        Ok(())
+                    };
+                    if let Err(error) = checked {
+                        drop(batch);
+                        let _ = self.stop();
+                        return Err(native_error(error));
+                    }
+                    self.next_ordinal = self
+                        .next_ordinal
+                        .checked_add(1)
+                        .ok_or_else(|| native_error(failed("columnar batch ordinal overflowed")))?;
+                    return Ok(Some(NativeColumnarBatch { batch }));
+                }
                 Ok(Event::Finished(outcome)) => {
                     self.closed = true;
                     self.join().map_err(native_error)?;
@@ -217,21 +367,83 @@ fn check_python_signals() -> PyResult<()> {
     Python::attach(|py| py.check_signals())
 }
 
-fn demand_next(demand: &Receiver<()>, cancellation: &CancellationToken) -> Result<()> {
+fn demand_next(
+    demand: &Receiver<Demand>,
+    cancellation: &CancellationToken,
+    expected: Demand,
+) -> Result<()> {
     loop {
         cancellation.check()?;
         match demand.recv_timeout(Duration::from_millis(5)) {
-            Ok(()) => return cancellation.check(),
+            Ok(actual) if actual == expected => return cancellation.check(),
+            Ok(_) => {
+                return Err(failed(
+                    "columnar acknowledgment is duplicate or out of order",
+                ));
+            }
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return Err(failed("columnar consumer closed")),
         }
     }
 }
 
+pub(super) fn output_window_bytes(value: &Bound<'_, PyAny>) -> PyResult<u64> {
+    if value.is_instance_of::<PyBool>() || !value.is_instance_of::<PyInt>() {
+        return Err(PyTypeError::new_err(
+            "output_window_bytes must be the integer 0 or 4194304",
+        ));
+    }
+    let bytes = value.extract::<u64>().map_err(|_| {
+        PyValueError::new_err("output_window_bytes must be the integer 0 or 4194304")
+    })?;
+    if bytes != 0 && bytes != 4_194_304 {
+        return Err(PyValueError::new_err(
+            "output_window_bytes must be 0 or 4194304",
+        ));
+    }
+    Ok(bytes)
+}
+
 #[pymethods]
 impl NativeExecutionStream {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
+    }
+
+    /// Opt-in delivery diagnostics; never a successful query certificate.
+    #[cfg(feature = "output-window-observation")]
+    #[getter]
+    fn output_window_observation(&self, py: Python<'_>) -> PyResult<Option<String>> {
+        py.detach(|| {
+            let state = self
+                .state
+                .lock()
+                .map_err(|_| failed("native stream state poisoned"))?;
+            let observation = state
+                .observation
+                .report
+                .lock()
+                .map_err(|_| failed("output-window observation poisoned"))?;
+            Ok(observation.clone())
+        })
+        .map_err(native_error)
+    }
+
+    /// Opt-in synchronization evidence, never a completion certificate.
+    #[cfg(feature = "output-window-observation")]
+    #[getter]
+    fn _output_window_sent_batches(&self, py: Python<'_>) -> PyResult<usize> {
+        py.detach(|| {
+            let state = self
+                .state
+                .lock()
+                .map_err(|_| failed("native stream state poisoned"))?;
+            Ok(state
+                .observation
+                .sent_batches
+                .load(std::sync::atomic::Ordering::Acquire))
+        })
+        .map_err(native_error)
     }
 
     fn __next__(&self, py: Python<'_>) -> PyResult<Option<NativeColumnarBatch>> {
@@ -253,11 +465,22 @@ impl NativeExecutionStream {
             state
                 .completed
                 .as_ref()
-                .map(|(completed, reused)| {
+                .map(|completed| {
                     completed
+                        .operation
                         .execution
-                        .fields(*reused)
-                        .map(|fields| (fields, completed.export))
+                        .fields(completed.reused)
+                        .map(|mut fields| {
+                            fields.push((
+                                "columnar_output_window_requested_bytes".into(),
+                                if state.output_window { "4194304" } else { "0" }.into(),
+                            ));
+                            fields.push((
+                                "columnar_output_window_selected_policy".into(),
+                                completed.output_window_policy.into(),
+                            ));
+                            (fields, completed.operation.export)
+                        })
                         .map_err(native_error)
                 })
                 .transpose()

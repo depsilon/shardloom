@@ -73,14 +73,61 @@ impl PreparedVortexRelational {
             input,
             |array, context| delivery.push(array, context),
         )?;
-        let export = delivery.finish(execution.output_rows)?;
-        if export.output_batches != execution.output_batches {
-            return Err(failed(
-                "Arrow delivery changed native execution cardinality",
-            ));
-        }
-        Ok(ExecutedVortexArrowRelational { execution, export })
+        finish_delivery(execution, delivery)
     }
+
+    /// Initialize the finite output-window policy inside native execution.
+    /// Ineligible requests retain ordinary acknowledgment at the consumer.
+    /// # Errors
+    /// Propagates admission, reservation, producer and consumer failures.
+    pub fn for_each_arrow_batch_with_output_window(
+        &self,
+        cancellation: &CancellationToken,
+        requested: impl FnOnce() -> bool,
+        initialize: impl FnOnce(Option<super::OutputCreditWindow>) -> Result<()>,
+        consume: impl FnMut(RecordBatch) -> Result<()>,
+    ) -> Result<ExecutedVortexArrowRelational> {
+        self.for_each_arrow_batch_with_input_and_output_window(
+            cancellation,
+            None,
+            requested,
+            initialize,
+            consume,
+        )
+    }
+
+    pub(super) fn for_each_arrow_batch_with_input_and_output_window(
+        &self,
+        cancellation: &CancellationToken,
+        input: Option<super::batch_input::Provider<'_>>,
+        requested: impl FnOnce() -> bool,
+        initialize: impl FnOnce(Option<super::OutputCreditWindow>) -> Result<()>,
+        consume: impl FnMut(RecordBatch) -> Result<()>,
+    ) -> Result<ExecutedVortexArrowRelational> {
+        let mut delivery = NativeArrowBatchDelivery::new(&self.session, cancellation, consume);
+        let execution = self.for_each_batch_with_input_and_initialize(
+            cancellation,
+            super::BATCH_ROWS,
+            super::FileScanBatching::Output,
+            input,
+            || initialize(self.output_credit_window(requested())?),
+            |array, context| delivery.push(array, context),
+        )?;
+        finish_delivery(execution, delivery)
+    }
+}
+
+fn finish_delivery(
+    execution: ExecutedVortexRelational,
+    delivery: NativeArrowBatchDelivery<'_, impl FnMut(RecordBatch) -> Result<()>>,
+) -> Result<ExecutedVortexArrowRelational> {
+    let export = delivery.finish(execution.output_rows)?;
+    if export.output_batches != execution.output_batches {
+        return Err(failed(
+            "Arrow delivery changed native execution cardinality",
+        ));
+    }
+    Ok(ExecutedVortexArrowRelational { execution, export })
 }
 
 #[cfg(test)]
